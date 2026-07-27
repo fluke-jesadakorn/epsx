@@ -14,13 +14,12 @@
 
 use axum::body::Body;
 use tower_governor::{
-    governor::GovernorConfigBuilder,
-    key_extractor::SmartIpKeyExtractor,
-    GovernorLayer,
+    governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorLayer,
 };
 
 /// 5 requests per minute for auth endpoints (e.g. login, SIWE challenge).
-pub fn auth_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
+pub fn auth_rate_limiter(
+) -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
     let config = GovernorConfigBuilder::default()
         .per_second(60)
         .burst_size(5)
@@ -33,7 +32,8 @@ pub fn auth_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middl
 }
 
 /// 10 requests per minute for chat endpoints.
-pub fn chat_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
+pub fn chat_rate_limiter(
+) -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
     let config = GovernorConfigBuilder::default()
         .per_second(60)
         .burst_size(10)
@@ -46,7 +46,8 @@ pub fn chat_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middl
 }
 
 /// 3 requests per minute for email operations.
-pub fn email_rate_limiter() -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
+pub fn email_rate_limiter(
+) -> GovernorLayer<SmartIpKeyExtractor, governor::middleware::StateInformationMiddleware, Body> {
     let config = GovernorConfigBuilder::default()
         .per_second(60)
         .burst_size(3)

@@ -9,6 +9,7 @@
 
 use super::PageContext;
 use super::PageMeta;
+use crate::components::auth_access_banner::AuthAccessBanner;
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
@@ -57,15 +58,18 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     }
                     div { class: "relative z-10",
                         div { class: "mx-auto max-w-7xl px-4 py-6 sm:py-8 portfolio-prod-container",
-                            PortfolioHeader {}
+                            PortfolioHeader { wallet_connected: ctx.wallet.address.is_some() }
                             if ctx.user.is_none() {
+                                if ctx.wallet.address.is_none() {
+                                    AuthAccessBanner { href: PORTFOLIO_SIGN_IN_PATH.to_string() }
+                                }
                                 div { class: "flex items-center justify-center min-h-[300px] p-6 portfolio-prod-require-signin",
                                     div { class: "max-w-md w-full",
                                         PortfolioSignInCard {}
                                     }
                                 }
                             } else {
-                                PortfolioUnavailable {}
+                                PortfolioUnavailable { source_shape: true }
                             }
                         }
                     }
@@ -78,71 +82,75 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 /// Preserve the recognizable development-source heading without claiming
 /// that market data is live or that a watchlist has been loaded.
 #[component]
-fn PortfolioHeader() -> Element {
+fn PortfolioHeader(wallet_connected: bool) -> Element {
     rsx! {
-        div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
-            div { class: "flex items-center gap-3",
-                div { class: "portfolio-prod-icon flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500",
-                    Icon { name: "heart".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+            div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex items-center gap-3",
+                    div { class: "portfolio-prod-icon flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-teal-500",
+                        Icon { name: "heart".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+                    }
+                    div {
+                        h1 { class: "text-2xl font-bold text-white portfolio-prod-title", "Portfolio" }
+                        p { class: "text-sm text-slate-400 portfolio-prod-subtitle",
+                            "Track your watchlisted stocks"
+                        }
+                    }
                 }
-                div {
-                    h1 { class: "text-2xl font-bold text-white portfolio-prod-title", "Portfolio" }
-                    p { class: "text-sm text-slate-400 portfolio-prod-subtitle", "Portfolio and watchlist" }
+                span { class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 sm:self-center",
+                    Icon { name: "trending-up".to_string(), size: Some(14) }
+                    "Live"
                 }
             }
         }
-    }
 }
 
 #[component]
-fn PortfolioUnavailable() -> Element {
+fn PortfolioUnavailable(source_shape: bool) -> Element {
     rsx! {
         section {
-            class: "portfolio-unavailable overflow-hidden rounded-2xl border border-amber-500/30 bg-slate-900/80 shadow-xl shadow-black/20",
+            class: if source_shape {
+                "portfolio-unavailable portfolio-source-preview overflow-hidden rounded-none border-0 bg-transparent shadow-none"
+            } else {
+                "portfolio-unavailable overflow-hidden rounded-3xl border border-slate-700/80 bg-slate-900/50 shadow-xl shadow-black/20"
+            },
             "data-portfolio-state": "unavailable",
             role: "alert",
             aria_labelledby: "portfolio-unavailable-title",
-            div { class: "h-1.5 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500" }
-            div { class: "space-y-6 p-6 sm:p-8",
-                div { class: "flex flex-col gap-4 sm:flex-row sm:items-start",
-                    div { class: "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400",
-                        Icon { name: "database".to_string(), size: Some(28) }
-                    }
-                    div { class: "max-w-3xl",
-                        p { class: "text-xs font-semibold uppercase tracking-widest text-amber-400",
-                            "Portfolio unavailable"
-                        }
-                        h2 {
-                            id: "portfolio-unavailable-title",
-                            class: "mt-2 text-2xl font-semibold text-white",
-                            "Your portfolio cannot be verified right now"
-                        }
-                        p { class: "mt-3 text-sm leading-6 text-slate-300",
-                            "This route does not yet have a verified owner-scoped holdings and watchlist response. No securities, prices, rankings, plan access, or watchlist membership are being inferred."
-                        }
-                    }
+            if !source_shape {
+                div { class: "h-1.5 bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400" }
+            }
+            div { class: if source_shape { "space-y-4 p-0 sm:space-y-8 sm:p-8" } else { "space-y-8 p-5 sm:p-8" },
+                div {
+                    class: if source_shape { "portfolio-watchlist-search flex min-w-0 items-center gap-2 rounded-lg border border-slate-600 bg-slate-800/70 px-3 py-2 text-xs text-slate-400 sm:gap-3 sm:rounded-2xl sm:px-5 sm:py-4 sm:text-xl" } else { "portfolio-watchlist-search flex items-center gap-3 rounded-2xl border border-slate-600 bg-slate-800/70 px-5 py-4 text-base text-slate-400 sm:text-xl" },
+                    role: "searchbox",
+                    aria_disabled: "true",
+                    Icon { name: "search".to_string(), size: Some(if source_shape { 14 } else { 22 }) }
+                    span { class: "min-w-0 truncate", "Search stocks to add to watchlist…" }
                 }
 
-                div { class: "grid grid-cols-1 gap-3 md:grid-cols-3",
-                    PortfolioBoundaryItem {
-                        icon: "briefcase-business",
-                        title: "Holdings",
-                        body: "Holdings remain hidden until the authenticated owner response can be validated end to end."
+                div { class: if source_shape { "flex min-h-[220px] flex-col items-center justify-center text-center sm:min-h-[360px]" } else { "flex min-h-[280px] flex-col items-center justify-center text-center sm:min-h-[360px]" },
+                    div { class: if source_shape { "flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800 text-slate-400" } else { "flex h-24 w-24 items-center justify-center rounded-3xl bg-slate-800 text-slate-400" },
+                        Icon { name: "heart".to_string(), size: Some(if source_shape { 32 } else { 52 }) }
                     }
-                    PortfolioBoundaryItem {
-                        icon: "line-chart",
-                        title: "Market values",
-                        body: "Prices, changes, EPS figures, and ranks are not shown without a production data source."
+                    h2 {
+                        id: "portfolio-unavailable-title",
+                        class: if source_shape { "mt-4 text-base font-semibold text-white sm:mt-8 sm:text-3xl" } else { "mt-8 text-2xl font-semibold text-white sm:text-3xl" },
+                        "No watchlist data available"
                     }
-                    PortfolioBoundaryItem {
-                        icon: "heart",
-                        title: "Watchlist controls",
-                        body: "Add, remove, and search actions stay disabled until backend-owned mutations and ownership checks exist."
+                    p { class: if source_shape { "mt-2 max-w-xs text-[11px] leading-4 text-slate-400 sm:max-w-2xl sm:text-xl sm:leading-relaxed" } else { "mt-3 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-xl" },
+                        "The owner-scoped holdings and watchlist response is unavailable. Search and watchlist actions stay disabled until the backend contract is ready."
+                    }
+                    p { class: "sr-only",
+                        "Your portfolio cannot be verified right now. No securities, prices, rankings, plan access, or watchlist membership are being inferred."
                     }
                 }
 
                 nav {
-                    class: "flex flex-col gap-3 border-t border-slate-700 pt-6 sm:flex-row",
+                    class: if source_shape {
+                        "sr-only"
+                    } else {
+                        "flex flex-col gap-3 border-t border-slate-700 pt-6 sm:flex-row"
+                    },
                     aria_label: "Portfolio alternatives",
                     a {
                         class: "btn btn-primary",
@@ -259,6 +267,18 @@ mod tests {
         }
     }
 
+    fn connected_anon_ctx() -> PageContext {
+        PageContext {
+            wallet: crate::auth::wallet_button::ConnectedWalletState {
+                address: Some("0x1234567890abcdef1234567890abcdef12345678".to_string()),
+                connector_id: Some("metaMask".to_string()),
+                chain_id: Some(56),
+                ..Default::default()
+            },
+            ..anon_ctx()
+        }
+    }
+
     #[test]
     fn authenticated_portfolio_fails_closed_with_meaningful_alternatives() {
         let (_meta, el) = render(&authed_ctx());
@@ -321,8 +341,6 @@ mod tests {
             "$189.45",
             "+2.34%",
             "Your Watchlist",
-            "Track your watchlisted stocks",
-            ">Live<",
             "Unlock Full Analytics Access",
             "Top 100 stock rankings",
             "Real-time EPS data",
@@ -356,11 +374,23 @@ mod tests {
             );
         }
 
-        assert_eq!(html.matches(PORTFOLIO_SIGN_IN_PATH).count(), 1);
+        assert_eq!(html.matches(PORTFOLIO_SIGN_IN_PATH).count(), 2);
+        assert!(html.contains("Unlock Full Analytics Access"));
         assert!(!html.contains("href=\"/auth\""));
         assert!(!html.contains("data-portfolio-state=\"unavailable\""));
         assert!(!html.contains("portfolio-prod-stock-card"));
         assert!(!html.contains("portfolio-prod-search-input"));
         assert!(!html.contains("portfolio-prod-upsell"));
+    }
+
+    #[test]
+    fn connected_wallet_without_session_still_uses_the_source_sign_in_gate() {
+        let (_meta, el) = render(&connected_anon_ctx());
+        let html = dioxus_ssr::render_element(el);
+
+        assert!(html.contains("portfolio-prod-signin"));
+        assert!(html.contains("Sign In Required"));
+        assert!(!html.contains("data-portfolio-state=\"unavailable\""));
+        assert!(!html.contains("Live preview"));
     }
 }

@@ -4,7 +4,12 @@ use dioxus::prelude::*;
 use std::sync::Mutex;
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum ToastKind { Info, Success, Warning, Error }
+pub enum ToastKind {
+    Info,
+    Success,
+    Warning,
+    Error,
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ToastItem {
@@ -29,16 +34,48 @@ pub fn push_toast(mut item: ToastItem) {
 }
 
 pub fn push_info(title: impl Into<String>, desc: Option<String>) {
-    push_toast(ToastItem { id: 0, kind: ToastKind::Info, title: title.into(), description: desc, action_label: None, action_href: None, timeout_ms: Some(4000) });
+    push_toast(ToastItem {
+        id: 0,
+        kind: ToastKind::Info,
+        title: title.into(),
+        description: desc,
+        action_label: None,
+        action_href: None,
+        timeout_ms: Some(4000),
+    });
 }
 pub fn push_success(title: impl Into<String>, desc: Option<String>) {
-    push_toast(ToastItem { id: 0, kind: ToastKind::Success, title: title.into(), description: desc, action_label: None, action_href: None, timeout_ms: Some(3500) });
+    push_toast(ToastItem {
+        id: 0,
+        kind: ToastKind::Success,
+        title: title.into(),
+        description: desc,
+        action_label: None,
+        action_href: None,
+        timeout_ms: Some(3500),
+    });
 }
 pub fn push_warning(title: impl Into<String>, desc: Option<String>) {
-    push_toast(ToastItem { id: 0, kind: ToastKind::Warning, title: title.into(), description: desc, action_label: None, action_href: None, timeout_ms: Some(5000) });
+    push_toast(ToastItem {
+        id: 0,
+        kind: ToastKind::Warning,
+        title: title.into(),
+        description: desc,
+        action_label: None,
+        action_href: None,
+        timeout_ms: Some(5000),
+    });
 }
 pub fn push_error(title: impl Into<String>, desc: Option<String>) {
-    push_toast(ToastItem { id: 0, kind: ToastKind::Error, title: title.into(), description: desc, action_label: None, action_href: None, timeout_ms: Some(8000) });
+    push_toast(ToastItem {
+        id: 0,
+        kind: ToastKind::Error,
+        title: title.into(),
+        description: desc,
+        action_label: None,
+        action_href: None,
+        timeout_ms: Some(8000),
+    });
 }
 pub fn dismiss_toast(id: u64) {
     if let Ok(mut g) = TOASTS.lock() {

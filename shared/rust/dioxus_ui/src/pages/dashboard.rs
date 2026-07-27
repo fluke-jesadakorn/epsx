@@ -17,7 +17,9 @@ use crate::primitives::Icon;
 const DASHBOARD_SIGN_IN_PATH: &str = "/auth?return_url=%2Fdashboard";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Dashboard unavailable");
+    // Availability is represented in the dashboard body; keep the document
+    // metadata aligned with the source route's user-facing title.
+    let meta = PageMeta::app("Dashboard");
     (meta, rsx! { RenderDashboard { ctx: ctx.clone() } })
 }
 
@@ -38,7 +40,7 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                             "Personal Dashboard"
                         }
                         p { class: "dashboard-prod-subtitle mt-2 text-slate-600 dark:text-slate-400",
-                            "Review verified session identity and dashboard availability."
+                            "Your personalized market analytics and portfolio overview"
                         }
                     }
 
@@ -57,26 +59,20 @@ fn RenderDashboard(ctx: PageContext) -> Element {
 fn SignedOutDashboard() -> Element {
     rsx! {
         section {
-            class: "dashboard-prod-fallback card card-glass mx-auto max-w-2xl overflow-hidden text-center",
+            // Match the source page's signed-out branch: the fallback is a
+            // normal centered `p-8` block after the header, rather than a
+            // custom flex/min-height surface that shifts the message upward
+            // on the mobile capture.
+            class: "dashboard-prod-fallback mx-auto max-w-3xl p-8 text-center",
             "data-dashboard-state": "signed-out",
             aria_labelledby: "dashboard-sign-in-title",
-            div { class: "h-1.5 bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-500" }
-            div { class: "card-body space-y-5 p-8",
-                div { class: "mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-orange-500/10 text-orange-500",
-                    Icon { name: "lock".to_string(), size: Some(30) }
-                }
-                h2 { id: "dashboard-sign-in-title", class: "text-2xl font-semibold text-foreground",
-                    "Sign in required"
-                }
-                p { class: "text-sm leading-6 text-muted-foreground",
-                    "Sign in to review the dashboard state associated with your verified session. No account data is shown while signed out."
-                }
-                a {
-                    class: "btn btn-primary inline-flex items-center gap-2",
-                    href: DASHBOARD_SIGN_IN_PATH,
-                    Icon { name: "log-in".to_string(), size: Some(16) }
-                    "Sign in"
-                }
+            p { class: "text-base leading-relaxed text-slate-400 sm:text-xl",
+                "Please sign in to access your dashboard..."
+            }
+            div { class: "sr-only",
+                h2 { id: "dashboard-sign-in-title", "Sign in required" }
+                p { "Sign in to review the dashboard state associated with your verified session. No account data is shown while signed out." }
+                a { href: DASHBOARD_SIGN_IN_PATH, "Sign in" }
             }
         }
     }
@@ -103,24 +99,170 @@ fn AuthenticatedDashboard(user: User) -> Element {
                 "aria-hidden": "true"
             }
 
-            div { class: "dashboard-client-content relative z-10 mx-auto max-w-5xl space-y-8 px-4 py-8 sm:px-6 lg:px-8",
-                header { class: "dashboard-client-header text-center",
+            div { class: "dashboard-client-content relative z-10 mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8",
+                header { class: "dashboard-client-header mb-4 text-center sm:mb-12",
                     div { class: "dashboard-client-header-icon mb-6 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-orange-500 to-yellow-500 shadow-2xl",
                         Icon { name: "trending-up".to_string(), size: Some(40), class_name: Some("text-white".to_string()) }
                     }
                     h2 {
                         class: "dashboard-client-title mb-4 bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl",
-                        "Dashboard"
+                        "🚀 Dashboard"
                     }
-                    p { class: "text-base text-gray-600 dark:text-gray-300",
-                        "You are signed in. Only locally verified session identity is displayed below."
+                    p { class: "text-base text-gray-600 dark:text-gray-300 sm:text-xl",
+                        "Welcome back, "
+                        if let Some(email) = user.email.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "{email}" }
+                        } else if let Some(name) = user.display_name.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
+                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "{name}" }
+                        } else {
+                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "verified user" }
+                        }
+                        "! ✨"
+                    }
+                    div { class: "mt-4 inline-flex items-center gap-2 rounded-full border border-amber-300/50 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-700 dark:border-amber-400/30 dark:text-amber-300",
+                        Icon { name: "shield".to_string(), size: Some(16) }
+                        "Group: unavailable"
                     }
                 }
 
-                div { class: "grid grid-cols-1 gap-6 lg:grid-cols-2",
+                DashboardActionGrid {}
+
+                div { class: "mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2",
                     SessionIdentityCard { user }
                     DashboardUnavailableCard {}
                 }
+
+                DashboardPermissionsCard {}
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardActionGrid() -> Element {
+    rsx! {
+        section { class: "grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3", aria_labelledby: "dashboard-actions-title",
+            h2 { id: "dashboard-actions-title", class: "sr-only", "Dashboard actions" }
+            DashboardActionCard {
+                href: "/profile",
+                icon: "user",
+                title: "👤 Profile",
+                description: "Manage your personal information",
+                action: "View Profile",
+                accent: "orange",
+            }
+            DashboardActionCard {
+                href: "/settings",
+                icon: "settings",
+                title: "⚙️ Settings",
+                description: "Configure your preferences",
+                action: "Open Settings",
+                accent: "blue",
+            }
+            DashboardActionCard {
+                href: "/analytics",
+                icon: "chart-line",
+                title: "📊 Analytics",
+                description: "View your data and insights",
+                action: "View Analytics",
+                accent: "green",
+            }
+            DashboardActionCard {
+                href: "/plans",
+                icon: "lock",
+                title: "🔒 Premium Content",
+                description: "Access exclusive premium features",
+                action: "Access Premium",
+                accent: "purple",
+            }
+            DashboardActionCard {
+                href: "/access-denied?return_url=%2Fdashboard",
+                icon: "shield",
+                title: "🛡️ Moderator Panel",
+                description: "Moderate content and users",
+                action: "Open Moderator Panel",
+                accent: "red",
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardActionCard(
+    href: &'static str,
+    icon: &'static str,
+    title: &'static str,
+    description: &'static str,
+    action: &'static str,
+    accent: &'static str,
+) -> Element {
+    let (border_class, title_class, icon_class) = match accent {
+        "blue" => (
+            "border-blue-200/50 dark:border-blue-400/20",
+            "text-blue-600 dark:text-blue-400",
+            "from-blue-500 to-purple-500",
+        ),
+        "green" => (
+            "border-green-200/50 dark:border-green-400/20",
+            "text-green-600 dark:text-green-400",
+            "from-green-500 to-emerald-500",
+        ),
+        "purple" => (
+            "border-purple-200/50 dark:border-purple-400/20",
+            "text-purple-600 dark:text-purple-400",
+            "from-purple-500 to-pink-500",
+        ),
+        "red" => (
+            "border-red-200/50 dark:border-red-400/20",
+            "text-red-600 dark:text-red-400",
+            "from-red-500 to-rose-500",
+        ),
+        _ => (
+            "border-orange-200/50 dark:border-orange-400/20",
+            "text-orange-600 dark:text-orange-400",
+            "from-orange-500 to-yellow-500",
+        ),
+    };
+
+    rsx! {
+        article { class: "relative overflow-hidden rounded-2xl border bg-white/80 p-6 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:scale-105 dark:bg-slate-800/80 {border_class}",
+            div { class: "pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-gradient-to-br {icon_class} opacity-10 blur-2xl", aria_hidden: "true" }
+            div { class: "pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-xl", aria_hidden: "true" }
+            div { class: "relative z-10",
+                header { class: "mb-5",
+                    h3 { class: "flex items-center text-lg font-semibold {title_class}",
+                        div { class: "mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br {icon_class} text-white",
+                            Icon { name: icon.to_string(), size: Some(18) }
+                        }
+                        "{title}"
+                    }
+                    p { class: "mt-2 text-sm text-gray-600 dark:text-gray-300", "{description}" }
+                }
+                a { href: href, class: "btn btn-primary inline-flex w-full items-center justify-center gap-2",
+                    Icon { name: icon.to_string(), size: Some(16) }
+                    "{action}"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardPermissionsCard() -> Element {
+    rsx! {
+        section { class: "mt-8 rounded-2xl border border-indigo-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-indigo-400/20 dark:bg-slate-800/80", aria_labelledby: "dashboard-permissions-title",
+            header { class: "mb-5",
+                h2 { id: "dashboard-permissions-title", class: "flex items-center text-lg font-semibold text-indigo-600 dark:text-indigo-400",
+                    div { class: "mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white",
+                        Icon { name: "shield".to_string(), size: Some(18) }
+                    }
+                    "🔐 Your Permissions"
+                }
+                p { class: "mt-2 text-sm text-gray-600 dark:text-gray-300", "Current permissions for your account" }
+            }
+            div { class: "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
+                p { class: "text-sm leading-6 text-muted-foreground", "Permission details are not projected by this dashboard until the backend authorization response is available." }
+                span { class: "inline-flex w-fit rounded-full border border-indigo-300/50 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-700 dark:border-indigo-400/30 dark:text-indigo-300", "Not projected" }
             }
         }
     }
@@ -371,21 +513,34 @@ mod tests {
     }
 
     #[test]
-    fn legacy_business_cards_and_local_capability_controls_are_absent() {
+    fn source_dashboard_cards_are_navigation_only_without_local_capability_controls() {
         let html = render_to_string(&authed_ctx());
+
+        for expected in [
+            "👤 Profile",
+            "⚙️ Settings",
+            "📊 Analytics",
+            "🔒 Premium Content",
+            "🛡️ Moderator Panel",
+            "🔐 Your Permissions",
+            "Group: unavailable",
+            "Permission details are not projected",
+            "href=\"/profile\"",
+            "href=\"/settings\"",
+            "href=\"/analytics\"",
+            "href=\"/plans\"",
+            "href=\"/access-denied?return_url=%2Fdashboard\"",
+        ] {
+            assert!(
+                html.contains(expected),
+                "missing source dashboard surface: {expected}"
+            );
+        }
 
         for forbidden in [
             "Total Views",
             "Total Users",
             "Revenue",
-            "Your Permissions",
-            "Group:",
-            "Premium Content",
-            "Moderator Panel",
-            "Configure your preferences",
-            "View your data and insights",
-            "href=\"/premium\"",
-            "href=\"/moderator\"",
             "<button",
             "<form",
             "<input",

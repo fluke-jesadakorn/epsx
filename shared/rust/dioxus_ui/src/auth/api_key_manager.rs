@@ -45,29 +45,38 @@ pub fn ApiKeyManager(
     /// Whether the user is authenticated. When `false`, the
     /// component renders the `GlobalAuthGuard`'s gate. Mirrors the
     /// TS source's `<GlobalAuthGuard>` wrapper.
-    #[props(default = false)] user_authenticated: bool,
+    #[props(default = false)]
+    user_authenticated: bool,
     /// Existing API keys to display.
-    #[props(default = Vec::new())] keys: Vec<ApiKey>,
+    #[props(default = Vec::new())]
+    keys: Vec<ApiKey>,
     /// Whether the keys list is currently loading.
-    #[props(default = false)] is_loading: bool,
+    #[props(default = false)]
+    is_loading: bool,
     /// Newly generated key (one-time display banner). When
     /// `Some`, the green "New API Key Generated" card is shown.
-    #[props(default = None)] show_new_key: Option<String>,
+    #[props(default = None)]
+    show_new_key: Option<String>,
     /// Fired when the user clicks "Generate Key". The parent
     /// should call the BFF endpoint and pass the result back via
     /// `show_new_key`.
-    #[props(default = None)] on_generate: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_generate: Option<EventHandler<MouseEvent>>,
     /// Fired when the user clicks the delete button on a key.
     /// The parent should call the BFF DELETE endpoint and refresh
     /// `keys`.
-    #[props(default = None)] on_delete: Option<EventHandler<String>>,
+    #[props(default = None)]
+    on_delete: Option<EventHandler<String>>,
     /// Fired when the user clicks the "I've saved the key" button
     /// to dismiss the new-key banner.
-    #[props(default = None)] on_dismiss_new_key: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_dismiss_new_key: Option<EventHandler<MouseEvent>>,
     /// Fired when the user clicks the Refresh button.
-    #[props(default = None)] on_refresh: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_refresh: Option<EventHandler<MouseEvent>>,
     /// Class names appended to the outer wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
 
@@ -226,7 +235,7 @@ fn ApiKeyRow(
     key_data: ApiKey,
     #[props(default = None)] on_delete: Option<EventHandler<String>>,
 ) -> Element {
-        let masked = if key_data.key.len() > 16 {
+    let masked = if key_data.key.len() > 16 {
         format!(
             "{}{}{}",
             &key_data.key[..8],

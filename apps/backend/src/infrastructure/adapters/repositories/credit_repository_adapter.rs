@@ -8,24 +8,23 @@
 
 use crate::prelude::*;
 use async_trait::async_trait;
-use tracing::{info, error, debug};
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
-use uuid::Uuid;
-use chrono::Utc;
 use bigdecimal::BigDecimal;
+use chrono::Utc;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use std::str::FromStr;
+use tracing::{debug, error, info};
+use uuid::Uuid;
 
-use crate::infrastructure::models::credit::{
-    WalletCreditDb, NewWalletCreditDb, UpdateWalletCreditDb,
-    CreditTransactionDb,
-    CreditTransactionFilters, CreditStatsResponse
-};
-use crate::schemas::payments::{wallet_credits, credit_transactions};
 use crate::domain::payment::repository_ports::{
-    CreditRepositoryPort, CreditBalanceRow, CreditTransactionRow,
-    CreditTransactionFilters as PortCreditTransactionFilters, CreditStats,
+    CreditBalanceRow, CreditRepositoryPort, CreditStats,
+    CreditTransactionFilters as PortCreditTransactionFilters, CreditTransactionRow,
 };
+use crate::infrastructure::models::credit::{
+    CreditStatsResponse, CreditTransactionDb, CreditTransactionFilters, NewWalletCreditDb,
+    UpdateWalletCreditDb, WalletCreditDb,
+};
+use crate::schemas::payments::{credit_transactions, wallet_credits};
 
 /// PostgreSQL credit repository adapter
 #[derive(Clone)]
@@ -50,7 +49,10 @@ impl CreditRepositoryAdapter {
             .await
             .optional()
             .map_err(|e| {
-                error!("Failed to get credit balance for wallet {}: {}", wallet_address, e);
+                error!(
+                    "Failed to get credit balance for wallet {}: {}",
+                    wallet_address, e
+                );
                 AppError::database_error(format!("Failed to get credit balance: {}", e))
             })?;
 
@@ -61,7 +63,10 @@ impl CreditRepositoryAdapter {
     pub async fn get_or_create_balance(&self, wallet_address: &str) -> AppResult<WalletCreditDb> {
         let mut conn = self.db_pool.conn().await?;
 
-        debug!("Getting or creating credit balance for wallet: {}", wallet_address);
+        debug!(
+            "Getting or creating credit balance for wallet: {}",
+            wallet_address
+        );
 
         // Try to get existing record first
         let existing = wallet_credits::table
@@ -156,7 +161,11 @@ impl CreditRepositoryAdapter {
                 AppError::database_error(format!("Failed to get transactions: {}", e))
             })?;
 
-        info!("Found {} credit transactions for wallet {}", results.len(), wallet_address);
+        info!(
+            "Found {} credit transactions for wallet {}",
+            results.len(),
+            wallet_address
+        );
         Ok(results)
     }
 
@@ -303,7 +312,11 @@ impl CreditRepositoryAdapter {
             .unwrap_or_else(|| BigDecimal::from(0));
 
         // Today's transactions
-        let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0).unwrap().and_utc();
+        let today_start = Utc::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
+            .unwrap()
+            .and_utc();
 
         let total_granted_today: BigDecimal = credit_transactions::table
             .filter(credit_transactions::created_at.ge(today_start))
@@ -360,16 +373,21 @@ impl CreditRepositoryAdapter {
 
         debug!("Updating credit balance for wallet: {}", wallet_address);
 
-        diesel::update(wallet_credits::table.filter(wallet_credits::wallet_address.eq(wallet_address)))
-            .set(&update)
-            .execute(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to update credit balance: {}", e);
-                AppError::database_error(format!("Failed to update balance: {}", e))
-            })?;
+        diesel::update(
+            wallet_credits::table.filter(wallet_credits::wallet_address.eq(wallet_address)),
+        )
+        .set(&update)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to update credit balance: {}", e);
+            AppError::database_error(format!("Failed to update balance: {}", e))
+        })?;
 
-        info!("Successfully updated credit balance for wallet: {}", wallet_address);
+        info!(
+            "Successfully updated credit balance for wallet: {}",
+            wallet_address
+        );
         Ok(())
     }
 }
@@ -386,7 +404,8 @@ impl CreditRepositoryAdapter {
 #[async_trait]
 impl CreditRepositoryPort for CreditRepositoryAdapter {
     async fn get_balance(&self, wallet_address: &str) -> Result<Option<CreditBalanceRow>, String> {
-        let row = self.get_balance(wallet_address)
+        let row = self
+            .get_balance(wallet_address)
             .await
             .map_err(|e| format!("get_balance: {}", e))?;
         Ok(row.map(|db| CreditBalanceRow {
@@ -399,8 +418,12 @@ impl CreditRepositoryPort for CreditRepositoryAdapter {
         }))
     }
 
-    async fn get_or_create_balance(&self, wallet_address: &str) -> Result<CreditBalanceRow, String> {
-        let db = self.get_or_create_balance(wallet_address)
+    async fn get_or_create_balance(
+        &self,
+        wallet_address: &str,
+    ) -> Result<CreditBalanceRow, String> {
+        let db = self
+            .get_or_create_balance(wallet_address)
             .await
             .map_err(|e| format!("get_or_create: {}", e))?;
         Ok(CreditBalanceRow {
@@ -431,7 +454,8 @@ impl CreditRepositoryPort for CreditRepositoryAdapter {
             limit: p.limit,
             offset: p.offset,
         });
-        let rows = self.get_transactions(wallet_address, f)
+        let rows = self
+            .get_transactions(wallet_address, f)
             .await
             .map_err(|e| format!("get_transactions: {}", e))?;
         Ok(rows.into_iter().map(credit_tx_to_row).collect())
@@ -449,7 +473,8 @@ impl CreditRepositoryPort for CreditRepositoryAdapter {
             limit: p.limit,
             offset: p.offset,
         });
-        let rows = self.get_all_transactions(f)
+        let rows = self
+            .get_all_transactions(f)
             .await
             .map_err(|e| format!("get_all_transactions: {}", e))?;
         Ok(rows.into_iter().map(credit_tx_to_row).collect())
@@ -467,8 +492,7 @@ impl CreditRepositoryPort for CreditRepositoryAdapter {
         expires_at: Option<chrono::DateTime<Utc>>,
         metadata: Option<serde_json::Value>,
     ) -> Result<Uuid, String> {
-        let amt = BigDecimal::from_str(&amount)
-            .map_err(|e| format!("amount parse: {}", e))?;
+        let amt = BigDecimal::from_str(&amount).map_err(|e| format!("amount parse: {}", e))?;
         self.add_transaction(
             wallet_address,
             amt,
@@ -485,7 +509,8 @@ impl CreditRepositoryPort for CreditRepositoryAdapter {
     }
 
     async fn get_stats(&self) -> Result<CreditStats, String> {
-        let r = self.get_stats()
+        let r = self
+            .get_stats()
             .await
             .map_err(|e| format!("get_stats: {}", e))?;
         Ok(CreditStats {

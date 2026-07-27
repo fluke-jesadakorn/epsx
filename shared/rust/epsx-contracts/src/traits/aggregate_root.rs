@@ -2,7 +2,7 @@
 // wave11(track-c) — `DomainEvent` lifted to crate root at
 // `epsx_contracts::domain_event` (R7). Import updated to the canonical path.
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 use uuid::Uuid;
 
@@ -12,28 +12,28 @@ use crate::domain_event::DomainEvent;
 /// Aggregates are consistency boundaries and the only way to modify entities
 pub trait AggregateRoot: Send + Sync + Debug + Clone {
     type Id: Clone + Debug + Serialize + for<'de> Deserialize<'de> + PartialEq;
-    
+
     /// Get the unique identifier for this aggregate
     fn id(&self) -> &Self::Id;
-    
+
     /// Get the current version for optimistic concurrency control
     fn version(&self) -> u64;
-    
+
     /// Increment version (called after successful persistence)
     fn increment_version(&mut self);
-    
+
     /// Get uncommitted domain events
     fn uncommitted_events(&self) -> &[Box<dyn DomainEvent>];
-    
+
     /// Mark all events as committed (called after successful event publishing)
     fn mark_events_as_committed(&mut self);
-    
+
     /// Get when this aggregate was created
     fn created_at(&self) -> DateTime<Utc>;
-    
+
     /// Get when this aggregate was last updated
     fn updated_at(&self) -> DateTime<Utc>;
-    
+
     /// Update the last modified timestamp
     fn touch(&mut self);
 }
@@ -97,7 +97,11 @@ impl AggregateBase {
 
     /// Reconstruct aggregate base from persistence
     /// Used by repositories to hydrate aggregates from database
-    pub fn from_persistence(version: u64, created_at: DateTime<Utc>, updated_at: DateTime<Utc>) -> Self {
+    pub fn from_persistence(
+        version: u64,
+        created_at: DateTime<Utc>,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             version,
             created_at,
@@ -125,8 +129,8 @@ impl Default for AggregateBase {
 }
 
 /// Identity trait for aggregate IDs
-pub trait Identity: 
-    Clone + Debug + Serialize + for<'de> Deserialize<'de> + PartialEq + Send + Sync 
+pub trait Identity:
+    Clone + Debug + Serialize + for<'de> Deserialize<'de> + PartialEq + Send + Sync
 {
     fn new() -> Self;
     fn from_uuid(uuid: Uuid) -> Self;

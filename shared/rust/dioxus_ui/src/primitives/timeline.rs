@@ -52,10 +52,7 @@ pub fn TimelineItem(
 
 /// Vertical timeline. Renders a stack of `TimelineItem`s.
 #[component]
-pub fn Timeline(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn Timeline(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "timeline flex flex-col".to_string();
     if let Some(c) = class {
         cls.push(' ');

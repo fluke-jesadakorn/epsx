@@ -56,6 +56,39 @@
       "image": null
     },
     {
+      "slug": "optimizing-high-throughput-analytics-rust",
+      "href": "/news/optimizing-high-throughput-analytics-rust",
+      "title": "Optimizing High-Throughput Analytics in Rust",
+      "excerpt": "A deep dive into the dataflow optimizations that let EPSX's analytics service handle 10k+ events per second on commodity hardware.",
+      "date": "March 5, 2026",
+      "tag1": "rust",
+      "tag2": "performance",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "real-time-intelligence",
+      "href": "/news/real-time-intelligence",
+      "title": "Real-Time Intelligence: Capturing Market Opportunities as They Happen",
+      "excerpt": "The EPSX dashboard removes the gap between on-chain events and your decision-making. Learn how our Redis-powered real-time data pipeline keeps you at the absolute forefront of the market.",
+      "date": "March 10, 2026",
+      "tag1": "redis",
+      "tag2": "real-time",
+      "featured": false,
+      "image": null
+    },
+    {
+      "slug": "securing-the-future",
+      "href": "/news/securing-the-future",
+      "title": "Securing the Future: Enterprise-Grade Trust in a Web3 World",
+      "excerpt": "EPSX leads the industry in user privacy and security by adopting wallet-first authentication. Learn how our implementation of SIWE protects your assets and identity.",
+      "date": "March 10, 2026",
+      "tag1": "security",
+      "tag2": "web3",
+      "featured": false,
+      "image": null
+    },
+    {
       "slug": "scalable-foundation",
       "href": "/news/scalable-foundation",
       "title": "Built for Ambition: A Scalable Foundation for Global Analytics",
@@ -78,5 +111,5 @@
       "image": null
     }
   ],
-  "total": 7
+  "total": 10
 }

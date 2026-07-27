@@ -131,8 +131,8 @@ impl BackendMiddleware for NoopMiddleware {
 // wave 10 prep: real implementation modules moved in from
 // `apps/backend/src/web/middleware/`. See module-level docs in
 // each file for what moved and what's still in the backend.
-pub mod security_headers;
 pub mod governor_limiters;
+pub mod security_headers;
 
 #[cfg(test)]
 mod tests {

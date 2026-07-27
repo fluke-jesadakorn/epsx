@@ -239,10 +239,7 @@ fn log_sse_hard_error(url: &str, e: &reqwest_eventsource::Error) {
             .compare_exchange(false, true, Ordering::AcqRel, Ordering::Acquire)
             .is_ok();
         if first {
-            let elapsed = PROCESS_START
-                .get()
-                .map(|t| t.elapsed())
-                .unwrap_or_default();
+            let elapsed = PROCESS_START.get().map(|t| t.elapsed()).unwrap_or_default();
             warn!(
                 url = %url,
                 error = %e,
@@ -465,8 +462,7 @@ pub fn sse_consumer_client() -> Result<reqwest::Client, reqwest::Error> {
 /// is a human-readable contract: the future reader who
 /// changes the builder MUST also update this string and
 /// the test that pins it.
-pub const SSE_CONSUMER_CLIENT_BUILDER_CHAIN: &str =
-    "reqwest::Client::builder().build()";
+pub const SSE_CONSUMER_CLIENT_BUILDER_CHAIN: &str = "reqwest::Client::builder().build()";
 
 /// Long-running task. Opens a long-lived HTTP connection to
 /// the identity SSE endpoint, parses events, publishes to
@@ -576,9 +572,7 @@ async fn consume_once(
     let mut event_source = client
         .get(url)
         .eventsource()
-        .map_err(|e| {
-            anyhow::anyhow!("SSE EventSource build failed: {e}")
-        })?;
+        .map_err(|e| anyhow::anyhow!("SSE EventSource build failed: {e}"))?;
     // Disable EventSource's built-in reconnect — the
     // outer `run_sse_consumer` loop owns the reconnect
     // policy (exponential backoff + jitter, capped at
@@ -587,9 +581,7 @@ async fn consume_once(
     // `Err(Error::StreamEnded)`, we `break` out of the
     // loop, and `run_sse_consumer` reconnects with our
     // custom backoff.
-    event_source.set_retry_policy(Box::new(
-        reqwest_eventsource::retry::Never,
-    ));
+    event_source.set_retry_policy(Box::new(reqwest_eventsource::retry::Never));
 
     while let Some(event) = event_source.next().await {
         if *shutdown.borrow() {
@@ -658,9 +650,7 @@ async fn consume_once(
                         // kicks in exactly as before.
                         log_sse_hard_error(url, &other);
                         event_source.close();
-                        return Err(anyhow::anyhow!(
-                            "SSE EventSource error: {other}"
-                        ));
+                        return Err(anyhow::anyhow!("SSE EventSource error: {other}"));
                     }
                 }
             }
@@ -735,7 +725,8 @@ mod tests {
     /// line returns the payload.
     #[test]
     fn parse_sse_data_single_event_single_data_line() {
-        let event = b"data: {\"wallet\":\"0xabc\",\"offset\":42,\"changed_at_ms\":1700000000000}\n\n";
+        let event =
+            b"data: {\"wallet\":\"0xabc\",\"offset\":42,\"changed_at_ms\":1700000000000}\n\n";
         let parsed = parse_sse_data(event).expect("event has a data: line");
         assert_eq!(
             parsed,
@@ -979,8 +970,9 @@ mod tests {
         // The SSE wire bytes: one event, then a clean
         // close (empty chunk = `None` from
         // `bytes_stream`).
-        let event_bytes: Vec<u8> = b"data: {\"wallet\":\"0xE2E2\",\"offset\":77,\"changed_at_ms\":1700000077000}\n\n"
-            .to_vec();
+        let event_bytes: Vec<u8> =
+            b"data: {\"wallet\":\"0xE2E2\",\"offset\":77,\"changed_at_ms\":1700000077000}\n\n"
+                .to_vec();
 
         // Simulate `consume_once`'s buffer-draining loop
         // without the HTTP client. The real `consume_once`
@@ -992,18 +984,14 @@ mod tests {
             let split_at = idx + 2;
             let event_bytes: Vec<u8> = buf.drain(..split_at).collect();
             let data = parse_sse_data(&event_bytes).expect("event has data: line");
-            let change: RankingOffsetChange =
-                serde_json::from_str(&data).expect("valid JSON");
+            let change: RankingOffsetChange = serde_json::from_str(&data).expect("valid JSON");
             bus.publish(change);
         }
         // Sanity: buffer fully drained.
         assert!(buf.is_empty(), "buffer should be empty after parsing");
 
         // Subscriber sees the event.
-        let received = rx
-            .recv()
-            .await
-            .expect("subscriber must receive the event");
+        let received = rx.recv().await.expect("subscriber must receive the event");
         assert_eq!(received.wallet, "0xE2E2");
         assert_eq!(received.offset, 77);
         assert_eq!(received.changed_at_ms, 1_700_000_077_000);
@@ -1028,8 +1016,7 @@ mod tests {
             let split_at = idx + 2;
             let event_bytes: Vec<u8> = buf.drain(..split_at).collect();
             let data = parse_sse_data(&event_bytes).expect("event has data: line");
-            let change: RankingOffsetChange =
-                serde_json::from_str(&data).expect("valid JSON");
+            let change: RankingOffsetChange = serde_json::from_str(&data).expect("valid JSON");
             bus.publish(change);
         }
         assert!(buf.is_empty(), "buffer should be empty after parsing");
@@ -1086,11 +1073,7 @@ mod tests {
 
     /// Build a `Result<RankingOffsetChange, std::convert::Infallible>`
     /// event (helper to keep the test body readable).
-    fn sse_event_for(
-        wallet: &str,
-        offset: i32,
-        changed_at_ms: i64,
-    ) -> axum::response::sse::Event {
+    fn sse_event_for(wallet: &str, offset: i32, changed_at_ms: i64) -> axum::response::sse::Event {
         let data = serde_json::json!({
             "wallet": wallet,
             "offset": offset,
@@ -1107,8 +1090,7 @@ mod tests {
     /// stream yields TWO events with a 50ms gap between
     /// them, then completes. Returns the `host:port` the
     /// test should hit and a `JoinHandle` for teardown.
-    async fn spin_up_streaming_sse_server()
-    -> (String, tokio::task::JoinHandle<()>) {
+    async fn spin_up_streaming_sse_server() -> (String, tokio::task::JoinHandle<()>) {
         use axum::routing::get;
         use axum::Router;
 
@@ -1125,10 +1107,9 @@ mod tests {
             // forces the body to surface as TWO
             // distinct HTTP chunks (one per `Event`
             // yield), not one coalesced chunk.
-            let (tx, rx) = tokio::sync::mpsc::channel::<Result<
-                axum::response::sse::Event,
-                std::convert::Infallible,
-            >>(8);
+            let (tx, rx) = tokio::sync::mpsc::channel::<
+                Result<axum::response::sse::Event, std::convert::Infallible>,
+            >(8);
             tokio::spawn(async move {
                 let event1 = sse_event_for("0xE2E2", 77, 1_700_000_077_000);
                 let event2 = sse_event_for("0xC0DE", 50, 1_700_000_077_500);
@@ -1142,8 +1123,7 @@ mod tests {
             axum::response::sse::Sse::new(stream)
         }
 
-        let app = Router::new()
-            .route("/v1/stream/ranking-offsets", get(sse_handler));
+        let app = Router::new().route("/v1/stream/ranking-offsets", get(sse_handler));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind ephemeral port for streaming mock SSE server");
@@ -1179,8 +1159,7 @@ mod tests {
     /// test passes.
     #[tokio::test]
     async fn consume_once_survives_multi_chunk_sse_response() {
-        let (host_port, server_handle) =
-            spin_up_streaming_sse_server().await;
+        let (host_port, server_handle) = spin_up_streaming_sse_server().await;
         // Use the same path the production URL uses —
         // `resolve_test_sse_url` is the anti-test-pollution
         // guard from wave-13b (test URL must mirror the
@@ -1203,16 +1182,14 @@ mod tests {
             .timeout(Duration::from_secs(5))
             .build()
             .expect("reqwest client builds");
-        let (_shutdown_tx, mut shutdown_rx) =
-            tokio::sync::watch::channel(false);
+        let (_shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
 
         // Call `consume_once` in a spawned task so the
         // test can race it against the bus subscription.
         let url_for_consumer = url.clone();
         let bus_for_consumer = bus.clone();
         let client_for_consumer = client.clone();
-        let (done_tx, done_rx) =
-            tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
         let consumer_handle = tokio::spawn(async move {
             let result = consume_once(
                 &url_for_consumer,
@@ -1231,28 +1208,22 @@ mod tests {
         // Pre-fix, the decoder errors on the 2nd chunk
         // and only event 1 (or neither) lands — the
         // 2s timeout fires.
-        let r1 = tokio::time::timeout(
-            Duration::from_secs(2),
-            rx.recv(),
-        )
-        .await
-        .expect("event 1 must arrive within 2s")
-        .expect("event 1 must be received (not lagged)");
+        let r1 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("event 1 must arrive within 2s")
+            .expect("event 1 must be received (not lagged)");
         assert_eq!(r1.wallet, "0xE2E2");
         assert_eq!(r1.offset, 77);
         assert_eq!(r1.changed_at_ms, 1_700_000_077_000);
 
-        let r2 = tokio::time::timeout(
-            Duration::from_secs(2),
-            rx.recv(),
-        )
-        .await
-        .expect(
-            "event 2 must arrive within 2s — pre-fix this times out because \
+        let r2 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect(
+                "event 2 must arrive within 2s — pre-fix this times out because \
              reqwest's body decoder fails on the 2nd SSE chunk, consume_once \
              returns Err, and event 2 is lost",
-        )
-        .expect("event 2 must be received (not lagged)");
+            )
+            .expect("event 2 must be received (not lagged)");
         assert_eq!(r2.wallet, "0xC0DE");
         assert_eq!(r2.offset, 50);
         assert_eq!(r2.changed_at_ms, 1_700_000_077_500);
@@ -1261,16 +1232,13 @@ mod tests {
         // (the server closes the stream after sending
         // both events, so `consume_once` should return
         // `Ok(())` on a clean close).
-        let consume_result = tokio::time::timeout(
-            Duration::from_secs(2),
-            done_rx,
-        )
-        .await
-        .expect(
-            "consume_once must return within 2s after the server closes the stream; \
+        let consume_result = tokio::time::timeout(Duration::from_secs(2), done_rx)
+            .await
+            .expect(
+                "consume_once must return within 2s after the server closes the stream; \
              pre-fix it returns Err almost immediately on the 2nd chunk",
-        )
-        .expect("oneshot sender must not be dropped");
+            )
+            .expect("oneshot sender must not be dropped");
         assert!(
             consume_result.is_ok(),
             "consume_once must return Ok(()) on a clean multi-chunk stream end; \
@@ -1315,8 +1283,7 @@ mod tests {
     /// cleanly via a TCP FIN (NOT a RST). This avoids
     /// the test server's own teardown behavior from
     /// masking the consumer's bug.
-    async fn spin_up_raw_chunked_sse_server()
-    -> (String, tokio::task::JoinHandle<()>) {
+    async fn spin_up_raw_chunked_sse_server() -> (String, tokio::task::JoinHandle<()>) {
         async fn handle_conn(mut socket: tokio::net::TcpStream) {
             use tokio::io::AsyncWriteExt;
             // SSE preamble: status line + headers.
@@ -1341,23 +1308,24 @@ mod tests {
             //   write 1: "data: {\"wallet\":\"0xAA\",\"offset\":1,\"changed_at_ms\":1000"
             //   sleep 50ms
             //   write 2: "}\n\n"
-            let event1_part1 =
-                "data: {\"wallet\":\"0xAA\",\"offset\":1,\"changed_at_ms\":1000";
+            let event1_part1 = "data: {\"wallet\":\"0xAA\",\"offset\":1,\"changed_at_ms\":1000";
             let event1_part2 = "}\n\n";
             write_chunk(&mut socket, event1_part1).await;
             tokio::time::sleep(Duration::from_millis(50)).await;
             write_chunk(&mut socket, event1_part2).await;
 
             // Event 2 (also split):
-            let event2_part1 =
-                "data: {\"wallet\":\"0xBB\",\"offset\":2,\"changed_at_ms\":2000";
+            let event2_part1 = "data: {\"wallet\":\"0xBB\",\"offset\":2,\"changed_at_ms\":2000";
             let event2_part2 = "}\n\n";
             write_chunk(&mut socket, event2_part1).await;
             tokio::time::sleep(Duration::from_millis(50)).await;
             write_chunk(&mut socket, event2_part2).await;
 
             // End of body: zero-length chunk + CRLF CRLF.
-            socket.write_all(b"0\r\n\r\n").await.expect("write EOF chunk");
+            socket
+                .write_all(b"0\r\n\r\n")
+                .await
+                .expect("write EOF chunk");
             socket.flush().await.expect("flush EOF");
 
             // Keep the connection open for 5s so the
@@ -1370,10 +1338,7 @@ mod tests {
             tokio::time::sleep(Duration::from_secs(5)).await;
         }
 
-        async fn write_chunk(
-            socket: &mut tokio::net::TcpStream,
-            data: &str,
-        ) {
+        async fn write_chunk(socket: &mut tokio::net::TcpStream, data: &str) {
             use tokio::io::AsyncWriteExt;
             let len = data.len();
             socket
@@ -1418,8 +1383,7 @@ mod tests {
     /// the event, and publishes it.
     #[tokio::test]
     async fn consume_once_survives_event_split_across_chunks() {
-        let (host_port, server_handle) =
-            spin_up_raw_chunked_sse_server().await;
+        let (host_port, server_handle) = spin_up_raw_chunked_sse_server().await;
         const PROD_PATH: &str = "/v1/stream/ranking-offsets";
         let url = format!("http://{host_port}{PROD_PATH}");
 
@@ -1429,14 +1393,12 @@ mod tests {
             .timeout(Duration::from_secs(5))
             .build()
             .expect("reqwest client builds");
-        let (_shutdown_tx, mut shutdown_rx) =
-            tokio::sync::watch::channel(false);
+        let (_shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
 
         let url_for_consumer = url.clone();
         let bus_for_consumer = bus.clone();
         let client_for_consumer = client.clone();
-        let (done_tx, done_rx) =
-            tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
         let consumer_handle = tokio::spawn(async move {
             let result = consume_once(
                 &url_for_consumer,
@@ -1451,36 +1413,29 @@ mod tests {
         // Event 1 should arrive (its `data:...` is split
         // across two TCP writes — the parser must buffer
         // and reassemble).
-        let r1 = tokio::time::timeout(
-            Duration::from_secs(2),
-            rx.recv(),
-        )
-        .await
-        .expect("event 1 must arrive within 2s after split-chunk reassembly")
-        .expect("event 1 must be received (not lagged)");
+        let r1 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("event 1 must arrive within 2s after split-chunk reassembly")
+            .expect("event 1 must be received (not lagged)");
         assert_eq!(r1.wallet, "0xAA");
         assert_eq!(r1.offset, 1);
         assert_eq!(r1.changed_at_ms, 1000);
 
         // Event 2 likewise.
-        let r2 = tokio::time::timeout(
-            Duration::from_secs(2),
-            rx.recv(),
-        )
-        .await
-        .expect("event 2 must arrive within 2s after split-chunk reassembly")
-        .expect("event 2 must be received (not lagged)");
+        let r2 = tokio::time::timeout(Duration::from_secs(2), rx.recv())
+            .await
+            .expect("event 2 must arrive within 2s after split-chunk reassembly")
+            .expect("event 2 must be received (not lagged)");
         assert_eq!(r2.wallet, "0xBB");
         assert_eq!(r2.offset, 2);
         assert_eq!(r2.changed_at_ms, 2000);
 
         // consume_once should return Ok(()) when the
         // server closes the connection.
-        let consume_result =
-            tokio::time::timeout(Duration::from_secs(2), done_rx)
-                .await
-                .expect("consume_once must return within 2s")
-                .expect("oneshot sender must not be dropped");
+        let consume_result = tokio::time::timeout(Duration::from_secs(2), done_rx)
+            .await
+            .expect("consume_once must return within 2s")
+            .expect("oneshot sender must not be dropped");
         assert!(
             consume_result.is_ok(),
             "consume_once must return Ok(()) on clean close; got {consume_result:?}"
@@ -1515,8 +1470,7 @@ mod tests {
     /// (`?n=N&interval=MS`), not as Rust function args, so
     /// the handler can be reached with the test's exact
     /// parameters via a simple URL.
-        async fn spin_up_many_events_server()
-        -> (String, tokio::task::JoinHandle<()>) {
+    async fn spin_up_many_events_server() -> (String, tokio::task::JoinHandle<()>) {
         use axum::routing::get;
         use axum::Router;
 
@@ -1529,18 +1483,14 @@ mod tests {
                 Item = Result<axum::response::sse::Event, std::convert::Infallible>,
             >,
         > {
-            let n: usize = params
-                .get("n")
-                .and_then(|v| v.parse().ok())
-                .unwrap_or(5);
+            let n: usize = params.get("n").and_then(|v| v.parse().ok()).unwrap_or(5);
             let interval_ms: u64 = params
                 .get("interval")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(20);
-            let (tx, rx) = tokio::sync::mpsc::channel::<Result<
-                axum::response::sse::Event,
-                std::convert::Infallible,
-            >>(8);
+            let (tx, rx) = tokio::sync::mpsc::channel::<
+                Result<axum::response::sse::Event, std::convert::Infallible>,
+            >(8);
             tokio::spawn(async move {
                 for i in 0..n {
                     let event = sse_event_for(
@@ -1550,8 +1500,7 @@ mod tests {
                     );
                     let _ = tx.send(Ok(event)).await;
                     if i < n - 1 {
-                        tokio::time::sleep(Duration::from_millis(interval_ms))
-                            .await;
+                        tokio::time::sleep(Duration::from_millis(interval_ms)).await;
                     }
                 }
             });
@@ -1559,10 +1508,7 @@ mod tests {
             axum::response::sse::Sse::new(stream)
         }
 
-        let app = Router::new().route(
-            "/v1/stream/ranking-offsets",
-            get(sse_handler_n),
-        );
+        let app = Router::new().route("/v1/stream/ranking-offsets", get(sse_handler_n));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind ephemeral port for many-events mock server");
@@ -1587,11 +1533,9 @@ mod tests {
     async fn consume_once_survives_long_lived_stream() {
         const N: usize = 30;
         const INTERVAL_MS: u64 = 20;
-        let (host_port, server_handle) =
-            spin_up_many_events_server().await;
-        let url = format!(
-            "http://{host_port}/v1/stream/ranking-offsets?n={N}&interval={INTERVAL_MS}"
-        );
+        let (host_port, server_handle) = spin_up_many_events_server().await;
+        let url =
+            format!("http://{host_port}/v1/stream/ranking-offsets?n={N}&interval={INTERVAL_MS}");
 
         let bus = LocalRankingOffsetBus::new(64);
         let mut rx = bus.subscribe();
@@ -1599,14 +1543,12 @@ mod tests {
             .timeout(Duration::from_secs(10))
             .build()
             .expect("reqwest client builds");
-        let (_shutdown_tx, mut shutdown_rx) =
-            tokio::sync::watch::channel(false);
+        let (_shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
 
         let url_for_consumer = url.clone();
         let bus_for_consumer = bus.clone();
         let client_for_consumer = client.clone();
-        let (done_tx, done_rx) =
-            tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
         let consumer_handle = tokio::spawn(async move {
             let result = consume_once(
                 &url_for_consumer,
@@ -1625,31 +1567,27 @@ mod tests {
         // 100ms but the mock server is also gone by
         // then).
         for i in 0..N {
-            let r = tokio::time::timeout(
-                Duration::from_secs(5),
-                rx.recv(),
-            )
-            .await
-            .unwrap_or_else(|_| {
-                panic!(
-                    "event {i} of {N} must arrive within 5s; \
+            let r = tokio::time::timeout(Duration::from_secs(5), rx.recv())
+                .await
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "event {i} of {N} must arrive within 5s; \
                      pre-fix the body decoder may have failed \
                      on an earlier chunk and consume_once \
                      returned Err, dropping the remaining events"
-                )
-            })
-            .expect("event must be received (not lagged)");
+                    )
+                })
+                .expect("event must be received (not lagged)");
             assert_eq!(r.wallet, format!("0x{i:04X}"));
             assert_eq!(r.offset, i as i32);
             assert_eq!(r.changed_at_ms, 1_700_000_000_000 + i as i64);
         }
 
         // consume_once should return Ok(()) on clean close.
-        let consume_result =
-            tokio::time::timeout(Duration::from_secs(2), done_rx)
-                .await
-                .expect("consume_once must return within 2s")
-                .expect("oneshot sender must not be dropped");
+        let consume_result = tokio::time::timeout(Duration::from_secs(2), done_rx)
+            .await
+            .expect("consume_once must return within 2s")
+            .expect("oneshot sender must not be dropped");
         assert!(
             consume_result.is_ok(),
             "consume_once must return Ok(()) on clean close; got {consume_result:?}"
@@ -1770,10 +1708,9 @@ mod tests {
                 .get("interval_ms")
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(500);
-            let (tx, rx) = tokio::sync::mpsc::channel::<Result<
-                axum::response::sse::Event,
-                std::convert::Infallible,
-            >>(8);
+            let (tx, rx) = tokio::sync::mpsc::channel::<
+                Result<axum::response::sse::Event, std::convert::Infallible>,
+            >(8);
             tokio::spawn(async move {
                 // Compute the expected event count up front
                 // so we can log it once on the producer side
@@ -1797,8 +1734,7 @@ mod tests {
                         break;
                     }
                     if i < total - 1 {
-                        tokio::time::sleep(Duration::from_millis(interval_ms))
-                            .await;
+                        tokio::time::sleep(Duration::from_millis(interval_ms)).await;
                     }
                 }
                 // `tx` drops when the task returns, closing
@@ -1808,10 +1744,7 @@ mod tests {
             axum::response::sse::Sse::new(stream)
         }
 
-        let app = Router::new().route(
-            "/v1/stream/ranking-offsets",
-            get(sse_handler),
-        );
+        let app = Router::new().route("/v1/stream/ranking-offsets", get(sse_handler));
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("bind ephemeral port for long-lived mock SSE server");
@@ -1877,8 +1810,7 @@ mod tests {
             duration_secs, interval_ms, expected_events
         );
 
-        let (host_port, server_handle) =
-            spin_up_long_lived_sse_server().await;
+        let (host_port, server_handle) = spin_up_long_lived_sse_server().await;
         let url = format!(
             "http://{host_port}/v1/stream/ranking-offsets?duration_secs={duration_secs}&interval_ms={interval_ms}"
         );
@@ -1901,17 +1833,16 @@ mod tests {
         // SAME builder as production; post-wave-17 it
         // calls the shared function — drift between the
         // two sites is now structurally impossible.
-        let client = sse_consumer_client()
-            .expect("wave-15 regression: sse_consumer_client() must build; \
-                     the default builder should not fail");
-        let (_shutdown_tx, mut shutdown_rx) =
-            tokio::sync::watch::channel(false);
+        let client = sse_consumer_client().expect(
+            "wave-15 regression: sse_consumer_client() must build; \
+                     the default builder should not fail",
+        );
+        let (_shutdown_tx, mut shutdown_rx) = tokio::sync::watch::channel(false);
 
         let url_for_consumer = url.clone();
         let bus_for_consumer = bus.clone();
         let client_for_consumer = client.clone();
-        let (done_tx, done_rx) =
-            tokio::sync::oneshot::channel::<anyhow::Result<()>>();
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel::<anyhow::Result<()>>();
         let consumer_handle = tokio::spawn(async move {
             let result = consume_once(
                 &url_for_consumer,
@@ -1940,8 +1871,11 @@ mod tests {
                          t+60s, the consumer reconnects with backoff, and events emitted \
                          between t+60s and t+{}s are lost. After the fix all {} events \
                          must land.",
-                        received_count, expected_events, drain_timeout,
-                        duration_secs, expected_events
+                        received_count,
+                        expected_events,
+                        drain_timeout,
+                        duration_secs,
+                        expected_events
                     )
                 })
                 .expect("event must be received (not lagged)");
@@ -1986,13 +1920,10 @@ mod tests {
         // consume_once should return Ok(()) on clean close
         // (the mock server closes the stream after the
         // last event).
-        let consume_result =
-            tokio::time::timeout(Duration::from_secs(5), done_rx)
-                .await
-                .expect(
-                    "consume_once must return within 5s after the server closes the stream"
-                )
-                .expect("oneshot sender must not be dropped");
+        let consume_result = tokio::time::timeout(Duration::from_secs(5), done_rx)
+            .await
+            .expect("consume_once must return within 5s after the server closes the stream")
+            .expect("oneshot sender must not be dropped");
         assert!(
             consume_result.is_ok(),
             "consume_once must return Ok(()) on clean close; got {consume_result:?}"
@@ -2096,16 +2027,14 @@ mod tests {
         // contains the substring "error decoding".
         fn matching_err() -> reqwest_eventsource::Error {
             reqwest_eventsource::Error::InvalidLastEventId(
-                "error decoding response body (synthetic for test)"
-                    .to_string(),
+                "error decoding response body (synthetic for test)".to_string(),
             )
         }
         // Non-matching error: Display does NOT contain
         // "error decoding".
         fn non_matching_err() -> reqwest_eventsource::Error {
             reqwest_eventsource::Error::InvalidLastEventId(
-                "totally unrelated Last-Event-ID (synthetic for test)"
-                    .to_string(),
+                "totally unrelated Last-Event-ID (synthetic for test)".to_string(),
             )
         }
 
@@ -2160,9 +2089,7 @@ mod tests {
         let warn_count = captured
             .matches("WARN SSE EventSource first-connect")
             .count()
-            + captured
-                .matches("WARN SSE EventSource hard error")
-                .count();
+            + captured.matches("WARN SSE EventSource hard error").count();
         let debug_count = captured
             .matches("DEBUG SSE EventSource chunked-decoder")
             .count();
@@ -2364,9 +2291,9 @@ mod construction_site_parity_guards {
         // method invocations, not variable names or comments
         // that mention the word alone.
         const FORBIDDEN_BUILDER_KNOBS: &[&str] = &[
-            ".timeout(",          // wave-15 root cause
-            ".connect_timeout(",  // wrong-fit (TCP-only)
-            ".read_timeout(",     // doesn't exist in 0.12, but flag future adds
+            ".timeout(",         // wave-15 root cause
+            ".connect_timeout(", // wrong-fit (TCP-only)
+            ".read_timeout(",    // doesn't exist in 0.12, but flag future adds
         ];
 
         for knob in FORBIDDEN_BUILDER_KNOBS {
@@ -2400,9 +2327,10 @@ mod construction_site_parity_guards {
     /// the structural checks above catch knob-level drift.
     #[test]
     fn sse_consumer_client_builds_a_reqwest_client() {
-        let _client = super::sse_consumer_client()
-            .expect("sse_consumer_client: default builder should not fail; \
+        let _client = super::sse_consumer_client().expect(
+            "sse_consumer_client: default builder should not fail; \
                      the only failure modes are system-level (out-of-memory, \
-                     TLS backend init) which are not recoverable");
+                     TLS backend init) which are not recoverable",
+        );
     }
 }

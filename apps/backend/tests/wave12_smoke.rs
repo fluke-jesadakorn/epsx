@@ -100,8 +100,8 @@ fn infra_logs_schema_is_canonical_in_migrations() {
     let mut bad = Vec::new();
     let mut good = 0usize;
     for path in &sql_files {
-        let content = fs::read_to_string(path)
-            .unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
+        let content =
+            fs::read_to_string(path).unwrap_or_else(|e| panic!("read {}: {}", path.display(), e));
 
         // Per the wave-12 rename, all DDL must reference
         // `infra_logs.<table>`, not `analytics.<table>`. The
@@ -127,8 +127,7 @@ fn infra_logs_schema_is_canonical_in_migrations() {
         // The schema create statement must be `infra_logs` (or
         // `CREATE SCHEMA IF NOT EXISTS infra_logs`).
         let has_infra_logs_schema = content.contains("CREATE SCHEMA")
-            && (content.contains("infra_logs")
-                || content.contains("INFRA_LOGS"));
+            && (content.contains("infra_logs") || content.contains("INFRA_LOGS"));
         let has_analytics_schema = content
             .lines()
             .filter(|l| !l.trim_start().starts_with("--"))
@@ -192,8 +191,7 @@ fn five_unique_analytics_routes_are_at_api_analytics() {
         // `/api/analytics/*` path.
         let last_segment = path.rsplit('/').next().unwrap();
         assert!(
-            new_binary_main.contains(last_segment)
-                || backend_unified.contains(last_segment),
+            new_binary_main.contains(last_segment) || backend_unified.contains(last_segment),
             "route segment `{}` (from `{}`) not found in \
              analytics binary main.rs or backend unified_router.rs",
             last_segment,

@@ -33,6 +33,9 @@ images:
   - name: epsx-pay-bff
     newName: epsx-pay-bff
     newTag: wave49
+  - name: epsx-notification
+    newName: epsx-notification
+    newTag: prod
 
 patches:
   - path: patches/replicas.yaml

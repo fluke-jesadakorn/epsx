@@ -1,10 +1,8 @@
 // Domain-Database Mappers
 // Convert between domain aggregates and database models
 
-
 pub mod market_analytics_mappers;
 pub mod notification_mappers;
-
 
 pub use market_analytics_mappers::*;
 pub use notification_mappers::*;

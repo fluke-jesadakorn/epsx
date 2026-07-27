@@ -13,20 +13,19 @@ impl ConnectionId {
     pub fn new() -> Self {
         Self(Uuid::new_v4().to_string())
     }
-    
+
     /// Create connection ID from string
     pub fn from_string(id: String) -> Result<Self, ConnectionIdError> {
         if id.is_empty() {
             return Err(ConnectionIdError::Empty);
         }
-        
+
         // Validate UUID format
-        Uuid::parse_str(&id)
-            .map_err(|_| ConnectionIdError::InvalidFormat)?;
-        
+        Uuid::parse_str(&id).map_err(|_| ConnectionIdError::InvalidFormat)?;
+
         Ok(Self(id))
     }
-    
+
     /// Get the ID as string
     pub fn as_str(&self) -> &str {
         &self.0
@@ -50,7 +49,7 @@ impl Display for ConnectionId {
 pub enum ConnectionIdError {
     #[error("Connection ID cannot be empty")]
     Empty,
-    
+
     #[error("Invalid connection ID format (must be UUID)")]
     InvalidFormat,
 }

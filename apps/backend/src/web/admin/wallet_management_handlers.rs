@@ -6,26 +6,25 @@
 use axum::{
     extract::{Path, Query, State},
     response::Json,
-    Extension,
-    Json as RequestJson,
+    Extension, Json as RequestJson,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use tracing::{error, info};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
+use tracing::{error, info};
 
-use crate::web::auth::AppState;
-use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
 use crate::auth::unified_permission_service::UnifiedPermissionService;
-use epsx_contracts::errors::{AppError, ErrorKind};
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
+use crate::web::admin::responses::{AdminApiResponse, AdminMetadata, PaginationInfo};
+use crate::web::auth::AppState;
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 // CQRS imports for wallet management
-use crate::application::shared::{QueryHandler, CommandHandler};
-use crate::application::wallet_management::queries::admin_models as query_models;
-use crate::application::wallet_management::queries::admin_handlers as query_handlers;
-use crate::application::wallet_management::commands::admin_models as command_models;
+use crate::application::shared::{CommandHandler, QueryHandler};
 use crate::application::wallet_management::commands::admin_handlers as command_handlers;
+use crate::application::wallet_management::commands::admin_models as command_models;
+use crate::application::wallet_management::queries::admin_handlers as query_handlers;
+use crate::application::wallet_management::queries::admin_models as query_models;
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -445,15 +444,15 @@ pub async fn list_users_handler(
     let handler = query_handlers::GetWalletListQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
         error!("Wallet list query failed: {}", e);
-        AppError::new(ErrorKind::InternalServerError, format!("Wallet list query failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Wallet list query failed: {}", e),
+        )
     })?;
 
     // 3. Map DTOs to web responses using traits
-    let wallets: Vec<WalletSummaryResponse> = response
-        .wallets
-        .into_iter()
-        .map(Into::into)
-        .collect();
+    let wallets: Vec<WalletSummaryResponse> =
+        response.wallets.into_iter().map(Into::into).collect();
 
     let pagination: PaginationInfo = response.pagination.into();
 
@@ -515,7 +514,10 @@ pub async fn get_user_handler(
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        AppError::new(ErrorKind::InternalServerError, format!("Wallet detail query failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Wallet detail query failed: {}", e),
+        )
     })?;
 
     // 3. Map to web response using traits
@@ -580,19 +582,28 @@ pub async fn update_user_handler(
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
         if e.to_string().contains("validation") {
-            return AppError::new(ErrorKind::ValidationError, format!("Validation error: {}", e));
+            return AppError::new(
+                ErrorKind::ValidationError,
+                format!("Validation error: {}", e),
+            );
         }
-        AppError::new(ErrorKind::InternalServerError, format!("Update wallet failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Update wallet failed: {}", e),
+        )
     })?;
 
     // 3. Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("wallet", "update", "wallet")
-        .id(&wallet_address)
-        .after(serde_json::json!({
-            "is_active": request.is_active,
-            "metadata": request.metadata
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("wallet", "update", "wallet")
+            .id(&wallet_address)
+            .after(serde_json::json!({
+                "is_active": request.is_active,
+                "metadata": request.metadata
+            })),
+    );
 
     // 4. Map to web response using traits
     let web_response: WalletDetailResponse = response.wallet.into();
@@ -635,7 +646,10 @@ pub async fn get_user_stats_handler(
     let handler = query_handlers::GetWalletStatsQueryHandler::new(app_state.db_pool.clone());
     let response = handler.handle(query).await.map_err(|e| {
         error!("Stats query failed: {}", e);
-        AppError::new(ErrorKind::InternalServerError, format!("Stats query failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Stats query failed: {}", e),
+        )
     })?;
 
     // 3. Map to web response using traits
@@ -695,17 +709,23 @@ pub async fn disable_user_handler(
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        AppError::new(ErrorKind::InternalServerError, format!("Disable wallet failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Disable wallet failed: {}", e),
+        )
     })?;
 
     // Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("wallet", "disable", "wallet")
-        .id(&wallet_address)
-        .after(serde_json::json!({
-            "is_active": false,
-            "disabled_at": chrono::Utc::now()
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("wallet", "disable", "wallet")
+            .id(&wallet_address)
+            .after(serde_json::json!({
+                "is_active": false,
+                "disabled_at": chrono::Utc::now()
+            })),
+    );
 
     let metadata = AdminMetadata::crud_operation("disable_user", Some("admin".to_string()));
 
@@ -760,17 +780,23 @@ pub async fn enable_user_handler(
         if e.to_string().contains("not found") {
             return AppError::new(ErrorKind::AggregateNotFound, "Wallet not found");
         }
-        AppError::new(ErrorKind::InternalServerError, format!("Enable wallet failed: {}", e))
+        AppError::new(
+            ErrorKind::InternalServerError,
+            format!("Enable wallet failed: {}", e),
+        )
     })?;
 
     // Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("wallet", "enable", "wallet")
-        .id(&wallet_address)
-        .after(serde_json::json!({
-            "is_active": true,
-            "enabled_at": chrono::Utc::now()
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("wallet", "enable", "wallet")
+            .id(&wallet_address)
+            .after(serde_json::json!({
+                "is_active": true,
+                "enabled_at": chrono::Utc::now()
+            })),
+    );
 
     let metadata = AdminMetadata::crud_operation("enable_user", Some("admin".to_string()));
 
@@ -780,7 +806,6 @@ pub async fn enable_user_handler(
         metadata,
     )))
 }
-
 
 // ============================================================================
 // ADMIN UTILITY HANDLERS
@@ -813,20 +838,30 @@ pub async fn validate_user_permissions_bulk(
     let start_time = std::time::Instant::now();
 
     // Extract admin wallet
-    let admin_wallet = headers.get("x-wallet-address")
+    let admin_wallet = headers
+        .get("x-wallet-address")
         .and_then(|h| h.to_str().ok())
         .unwrap_or("0x742d35Cc6AbAAC8b14A3780B5b0E11B2Ce65d695");
 
     // Validate admin can perform bulk operations
-    match permission_service.has_permission(admin_wallet, "admin:permissions:bulk_validate").await {
+    match permission_service
+        .has_permission(admin_wallet, "admin:permissions:bulk_validate")
+        .await
+    {
         Ok(true) => info!("Admin authorized for bulk permission validation"),
         Ok(false) => {
             info!("Admin not authorized for bulk permission validation");
-            return Err(AppError::new(ErrorKind::AuthorizationError, "Admin not authorized for bulk permission validation"));
-        },
+            return Err(AppError::new(
+                ErrorKind::AuthorizationError,
+                "Admin not authorized for bulk permission validation",
+            ));
+        }
         Err(e) => {
             error!("Permission check failed: {}", e);
-            return Err(AppError::new(ErrorKind::InternalServerError, format!("Permission check failed: {}", e)));
+            return Err(AppError::new(
+                ErrorKind::InternalServerError,
+                format!("Permission check failed: {}", e),
+            ));
         }
     }
 
@@ -840,7 +875,10 @@ pub async fn validate_user_permissions_bulk(
     let mut denied_count = 0u32;
 
     for permission in &test_permissions {
-        match permission_service.has_permission(&test_wallet, permission).await {
+        match permission_service
+            .has_permission(&test_wallet, permission)
+            .await
+        {
             Ok(granted) => {
                 if granted {
                     granted_count += 1;
@@ -870,8 +908,12 @@ pub async fn validate_user_permissions_bulk(
 
     let validation_time_ms = start_time.elapsed().as_millis() as u64;
 
-    info!("Bulk validation completed: {}/{} permissions granted in {}ms",
-        granted_count, test_permissions.len(), validation_time_ms);
+    info!(
+        "Bulk validation completed: {}/{} permissions granted in {}ms",
+        granted_count,
+        test_permissions.len(),
+        validation_time_ms
+    );
 
     let response_data = BulkPermissionValidationResponse {
         wallet_address: test_wallet,

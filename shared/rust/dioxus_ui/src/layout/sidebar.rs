@@ -115,7 +115,10 @@ pub fn AdminSidebar(
 
     let container_class = {
         let mut c = String::from("admin-sidebar w-56 sm:w-64 min-w-0 max-w-64 bg-card border-r border-border/40 h-full flex flex-col z-20");
-        if let Some(extra) = class_name { c.push(' '); c.push_str(&extra); }
+        if let Some(extra) = class_name {
+            c.push(' ');
+            c.push_str(&extra);
+        }
         c
     };
 
@@ -245,7 +248,9 @@ fn SidebarRow(
     let has_children = item.children.is_some();
     let is_disabled = item.disabled || (item.requires_auth && !is_authenticated);
     let has_active_child = match &item.children {
-        Some(children) => children.iter().any(|c| is_child_active(c, &current_path, None)),
+        Some(children) => children
+            .iter()
+            .any(|c| is_child_active(c, &current_path, None)),
         None => false,
     };
     let is_highlighted = is_active || has_active_child;
@@ -378,7 +383,11 @@ fn NavChildren(item: SidebarItem, current_path: String, child_id: String) -> Ele
 #[component]
 fn NavItemBadge(item_id: String, chat_count: u32, is_active: bool) -> Element {
     if item_id == "chat" && chat_count > 0 {
-        let text = if chat_count > 99 { "99+".to_string() } else { chat_count.to_string() };
+        let text = if chat_count > 99 {
+            "99+".to_string()
+        } else {
+            chat_count.to_string()
+        };
         return rsx! {
             span { class: "ml-auto min-w-[20px] h-5 px-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white text-[10px] font-bold flex items-center justify-center shadow-sm shadow-violet-500/30",
                 "{text}"
@@ -399,65 +408,243 @@ fn NavItemBadge(item_id: String, chat_count: u32, is_active: bool) -> Element {
 /// href, icon, requires_auth, children, tab). Consumer code can pass a
 /// custom set via `AdminSidebar`'s `items` prop when the page needs a
 /// different set.
-pub fn default_nav_items() -> Vec<SidebarItem> { DEFAULT_NAV_ITEMS.clone() }
+pub fn default_nav_items() -> Vec<SidebarItem> {
+    DEFAULT_NAV_ITEMS.clone()
+}
 
 /// One static copy of the default nav tree; exposed as a `const` style
 /// `static` via a function so callers can clone it cheaply.
-pub static DEFAULT_NAV_ITEMS: std::sync::LazyLock<Vec<SidebarItem>> = std::sync::LazyLock::new(|| vec![
-    SidebarItem { id: "dashboard".into(), label: "Dashboard".into(), href: "/".into(), icon: "home".into(), ..Default::default() },
-    SidebarItem { id: "auth".into(), label: "Connect Wallet".into(), href: "/auth".into(), icon: "link".into(), ..Default::default() },
-    SidebarItem {
-        id: "wallet-management".into(), label: "Wallet Mgmt".into(), href: "/wallet-management".into(), icon: "wallet".into(), requires_auth: true,
-        children: Some(vec![
-            SidebarItem { id: "wm-wallets".into(), label: "Wallets".into(), href: "/wallet-management/wallets".into(), icon: "wallet".into(), ..Default::default() },
-            SidebarItem { id: "wm-access".into(), label: "Access".into(), href: "/wallet-management/access".into(), icon: "shield".into(), ..Default::default() },
-            SidebarItem { id: "wm-credits".into(), label: "Credits".into(), href: "/wallet-management/credits".into(), icon: "coins".into(), ..Default::default() },
-        ]),
-        ..Default::default()
-    },
-    SidebarItem {
-        id: "payments".into(), label: "Payments".into(), href: "/payments".into(), icon: "credit-card".into(), requires_auth: true,
-        children: Some(vec![
-            SidebarItem { id: "pay-payments".into(), label: "Payments".into(), href: "/payments".into(), icon: "credit-card".into(), tab: Some("payments".into()), ..Default::default() },
-            SidebarItem { id: "pay-access".into(), label: "User Access".into(), href: "/payments".into(), icon: "users".into(), tab: Some("user-access".into()), ..Default::default() },
-            SidebarItem { id: "pay-links".into(), label: "Links".into(), href: "/payments".into(), icon: "link-2".into(), tab: Some("payment-links".into()), ..Default::default() },
-        ]),
-        ..Default::default()
-    },
-    SidebarItem { id: "chat".into(), label: "Chat Support".into(), href: "/chat".into(), icon: "message-circle".into(), requires_auth: true, ..Default::default() },
-    SidebarItem { id: "news".into(), label: "News".into(), href: "/news".into(), icon: "newspaper".into(), requires_auth: true, ..Default::default() },
-    SidebarItem { id: "media".into(), label: "Media".into(), href: "/media".into(), icon: "image".into(), requires_auth: true, ..Default::default() },
-    SidebarItem { id: "analytics".into(), label: "Analytics".into(), href: "/analytics".into(), icon: "bar-chart-3".into(), requires_auth: true, ..Default::default() },
-    SidebarItem { id: "audit-log".into(), label: "Audit Log".into(), href: "/audit-log".into(), icon: "file-text".into(), requires_auth: true, ..Default::default() },
-    SidebarItem {
-        id: "developer".into(), label: "Developer".into(), href: "/developer-portal".into(), icon: "code".into(), requires_auth: true,
-        children: Some(vec![
-            SidebarItem { id: "dev-overview".into(), label: "Overview".into(), href: "/developer-portal".into(), icon: "layout-dashboard".into(), tab: Some("overview".into()), ..Default::default() },
-            SidebarItem { id: "dev-keys".into(), label: "API Keys".into(), href: "/developer-portal".into(), icon: "key".into(), tab: Some("keys".into()), ..Default::default() },
-            SidebarItem { id: "dev-docs".into(), label: "Docs".into(), href: "/developer-portal".into(), icon: "book-open".into(), tab: Some("docs".into()), ..Default::default() },
-            SidebarItem { id: "dev-usage".into(), label: "Usage".into(), href: "/developer-portal".into(), icon: "trending-up".into(), tab: Some("usage".into()), ..Default::default() },
-        ]),
-        ..Default::default()
-    },
-    SidebarItem {
-        id: "notifications".into(), label: "Notifications".into(), href: "/notifications".into(), icon: "bell".into(), requires_auth: true,
-        children: Some(vec![
-            SidebarItem { id: "notif-manage".into(), label: "Overview".into(), href: "/notifications/manage".into(), icon: "bell".into(), ..Default::default() },
-            SidebarItem { id: "notif-create".into(), label: "Send Signal".into(), href: "/notifications/create".into(), icon: "send".into(), ..Default::default() },
-        ]),
-        ..Default::default()
-    },
-    SidebarItem {
-        id: "settings".into(), label: "Settings".into(), href: "/settings".into(), icon: "settings".into(),
-        children: Some(vec![
-            SidebarItem { id: "set-general".into(), label: "Nodes".into(), href: "/settings".into(), icon: "globe".into(), tab: Some("general".into()), ..Default::default() },
-            SidebarItem { id: "set-notifications".into(), label: "Signals".into(), href: "/settings".into(), icon: "bell".into(), tab: Some("notifications".into()), ..Default::default() },
-            SidebarItem { id: "set-security".into(), label: "Vault".into(), href: "/settings".into(), icon: "lock".into(), tab: Some("security".into()), ..Default::default() },
-            SidebarItem { id: "set-appearance".into(), label: "Optics".into(), href: "/settings".into(), icon: "palette".into(), tab: Some("appearance".into()), ..Default::default() },
-        ]),
-        ..Default::default()
-    },
-]);
+pub static DEFAULT_NAV_ITEMS: std::sync::LazyLock<Vec<SidebarItem>> =
+    std::sync::LazyLock::new(|| {
+        vec![
+            SidebarItem {
+                id: "dashboard".into(),
+                label: "Dashboard".into(),
+                href: "/".into(),
+                icon: "home".into(),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "auth".into(),
+                label: "Connect Wallet".into(),
+                href: "/auth".into(),
+                icon: "link".into(),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "wallet-management".into(),
+                label: "Wallet Mgmt".into(),
+                href: "/wallet-management".into(),
+                icon: "wallet".into(),
+                requires_auth: true,
+                children: Some(vec![
+                    SidebarItem {
+                        id: "wm-wallets".into(),
+                        label: "Wallets".into(),
+                        href: "/wallet-management/wallets".into(),
+                        icon: "wallet".into(),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "wm-access".into(),
+                        label: "Access".into(),
+                        href: "/wallet-management/access".into(),
+                        icon: "shield".into(),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "wm-credits".into(),
+                        label: "Credits".into(),
+                        href: "/wallet-management/credits".into(),
+                        icon: "coins".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "payments".into(),
+                label: "Payments".into(),
+                href: "/payments".into(),
+                icon: "credit-card".into(),
+                requires_auth: true,
+                children: Some(vec![
+                    SidebarItem {
+                        id: "pay-payments".into(),
+                        label: "Payments".into(),
+                        href: "/payments".into(),
+                        icon: "credit-card".into(),
+                        tab: Some("payments".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "pay-access".into(),
+                        label: "User Access".into(),
+                        href: "/payments".into(),
+                        icon: "users".into(),
+                        tab: Some("user-access".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "pay-links".into(),
+                        label: "Links".into(),
+                        href: "/payments".into(),
+                        icon: "link-2".into(),
+                        tab: Some("payment-links".into()),
+                        ..Default::default()
+                    },
+                ]),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "chat".into(),
+                label: "Chat Support".into(),
+                href: "/chat".into(),
+                icon: "message-circle".into(),
+                requires_auth: true,
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "news".into(),
+                label: "News".into(),
+                href: "/news".into(),
+                icon: "newspaper".into(),
+                requires_auth: true,
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "media".into(),
+                label: "Media".into(),
+                href: "/media".into(),
+                icon: "image".into(),
+                requires_auth: true,
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "analytics".into(),
+                label: "Analytics".into(),
+                href: "/analytics".into(),
+                icon: "bar-chart-3".into(),
+                requires_auth: true,
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "audit-log".into(),
+                label: "Audit Log".into(),
+                href: "/audit-log".into(),
+                icon: "file-text".into(),
+                requires_auth: true,
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "developer".into(),
+                label: "Developer".into(),
+                href: "/developer-portal".into(),
+                icon: "code".into(),
+                requires_auth: true,
+                children: Some(vec![
+                    SidebarItem {
+                        id: "dev-overview".into(),
+                        label: "Overview".into(),
+                        href: "/developer-portal".into(),
+                        icon: "layout-dashboard".into(),
+                        tab: Some("overview".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "dev-keys".into(),
+                        label: "API Keys".into(),
+                        href: "/developer-portal".into(),
+                        icon: "key".into(),
+                        tab: Some("keys".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "dev-docs".into(),
+                        label: "Docs".into(),
+                        href: "/developer-portal".into(),
+                        icon: "book-open".into(),
+                        tab: Some("docs".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "dev-usage".into(),
+                        label: "Usage".into(),
+                        href: "/developer-portal".into(),
+                        icon: "trending-up".into(),
+                        tab: Some("usage".into()),
+                        ..Default::default()
+                    },
+                ]),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "notifications".into(),
+                label: "Notifications".into(),
+                href: "/notifications".into(),
+                icon: "bell".into(),
+                requires_auth: true,
+                children: Some(vec![
+                    SidebarItem {
+                        id: "notif-manage".into(),
+                        label: "Overview".into(),
+                        href: "/notifications/manage".into(),
+                        icon: "bell".into(),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "notif-create".into(),
+                        label: "Send Signal".into(),
+                        href: "/notifications/create".into(),
+                        icon: "send".into(),
+                        ..Default::default()
+                    },
+                ]),
+                ..Default::default()
+            },
+            SidebarItem {
+                id: "settings".into(),
+                label: "Settings".into(),
+                href: "/settings".into(),
+                icon: "settings".into(),
+                children: Some(vec![
+                    SidebarItem {
+                        id: "set-general".into(),
+                        label: "Nodes".into(),
+                        href: "/settings".into(),
+                        icon: "globe".into(),
+                        tab: Some("general".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "set-notifications".into(),
+                        label: "Signals".into(),
+                        href: "/settings".into(),
+                        icon: "bell".into(),
+                        tab: Some("notifications".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "set-security".into(),
+                        label: "Vault".into(),
+                        href: "/settings".into(),
+                        icon: "lock".into(),
+                        tab: Some("security".into()),
+                        ..Default::default()
+                    },
+                    SidebarItem {
+                        id: "set-appearance".into(),
+                        label: "Optics".into(),
+                        href: "/settings".into(),
+                        icon: "palette".into(),
+                        tab: Some("appearance".into()),
+                        ..Default::default()
+                    },
+                ]),
+                ..Default::default()
+            },
+        ]
+    });
 
 /// TS-parity helper: is this child the active route? Mirrors
 /// `isChildActive` in `sidebar.tsx` — a child matches if its `tab` is
@@ -479,7 +666,9 @@ fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{:02X}", b)),
         }
     }
@@ -501,7 +690,8 @@ pub fn Sidebar(
     items: Vec<SidebarItem>,
     current_path: String,
     /// Legacy header label — ignored; kept for API stability.
-    #[allow(unused_variables)] header: Option<String>,
+    #[allow(unused_variables)]
+    header: Option<String>,
     is_authenticated: Option<bool>,
 ) -> Element {
     rsx! {
@@ -520,7 +710,10 @@ mod tests {
     #[test]
     fn is_child_active_matches_tabbed_route() {
         let item = SidebarItem {
-            id: "set-general".into(), label: "Nodes".into(), href: "/settings".into(), icon: "globe".into(),
+            id: "set-general".into(),
+            label: "Nodes".into(),
+            href: "/settings".into(),
+            icon: "globe".into(),
             tab: Some("general".into()),
             ..Default::default()
         };
@@ -532,17 +725,27 @@ mod tests {
     #[test]
     fn is_child_active_matches_index_prefix() {
         let item = SidebarItem {
-            id: "wm-wallets".into(), label: "Wallets".into(), href: "/wallet-management/wallets".into(), icon: "wallet".into(),
+            id: "wm-wallets".into(),
+            label: "Wallets".into(),
+            href: "/wallet-management/wallets".into(),
+            icon: "wallet".into(),
             ..Default::default()
         };
         assert!(is_child_active(&item, "/wallet-management/wallets", None));
-        assert!(is_child_active(&item, "/wallet-management/wallets/123", None));
+        assert!(is_child_active(
+            &item,
+            "/wallet-management/wallets/123",
+            None
+        ));
         assert!(!is_child_active(&item, "/wallet-management/access", None));
     }
 
     #[test]
     fn urlencode_keeps_unreserved_chars() {
-        assert_eq!(urlencode("/wallet-management/access"), "%2Fwallet-management%2Faccess");
+        assert_eq!(
+            urlencode("/wallet-management/access"),
+            "%2Fwallet-management%2Faccess"
+        );
         assert_eq!(urlencode("abc-123_X.~"), "abc-123_X.~");
     }
 }

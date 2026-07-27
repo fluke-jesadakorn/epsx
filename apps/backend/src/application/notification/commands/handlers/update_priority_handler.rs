@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::notification::commands::{
-    UpdateNotificationPriorityCommand, UpdateNotificationPriorityResponse
+    UpdateNotificationPriorityCommand, UpdateNotificationPriorityResponse,
 };
-use crate::domain::notification::{NotificationRepositoryPort, NotificationPriority};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::domain::notification::{NotificationPriority, NotificationRepositoryPort};
+use crate::prelude::*;
 use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for updating notification priority
@@ -25,12 +25,22 @@ impl UpdateNotificationPriorityCommandHandler {
 }
 
 #[async_trait]
-impl CommandHandler<UpdateNotificationPriorityCommand> for UpdateNotificationPriorityCommandHandler {
-    async fn handle(&self, command: UpdateNotificationPriorityCommand) -> ApplicationResult<UpdateNotificationPriorityResponse> {
+impl CommandHandler<UpdateNotificationPriorityCommand>
+    for UpdateNotificationPriorityCommandHandler
+{
+    async fn handle(
+        &self,
+        command: UpdateNotificationPriorityCommand,
+    ) -> ApplicationResult<UpdateNotificationPriorityResponse> {
         // 1. Find notification
-        let mut notification = self.notification_repository.find_by_id(&command.notification_id).await
+        let mut notification = self
+            .notification_repository
+            .find_by_id(&command.notification_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("notification_id", "Notification not found"))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("notification_id", "Notification not found")
+            })?;
 
         // 2. Store old priority
         let old_priority = notification.priority().as_str().to_string();
@@ -40,16 +50,21 @@ impl CommandHandler<UpdateNotificationPriorityCommand> for UpdateNotificationPri
             .map_err(|e| ApplicationError::validation("new_priority", e))?;
 
         // 4. Update priority (domain logic validates state transition)
-        notification.update_priority(new_priority)
+        notification
+            .update_priority(new_priority)
             .map_err(ApplicationError::business_logic)?;
 
         // 5. Save updated notification
-        self.notification_repository.save(&notification).await
+        self.notification_repository
+            .save(&notification)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 6. Publish domain events
         for event in notification.uncommitted_events() {
-            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
             if let Err(e) = self.event_publisher.publish(owned).await {
                 tracing::warn!(
                     error = %e,

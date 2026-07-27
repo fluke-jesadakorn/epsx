@@ -71,6 +71,9 @@ mod tests {
     fn test_theme_toggle_alias() {
         let el = rsx! { ThemeToggle {} };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("theme-toggle"), "ThemeToggle alias should render the canonical toggle");
+        assert!(
+            html.contains("theme-toggle"),
+            "ThemeToggle alias should render the canonical toggle"
+        );
     }
 }

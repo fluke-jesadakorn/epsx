@@ -286,7 +286,7 @@
       "evidence": [
         {"file": "services/pay/src/lib.rs", "anchor": "A valid operator credential still cannot reach the current"},
         {"file": "services/pay/src/main.rs", "anchor": "/api/v1/admin/pay/intents/{id}/force-cancel"},
-        {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4747"}
+        {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4752"}
       ]
     },
     {

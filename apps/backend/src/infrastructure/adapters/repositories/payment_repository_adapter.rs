@@ -20,25 +20,23 @@
 //! cross-pool file too — same reason.
 
 use crate::prelude::*;
-use tracing::{info, error, debug, warn};
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
+use tracing::{debug, error, info, warn};
 
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
 use std::str::FromStr;
+use uuid::Uuid;
 
+use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 use crate::domain::payment::{
-    Payment, PaymentId, PaymentStatus, PaymentAmount, TransactionHash,
-    PaymentReference, PaymentStats
+    Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStats, PaymentStatus,
+    TransactionHash,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
-use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 
-use crate::infrastructure::models::payment::{
-    PaymentDb, NewPaymentDb,
-};
+use crate::infrastructure::models::payment::{NewPaymentDb, PaymentDb};
 use crate::schemas::payments::payments;
 
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
@@ -59,8 +57,13 @@ impl PaymentRepositoryAdapter {
     /// Returns the inner deadpool Object (not the AppResult
     /// wrapper) so the cross-pool methods can plug it straight
     /// into `diesel_async::RunQueryDsl`.
-    pub(crate) async fn conn(&self) -> Result<deadpool::managed::Object<TlsConnectionManager>, String> {
-        self.db_pool.conn().await.map_err(|e| format!("conn: {}", e))
+    pub(crate) async fn conn(
+        &self,
+    ) -> Result<deadpool::managed::Object<TlsConnectionManager>, String> {
+        self.db_pool
+            .conn()
+            .await
+            .map_err(|e| format!("conn: {}", e))
     }
 
     /// Convert PaymentDb domain model to database model
@@ -93,8 +96,14 @@ impl PaymentRepositoryAdapter {
             .map_err(|e| AppError::validation_error(format!("Invalid payment reference: {}", e)))?;
 
         // Create transaction hash if present
-        let transaction_hash = payment_db.transaction_hash
-            .map(|hash| TransactionHash::new(hash, crate::domain::payment::value_objects::Network::BinanceSmartChain))
+        let transaction_hash = payment_db
+            .transaction_hash
+            .map(|hash| {
+                TransactionHash::new(
+                    hash,
+                    crate::domain::payment::value_objects::Network::BinanceSmartChain,
+                )
+            })
             .transpose()
             .map_err(|e| AppError::validation_error(format!("Invalid transaction hash: {}", e)))?;
 
@@ -132,7 +141,9 @@ impl PaymentRepositoryAdapter {
             created_at,
             payment_db.metadata.clone().unwrap_or(serde_json::json!({})),
         )
-        .map_err(|e| AppError::validation_error(format!("Failed to create payment aggregate: {}", e)))
+        .map_err(|e| {
+            AppError::validation_error(format!("Failed to create payment aggregate: {}", e))
+        })
     }
 
     /// Convert domain model to database model
@@ -168,12 +179,13 @@ impl PaymentRepositoryAdapter {
             status: status_str.to_string(),
             plan_id: plan_uuid,
             contract_address: None, // Will be set when blockchain transaction is confirmed
-            token_address: None,   // Will be set when blockchain transaction is confirmed
+            token_address: None,    // Will be set when blockchain transaction is confirmed
             block_number: None,     // Will be set when blockchain transaction is confirmed
             confirmations: Some(0), // Initial value
-            expires_at: None,      // Will be set based on payment configuration
-            metadata: serde_json::to_value(payment.metadata())
-                .map_err(|e| AppError::validation_error(format!("Failed to serialize metadata: {}", e)))?,
+            expires_at: None,       // Will be set based on payment configuration
+            metadata: serde_json::to_value(payment.metadata()).map_err(|e| {
+                AppError::validation_error(format!("Failed to serialize metadata: {}", e))
+            })?,
         })
     }
 
@@ -185,10 +197,14 @@ impl PaymentRepositoryAdapter {
     // -----------------------------------------------------------------
 
     pub async fn _save_impl(&self, payment: &Payment) -> Result<(), String> {
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        let payment_db = self.payment_to_db(payment)
+        let payment_db = self
+            .payment_to_db(payment)
             .map_err(|e| format!("Failed to convert payment to database model: {}", e))?;
 
         info!(
@@ -211,8 +227,14 @@ impl PaymentRepositoryAdapter {
         Ok(())
     }
 
-    pub async fn _find_by_id_impl(&self, payment_id: &PaymentId) -> Result<Option<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _find_by_id_impl(
+        &self,
+        payment_id: &PaymentId,
+    ) -> Result<Option<Payment>, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payment by ID: {}", payment_id.value());
@@ -229,7 +251,8 @@ impl PaymentRepositoryAdapter {
 
         match payment_db {
             Some(row) => {
-                let payment = self.payment_to_domain(row)
+                let payment = self
+                    .payment_to_domain(row)
                     .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
                 info!("Found payment: {}", payment_id.value());
                 Ok(Some(payment))
@@ -241,8 +264,14 @@ impl PaymentRepositoryAdapter {
         }
     }
 
-    pub async fn _find_by_user_impl(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _find_by_user_impl(
+        &self,
+        wallet_address: &WalletAddress,
+    ) -> Result<Vec<Payment>, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payments for wallet: {}", wallet_address.as_str());
@@ -253,23 +282,38 @@ impl PaymentRepositoryAdapter {
             .load::<PaymentDb>(&mut conn)
             .await
             .map_err(|e| {
-                error!("Failed to find payments for wallet {}: {}", wallet_address.as_str(), e);
+                error!(
+                    "Failed to find payments for wallet {}: {}",
+                    wallet_address.as_str(),
+                    e
+                );
                 format!("Failed to find payments: {}", e)
             })?;
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
-            let payment = self.payment_to_domain(payment_db)
+            let payment = self
+                .payment_to_domain(payment_db)
                 .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
             payments.push(payment);
         }
 
-        info!("Found {} payments for wallet {}", payments.len(), wallet_address.as_str());
+        info!(
+            "Found {} payments for wallet {}",
+            payments.len(),
+            wallet_address.as_str()
+        );
         Ok(payments)
     }
 
-    pub async fn _find_by_status_impl(&self, status: PaymentStatus) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _find_by_status_impl(
+        &self,
+        status: PaymentStatus,
+    ) -> Result<Vec<Payment>, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         let status_str = match status {
@@ -301,17 +345,28 @@ impl PaymentRepositoryAdapter {
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
-            let payment = self.payment_to_domain(payment_db)
+            let payment = self
+                .payment_to_domain(payment_db)
                 .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
             payments.push(payment);
         }
 
-        info!("Found {} payments with status {}", payments.len(), status_str);
+        info!(
+            "Found {} payments with status {}",
+            payments.len(),
+            status_str
+        );
         Ok(payments)
     }
 
-    pub async fn _find_by_reference_impl(&self, reference: &PaymentReference) -> Result<Option<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _find_by_reference_impl(
+        &self,
+        reference: &PaymentReference,
+    ) -> Result<Option<Payment>, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payment by reference: {}", reference.value());
@@ -322,13 +377,18 @@ impl PaymentRepositoryAdapter {
             .await
             .optional()
             .map_err(|e| {
-                error!("Failed to find payment by reference {}: {}", reference.value(), e);
+                error!(
+                    "Failed to find payment by reference {}: {}",
+                    reference.value(),
+                    e
+                );
                 format!("Failed to find payment: {}", e)
             })?;
 
         match payment_db {
             Some(row) => {
-                let payment = self.payment_to_domain(row)
+                let payment = self
+                    .payment_to_domain(row)
                     .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
                 info!("Found payment by reference: {}", reference.value());
                 Ok(Some(payment))
@@ -345,7 +405,10 @@ impl PaymentRepositoryAdapter {
         start: DateTime<Utc>,
         end: DateTime<Utc>,
     ) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding payments between {} and {}", start, end);
@@ -363,7 +426,8 @@ impl PaymentRepositoryAdapter {
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
-            let payment = self.payment_to_domain(payment_db)
+            let payment = self
+                .payment_to_domain(payment_db)
                 .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
             payments.push(payment);
         }
@@ -372,14 +436,24 @@ impl PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    pub async fn _find_expired_pending_impl(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _find_expired_pending_impl(
+        &self,
+        threshold: DateTime<Utc>,
+    ) -> Result<Vec<Payment>, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         debug!("Finding expired pending payments older than {}", threshold);
 
         let payments_db = payments::table
-            .filter(payments::status.eq("pending").or(payments::status.eq("awaiting_payment")))
+            .filter(
+                payments::status
+                    .eq("pending")
+                    .or(payments::status.eq("awaiting_payment")),
+            )
             .filter(payments::created_at.lt(threshold))
             .filter(payments::expires_at.lt(threshold))
             .order(payments::created_at.asc())
@@ -392,7 +466,8 @@ impl PaymentRepositoryAdapter {
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
-            let payment = self.payment_to_domain(payment_db)
+            let payment = self
+                .payment_to_domain(payment_db)
                 .map_err(|e| format!("Failed to convert payment to domain model: {}", e))?;
             payments.push(payment);
         }
@@ -401,8 +476,15 @@ impl PaymentRepositoryAdapter {
         Ok(payments)
     }
 
-    pub async fn _update_status_impl(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _update_status_impl(
+        &self,
+        payment_id: &PaymentId,
+        status: PaymentStatus,
+    ) -> Result<(), String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
         let status_str = match status {
@@ -420,7 +502,11 @@ impl PaymentRepositoryAdapter {
             PaymentStatus::Refunded => "refunded",
         };
 
-        info!("Updating payment {} status to {}", payment_id.value(), status_str);
+        info!(
+            "Updating payment {} status to {}",
+            payment_id.value(),
+            status_str
+        );
 
         let completed_at = match status {
             PaymentStatus::Completed => Some(Utc::now()),
@@ -442,15 +528,25 @@ impl PaymentRepositoryAdapter {
                 format!("Failed to update payment status: {}", e)
             })?;
 
-        info!("Successfully updated payment {} status to {}", payment_id.value(), status_str);
+        info!(
+            "Successfully updated payment {} status to {}",
+            payment_id.value(),
+            status_str
+        );
         Ok(())
     }
 
     pub async fn _delete_impl(&self, payment_id: &PaymentId) -> Result<(), String> {
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        warn!("Deleting payment {} - this should only be used for testing/debugging", payment_id.value());
+        warn!(
+            "Deleting payment {} - this should only be used for testing/debugging",
+            payment_id.value()
+        );
 
         diesel::delete(payments::table.filter(payments::id.eq(payment_id.value())))
             .execute(&mut conn)
@@ -464,11 +560,20 @@ impl PaymentRepositoryAdapter {
         Ok(())
     }
 
-    pub async fn _get_user_payment_stats_impl(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String> {
-        let mut conn = self.db_pool.conn().await
+    pub async fn _get_user_payment_stats_impl(
+        &self,
+        wallet_address: &WalletAddress,
+    ) -> Result<PaymentStats, String> {
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
-        debug!("Getting payment stats for wallet: {}", wallet_address.as_str());
+        debug!(
+            "Getting payment stats for wallet: {}",
+            wallet_address.as_str()
+        );
 
         // Query for payment statistics
         let stats_query = r#"
@@ -512,16 +617,24 @@ impl PaymentRepositoryAdapter {
             .ok_or_else(|| "No payment stats found".to_string())?;
 
         // Convert BigDecimal to Decimal
-        let total_amount_decimal = rust_decimal::Decimal::from_str(&stats_row.total_amount.to_string())
-            .unwrap_or(rust_decimal::Decimal::ZERO);
-        let average_amount_decimal = rust_decimal::Decimal::from_str(&stats_row.average_amount.to_string())
-            .unwrap_or(rust_decimal::Decimal::ZERO);
+        let total_amount_decimal =
+            rust_decimal::Decimal::from_str(&stats_row.total_amount.to_string())
+                .unwrap_or(rust_decimal::Decimal::ZERO);
+        let average_amount_decimal =
+            rust_decimal::Decimal::from_str(&stats_row.average_amount.to_string())
+                .unwrap_or(rust_decimal::Decimal::ZERO);
 
-        let total_amount = PaymentAmount::new(total_amount_decimal, crate::domain::payment::value_objects::Currency::USD)
-            .map_err(|e| format!("Failed to create total amount: {}", e))?;
+        let total_amount = PaymentAmount::new(
+            total_amount_decimal,
+            crate::domain::payment::value_objects::Currency::USD,
+        )
+        .map_err(|e| format!("Failed to create total amount: {}", e))?;
 
-        let average_amount = PaymentAmount::new(average_amount_decimal, crate::domain::payment::value_objects::Currency::USD)
-            .map_err(|e| format!("Failed to create average amount: {}", e))?;
+        let average_amount = PaymentAmount::new(
+            average_amount_decimal,
+            crate::domain::payment::value_objects::Currency::USD,
+        )
+        .map_err(|e| format!("Failed to create average amount: {}", e))?;
 
         let stats = PaymentStats {
             total_payments: stats_row.total_payments as u32,
@@ -532,8 +645,12 @@ impl PaymentRepositoryAdapter {
             last_payment_date: stats_row.last_payment_date,
         };
 
-        info!("Retrieved payment stats for wallet {}: {} total, {} completed",
-              wallet_address.as_str(), stats.total_payments, stats.completed_payments);
+        info!(
+            "Retrieved payment stats for wallet {}: {} total, {} completed",
+            wallet_address.as_str(),
+            stats.total_payments,
+            stats.completed_payments
+        );
 
         Ok(stats)
     }

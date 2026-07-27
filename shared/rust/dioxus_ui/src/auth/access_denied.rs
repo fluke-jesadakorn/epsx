@@ -22,25 +22,31 @@ use dioxus::prelude::*;
 pub fn AccessDenied(
     /// Free-form reason text. Defaults to
     /// "You do not have permission to access this page".
-    #[props(default = None)] reason: Option<String>,
+    #[props(default = None)]
+    reason: Option<String>,
     /// Optional list of required permissions. Rendered as a
     /// monospaced bullet list inside an "alert" block.
-    #[props(default = None)] required_permissions: Option<Vec<String>>,
+    #[props(default = None)]
+    required_permissions: Option<Vec<String>>,
     /// Show the "Go Home" back-button. Defaults to `true`.
-    #[props(default = None)] show_back: Option<bool>,
+    #[props(default = None)]
+    show_back: Option<bool>,
     /// Extra class names for the outer wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     /// URL the "Go Home" / "Back" link points to. Defaults to `/`.
-    #[props(default = None)] return_url: Option<String>,
+    #[props(default = None)]
+    return_url: Option<String>,
     /// Lucide icon name. Defaults to "shield". Other reasonable
     /// choices: "lock", "alert-circle", "info".
-    #[props(default = None)] icon: Option<String>,
+    #[props(default = None)]
+    icon: Option<String>,
     /// Href for the "Request Access" CTA. Defaults to `/contact`.
-    #[props(default = None)] contact_href: Option<String>,
+    #[props(default = None)]
+    contact_href: Option<String>,
 ) -> Element {
-    let reason_val = reason.unwrap_or_else(|| {
-        "You do not have permission to access this page".to_string()
-    });
+    let reason_val =
+        reason.unwrap_or_else(|| "You do not have permission to access this page".to_string());
     let show_back_val = show_back.unwrap_or(true);
     let back_href = return_url.unwrap_or_else(|| "/".to_string());
     let contact_href_val = contact_href.unwrap_or_else(|| "/contact".to_string());

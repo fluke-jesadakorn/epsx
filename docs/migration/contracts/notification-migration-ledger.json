@@ -1,0 +1,95 @@
+{
+  "schemaVersion": 1,
+  "database": "notifications",
+  "databaseLedgerEvidence": "verified",
+  "databaseLedgerEvidenceFile": "docs/migration/contracts/notification-migration-live-evidence.json",
+  "databaseEvidenceClass": "local-scratch-only",
+  "productionReady": false,
+  "migrationPolicy": {
+    "ordering": "timestamp-prefix ascending",
+    "writes": "executed only by the guarded local-scratch audit command",
+    "rollback": "forward-only unless separately reviewed",
+    "destructiveChanges": "blocked without populated-database evidence"
+  },
+  "migrations": [
+    {
+      "version": "20260722040000",
+      "directory": "apps/backend/migrations/notifications/20260722040000_create_notification_service_tables",
+      "role": "A3.11-compatible base tables",
+      "status": "verified-non-production",
+      "rollback": "forward-only",
+      "upSha256": "788fa9500df1759d7b224c739f90f4756c2397f28a42aca1ec9af197f27290f7",
+      "downSha256": "5f47cf6f1c82416ac8c60bd3e691c78b4d58f4ee78bae3f778869206350b76cc"
+    },
+    {
+      "version": "20260723120000",
+      "directory": "apps/backend/migrations/notifications/20260723120000_add_notification_lifecycle_foundation",
+      "role": "additive lifecycle tables",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "181c060ad8e2d41c226dd3d9f0e1f6fce5a55cbb14a89d3d4149d4d48849327f",
+      "downSha256": "5dedd0ef1eddd3c8e6d9e8f48d09fed07ba24f94b75957314f4f45dfcea75fce"
+    },
+    {
+      "version": "20260723130000",
+      "directory": "apps/backend/migrations/notifications/20260723130000_add_notification_idempotency_provider_events",
+      "role": "idempotency/provider/engagement tables",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "2e610372e90ab5ec505250ed63447ecf9dde7d37b7776ec5cd8c8915d0789219",
+      "downSha256": "7e21a8bb0fe457f9fb467cf26adf4d44a85e0a069b91a09a29240140a21bacd5"
+    },
+    {
+      "version": "20260723140000",
+      "directory": "apps/backend/migrations/notifications/20260723140000_add_notification_lifecycle_constraints",
+      "role": "additive lifecycle identity, channel, and JSON-shape constraints",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "061cf0b47e4ed00528be4af8e2524148f13aceea369bdea53575ab4848b72117",
+      "downSha256": "86ada7dcebc58ece31de36940e1bbf48f5860cbe331a4e5d1039477ffa769fb5"
+    },
+    {
+      "version": "20260724120000",
+      "directory": "apps/backend/migrations/notifications/20260724120000_add_notification_template_audit",
+      "role": "additive template rollback/update audit history",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "f7158a59cbf9d1bcc3404962db9adb9747d760f8067d7ef3ff14aff33d991db0",
+      "downSha256": "33cca4ffddd4d59cf84e3a3f3820453186e55d17064f4d8cacda244f1ca3c80c"
+    },
+    {
+      "version": "20260724130000",
+      "directory": "apps/backend/migrations/notifications/20260724130000_add_notification_engagement_acknowledged",
+      "role": "additive client-receipt acknowledgement timestamp",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "9db99e70a88f5a6982fb7a877ffaedb2129b5274684ae020bbe24e93e42c9d91",
+      "downSha256": "0cc58aa7bbe4db7b47c15a69efb5812e675d7dfedb2249feb5dcaecee82edffa"
+    },
+    {
+      "version": "20260724140000",
+      "directory": "apps/backend/migrations/notifications/20260724140000_add_notification_expirations",
+      "role": "additive notification expiry projection",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "04d94b7994c2f430740da79017bdc3b0561346a51da5a215563cb16b81410098",
+      "downSha256": "d866bb847b7e51c9d35f197abbd45c0ddd697567e00363018f2cc65216f14e46"
+    },
+    {
+      "version": "20260724150000",
+      "directory": "apps/backend/migrations/notifications/20260724150000_add_notification_vapid_key_lineage",
+      "role": "additive VAPID subscription key lineage for rotation",
+      "status": "verified-non-production",
+      "rollback": "no-op-down",
+      "upSha256": "683e2621e4b5666af5bf24c1d916390f65108c0f9dac3ed3e8231e7111759563",
+      "downSha256": "49d69a8e228729b5f806611d0f62666af5ca4f547866949d48d28e04c04074f9"
+    }
+  ],
+  "requiredEvidence": [
+    "clean database migration ledger",
+    "populated legacy database upgrade ledger",
+    "schema checksum before and after upgrade",
+    "rollback/recovery rehearsal",
+    "row-count and constraint verification"
+  ]
+}

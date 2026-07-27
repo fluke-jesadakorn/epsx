@@ -1,11 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::commands::{
-    CreateEPSRankingCommand, CreateEPSRankingResponse, RankingFilters
+    CreateEPSRankingCommand, CreateEPSRankingResponse, RankingFilters,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::market_analytics::{
-    EPSRankingRepositoryPort, EPSRanking, RankingType, RankingPeriod, SectorCategory, Country
+    Country, EPSRanking, EPSRankingRepositoryPort, RankingPeriod, RankingType, SectorCategory,
 };
+use crate::prelude::*;
 // wave11(track-c) R7: kernel-level port for publishing domain events.
 // See `epsx_contracts::event_publisher_port` for the design notes.
 use epsx_contracts::event_publisher_port::EventPublisherPort;
@@ -30,7 +30,10 @@ impl CreateEPSRankingCommandHandler {
 
 #[async_trait]
 impl CommandHandler<CreateEPSRankingCommand> for CreateEPSRankingCommandHandler {
-    async fn handle(&self, command: CreateEPSRankingCommand) -> ApplicationResult<CreateEPSRankingResponse> {
+    async fn handle(
+        &self,
+        command: CreateEPSRankingCommand,
+    ) -> ApplicationResult<CreateEPSRankingResponse> {
         // 1. Parse ranking type
         let ranking_type = RankingType::from_str(&command.ranking_type)
             .map_err(|e| ApplicationError::validation("ranking_type", e.to_string()))?;
@@ -41,15 +44,19 @@ impl CommandHandler<CreateEPSRankingCommand> for CreateEPSRankingCommandHandler 
 
         // 3. Parse optional filters
         let sector_filter = if let Some(sector_str) = command.sector_filter.as_ref() {
-            Some(SectorCategory::from_str(sector_str)
-                .map_err(|e| ApplicationError::validation("sector_filter", e.to_string()))?)
+            Some(
+                SectorCategory::from_str(sector_str)
+                    .map_err(|e| ApplicationError::validation("sector_filter", e.to_string()))?,
+            )
         } else {
             None
         };
 
         let country_filter = if let Some(country_str) = command.country_filter.as_ref() {
-            Some(Country::new(country_str.clone())
-                .map_err(|e| ApplicationError::validation("country_filter", e.to_string()))?)
+            Some(
+                Country::new(country_str.clone())
+                    .map_err(|e| ApplicationError::validation("country_filter", e.to_string()))?,
+            )
         } else {
             None
         };
@@ -63,15 +70,18 @@ impl CommandHandler<CreateEPSRankingCommand> for CreateEPSRankingCommandHandler 
         );
 
         // 5. Save ranking
-        self.ranking_repository.save(&ranking).await
+        self.ranking_repository
+            .save(&ranking)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 6. Publish domain events via the new `EventPublisherPort` (R7).
         //    See `create_payment_command.rs` for the OwnedEvent
         //    wrapper rationale.
         for event in ranking.uncommitted_events() {
-            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> =
-                Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
             if let Err(e) = self.event_publisher.publish(owned).await {
                 tracing::warn!(
                     error = %e,

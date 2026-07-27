@@ -91,6 +91,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderDashboard(ctx: PageContext) -> Element {
     let load = dashboard_load(&ctx);
+    let snapshot_observed_at = match &load {
+        DashboardLoad::Ready(projection) => Some(projection.observed_at.clone()),
+        _ => None,
+    };
 
     rsx! {
         AuthGate {
@@ -101,16 +105,27 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                 ctx: ctx.clone(),
                 page_title: "Command Center".to_string(),
                 breadcrumbs: vec![("Dashboard".to_string(), "/".to_string())],
-                div { class: "container page-content admin-dashboard",
-                    div { class: "mb-6",
-                        p { class: "text-xs font-semibold uppercase tracking-[0.2em] text-primary",
-                            "User status snapshot"
+                div { class: "container page-content admin-dashboard mx-auto w-full max-w-[1600px] pb-12",
+                    // Keep the development dashboard composition (pulse header,
+                    // HUD metrics, bento tools, and event stream) even when the
+                    // backend cannot authorize those data feeds. Unavailable
+                    // values are rendered explicitly instead of being invented.
+                    DashboardPulseHeader { observed_at: snapshot_observed_at }
+                    DashboardHudMetrics {}
+                    div { class: "mb-4 flex items-center justify-between",
+                        h2 { class: "text-sm font-bold uppercase tracking-widest text-muted-foreground",
+                            "Admin Modules"
                         }
-                        h1 { class: "mt-2 text-3xl font-black tracking-tight text-foreground",
-                            "Command Center"
+                        span { class: "text-[10px] font-mono uppercase tracking-widest text-muted-foreground",
+                            "Backend values not projected"
                         }
-                        p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground",
-                            "A narrow, backend-authorized view of registered user status."
+                    }
+                    div { class: "grid grid-cols-1 gap-6 xl:grid-cols-4",
+                        div { class: "xl:col-span-3",
+                            DashboardBentoTools {}
+                        }
+                        div { class: "h-full xl:col-span-1",
+                            DashboardActivityStream {}
                         }
                     }
 
@@ -141,6 +156,240 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                         },
                     }
                 }
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardPulseHeader(observed_at: Option<String>) -> Element {
+    let (state_label, state_class, timestamp) = match observed_at {
+        Some(value) => ("SNAPSHOT READY", "text-emerald-400", value),
+        None => (
+            "DATA UNAVAILABLE",
+            "text-amber-300",
+            "Snapshot timestamp not projected".to_string(),
+        ),
+    };
+
+    rsx! {
+        section {
+            class: "relative mb-6 overflow-hidden rounded-2xl border border-border/20 bg-card/80 shadow-2xl backdrop-blur-xl",
+            "data-admin-dashboard-surface": "pulse-header",
+            div { class: "absolute inset-0 bg-gradient-to-r from-blue-500/5 via-purple-500/5 to-cyan-500/5", aria_hidden: "true" }
+            div { class: "absolute left-0 top-0 h-px w-full bg-gradient-to-r from-transparent via-cyan-500/50 to-transparent opacity-50", aria_hidden: "true" }
+            div { class: "relative flex flex-col items-start justify-between gap-6 p-6 sm:p-8 md:flex-row md:items-center",
+                div {
+                    div { class: "mb-2 flex flex-wrap items-center gap-3",
+                        h1 { class: "text-3xl font-black tracking-tight text-foreground sm:text-4xl", "Command Center" }
+                        span { class: "rounded-full border border-border/30 bg-background/50 px-3 py-1 text-xs font-bold uppercase tracking-wider {state_class}",
+                            "{state_label}"
+                        }
+                    }
+                    p { class: "flex flex-wrap items-center gap-3 font-mono text-sm text-muted-foreground",
+                        "{timestamp}"
+                        span { class: "text-border/50", "|" }
+                        span { class: "flex items-center gap-1.5",
+                            Icon { name: "activity".to_string(), size: Some(14), class_name: Some("text-cyan-400".to_string()) }
+                            "Pulse status is backend-owned"
+                        }
+                    }
+                }
+                div { class: "flex shrink-0 items-center divide-x divide-border/30 rounded-xl border border-border/20 bg-background/50 p-2 backdrop-blur-md",
+                    DashboardPulseMetric { label: "Response", value: "Not projected".to_string(), class_name: "text-cyan-400".to_string() }
+                    DashboardPulseMetric { label: "Availability", value: "Not projected".to_string(), class_name: "text-primary".to_string() }
+                    DashboardPulseMetric { label: "Signals", value: "Not projected".to_string(), class_name: "text-amber-300".to_string() }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardPulseMetric(label: &'static str, value: String, class_name: String) -> Element {
+    rsx! {
+        div { class: "px-4 py-1 text-center",
+            div { class: "mb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground", "{label}" }
+            div { class: "font-mono text-xs font-bold {class_name}", "{value}" }
+        }
+    }
+}
+
+#[component]
+fn DashboardHudMetrics() -> Element {
+    rsx! {
+        div { class: "mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4", "data-admin-dashboard-surface": "hud-metrics",
+            DashboardMetricCard {
+                label: "Total Wallets",
+                value: "Not projected",
+                subtext: "Backend value not projected",
+                icon: "wallet",
+                accent: "text-cyan-400",
+                border: "border-cyan-500/30",
+            }
+            DashboardMetricCard {
+                label: "System Status",
+                value: "Not projected",
+                subtext: "Backend value not projected",
+                icon: "activity",
+                accent: "text-emerald-400",
+                border: "border-emerald-500/30",
+            }
+            DashboardMetricCard {
+                label: "Daily Connections",
+                value: "Not projected",
+                subtext: "Backend value not projected",
+                icon: "users",
+                accent: "text-pink-400",
+                border: "border-pink-500/30",
+            }
+            DashboardMetricCard {
+                label: "Response Time",
+                value: "Not projected",
+                subtext: "Backend value not projected",
+                icon: "clock",
+                accent: "text-amber-300",
+                border: "border-amber-500/30",
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardMetricCard(
+    label: &'static str,
+    value: &'static str,
+    subtext: &'static str,
+    icon: &'static str,
+    accent: &'static str,
+    border: &'static str,
+) -> Element {
+    rsx! {
+        div { class: "relative overflow-hidden rounded-xl border {border} bg-card/60 p-5 backdrop-blur-md",
+            div { class: "mb-4 flex items-center justify-between",
+                span { class: "whitespace-nowrap text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground", "{label}" }
+                div { class: "rounded-lg border border-white/5 bg-background/50 p-2 shadow-inner {accent}",
+                    Icon { name: icon.to_string(), size: Some(20) }
+                }
+            }
+            div { class: "mb-1 break-words font-mono text-xl font-black tracking-tight {accent} sm:text-2xl", "{value}" }
+            div { class: "flex items-center gap-1.5 text-xs font-medium text-muted-foreground opacity-80",
+                span { class: "block h-1 w-1 rounded-full bg-current opacity-50" }
+                "{subtext}"
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardBentoTools() -> Element {
+    rsx! {
+        div { class: "grid auto-rows-[190px] grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3", "data-admin-dashboard-surface": "bento-tools",
+            DashboardToolCard {
+                href: "/wallet-management/wallets",
+                title: "Wallet Database",
+                description: "Deep inspect connected wallets, view connection history, and manage active sessions.",
+                icon: "wallet",
+                span: "md:col-span-2",
+                accent: "text-cyan-400",
+            }
+            DashboardToolCard {
+                href: "/wallet-management/access",
+                title: "Security & Perms",
+                description: "Critical access control and permission surfaces remain backend-authorized.",
+                icon: "shield",
+                span: "row-span-2",
+                accent: "text-purple-400",
+            }
+            DashboardToolCard {
+                href: "/audit-log",
+                title: "Global Audit Log",
+                description: "Review the immutable history of administrative actions when the service is available.",
+                icon: "file-text",
+                span: "",
+                accent: "text-pink-400",
+            }
+            DashboardToolCard {
+                href: "/notifications/manage",
+                title: "Broadcast Hub",
+                description: "Manage critical system notices and global updates through the notifications workspace.",
+                icon: "bell",
+                span: "",
+                accent: "text-amber-300",
+            }
+            DashboardToolCard {
+                href: "/developer-portal",
+                title: "Dev Infrastructure",
+                description: "Manage API keys, integrations, and webhooks when backend data is available.",
+                icon: "database",
+                span: "md:col-span-2",
+                accent: "text-emerald-400",
+            }
+            DashboardToolCard {
+                href: "/settings",
+                title: "Settings",
+                description: "Core platform configuration and policy controls.",
+                icon: "settings",
+                span: "",
+                accent: "text-slate-400",
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardToolCard(
+    href: &'static str,
+    title: &'static str,
+    description: &'static str,
+    icon: &'static str,
+    span: &'static str,
+    accent: &'static str,
+) -> Element {
+    rsx! {
+        a { href: href, class: "group relative flex flex-col overflow-hidden rounded-2xl border border-border/20 bg-card/60 backdrop-blur-md transition-all duration-300 hover:border-white/20 hover:shadow-xl {span}",
+            div { class: "absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-60", aria_hidden: "true" }
+            div { class: "relative z-10 flex h-full flex-col p-5 sm:p-6",
+                div { class: "mb-4 flex items-start justify-between gap-3",
+                    div { class: "rounded-xl border border-white/5 bg-background/50 p-3 {accent}",
+                        Icon { name: icon.to_string(), size: Some(24) }
+                    }
+                    span { class: "rounded-full border border-border/30 bg-background/50 px-3 py-1 text-[10px] font-mono uppercase tracking-widest text-muted-foreground",
+                        "Not projected"
+                    }
+                }
+                div { class: "mt-auto",
+                    h3 { class: "mb-2 text-xl font-black tracking-tight text-foreground sm:text-2xl", "{title}" }
+                    p { class: "line-clamp-3 text-sm font-medium leading-relaxed text-muted-foreground", "{description}" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn DashboardActivityStream() -> Element {
+    rsx! {
+        section { class: "flex h-full min-h-[420px] flex-col overflow-hidden rounded-2xl border border-border/20 bg-card shadow-2xl", "data-admin-dashboard-surface": "activity-stream",
+            header { class: "flex items-center justify-between border-b border-border/20 bg-muted/20 p-4",
+                div { class: "flex items-center gap-3",
+                    span { class: "relative flex h-3 w-3",
+                        span { class: "absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-50" }
+                        span { class: "relative inline-flex h-3 w-3 rounded-full bg-cyan-500" }
+                    }
+                    h2 { class: "font-mono text-xs font-black uppercase tracking-[0.2em] text-cyan-400", "Global Event Stream" }
+                }
+                Icon { name: "refresh-cw".to_string(), size: Some(16), class_name: Some("text-muted-foreground".to_string()) }
+            }
+            div { class: "relative flex flex-1 items-center justify-center bg-background/50 p-6 font-mono text-sm text-muted-foreground",
+                div { class: "text-center",
+                    Icon { name: "wifi-off".to_string(), size: Some(24), class_name: Some("mx-auto mb-3 text-amber-300".to_string()) }
+                    p { class: "font-semibold uppercase tracking-widest", "STREAM.NOT_PROJECTED" }
+                    p { class: "mt-2 text-xs leading-5", "Recent wallet activity is not exposed by the backend projection." }
+                }
+            }
+            footer { class: "border-t border-border/20 bg-background/80 p-2 text-center text-[10px] font-mono uppercase tracking-widest text-muted-foreground",
+                "END OF STREAM / DATA NOT PROJECTED"
             }
         }
     }

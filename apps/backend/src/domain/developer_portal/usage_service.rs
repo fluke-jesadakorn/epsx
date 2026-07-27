@@ -7,8 +7,8 @@ use serde::Serialize;
 use uuid::Uuid;
 
 use crate::infrastructure::adapter_repositories::DbPool;
-use crate::schemas::primary::api_keys;
 use crate::schemas::infra_logs::api_key_usage_logs;
+use crate::schemas::primary::api_keys;
 
 /// API usage statistics for a wallet
 #[derive(Debug, Serialize)]
@@ -48,7 +48,7 @@ pub struct ModuleUsage {
 }
 
 /// Usage service with multi-database support
-/// 
+///
 /// This service queries:
 /// - `core_pool`: For `api_keys` table (key metadata)
 /// - `analytics_pool`: For `api_key_usage_logs` table (usage metrics)
@@ -60,20 +60,26 @@ pub struct UsageService {
 impl UsageService {
     /// Create a new usage service with dual database pools
     pub fn new(core_pool: DbPool, analytics_pool: DbPool) -> Self {
-        Self { core_pool, analytics_pool }
+        Self {
+            core_pool,
+            analytics_pool,
+        }
     }
 
     /// Create a usage service with only core pool (legacy compatibility, limited functionality)
     /// Note: Analytics queries will use core pool and likely fail if tables don't exist
     pub fn new_core_only(core_pool: DbPool) -> Self {
-        Self { 
-            core_pool, 
-            analytics_pool: core_pool  // Same pool, will fail on analytics-specific tables
+        Self {
+            core_pool,
+            analytics_pool: core_pool, // Same pool, will fail on analytics-specific tables
         }
     }
 
     /// Get aggregated usage stats for a wallet address
-    pub async fn get_wallet_stats(&self, wallet_address: &str) -> Result<UsageStats, diesel::result::Error> {
+    pub async fn get_wallet_stats(
+        &self,
+        wallet_address: &str,
+    ) -> Result<UsageStats, diesel::result::Error> {
         let mut core_conn = self.core_pool.get().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
@@ -85,9 +91,12 @@ impl UsageService {
         let wallet_lower = wallet_address.to_lowercase();
         let total_requests: i64 = api_keys::table
             .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+                "LOWER(wallet_address) = '{}'",
+                wallet_lower.replace('\'', "''")
             )))
-            .select(diesel::dsl::sql::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>>("SUM(total_requests)::BIGINT"))
+            .select(diesel::dsl::sql::<
+                diesel::sql_types::Nullable<diesel::sql_types::BigInt>,
+            >("SUM(total_requests)::BIGINT"))
             .first::<Option<i64>>(&mut core_conn)
             .await?
             .unwrap_or(0);
@@ -95,7 +104,8 @@ impl UsageService {
         // Get API key IDs for analytics queries
         let api_key_ids: Vec<Uuid> = api_keys::table
             .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+                "LOWER(wallet_address) = '{}'",
+                wallet_lower.replace('\'', "''")
             )))
             .select(api_keys::id)
             .load::<Uuid>(&mut core_conn)
@@ -159,9 +169,9 @@ impl UsageService {
 
     /// Get usage history (time series) for a wallet
     pub async fn get_usage_history(
-        &self, 
-        wallet_address: &str, 
-        days: i32
+        &self,
+        wallet_address: &str,
+        days: i32,
     ) -> Result<Vec<UsageHistoryPoint>, diesel::result::Error> {
         // Get API key IDs from core database
         let mut core_conn = self.core_pool.get().await.map_err(|e| {
@@ -174,7 +184,8 @@ impl UsageService {
         let wallet_lower = wallet_address.to_lowercase();
         let api_key_ids: Vec<Uuid> = api_keys::table
             .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+                "LOWER(wallet_address) = '{}'",
+                wallet_lower.replace('\'', "''")
             )))
             .select(api_keys::id)
             .load::<Uuid>(&mut core_conn)
@@ -193,10 +204,11 @@ impl UsageService {
         })?;
 
         let start_date = Utc::now() - Duration::days(days as i64);
-        
+
         // Generate time buckets (daily) with request counts
         // Using raw SQL for proper time bucketing
-        let api_key_ids_str: String = api_key_ids.iter()
+        let api_key_ids_str: String = api_key_ids
+            .iter()
             .map(|id| format!("'{}'", id))
             .collect::<Vec<_>>()
             .join(",");
@@ -224,9 +236,9 @@ impl UsageService {
 
     /// Get top endpoints for a wallet
     pub async fn get_top_endpoints(
-        &self, 
+        &self,
         wallet_address: &str,
-        days: i32
+        days: i32,
     ) -> Result<Vec<TopEndpoint>, diesel::result::Error> {
         // Get API key IDs from core database
         let mut core_conn = self.core_pool.get().await.map_err(|e| {
@@ -239,7 +251,8 @@ impl UsageService {
         let wallet_lower = wallet_address.to_lowercase();
         let api_key_ids: Vec<Uuid> = api_keys::table
             .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+                "LOWER(wallet_address) = '{}'",
+                wallet_lower.replace('\'', "''")
             )))
             .select(api_keys::id)
             .load::<Uuid>(&mut core_conn)
@@ -258,8 +271,9 @@ impl UsageService {
         })?;
 
         let start_date = Utc::now() - Duration::days(days as i64);
-        
-        let api_key_ids_str: String = api_key_ids.iter()
+
+        let api_key_ids_str: String = api_key_ids
+            .iter()
             .map(|id| format!("'{}'", id))
             .collect::<Vec<_>>()
             .join(",");
@@ -296,7 +310,9 @@ impl UsageService {
             )
         })?;
 
-        let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
+        let today_start = Utc::now()
+            .date_naive()
+            .and_hms_opt(0, 0, 0)
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
             .unwrap_or_else(Utc::now);
 
@@ -320,7 +336,8 @@ impl UsageService {
         })?;
 
         let now = Utc::now();
-        let month_start = now.date_naive()
+        let month_start = now
+            .date_naive()
             .with_day(1)
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
@@ -337,7 +354,10 @@ impl UsageService {
     }
 
     /// Get top modules by usage (for admin stats)
-    pub async fn get_top_modules_by_usage(&self, limit: i64) -> Result<Vec<ModuleUsage>, diesel::result::Error> {
+    pub async fn get_top_modules_by_usage(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<ModuleUsage>, diesel::result::Error> {
         let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
@@ -354,7 +374,8 @@ impl UsageService {
             count: i64,
         }
 
-        let month_start = Utc::now().date_naive()
+        let month_start = Utc::now()
+            .date_naive()
             .with_day(1)
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
@@ -380,10 +401,14 @@ impl UsageService {
         .unwrap_or_default();
 
         // Convert to ModuleUsage (module name lookup would require core DB join)
-        let modules: Vec<ModuleUsage> = module_counts.into_iter()
+        let modules: Vec<ModuleUsage> = module_counts
+            .into_iter()
             .map(|mc| ModuleUsage {
                 module_id: mc.module_id,
-                module_name: format!("module-{}", mc.module_id.to_string().chars().take(8).collect::<String>()),
+                module_name: format!(
+                    "module-{}",
+                    mc.module_id.to_string().chars().take(8).collect::<String>()
+                ),
                 request_count: mc.count,
             })
             .collect();

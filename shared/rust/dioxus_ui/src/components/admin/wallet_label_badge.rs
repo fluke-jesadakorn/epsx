@@ -206,8 +206,7 @@ mod tests {
         );
         // Should have a colored bg (any of the 8 palette colors).
         assert!(
-            html.contains("bg-")
-                && (html.contains("100") || html.contains("900")),
+            html.contains("bg-") && (html.contains("100") || html.contains("900")),
             "LabelBadge should render a palette background. Got: {html}"
         );
     }

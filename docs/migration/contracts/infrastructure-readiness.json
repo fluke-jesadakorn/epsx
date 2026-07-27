@@ -15,18 +15,20 @@
     {
       "id": "base-resource-set",
       "file": "infrastructure/kubernetes/base/kustomization.yaml",
-      "sha256": "631cc68f6af7c4fbfb2a6c3088c375b20a943a4b620c2533ff06adf41c1356ae",
+      "sha256": "50d9bb9e91705b72a17c84d335289b5f94d79ad40a862505dcf61ac0fd65a730",
       "anchors": [
         "- analytics/deployment.yaml",
         "- identity/deployment.yaml",
         "- pay/deployment.yaml",
-        "- pay/deployment-bff.yaml"
+        "- pay/deployment-bff.yaml",
+        "- notification/deployment.yaml",
+        "- notification/service.yaml"
       ]
     },
     {
       "id": "prod-image-transforms",
       "file": "infrastructure/kubernetes/overlays/prod/kustomization.yaml",
-      "sha256": "25d33d52669984c9787072a8a0eccb2842e812574928087029ccecb92950a279",
+      "sha256": "31ad893f36b5f41245a69d079fd91e4d42f959cfa2257b8b81067f3ce99ef6c0",
       "anchors": [
         "namespace: epsx-prod",
         "name: epsx-backend",
@@ -34,7 +36,8 @@
         "name: epsx-admin",
         "newName: epsx-frontend",
         "newName: epsx-pay-svc",
-        "newTag: wave49"
+        "newTag: wave49",
+        "newName: epsx-notification"
       ]
     },
     {
@@ -112,6 +115,39 @@
       ]
     },
     {
+      "id": "notification-microservice-artifact",
+      "file": "infrastructure/kubernetes/base/notification/deployment.yaml",
+      "sha256": "982bc9ca5f21854bae0d21ceb3effbd4dd64edbf3404d6981687098dc2b2eae9",
+      "anchors": [
+        "image: epsx-notification:prod",
+        "name: epsx-notification",
+        "path: /ready",
+        "secretRef:",
+        "readOnlyRootFilesystem: true"
+      ]
+    },
+    {
+      "id": "notification-microservice-service",
+      "file": "infrastructure/kubernetes/base/notification/service.yaml",
+      "sha256": "3a9b05bc60dadd9ec74099a0d3e938a81a97ecc432d1d4c01c6f5da50bc7f451",
+      "anchors": [
+        "name: epsx-notification",
+        "type: ClusterIP",
+        "port: 8106",
+        "targetPort: 8106"
+      ]
+    },
+    {
+      "id": "notification-microservice-image",
+      "file": "services/notification/Dockerfile",
+      "sha256": "3fcb55d6e6938cf40e6a2b49d975d85dfcd77864738aa8c8b30b1b8d9da2187d",
+      "anchors": [
+        "cargo build --release --package epsx-notification --bin notification",
+        "USER 10001:10001",
+        "EXPOSE 8106"
+      ]
+    },
+    {
       "id": "prod-nodeports",
       "file": "infrastructure/kubernetes/overlays/prod/patches/services-nodeport.yaml",
       "sha256": "97007777e0262a4aceaedc28d35cd2b3df2239f795a0754d1cb3bb414d283636",
@@ -125,11 +161,21 @@
     {
       "id": "prod-pay-nodeports",
       "file": "infrastructure/kubernetes/overlays/prod/patches/pay-services-nodeport.yaml",
-      "sha256": "2cc9f1dc38ddb0cfa4039c971e56cfcf520936a686e0e0cd682442dbde7ed777",
+      "sha256": "ed41cda519aaacf21e57d41cf98d2a5d07bbfee252ef013259bc2e18c00fc087",
+      "anchors": [
+        "nodePort: 30084",
+        "nodePort: 30085",
+        "pay.epsx.io` → http://localhost:4752"
+      ]
+    },
+    {
+      "id": "staging-pay-nodeports",
+      "file": "infrastructure/kubernetes/overlays/staging/patches/pay-services-nodeport.yaml",
+      "sha256": "18f69a88482f3117b5e8e9e137c6b9134da0f56db98e5d9f1eaa33f467d6fe9e",
       "anchors": [
         "nodePort: 30082",
         "nodePort: 30083",
-        "pay.epsx.io` → http://localhost:4747"
+        "distinct from prod's 30084/30085 pair"
       ]
     },
     {
@@ -155,21 +201,22 @@
     {
       "id": "prod-cloudflare-map",
       "file": "infrastructure/cloudflare/cloudflared-config.prod.yml",
-      "sha256": "0ce80cfd41f9a48fc2916926a09120ee698d9cc7eba136c9a1eaaaff692769fa",
+      "sha256": "7a846774220043ea96789cba2cee8fed4a3a94dfb5d87f3ac310e3f9a551b36a",
       "anchors": [
         "hostname: api.epsx.io",
         "service: http://localhost:30080",
         "hostname: pay.epsx.io",
-        "service: http://localhost:4747"
+        "service: http://localhost:4752"
       ]
     },
     {
       "id": "pay-host-bridge",
       "file": "infrastructure/scripts/com.epsx.pay-port-bridge.plist",
-      "sha256": "6549614d48aa7e7f6c9096e02ef0674fbb744242e6917058656626b3b3148539",
+      "sha256": "712e00cff741191da4012fafa6533f5430666d47feeef1aafaf4a4d8ab836470",
       "anchors": [
         "TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082",
-        "TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083"
+        "TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083",
+        "TCP-LISTEN:4752,fork,reuseaddr TCP:127.0.0.1:30085"
       ]
     },
     {
@@ -185,8 +232,8 @@
     "namespace": "epsx-prod",
     "resourceCounts": {
       "Namespace": 1,
-      "Service": 7,
-      "Deployment": 7,
+      "Service": 8,
+      "Deployment": 8,
       "Secret": 0
     },
     "services": [
@@ -195,8 +242,9 @@
       { "name": "epsx-backend", "type": "NodePort", "ports": [8080], "targetPorts": [8080], "nodePorts": [30080] },
       { "name": "epsx-frontend", "type": "NodePort", "ports": [3000], "targetPorts": [3000], "nodePorts": [30000] },
       { "name": "epsx-identity", "type": "ClusterIP", "ports": [50051, 50052], "targetPorts": [50051, 50052], "nodePorts": [] },
-      { "name": "epsx-pay-bff", "type": "NodePort", "ports": [3002], "targetPorts": [3002], "nodePorts": [30083] },
-      { "name": "epsx-pay-svc", "type": "NodePort", "ports": [8103], "targetPorts": [8103], "nodePorts": [30082] }
+      { "name": "epsx-pay-bff", "type": "NodePort", "ports": [3002], "targetPorts": [3002], "nodePorts": [30085] },
+      { "name": "epsx-pay-svc", "type": "NodePort", "ports": [8103], "targetPorts": [8103], "nodePorts": [30084] },
+      { "name": "epsx-notification", "type": "ClusterIP", "ports": [8106], "targetPorts": [8106], "nodePorts": [] }
     ],
     "deployments": [
       { "name": "epsx-admin", "images": ["epsx-admin-frontend:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3001", "dependencyChecks": [] },
@@ -205,18 +253,19 @@
       { "name": "epsx-frontend", "images": ["epsx-frontend:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3000", "dependencyChecks": [] },
       { "name": "epsx-identity", "images": ["epsx-identity:dev"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "tcp:50051", "dependencyChecks": [] },
       { "name": "epsx-pay-bff", "images": ["epsx-pay-bff:wave49"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/api/health:3002", "dependencyChecks": [] },
-      { "name": "epsx-pay-svc", "images": ["epsx-pay-svc:wave49"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8103", "dependencyChecks": [] }
+      { "name": "epsx-pay-svc", "images": ["epsx-pay-svc:wave49"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 0, "readinessSignature": "http:/health:8103", "dependencyChecks": [] },
+      { "name": "epsx-notification", "images": ["epsx-notification:prod"], "replicas": 1, "liveness": 1, "readiness": 1, "startup": 1, "readinessSignature": "http:/ready:8106", "dependencyChecks": [] }
     ],
     "imageSummary": {
-      "occurrences": 8,
-      "unique": 7,
+      "occurrences": 9,
+      "unique": 8,
       "devOccurrences": 1,
       "digestOccurrences": 0,
-      "ifNotPresentOccurrences": 8
+      "ifNotPresentOccurrences": 9
     },
     "secretSummary": {
       "secretResources": 0,
-      "envFromSecretRefs": ["epsx-admin", "epsx-backend", "epsx-backend", "epsx-frontend"],
+      "envFromSecretRefs": ["epsx-admin", "epsx-backend", "epsx-backend", "epsx-frontend", "epsx-notification"],
       "secretKeyRefCounts": {
         "epsx-minio": 3,
         "epsx-postgres": 6,
@@ -228,6 +277,11 @@
       "webhookEnvEntries": 0
     }
   },
+  "environmentNodePortPairs": {
+    "prod": [30084, 30085],
+    "staging": [30082, 30083],
+    "dev": [30106, 30107]
+  },
   "imageResolution": [
     { "id": "backend", "base": "epsx-backend:prod", "overlayMatch": "epsx-backend", "declaredResult": "epsx-backend:prod", "rendered": "epsx-backend:prod", "status": "exact-match-render-unchanged" },
     { "id": "frontend", "base": "epsx-frontend:dev", "overlayMatch": "epsx-frontend", "declaredResult": "epsx-frontend:prod", "rendered": "epsx-frontend:prod", "status": "effective-render-change" },
@@ -235,11 +289,12 @@
     { "id": "analytics", "base": "epsx-analytics:wave12", "overlayMatch": "epsx-analytics", "declaredResult": "epsx-analytics:wave12", "rendered": "epsx-analytics:wave12", "status": "exact-match-render-unchanged" },
     { "id": "pay-service", "base": "epsx-pay-svc:prod", "overlayMatch": "epsx-pay-svc", "declaredResult": "epsx-pay-svc:wave49", "rendered": "epsx-pay-svc:wave49", "status": "effective-render-change" },
     { "id": "pay-bff", "base": "epsx-pay-bff:prod", "overlayMatch": "epsx-pay-bff", "declaredResult": "epsx-pay-bff:wave49", "rendered": "epsx-pay-bff:wave49", "status": "effective-render-change" },
-    { "id": "identity", "base": "epsx-identity:dev", "overlayMatch": null, "declaredResult": null, "rendered": "epsx-identity:dev", "status": "missing-prod-transform" }
+    { "id": "identity", "base": "epsx-identity:dev", "overlayMatch": null, "declaredResult": null, "rendered": "epsx-identity:dev", "status": "missing-prod-transform" },
+    { "id": "notification", "base": "epsx-notification:prod", "overlayMatch": "epsx-notification", "declaredResult": "epsx-notification:prod", "rendered": "epsx-notification:prod", "status": "exact-match-render-unchanged" }
   ],
   "ingressMap": [
     { "hostname": "api.epsx.io", "cloudflareOrigin": "localhost:30080", "bridge": null, "nodePort": 30080, "service": "epsx-backend", "status": "artifact-present-runtime-unproven" },
-    { "hostname": "pay.epsx.io", "cloudflareOrigin": "localhost:4747", "bridge": "4747->30082", "nodePort": 30082, "service": "epsx-pay-svc", "intendedService": "epsx-pay-bff", "intendedNodePort": 30083, "status": "blocked-bff-bypass" },
+    { "hostname": "pay.epsx.io", "cloudflareOrigin": "localhost:4752", "bridge": "4752->30085", "nodePort": 30085, "service": "epsx-pay-bff", "intendedService": "epsx-pay-bff", "intendedNodePort": 30085, "status": "bff-path-static-unproven" },
     { "hostname": "epsx.io", "cloudflareOrigin": null, "status": "missing-from-prod-artifact" },
     { "hostname": "admin.epsx.io", "cloudflareOrigin": null, "status": "missing-from-prod-artifact" },
     { "hostname": "analytics-public-routes", "cloudflareOrigin": null, "status": "missing-from-prod-artifact" }
@@ -251,7 +306,7 @@
     { "id": "pay", "productionBase": "present-but-unsafe", "status": "blocked" },
     { "id": "subscription", "productionBase": "absent", "status": "blocked" },
     { "id": "content", "productionBase": "absent", "status": "blocked" },
-    { "id": "notification", "productionBase": "absent", "status": "blocked" },
+    { "id": "notification", "productionBase": "present-but-unproven", "status": "blocked" },
     { "id": "analytics-event-tracking", "productionBase": "absent-rendered-analytics-is-market-ranking-app", "status": "blocked" },
     { "id": "indexer", "productionBase": "absent", "status": "blocked" }
   ],
@@ -277,16 +332,16 @@
     { "id": "I02", "category": "dev-leakage", "severity": "stop", "status": "blocked", "summary": "One prod-render image occurrence retains the untransformed identity :dev tag.", "evidenceIds": ["identity-dev-shallow-readiness"], "resolution": "Resolve and approve the identity image artifact, then reject every dev tag in the prod render." },
     { "id": "I03", "category": "image-immutability", "severity": "stop", "status": "blocked", "summary": "No rendered image is digest pinned and all use IfNotPresent.", "evidenceIds": ["backend-image-secret-probe", "pay-bff-dependency"], "resolution": "Use reviewed registry@sha256 references for init and application containers." },
     { "id": "I04", "category": "image-provenance", "severity": "stop", "status": "blocked", "summary": "Local image names and mutable prod/wave tags do not prove registry provenance or source revision.", "evidenceIds": ["prod-image-transforms", "analytics-dependencies", "pay-sensitive-literals"], "resolution": "Record build provenance, signature/SBOM policy and approved digest per workload." },
-    { "id": "I05", "category": "pay-ingress", "severity": "stop", "status": "blocked", "summary": "Public pay ingress routes to the raw pay service instead of the BFF.", "evidenceIds": ["prod-cloudflare-map", "pay-host-bridge", "prod-pay-nodeports"], "resolution": "Map pay.epsx.io to host 4748/NodePort 30083 or an equivalent reviewed BFF-only path." },
+    { "id": "I05", "category": "pay-ingress", "severity": "stop", "status": "blocked", "summary": "The checked-in pay ingress now points to the environment-unique BFF bridge, but live Cloudflare reachability and authenticated BFF execution remain unproven.", "evidenceIds": ["prod-cloudflare-map", "pay-host-bridge", "prod-pay-nodeports"], "resolution": "Verify the 4752->30085 BFF-only path with authenticated contract and failure tests before changing the stop state." },
     { "id": "I06", "category": "service-exposure", "severity": "stop", "status": "blocked", "summary": "Raw backend, analytics and pay service workloads are exposed through NodePorts without an internal-only policy proof.", "evidenceIds": ["prod-nodeports", "prod-pay-nodeports"], "resolution": "Expose only intended edge/BFF surfaces and enforce NetworkPolicy or an equivalent direct-service boundary." },
-    { "id": "I07", "category": "nodeport-collision", "severity": "stop", "status": "blocked", "summary": "Prod pay NodePorts 30082/30083 are also assigned by the staging overlay and bridge comments identify them as staging.", "evidenceIds": ["prod-pay-nodeports", "pay-host-bridge"], "resolution": "Allocate environment-unique cluster-global NodePorts and lock the bridge map." },
+    { "id": "I07", "category": "nodeport-collision", "severity": "stop", "status": "blocked", "summary": "The checked-in prod/staging pay overlays now use distinct cluster-global pairs (prod 30084/30085, staging 30082/30083), but live cluster allocation and bridge reachability remain unproven.", "evidenceIds": ["prod-pay-nodeports", "staging-pay-nodeports", "pay-host-bridge"], "resolution": "Verify both environment overlays on the target cluster and exercise the 4751/4752 prod bridge before changing the stop state." },
     { "id": "I08", "category": "ingress-authority", "severity": "stop", "status": "blocked", "summary": "The checked-in prod ingress map omits frontend, admin and analytics routing and coexists with divergent local tunnel artifacts.", "evidenceIds": ["prod-cloudflare-map", "prod-nodeports"], "resolution": "Establish one reviewed ingress authority with complete hostname-to-service mapping." },
     { "id": "I09", "category": "escrow-config", "severity": "stop", "status": "blocked", "summary": "Pay renders ESCROW_CONTRACT=0.", "evidenceIds": ["pay-sensitive-literals"], "resolution": "Reference a reviewed nonzero per-chain address and fail readiness when absent or zero." },
     { "id": "I10", "category": "webhook-config", "severity": "stop", "status": "blocked", "summary": "The pay render contains no webhook identity, key or replay-window configuration.", "evidenceIds": ["pay-sensitive-literals"], "resolution": "Reference rotatable webhook service identity/key configuration and fail closed when missing." },
     { "id": "I11", "category": "secret-handling", "severity": "stop", "status": "blocked", "summary": "Pay embeds PostgreSQL credentials and has no Secret reference; rendered Secret existence/key compatibility is unproven.", "evidenceIds": ["pay-sensitive-literals", "backend-image-secret-probe", "frontend-dev-image", "admin-dev-image"], "resolution": "Remove sensitive literals and validate referenced secret schemas without reading secret values." },
     { "id": "I12", "category": "topology-completeness", "severity": "stop", "status": "blocked", "summary": "Eight candidate extracted services are absent; pay is present but unsafe.", "evidenceIds": ["base-resource-set", "a13-p0-dependency"], "resolution": "Deploy only selected, gated vertical slices and preserve monolith fallbacks." },
     { "id": "I13", "category": "readiness-depth", "severity": "stop", "status": "blocked", "summary": "All readiness probes are shallow and declare no required database, cache, identity, chain, webhook or downstream checks.", "evidenceIds": ["backend-image-secret-probe", "analytics-dependencies", "pay-sensitive-literals", "pay-bff-dependency"], "resolution": "Separate liveness from route-class dependency readiness with failure drills." },
-    { "id": "I14", "category": "startup-and-port-depth", "severity": "stop", "status": "blocked", "summary": "No startup probe exists and identity readiness checks only TCP 50051, not SSE port 50052.", "evidenceIds": ["identity-dev-shallow-readiness"], "resolution": "Add bounded startup behavior and readiness for every listener required by consumers." },
+    { "id": "I14", "category": "startup-and-port-depth", "severity": "stop", "status": "blocked", "summary": "Notification now has a bounded startup probe, but identity still checks only TCP 50051 and the remaining workloads lack equivalent startup/listener-depth proof for required consumers.", "evidenceIds": ["identity-dev-shallow-readiness", "notification-microservice-artifact"], "resolution": "Add bounded startup behavior and readiness for every listener required by consumers, including identity SSE port 50052." },
     { "id": "I15", "category": "availability", "severity": "stop", "status": "blocked", "summary": "All workloads render one replica with no disruption or rollout safety policy.", "evidenceIds": ["prod-single-replicas", "prod-pay-single-replicas"], "resolution": "Document single-node risk and add tested rollout, disruption and recovery controls appropriate to the host." },
     { "id": "I16", "category": "shadow-canary", "severity": "stop", "status": "blocked", "summary": "No checked-in shadow comparison, canary traffic policy, SLO or reconciliation abort threshold is linked.", "evidenceIds": ["a13-p0-dependency"], "resolution": "Define non-duplicating shadow traffic, canary cohort/weights, observation window and abort criteria." },
     { "id": "I17", "category": "rollback", "severity": "stop", "status": "blocked", "summary": "No immutable previous revision, named rollback owner, restore-time objective or rehearsal evidence is linked.", "evidenceIds": ["a13-p0-dependency", "prod-image-transforms"], "resolution": "Keep the monolith fallback and rehearse digest-based rollback outside production." },

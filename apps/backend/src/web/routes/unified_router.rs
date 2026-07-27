@@ -78,10 +78,7 @@ impl UnifiedRouteBuilder {
     /// gate: production wiring builds the in-process adapter in
     /// `main.rs` (async) and passes the result here so the
     /// synchronous router path can attach it.
-    pub fn with_notification_port(
-        mut self,
-        port: Option<Arc<dyn NotificationPort>>,
-    ) -> Self {
+    pub fn with_notification_port(mut self, port: Option<Arc<dyn NotificationPort>>) -> Self {
         self.notification_port = port;
         self
     }
@@ -156,8 +153,7 @@ impl UnifiedRouteBuilder {
     /// wave10(track-c): introduced as part of the R1 cross-cut.
     fn get_permission_authority_port(
         &self,
-    ) -> Arc<dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort>
-    {
+    ) -> Arc<dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort> {
         use crate::infrastructure::adapters::permission::in_process_authority_adapter::InProcessPermissionAuthorityAdapter;
         let service = self
             .container
@@ -175,8 +171,7 @@ impl UnifiedRouteBuilder {
     /// as part of the R6 cross-cut.
     fn get_wallet_ranking_offset_port(
         &self,
-    ) -> Arc<dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery>
-    {
+    ) -> Arc<dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery> {
         use crate::infrastructure::adapters::permission::in_process_ranking_offset_adapter::InProcessWalletRankingOffsetAdapter;
         let service = self
             .container
@@ -221,12 +216,8 @@ impl UnifiedRouteBuilder {
             // and an empty result from the stock-ranking query
             // path. Both are recoverable in production (no
             // panics).
-            .with_payment_context_repository_port_opt(
-                self.payment_context_repository_port.clone(),
-            )
-            .with_subscription_repository_port_opt(
-                self.subscription_repository_port.clone(),
-            );
+            .with_payment_context_repository_port_opt(self.payment_context_repository_port.clone())
+            .with_subscription_repository_port_opt(self.subscription_repository_port.clone());
         app_state
     }
 
@@ -568,15 +559,36 @@ impl UnifiedRouteBuilder {
         // See audit-analytics §7b, ROADMAP §4 wave-12 precondition #4.
 
         Router::new()
-            .route("/plans", get(crate::web::public::plans_handlers::get_public_plans))
-            .route("/plans/{id}", get(crate::web::public::plans_handlers::get_public_plan_by_id))
+            .route(
+                "/plans",
+                get(crate::web::public::plans_handlers::get_public_plans),
+            )
+            .route(
+                "/plans/{id}",
+                get(crate::web::public::plans_handlers::get_public_plan_by_id),
+            )
             // V2 Dynamic Payment Links (public lookup by slug)
-            .route("/payment-links/{slug}", get(crate::web::payments::payment_link_handlers::get_payment_link_by_slug_handler))
+            .route(
+                "/payment-links/{slug}",
+                get(crate::web::payments::payment_link_handlers::get_payment_link_by_slug_handler),
+            )
             // News (public, no auth)
-            .route("/news", get(crate::web::public::news_handlers::list_public_news))
-            .route("/news/featured", get(crate::web::public::news_handlers::list_featured_news))
-            .route("/news/images/{filename}", get(crate::web::public::news_handlers::serve_news_image))
-            .route("/news/{slug}", get(crate::web::public::news_handlers::get_public_news))
+            .route(
+                "/news",
+                get(crate::web::public::news_handlers::list_public_news),
+            )
+            .route(
+                "/news/featured",
+                get(crate::web::public::news_handlers::list_featured_news),
+            )
+            .route(
+                "/news/images/{filename}",
+                get(crate::web::public::news_handlers::serve_news_image),
+            )
+            .route(
+                "/news/{slug}",
+                get(crate::web::public::news_handlers::get_public_news),
+            )
             .with_state(app_state)
     }
 

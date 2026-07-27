@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
-use epsx_contracts::value_objects::UserId;
 use crate::domain::payment::value_objects::{PaymentId, TransactionHash};
+use epsx_contracts::value_objects::UserId;
 
 /// Command to activate user subscription after successful payment
 #[derive(Debug, Clone, Serialize, Deserialize)]

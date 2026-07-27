@@ -17,19 +17,19 @@
 // in wave 12 once the migration is complete.
 
 pub mod aggregate_root;
+pub mod app_error;
 pub mod domain_event;
+pub mod entities;
+pub mod ports;
 pub mod specification;
 pub mod value_object;
 pub mod value_objects;
-pub mod entities;
-pub mod ports;
-pub mod app_error;
 
-pub use aggregate_root::{ AggregateRoot, AggregateBase, Identity, new_id };
-pub use domain_event::{ DomainEvent, DomainEventBus, EventMetadata };
+pub use aggregate_root::{new_id, AggregateBase, AggregateRoot, Identity};
+pub use app_error::{AppError, AppResult};
+pub use domain_event::{DomainEvent, DomainEventBus, EventMetadata};
+pub use entities::*;
+pub use ports::*;
 pub use specification::Specification;
 pub use value_object::ValueObject;
 pub use value_objects::*;
-pub use entities::*;
-pub use ports::*;
-pub use app_error::{AppError, AppResult};

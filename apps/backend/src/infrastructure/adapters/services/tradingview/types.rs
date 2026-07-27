@@ -1,12 +1,12 @@
 // TradingView Types - Focused Module for Data Structures and DTOs
 // Contains all type definitions, request/response structures, and configuration
 
-use serde::{Deserialize, Serialize};
 use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
-use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
+use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
 
 /// TradingView-specific error types
 #[derive(Debug, thiserror::Error)]
@@ -39,7 +39,7 @@ pub struct TradingViewResponse {
 /// TradingView stock data from API
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TradingViewStock {
-    pub s: String, // Symbol
+    pub s: String,              // Symbol
     pub d: Vec<StockDataField>, // Data array
 }
 
@@ -75,7 +75,7 @@ pub struct PhaseStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum PhaseType {
     Buy,
-    Sell, 
+    Sell,
     Monitor,
 }
 
@@ -135,7 +135,9 @@ pub struct TradingViewConfig {
 impl From<&Config> for TradingViewConfig {
     fn from(config: &Config) -> Self {
         Self {
-            scanner_api_url: "https://scanner.tradingview.com/global/scan?label-product=screener-stock".to_string(),
+            scanner_api_url:
+                "https://scanner.tradingview.com/global/scan?label-product=screener-stock"
+                    .to_string(),
             websocket_url: "wss://data.tradingview.com/socket.io/websocket".to_string(),
             origin_url: "https://www.tradingview.com".to_string(),
             referer_url: "https://www.tradingview.com/".to_string(),
@@ -150,10 +152,10 @@ impl From<&Config> for TradingViewConfig {
 pub trait TradingViewService: Send + Sync {
     /// Fetch stock screener data
     async fn fetch_screener_data(&self) -> Result<Vec<StockScreeningResult>, MarketDataError>;
-    
+
     /// Connect to TradingView WebSocket for real-time data
     async fn connect_realtime_feed(&self) -> Result<(), MarketDataError>;
-    
+
     /// Fetch EPS growth ranking data with server-side pagination and filtering
     async fn fetch_eps_growth_ranking(
         &self,
@@ -163,16 +165,22 @@ pub trait TradingViewService: Send + Sync {
         sector: Option<String>,
         sort_by: Option<String>,
     ) -> Result<(Vec<StockScreeningResult>, i32), MarketDataError>;
-    
+
     /// Extract EPS growth data from TradingView response
     async fn extract_eps_growth_data(&self) -> Result<Vec<EPSGrowthData>, MarketDataError>;
-    
+
     /// Extract EPS growth data with concurrent batch processing
-    async fn extract_eps_growth_data_concurrent(&self, batch_size: usize) -> Result<Vec<EPSGrowthData>, MarketDataError>;
-    
+    async fn extract_eps_growth_data_concurrent(
+        &self,
+        batch_size: usize,
+    ) -> Result<Vec<EPSGrowthData>, MarketDataError>;
+
     /// Fetch specific symbols concurrently
-    async fn fetch_symbols_concurrent(&self, symbols: Vec<String>) -> Result<Vec<EPSGrowthData>, MarketDataError>;
-    
+    async fn fetch_symbols_concurrent(
+        &self,
+        symbols: Vec<String>,
+    ) -> Result<Vec<EPSGrowthData>, MarketDataError>;
+
     /// Fetch EPS data in frontend format with pagination
     async fn fetch_eps_rankings_for_frontend(
         &self,
@@ -180,7 +188,7 @@ pub trait TradingViewService: Send + Sync {
         limit: Option<i32>,
         country: Option<String>,
     ) -> Result<FrontendEPSResponse, MarketDataError>;
-    
+
     /// Fetch enhanced EPS data with WebSocket details
     async fn fetch_enhanced_eps_rankings(
         &self,
@@ -217,10 +225,7 @@ mod tests {
         if std::env::var("DATABASE_URL").is_err() {
             // SAFETY: see scanner.rs tests::ensure_dummy_db_url — same rationale.
             unsafe {
-                std::env::set_var(
-                    "DATABASE_URL",
-                    "postgres://test:test@localhost:5432/test",
-                );
+                std::env::set_var("DATABASE_URL", "postgres://test:test@localhost:5432/test");
             }
         }
     }
@@ -270,11 +275,13 @@ mod tests {
     fn test_tradingview_config_defaults() {
         ensure_dummy_db_url();
         use crate::config::*;
-        
+
         let config = Config::from_env().unwrap();
         let tv_config = TradingViewConfig::from(&config);
-        
-        assert!(tv_config.scanner_api_url.contains("scanner.tradingview.com"));
+
+        assert!(tv_config
+            .scanner_api_url
+            .contains("scanner.tradingview.com"));
         assert!(tv_config.websocket_url.contains("wss://"));
         assert_eq!(tv_config.origin_url, "https://www.tradingview.com");
     }
@@ -282,7 +289,7 @@ mod tests {
     #[test]
     fn test_constants_values() {
         use super::constants::*;
-        
+
         assert_eq!(DEFAULT_PAGE_SIZE, 10);
         assert_eq!(MAX_PAGE_SIZE, 100);
         assert_eq!(MAX_CONCURRENT_REQUESTS, 5);

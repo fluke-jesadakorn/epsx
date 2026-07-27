@@ -12,12 +12,12 @@ DECLARE
     column_is_generated TEXT;
 BEGIN
     SELECT
-        data_type,
-        character_maximum_length,
-        is_nullable,
-        column_default,
-        is_identity,
-        is_generated
+        columns.data_type,
+        columns.character_maximum_length,
+        columns.is_nullable,
+        columns.column_default,
+        columns.is_identity,
+        columns.is_generated
     INTO
         column_data_type,
         column_maximum_length,
@@ -25,10 +25,10 @@ BEGIN
         column_default,
         column_is_identity,
         column_is_generated
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'openid_refresh_tokens'
-      AND column_name = 'client_id';
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'public'
+      AND columns.table_name = 'openid_refresh_tokens'
+      AND columns.column_name = 'client_id';
 
     IF column_data_type IS DISTINCT FROM 'character varying'
        OR column_maximum_length IS DISTINCT FROM 32
@@ -45,12 +45,12 @@ BEGIN
     END IF;
 
     SELECT
-        data_type,
-        character_maximum_length,
-        is_nullable,
-        column_default,
-        is_identity,
-        is_generated
+        columns.data_type,
+        columns.character_maximum_length,
+        columns.is_nullable,
+        columns.column_default,
+        columns.is_identity,
+        columns.is_generated
     INTO
         column_data_type,
         column_maximum_length,
@@ -58,10 +58,10 @@ BEGIN
         column_default,
         column_is_identity,
         column_is_generated
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'openid_refresh_tokens'
-      AND column_name = 'family_id';
+    FROM information_schema.columns AS columns
+    WHERE columns.table_schema = 'public'
+      AND columns.table_name = 'openid_refresh_tokens'
+      AND columns.column_name = 'family_id';
 
     IF column_data_type IS DISTINCT FROM 'uuid'
        OR column_maximum_length IS NOT NULL

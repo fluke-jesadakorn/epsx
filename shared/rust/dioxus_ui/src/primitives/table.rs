@@ -12,8 +12,12 @@ pub fn Table(
     children: Element,
 ) -> Element {
     let mut cls = "table".to_string();
-    if striped.unwrap_or(false) { cls.push_str(" table-striped"); }
-    if hover.unwrap_or(true) { cls.push_str(" table-hover"); }
+    if striped.unwrap_or(false) {
+        cls.push_str(" table-striped");
+    }
+    if hover.unwrap_or(true) {
+        cls.push_str(" table-hover");
+    }
     rsx! {
         div { class: "table-wrap",
             table { class: "{cls}",
@@ -28,9 +32,13 @@ pub fn Table(
 }
 
 #[component]
-pub fn TableRow(children: Element) -> Element { rsx! { tr { {children} } } }
+pub fn TableRow(children: Element) -> Element {
+    rsx! { tr { {children} } }
+}
 #[component]
-pub fn TableCell(children: Element) -> Element { rsx! { td { {children} } } }
+pub fn TableCell(children: Element) -> Element {
+    rsx! { td { {children} } }
+}
 
 /// Standard `<tfoot>` wrapper. Use for totals rows beneath `Table`.
 /// `variant` controls the background: "muted" (default) or "primary"
@@ -50,7 +58,10 @@ pub fn TableFooter(
         "primary" => cls.push_str(" bg-gradient-to-r from-purple-500 to-orange-500 text-white"),
         _ => {}
     }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! { tfoot { class: "{cls}", {children} } }
 }
 
@@ -59,7 +70,10 @@ pub fn TableFooter(
 #[component]
 pub fn TableEmpty(colspan: usize, class_name: Option<String>, children: Element) -> Element {
     let mut cls = "text-center py-8 text-muted-foreground".to_string();
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! {
         tr { td { colspan: "{colspan}", class: "{cls}", {children} } }
     }
@@ -70,7 +84,10 @@ pub fn TableEmpty(colspan: usize, class_name: Option<String>, children: Element)
 #[component]
 pub fn TableLoading(colspan: usize, class_name: Option<String>) -> Element {
     let mut cls = "text-center py-8".to_string();
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! {
         tr { td { colspan: "{colspan}", class: "{cls}",
             div { class: "spinner mx-auto" }

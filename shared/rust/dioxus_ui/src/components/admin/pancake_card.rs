@@ -25,10 +25,7 @@ use dioxus::prelude::*;
 /// PancakeSwap-styled glass-morphism card. The visual standard for
 /// every card on the admin dashboard.
 #[component]
-pub fn PancakeCard(
-    class_name: Option<String>,
-    children: Element,
-) -> Element {
+pub fn PancakeCard(class_name: Option<String>, children: Element) -> Element {
     let mut cls = "card card-glass pancake-card rounded-2xl border border-border/20 bg-muted/30 shadow-xl hover:shadow-2xl hover-lift".to_string();
     if let Some(c) = class_name {
         cls.push(' ');
@@ -205,11 +202,26 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Active Users"), "PancakeStatsCard should render title. Got: {html}");
-        assert!(html.contains("12,345"), "PancakeStatsCard should render value. Got: {html}");
-        assert!(html.contains("+7.5%"), "PancakeStatsCard should render positive trend. Got: {html}");
-        assert!(html.contains("text-success"), "Positive trend should use text-success. Got: {html}");
-        assert!(html.contains("📈"), "PancakeStatsCard should render icon. Got: {html}");
+        assert!(
+            html.contains("Active Users"),
+            "PancakeStatsCard should render title. Got: {html}"
+        );
+        assert!(
+            html.contains("12,345"),
+            "PancakeStatsCard should render value. Got: {html}"
+        );
+        assert!(
+            html.contains("+7.5%"),
+            "PancakeStatsCard should render positive trend. Got: {html}"
+        );
+        assert!(
+            html.contains("text-success"),
+            "Positive trend should use text-success. Got: {html}"
+        );
+        assert!(
+            html.contains("📈"),
+            "PancakeStatsCard should render icon. Got: {html}"
+        );
     }
 
     /// A negative `trend` value uses the destructive color.
@@ -223,7 +235,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("-3%"), "PancakeStatsCard should render negative trend. Got: {html}");
+        assert!(
+            html.contains("-3%"),
+            "PancakeStatsCard should render negative trend. Got: {html}"
+        );
         assert!(
             html.contains("text-destructive"),
             "Negative trend should use text-destructive. Got: {html}"
@@ -251,8 +266,14 @@ mod tests {
             html.contains("Get notified"),
             "PancakeFeatureCard should render description. Got: {html}"
         );
-        assert!(html.contains("🔔"), "PancakeFeatureCard should render icon. Got: {html}");
-        assert!(html.contains("Configure"), "PancakeFeatureCard should render action. Got: {html}");
+        assert!(
+            html.contains("🔔"),
+            "PancakeFeatureCard should render icon. Got: {html}"
+        );
+        assert!(
+            html.contains("Configure"),
+            "PancakeFeatureCard should render action. Got: {html}"
+        );
     }
 
     /// `PancakeFeatureCard` without an action slot omits the
@@ -270,6 +291,9 @@ mod tests {
             !html.contains("card-footer"),
             "PancakeFeatureCard without action should not render card-footer. Got: {html}"
         );
-        assert!(html.contains("Header only"), "PancakeFeatureCard should still render title. Got: {html}");
+        assert!(
+            html.contains("Header only"),
+            "PancakeFeatureCard should still render title. Got: {html}"
+        );
     }
 }

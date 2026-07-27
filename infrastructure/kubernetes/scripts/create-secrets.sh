@@ -110,7 +110,38 @@ apply_secret epsx-backend \
   --from-literal=MAX_PAYMENT_AGE_MINUTES="${MAX_PAYMENT_AGE_MINUTES:-60}" \
   --from-literal=PAYMENTS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
   --from-literal=ANALYTICS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics_${DB_SUFFIX}?sslmode=disable" \
-  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable"
+  --from-literal=NOTIFICATIONS_DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=NOTIFICATION_ADAPTER="${NOTIFICATION_ADAPTER:-in_process}" \
+  --from-literal=NOTIFICATION_SERVICE_URL="${NOTIFICATION_SERVICE_URL:-}" \
+  --from-literal=NOTIFICATION_SERVICE_TOKEN="${NOTIFICATION_SERVICE_TOKEN:-}"
+
+# ── epsx-notification ────────────────────────────────────────────────────────
+# The notification microservice has its own database URL and identity/provider
+# credentials. Empty optional provider values deliberately leave those
+# capabilities unavailable; the service fails closed instead of pretending to
+# deliver mail or push notifications.
+apply_secret epsx-notification \
+  -n "$NAMESPACE" \
+  --from-literal=DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=OIDC_ISSUER="${OIDC_ISSUER:-${IDENTITY_PUBLIC_URL:-}}" \
+  --from-literal=OIDC_JWKS_URL="${OIDC_JWKS_URL:-}" \
+  --from-literal=SMTP_HOST="${NOTIFICATION_SMTP_HOST:-}" \
+  --from-literal=SMTP_PORT="${NOTIFICATION_SMTP_PORT:-587}" \
+  --from-literal=SMTP_USER="${NOTIFICATION_SMTP_USER:-}" \
+  --from-literal=SMTP_PASSWORD="${NOTIFICATION_SMTP_PASSWORD:-}" \
+  --from-literal=FROM_ADDRESS="${NOTIFICATION_FROM_ADDRESS:-noreply@epsx.io}" \
+  --from-literal=FROM_NAME="${NOTIFICATION_FROM_NAME:-EPSX}" \
+  --from-literal=REDIS_URL="${REDIS_URL:-}" \
+  --from-literal=NOTIFICATION_PLAN_DATABASE_URL="${NOTIFICATION_PLAN_DATABASE_URL:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRET="${NOTIFICATION_PROVIDER_SIGNING_SECRET:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRET_PREVIOUS="${NOTIFICATION_PROVIDER_SIGNING_SECRET_PREVIOUS:-}" \
+  --from-literal=NOTIFICATION_PROVIDER_SIGNING_SECRETS="${NOTIFICATION_PROVIDER_SIGNING_SECRETS:-}" \
+  --from-literal=NOTIFICATION_VAPID_PUBLIC_KEY="${NOTIFICATION_VAPID_PUBLIC_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_PRIVATE_KEY="${NOTIFICATION_VAPID_PRIVATE_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_KEY_ID="${NOTIFICATION_VAPID_KEY_ID:-active}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_KEY_ID="${NOTIFICATION_VAPID_PREVIOUS_KEY_ID:-}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_PUBLIC_KEY="${NOTIFICATION_VAPID_PREVIOUS_PUBLIC_KEY:-}" \
+  --from-literal=NOTIFICATION_VAPID_PREVIOUS_PRIVATE_KEY="${NOTIFICATION_VAPID_PREVIOUS_PRIVATE_KEY:-}"
 
 # ── epsx-frontend ─────────────────────────────────────────────────────────────
 apply_secret epsx-frontend \

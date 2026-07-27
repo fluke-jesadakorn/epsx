@@ -8,7 +8,9 @@
 //! renders the same shell as a static element with the data
 //! provided by the caller.
 
-use crate::payment::payment_flow_steps::{PaymentFlowStep, PaymentFlowSteps, PaymentFlowStepsState};
+use crate::payment::payment_flow_steps::{
+    PaymentFlowStep, PaymentFlowSteps, PaymentFlowStepsState,
+};
 
 use dioxus::prelude::*;
 
@@ -28,7 +30,8 @@ pub fn UnifiedPaymentFlow(
     /// Current step in the unified flow.
     step: UnifiedPaymentStep,
     /// Optional error message.
-    #[props(default = None)] error: Option<String>,
+    #[props(default = None)]
+    error: Option<String>,
 ) -> Element {
     let flow_state = match step {
         UnifiedPaymentStep::Idle => PaymentFlowStepsState::default(),
@@ -87,7 +90,5 @@ mod tests {
     }
 
     #[test]
-    fn unified_payment_flow_smoke() {
-        
-    }
+    fn unified_payment_flow_smoke() {}
 }

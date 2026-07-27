@@ -84,7 +84,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("<textarea"), "textarea should render <textarea> element");
+        assert!(
+            html.contains("<textarea"),
+            "textarea should render <textarea> element"
+        );
         assert!(
             html.contains("form-textarea-wp"),
             "admin textarea should use the wp variant class. Got: {html}"

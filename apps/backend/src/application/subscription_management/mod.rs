@@ -2,31 +2,22 @@
 // Commands and queries for plan operations (Subscription logic removed - Direct Payment model)
 
 pub mod commands;
-pub mod queries;
 pub mod controllers; // HTTP controllers (inbound adapters)
-pub mod dtos; // Request/Response DTOs
+pub mod dtos;
+pub mod queries; // Request/Response DTOs
 
 // Re-export command models (Plan only)
 pub use commands::{
-    CreatePlanCommand,
-    CreatePlanResponse,
-    UpdatePlanCommand,
-    UpdatePlanResponse,
-    DeletePlanCommand,
-    DeletePlanResponse,
+    CreatePlanCommand, CreatePlanResponse, DeletePlanCommand, DeletePlanResponse,
+    UpdatePlanCommand, UpdatePlanResponse,
 };
 
 // Re-export command handlers (Plan only)
 pub use commands::{
     CreatePlanCommandHandler,
-// UpdatePlanCommandHandler,
-// DeletePlanCommandHandler,
-
+    // UpdatePlanCommandHandler,
+    // DeletePlanCommandHandler,
 };
 
 // Re-export query handlers (Plan only)
-pub use queries::{
-    GetPlanQueryHandler,
-    ListPlansQueryHandler,
-};
-
+pub use queries::{GetPlanQueryHandler, ListPlansQueryHandler};

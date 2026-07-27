@@ -1,11 +1,10 @@
-
-use std::sync::Arc;
-use chrono::{DateTime, Utc};
 use crate::domain::market_analytics::aggregates::stock_analysis::StockAnalysis;
 use crate::domain::market_analytics::value_objects::*;
-use crate::domain::shared_kernel::entities::stock::{Stock as LegacyStock};
 use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
+use crate::domain::shared_kernel::entities::stock::Stock as LegacyStock;
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
 
 /// Repository adapter for market data that bridges legacy stock system with DDD Trading Analytics
 #[derive(Clone)]
@@ -13,22 +12,25 @@ pub struct MarketDataRepositoryAdapter {
     _tradingview_service: Arc<TradingViewApiService>,
 }
 
-
 impl MarketDataRepositoryAdapter {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { _tradingview_service: tradingview_service }
+        Self {
+            _tradingview_service: tradingview_service,
+        }
     }
 
     /// Convert legacy Stock to DDD StockAnalysis
-    fn convert_legacy_to_ddd_stock(&self, legacy_stock: &LegacyStock) -> Result<StockAnalysis, String> {
+    fn convert_legacy_to_ddd_stock(
+        &self,
+        legacy_stock: &LegacyStock,
+    ) -> Result<StockAnalysis, String> {
         let symbol = StockSymbol::new(legacy_stock.symbol.clone())
             .map_err(|e| format!("Invalid stock symbol: {}", e))?;
-        
+
         // Create basic EPS values (unknown from legacy stock)
-        let current_eps = EPSValue::new(0.0)
-            .map_err(|e| format!("Invalid current EPS: {}", e))?;
-        let previous_eps = EPSValue::new(0.0)
-            .map_err(|e| format!("Invalid previous EPS: {}", e))?;
+        let current_eps = EPSValue::new(0.0).map_err(|e| format!("Invalid current EPS: {}", e))?;
+        let previous_eps =
+            EPSValue::new(0.0).map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
         // Create basic stock analysis from legacy stock data
         StockAnalysis::new(
@@ -42,7 +44,10 @@ impl MarketDataRepositoryAdapter {
     }
 
     /// Convert StockScreeningResult to DDD StockAnalysis
-    fn convert_screening_result_to_ddd(&self, screening_result: &StockScreeningResult) -> Result<StockAnalysis, String> {
+    fn convert_screening_result_to_ddd(
+        &self,
+        screening_result: &StockScreeningResult,
+    ) -> Result<StockAnalysis, String> {
         let symbol = StockSymbol::new(screening_result.symbol.clone())
             .map_err(|e| format!("Invalid symbol: {}", e))?;
 
@@ -50,15 +55,17 @@ impl MarketDataRepositoryAdapter {
         let current_eps_value = if let Some(eps) = screening_result.current_eps {
             eps
         } else if let Some(pe_ratio) = screening_result.pe_ratio {
-            screening_result.price / pe_ratio.max(1.0)  // Calculate EPS from price and P/E ratio
+            screening_result.price / pe_ratio.max(1.0) // Calculate EPS from price and P/E ratio
         } else {
-            1.0  // Default EPS value
+            1.0 // Default EPS value
         };
-        let current_eps = EPSValue::new(current_eps_value)
-            .map_err(|e| format!("Invalid current EPS: {}", e))?;
+        let current_eps =
+            EPSValue::new(current_eps_value).map_err(|e| format!("Invalid current EPS: {}", e))?;
 
         // Calculate previous EPS from growth rate
-        let growth_rate = screening_result.eps_growth_yoy.unwrap_or(screening_result.change_percent); // Use real growth or change_percent proxy
+        let growth_rate = screening_result
+            .eps_growth_yoy
+            .unwrap_or(screening_result.change_percent); // Use real growth or change_percent proxy
         let previous_eps_value = if growth_rate != 0.0 {
             current_eps_value / (1.0 + growth_rate / 100.0)
         } else {
@@ -67,8 +74,13 @@ impl MarketDataRepositoryAdapter {
         let previous_eps = EPSValue::new(previous_eps_value.max(0.0))
             .map_err(|e| format!("Invalid previous EPS: {}", e))?;
 
-        let sector = MarketSector::new(screening_result.sector.clone().unwrap_or_else(|| "Unknown".to_string()))
-            .map_err(|e| format!("Invalid sector: {}", e))?;
+        let sector = MarketSector::new(
+            screening_result
+                .sector
+                .clone()
+                .unwrap_or_else(|| "Unknown".to_string()),
+        )
+        .map_err(|e| format!("Invalid sector: {}", e))?;
 
         let country = Country::new("US".to_string()) // Default country as field not available
             .map_err(|e| format!("Invalid default country: {}", e))?;
@@ -83,17 +95,22 @@ impl MarketDataRepositoryAdapter {
             country,
         )
     }
-
 }
 
 impl MarketDataRepositoryAdapter {
     /// Convert screening result to stock analysis
-    pub fn screening_result_to_stock_analysis(&self, screening_result: &StockScreeningResult) -> Result<StockAnalysis, String> {
+    pub fn screening_result_to_stock_analysis(
+        &self,
+        screening_result: &StockScreeningResult,
+    ) -> Result<StockAnalysis, String> {
         self.convert_screening_result_to_ddd(screening_result)
     }
 
     /// Convert legacy stock to stock analysis
-    pub fn legacy_stock_to_stock_analysis(&self, legacy_stock: &LegacyStock) -> Result<StockAnalysis, String> {
+    pub fn legacy_stock_to_stock_analysis(
+        &self,
+        legacy_stock: &LegacyStock,
+    ) -> Result<StockAnalysis, String> {
         self.convert_legacy_to_ddd_stock(legacy_stock)
     }
 }
@@ -122,7 +139,7 @@ pub struct MarketStatistics {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     fn get_test_config() -> crate::config::Config {
         crate::config::get_fallback_config()
     }
@@ -173,7 +190,11 @@ mod tests {
                 assert_eq!(stock_analysis.symbol().as_str(), "AAPL");
                 assert_eq!(stock_analysis.company_name(), "Apple Inc.");
                 assert_eq!(stock_analysis.current_eps().value(), 1.52);
-                assert!((stock_analysis.eps_growth().percentage() - 15.2).abs() < 0.01, "Expected ~15.2, got {}", stock_analysis.eps_growth().percentage());
+                assert!(
+                    (stock_analysis.eps_growth().percentage() - 15.2).abs() < 0.01,
+                    "Expected ~15.2, got {}",
+                    stock_analysis.eps_growth().percentage()
+                );
             }
             Err(e) => panic!("Conversion failed: {}", e),
         }

@@ -9,9 +9,9 @@
 #
 # All three CNAMEs target the same tunnel because the tunnel ingress rules
 # (cloudflared-config.prod.yml + cloudflared-config.dev.yml) route each
-# hostname to a different host port (4747 = staging, 4749 = dev, 4747
-# again for prod since prod + staging share NodePort 30082 on this Mac's
-# colima cluster).
+# hostname to a different environment-specific host port (4752 = prod,
+# 4747/4748 = staging, 4749/4750 = dev). Prod and staging use distinct
+# cluster-global NodePort pairs.
 #
 # PREREQUISITES (one-time setup):
 #   1. Cloudflare account owns epsx.io (or whichever zone you're targeting)

@@ -170,7 +170,10 @@ pub fn SheetTitle(class_name: Option<String>, children: Element) -> Element {
     } else {
         format!("text-lg font-semibold text-foreground {extra}")
     };
-    let id = format!("sheet-title-{}", SHEET_NEXT_ID.fetch_add(1, Ordering::SeqCst));
+    let id = format!(
+        "sheet-title-{}",
+        SHEET_NEXT_ID.fetch_add(1, Ordering::SeqCst)
+    );
     rsx! { h2 { class: "{cls}", id: "{id}", {children} } }
 }
 
@@ -184,7 +187,10 @@ pub fn SheetDescription(class_name: Option<String>, children: Element) -> Elemen
     } else {
         format!("text-sm text-muted-foreground {extra}")
     };
-    let id = format!("sheet-desc-{}", SHEET_NEXT_ID.fetch_add(1, Ordering::SeqCst));
+    let id = format!(
+        "sheet-desc-{}",
+        SHEET_NEXT_ID.fetch_add(1, Ordering::SeqCst)
+    );
     rsx! { p { class: "{cls}", id: "{id}", {children} } }
 }
 

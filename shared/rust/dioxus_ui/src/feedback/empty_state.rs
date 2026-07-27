@@ -3,7 +3,13 @@ use crate::primitives::icon::Icon;
 use dioxus::prelude::*;
 
 #[component]
-pub fn EmptyState(title: String, description: Option<String>, icon: Option<String>, action: Option<String>, action_href: Option<String>) -> Element {
+pub fn EmptyState(
+    title: String,
+    description: Option<String>,
+    icon: Option<String>,
+    action: Option<String>,
+    action_href: Option<String>,
+) -> Element {
     rsx! {
         div { class: "empty-state flex flex-col items-center text-center p-12",
             if let Some(i) = icon {

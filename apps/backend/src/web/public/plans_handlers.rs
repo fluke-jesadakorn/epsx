@@ -1,15 +1,15 @@
 use axum::{
-    response::Json,
+    extract::{Path, State},
     http::StatusCode,
-    extract::{State, Path},
+    response::Json,
 };
 
 use crate::web::auth::AppState;
 
 use crate::web::api_response::ApiResponse;
 
-use utoipa::ToSchema;
-use serde::{Deserialize, Serialize}; // Ensure Serialize and Deserialize are available
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema; // Ensure Serialize and Deserialize are available
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct PublicPlanResponse {
@@ -76,12 +76,12 @@ pub async fn get_public_plans(
         Ok(plans) => {
             tracing::info!("Found {} subscription plans in database", plans.len());
             plans
-        },
+        }
         Err(err) => {
             tracing::error!(error = %err, "Failed to fetch subscription plans from database");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
+                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans")),
             );
         }
     };
@@ -89,115 +89,161 @@ pub async fn get_public_plans(
     // If no plans found, return empty array (not an error)
     if db_plans.is_empty() {
         tracing::warn!("No subscription plans found in database - returning empty array");
-        return (
-            StatusCode::OK,
-            Json(ApiResponse::success(vec![]))
-        );
+        return (StatusCode::OK, Json(ApiResponse::success(vec![])));
     }
 
     // Convert database plans to frontend format
     // First filter by is_public to only show public plans
-    let plans: Vec<PublicPlanResponse> = db_plans.into_iter()
+    let plans: Vec<PublicPlanResponse> = db_plans
+        .into_iter()
         .filter(|plan| plan.is_public) // Only include public plans
         .map(|plan| {
-        use crate::domain::subscription_management::Promotion;
+            use crate::domain::subscription_management::Promotion;
 
-        // Extract permissions array from JSONB
-        let permissions = plan.permissions().as_array()
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
-            .unwrap_or_default();
+            // Extract permissions array from JSONB
+            let permissions = plan
+                .permissions()
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<String>>()
+                })
+                .unwrap_or_default();
 
-        // Extract features from metadata or generate from permissions
-        let features = plan.plan_metadata.get("features")
-            .and_then(|f| f.as_array())
-            .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
-            .unwrap_or_else(|| generate_features_from_permissions(&permissions));
+            // Extract features from metadata or generate from permissions
+            let features = plan
+                .plan_metadata
+                .get("features")
+                .and_then(|f| f.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                        .collect::<Vec<String>>()
+                })
+                .unwrap_or_else(|| generate_features_from_permissions(&permissions));
 
-        // Generate plan type from name or metadata
-        let plan_type = plan.plan_metadata.get("plan_type")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| {
-                plan.name.to_uppercase()
-                    .replace(" PLAN", "")
-                    .replace(" ", "_")
-            });
+            // Generate plan type from name or metadata
+            let plan_type = plan
+                .plan_metadata
+                .get("plan_type")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string())
+                .unwrap_or_else(|| {
+                    plan.name
+                        .to_uppercase()
+                        .replace(" PLAN", "")
+                        .replace(" ", "_")
+                });
 
-        // Get price as string
-        let price_str = plan.price.as_ref()
-            .map(|p| p.to_string())
-            .unwrap_or_else(|| "0.00".to_string());
+            // Get price as string
+            let price_str = plan
+                .price
+                .as_ref()
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| "0.00".to_string());
 
-        let base_price = price_str.parse::<f64>().unwrap_or(0.0);
+            let base_price = price_str.parse::<f64>().unwrap_or(0.0);
 
-        // Extract and process promotion
-        let promotion_data = plan.plan_metadata.get("promotion");
-        let (effective_price, promotion_active, promotion_status, promotion_discount, promotion_ends_at) = if let Some(promo_value) = promotion_data {
-            match serde_json::from_value::<Promotion>(promo_value.clone()) {
-                Ok(promo) => {
-                    let effective = promo.calculate_effective_price(base_price);
-                    let active = promo.is_active();
-                    let status = promo.get_status();
-                    let discount = promo.get_discount_percentage(base_price);
-                    let ends_at = if active { Some(promo.end_date.clone()) } else { None };
-                    tracing::debug!("Plan {} promotion: enabled={}, active={}, effective_price={:.2}", plan.id, promo.enabled, active, effective);
-                    (effective, active, status, discount, ends_at)
+            // Extract and process promotion
+            let promotion_data = plan.plan_metadata.get("promotion");
+            let (
+                effective_price,
+                promotion_active,
+                promotion_status,
+                promotion_discount,
+                promotion_ends_at,
+            ) = if let Some(promo_value) = promotion_data {
+                match serde_json::from_value::<Promotion>(promo_value.clone()) {
+                    Ok(promo) => {
+                        let effective = promo.calculate_effective_price(base_price);
+                        let active = promo.is_active();
+                        let status = promo.get_status();
+                        let discount = promo.get_discount_percentage(base_price);
+                        let ends_at = if active {
+                            Some(promo.end_date.clone())
+                        } else {
+                            None
+                        };
+                        tracing::debug!(
+                            "Plan {} promotion: enabled={}, active={}, effective_price={:.2}",
+                            plan.id,
+                            promo.enabled,
+                            active,
+                            effective
+                        );
+                        (effective, active, status, discount, ends_at)
+                    }
+                    Err(e) => {
+                        tracing::warn!(
+                            "Failed to deserialize promotion for plan {}: {}",
+                            plan.id,
+                            e
+                        );
+                        (
+                            base_price,
+                            false,
+                            crate::domain::subscription_management::PromotionStatus::Disabled,
+                            0.0,
+                            None,
+                        )
+                    }
                 }
-                Err(e) => {
-                    tracing::warn!("Failed to deserialize promotion for plan {}: {}", plan.id, e);
-                    (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
+            } else {
+                (
+                    base_price,
+                    false,
+                    crate::domain::subscription_management::PromotionStatus::Disabled,
+                    0.0,
+                    None,
+                )
+            };
+
+            PublicPlanResponse {
+                id: plan.id.to_string(),
+                name: plan.name,
+                plan_type,
+                current_price: price_str,
+                effective_price,
+                promotion_active,
+                promotion_status: format!("{:?}", promotion_status).to_lowercase(),
+                promotion_discount,
+                promotion_ends_at,
+                currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
+                billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+                features,
+                permissions,
+                is_active: plan.is_active.unwrap_or(true),
+                tier_level: plan.tier_level,
+                plan_group: plan.plan_group.clone(),
+            }
+        })
+        .filter(|p| {
+            // Filter by group if requested
+            if let Some(ref grp) = group_filter {
+                if p.plan_group.to_lowercase() != *grp {
+                    return false;
                 }
             }
-        } else {
-            (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
-        };
 
-        PublicPlanResponse {
-            id: plan.id.to_string(),
-            name: plan.name,
-            plan_type,
-            current_price: price_str,
-            effective_price,
-            promotion_active,
-            promotion_status: format!("{:?}", promotion_status).to_lowercase(),
-            promotion_discount,
-            promotion_ends_at,
-            currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
-            billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
-            features,
-            permissions,
-            is_active: plan.is_active.unwrap_or(true),
-            tier_level: plan.tier_level,
-            plan_group: plan.plan_group.clone(),
-        }
-    })
-    .filter(|p| {
-
-
-        // Filter by group if requested
-        if let Some(ref grp) = group_filter {
-            if p.plan_group.to_lowercase() != *grp {
-                return false;
+            // Filter by category if requested
+            if let Some(ref cat) = category_filter {
+                let p_type = p.plan_type.to_lowercase();
+                match cat.as_str() {
+                    "api" => p_type.contains("api"),
+                    "enterprise" => p_type.contains("enterprise"),
+                    "subscription" | "user" => {
+                        !p_type.contains("api") && !p_type.contains("enterprise")
+                    }
+                    _ => true,
+                }
+            } else {
+                true
             }
-        }
-
-        // Filter by category if requested
-        if let Some(ref cat) = category_filter {
-            let p_type = p.plan_type.to_lowercase();
-            match cat.as_str() {
-                "api" => p_type.contains("api"),
-                "enterprise" => p_type.contains("enterprise"),
-                "subscription" | "user" => !p_type.contains("api") && !p_type.contains("enterprise"),
-                _ => true,
-            }
-        } else {
-            true
-        }
-    })
-    .collect();
+        })
+        .collect();
 
     // Append constant Free Plan
-
 
     // Sort by tier_level
     let mut final_plans = plans;
@@ -212,12 +258,8 @@ pub async fn get_public_plans(
         }
     }
 
-    (
-        StatusCode::OK,
-        Json(ApiResponse::success(final_plans))
-    )
+    (StatusCode::OK, Json(ApiResponse::success(final_plans)))
 }
-
 
 /// Get a single public plan by ID (no authentication required)
 /// GET /api/public/plans/:id
@@ -247,7 +289,7 @@ pub async fn get_public_plan_by_id(
             tracing::warn!(plan_id = %plan_id, "Invalid plan ID format");
             return (
                 StatusCode::BAD_REQUEST,
-                Json(ApiResponse::error("INVALID_ID", "Invalid plan ID format"))
+                Json(ApiResponse::error("INVALID_ID", "Invalid plan ID format")),
             );
         }
     };
@@ -273,7 +315,7 @@ pub async fn get_public_plan_by_id(
             tracing::error!(error = %err, "Failed to fetch subscription plans");
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans"))
+                Json(ApiResponse::error("DB_ERROR", "Failed to fetch plans")),
             );
         }
     };
@@ -282,11 +324,10 @@ pub async fn get_public_plan_by_id(
     let plan = match db_plans.into_iter().find(|p| p.id == plan_uuid) {
         Some(p) => p,
         None => {
-
             tracing::warn!(plan_id = %plan_id, "Plan not found");
             return (
                 StatusCode::NOT_FOUND,
-                Json(ApiResponse::error("NOT_FOUND", "Plan not found"))
+                Json(ApiResponse::error("NOT_FOUND", "Plan not found")),
             );
         }
     };
@@ -294,23 +335,39 @@ pub async fn get_public_plan_by_id(
     use crate::domain::subscription_management::Promotion;
 
     // Extract permissions array from JSONB
-    let permissions = plan.permissions().as_array()
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+    let permissions = plan
+        .permissions()
+        .as_array()
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        })
         .unwrap_or_default();
 
     // Extract features from metadata or generate from permissions
-    let features = plan.plan_metadata.get("features")
+    let features = plan
+        .plan_metadata
+        .get("features")
         .and_then(|f| f.as_array())
-        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(|s| s.to_string())).collect::<Vec<String>>())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_string()))
+                .collect::<Vec<String>>()
+        })
         .unwrap_or_else(|| generate_features_from_permissions(&permissions));
 
     // Generate plan type from name
-    let plan_type = plan.name.to_uppercase()
+    let plan_type = plan
+        .name
+        .to_uppercase()
         .replace(" PLAN", "")
         .replace(" ", "_");
 
     // Get price as string
-    let price_str = plan.price.as_ref()
+    let price_str = plan
+        .price
+        .as_ref()
         .map(|p| p.to_string())
         .unwrap_or_else(|| "0.00".to_string());
 
@@ -318,19 +375,41 @@ pub async fn get_public_plan_by_id(
 
     // Extract and process promotion
     let promotion_data = plan.plan_metadata.get("promotion");
-    let (effective_price, promotion_active, promotion_status, promotion_discount, promotion_ends_at) = if let Some(promo_value) = promotion_data {
+    let (
+        effective_price,
+        promotion_active,
+        promotion_status,
+        promotion_discount,
+        promotion_ends_at,
+    ) = if let Some(promo_value) = promotion_data {
         if let Ok(promo) = serde_json::from_value::<Promotion>(promo_value.clone()) {
             let effective = promo.calculate_effective_price(base_price);
             let active = promo.is_active();
             let status = promo.get_status();
             let discount = promo.get_discount_percentage(base_price);
-            let ends_at = if active { Some(promo.end_date.clone()) } else { None };
+            let ends_at = if active {
+                Some(promo.end_date.clone())
+            } else {
+                None
+            };
             (effective, active, status, discount, ends_at)
         } else {
-            (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
+            (
+                base_price,
+                false,
+                crate::domain::subscription_management::PromotionStatus::Disabled,
+                0.0,
+                None,
+            )
         }
     } else {
-        (base_price, false, crate::domain::subscription_management::PromotionStatus::Disabled, 0.0, None)
+        (
+            base_price,
+            false,
+            crate::domain::subscription_management::PromotionStatus::Disabled,
+            0.0,
+            None,
+        )
     };
 
     let plan_data = PublicPlanResponse {
@@ -361,16 +440,13 @@ pub async fn get_public_plan_by_id(
     }
 
     tracing::info!(plan_id = %plan_id, "Plan retrieved successfully");
-    (
-        StatusCode::OK,
-        Json(ApiResponse::success(plan_data))
-    )
+    (StatusCode::OK, Json(ApiResponse::success(plan_data)))
 }
 
 /// Generate user-friendly features from permission list
 fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
     let mut features = Vec::new();
-    
+
     for permission in permissions {
         match permission.as_str() {
             // Basic features
@@ -386,7 +462,7 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
                         }
                     }
                 }
-            },
+            }
             perm if perm.starts_with("epsx:rankings:view:") => {
                 if let Some(limit_str) = perm.strip_prefix("epsx:rankings:view:") {
                     if limit_str == "unlimited" {
@@ -395,7 +471,7 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
                         features.push(format!("Rankings from position {}+", limit + 1));
                     }
                 }
-            },
+            }
             perm if perm.starts_with("epsx:rankings:offset:") => {
                 if let Some(offset_str) = perm.strip_prefix("epsx:rankings:offset:") {
                     if let Ok(offset) = offset_str.parse::<i32>() {
@@ -406,7 +482,7 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
                         }
                     }
                 }
-            },
+            }
             "epsx:analytics:export" => features.push("Export functionality".to_string()),
             "epsx:analytics:advanced" => features.push("Advanced analytics".to_string()),
             "epsx:analytics:premium" => features.push("Premium analytics".to_string()),
@@ -423,32 +499,32 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
                 if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_min:") {
                     features.push(format!("{} requests/min", n));
                 }
-            },
+            }
             perm if perm.starts_with("epsx:api:ratelimit_hour:") => {
                 if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_hour:") {
                     features.push(format!("{} requests/hour", n));
                 }
-            },
+            }
             perm if perm.starts_with("epsx:api:ratelimit_day:") => {
                 if let Some(n) = perm.strip_prefix("epsx:api:ratelimit_day:") {
                     features.push(format!("{} requests/day", n));
                 }
-            },
+            }
             perm if perm.starts_with("epsx:api:burst:") => {
                 if let Some(n) = perm.strip_prefix("epsx:api:burst:") {
                     features.push(format!("Burst capacity: {}", n));
                 }
-            },
+            }
             perm if perm.starts_with("epsx:api:calls_limit:") => {
                 if let Some(n) = perm.strip_prefix("epsx:api:calls_limit:") {
                     features.push(format!("{} API calls", n));
                 }
-            },
+            }
             perm if perm.starts_with("epsx:rankings:limit:") => {
                 if let Some(n) = perm.strip_prefix("epsx:rankings:limit:") {
                     features.push(format!("Top {} rankings", n));
                 }
-            },
+            }
             "epsx:analytics:enabled" => features.push("Advanced analytics".to_string()),
             "epsx:support:premium" => features.push("Premium support".to_string()),
             "epsx:*:*" => features.push("Full platform access".to_string()),
@@ -456,11 +532,11 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
             _ => {} // Skip unknown permissions
         }
     }
-    
+
     // Add default features if none found
     if features.is_empty() {
         features.push("Basic access".to_string());
     }
-    
+
     features
 }

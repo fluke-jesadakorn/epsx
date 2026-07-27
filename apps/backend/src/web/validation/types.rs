@@ -1,11 +1,11 @@
 // Validation types and error responses
-use std::collections::HashMap;
 use axum::{
     http::StatusCode,
     response::{IntoResponse, Response},
     Json,
 };
 use serde::Serialize;
+use std::collections::HashMap;
 use validator::ValidationErrors;
 
 /// Validation error response

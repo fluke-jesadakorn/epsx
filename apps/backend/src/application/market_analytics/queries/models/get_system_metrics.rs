@@ -1,8 +1,8 @@
 // Get System Metrics Query
 // Multi-source system health and performance metrics for admin dashboard
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Query;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetSystemMetricsQuery {

@@ -18,16 +18,21 @@ use dioxus::prelude::*;
 #[component]
 pub fn DynamicPricingSection(
     /// Personal-tier plans (e.g. Free, Pro).
-    #[props(default = Vec::new())] personal_plans: Vec<PricingGroup>,
+    #[props(default = Vec::new())]
+    personal_plans: Vec<PricingGroup>,
     /// Enterprise-tier plans.
-    #[props(default = Vec::new())] enterprise_plans: Vec<PricingGroup>,
+    #[props(default = Vec::new())]
+    enterprise_plans: Vec<PricingGroup>,
     /// API-tier plans.
-    #[props(default = Vec::new())] api_plans: Vec<PricingGroup>,
+    #[props(default = Vec::new())]
+    api_plans: Vec<PricingGroup>,
     /// Optional affiliate code. When `Some`, the client
     /// component will display the discounted price.
-    #[props(default = None)] affiliate_code: Option<String>,
+    #[props(default = None)]
+    affiliate_code: Option<String>,
     /// Optional class names appended to the wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
     rsx! {
@@ -57,7 +62,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dynamic_pricing_section_smoke() {
-        
-    }
+    fn dynamic_pricing_section_smoke() {}
 }

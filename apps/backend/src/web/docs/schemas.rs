@@ -1,5 +1,5 @@
 //! Common OpenAPI Schemas
-//! 
+//!
 //! Defines reusable schemas for API responses, errors, and common data structures.
 
 use serde::{Deserialize, Serialize};
@@ -52,11 +52,11 @@ pub struct HealthResponse {
     /// Service status
     #[schema(example = "healthy")]
     pub status: String,
-    
+
     /// Service name
     #[schema(example = "epsx-backend")]
     pub service: String,
-    
+
     /// Current timestamp
     pub timestamp: chrono::DateTime<chrono::Utc>,
 }
@@ -70,7 +70,9 @@ pub struct ChallengeResponse {
     pub nonce: String,
 
     /// Complete SIWE message that must be signed by the wallet
-    #[schema(example = "epsx.io wants you to sign in with your Ethereum account:\n0x1234567890123456789012345678901234567890\n\nPlease sign this message to verify your ownership of this wallet.\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: abc123def456\nIssued At: 2024-01-01T12:00:00.000Z")]
+    #[schema(
+        example = "epsx.io wants you to sign in with your Ethereum account:\n0x1234567890123456789012345678901234567890\n\nPlease sign this message to verify your ownership of this wallet.\n\nURI: https://epsx.io\nVersion: 1\nChain ID: 1\nNonce: abc123def456\nIssued At: 2024-01-01T12:00:00.000Z"
+    )]
     pub message: String,
 
     /// When this challenge expires and becomes invalid
@@ -106,27 +108,27 @@ pub struct RankingItem {
     /// Stock ranking position
     #[schema(example = 1)]
     pub rank: u32,
-    
+
     /// Stock symbol
     #[schema(example = "AAPL")]
     pub symbol: String,
-    
+
     /// Company name
     #[schema(example = "Apple Inc.")]
     pub name: String,
-    
+
     /// EPS growth percentage
     #[schema(example = 15.5)]
     pub eps_growth: f64,
-    
+
     /// Market capitalization
     #[schema(example = "3000000000000")]
     pub market_cap: u64,
-    
+
     /// Industry sector
     #[schema(example = "Technology")]
     pub sector: String,
-    
+
     /// Country code
     #[schema(example = "US")]
     pub country: String,

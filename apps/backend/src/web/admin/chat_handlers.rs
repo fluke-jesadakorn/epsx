@@ -151,6 +151,7 @@ pub async fn admin_send_reply(
             // Notify user about new support message
             let notif_wallet = conv.wallet_address.clone();
             let notif_conv_id = id;
+            let notif_msg_id = msg.id;
             let notif_content = body.content.chars().take(100).collect::<String>();
             let notif_state = app_state.clone();
             tokio::spawn(async move {
@@ -158,15 +159,19 @@ pub async fn admin_send_reply(
                 use epsx_contracts::notification_port::SendNotificationRequest;
                 if let Some(port) = notif_state.notification_port.as_ref() {
                     let _ = port
-                        .send(SendNotificationRequest {
-                            recipient_wallet_address: notif_wallet.clone(),
-                            notification_type: "chat".to_string(),
-                            priority: "normal".to_string(),
-                            title: "New Support Message".to_string(),
-                            message: notif_content.clone(),
-                            data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                            action_url: Some(format!("/chat/{}", notif_conv_id)),
-                        })
+                        .send_with_event_id_retry(
+                            &format!("chat.message:{notif_msg_id}"),
+                            SendNotificationRequest {
+                                recipient_wallet_address: notif_wallet.clone(),
+                                notification_type: "chat".to_string(),
+                                priority: "normal".to_string(),
+                                title: "New Support Message".to_string(),
+                                message: notif_content.clone(),
+                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
+                                action_url: Some(format!("/chat/{}", notif_conv_id)),
+                                expires_at: None,
+                            },
+                        )
                         .await;
                 } else {
                     tracing::warn!(

@@ -8,7 +8,6 @@
 /// - `Tag` — a more text-only label (less rounded than a pill).
 ///   Used for hashtags, content tags, etc.
 /// - `TagList` — a horizontal row of tags.
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;
@@ -109,10 +108,7 @@ pub fn Tag(
 
 /// Horizontal list of tags.
 #[component]
-pub fn TagList(
-    tags: Vec<String>,
-    #[props(default = "#".to_string())] prefix: String,
-) -> Element {
+pub fn TagList(tags: Vec<String>, #[props(default = "#".to_string())] prefix: String) -> Element {
     rsx! {
         div { class: "tag-list flex flex-wrap items-center gap-2",
             for t in tags.iter() {

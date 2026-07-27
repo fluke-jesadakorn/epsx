@@ -190,16 +190,16 @@
       {
         "id": "finding.003",
         "file": "apps/backend/src/bin/migrate.rs",
-        "line": 74,
+        "line": 80,
         "ddlKind": "CREATE DATABASE",
         "meaning": "runtime-database-bootstrap",
-        "anchor": "&format!(\"CREATE DATABASE \\\"{}\\\"\", db_name)",
+        "anchor": "diesel::dsl::sql::<diesel::sql_types::Integer>(&format!(\"CREATE DATABASE \\\"{}\\\"\", db_name))",
         "evidenceId": "tgt-ddl-finding-003"
       },
       {
         "id": "finding.004",
         "file": "apps/backend/src/main.rs",
-        "line": 38,
+        "line": 33,
         "ddlKind": "CREATE DATABASE",
         "meaning": "lexical-match-not-schema-ddl",
         "anchor": ".map_err(|e| format!(\"Failed to create database pool: {}\", e))?;",
@@ -331,12 +331,12 @@
     {
       "id": "tgt-pay-host-service",
       "file": "infrastructure/kubernetes/overlays/prod/patches/pay-services-nodeport.yaml",
-      "anchor": "nodePort: 30082"
+      "anchor": "nodePort: 30084"
     },
     {
       "id": "tgt-pay-host-tunnel",
       "file": "infrastructure/cloudflare/cloudflared-config.prod.yml",
-      "anchor": "service: http://localhost:4747"
+      "anchor": "service: http://localhost:4752"
     },
     {
       "id": "tgt-escrow-placeholder",
@@ -746,7 +746,7 @@
       "severity": "stop",
       "status": "blocked",
       "category": "deployment-routing",
-      "summary": "pay.epsx.io tunnel reaches the pay service NodePort rather than the pay BFF described by its comment.",
+      "summary": "pay.epsx.io now points at the environment-unique pay BFF bridge statically, but live Cloudflare/bridge reachability and authenticated BFF execution remain unproven.",
       "evidenceIds": ["tgt-pay-host-service", "tgt-pay-host-tunnel"],
       "resolution": "Choose and test the public BFF service/NodePort route; keep the raw service private."
     },

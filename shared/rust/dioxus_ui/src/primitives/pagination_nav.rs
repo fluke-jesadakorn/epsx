@@ -166,7 +166,10 @@ fn render_page_list<F: Fn(u32) -> String>(current: u32, total: u32, href_for: F)
     }
 }
 
-enum PageSlot { Number(u32), Ellipsis }
+enum PageSlot {
+    Number(u32),
+    Ellipsis,
+}
 
 #[cfg(test)]
 mod tests {

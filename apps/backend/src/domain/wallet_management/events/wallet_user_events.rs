@@ -1,10 +1,10 @@
-use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
+use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
+use crate::prelude::*;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
 use std::collections::HashSet;
+use uuid::Uuid;
 
 /// Event raised when a new wallet user is created
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -15,7 +15,11 @@ pub struct WalletUserCreatedEvent {
 }
 
 impl WalletUserCreatedEvent {
-    pub fn new(wallet_address: WalletAddress, plans: HashSet<String>, aggregate_version: u64) -> Self {
+    pub fn new(
+        wallet_address: WalletAddress,
+        plans: HashSet<String>,
+        aggregate_version: u64,
+    ) -> Self {
         Self {
             metadata: EventMetadata::new(wallet_address.to_string(), aggregate_version),
             wallet_address,

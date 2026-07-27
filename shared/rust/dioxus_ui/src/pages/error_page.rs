@@ -24,47 +24,65 @@
 
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Error");
     let error_message = ctx.query_param("error").unwrap_or_default();
-    let (kind, headline, sub, primary_href, primary_label, secondary_href, secondary_label) = classify(&error_message);
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content",
-                div { class: "error-page",
-                    ErrorIllustration { kind: kind }
-                    h1 { class: "error-page-title", "{headline}" }
-                    p { class: "error-page-subtitle text-muted-foreground", "{sub}" }
-                    if !error_message.is_empty() && kind == ErrorKind::Generic {
-                        div { class: "error-page-message", "{error_message}" }
-                    }
-                    div { class: "error-page-actions",
-                        a { class: "btn btn-primary btn-lg", href: "{primary_href}", "{primary_label}" }
-                        if let (Some(h), Some(l)) = (secondary_href, secondary_label) {
-                            a { class: "btn btn-outline btn-lg", href: "{h}", "{l}" }
+    let (kind, headline, sub, primary_href, primary_label, secondary_href, secondary_label) =
+        classify(&error_message);
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                div { class: "container page-content",
+                    div { class: "error-page",
+                        ErrorIllustration { kind: kind }
+                        h1 { class: "error-page-title", "{headline}" }
+                        p { class: "error-page-subtitle text-muted-foreground", "{sub}" }
+                        if !error_message.is_empty() && kind == ErrorKind::Generic {
+                            div { class: "error-page-message", "{error_message}" }
                         }
-                    }
-                    if kind == ErrorKind::Backend {
-                        ErrorBackendHints {}
+                        div { class: "error-page-actions",
+                            a { class: "btn btn-primary btn-lg", href: "{primary_href}", "{primary_label}" }
+                            if let (Some(h), Some(l)) = (secondary_href, secondary_label) {
+                                a { class: "btn btn-outline btn-lg", href: "{h}", "{l}" }
+                            }
+                        }
+                        if kind == ErrorKind::Backend {
+                            ErrorBackendHints {}
+                        }
                     }
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-enum ErrorKind { Generic, Backend, Permission }
+enum ErrorKind {
+    Generic,
+    Backend,
+    Permission,
+}
 
 /// Classify an error message into one of the three branches the
 /// source uses. Mirrors the source's `isBackendConnectivityError`
 /// and `isPermissionError` heuristics.
-fn classify(msg: &str) -> (ErrorKind, String, String, String, String, Option<String>, Option<String>) {
+fn classify(
+    msg: &str,
+) -> (
+    ErrorKind,
+    String,
+    String,
+    String,
+    String,
+    Option<String>,
+    Option<String>,
+) {
     let lower = msg.to_lowercase();
     let is_backend = lower.contains("failed to fetch")
         || lower.contains("network error")
@@ -73,9 +91,8 @@ fn classify(msg: &str) -> (ErrorKind, String, String, String, String, Option<Str
         || lower.contains("503")
         || lower.contains("504")
         || (lower.contains("/api/") && (lower.contains("404") || lower.contains("not found")));
-    let is_permission = lower.contains("403")
-        || lower.contains("forbidden")
-        || lower.contains("permission denied");
+    let is_permission =
+        lower.contains("403") || lower.contains("forbidden") || lower.contains("permission denied");
     if is_backend {
         (
             ErrorKind::Backend,
@@ -162,7 +179,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "error page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "error page should render non-empty HTML"
+        );
     }
 
     #[test]

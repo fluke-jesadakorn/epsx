@@ -1,11 +1,11 @@
-use std::sync::Arc;
-use crate::config::Config;
-use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
-use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
-use super::types::{TradingViewConfig, MarketDataError};
 use super::rest::TradingViewRestClient;
 use super::scanner::TradingViewScanner;
+use super::types::{MarketDataError, TradingViewConfig};
 use super::websocket::TradingViewWebSocketHandler;
+use crate::config::Config;
+use crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData;
+use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
+use std::sync::Arc;
 
 /// Main API service for TradingView integration
 /// Aggregates REST, Scanner, and WebSocket capabilities
@@ -21,12 +21,14 @@ impl TradingViewApiService {
     /// Create new API service from configuration
     pub fn new(config: Arc<Config>) -> Self {
         let tv_config = TradingViewConfig::from(&*config);
-        
+
         Self {
             rest_client: TradingViewRestClient::new(tv_config.clone()),
             scanner: TradingViewScanner::new(tv_config.clone()),
             websocket: TradingViewWebSocketHandler::new(tv_config.clone()),
-            cache: std::sync::Arc::new(tokio::sync::RwLock::new(super::cache::TradingViewCache::new())),
+            cache: std::sync::Arc::new(tokio::sync::RwLock::new(
+                super::cache::TradingViewCache::new(),
+            )),
             config: tv_config,
         }
     }
@@ -47,11 +49,11 @@ impl TradingViewApiService {
             sector,
             sort_by,
         );
-        
+
         let response = self.rest_client.execute_custom_request(payload, 3).await?;
         let total = response.total_count.unwrap_or(response.data.len() as i32);
         let results = self.scanner.process_trading_view_response(response);
-        
+
         Ok((results, total))
     }
 
@@ -65,15 +67,14 @@ impl TradingViewApiService {
         sector: Option<String>,
         sort_by: Option<String>,
     ) -> Result<(Vec<StockScreeningResult>, i32), MarketDataError> {
-        let payload = self.scanner.build_screener_request_with_params(
-            skip,
-            limit,
-            country,
-            sector,
-            sort_by,
-        );
+        let payload = self
+            .scanner
+            .build_screener_request_with_params(skip, limit, country, sector, sort_by);
 
-        let response = self.rest_client.execute_custom_request_once(payload).await?;
+        let response = self
+            .rest_client
+            .execute_custom_request_once(payload)
+            .await?;
         let total = resolve_market_rankings_total(response.total_count, skip, response.data.len())?;
         let results = self.scanner.process_trading_view_response(response);
 
@@ -81,32 +82,38 @@ impl TradingViewApiService {
     }
 
     /// Fetch specific symbols concurrently
-    pub async fn fetch_symbols_concurrent(&self, symbols: Vec<String>) -> Result<Vec<EPSGrowthData>, MarketDataError> {
+    pub async fn fetch_symbols_concurrent(
+        &self,
+        symbols: Vec<String>,
+    ) -> Result<Vec<EPSGrowthData>, MarketDataError> {
         let payload = self.scanner.build_symbols_request(symbols);
         let response = self.rest_client.execute_custom_request(payload, 3).await?;
         let screening_results = self.scanner.process_trading_view_response(response);
-        
+
         // Convert screening results to EPS growth data (simplified conversion for now)
-        let eps_data = screening_results.into_iter().map(|s| {
-            EPSGrowthData {
-                symbol: s.symbol,
-                name: s.name,
-                country: "unknown".to_string(), // Field not in StockScreeningResult
-                sector: s.sector.unwrap_or_else(|| "unknown".to_string()),
-                exchange: "unknown".to_string(), // Field not in StockScreeningResult
-                current_eps: s.current_eps,
-                growth_factor: s.eps_growth_yoy,
-                price_current: Some(s.price),
-                market_cap: s.market_cap.map(|m| m as i64),
-                volume: Some(s.volume as i64),
-                ranking_score: None,
-                created_at: None,
-                updated_at: None,
-                next_earnings_date: s.next_earnings_date.map(|d| d.to_string()),
-                last_earnings_date: s.last_earnings_date.map(|d| d.to_string()),
-            }
-        }).collect();
-        
+        let eps_data = screening_results
+            .into_iter()
+            .map(|s| {
+                EPSGrowthData {
+                    symbol: s.symbol,
+                    name: s.name,
+                    country: "unknown".to_string(), // Field not in StockScreeningResult
+                    sector: s.sector.unwrap_or_else(|| "unknown".to_string()),
+                    exchange: "unknown".to_string(), // Field not in StockScreeningResult
+                    current_eps: s.current_eps,
+                    growth_factor: s.eps_growth_yoy,
+                    price_current: Some(s.price),
+                    market_cap: s.market_cap.map(|m| m as i64),
+                    volume: Some(s.volume as i64),
+                    ranking_score: None,
+                    created_at: None,
+                    updated_at: None,
+                    next_earnings_date: s.next_earnings_date.map(|d| d.to_string()),
+                    last_earnings_date: s.last_earnings_date.map(|d| d.to_string()),
+                }
+            })
+            .collect();
+
         Ok(eps_data)
     }
 
@@ -137,10 +144,12 @@ fn resolve_market_rankings_total(
         return Ok(total);
     }
 
-    let page_len = i32::try_from(page_len)
-        .map_err(|_| MarketDataError::ValidationError("Provider page length is unsupported".to_string()))?;
-    skip.checked_add(page_len)
-        .ok_or_else(|| MarketDataError::ValidationError("Provider total is unsupported".to_string()))
+    let page_len = i32::try_from(page_len).map_err(|_| {
+        MarketDataError::ValidationError("Provider page length is unsupported".to_string())
+    })?;
+    skip.checked_add(page_len).ok_or_else(|| {
+        MarketDataError::ValidationError("Provider total is unsupported".to_string())
+    })
 }
 
 #[cfg(test)]
@@ -150,6 +159,9 @@ mod a2_5_tests {
     #[test]
     fn a2_5_missing_provider_total_preserves_current_page_extent() {
         assert_eq!(resolve_market_rankings_total(None, 99, 6).unwrap(), 105);
-        assert_eq!(resolve_market_rankings_total(Some(250), 99, 6).unwrap(), 250);
+        assert_eq!(
+            resolve_market_rankings_total(Some(250), 99, 6).unwrap(),
+            250
+        );
     }
 }

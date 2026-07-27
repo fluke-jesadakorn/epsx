@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    GetEPSRankingQuery, GetEPSRankingResponse, RankingEntryDTO, RankingStatisticsDTO
+    GetEPSRankingQuery, GetEPSRankingResponse, RankingEntryDTO, RankingStatisticsDTO,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::EPSRankingRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for getting a single EPS ranking
 pub struct GetEPSRankingQueryHandler {
@@ -12,9 +12,7 @@ pub struct GetEPSRankingQueryHandler {
 
 impl GetEPSRankingQueryHandler {
     pub fn new(ranking_repository: Arc<dyn EPSRankingRepositoryPort>) -> Self {
-        Self {
-            ranking_repository,
-        }
+        Self { ranking_repository }
     }
 }
 
@@ -22,12 +20,16 @@ impl GetEPSRankingQueryHandler {
 impl QueryHandler<GetEPSRankingQuery> for GetEPSRankingQueryHandler {
     async fn handle(&self, query: GetEPSRankingQuery) -> ApplicationResult<GetEPSRankingResponse> {
         // 1. Find ranking
-        let ranking = self.ranking_repository.find_by_id(&query.ranking_id).await
+        let ranking = self
+            .ranking_repository
+            .find_by_id(&query.ranking_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("ranking_id", "Ranking not found"))?;
 
         // 2. Map entries to DTOs
-        let entries: Vec<RankingEntryDTO> = ranking.entries()
+        let entries: Vec<RankingEntryDTO> = ranking
+            .entries()
             .iter()
             .map(|(rank, entry)| RankingEntryDTO {
                 rank: *rank,

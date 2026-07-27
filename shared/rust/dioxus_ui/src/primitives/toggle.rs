@@ -104,7 +104,9 @@ pub fn ToggleGroup(
     #[props(default = None)] class: Option<String>,
     children: Element,
 ) -> Element {
-    let mut cls = "toggle-group inline-flex items-center gap-0 rounded-md border bg-background p-0.5".to_string();
+    let mut cls =
+        "toggle-group inline-flex items-center gap-0 rounded-md border bg-background p-0.5"
+            .to_string();
     if let Some(c) = class {
         cls.push(' ');
         cls.push_str(&c);
@@ -154,13 +156,21 @@ mod tests {
 
     #[test]
     fn toggle_pressed_class_includes_accent() {
-        let pressed_cls = if true { "bg-accent text-accent-foreground" } else { "bg-transparent" };
+        let pressed_cls = if true {
+            "bg-accent text-accent-foreground"
+        } else {
+            "bg-transparent"
+        };
         assert!(pressed_cls.contains("bg-accent"));
     }
 
     #[test]
     fn toggle_unpressed_class_is_transparent() {
-        let pressed_cls = if false { "bg-accent text-accent-foreground" } else { "bg-transparent" };
+        let pressed_cls = if false {
+            "bg-accent text-accent-foreground"
+        } else {
+            "bg-transparent"
+        };
         assert_eq!(pressed_cls, "bg-transparent");
     }
 

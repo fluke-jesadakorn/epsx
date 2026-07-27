@@ -1,6 +1,6 @@
 use crate::prelude::*;
-use uuid::Uuid;
 use std::str::FromStr;
+use uuid::Uuid;
 
 /// Policy ID value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

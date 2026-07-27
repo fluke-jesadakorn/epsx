@@ -18,16 +18,18 @@ pub mod permission;
 // `events::in_process_event_publisher` for the design notes.
 pub mod events;
 
-
 // Re-export with explicit imports to avoid conflicts
 // Repository adapters use SQLx for database operations
 pub use services::{
+    tradingview_types,
     SecurityMonitoringServiceAdapter,
-    TradingViewRestClient, TradingViewWebSocketService,
-    TradingViewCache, tradingview_types,
-    TradingViewWebSocketClient, WebSocketFrontendEPSData,
+    TradingViewCache,
+    TradingViewRestClient,
+    TradingViewWebSocketClient,
+    TradingViewWebSocketService,
+    WebSocketFrontendEPSData,
     // SendGridEmailService removed - Web3-first system doesn't use traditional email
 };
 
-pub use pubsub::{InMemoryPubsubAdapter, RedisPubsubAdapter};
 pub use events::InProcessEventPublisher;
+pub use pubsub::{InMemoryPubsubAdapter, RedisPubsubAdapter};

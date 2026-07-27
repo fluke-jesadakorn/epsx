@@ -402,12 +402,7 @@ pub(crate) fn clear_session_response(
     code: &'static str,
 ) -> Response {
     try_clear_session_response(status, code, |headers| {
-        append_clear_session_cookies(
-            headers,
-            state.cookie_environment,
-            CookieClient::Admin,
-        )
-        .is_ok()
+        append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Admin).is_ok()
     })
     .unwrap_or_else(|error| error)
 }
@@ -418,12 +413,7 @@ fn clear_refresh_session_response(
     code: &'static str,
 ) -> Response {
     match try_clear_session_response(status, code, |headers| {
-        append_clear_session_cookies(
-            headers,
-            state.cookie_environment,
-            CookieClient::Admin,
-        )
-        .is_ok()
+        append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Admin).is_ok()
     }) {
         Ok(response) => refresh_response(response, RefreshDisposition::Clear),
         Err(error) => error,

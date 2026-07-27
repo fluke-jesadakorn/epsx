@@ -17,26 +17,29 @@
 
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
+use dioxus::prelude::*;
 
 pub fn render(_ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Offline");
-    (meta, rsx! {
-        div { class: "offline-page",
-            div { class: "offline-card card card-glass",
-                OfflineIcon {}
-                h1 { class: "offline-title", "You're offline" }
-                p { class: "offline-subtitle text-muted-foreground",
-                    "Please check your internet connection and try again."
+    (
+        meta,
+        rsx! {
+            div { class: "offline-page",
+                div { class: "offline-card card card-glass",
+                    OfflineIcon {}
+                    h1 { class: "offline-title", "You're Offline" }
+                    p { class: "offline-subtitle text-muted-foreground",
+                        "Please check your internet connection and try again."
+                    }
+                    AvailableOfflineList {}
+                    OfflineActions {}
+                    OfflineTip {}
                 }
-                AvailableOfflineList {}
-                OfflineActions {}
-                OfflineTip {}
             }
-        }
-    })
+        },
+    )
 }
 
 /// Centered "no signal" icon — pure inline SVG so the page works
@@ -98,11 +101,12 @@ fn OfflineActions() -> Element {
     rsx! {
         div { class: "offline-actions",
             button {
-                class: "btn btn-primary btn-lg btn-block",
+                class: "btn offline-retry",
                 r#type: "button",
                 "data-offline-reload": "true",
                 "aria-describedby": "offline-retry-status",
-                "Try again"
+                Icon { name: "rotate-ccw".to_string(), size: Some(18) }
+                span { "Try Again" }
             }
             p {
                 id: "offline-retry-status",
@@ -181,6 +185,9 @@ mod tests {
         assert!(html.contains("aria-describedby=\"offline-retry-status\""));
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("aria-live=\"polite\""));
+        assert!(html.contains("class=\"btn offline-retry\""));
+        assert!(html.contains("Try Again"));
+        assert!(html.contains("rotate-ccw"));
         assert!(!html.contains("javascript:"));
     }
 

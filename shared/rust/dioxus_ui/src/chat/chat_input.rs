@@ -12,10 +12,12 @@ use dioxus::prelude::*;
 #[component]
 pub fn ChatInput(
     /// Placeholder text for the textarea.
-    #[props(default = "Type a message…".to_string())] placeholder: String,
+    #[props(default = "Type a message…".to_string())]
+    placeholder: String,
     /// Fired when the user clicks the send button. The new
     /// message text is forwarded to the parent.
-    #[props(default = None)] on_send: Option<EventHandler<String>>,
+    #[props(default = None)]
+    on_send: Option<EventHandler<String>>,
 ) -> Element {
     let mut text = use_signal(String::new);
     rsx! {
@@ -49,7 +51,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_input_smoke() {
-        
-    }
+    fn chat_input_smoke() {}
 }

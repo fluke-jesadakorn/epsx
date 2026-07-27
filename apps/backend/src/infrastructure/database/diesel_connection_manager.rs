@@ -10,9 +10,9 @@
 // initializer struct, the serverless config, and the health-check /
 // pool-statistics accessors.
 
-use std::sync::OnceLock;
 use anyhow::Result;
-use tracing::{info, warn, error};
+use std::sync::OnceLock;
+use tracing::{error, info, warn};
 
 // Re-export the shared types so existing backend import paths
 // (`crate::infrastructure::database::diesel_connection_manager::TlsPool`
@@ -58,9 +58,9 @@ impl DieselServerlessConfig {
         Self {
             database_url,
             // Smaller pool for serverless - memory efficient
-            max_size: 10,               // Reduced from typical 20-50
+            max_size: 10, // Reduced from typical 20-50
             // Faster timeouts for serverless
-            acquire_timeout_secs: 5,    // Reduced from 30s
+            acquire_timeout_secs: 5, // Reduced from 30s
         }
     }
 
@@ -103,12 +103,16 @@ impl DieselConnectionManager {
         match GLOBAL_DIESEL_POOL.set(pool) {
             Ok(()) => {
                 info!("Diesel async pool initialized and cached globally");
-                Ok(GLOBAL_DIESEL_POOL.get().expect("GLOBAL_DIESEL_POOL initialized above"))
+                Ok(GLOBAL_DIESEL_POOL
+                    .get()
+                    .expect("GLOBAL_DIESEL_POOL initialized above"))
             }
             Err(_) => {
                 // Another thread already initialized it
                 warn!("Diesel pool was initialized by another thread");
-                Ok(GLOBAL_DIESEL_POOL.get().expect("GLOBAL_DIESEL_POOL initialized above"))
+                Ok(GLOBAL_DIESEL_POOL
+                    .get()
+                    .expect("GLOBAL_DIESEL_POOL initialized above"))
             }
         }
     }
@@ -168,7 +172,7 @@ impl DieselConnectionManager {
         // Create new analytics pool
         let config = DieselServerlessConfig {
             database_url: analytics_url,
-            max_size: 5,  // Smaller pool for analytics - write-heavy, less concurrent needs
+            max_size: 5, // Smaller pool for analytics - write-heavy, less concurrent needs
             acquire_timeout_secs: 5,
         };
         let pool = Self::create_optimized_pool(config).await?;
@@ -177,27 +181,30 @@ impl DieselConnectionManager {
         match GLOBAL_ANALYTICS_POOL.set(pool) {
             Ok(()) => {
                 info!("Analytics database pool initialized");
-                Ok(GLOBAL_ANALYTICS_POOL.get().expect("GLOBAL_ANALYTICS_POOL initialized above"))
+                Ok(GLOBAL_ANALYTICS_POOL
+                    .get()
+                    .expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Analytics pool was initialized by another thread");
-                Ok(GLOBAL_ANALYTICS_POOL.get().expect("GLOBAL_ANALYTICS_POOL initialized above"))
+                Ok(GLOBAL_ANALYTICS_POOL
+                    .get()
+                    .expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
         }
     }
 
-    /// Get or create the notifications database pool (for real-time SSE notifications)
-    /// Falls back to main pool if NOTIFICATIONS_DATABASE_URL is not configured
+    /// Get or create the notifications database pool (for real-time SSE notifications).
+    /// Notification reads and writes must never silently cross into the primary
+    /// database when the split pool is unavailable.
     pub async fn get_notifications_pool() -> Result<&'static TlsPool> {
-        // Check if notifications DB is configured
-        let notifications_url = match std::env::var("NOTIFICATIONS_DATABASE_URL") {
-            Ok(url) => url,
-            Err(_) => {
-                // Fall back to main pool if notifications DB not configured
-                info!("NOTIFICATIONS_DATABASE_URL not set, using main database pool");
-                return Self::get_pool().await;
-            }
-        };
+        let notifications_url = std::env::var("NOTIFICATIONS_DATABASE_URL")
+            .map_err(|_| anyhow::anyhow!("NOTIFICATIONS_DATABASE_URL is required"))?;
+        if notifications_url.trim().is_empty() {
+            return Err(anyhow::anyhow!(
+                "NOTIFICATIONS_DATABASE_URL must be non-empty"
+            ));
+        }
 
         // Try to get existing notifications pool first
         if let Some(pool) = GLOBAL_NOTIFICATIONS_POOL.get() {
@@ -207,8 +214,8 @@ impl DieselConnectionManager {
         // Create new notifications pool
         let config = DieselServerlessConfig {
             database_url: notifications_url,
-            max_size: 8,  // Medium pool for notifications - read/write balanced
-            acquire_timeout_secs: 3,  // Fast timeout for real-time SSE
+            max_size: 8, // Medium pool for notifications - read/write balanced
+            acquire_timeout_secs: 3, // Fast timeout for real-time SSE
         };
         let pool = Self::create_optimized_pool(config).await?;
 
@@ -216,11 +223,15 @@ impl DieselConnectionManager {
         match GLOBAL_NOTIFICATIONS_POOL.set(pool) {
             Ok(()) => {
                 info!("Notifications database pool initialized");
-                Ok(GLOBAL_NOTIFICATIONS_POOL.get().expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
+                Ok(GLOBAL_NOTIFICATIONS_POOL
+                    .get()
+                    .expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Notifications pool was initialized by another thread");
-                Ok(GLOBAL_NOTIFICATIONS_POOL.get().expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
+                Ok(GLOBAL_NOTIFICATIONS_POOL
+                    .get()
+                    .expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
         }
     }
@@ -246,8 +257,8 @@ impl DieselConnectionManager {
         // Create new payments pool
         let config = DieselServerlessConfig {
             database_url: payments_url,
-            max_size: 10,  // Higher pool for payments - critical path
-            acquire_timeout_secs: 10,  // Longer timeout for financial transactions
+            max_size: 10,             // Higher pool for payments - critical path
+            acquire_timeout_secs: 10, // Longer timeout for financial transactions
         };
         let pool = Self::create_optimized_pool(config).await?;
 
@@ -255,11 +266,15 @@ impl DieselConnectionManager {
         match GLOBAL_PAYMENTS_POOL.set(pool) {
             Ok(()) => {
                 info!("Payments database pool initialized");
-                Ok(GLOBAL_PAYMENTS_POOL.get().expect("GLOBAL_PAYMENTS_POOL initialized above"))
+                Ok(GLOBAL_PAYMENTS_POOL
+                    .get()
+                    .expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Payments pool was initialized by another thread");
-                Ok(GLOBAL_PAYMENTS_POOL.get().expect("GLOBAL_PAYMENTS_POOL initialized above"))
+                Ok(GLOBAL_PAYMENTS_POOL
+                    .get()
+                    .expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
         }
     }
@@ -272,9 +287,8 @@ impl DieselConnectionManager {
     /// Comprehensive health check for all pools
     pub async fn health_check_all() -> AllPoolsHealth {
         let primary = Self::check_pool(Self::get_pool().await).await;
-        // Only check other pools if they are configured or initialized,
-        // but for now we try to get them (which initializes/fallback) and check.
-        // Falls back to primary pool if not configured, so it effectively checks primary again if not split.
+        // Check each configured split pool independently; an absent notification
+        // URL must report unhealthy rather than aliasing the primary database.
         let analytics = Self::check_pool(Self::get_analytics_pool().await).await;
         let notifications = Self::check_pool(Self::get_notifications_pool().await).await;
         let payments = Self::check_pool(Self::get_payments_pool().await).await;

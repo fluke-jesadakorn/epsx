@@ -73,10 +73,7 @@ pub trait PubsubPort: Send + Sync {
     /// underlying subscription. The caller is expected to keep the
     /// returned `Box<dyn MessageStream>` alive for as long as it wants
     /// to receive messages; dropping the stream unsubscribes.
-    fn subscribe(
-        &self,
-        channels: &[&str],
-    ) -> AppResult<Box<dyn MessageStream + Send + Unpin>>;
+    fn subscribe(&self, channels: &[&str]) -> AppResult<Box<dyn MessageStream + Send + Unpin>>;
 }
 
 /// A stream of raw byte payloads from one or more subscribed channels.
@@ -95,9 +92,7 @@ pub trait MessageStream {
     /// Returns `None` when the subscription is closed by the adapter
     /// (e.g. the Redis connection is dropped, or the in-memory
     /// broadcast sender is dropped).
-    fn next_message(
-        &mut self,
-    ) -> Pin<Box<dyn Future<Output = Option<Vec<u8>>> + Send + '_>>;
+    fn next_message(&mut self) -> Pin<Box<dyn Future<Output = Option<Vec<u8>>> + Send + '_>>;
 }
 
 #[cfg(test)]

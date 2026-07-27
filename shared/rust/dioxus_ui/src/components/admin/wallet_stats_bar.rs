@@ -112,10 +112,7 @@ const PLATFORMS: &[PlatformDescriptor] = &[
 /// both inside `AdminWalletStatsBar` and as a public helper for
 /// callers that want just the panel.
 #[component]
-pub fn PlatformDistributionPanel(
-    distribution: WalletPlatformDistribution,
-    total: i64,
-) -> Element {
+pub fn PlatformDistributionPanel(distribution: WalletPlatformDistribution, total: i64) -> Element {
     rsx! {
         div { class: "rounded-xl bg-card border border-border/20 p-5 shadow-sm",
             h4 { class: "text-sm font-semibold text-foreground/80 mb-4",
@@ -181,7 +178,13 @@ fn AdminStatCard(
     } else {
         "flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground"
     };
-    let arrow = if has_positive { "▲" } else if has_negative { "▼" } else { "" };
+    let arrow = if has_positive {
+        "▲"
+    } else if has_negative {
+        "▼"
+    } else {
+        ""
+    };
     let change_label = change_label.unwrap_or_else(|| "7d".to_string());
     rsx! {
         div { class: "rounded-xl bg-card border border-border/20 p-5 shadow-sm",
@@ -298,7 +301,12 @@ mod tests {
             active: 80,
             disabled: 20,
             subscribed: 35,
-            changes: WalletStatsChanges { total: 5, active: 3, disabled: -2, subscribed: 1 },
+            changes: WalletStatsChanges {
+                total: 5,
+                active: 3,
+                disabled: -2,
+                subscribed: 1,
+            },
             platform_distribution: WalletPlatformDistribution {
                 analytics: 40,
                 pay: 30,
@@ -317,14 +325,38 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Total wallets"), "should render Total wallets. Got: {html}");
-        assert!(html.contains("Active"), "should render Active label. Got: {html}");
-        assert!(html.contains("Disabled"), "should render Disabled label. Got: {html}");
-        assert!(html.contains("Subscribed"), "should render Subscribed label. Got: {html}");
-        assert!(html.contains("100"), "should render total value. Got: {html}");
-        assert!(html.contains("80"), "should render active value. Got: {html}");
-        assert!(html.contains("20"), "should render disabled value. Got: {html}");
-        assert!(html.contains("35"), "should render subscribed value. Got: {html}");
+        assert!(
+            html.contains("Total wallets"),
+            "should render Total wallets. Got: {html}"
+        );
+        assert!(
+            html.contains("Active"),
+            "should render Active label. Got: {html}"
+        );
+        assert!(
+            html.contains("Disabled"),
+            "should render Disabled label. Got: {html}"
+        );
+        assert!(
+            html.contains("Subscribed"),
+            "should render Subscribed label. Got: {html}"
+        );
+        assert!(
+            html.contains("100"),
+            "should render total value. Got: {html}"
+        );
+        assert!(
+            html.contains("80"),
+            "should render active value. Got: {html}"
+        );
+        assert!(
+            html.contains("20"),
+            "should render disabled value. Got: {html}"
+        );
+        assert!(
+            html.contains("35"),
+            "should render subscribed value. Got: {html}"
+        );
     }
 
     /// The platform-distribution panel renders the 4 platform
@@ -341,12 +373,21 @@ mod tests {
             html.contains("Platform distribution"),
             "should render the platform-distribution heading. Got: {html}"
         );
-        assert!(html.contains("Analytics"), "should render Analytics. Got: {html}");
+        assert!(
+            html.contains("Analytics"),
+            "should render Analytics. Got: {html}"
+        );
         assert!(html.contains("Pay"), "should render Pay. Got: {html}");
         assert!(html.contains("Token"), "should render Token. Got: {html}");
-        assert!(html.contains("Markets"), "should render Markets. Got: {html}");
+        assert!(
+            html.contains("Markets"),
+            "should render Markets. Got: {html}"
+        );
         // 40% analytics of 100 total.
-        assert!(html.contains("40 (40%)"), "should render analytics percent. Got: {html}");
+        assert!(
+            html.contains("40 (40%)"),
+            "should render analytics percent. Got: {html}"
+        );
     }
 
     /// Loading state renders the 5-skeleton placeholder.
@@ -386,7 +427,10 @@ mod tests {
             html.contains("bg-[#31d0aa]/10"),
             "Positive change should use the green pill. Got: {html}"
         );
-        assert!(html.contains("3 (7d)"), "Should render change value. Got: {html}");
+        assert!(
+            html.contains("3 (7d)"),
+            "Should render change value. Got: {html}"
+        );
     }
 
     /// Negative change uses the destructive pill color.
@@ -428,7 +472,12 @@ mod tests {
     /// `WalletPlatformDistribution::total` sums all 4 platforms.
     #[test]
     fn test_platform_distribution_total() {
-        let d = WalletPlatformDistribution { analytics: 10, pay: 20, token: 30, markets: 40 };
+        let d = WalletPlatformDistribution {
+            analytics: 10,
+            pay: 20,
+            token: 30,
+            markets: 40,
+        };
         assert_eq!(d.total(), 100);
     }
 }

@@ -1,10 +1,10 @@
 // Diesel Test Database Utilities
 // Replaces SQLx-based test database setup with Diesel equivalents
 
-use std::sync::Once;
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
 use anyhow::Result;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use std::sync::Once;
 use tracing::info;
 
 use crate::infrastructure::database::get_diesel_pool;
@@ -24,7 +24,9 @@ impl TestDatabase {
         INIT.call_once(|| {
             info!("Initializing test database environment");
             // Install rustls default crypto provider for tests
-            rustls::crypto::ring::default_provider().install_default().ok();
+            rustls::crypto::ring::default_provider()
+                .install_default()
+                .ok();
         });
 
         // Verify we can get a connection
@@ -34,9 +36,13 @@ impl TestDatabase {
     }
 
     /// Get a connection for testing
-    pub async fn get_connection(&self) -> Result<impl std::ops::DerefMut<Target = diesel_async::AsyncPgConnection>> {
+    pub async fn get_connection(
+        &self,
+    ) -> Result<impl std::ops::DerefMut<Target = diesel_async::AsyncPgConnection>> {
         let pool = get_diesel_pool().await?;
-        pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
+        pool.get()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get test connection: {}", e))
     }
 
     /// Clean up test data (optional, based on test isolation needs)
@@ -44,8 +50,8 @@ impl TestDatabase {
         let mut conn = self.get_connection().await?;
 
         // Clean up test data with LIKE patterns to avoid affecting production data
-        use crate::schemas::primary::{web3_auth_nonces, wallet_users};
         use crate::schemas::notifications::wallet_notifications;
+        use crate::schemas::primary::{wallet_users, web3_auth_nonces};
 
         // Clean up test nonces
         diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::nonce.like("test_%")))
@@ -58,13 +64,15 @@ impl TestDatabase {
             .await?;
 
         // Clean up test notifications
-        diesel::delete(wallet_notifications::table.filter(wallet_notifications::recipient_wallet_address.like("0xtest%")))
-            .execute(&mut conn)
-            .await?;
+        diesel::delete(
+            wallet_notifications::table
+                .filter(wallet_notifications::recipient_wallet_address.like("0xtest%")),
+        )
+        .execute(&mut conn)
+        .await?;
 
         Ok(())
     }
-
 }
 
 impl Drop for TestDatabase {

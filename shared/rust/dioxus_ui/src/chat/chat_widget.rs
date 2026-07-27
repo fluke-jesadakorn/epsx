@@ -14,9 +14,11 @@ use dioxus::prelude::*;
 #[component]
 pub fn ChatWidget(
     /// Whether the panel is currently open.
-    #[props(default = false)] is_open: bool,
+    #[props(default = false)]
+    is_open: bool,
     /// Fired when the user clicks the bubble trigger.
-    #[props(default = None)] on_click: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_click: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     rsx! {
         button {
@@ -39,7 +41,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_widget_smoke() {
-        
-    }
+    fn chat_widget_smoke() {}
 }

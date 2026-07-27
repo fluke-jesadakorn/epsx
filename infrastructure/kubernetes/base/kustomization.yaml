@@ -13,6 +13,8 @@ resources:
   - analytics/service.yaml
   - identity/deployment.yaml
   - identity/service.yaml
+  - notification/deployment.yaml
+  - notification/service.yaml
   # wave49(slice-1): pay.epsx.io microservice — backend
   # service (epsx-pay-svc) + SSR BFF (epsx-pay-bff).
   - pay/deployment.yaml

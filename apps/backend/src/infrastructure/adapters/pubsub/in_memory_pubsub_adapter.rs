@@ -144,10 +144,7 @@ impl PubsubPort for InMemoryPubsubAdapter {
             .iter()
             .map(|c| self.sender_for(c).subscribe())
             .collect();
-        Ok(Box::new(MultiChannelStream {
-            receivers,
-            next: 0,
-        }))
+        Ok(Box::new(MultiChannelStream { receivers, next: 0 }))
     }
 }
 
@@ -260,15 +257,12 @@ impl MessageStream for MultiChannelStream {
                     }
                     Err(tokio::sync::broadcast::error::RecvError::Closed) => {
                         // All receivers are closed → end the stream.
-                        let all_closed = self
-                            .receivers
-                            .iter_mut()
-                            .all(|rx| {
-                                matches!(
-                                    rx.try_recv(),
-                                    Err(tokio::sync::broadcast::error::TryRecvError::Closed)
-                                )
-                            });
+                        let all_closed = self.receivers.iter_mut().all(|rx| {
+                            matches!(
+                                rx.try_recv(),
+                                Err(tokio::sync::broadcast::error::TryRecvError::Closed)
+                            )
+                        });
                         if all_closed {
                             return None;
                         }
@@ -296,13 +290,10 @@ mod tests {
             .await
             .unwrap();
 
-        let received = tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            sub.next_message(),
-        )
-        .await
-        .expect("timed out waiting for in-memory pubsub message")
-        .expect("subscriber closed before delivering message");
+        let received = tokio::time::timeout(std::time::Duration::from_secs(1), sub.next_message())
+            .await
+            .expect("timed out waiting for in-memory pubsub message")
+            .expect("subscriber closed before delivering message");
 
         assert_eq!(received, b"hello bus");
     }
@@ -316,24 +307,15 @@ mod tests {
             .subscribe(&["wave10:test:a", "wave10:test:b"])
             .unwrap();
 
-        adapter
-            .publish("wave10:test:a", b"alpha")
-            .await
-            .unwrap();
-        adapter
-            .publish("wave10:test:b", b"beta")
-            .await
-            .unwrap();
+        adapter.publish("wave10:test:a", b"alpha").await.unwrap();
+        adapter.publish("wave10:test:b", b"beta").await.unwrap();
 
         let mut received = Vec::new();
         for _ in 0..2 {
-            let msg = tokio::time::timeout(
-                std::time::Duration::from_secs(1),
-                sub.next_message(),
-            )
-            .await
-            .expect("timeout")
-            .expect("stream closed");
+            let msg = tokio::time::timeout(std::time::Duration::from_secs(1), sub.next_message())
+                .await
+                .expect("timeout")
+                .expect("stream closed");
             received.push(msg);
         }
         received.sort();
@@ -373,20 +355,14 @@ mod tests {
             .await
             .unwrap();
 
-        let recv_a = tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            sub_a.next_message(),
-        )
-        .await
-        .expect("timeout a")
-        .expect("closed a");
-        let recv_b = tokio::time::timeout(
-            std::time::Duration::from_secs(1),
-            sub_b.next_message(),
-        )
-        .await
-        .expect("timeout b")
-        .expect("closed b");
+        let recv_a = tokio::time::timeout(std::time::Duration::from_secs(1), sub_a.next_message())
+            .await
+            .expect("timeout a")
+            .expect("closed a");
+        let recv_b = tokio::time::timeout(std::time::Duration::from_secs(1), sub_b.next_message())
+            .await
+            .expect("timeout b")
+            .expect("closed b");
 
         assert_eq!(recv_a, b"everyone");
         assert_eq!(recv_b, b"everyone");

@@ -23,8 +23,8 @@
 //! Each component gets a colocated `#[cfg(test)] mod tests` block
 //! with smoke render + key prop handling.
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // NewsEditorStatusToggle
@@ -33,10 +33,7 @@ use crate::primitives::icon::Icon;
 // Draft / Published toggle pills in the editor header.
 
 #[component]
-pub fn NewsEditorStatusToggle(
-    status: String,
-    on_change: EventHandler<String>,
-) -> Element {
+pub fn NewsEditorStatusToggle(status: String, on_change: EventHandler<String>) -> Element {
     rsx! {
         div { class: "news-editor-status-toggle flex items-center rounded-lg border border-border/20 bg-card overflow-hidden",
             button {
@@ -125,7 +122,9 @@ pub fn NewsEditorFormFields(
     let body = body_value.clone().unwrap_or_else(|| {
         "## Introduction\n\nWrite your news article here in markdown.\n\n- Point 1\n- Point 2\n\n[Read more](https://epsx.io)".to_string()
     });
-    let on_title = on_title_change.clone().unwrap_or_else(|| EventHandler::new(|_: String| {}));
+    let on_title = on_title_change
+        .clone()
+        .unwrap_or_else(|| EventHandler::new(|_: String| {}));
     rsx! {
         div { class: "news-editor-form-fields space-y-4",
             div { class: "field",
@@ -229,10 +228,22 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("news-editor-status-toggle"), "NewsEditorStatusToggle must render container class. Got: {html}");
-        assert!(html.contains("Draft"), "NewsEditorStatusToggle must render Draft button. Got: {html}");
-        assert!(html.contains("Published"), "NewsEditorStatusToggle must render Published button. Got: {html}");
-        assert!(html.contains("bg-[#7645d9]/20"), "Active tab must have gradient bg. Got: {html}");
+        assert!(
+            html.contains("news-editor-status-toggle"),
+            "NewsEditorStatusToggle must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Draft"),
+            "NewsEditorStatusToggle must render Draft button. Got: {html}"
+        );
+        assert!(
+            html.contains("Published"),
+            "NewsEditorStatusToggle must render Published button. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-[#7645d9]/20"),
+            "Active tab must have gradient bg. Got: {html}"
+        );
     }
 
     /// `NewsEditorStatusToggle` marks published as active when status="published".
@@ -250,7 +261,10 @@ mod tests {
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
         // The active "published" button has bg-[#7645d9]/20 class
-        assert!(html.contains("bg-[#7645d9]/20"), "NewsEditorStatusToggle published must show active state. Got: {html}");
+        assert!(
+            html.contains("bg-[#7645d9]/20"),
+            "NewsEditorStatusToggle published must show active state. Got: {html}"
+        );
     }
 
     /// `NewsEditorHeader` renders the title + status toggle + save button.
@@ -269,9 +283,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("news-editor-header"), "NewsEditorHeader must render container class. Got: {html}");
-        assert!(html.contains("Edit news"), "NewsEditorHeader must render title. Got: {html}");
-        assert!(html.contains("news-editor-save"), "NewsEditorHeader must render save button. Got: {html}");
+        assert!(
+            html.contains("news-editor-header"),
+            "NewsEditorHeader must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Edit news"),
+            "NewsEditorHeader must render title. Got: {html}"
+        );
+        assert!(
+            html.contains("news-editor-save"),
+            "NewsEditorHeader must render save button. Got: {html}"
+        );
     }
 
     /// `NewsEditorFormFields` renders all 4 fields.
@@ -290,11 +313,26 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("news-editor-form-fields"), "NewsEditorFormFields must render container class. Got: {html}");
-        assert!(html.contains("Test Article"), "NewsEditorFormFields must render title. Got: {html}");
-        assert!(html.contains("test-article"), "NewsEditorFormFields must render slug. Got: {html}");
-        assert!(html.contains("A test"), "NewsEditorFormFields must render excerpt. Got: {html}");
-        assert!(html.contains("Body text"), "NewsEditorFormFields must render body. Got: {html}");
+        assert!(
+            html.contains("news-editor-form-fields"),
+            "NewsEditorFormFields must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Test Article"),
+            "NewsEditorFormFields must render title. Got: {html}"
+        );
+        assert!(
+            html.contains("test-article"),
+            "NewsEditorFormFields must render slug. Got: {html}"
+        );
+        assert!(
+            html.contains("A test"),
+            "NewsEditorFormFields must render excerpt. Got: {html}"
+        );
+        assert!(
+            html.contains("Body text"),
+            "NewsEditorFormFields must render body. Got: {html}"
+        );
     }
 
     /// `NewsEditorFormFields` with no values renders default body placeholder.
@@ -306,7 +344,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("## Introduction"), "NewsEditorFormFields default body must include markdown placeholder. Got: {html}");
+        assert!(
+            html.contains("## Introduction"),
+            "NewsEditorFormFields default body must include markdown placeholder. Got: {html}"
+        );
     }
 
     /// `NewsEditorFooter` renders Cancel + Save-as-draft + Publish.
@@ -323,9 +364,21 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("news-editor-footer"), "NewsEditorFooter must render container class. Got: {html}");
-        assert!(html.contains("Cancel"), "NewsEditorFooter must render Cancel button. Got: {html}");
-        assert!(html.contains("Save as draft"), "NewsEditorFooter must render Save as draft button. Got: {html}");
-        assert!(html.contains("Publish"), "NewsEditorFooter must render Publish button. Got: {html}");
+        assert!(
+            html.contains("news-editor-footer"),
+            "NewsEditorFooter must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Cancel"),
+            "NewsEditorFooter must render Cancel button. Got: {html}"
+        );
+        assert!(
+            html.contains("Save as draft"),
+            "NewsEditorFooter must render Save as draft button. Got: {html}"
+        );
+        assert!(
+            html.contains("Publish"),
+            "NewsEditorFooter must render Publish button. Got: {html}"
+        );
     }
 }

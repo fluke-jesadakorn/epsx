@@ -24,12 +24,15 @@ pub fn GlobalAuthGuard(
     user_authenticated: bool,
     /// Whether the auth state is still loading (cookie restore
     /// in progress, etc.). When `true`, a spinner is shown.
-    #[props(default = false)] is_loading: bool,
+    #[props(default = false)]
+    is_loading: bool,
     /// Optional fallback when not authenticated. When `None`,
     /// the `FrontendAuthGate` is rendered instead.
-    #[props(default = None)] fallback: Option<Element>,
+    #[props(default = None)]
+    fallback: Option<Element>,
     /// Children rendered when the user is authenticated.
-    #[props(default = None)] children: Option<Element>,
+    #[props(default = None)]
+    children: Option<Element>,
 ) -> Element {
     if is_loading {
         return rsx! {
@@ -66,7 +69,6 @@ mod tests {
         // The TS source derives `isAuthenticated` from the auth
         // context. The Dioxus port takes it as a prop so the page
         // can wire it from `PageContext::user`.
-        
     }
 
     #[test]
@@ -76,6 +78,5 @@ mod tests {
         // We document the contract via this test (we can't render
         // Dioxus components in unit tests, so the assertion is on
         // the function signature).
-        
     }
 }

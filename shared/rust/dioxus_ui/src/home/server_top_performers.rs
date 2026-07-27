@@ -41,7 +41,12 @@ pub fn ServerTopPerformers() -> Element {
 }
 
 #[component]
-fn ServerTopPerformersCard(symbol: &'static str, price: &'static str, change: &'static str, positive: bool) -> Element {
+fn ServerTopPerformersCard(
+    symbol: &'static str,
+    price: &'static str,
+    change: &'static str,
+    positive: bool,
+) -> Element {
     rsx! {
         div { class: "server-top-performers-card w-full max-w-sm h-64 rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-sm flex flex-col",
             div { class: "flex items-center justify-between mb-3",

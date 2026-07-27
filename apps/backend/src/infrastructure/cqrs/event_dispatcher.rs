@@ -4,7 +4,7 @@
 use crate::prelude::*;
 use std::time::Duration;
 use tokio::time::sleep;
-use tracing::{info, error, warn, debug};
+use tracing::{debug, error, info, warn};
 
 use super::outbox::TransactionalOutbox;
 
@@ -192,9 +192,12 @@ impl EventDispatcher {
     async fn publish_event(&self, event: &super::outbox::OutboxEvent) -> AppResult<()> {
         if let Some(redis_client) = &self.redis_client {
             // Get Redis connection
-            let mut con = redis_client.get_multiplexed_async_connection().await.map_err(|e| {
-                AppError::internal_error(format!("Failed to get Redis connection: {}", e))
-            })?;
+            let mut con = redis_client
+                .get_multiplexed_async_connection()
+                .await
+                .map_err(|e| {
+                    AppError::internal_error(format!("Failed to get Redis connection: {}", e))
+                })?;
 
             // Prepare event data for Redis Streams
             let event_data = vec![
@@ -203,10 +206,7 @@ impl EventDispatcher {
                 ("aggregate_type", event.aggregate_type.clone()),
                 ("event_type", event.event_type.clone()),
                 ("payload", event.event_payload.to_string()),
-                (
-                    "created_at",
-                    event.created_at.to_rfc3339(),
-                ),
+                ("created_at", event.created_at.to_rfc3339()),
             ];
 
             // Publish to Redis Stream using XADD
@@ -252,7 +252,10 @@ impl EventDispatcher {
 
         // Check Redis connectivity if configured
         let redis_healthy = if let Some(redis_client) = &self.redis_client {
-            redis_client.get_multiplexed_async_connection().await.is_ok()
+            redis_client
+                .get_multiplexed_async_connection()
+                .await
+                .is_ok()
         } else {
             true // No Redis = considered healthy
         };

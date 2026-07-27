@@ -75,7 +75,5 @@ mod tests {
     }
 
     #[test]
-    fn news_list_smoke() {
-        
-    }
+    fn news_list_smoke() {}
 }

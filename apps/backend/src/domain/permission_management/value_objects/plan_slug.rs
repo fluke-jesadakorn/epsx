@@ -9,15 +9,18 @@ impl PlanSlug {
         let slug = slug.into();
 
         // Validate slug format: lowercase, alphanumeric, hyphens only
-        if !slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+        if !slug
+            .chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+        {
             return Err(AppError::validation_error(
-                "Slug must be lowercase alphanumeric with hyphens only"
+                "Slug must be lowercase alphanumeric with hyphens only",
             ));
         }
 
         if slug.is_empty() || slug.len() > 100 {
             return Err(AppError::validation_error(
-                "Slug must be between 1 and 100 characters"
+                "Slug must be between 1 and 100 characters",
             ));
         }
 

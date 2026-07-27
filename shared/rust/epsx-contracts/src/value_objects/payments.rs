@@ -80,7 +80,7 @@ impl Network {
             Network::Binance => "binance",
         }
     }
-    
+
     /// Get full name for this network
     pub fn name(&self) -> &'static str {
         match self {
@@ -112,7 +112,7 @@ impl Currency {
             Currency::USD => vec![], // USD is not on any blockchain network
         }
     }
-    
+
     /// Get decimal places for this currency
     pub fn decimals(&self) -> u8 {
         match self {
@@ -125,12 +125,12 @@ impl Currency {
             Currency::USD => 2,
         }
     }
-    
+
     /// Get symbol for this currency
     pub fn symbol(&self) -> &'static str {
         match self {
             Currency::Bitcoin | Currency::BTC => "BTC",
-            Currency::Ethereum | Currency::ETH => "ETH", 
+            Currency::Ethereum | Currency::ETH => "ETH",
             Currency::Usdt | Currency::USDT => "USDT",
             Currency::Usdc | Currency::USDC => "USDC",
             Currency::Bnb | Currency::BNB => "BNB",
@@ -138,7 +138,7 @@ impl Currency {
             Currency::USD => "USD",
         }
     }
-    
+
     /// Check if this currency is a cryptocurrency
     pub fn is_crypto(&self) -> bool {
         match self {

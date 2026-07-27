@@ -244,10 +244,7 @@ impl PaymentSubscriptionRepositoryAdapter {
 
     /// List subscriptions for a wallet (raw row form). Used by
     /// `list_for_wallet` to fan out to the domain conversion.
-    async fn find_by_wallet_raw(
-        &self,
-        wallet_address: &str,
-    ) -> AppResult<Vec<SubscriptionDb>> {
+    async fn find_by_wallet_raw(&self, wallet_address: &str) -> AppResult<Vec<SubscriptionDb>> {
         let mut conn = self.db_pool.conn().await?;
 
         debug!("Finding subscriptions for wallet: {}", wallet_address);
@@ -290,11 +287,7 @@ impl PaymentSubscriptionRepositoryAdapter {
                 AppError::database_error(format!("Failed to find subscriptions: {}", e))
             })?;
 
-        info!(
-            "Found {} subscriptions for plan {}",
-            results.len(),
-            plan_id
-        );
+        info!("Found {} subscriptions for plan {}", results.len(), plan_id);
         Ok(results)
     }
 
@@ -377,20 +370,15 @@ impl PaymentSubscriptionRepositoryAdapter {
                     "Failed to read stock_ranking_assignments for wallet {}: {}",
                     wallet_address, e
                 );
-                AppError::database_error(format!(
-                    "Failed to read stock_ranking_assignments: {}",
-                    e
-                ))
+                AppError::database_error(format!("Failed to read stock_ranking_assignments: {}", e))
             })?;
 
         let now = Utc::now();
         let assignments: Vec<StockRankingAssignment> = results
             .into_iter()
             .map(|row| {
-                let days_remaining = StockRankingAssignment::compute_days_remaining(
-                    row.expires_at,
-                    now,
-                );
+                let days_remaining =
+                    StockRankingAssignment::compute_days_remaining(row.expires_at, now);
                 StockRankingAssignment {
                     assignment_id: row.assignment_id.to_string(),
                     wallet_address: row.wallet_address,
@@ -470,7 +458,8 @@ impl SubscriptionRepositoryPort for PaymentSubscriptionRepositoryAdapter {
         &self,
         wallet: &WalletAddress,
     ) -> AppResult<Vec<StockRankingAssignment>> {
-        self.get_stock_ranking_assignments_raw(wallet.as_str()).await
+        self.get_stock_ranking_assignments_raw(wallet.as_str())
+            .await
     }
 }
 
@@ -599,9 +588,8 @@ mod tests {
         // visible in `cargo test`.
         fn _takes_optional_reason(_: Option<String>) {}
         let _id = SubscriptionId::generate();
-        let _wallet = WalletAddress::from_trusted(
-            "0x000000000000000000000000000000000000abc4".to_string(),
-        );
+        let _wallet =
+            WalletAddress::from_trusted("0x000000000000000000000000000000000000abc4".to_string());
         _takes_optional_reason(None);
     }
 

@@ -1,14 +1,14 @@
+use super::types::*;
+use crate::web::auth::AppState;
+use crate::web::responses::wrappers::AdminResponse;
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::web::auth::AppState;
-use crate::web::responses::wrappers::AdminResponse;
-use super::types::*;
+use tracing::{error, info};
 
 /**
  * Get permission analytics
@@ -47,11 +47,9 @@ pub async fn get_permission_analytics_handler(
     }
 
     // Get total plans count
-    let total_plans = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as total_plans FROM plans"
-    )
-    .get_result::<TotalPlansRow>(&mut conn)
-    .await
+    let total_plans = match diesel::sql_query("SELECT COUNT(*)::bigint as total_plans FROM plans")
+        .get_result::<TotalPlansRow>(&mut conn)
+        .await
     {
         Ok(result) => result.total_plans as i32,
         Err(_) => 0,
@@ -69,7 +67,7 @@ pub async fn get_permission_analytics_handler(
          LEFT JOIN wallet_plan_assignments wga ON pg.id = wga.plan_id
          GROUP BY pg.id, pg.name
          ORDER BY member_count DESC
-        "#
+        "#,
     )
     .load::<PlanStatsRow>(&mut conn)
     .await
@@ -80,7 +78,10 @@ pub async fn get_permission_analytics_handler(
                 plan_name: stat.plan_name,
                 member_count: stat.member_count.unwrap_or(0) as i32,
                 active_members: stat.active_members.unwrap_or(0) as i32,
-                revenue_contribution: stat.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
+                revenue_contribution: stat
+                    .revenue
+                    .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                    .unwrap_or(0.0),
             })
             .collect(),
         Err(_) => Vec::new(),
@@ -112,7 +113,7 @@ pub async fn get_permission_analytics_handler(
         LEFT JOIN wallet_users u ON uep.wallet_address = u.wallet_address
         GROUP BY dp.permission_string
         ORDER BY users_count DESC
-        "#
+        "#,
     )
     .load::<PermissionUsageRow>(&mut conn)
     .await
@@ -124,7 +125,8 @@ pub async fn get_permission_analytics_handler(
                 users_count: row.users_count.unwrap_or(0) as i32,
                 active_count: row.active_count.unwrap_or(0) as i32,
                 usage_frequency: if row.users_count.unwrap_or(0) > 0 {
-                    (row.active_count.unwrap_or(0) as f64 / row.users_count.unwrap_or(1) as f64) * 100.0
+                    (row.active_count.unwrap_or(0) as f64 / row.users_count.unwrap_or(1) as f64)
+                        * 100.0
                 } else {
                     0.0
                 },
@@ -151,7 +153,7 @@ pub async fn get_permission_analytics_handler(
         WHERE granted_at >= NOW() - INTERVAL '30 days'
         GROUP BY DATE_TRUNC('day', granted_at)
         ORDER BY trend_date ASC
-        "#
+        "#,
     )
     .load::<TrendRow>(&mut conn)
     .await
@@ -161,7 +163,8 @@ pub async fn get_permission_analytics_handler(
             .map(|row| TimeSeriesPoint {
                 timestamp: row.trend_date.unwrap_or_else(Utc::now),
                 value: row.permission_count.unwrap_or(0) as f64,
-                label: row.trend_date
+                label: row
+                    .trend_date
                     .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
@@ -196,7 +199,7 @@ pub async fn get_permission_analytics_handler(
           AND expires_at <= NOW() + INTERVAL '30 days'
         ORDER BY expires_at ASC
         LIMIT 100
-        "#
+        "#,
     )
     .load::<ExpiringRow>(&mut conn)
     .await
@@ -224,5 +227,6 @@ pub async fn get_permission_analytics_handler(
     };
 
     info!("Admin: Successfully retrieved permission analytics");
-    AdminResponse::success_with_message(response, "Permission analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(response, "Permission analytics retrieved successfully")
+        .into_response()
 }

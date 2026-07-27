@@ -43,11 +43,24 @@ pub async fn security_headers(req: Request, next: Next) -> Response {
 }
 
 fn is_admin_path(p: &str) -> bool {
-    matches!(p,
-        "/admin" | "/analytics" | "/audit-log" | "/chat" | "/developer-portal"
-        | "/media" | "/news" | "/news/create" | "/notifications"
-        | "/notifications/create" | "/notifications/manage" | "/payments"
-        | "/policies" | "/settings" | "/unauthorized" | "/wallet-management"
+    matches!(
+        p,
+        "/admin"
+            | "/analytics"
+            | "/audit-log"
+            | "/chat"
+            | "/developer-portal"
+            | "/media"
+            | "/news"
+            | "/news/create"
+            | "/notifications"
+            | "/notifications/create"
+            | "/notifications/manage"
+            | "/payments"
+            | "/policies"
+            | "/settings"
+            | "/unauthorized"
+            | "/wallet-management"
     ) || p.starts_with("/admin/")
         || p.starts_with("/wallet-management/")
         || p.starts_with("/news/")
@@ -61,13 +74,33 @@ fn is_admin_path(p: &str) -> bool {
         || p.starts_with("/payments/")
 }
 
-fn apply_security_headers_to(headers: &mut axum::http::HeaderMap, _path: &str, admin: bool, hsts: bool) {
-    headers.insert("x-content-type-options", HeaderValue::from_static("nosniff"));
-    headers.insert("x-frame-options", HeaderValue::from_static(if admin { "SAMEORIGIN" } else { "DENY" }));
-    headers.insert("referrer-policy", HeaderValue::from_static("strict-origin-when-cross-origin"));
-    headers.insert("permissions-policy", HeaderValue::from_static("camera=(), microphone=(), geolocation=()"));
+fn apply_security_headers_to(
+    headers: &mut axum::http::HeaderMap,
+    _path: &str,
+    admin: bool,
+    hsts: bool,
+) {
+    headers.insert(
+        "x-content-type-options",
+        HeaderValue::from_static("nosniff"),
+    );
+    headers.insert(
+        "x-frame-options",
+        HeaderValue::from_static(if admin { "SAMEORIGIN" } else { "DENY" }),
+    );
+    headers.insert(
+        "referrer-policy",
+        HeaderValue::from_static("strict-origin-when-cross-origin"),
+    );
+    headers.insert(
+        "permissions-policy",
+        HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
+    );
     if hsts {
-        headers.insert("strict-transport-security", HeaderValue::from_static("max-age=31536000; includeSubDomains"));
+        headers.insert(
+            "strict-transport-security",
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        );
     }
     if !headers.contains_key("content-security-policy") {
         // Wave 24 t3p — `https://unpkg.com` added to script-src.
@@ -98,13 +131,15 @@ pub async fn verify_bearer_or_cookie(
     req: Request,
     next: Next,
 ) -> Response {
-    let token = req.headers()
+    let token = req
+        .headers()
         .get(header::AUTHORIZATION)
         .and_then(|h| h.to_str().ok())
         .and_then(|s| s.strip_prefix("Bearer "))
         .map(|s| s.to_string())
         .or_else(|| {
-            req.headers().get("cookie")
+            req.headers()
+                .get("cookie")
                 .and_then(|h| h.to_str().ok())
                 .and_then(|s| {
                     s.split(';').find_map(|p| {

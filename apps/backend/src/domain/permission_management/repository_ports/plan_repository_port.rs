@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::domain::permission_management::{Plan, PlanId, PlanSlug};
+use crate::prelude::*;
 
 /// Search criteria for plans
 #[derive(Debug, Clone, Default)]

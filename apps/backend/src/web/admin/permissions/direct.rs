@@ -1,18 +1,18 @@
 // Direct Permission Management
 // Consolidates direct permission operations from normalized_permission_handlers.rs and granular_permissions.rs
 
+use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
-use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
+use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -62,7 +62,9 @@ pub struct AddPermissionToPlanRequest {
 /// POST /admin/permissions/direct
 pub async fn grant_permission(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<GrantDirectPermissionRequest>,
 ) -> impl IntoResponse {
@@ -74,9 +76,16 @@ pub async fn grant_permission(
     }
 
     // Parse permission string into owned parts for use in transaction
-    let parts_owned: Vec<String> = req.permission_string.split(':').map(|s| s.to_string()).collect();
+    let parts_owned: Vec<String> = req
+        .permission_string
+        .split(':')
+        .map(|s| s.to_string())
+        .collect();
     if parts_owned.len() < 3 {
-        return AdminResponse::bad_request("Invalid permission string format (expected platform:resource:action)").into_response();
+        return AdminResponse::bad_request(
+            "Invalid permission string format (expected platform:resource:action)",
+        )
+        .into_response();
     }
 
     // Get database connection
@@ -171,13 +180,16 @@ pub async fn grant_permission(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("permission", "grant", "permission")
-        .id(&wallet)
-        .after(serde_json::json!({
-            "permission": req.permission_string,
-            "expires_at": req.expires_at,
-            "reason": req.reason,
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("permission", "grant", "permission")
+            .id(&wallet)
+            .after(serde_json::json!({
+                "permission": req.permission_string,
+                "expires_at": req.expires_at,
+                "reason": req.reason,
+            })),
+    );
 
     // Invalidate cached permissions so next request gets live DB permissions
     set_perm_invalidated(app_state.cache.as_ref(), &wallet);
@@ -189,7 +201,9 @@ pub async fn grant_permission(
 /// DELETE /admin/permissions/direct
 pub async fn revoke_permission(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<RevokeDirectPermissionRequest>,
 ) -> impl IntoResponse {
@@ -225,11 +239,13 @@ pub async fn revoke_permission(
     };
 
     // Revoke direct permission
-    match diesel::sql_query("DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2")
-        .bind::<diesel::sql_types::Text, _>(&wallet)
-        .bind::<diesel::sql_types::Uuid, _>(perm_id)
-        .execute(&mut conn)
-        .await
+    match diesel::sql_query(
+        "DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2",
+    )
+    .bind::<diesel::sql_types::Text, _>(&wallet)
+    .bind::<diesel::sql_types::Uuid, _>(perm_id)
+    .execute(&mut conn)
+    .await
     {
         Ok(rows) if rows > 0 => {
             tracing::info!(
@@ -238,18 +254,22 @@ pub async fn revoke_permission(
                 wallet
             );
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("permission", "revoke", "permission")
-                .id(&wallet)
-                .before(serde_json::json!({ "permission": req.permission_string })));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("permission", "revoke", "permission")
+                    .id(&wallet)
+                    .before(serde_json::json!({ "permission": req.permission_string })),
+            );
 
             // Invalidate cached permissions so next request gets live DB permissions
             set_perm_invalidated(app_state.cache.as_ref(), &wallet);
 
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
-                "Direct permission revoked successfully"
-            ).into_response()
-        },
+                "Direct permission revoked successfully",
+            )
+            .into_response()
+        }
         Ok(_) => AdminResponse::not_found("Direct permission grant").into_response(),
         Err(e) => {
             tracing::error!("Failed to revoke permission: {}", e);
@@ -305,7 +325,7 @@ pub async fn list_wallet_permissions(
         JOIN permissions p ON wdp.permission_id = p.id
         WHERE wdp.wallet_address = $1 AND wdp.is_active = true
         ORDER BY wdp.granted_at DESC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .load::<PermissionRow>(&mut conn)
@@ -318,8 +338,9 @@ pub async fn list_wallet_permissions(
         }
     };
 
-    let permissions: Vec<DirectPermissionResponse> = rows.into_iter().map(|row| {
-        DirectPermissionResponse {
+    let permissions: Vec<DirectPermissionResponse> = rows
+        .into_iter()
+        .map(|row| DirectPermissionResponse {
             id: row.id.to_string(),
             wallet_address: wallet.clone(),
             permission_id: row.permission_id.to_string(),
@@ -330,21 +351,24 @@ pub async fn list_wallet_permissions(
             granted_at: row.granted_at,
             expires_at: row.expires_at,
             is_active: row.is_active,
-        }
-    }).collect();
+        })
+        .collect();
 
     AdminResponse::success(serde_json::json!({
         "wallet_address": wallet,
         "permissions": permissions,
         "count": permissions.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Add a permission to a plan
 /// POST /admin/permissions/plans/:plan_id/permissions
 pub async fn add_permission_to_plan(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
     Json(req): Json<AddPermissionToPlanRequest>,
@@ -355,9 +379,16 @@ pub async fn add_permission_to_plan(
     };
 
     // Parse permission string into owned parts for use in transaction
-    let parts_owned: Vec<String> = req.permission_string.split(':').map(|s| s.to_string()).collect();
+    let parts_owned: Vec<String> = req
+        .permission_string
+        .split(':')
+        .map(|s| s.to_string())
+        .collect();
     if parts_owned.len() < 3 {
-        return AdminResponse::bad_request("Invalid permission string format (expected platform:resource:action)").into_response();
+        return AdminResponse::bad_request(
+            "Invalid permission string format (expected platform:resource:action)",
+        )
+        .into_response();
     }
 
     let mut conn = match app_state.db_pool.get().await {
@@ -441,9 +472,12 @@ pub async fn add_permission_to_plan(
 
     if let Some(m) = membership {
         let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-        app_state.audit.log(ctx, AuditEntry::new("plan_permission", "create", "permission")
-            .id(&plan_id)
-            .after(serde_json::json!({ "permission": req.permission_string })));
+        app_state.audit.log(
+            ctx,
+            AuditEntry::new("plan_permission", "create", "permission")
+                .id(&plan_id)
+                .after(serde_json::json!({ "permission": req.permission_string })),
+        );
         AdminResponse::created(
             serde_json::json!({
                 "id": m.id.to_string(),
@@ -451,13 +485,15 @@ pub async fn add_permission_to_plan(
                 "permission_id": m.permission_id.to_string(),
                 "granted_at": m.granted_at,
             }),
-            "Permission added to plan successfully"
-        ).into_response()
+            "Permission added to plan successfully",
+        )
+        .into_response()
     } else {
         AdminResponse::success_with_message(
             serde_json::json!({"exists": true}),
-            "Permission already exists in plan"
-        ).into_response()
+            "Permission already exists in plan",
+        )
+        .into_response()
     }
 }
 
@@ -465,7 +501,9 @@ pub async fn add_permission_to_plan(
 /// DELETE /admin/permissions/plans/:plan_id/permissions/:permission_id
 pub async fn remove_permission_from_plan(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path((plan_id, permission_id)): Path<(String, String)>,
 ) -> impl IntoResponse {
@@ -476,7 +514,9 @@ pub async fn remove_permission_from_plan(
 
     let perm_uuid = match Uuid::parse_str(&permission_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid permission ID format").into_response(),
+        Err(_) => {
+            return AdminResponse::bad_request("Invalid permission ID format").into_response()
+        }
     };
 
     let mut conn = match app_state.db_pool.get().await {
@@ -487,22 +527,28 @@ pub async fn remove_permission_from_plan(
         }
     };
 
-    match diesel::sql_query("DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2")
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
-        .execute(&mut conn)
-        .await
+    match diesel::sql_query(
+        "DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2",
+    )
+    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+    .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
+    .execute(&mut conn)
+    .await
     {
         Ok(rows) if rows > 0 => {
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("plan_permission", "delete", "permission")
-                .id(&plan_id)
-                .before(serde_json::json!({ "permission_id": permission_id })));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("plan_permission", "delete", "permission")
+                    .id(&plan_id)
+                    .before(serde_json::json!({ "permission_id": permission_id })),
+            );
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
-                "Permission removed from plan successfully"
-            ).into_response()
-        },
+                "Permission removed from plan successfully",
+            )
+            .into_response()
+        }
         Ok(_) => AdminResponse::not_found("Permission membership").into_response(),
         Err(e) => {
             tracing::error!("Failed to remove permission from plan: {}", e);

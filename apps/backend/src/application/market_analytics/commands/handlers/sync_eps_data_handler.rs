@@ -1,7 +1,7 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::commands::{SyncEPSDataCommand, SyncEPSDataResponse};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::prelude::*;
 
 /// Command handler for synchronizing EPS data from TradingView
 pub struct SyncEPSDataCommandHandler {
@@ -10,16 +10,15 @@ pub struct SyncEPSDataCommandHandler {
 
 impl SyncEPSDataCommandHandler {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { tradingview_service }
+        Self {
+            tradingview_service,
+        }
     }
 }
 
 #[async_trait]
 impl CommandHandler<SyncEPSDataCommand> for SyncEPSDataCommandHandler {
-    async fn handle(
-        &self,
-        command: SyncEPSDataCommand,
-    ) -> ApplicationResult<SyncEPSDataResponse> {
+    async fn handle(&self, command: SyncEPSDataCommand) -> ApplicationResult<SyncEPSDataResponse> {
         let start = std::time::Instant::now();
 
         // Fetch fresh data from TradingView
@@ -48,7 +47,7 @@ impl CommandHandler<SyncEPSDataCommand> for SyncEPSDataCommandHandler {
         Ok(SyncEPSDataResponse {
             success: true,
             synced_symbols,
-            updated_records: 0, // Would be calculated from DB diff
+            updated_records: 0,          // Would be calculated from DB diff
             new_records: synced_symbols, // Assume all are new for now
             duration_ms: duration.as_millis() as u64,
             message: format!(

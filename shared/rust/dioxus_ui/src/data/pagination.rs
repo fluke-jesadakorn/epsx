@@ -3,10 +3,23 @@ use crate::primitives::icon::Icon;
 use dioxus::prelude::*;
 
 #[component]
-pub fn Pagination(current_page: u32, total_pages: u32, base_href: String, query_param: Option<String>) -> Element {
+pub fn Pagination(
+    current_page: u32,
+    total_pages: u32,
+    base_href: String,
+    query_param: Option<String>,
+) -> Element {
     let qp = query_param.unwrap_or_else(|| "page".to_string());
-    let prev = if current_page > 1 { current_page - 1 } else { 1 };
-    let next = if current_page < total_pages { current_page + 1 } else { total_pages };
+    let prev = if current_page > 1 {
+        current_page - 1
+    } else {
+        1
+    };
+    let next = if current_page < total_pages {
+        current_page + 1
+    } else {
+        total_pages
+    };
     rsx! {
         nav { class: "pagination", "aria-label": "Pagination",
             a { class: "pagination-btn", href: "{base_href}?{qp}={prev}",

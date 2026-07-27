@@ -2,7 +2,7 @@
 
 pub mod realtime_event;
 
-pub use realtime_event::{RealtimeEvent, EventPriority, EventStatus, RealtimeEventError};
+pub use realtime_event::{EventPriority, EventStatus, RealtimeEvent, RealtimeEventError};
 
 // Placeholder for other aggregates
 pub struct EventBroadcaster;

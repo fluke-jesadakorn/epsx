@@ -5,10 +5,10 @@
 // Reduces code duplication across all repository implementations
 
 use crate::prelude::*;
-use diesel_async::{RunQueryDsl, AsyncPgConnection};
 use diesel_async::pooled_connection::deadpool::Object;
-use std::pin::Pin;
+use diesel_async::{AsyncPgConnection, RunQueryDsl};
 use std::future::Future;
+use std::pin::Pin;
 use tracing::error;
 
 // ============================================================================
@@ -18,22 +18,24 @@ use tracing::error;
 /// Macro for consistent database error handling with component and operation tracking
 #[macro_export]
 macro_rules! handle_db_error {
-    ($error:expr, $component:expr, $operation:expr) => {
-        {
-            error!("Database error in {}::{}: {}", $component, $operation, $error);
-            AppError::database_error($error.to_string())
-                .with_component($component)
-                .with_operation($operation)
-        }
-    };
-    ($error:expr, $component:expr, $operation:expr, $entity:expr) => {
-        {
-            error!("Database error in {}::{} for {}: {}", $component, $operation, $entity, $error);
-            AppError::database_error($error.to_string())
-                .with_component($component)
-                .with_operation($operation)
-        }
-    };
+    ($error:expr, $component:expr, $operation:expr) => {{
+        error!(
+            "Database error in {}::{}: {}",
+            $component, $operation, $error
+        );
+        AppError::database_error($error.to_string())
+            .with_component($component)
+            .with_operation($operation)
+    }};
+    ($error:expr, $component:expr, $operation:expr, $entity:expr) => {{
+        error!(
+            "Database error in {}::{} for {}: {}",
+            $component, $operation, $entity, $error
+        );
+        AppError::database_error($error.to_string())
+            .with_component($component)
+            .with_operation($operation)
+    }};
 }
 
 /// Macro for handling database pool connection errors
@@ -201,7 +203,9 @@ impl ConnectionPoolManager {
     /// Execute a database operation with automatic connection management
     pub async fn execute<F, R>(&self, operation: &str, f: F) -> Result<R, AppError>
     where
-        F: FnOnce(&mut AsyncPgConnection) -> Pin<Box<dyn Future<Output = Result<R, AppError>> + Send>>,
+        F: FnOnce(
+            &mut AsyncPgConnection,
+        ) -> Pin<Box<dyn Future<Output = Result<R, AppError>> + Send>>,
     {
         let mut conn_obj = self.pool.get().await.map_err(|e| {
             error!("Pool error in {}::{}: {}", self.component, operation, e);
@@ -265,4 +269,3 @@ pub fn current_timestamp() -> chrono::DateTime<chrono::Utc> {
 pub fn add_hours_to_timestamp(hours: i64) -> chrono::DateTime<chrono::Utc> {
     chrono::Utc::now() + chrono::Duration::hours(hours)
 }
-

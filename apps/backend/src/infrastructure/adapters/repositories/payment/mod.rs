@@ -29,12 +29,12 @@ pub mod subscription_repository_adapter;
 // this `payment::` subdir as a forward-move marker so future
 // `use` sites can write the destination path now; the actual
 // file moves are wave-12+ work.
+pub use super::credit_repository_adapter::CreditRepositoryAdapter;
 pub use super::payment_context_repository_adapter::{
     is_context_usable, NewPaymentContextDb, PaymentContextDb, PaymentContextRepositoryAdapter,
     PaymentContextSearchCriteria, UpdatePaymentContextDb,
 };
 pub use super::payment_repository_adapter::PaymentRepositoryAdapter;
-pub use super::credit_repository_adapter::CreditRepositoryAdapter;
 pub use subscription_repository_adapter::{
     PaymentSubscriptionRepositoryAdapter, SubscriptionSearchCriteria,
 };

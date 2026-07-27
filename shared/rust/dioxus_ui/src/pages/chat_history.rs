@@ -14,7 +14,7 @@ use crate::primitives::*;
 use super::{PageContext, PageMeta};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Support chat history unavailable");
+    let meta = PageMeta::app("Support chat history");
     (
         meta,
         rsx! {

@@ -240,7 +240,10 @@ mod tests {
                 html.contains("text-white"),
                 "PancakeButton[variant={variant}] should be text-white. Got: {html}"
             );
-            assert!(html.contains("Click me"), "PancakeButton should render children. Got: {html}");
+            assert!(
+                html.contains("Click me"),
+                "PancakeButton should render children. Got: {html}"
+            );
         }
 
         // The `ghost` variant should NOT have the gradient — it's a
@@ -332,7 +335,10 @@ mod tests {
             html.contains("🚀"),
             "PancakeButton should render the icon glyph. Got: {html}"
         );
-        assert!(html.contains("Launch"), "PancakeButton should render children. Got: {html}");
+        assert!(
+            html.contains("Launch"),
+            "PancakeButton should render children. Got: {html}"
+        );
     }
 
     /// `PancakeIconButton` renders the square button with the badge.
@@ -353,7 +359,10 @@ mod tests {
             html.contains("bg-destructive"),
             "PancakeIconButton badge should be bg-destructive. Got: {html}"
         );
-        assert!(html.contains(">3<"), "PancakeIconButton badge value should render. Got: {html}");
+        assert!(
+            html.contains(">3<"),
+            "PancakeIconButton badge value should render. Got: {html}"
+        );
     }
 
     /// `PancakeIconButton` size lg renders w-16 h-16 text-xl.

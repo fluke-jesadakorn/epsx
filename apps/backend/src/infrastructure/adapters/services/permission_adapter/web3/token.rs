@@ -1,18 +1,18 @@
 // ERC-20 token balance validation for Web3 permissions
 
-use crate::prelude::*;
-use crate::domain::wallet_management::value_objects::{WalletAddress, Permission};
-use crate::domain::wallet_management::domain_services::{Web3ValidationResult, Web3ValidationType};
-use super::cache::{Web3CacheMgr, TokenResult};
+use super::cache::{TokenResult, Web3CacheMgr};
 use super::config::BlockchainCfg;
-use tracing::{error, info, debug};
+use crate::domain::wallet_management::domain_services::{Web3ValidationResult, Web3ValidationType};
+use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
+use crate::prelude::*;
 use ethers::prelude::*;
 use ethers::providers::{Http, Provider};
-use ethers::types::{Address, U256, Bytes, TransactionRequest};
 use ethers::types::transaction::eip2718::TypedTransaction;
+use ethers::types::{Address, Bytes, TransactionRequest, U256};
 use std::str::FromStr;
 use std::time::Duration;
 use tokio::time::timeout;
+use tracing::{debug, error, info};
 
 pub struct TokenValidator {
     cache: Web3CacheMgr,
@@ -32,7 +32,13 @@ impl TokenValidator {
         min: &str,
         chain: u64,
     ) -> AppResult<TokenResult> {
-        debug!("Validating token balance for wallet {} on contract {} (min: {}, chain: {})", wallet.as_str(), contract, min, chain);
+        debug!(
+            "Validating token balance for wallet {} on contract {} (min: {}, chain: {})",
+            wallet.as_str(),
+            contract,
+            min,
+            chain
+        );
 
         // Check cache first
         if let Some(cached) = self.cache.get_token(wallet, contract, min, chain).await? {
@@ -40,16 +46,18 @@ impl TokenValidator {
         }
 
         // Get RPC endpoint
-        let rpc = self.cfg.rpc_endpoints.get(&chain)
-            .ok_or_else(|| AppError::blockchain_rpc_error(
-                format!("No RPC endpoint for chain {}", chain)
-            ).with_component("token_validator"))?;
+        let rpc = self.cfg.rpc_endpoints.get(&chain).ok_or_else(|| {
+            AppError::blockchain_rpc_error(format!("No RPC endpoint for chain {}", chain))
+                .with_component("token_validator")
+        })?;
 
         // Validate on blockchain
         let result = self.check_blockchain(wallet, contract, min, rpc).await?;
 
         // Cache result
-        self.cache.set_token(wallet, contract, min, chain, &result).await?;
+        self.cache
+            .set_token(wallet, contract, min, chain, &result)
+            .await?;
 
         Ok(result)
     }
@@ -70,8 +78,7 @@ impl TokenValidator {
                 validation_type: Web3ValidationType::TokenGated,
                 blockchain_data: Some(format!(
                     "Token balance: {} (required: {})",
-                    result.current_balance,
-                    min
+                    result.current_balance, min
                 )),
                 error_details: result.error_details,
             }),
@@ -97,12 +104,18 @@ impl TokenValidator {
         min: &str,
         rpc: &str,
     ) -> AppResult<TokenResult> {
-        info!("Checking token balance for wallet {} on contract {}", wallet.as_str(), contract);
+        info!(
+            "Checking token balance for wallet {} on contract {}",
+            wallet.as_str(),
+            contract
+        );
 
         let timeout_dur = Duration::from_millis(self.cfg.request_timeout_ms);
         let result = timeout(timeout_dur, async {
             self.check_rpc(wallet, contract, min, rpc).await
-        }).await.map_err(|_| {
+        })
+        .await
+        .map_err(|_| {
             AppError::blockchain_rpc_error("Token balance check timeout".to_string())
                 .with_component("token_validator")
         })??;
@@ -120,8 +133,9 @@ impl TokenValidator {
         debug!("Making token balance RPC call to {}", rpc);
 
         // Create provider
-        let provider = Provider::<Http>::try_from(rpc)
-            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to create provider: {}", e)))?;
+        let provider = Provider::<Http>::try_from(rpc).map_err(|e| {
+            AppError::blockchain_rpc_error(format!("Failed to create provider: {}", e))
+        })?;
 
         // Parse addresses
         let contract_addr = Address::from_str(contract)
@@ -130,8 +144,9 @@ impl TokenValidator {
             .map_err(|e| AppError::validation_error(format!("Invalid wallet address: {}", e)))?;
 
         // Parse minimum balance
-        let min_u256 = U256::from_dec_str(min)
-            .map_err(|e| AppError::validation_error(format!("Invalid min_balance format: {}", e)))?;
+        let min_u256 = U256::from_dec_str(min).map_err(|e| {
+            AppError::validation_error(format!("Invalid min_balance format: {}", e))
+        })?;
 
         // Call balanceOf(address) on ERC20 contract
         let call_data = ethers::abi::encode(&[ethers::abi::Token::Address(wallet_addr)]);
@@ -145,8 +160,9 @@ impl TokenValidator {
             .data(Bytes::from(fn_call));
 
         let tx = TypedTransaction::Legacy(req);
-        let result = provider.call(&tx, None).await
-            .map_err(|e| AppError::blockchain_rpc_error(format!("Failed to get token balance: {}", e)))?;
+        let result = provider.call(&tx, None).await.map_err(|e| {
+            AppError::blockchain_rpc_error(format!("Failed to get token balance: {}", e))
+        })?;
 
         let current = if result.len() >= 32 {
             U256::from_big_endian(&result)
@@ -156,7 +172,10 @@ impl TokenValidator {
 
         let meets_min = current >= min_u256;
 
-        info!("Token balance check complete: {} >= {} = {}", current, min_u256, meets_min);
+        info!(
+            "Token balance check complete: {} >= {} = {}",
+            current, min_u256, meets_min
+        );
 
         Ok(TokenResult {
             meets_minimum_balance: meets_min,

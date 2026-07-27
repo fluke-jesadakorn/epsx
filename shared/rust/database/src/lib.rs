@@ -26,7 +26,9 @@ impl Database {
             .connect(database_url)
             .await?;
 
-        Ok(Self { pool: Arc::new(pool) })
+        Ok(Self {
+            pool: Arc::new(pool),
+        })
     }
 
     pub fn pool(&self) -> &PgPool {
@@ -43,7 +45,9 @@ impl Database {
 
 impl Clone for Database {
     fn clone(&self) -> Self {
-        Self { pool: Arc::clone(&self.pool) }
+        Self {
+            pool: Arc::clone(&self.pool),
+        }
     }
 }
 

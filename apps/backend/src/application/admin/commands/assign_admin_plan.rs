@@ -1,8 +1,7 @@
-
+use crate::domain::auth::ports::IdentityProviderPort;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::HashMap;
-use crate::domain::auth::ports::IdentityProviderPort;
 use std::sync::Arc;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -35,16 +34,19 @@ impl AssignAdminPlanHandler {
         command: AssignAdminPlanCommand,
     ) -> Result<AssignAdminPlanResponse, anyhow::Error> {
         tracing::info!(
-            "Handling Admin Assignment for user {} to plan {}", 
-            command.wallet_address, 
+            "Handling Admin Assignment for user {} to plan {}",
+            command.wallet_address,
             command.plan_name
         );
 
         // Define default admin claims
         let mut custom_claims = HashMap::new();
         custom_claims.insert("admin".to_string(), Value::Bool(true));
-        custom_claims.insert("access_level".to_string(), Value::String("full".to_string()));
-        
+        custom_claims.insert(
+            "access_level".to_string(),
+            Value::String("full".to_string()),
+        );
+
         let permissions = vec![
             "admin:*:*",
             "epsx:*:*",
@@ -53,10 +55,15 @@ impl AssignAdminPlanHandler {
             "database_access",
             "developer_portal",
         ];
-        
+
         custom_claims.insert(
-            "permissions".to_string(), 
-            Value::Array(permissions.into_iter().map(|p| Value::String(p.to_string())).collect())
+            "permissions".to_string(),
+            Value::Array(
+                permissions
+                    .into_iter()
+                    .map(|p| Value::String(p.to_string()))
+                    .collect(),
+            ),
         );
 
         // Merge additional claims
@@ -67,7 +74,9 @@ impl AssignAdminPlanHandler {
         }
 
         // Use the port to set claims
-        self.identity_provider.set_custom_claims(&command.wallet_address, &custom_claims).await?;
+        self.identity_provider
+            .set_custom_claims(&command.wallet_address, &custom_claims)
+            .await?;
 
         Ok(AssignAdminPlanResponse {
             success: true,

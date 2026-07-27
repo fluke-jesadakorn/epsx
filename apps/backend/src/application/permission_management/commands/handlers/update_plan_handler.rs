@@ -1,11 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::commands::{
-    UpdatePermissionPlanCommand, UpdatePermissionPlanResponse
+    UpdatePermissionPlanCommand, UpdatePermissionPlanResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::permission_management::{
-    PermissionPlanRepositoryPort, PlanId, PermissionString, UpdatePermissionPlanParams
+    PermissionPlanRepositoryPort, PermissionString, PlanId, UpdatePermissionPlanParams,
 };
+use crate::prelude::*;
 use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for updating permission plans
@@ -28,22 +28,28 @@ impl UpdatePermissionPlanCommandHandler {
 
 #[async_trait]
 impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommandHandler {
-    async fn handle(&self, command: UpdatePermissionPlanCommand) -> ApplicationResult<UpdatePermissionPlanResponse> {
+    async fn handle(
+        &self,
+        command: UpdatePermissionPlanCommand,
+    ) -> ApplicationResult<UpdatePermissionPlanResponse> {
         // 1. Parse plan ID
         let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
 
         // 2. Find plan
-        let mut plan = self.plan_repository.find_by_id(&plan_id).await
+        let mut plan = self
+            .plan_repository
+            .find_by_id(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("PermissionPlan", command.plan_id.clone()))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("PermissionPlan", command.plan_id.clone())
+            })?;
 
         // 3. Parse permissions if provided
         let permissions = if let Some(perms) = command.permissions {
-            let parsed: Result<Vec<PermissionString>, _> = perms
-                .iter()
-                .map(PermissionString::new)
-                .collect();
+            let parsed: Result<Vec<PermissionString>, _> =
+                perms.iter().map(PermissionString::new).collect();
             Some(parsed.map_err(|e| ApplicationError::validation("permissions", e.to_string()))?)
         } else {
             None
@@ -67,15 +73,20 @@ impl CommandHandler<UpdatePermissionPlanCommand> for UpdatePermissionPlanCommand
             grace_period_hours: None,
             plan_category: None,
             plan_group: None,
-        }).map_err(ApplicationError::from)?;
+        })
+        .map_err(ApplicationError::from)?;
 
         // 5. Save plan
-        self.plan_repository.save(&plan).await
+        self.plan_repository
+            .save(&plan)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 6. Publish events
         for event in plan.uncommitted_events() {
-            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event));
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
             if let Err(e) = self.event_publisher.publish(owned).await {
                 tracing::warn!(
                     error = %e,

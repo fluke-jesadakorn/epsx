@@ -27,8 +27,16 @@ pub struct Series {
 
 /// Shared helper: project a `DataPoint` into SVG coordinates given the
 /// computed bounds. Used by both `ChartLine` and `ChartArea`.
-fn project_point(p: &DataPoint, min_x: f64, max_x: f64, min_y: f64, max_y: f64,
-                 padding: i32, w: f64, h: f64) -> (f64, f64) {
+fn project_point(
+    p: &DataPoint,
+    min_x: f64,
+    max_x: f64,
+    min_y: f64,
+    max_y: f64,
+    padding: i32,
+    w: f64,
+    h: f64,
+) -> (f64, f64) {
     let x_range = (max_x - min_x).max(0.0001);
     let y_range = (max_y - min_y).max(0.0001);
     let x = padding as f64 + (p.x - min_x) / x_range * w;
@@ -49,24 +57,56 @@ pub fn ChartLine(
     if series.is_empty() || series[0].points.is_empty() {
         return rsx! { div { class: "chart-empty", "No data" } };
     }
-    let all_y: Vec<f64> = series.iter().flat_map(|s| s.points.iter().map(|p| p.y)).collect();
-    let all_x: Vec<f64> = series.iter().flat_map(|s| s.points.iter().map(|p| p.x)).collect();
-    let (min_x, max_x) = (*all_x.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(), *all_x.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap());
-    let (min_y, max_y) = (*all_y.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(), *all_y.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap());
+    let all_y: Vec<f64> = series
+        .iter()
+        .flat_map(|s| s.points.iter().map(|p| p.y))
+        .collect();
+    let all_x: Vec<f64> = series
+        .iter()
+        .flat_map(|s| s.points.iter().map(|p| p.x))
+        .collect();
+    let (min_x, max_x) = (
+        *all_x
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+        *all_x
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+    );
+    let (min_y, max_y) = (
+        *all_y
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+        *all_y
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+    );
     let w = (width - padding * 2) as f64;
     let h = (height - padding * 2) as f64;
 
-    let paths: Vec<String> = series.iter().map(|s| {
-        let mut d = String::new();
-        for (i, p) in s.points.iter().enumerate() {
-            let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
-            if i == 0 { d.push_str(&format!("M{:.1},{:.1}", x, y)); }
-            else { d.push_str(&format!(" L{:.1},{:.1}", x, y)); }
-        }
-        d
-    }).collect();
+    let paths: Vec<String> = series
+        .iter()
+        .map(|s| {
+            let mut d = String::new();
+            for (i, p) in s.points.iter().enumerate() {
+                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                if i == 0 {
+                    d.push_str(&format!("M{:.1},{:.1}", x, y));
+                } else {
+                    d.push_str(&format!(" L{:.1},{:.1}", x, y));
+                }
+            }
+            d
+        })
+        .collect();
 
-    let grid_lines: Vec<f64> = (0..=4).map(|i| padding as f64 + i as f64 * h / 4.0).collect();
+    let grid_lines: Vec<f64> = (0..=4)
+        .map(|i| padding as f64 + i as f64 * h / 4.0)
+        .collect();
 
     rsx! {
         div { class: "chart chart-line",
@@ -117,39 +157,72 @@ pub fn ChartArea(
     #[props(default = true)] show_grid: bool,
     #[props(default = false)] show_dots: bool,
     /// Fill opacity for the area beneath each line (0.0-1.0). Defaults to 0.2.
-    #[props(default = 0.2)] fill_opacity: f32,
+    #[props(default = 0.2)]
+    fill_opacity: f32,
 ) -> Element {
     if series.is_empty() || series[0].points.is_empty() {
         return rsx! { div { class: "chart-empty", "No data" } };
     }
-    let all_y: Vec<f64> = series.iter().flat_map(|s| s.points.iter().map(|p| p.y)).collect();
-    let all_x: Vec<f64> = series.iter().flat_map(|s| s.points.iter().map(|p| p.x)).collect();
-    let (min_x, max_x) = (*all_x.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(), *all_x.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap());
-    let (min_y, max_y) = (*all_y.iter().min_by(|a, b| a.partial_cmp(b).unwrap()).unwrap(), *all_y.iter().max_by(|a, b| a.partial_cmp(b).unwrap()).unwrap());
+    let all_y: Vec<f64> = series
+        .iter()
+        .flat_map(|s| s.points.iter().map(|p| p.y))
+        .collect();
+    let all_x: Vec<f64> = series
+        .iter()
+        .flat_map(|s| s.points.iter().map(|p| p.x))
+        .collect();
+    let (min_x, max_x) = (
+        *all_x
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+        *all_x
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+    );
+    let (min_y, max_y) = (
+        *all_y
+            .iter()
+            .min_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+        *all_y
+            .iter()
+            .max_by(|a, b| a.partial_cmp(b).unwrap())
+            .unwrap(),
+    );
     let w = (width - padding * 2) as f64;
     let h = (height - padding * 2) as f64;
     let baseline = (padding as f64) + h;
 
-    let paths: Vec<String> = series.iter().map(|s| {
-        let mut d = String::new();
-        for (i, p) in s.points.iter().enumerate() {
-            let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
-            if i == 0 { d.push_str(&format!("M{:.1},{:.1}", x, y)); }
-            else { d.push_str(&format!(" L{:.1},{:.1}", x, y)); }
-        }
-        // Close to baseline so the area path is a proper filled region.
-        if let Some(last) = s.points.last() {
-            let (lx, _) = project_point(last, min_x, max_x, min_y, max_y, padding, w, h);
-            d.push_str(&format!(" L{:.1},{:.1}", lx, baseline));
-        }
-        if let Some(first) = s.points.first() {
-            let (fx, _) = project_point(first, min_x, max_x, min_y, max_y, padding, w, h);
-            d.push_str(&format!(" L{:.1},{:.1} Z", fx, baseline));
-        }
-        d
-    }).collect();
+    let paths: Vec<String> = series
+        .iter()
+        .map(|s| {
+            let mut d = String::new();
+            for (i, p) in s.points.iter().enumerate() {
+                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                if i == 0 {
+                    d.push_str(&format!("M{:.1},{:.1}", x, y));
+                } else {
+                    d.push_str(&format!(" L{:.1},{:.1}", x, y));
+                }
+            }
+            // Close to baseline so the area path is a proper filled region.
+            if let Some(last) = s.points.last() {
+                let (lx, _) = project_point(last, min_x, max_x, min_y, max_y, padding, w, h);
+                d.push_str(&format!(" L{:.1},{:.1}", lx, baseline));
+            }
+            if let Some(first) = s.points.first() {
+                let (fx, _) = project_point(first, min_x, max_x, min_y, max_y, padding, w, h);
+                d.push_str(&format!(" L{:.1},{:.1} Z", fx, baseline));
+            }
+            d
+        })
+        .collect();
 
-    let grid_lines: Vec<f64> = (0..=4).map(|i| padding as f64 + i as f64 * h / 4.0).collect();
+    let grid_lines: Vec<f64> = (0..=4)
+        .map(|i| padding as f64 + i as f64 * h / 4.0)
+        .collect();
     let fill_op_str = format!("{:.2}", fill_opacity.clamp(0.0, 1.0));
 
     rsx! {
@@ -212,12 +285,24 @@ pub fn ChartBar(
     if data.is_empty() {
         return rsx! { div { class: "chart-empty", "No data" } };
     }
-    let max_v = data.iter().map(|x| x.1).fold(f64::MIN, f64::max).max(0.0001);
+    let max_v = data
+        .iter()
+        .map(|x| x.1)
+        .fold(f64::MIN, f64::max)
+        .max(0.0001);
     let n = data.len();
     let w = (width as f64) - (padding as f64) * 2.0;
     let h = (height as f64) - (padding as f64) * 2.0;
-    let bar_w = if horizontal { h / n as f64 * 0.7 } else { w / n as f64 * 0.7 };
-    let gap = if horizontal { h / n as f64 * 0.3 } else { w / n as f64 * 0.3 };
+    let bar_w = if horizontal {
+        h / n as f64 * 0.7
+    } else {
+        w / n as f64 * 0.7
+    };
+    let gap = if horizontal {
+        h / n as f64 * 0.3
+    } else {
+        w / n as f64 * 0.3
+    };
 
     rsx! {
         div { class: "chart chart-bar",
@@ -265,7 +350,8 @@ pub fn ChartStackedBar(
         return rsx! { div { class: "chart-empty", "No data" } };
     }
     // Compute the max stack total to set the y-axis.
-    let max_v = data.iter()
+    let max_v = data
+        .iter()
         .map(|(_, vals)| vals.iter().sum::<f64>())
         .fold(0.0_f64, f64::max)
         .max(0.0001);

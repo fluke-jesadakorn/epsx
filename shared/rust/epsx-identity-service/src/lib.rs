@@ -19,11 +19,11 @@
 //!     literal so a future test can assert the wire schema
 //!     without a separate `include_str!` at the call site.
 
+pub mod authenticated_ranking_rpc;
 #[cfg(test)]
 pub mod emit_handler;
 #[cfg(test)]
 pub mod event_bus;
-pub mod authenticated_ranking_rpc;
 pub mod identity_service;
 pub mod ranking_entitlement;
 #[cfg(test)]
@@ -169,9 +169,7 @@ mod tests {
         impl Identity for LocalStub {
             async fn get_wallet_ranking_offset(
                 &self,
-                _request: Request<
-                    super::generated::GetWalletRankingOffsetRequest,
-                >,
+                _request: Request<super::generated::GetWalletRankingOffsetRequest>,
             ) -> Result<
                 tonic::Response<super::generated::GetWalletRankingOffsetResponse>,
                 tonic::Status,
@@ -292,10 +290,7 @@ mod tests {
             changed_at_ms: 999,
         };
         let delivered = bus.publish(event.clone());
-        assert_eq!(
-            delivered, 2,
-            "publish() should report 2 active subscribers"
-        );
+        assert_eq!(delivered, 2, "publish() should report 2 active subscribers");
 
         let got_a = rx_a.recv().await.expect("subscriber A receives");
         let got_b = rx_b.recv().await.expect("subscriber B receives");
@@ -449,14 +444,12 @@ mod tests {
                     // by a blank line (`\n\n`). Look for
                     // the first `data: ...` line.
                     while let Some(idx) = buffer.find("\n\n") {
-                        let event_block: String =
-                            buffer.drain(..idx + 2).collect();
+                        let event_block: String = buffer.drain(..idx + 2).collect();
                         for line in event_block.lines() {
                             if let Some(payload) = line.strip_prefix("data: ") {
                                 let payload = payload.trim();
                                 let parsed: serde_json::Value =
-                                    serde_json::from_str(payload)
-                                        .expect("data: line must be JSON");
+                                    serde_json::from_str(payload).expect("data: line must be JSON");
                                 assert_eq!(
                                     parsed["wallet"], "0xintegration-test",
                                     "SSE data: line wallet must match the emit"
@@ -514,7 +507,10 @@ mod tests {
 
         let bus = RankingOffsetEventBus::new(16);
         let app = Router::new()
-            .route("/v1/stream/ranking-offsets", get(super::sse_handler::stream_ranking_offsets))
+            .route(
+                "/v1/stream/ranking-offsets",
+                get(super::sse_handler::stream_ranking_offsets),
+            )
             .route("/v1/emit", post(emit_ranking_offset))
             .with_state(bus.clone());
 
@@ -548,10 +544,7 @@ mod tests {
             .await
             .expect("emit POST should succeed even with 0 subscribers");
         assert_eq!(response.status(), reqwest::StatusCode::OK);
-        let body: serde_json::Value = response
-            .json()
-            .await
-            .expect("emit response should be JSON");
+        let body: serde_json::Value = response.json().await.expect("emit response should be JSON");
         assert_eq!(
             body["delivered_to"], 0,
             "delivered_to must be 0 when no SSE clients are connected"

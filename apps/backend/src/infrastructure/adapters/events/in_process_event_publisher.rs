@@ -214,7 +214,10 @@ mod tests {
         let event: Box<dyn DomainEvent> =
             Box::new(TestEvent::new("test.event", "agg-1".to_string()));
         let result = publisher.publish(event).await;
-        assert!(result.is_ok(), "InProcessEventPublisher::publish should return Ok(())");
+        assert!(
+            result.is_ok(),
+            "InProcessEventPublisher::publish should return Ok(())"
+        );
     }
 
     #[tokio::test]
@@ -261,8 +264,7 @@ mod tests {
     #[tokio::test]
     async fn publisher_is_object_safe_via_dyn() {
         let publisher: Arc<dyn EventPublisherPort> = Arc::new(InProcessEventPublisher::new());
-        let event: Box<dyn DomainEvent> =
-            Box::new(TestEvent::new("test.dyn", "agg-4".to_string()));
+        let event: Box<dyn DomainEvent> = Box::new(TestEvent::new("test.dyn", "agg-4".to_string()));
         let result = publisher.publish(event).await;
         assert!(result.is_ok());
     }
@@ -299,10 +301,10 @@ mod tests {
     // =================================================================
     mod orphan_event_tests {
         use super::*;
-        use crate::infrastructure::adapters::events::CapturingEventPublisher;
         use crate::domain::permission_management::events::{
             PlanDeletedEvent, WalletAssignedToPlanEvent, WalletRemovedFromPlanEvent,
         };
+        use crate::infrastructure::adapters::events::CapturingEventPublisher;
         use std::sync::Arc;
 
         /// The in-process publisher routes a `PlanDeletedEvent`

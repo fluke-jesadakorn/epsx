@@ -1,11 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::realtime_events::commands::{
-    CreateRealtimeEventCommand, CreateRealtimeEventResponse
+    CreateRealtimeEventCommand, CreateRealtimeEventResponse,
 };
-use crate::domain::realtime_events::{
-    RealtimeEvent, EventRepositoryPort
-};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::domain::realtime_events::{EventRepositoryPort, RealtimeEvent};
+use crate::prelude::*;
 
 /// Handler for creating realtime events
 pub struct CreateRealtimeEventCommandHandler {
@@ -20,13 +18,17 @@ impl CreateRealtimeEventCommandHandler {
 
 #[async_trait]
 impl CommandHandler<CreateRealtimeEventCommand> for CreateRealtimeEventCommandHandler {
-    async fn handle(&self, command: CreateRealtimeEventCommand) -> ApplicationResult<CreateRealtimeEventResponse> {
+    async fn handle(
+        &self,
+        command: CreateRealtimeEventCommand,
+    ) -> ApplicationResult<CreateRealtimeEventResponse> {
         // 1. Create event aggregate
         let event = if command.is_broadcast {
             RealtimeEvent::create_broadcast(command.payload, command.channel)
         } else {
             RealtimeEvent::create(command.payload, command.target_users, command.channel)
-        }.map_err(|e| ApplicationError::business_rule(e.to_string()))?;
+        }
+        .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
 
         let event_id = event.id().clone();
         let channel = event.channel().to_string();

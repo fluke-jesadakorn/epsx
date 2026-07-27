@@ -51,7 +51,7 @@ impl Default for TransactionMonitorConfig {
                 }
             }
         }
-        
+
         if let Ok(addr_str) = std::env::var("PAYMENT_ESCROW_ADDRESS") {
             for s in addr_str.split(',') {
                 if let Ok(addr) = s.trim().parse::<H160>() {
@@ -219,7 +219,12 @@ impl TransactionMonitorService {
                 let amount = U256::from_big_endian(&log.data[..32]);
                 let token = log.address;
 
-                Some(Erc20Transfer { from, token, to, amount })
+                Some(Erc20Transfer {
+                    from,
+                    token,
+                    to,
+                    amount,
+                })
             })
             .collect()
     }
@@ -499,12 +504,19 @@ impl TransactionMonitorService {
         .await
         .map_err(|e| format!("Failed to mark as failed: {}", e))?;
 
-        warn!("Transaction {} marked as failed: {}", tx_hash, error_message);
+        warn!(
+            "Transaction {} marked as failed: {}",
+            tx_hash, error_message
+        );
 
         self.emit_audit_event(
-            tx_hash, "failed", "failed", Some(error_message),
+            tx_hash,
+            "failed",
+            "failed",
+            Some(error_message),
             serde_json::json!({}),
-        ).await;
+        )
+        .await;
 
         Ok(())
     }
@@ -518,8 +530,12 @@ impl TransactionMonitorService {
         reason: Option<&str>,
         metadata: serde_json::Value,
     ) {
-        let Ok(payments_pool) = get_payments_pool().await else { return; };
-        let Ok(mut conn) = payments_pool.get().await else { return; };
+        let Ok(payments_pool) = get_payments_pool().await else {
+            return;
+        };
+        let Ok(mut conn) = payments_pool.get().await else {
+            return;
+        };
 
         let _ = diesel::sql_query(
             r#"
@@ -595,7 +611,10 @@ impl TransactionMonitorService {
         .map_err(|e| format!("Failed to expire stale payments: {}", e))?;
 
         if expired_count > 0 {
-            warn!("Expired {} stale pending payments (>{}h old)", expired_count, ttl_hours);
+            warn!(
+                "Expired {} stale pending payments (>{}h old)",
+                expired_count, ttl_hours
+            );
         }
 
         Ok(())
@@ -662,7 +681,7 @@ impl TransactionMonitorService {
             created_at: chrono::DateTime<Utc>,
         }
         let ts: Option<PaymentTimestamp> = diesel::sql_query(
-            "SELECT created_at FROM payments WHERE transaction_hash = $1 LIMIT 1"
+            "SELECT created_at FROM payments WHERE transaction_hash = $1 LIMIT 1",
         )
         .bind::<diesel::sql_types::Text, _>(tx_hash)
         .get_result(&mut payments_conn)
@@ -672,8 +691,12 @@ impl TransactionMonitorService {
         if let Some(ts) = ts {
             let age_hours = (Utc::now() - ts.created_at).num_hours();
             if age_hours > self.config.pending_ttl_hours {
-                self.mark_as_failed(tx_hash, "Payment expired before blockchain confirmation").await?;
-                return Err(format!("Payment expired ({}h old, limit {}h)", age_hours, self.config.pending_ttl_hours));
+                self.mark_as_failed(tx_hash, "Payment expired before blockchain confirmation")
+                    .await?;
+                return Err(format!(
+                    "Payment expired ({}h old, limit {}h)",
+                    age_hours, self.config.pending_ttl_hours
+                ));
             }
         }
 
@@ -692,7 +715,10 @@ impl TransactionMonitorService {
 
         // Verify ERC20 Transfer events in the receipt (RC-2: store error without changing status)
         let (verified_amount, verified_token) = match self.verify_transfer_logs(
-            receipt, &blockchain_amount, &payment.currency, &wallet_address,
+            receipt,
+            &blockchain_amount,
+            &payment.currency,
+            &wallet_address,
         ) {
             Ok(result) => result,
             Err(e) => {
@@ -755,7 +781,12 @@ impl TransactionMonitorService {
                     "Plan {} not found or inactive for wallet {}",
                     plan_uuid, wallet_address
                 );
-                self.mark_as_failed(tx_hash, &format!("Plan {} not found or inactive", plan_uuid)).await.ok();
+                self.mark_as_failed(
+                    tx_hash,
+                    &format!("Plan {} not found or inactive", plan_uuid),
+                )
+                .await
+                .ok();
                 return Err(format!("Plan {} not found or inactive", plan_uuid));
             }
         };
@@ -972,13 +1003,15 @@ pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
     .await
     .ok();
 
-    Ok(row.map(|r| {
-        if let Some(err) = r.error_message {
-            format!("{}:{}", r.status, err)
-        } else {
-            r.status
-        }
-    }).unwrap_or_else(|| "not_found".to_string()))
+    Ok(row
+        .map(|r| {
+            if let Some(err) = r.error_message {
+                format!("{}:{}", r.status, err)
+            } else {
+                r.status
+            }
+        })
+        .unwrap_or_else(|| "not_found".to_string()))
 }
 
 #[cfg(test)]
@@ -1032,7 +1065,8 @@ mod tests {
         let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
         let receipt = make_receipt(sender, receiver, token, amount);
         let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
-        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        let result =
+            svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
         assert!(result.is_ok(), "expected Ok but got: {:?}", result);
     }
 
@@ -1046,9 +1080,12 @@ mod tests {
         let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
         let receipt = make_receipt(sender, wrong, token, amount);
         let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
-        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        let result =
+            svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No Transfer to valid receivers"));
+        assert!(result
+            .unwrap_err()
+            .contains("No Transfer to valid receivers"));
     }
 
     #[test]
@@ -1061,9 +1098,12 @@ mod tests {
         let amount = U256::from(29u64) * U256::from(10u64).pow(U256::from(18u64));
         let receipt = make_receipt(sender, receiver, bad_token, amount);
         let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
-        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        let result =
+            svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
         assert!(result.is_err());
-        assert!(result.unwrap_err().contains("No Transfer to valid receivers"));
+        assert!(result
+            .unwrap_err()
+            .contains("No Transfer to valid receivers"));
     }
 
     #[test]
@@ -1076,7 +1116,8 @@ mod tests {
         let amount = U256::from(20u64) * U256::from(10u64).pow(U256::from(18u64));
         let receipt = make_receipt(sender, receiver, token, amount);
         let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
-        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        let result =
+            svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Amount mismatch"));
     }
@@ -1093,7 +1134,8 @@ mod tests {
             ..Default::default()
         };
         let expected: bigdecimal::BigDecimal = "29".parse().unwrap();
-        let result = svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
+        let result =
+            svc.verify_transfer_logs(&receipt, &expected, "USDT", &format!("{:#x}", sender));
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No ERC20 Transfer events"));
     }

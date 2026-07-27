@@ -1,14 +1,13 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::commands::{
-    AssignWalletToPlanCommand, AssignWalletToPlanResponse
+    AssignWalletToPlanCommand, AssignWalletToPlanResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::permission_management::{
+    domain_services::PlanAssignmentService, events::WalletAssignedToPlanEvent,
     PermissionPlanRepositoryPort, PlanAssignmentRepositoryPort, PlanId,
-    domain_services::PlanAssignmentService,
-    events::WalletAssignedToPlanEvent,
 };
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 // wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
 // kernel-level `EventPublisherPort`. See `delete_plan_handler.rs` for
 // the design notes.
@@ -37,7 +36,10 @@ impl AssignWalletToPlanCommandHandler {
 
 #[async_trait]
 impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHandler {
-    async fn handle(&self, command: AssignWalletToPlanCommand) -> ApplicationResult<AssignWalletToPlanResponse> {
+    async fn handle(
+        &self,
+        command: AssignWalletToPlanCommand,
+    ) -> ApplicationResult<AssignWalletToPlanResponse> {
         // 1. Parse plan ID and wallet address
         let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
@@ -46,19 +48,29 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
             .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?;
 
         let assigned_by = if let Some(addr) = &command.assigned_by {
-            Some(WalletAddress::new(addr)
-                .map_err(|e| ApplicationError::validation("assigned_by", e.to_string()))?)
+            Some(
+                WalletAddress::new(addr)
+                    .map_err(|e| ApplicationError::validation("assigned_by", e.to_string()))?,
+            )
         } else {
             None
         };
 
         // 2. Find plan
-        let plan = self.plan_repository.find_by_id(&plan_id).await
+        let plan = self
+            .plan_repository
+            .find_by_id(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("PermissionPlan", command.plan_id.clone()))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("PermissionPlan", command.plan_id.clone())
+            })?;
 
         // 3. Check member count
-        let member_count = self.assignment_repository.count_plan_members(&plan_id).await
+        let member_count = self
+            .assignment_repository
+            .count_plan_members(&plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Validate assignment using domain service
@@ -76,7 +88,9 @@ impl CommandHandler<AssignWalletToPlanCommand> for AssignWalletToPlanCommandHand
         let assigned_at = chrono::Utc::now();
 
         // 6. Save assignment
-        self.assignment_repository.save(&assignment).await
+        self.assignment_repository
+            .save(&assignment)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 7. Publish WalletAssignedToPlanEvent (R7 + R8 wiring — was

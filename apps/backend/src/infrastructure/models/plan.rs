@@ -3,11 +3,11 @@
 //! Database models for groups table using Diesel ORM
 //! (Previously groups - renamed for simplicity)
 
-use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset};
-use uuid::Uuid;
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Diesel Queryable model for groups table
 /// Note: Uses groups table until migration is run

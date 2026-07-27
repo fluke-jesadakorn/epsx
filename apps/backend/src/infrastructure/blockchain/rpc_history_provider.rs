@@ -1,9 +1,11 @@
+use crate::domain::payment::repository_ports::{
+    TransactionHistoryInfo, TransactionHistoryProvider,
+};
+use crate::infrastructure::blockchain::event_parser::parse_payment_event;
 use async_trait::async_trait;
+use epsx_contracts::errors::AppError;
 use ethers::prelude::*;
 use std::sync::Arc;
-use crate::domain::payment::repository_ports::{TransactionHistoryProvider, TransactionHistoryInfo};
-use crate::infrastructure::blockchain::event_parser::parse_payment_event;
-use epsx_contracts::errors::AppError;
 
 pub struct RpcTransactionHistoryProvider {
     provider: Arc<Provider<Http>>,
@@ -13,16 +15,19 @@ pub struct RpcTransactionHistoryProvider {
 
 impl RpcTransactionHistoryProvider {
     pub fn new(rpc_url: String, contract_address: String) -> Result<Self, AppError> {
-        let provider = Provider::<Http>::try_from(&rpc_url)
-            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
+        let provider = Provider::<Http>::try_from(&rpc_url).map_err(|e| {
+            AppError::internal_server_error(format!("Failed to create provider: {}", e))
+        })?;
 
-        let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
+        let contract_address = contract_address.parse::<H160>().map_err(|e| {
+            AppError::internal_server_error(format!("Invalid contract address: {}", e))
+        })?;
 
         // PaymentReceived event topic0
-        let event_topic = H256::from_slice(&hex::decode(
-            "a7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1"
-        ).unwrap_or_default());
+        let event_topic = H256::from_slice(
+            &hex::decode("a7f9e7f4f9c6e7e3d8b3a2f1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1")
+                .unwrap_or_default(),
+        );
 
         Ok(Self {
             provider: Arc::new(provider),
@@ -40,7 +45,8 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
         _page: u32,
         _per_page: u32,
     ) -> Result<(Vec<TransactionHistoryInfo>, u64), String> {
-        let wallet_addr = wallet_address.parse::<H160>()
+        let wallet_addr = wallet_address
+            .parse::<H160>()
             .map_err(|e| format!("Invalid wallet address: {}", e))?;
 
         // In RPC mode, we search for logs where the first indexed param (user) is the wallet
@@ -50,7 +56,10 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
             .topic1(wallet_addr)
             .from_block(0); // For development/RPC, we search from start or a reasonable depth
 
-        let logs = self.provider.get_logs(&filter).await
+        let logs = self
+            .provider
+            .get_logs(&filter)
+            .await
             .map_err(|e| format!("Failed to fetch logs: {}", e))?;
 
         let mut history = Vec::new();
@@ -65,7 +74,10 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
                     from_address: event.user_address,
                     to_address: self.contract_address.to_string(),
                     block_number: event.block_number,
-                    plan_name: Some(format!("Context #{} (type={})", event.context_id, event.context_type)),
+                    plan_name: Some(format!(
+                        "Context #{} (type={})",
+                        event.context_id, event.context_type
+                    )),
                 });
             }
         }
@@ -73,10 +85,10 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
         // RPC doesn't easily support pagination for logs without custom indexing
         // For simplicity in development, return all matches found in the range
         let total = history.len() as u64;
-        
+
         // Sort by timestamp desc
         history.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        
+
         Ok((history, total))
     }
 }

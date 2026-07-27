@@ -39,7 +39,11 @@ pub fn Tooltip(
         Some("end") => " tooltip-align-end",
         _ => " tooltip-align-center",
     };
-    let delay_attr = if delay > 0 { format!("--tooltip-delay: {delay}ms;") } else { String::new() };
+    let delay_attr = if delay > 0 {
+        format!("--tooltip-delay: {delay}ms;")
+    } else {
+        String::new()
+    };
     let visible = open.unwrap_or(false);
     let bubble_class = format!(
         "tooltip-content{side_cls}{align_cls}{}",

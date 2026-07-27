@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
-    NewsArticleDb, NewNewsArticle, UpdateNewsArticle, NewsListQuery, PinNewsArticle,
+    NewNewsArticle, NewsArticleDb, NewsListQuery, PinNewsArticle, UpdateNewsArticle,
 };
 use crate::prelude::TlsPool;
 use crate::schemas::primary::news_articles;

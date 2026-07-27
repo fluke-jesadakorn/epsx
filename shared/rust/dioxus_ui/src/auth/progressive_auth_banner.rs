@@ -25,10 +25,12 @@ use dioxus::prelude::*;
 pub fn ProgressiveAuthBannerLegacy(
     /// Optional message override. Default: "Sign in to access this
     /// feature".
-    #[props(default = None)] message: Option<String>,
+    #[props(default = None)]
+    message: Option<String>,
     /// Optional description override. Default: "Connect your wallet
     /// to continue".
-    #[props(default = None)] description: Option<String>,
+    #[props(default = None)]
+    description: Option<String>,
 ) -> Element {
     rsx! {
         ProgressiveAuthBanner {
@@ -47,6 +49,5 @@ mod tests {
         // The TS source takes `message?: string, description?: string`
         // — both optional. The Dioxus port preserves this with
         // Option<String> props.
-        
     }
 }

@@ -22,8 +22,8 @@ grep -q "runtime DDL 4→0 and startup seed calls 2→0" "$temp_dir/integrity.ou
 grep -q "26 exact columns, 14 NOT NULL columns, three exact keys, and five exact indexes" "$temp_dir/integrity.out"
 grep -q "PostgreSQL 18 keys require connoinherit=true" "$temp_dir/integrity.out"
 grep -q "query/up/down evidence is independently hard-pinned" "$temp_dir/integrity.out"
-grep -q "complete inbound/outbound FK and CHECK inventories are empty" "$temp_dir/integrity.out"
-grep -q "19 runtime relations are public-qualified" "$temp_dir/integrity.out"
+grep -q "eight reviewed lifecycle FKs and three reviewed CHECK constraints are pinned" "$temp_dir/integrity.out"
+grep -q "47 runtime relations are public-qualified" "$temp_dir/integrity.out"
 grep -q "seven blockers remain" "$temp_dir/integrity.out"
 
 set +e
@@ -46,10 +46,10 @@ if (report.productionReady !== false || report.readinessExit !== 3) process.exit
 if (report.evidencePinning.authority !== "contract-plus-independent-verifier-constants" || report.evidencePinning.catalogIdentifiers !== 11 || report.evidencePinning.exactDownBody !== true) process.exit(1);
 if (report.source.developmentCommit !== "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db" || report.source.servicePresent !== false) process.exit(1);
 if (report.runtime.ddlBefore !== 4 || report.runtime.ddlAfter !== 0 || report.runtime.seedCallsBefore !== 2 || report.runtime.seedCallsAfter !== 0) process.exit(1);
-if (Object.values(report.runtime.qualifiedRelations).reduce((sum, count) => sum + count, 0) !== 19) process.exit(1);
+if (Object.values(report.runtime.qualifiedRelations).reduce((sum, count) => sum + count, 0) !== 47) process.exit(1);
 if (report.migration.migrations !== 1 || report.migration.historyStatus !== "blocked-preexisting-unsafe-history" || report.migration.runnerPrintSchemaMissing.join(",") !== "templates") process.exit(1);
 if (report.schema.columns !== 26 || report.schema.notNull !== 14 || report.schema.primaryKeys !== 2 || report.schema.uniqueKeys !== 1) process.exit(1);
-if (report.schema.foreignKeys !== 0 || report.schema.checks !== 0 || report.schema.indexes !== 5 || report.blockers.length !== 7) process.exit(1);
+if (report.schema.foreignKeys !== 8 || report.schema.checks !== 3 || report.schema.indexes !== 5 || report.blockers.length !== 7) process.exit(1);
 if (report.schema.keyConstraintPolicy.noInherit !== true || report.schema.keyConstraintPolicy.pg18Period !== false) process.exit(1);
 ' "$temp_dir/report-one.json"
 

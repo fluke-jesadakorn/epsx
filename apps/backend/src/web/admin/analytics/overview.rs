@@ -1,14 +1,14 @@
+use super::types::*;
+use crate::web::auth::AppState;
+use crate::web::responses::wrappers::AdminResponse;
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
-use chrono::{DateTime, Utc, Duration};
-use tracing::{error, info};
+use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::web::auth::AppState;
-use crate::web::responses::wrappers::AdminResponse;
-use super::types::*;
+use tracing::{error, info};
 
 /**
  * Get platform overview analytics
@@ -54,7 +54,7 @@ pub async fn get_platform_overview_handler(
             COUNT(*)::bigint as total_users,
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users,
             COUNT(*) FILTER (WHERE created_at >= $1)::bigint as new_users_period
-         FROM wallet_users"
+         FROM wallet_users",
     )
     .bind::<diesel::sql_types::Timestamptz, _>(period_start)
     .get_result::<UserMetrics>(&mut conn)
@@ -125,7 +125,7 @@ pub async fn get_platform_overview_handler(
         WHERE created_at >= $1
         GROUP BY DATE_TRUNC('day', created_at)
         ORDER BY signup_date ASC
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Timestamptz, _>(period_start)
     .load::<SignupTrend>(&mut conn)
@@ -136,7 +136,8 @@ pub async fn get_platform_overview_handler(
             .map(|row| TimeSeriesPoint {
                 timestamp: row.signup_date.unwrap_or_else(Utc::now),
                 value: row.user_count.unwrap_or(0) as f64,
-                label: row.signup_date
+                label: row
+                    .signup_date
                     .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
@@ -162,13 +163,16 @@ pub async fn get_platform_overview_handler(
         match diesel::sql_query(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
              INNER JOIN plans pg ON wga.plan_id = pg.id
-             WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
+             WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
         )
         .get_result::<RevenueResult>(&mut conn)
         .await
         {
-            Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            Err(_) => 0.0
+            Ok(result) => result
+                .revenue
+                .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                .unwrap_or(0.0),
+            Err(_) => 0.0,
         }
     };
 
@@ -178,13 +182,16 @@ pub async fn get_platform_overview_handler(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
              INNER JOIN plans pg ON wga.plan_id = pg.id
              WHERE wga.is_active = true AND pg.plan_type = 'subscription'
-             AND wga.created_at >= NOW() - INTERVAL '30 days'"
+             AND wga.created_at >= NOW() - INTERVAL '30 days'",
         )
         .get_result::<RevenueResult>(&mut conn)
         .await
         {
-            Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            Err(_) => 0.0
+            Ok(result) => result
+                .revenue
+                .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                .unwrap_or(0.0),
+            Err(_) => 0.0,
         }
     };
 
@@ -201,5 +208,9 @@ pub async fn get_platform_overview_handler(
     };
 
     info!("Admin: Successfully retrieved platform overview analytics");
-    AdminResponse::success_with_message(response, "Platform overview analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(
+        response,
+        "Platform overview analytics retrieved successfully",
+    )
+    .into_response()
 }

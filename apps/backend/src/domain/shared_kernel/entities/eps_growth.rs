@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use tracing::{debug, warn};
 use epsx_contracts::value_objects::QuarterlyEPSData;
+use serde::{Deserialize, Serialize};
+use tracing::{debug, warn};
 
 /// EPS Growth data entity for analytics
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -25,8 +25,7 @@ pub struct EPSGrowthData {
 }
 
 /// EPS Ranking result for API responses
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct EPSRanking {
     pub symbol: String,
     pub name: String,
@@ -127,21 +126,30 @@ impl EPSGrowthData {
         }
 
         if self.country.is_empty() {
-            warn!("EPS validation failed: empty country for symbol {}", self.symbol);
+            warn!(
+                "EPS validation failed: empty country for symbol {}",
+                self.symbol
+            );
             return Err("Country cannot be empty".to_string());
         }
 
         // Validate EPS values are reasonable
         if let Some(eps) = self.current_eps {
             if !(-1000.0..=1000.0).contains(&eps) {
-                warn!("EPS validation warning: unusual EPS value {} for symbol {}", eps, self.symbol);
+                warn!(
+                    "EPS validation warning: unusual EPS value {} for symbol {}",
+                    eps, self.symbol
+                );
             }
         }
 
         // Validate QoQ growth is reasonable
         if let Some(growth) = self.growth_factor {
             if !(-500.0..=1000.0).contains(&growth) {
-                warn!("EPS validation warning: extreme QoQ growth {} for symbol {}", growth, self.symbol);
+                warn!(
+                    "EPS validation warning: extreme QoQ growth {} for symbol {}",
+                    growth, self.symbol
+                );
             }
         }
 
@@ -180,7 +188,10 @@ impl EPSGrowthData {
         }
 
         self.ranking_score = Some(score);
-        debug!("Calculated ranking score: {} for symbol: {}", score, self.symbol);
+        debug!(
+            "Calculated ranking score: {} for symbol: {}",
+            score, self.symbol
+        );
     }
 
     /// Determine EPS growth trend
@@ -200,10 +211,12 @@ impl EPSGrowthData {
         let has_eps = self.current_eps.is_some();
         let has_growth = self.growth_factor.is_some();
         let has_price = self.price_current.is_some();
-        
-        debug!("Quality check for {}: EPS={}, Growth={}, Price={}", 
-               self.symbol, has_eps, has_growth, has_price);
-        
+
+        debug!(
+            "Quality check for {}: EPS={}, Growth={}, Price={}",
+            self.symbol, has_eps, has_growth, has_price
+        );
+
         has_eps && has_growth && has_price
     }
 }
@@ -230,12 +243,11 @@ impl EPSRanking {
     }
 }
 
-
 impl EPSPagination {
     /// Create pagination info
     pub fn new(page: i32, limit: i32, total: i64) -> Self {
         let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
-        
+
         Self {
             page,
             limit,

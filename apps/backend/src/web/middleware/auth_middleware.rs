@@ -1,38 +1,38 @@
 // Web3 Authentication Middleware
 // Wallet signature-based authentication middleware
-// 
+//
 // Token Validation Strategy:
 // - Uses OpenIDTokenService::validate_access_token() as SINGLE SOURCE OF TRUTH
 // - All other validation methods are deprecated or forwarded
 
 use axum::{
     extract::{Request, State},
-    http::{StatusCode, HeaderMap},
+    http::{HeaderMap, StatusCode},
     middleware::Next,
     response::Response,
 };
-use serde::{Deserialize, Serialize};
-use tracing::{debug, warn, info};
 use chrono::{DateTime, Utc};
 use ethers::types::Address;
+use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
+use tracing::{debug, info, warn};
 
-use crate::web::auth::AppState;
 use crate::auth::UnifiedWeb3AuthService;
+use crate::web::auth::AppState;
 
 /// Enhanced Web3 Authentication Context
 /// Represents authenticated wallet with comprehensive permissions from the permission system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Web3AuthContext {
-    pub wallet_address: String,        // Primary key from wallet_users table
-    pub permissions: Vec<String>,      // Permissions from the permission system
-    pub plans: Vec<String>,          // Permission plans from wallet_users
+    pub wallet_address: String,       // Primary key from wallet_users table
+    pub permissions: Vec<String>,     // Permissions from the permission system
+    pub plans: Vec<String>,           // Permission plans from wallet_users
     pub is_active: bool,              // From wallet_users.is_active
     pub verified_at: DateTime<Utc>,   // When signature was verified
     pub signature_hash: String,       // Hash of the SIWE signature
-    pub chain_id: u64,               // Blockchain network (56=BSC, 97=BSC Testnet, 1=Ethereum)
-    pub last_auth_at: DateTime<Utc>, // For wallet_users.last_auth_at update
+    pub chain_id: u64,                // Blockchain network (56=BSC, 97=BSC Testnet, 1=Ethereum)
+    pub last_auth_at: DateTime<Utc>,  // For wallet_users.last_auth_at update
     pub bearer_token: Option<String>, // Generated Bearer token for API access
     pub token_expires_at: Option<DateTime<Utc>>, // Bearer token expiry
     pub auth_method: AuthMethod,      // How the user authenticated
@@ -40,8 +40,8 @@ pub struct Web3AuthContext {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum AuthMethod {
-    SiweSignature,    // Sign-In with Ethereum signature
-    BearerToken,      // JWT Bearer token
+    SiweSignature, // Sign-In with Ethereum signature
+    BearerToken,   // JWT Bearer token
 }
 
 /// Enhanced Web3 Authentication Errors
@@ -64,13 +64,17 @@ impl std::fmt::Display for Web3AuthError {
         match self {
             Web3AuthError::MissingCredentials => write!(f, "Authentication credentials required"),
             Web3AuthError::InvalidSignatureFormat => write!(f, "Invalid signature format"),
-            Web3AuthError::SignatureVerificationFailed(msg) => write!(f, "Signature verification failed: {}", msg),
+            Web3AuthError::SignatureVerificationFailed(msg) => {
+                write!(f, "Signature verification failed: {}", msg)
+            }
             Web3AuthError::WalletNotFound(addr) => write!(f, "Wallet not found: {}", addr),
             Web3AuthError::PermissionDenied(perm) => write!(f, "Permission denied: {}", perm),
             Web3AuthError::ExpiredSignature => write!(f, "Signature has expired"),
             Web3AuthError::InvalidChainId(id) => write!(f, "Invalid chain ID: {}", id),
             Web3AuthError::SecurityViolation(msg) => write!(f, "Security violation: {}", msg),
-            Web3AuthError::TokenVerificationFailed(msg) => write!(f, "Token verification failed: {}", msg),
+            Web3AuthError::TokenVerificationFailed(msg) => {
+                write!(f, "Token verification failed: {}", msg)
+            }
             Web3AuthError::SessionExpired => write!(f, "Authentication session has expired"),
         }
     }
@@ -103,7 +107,10 @@ pub async fn web3_auth_middleware(
     // Try different authentication methods in order of preference
     match authenticate_request(&headers, &app_state).await {
         Ok(auth_context) => {
-            debug!("Web3 authentication successful: {} via {:?}", auth_context.wallet_address, auth_context.auth_method);
+            debug!(
+                "Web3 authentication successful: {} via {:?}",
+                auth_context.wallet_address, auth_context.auth_method
+            );
 
             // Insert wallet_address as String extension for handlers that expect Extension<String>
             let wallet_address = auth_context.wallet_address.clone();
@@ -113,12 +120,14 @@ pub async fn web3_auth_middleware(
             request.extensions_mut().insert(auth_context.clone());
 
             let mut response = next.run(request).await;
-            
+
             // ATTACH CONTEXT TO RESPONSE EXTENSIONS
             // This is critical for outer middleware (like usage_tracking) to access auth info
             response.extensions_mut().insert(auth_context.clone());
-            response.extensions_mut().insert(auth_context.wallet_address.clone());
-            
+            response
+                .extensions_mut()
+                .insert(auth_context.wallet_address.clone());
+
             Ok(response)
         }
         Err(auth_error) => {
@@ -129,7 +138,10 @@ pub async fn web3_auth_middleware(
 }
 
 /// Authenticate request using multiple methods
-async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
+async fn authenticate_request(
+    headers: &HeaderMap,
+    app_state: &AppState,
+) -> Result<Web3AuthContext, Web3AuthError> {
     // Method 1: Try Bearer token authentication first. Browser callers may supply
     // the same access token through the HttpOnly auth cookie instead of JS-visible
     // Authorization headers.
@@ -157,15 +169,16 @@ async fn authenticate_request(headers: &HeaderMap, app_state: &AppState) -> Resu
 
 /// Check if request has SIWE headers
 fn has_siwe_headers(headers: &HeaderMap) -> bool {
-    headers.get("X-Web3-Signature").is_some() &&
-    headers.get("X-Wallet-Address").is_some() &&
-    headers.get("X-Signed-Message").is_some()
+    headers.get("X-Web3-Signature").is_some()
+        && headers.get("X-Wallet-Address").is_some()
+        && headers.get("X-Signed-Message").is_some()
 }
 
-
-
 /// Validate SIWE signature-based authentication
-async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
+async fn validate_siwe_signature(
+    headers: &HeaderMap,
+    app_state: &AppState,
+) -> Result<Web3AuthContext, Web3AuthError> {
     // Extract Web3 signature from custom header
     let signature_header = headers
         .get("X-Web3-Signature")
@@ -199,33 +212,47 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
     );
 
     // Validate wallet address format
-    let _wallet_address = Address::from_str(wallet_header)
-        .map_err(|_| Web3AuthError::InvalidSignatureFormat)?;
+    let _wallet_address =
+        Address::from_str(wallet_header).map_err(|_| Web3AuthError::InvalidSignatureFormat)?;
 
     // Parse and verify SIWE message
-    let siwe_message = Message::from_str(message_header)
-        .map_err(|e| Web3AuthError::SignatureVerificationFailed(format!("Invalid SIWE message: {}", e)))?;
+    let siwe_message = Message::from_str(message_header).map_err(|e| {
+        Web3AuthError::SignatureVerificationFailed(format!("Invalid SIWE message: {}", e))
+    })?;
 
     // Verify signature cryptographically
     let signature_bytes = hex::decode(signature_header.trim_start_matches("0x"))
         .map_err(|_| Web3AuthError::InvalidSignatureFormat)?;
 
-    siwe_message.verify(&signature_bytes, &VerificationOpts::default())
+    siwe_message
+        .verify(&signature_bytes, &VerificationOpts::default())
         .await
-        .map_err(|e| Web3AuthError::SignatureVerificationFailed(format!("SIWE verification failed: {}", e)))?;
+        .map_err(|e| {
+            Web3AuthError::SignatureVerificationFailed(format!("SIWE verification failed: {}", e))
+        })?;
 
-    info!("SIWE signature verification successful for wallet: {}", wallet_header);
+    info!(
+        "SIWE signature verification successful for wallet: {}",
+        wallet_header
+    );
 
     // Get auth service for wallet lookup and permission validation
-    let auth_service = app_state.domain_container.get_auth_service()
-        .ok_or_else(|| Web3AuthError::SecurityViolation("Auth service not available".to_string()))?;
+    let auth_service = app_state
+        .domain_container
+        .get_auth_service()
+        .ok_or_else(|| {
+            Web3AuthError::SecurityViolation("Auth service not available".to_string())
+        })?;
 
     // Fetch dynamic permissions from the database
     // This ensures that even SIWE legacy auth respects proper permissions
     let permissions = match auth_service.get_wallet_permissions(wallet_header).await {
         Ok(perms) => perms,
         Err(e) => {
-            warn!("Failed to fetch permissions for wallet {}: {}", wallet_header, e);
+            warn!(
+                "Failed to fetch permissions for wallet {}: {}",
+                wallet_header, e
+            );
             // Default to basic View access on failure (safe fallback)
             vec!["epsx:basic:view".to_string()]
         }
@@ -247,21 +274,32 @@ async fn validate_siwe_signature(headers: &HeaderMap, app_state: &AppState) -> R
         auth_method: AuthMethod::SiweSignature,
     };
 
-    info!("SIWE authentication complete for wallet: {} with {} permissions", wallet_header, auth_context.permissions.len());
+    info!(
+        "SIWE authentication complete for wallet: {} with {} permissions",
+        wallet_header,
+        auth_context.permissions.len()
+    );
     Ok(auth_context)
 }
 
 /// Validate JWT Bearer token
 /// Tries RS256 (primary) then falls back to HS256 (legacy) like SSE handler
-async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3AuthContext, Web3AuthError> {
+async fn validate_bearer_token(
+    token: &str,
+    app_state: &AppState,
+) -> Result<Web3AuthContext, Web3AuthError> {
     // Try RS256 validation first (primary method - OpenID tokens)
     if let Some(token_service) = app_state.domain_container.get_token_service() {
         match token_service.validate_access_token(token).await {
             Ok(claims) => {
-                debug!("Bearer token validated (RS256) for wallet: {}", claims.wallet_address);
-                
+                debug!(
+                    "Bearer token validated (RS256) for wallet: {}",
+                    claims.wallet_address
+                );
+
                 // Extract permissions from scope
-                let permissions: Vec<String> = claims.scope
+                let permissions: Vec<String> = claims
+                    .scope
                     .split_whitespace()
                     .filter(|s| *s != "openid" && *s != "profile")
                     .map(|s| s.to_string())
@@ -275,19 +313,24 @@ async fn validate_bearer_token(token: &str, app_state: &AppState) -> Result<Web3
                     verified_at: DateTime::from_timestamp(claims.iat, 0).unwrap_or(Utc::now()),
                     signature_hash: claims.jti,
                     chain_id: 56,
-                    last_auth_at: DateTime::from_timestamp(claims.auth_time, 0).unwrap_or(Utc::now()),
+                    last_auth_at: DateTime::from_timestamp(claims.auth_time, 0)
+                        .unwrap_or(Utc::now()),
                     bearer_token: Some(token.to_string()),
-                    token_expires_at: Some(DateTime::from_timestamp(claims.exp, 0).unwrap_or(Utc::now())),
+                    token_expires_at: Some(
+                        DateTime::from_timestamp(claims.exp, 0).unwrap_or(Utc::now()),
+                    ),
                     auth_method: AuthMethod::BearerToken,
                 });
-            },
+            }
             Err(e) => {
                 warn!("RS256 token validation failed: {}", e);
             }
         }
     }
 
-    Err(Web3AuthError::TokenVerificationFailed("RS256 token validation failed".to_string()))
+    Err(Web3AuthError::TokenVerificationFailed(
+        "RS256 token validation failed".to_string(),
+    ))
 }
 
 /// Extract Web3 authentication context from request
@@ -296,9 +339,7 @@ pub fn get_web3_context(request: &Request) -> Option<&Web3AuthContext> {
 }
 
 /// Require authentication - returns 401 if no valid Web3 context
-pub async fn require_web3_auth(
-    request: &Request,
-) -> Result<&Web3AuthContext, StatusCode> {
+pub async fn require_web3_auth(request: &Request) -> Result<&Web3AuthContext, StatusCode> {
     get_web3_context(request).ok_or(StatusCode::UNAUTHORIZED)
 }
 
@@ -314,17 +355,14 @@ pub async fn require_permission<'a>(
     } else {
         warn!(
             "Permission '{}' denied for wallet: {}",
-            required_permission,
-            context.wallet_address
+            required_permission, context.wallet_address
         );
         Err(StatusCode::FORBIDDEN)
     }
 }
 
 /// Require admin access - checks for admin permissions
-pub async fn require_admin(
-    request: &Request,
-) -> Result<&Web3AuthContext, StatusCode> {
+pub async fn require_admin(request: &Request) -> Result<&Web3AuthContext, StatusCode> {
     let context = require_web3_auth(request).await?;
 
     if UnifiedWeb3AuthService::is_admin(&context.permissions) {
@@ -351,8 +389,7 @@ pub async fn has_any_permission<'a>(
     } else {
         warn!(
             "None of the required permissions {:?} found for wallet: {}",
-            permissions,
-            context.wallet_address
+            permissions, context.wallet_address
         );
         Err(StatusCode::FORBIDDEN)
     }
@@ -376,5 +413,7 @@ fn is_public_route_for_auth(path: &str) -> bool {
         "/web3/recent-wallets",
     ];
 
-    PUBLIC_PATHS.iter().any(|public_path| path.starts_with(public_path))
+    PUBLIC_PATHS
+        .iter()
+        .any(|public_path| path.starts_with(public_path))
 }

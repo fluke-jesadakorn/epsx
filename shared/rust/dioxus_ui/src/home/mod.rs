@@ -18,21 +18,21 @@
 
 use dioxus::prelude::*;
 
-pub mod hero_section;
-pub mod share_button;
-pub mod dynamic_pricing_section;
 pub mod dynamic_pricing_client;
+pub mod dynamic_pricing_section;
 pub mod financial_data_table;
+pub mod hero_section;
 pub mod server_news_section;
 pub mod server_top_performers;
+pub mod share_button;
 
-pub use hero_section::HeroSection;
-pub use share_button::ShareButton;
-pub use dynamic_pricing_section::DynamicPricingSection;
 pub use dynamic_pricing_client::{DynamicPricingClient, PricingCard, PricingGroup};
+pub use dynamic_pricing_section::DynamicPricingSection;
 pub use financial_data_table::{FinancialDataRow, FinancialDataTable};
+pub use hero_section::{HeroSection, SignedOutHero};
 pub use server_news_section::ServerNewsSection;
 pub use server_top_performers::ServerTopPerformers;
+pub use share_button::ShareButton;
 
 #[cfg(test)]
 mod tests {
@@ -45,10 +45,5 @@ mod tests {
         // pointer so a regression that renames or removes a
         // component will fail at compile time (this test) and not
         // at link time.
-        
-        
-        
-        
-        
     }
 }

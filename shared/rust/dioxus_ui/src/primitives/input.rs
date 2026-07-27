@@ -105,9 +105,16 @@ pub fn Input(
 
     // Build class list using only the existing design-system classes.
     let mut input_cls = "input".to_string();
-    if let Some(c) = &class_name { input_cls.push(' '); input_cls.push_str(c); }
-    if error.is_some() { input_cls.push_str(" input-error"); }
-    if icon.is_some() { input_cls.push_str(" input-with-icon"); }
+    if let Some(c) = &class_name {
+        input_cls.push(' ');
+        input_cls.push_str(c);
+    }
+    if error.is_some() {
+        input_cls.push_str(" input-error");
+    }
+    if icon.is_some() {
+        input_cls.push_str(" input-with-icon");
+    }
 
     // `aria-invalid` is set when (a) the caller passed `aria_invalid: Some(true)`, or
     // (b) an error message is present.

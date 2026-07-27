@@ -3,64 +3,73 @@
 //! Provides endpoints for serving OpenAPI documentation with Scalar.
 //! Separate documentation for users (/docs) and admins (/admin/docs).
 
-use axum::{ routing::get, response::{ Html, Json, IntoResponse }, Router };
 use axum::http::{HeaderMap, HeaderValue};
+use axum::{
+    response::{Html, IntoResponse, Json},
+    routing::get,
+    Router,
+};
 use utoipa::OpenApi;
 
-use crate::web::docs::openapi_user::UserApiDoc;
-use crate::web::docs::openapi_admin::AdminApiDoc;
 use crate::config::env::get_env_var;
+use crate::web::docs::openapi_admin::AdminApiDoc;
+use crate::web::docs::openapi_user::UserApiDoc;
 
 /// Create documentation routes for Scalar
 /// - /docs - User-facing API documentation
 /// - /admin/docs - Admin API documentation (includes all endpoints)
 pub fn create_docs_routes() -> Router {
-  Router::new()
-    // User documentation
-    .route("/docs", get(docs_user_handler))
-    .route("/api-docs/openapi.json", get(openapi_user_json_handler))
-    // Admin documentation
-    .route("/admin/docs", get(docs_admin_handler))
-    .route("/admin/api-docs/openapi.json", get(openapi_admin_json_handler))
+    Router::new()
+        // User documentation
+        .route("/docs", get(docs_user_handler))
+        .route("/api-docs/openapi.json", get(openapi_user_json_handler))
+        // Admin documentation
+        .route("/admin/docs", get(docs_admin_handler))
+        .route(
+            "/admin/api-docs/openapi.json",
+            get(openapi_admin_json_handler),
+        )
 }
 
 /// Serve Scalar Interactive API Documentation for Users at /docs
 /// This endpoint provides user-facing API documentation (excludes admin endpoints)
 pub async fn docs_user_handler() -> impl IntoResponse {
-  create_scalar_html(
-    "EPSX API Documentation",
-    "Interactive API documentation for EPSX Data Analytics Platform",
-    "/api-docs/openapi.json",
-    false // is_admin
-  ).await
+    create_scalar_html(
+        "EPSX API Documentation",
+        "Interactive API documentation for EPSX Data Analytics Platform",
+        "/api-docs/openapi.json",
+        false, // is_admin
+    )
+    .await
 }
 
 /// Serve Scalar Interactive API Documentation for Admins at /admin/docs
 /// This endpoint provides complete API documentation including admin endpoints
 pub async fn docs_admin_handler() -> impl IntoResponse {
-  create_scalar_html(
-    "EPSX Admin API Documentation",
-    "Complete API documentation including admin management endpoints",
-    "/admin/api-docs/openapi.json",
-    true // is_admin
-  ).await
+    create_scalar_html(
+        "EPSX Admin API Documentation",
+        "Complete API documentation including admin management endpoints",
+        "/admin/api-docs/openapi.json",
+        true, // is_admin
+    )
+    .await
 }
 
 /// Create Scalar HTML documentation page
 async fn create_scalar_html(
-  title: &str,
-  description: &str,
-  openapi_url: &str,
-  is_admin: bool
+    title: &str,
+    description: &str,
+    openapi_url: &str,
+    is_admin: bool,
 ) -> impl IntoResponse {
-  let admin_badge = if is_admin {
-    r#"<span class="badge admin-badge">🔐 Admin Panel</span>"#
-  } else {
-    ""
-  };
+    let admin_badge = if is_admin {
+        r#"<span class="badge admin-badge">🔐 Admin Panel</span>"#
+    } else {
+        ""
+    };
 
-  let admin_style = if is_admin {
-    r#"
+    let admin_style = if is_admin {
+        r#"
         .admin-badge {
             background: rgba(220, 38, 38, 0.3);
             border: 1px solid rgba(220, 38, 38, 0.5);
@@ -69,12 +78,12 @@ async fn create_scalar_html(
             background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
         }
     "#
-  } else {
-    ""
-  };
+    } else {
+        ""
+    };
 
-  let html = format!(
-    r#"
+    let html = format!(
+        r#"
 <!DOCTYPE html>
 <html>
 <head>
@@ -228,43 +237,47 @@ async fn create_scalar_html(
 </body>
 </html>
 "#
-  );
+    );
 
-  // Build headers that allow iframe embedding from allowed origins
-  let mut headers = HeaderMap::new();
-  
-  // Get frontend URL from env, default to localhost for dev
-  let frontend_url = get_env_var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
-  let admin_url = get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
-  
-  // Allow embedding from frontend origins
-  let frame_ancestors = format!("frame-ancestors 'self' {} {}", frontend_url, admin_url);
-  
-  // Override X-Frame-Options to allow from same origin (modern browsers use frame-ancestors)
-  headers.insert("x-frame-options", HeaderValue::from_static("SAMEORIGIN"));
-  
-  // Set Content-Security-Policy with frame-ancestors allowing frontend
-  if let Ok(csp_value) = HeaderValue::from_str(&frame_ancestors) {
-    headers.insert("content-security-policy", csp_value);
-  }
-  
-  // Set content type
-  headers.insert("content-type", HeaderValue::from_static("text/html; charset=utf-8"));
+    // Build headers that allow iframe embedding from allowed origins
+    let mut headers = HeaderMap::new();
 
-  (headers, Html(html))
+    // Get frontend URL from env, default to localhost for dev
+    let frontend_url =
+        get_env_var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
+    let admin_url =
+        get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
+
+    // Allow embedding from frontend origins
+    let frame_ancestors = format!("frame-ancestors 'self' {} {}", frontend_url, admin_url);
+
+    // Override X-Frame-Options to allow from same origin (modern browsers use frame-ancestors)
+    headers.insert("x-frame-options", HeaderValue::from_static("SAMEORIGIN"));
+
+    // Set Content-Security-Policy with frame-ancestors allowing frontend
+    if let Ok(csp_value) = HeaderValue::from_str(&frame_ancestors) {
+        headers.insert("content-security-policy", csp_value);
+    }
+
+    // Set content type
+    headers.insert(
+        "content-type",
+        HeaderValue::from_static("text/html; charset=utf-8"),
+    );
+
+    (headers, Html(html))
 }
 
 /// Serve User OpenAPI JSON specification at /api-docs/openapi.json
 pub async fn openapi_user_json_handler() -> Json<utoipa::openapi::OpenApi> {
-  Json(UserApiDoc::openapi())
+    Json(UserApiDoc::openapi())
 }
 
 /// Serve Admin OpenAPI JSON specification at /admin/api-docs/openapi.json
 pub async fn openapi_admin_json_handler() -> Json<utoipa::openapi::OpenApi> {
-  Json(AdminApiDoc::openapi())
+    Json(AdminApiDoc::openapi())
 }
 
 // Keep backward compatibility exports
 pub use docs_user_handler as docs_scalar_handler;
 pub use openapi_user_json_handler as openapi_json_handler;
-

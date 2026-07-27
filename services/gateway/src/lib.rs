@@ -256,6 +256,18 @@ async fn authorize_request(
             }
             Ok(Some(principal))
         }
+        AccessPolicy::AudiencePermission {
+            audience,
+            permission,
+        } => {
+            let principal = authenticate_headers(verifier, headers)
+                .await
+                .map_err(|_| GatewayError::Unauthorized)?;
+            if principal.audience != audience || !principal.has_permission(permission) {
+                return Err(GatewayError::Forbidden);
+            }
+            Ok(Some(principal))
+        }
         AccessPolicy::InternalOnly | AccessPolicy::Blocked => Err(GatewayError::NotFound),
     }
 }
@@ -536,6 +548,18 @@ mod tests {
                 "admin-users" => (ADMIN_AUDIENCE, vec!["admin:users:read".into()]),
                 "admin-audit" => (ADMIN_AUDIENCE, vec!["admin:audit:read".into()]),
                 "admin-global" => (ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
+                "publisher" => (
+                    policy::NOTIFICATION_PUBLISHER_AUDIENCE,
+                    vec![policy::NOTIFICATION_PUBLISH_PERMISSION.into()],
+                ),
+                "provider" => (
+                    policy::NOTIFICATION_PROVIDER_AUDIENCE,
+                    vec![policy::NOTIFICATION_PROVIDER_EVENTS_PERMISSION.into()],
+                ),
+                "provider-wrong-permission" => (
+                    policy::NOTIFICATION_PROVIDER_AUDIENCE,
+                    vec!["internal:notifications:read".into()],
+                ),
                 _ => return Err(epsx_service_auth::VerifyError::Validation),
             };
             Ok(VerifiedPrincipal {
@@ -840,6 +864,55 @@ mod tests {
             "Bearer admin-audit"
         );
         assert!(requests.iter().all(|request| request.body == b"ok"));
+    }
+
+    #[tokio::test]
+    async fn notification_service_audience_routes_require_their_internal_identity() {
+        let (app, capture, _) = test_app().await;
+        for (path, bearer) in [
+            ("/api/v1/notification/publish", "publisher"),
+            ("/api/v1/notification/provider-events", "provider"),
+        ] {
+            let request = axum::http::Request::builder()
+                .method(Method::POST)
+                .uri(path)
+                .header(header::AUTHORIZATION, format!("Bearer {bearer}"))
+                .body(Body::from("ok"))
+                .unwrap();
+            assert_eq!(status(&app, request).await, StatusCode::NO_CONTENT);
+        }
+
+        for (path, bearer, expected) in [
+            (
+                "/api/v1/notification/publish",
+                "front",
+                StatusCode::FORBIDDEN,
+            ),
+            (
+                "/api/v1/notification/publish",
+                "admin-global",
+                StatusCode::FORBIDDEN,
+            ),
+            (
+                "/api/v1/notification/provider-events",
+                "publisher",
+                StatusCode::FORBIDDEN,
+            ),
+            (
+                "/api/v1/notification/provider-events",
+                "provider-wrong-permission",
+                StatusCode::FORBIDDEN,
+            ),
+        ] {
+            let request = axum::http::Request::builder()
+                .method(Method::POST)
+                .uri(path)
+                .header(header::AUTHORIZATION, format!("Bearer {bearer}"))
+                .body(Body::empty())
+                .unwrap();
+            assert_eq!(status(&app, request).await, expected);
+        }
+        assert_eq!(capture.hits.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]

@@ -1,20 +1,16 @@
 // WalletUserSearchPort implementation — find_by_* search methods
 
+use super::{WalletUserQueryResult, WalletUserRepositoryAdapter};
+use crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams;
+use crate::domain::wallet_management::{
+    aggregates::{WalletMetadata, WalletUser},
+    repository_ports::{WalletUserSearchCriteria, WalletUserSearchPort, WalletUserSearchResult},
+    value_objects::{Permission, PermissionType, WalletAddress},
+};
 use crate::prelude::*;
+use diesel_async::RunQueryDsl;
 use std::collections::HashSet;
 use tracing::error;
-use diesel_async::RunQueryDsl;
-use crate::domain::wallet_management::{
-    aggregates::{WalletUser, WalletMetadata},
-    value_objects::{WalletAddress, Permission, PermissionType},
-    repository_ports::{
-        WalletUserSearchPort,
-        WalletUserSearchCriteria,
-        WalletUserSearchResult,
-    },
-};
-use super::{WalletUserRepositoryAdapter, WalletUserQueryResult};
-use crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams;
 
 fn build_user(row: WalletUserQueryResult) -> Option<WalletUser> {
     let wallet_addr = WalletAddress::new(row.wallet_address).ok()?;
@@ -56,21 +52,26 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                 JOIN permissions p2 ON wdp.permission_id = p2.id
                 WHERE p2.permission_string = $1 AND p2.is_active = true AND wdp.is_active = true
             )
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(permission_str)
         .load::<WalletUserQueryResult>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission {}: {}", permission_str, e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            error!(
+                "Failed to find users by permission {}: {}",
+                permission_str, e
+            );
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
         Ok(rows.into_iter().filter_map(build_user).collect())
     }
 
-    async fn find_by_permission_type(&self, permission_type: &PermissionType) -> AppResult<Vec<WalletUser>> {
+    async fn find_by_permission_type(
+        &self,
+        permission_type: &PermissionType,
+    ) -> AppResult<Vec<WalletUser>> {
         let type_filter = match permission_type {
             PermissionType::Manual => "manual",
             PermissionType::NftGated { .. } => "nft_gated",
@@ -94,15 +95,17 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                   AND (pg.name = $1 OR pg.slug = $1)
             )
             ORDER BY created_at DESC
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(type_filter)
         .load::<WalletUserQueryResult>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission type {}: {}", type_filter, e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            error!(
+                "Failed to find users by permission type {}: {}",
+                type_filter, e
+            );
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
         Ok(rows.into_iter().filter_map(build_user).collect())
@@ -125,13 +128,16 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                   AND (pg.name = $1 OR pg.slug = $1)
             )
             ORDER BY created_at DESC
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(permission_plan)
         .load::<WalletUserQueryResult>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission plan {}: {}", permission_plan, e);
+            error!(
+                "Failed to find users by permission plan {}: {}",
+                permission_plan, e
+            );
             AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
                 .with_operation("find_by_permission_plan")
@@ -167,7 +173,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             ORDER BY created_at DESC
             LIMIT $6
             OFFSET $7
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(wallet_pattern)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(is_active)
@@ -180,14 +186,18 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         .await
         .map_err(|e| {
             error!("Failed to search wallet users: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
         let users: Vec<WalletUser> = rows.into_iter().filter_map(build_user).collect();
         let total_count = WalletUserSearchPort::count_by_criteria(self, criteria).await?;
 
-        Ok(WalletUserSearchResult::new(users, total_count, offset, limit))
+        Ok(WalletUserSearchResult::new(
+            users,
+            total_count,
+            offset,
+            limit,
+        ))
     }
 
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
@@ -204,7 +214,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         let result = diesel::sql_query(
             r#"SELECT COUNT(*) as count FROM wallet_users
                WHERE ($1::text IS NULL OR wallet_address ILIKE $1)
-                 AND ($2::bool IS NULL OR is_active = $2)"#
+                 AND ($2::bool IS NULL OR is_active = $2)"#,
         )
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(wallet_pattern)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(is_active)
@@ -212,11 +222,14 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         .await
         .map_err(|e| {
             error!("Failed to count wallet users: {}", e);
-            AppError::database_error(e.to_string())
-                .with_component("wallet_user_repository")
+            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
-        Ok(result.into_iter().next().map(|r| r.count as u64).unwrap_or(0))
+        Ok(result
+            .into_iter()
+            .next()
+            .map(|r| r.count as u64)
+            .unwrap_or(0))
     }
 
     async fn find_by_nft_ownership(
@@ -227,7 +240,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     ) -> AppResult<Vec<WalletUser>> {
         tracing::warn!(
             "find_by_nft_ownership not yet implemented for contract {} on chain {}",
-            contract_address, chain_id
+            contract_address,
+            chain_id
         );
         Ok(Vec::new())
     }
@@ -240,7 +254,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     ) -> AppResult<Vec<WalletUser>> {
         tracing::warn!(
             "find_by_token_balance not yet implemented for contract {} on chain {}",
-            contract_address, chain_id
+            contract_address,
+            chain_id
         );
         Ok(Vec::new())
     }
@@ -253,7 +268,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     ) -> AppResult<Vec<WalletUser>> {
         tracing::warn!(
             "find_by_dao_membership not yet implemented for DAO {} on chain {}",
-            dao_contract, chain_id
+            dao_contract,
+            chain_id
         );
         Ok(Vec::new())
     }
@@ -266,7 +282,8 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         let results = permissions.iter().map(|p| p.is_manual()).collect();
         tracing::info!(
             "Validated {} permissions for wallet {}",
-            permissions.len(), wallet_address.as_str()
+            permissions.len(),
+            wallet_address.as_str()
         );
         Ok(results)
     }
@@ -280,7 +297,10 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
     ) -> AppResult<()> {
         tracing::info!(
             "Would cache validation result for wallet {} permission {}: {} (TTL: {}s)",
-            wallet_address.as_str(), permission.as_str(), is_valid, cache_duration_seconds
+            wallet_address.as_str(),
+            permission.as_str(),
+            is_valid,
+            cache_duration_seconds
         );
         Ok(())
     }

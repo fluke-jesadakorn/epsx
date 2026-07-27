@@ -1,7 +1,7 @@
 //! Shared UI helpers for the frontend BFF.
 //!
 //! Wraps the `epsx-templates` design system into higher-level components
-//! (navbar, mobile sheet, footer, page sections) so individual page body
+//! (navbar, mobile sheet, and page sections) so individual page body
 //! functions can stay short and focus on content.
 
 use crate::auth::AuthUser;

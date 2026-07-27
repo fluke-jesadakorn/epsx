@@ -1,9 +1,9 @@
 use crate::prelude::TlsPool;
+use crate::web::notifications::{NotificationPriority, NotificationType, SSENotification};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use uuid::Uuid;
-use crate::web::notifications::{SSENotification, NotificationType, NotificationPriority};
 use epsx_contracts::errors::AppError;
+use uuid::Uuid;
 
 /// Fetch all active notifications for a wallet (offline queue)
 /// Returns notifications that persist until user explicitly deletes them
@@ -19,7 +19,9 @@ pub async fn fetch_queued_notifications(
     db_pool: &TlsPool,
     wallet_address: &str,
 ) -> Result<Vec<SSENotification>, AppError> {
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .get()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
     #[derive(QueryableByName)]
@@ -64,25 +66,22 @@ pub async fn fetch_queued_notifications(
 
     let notifications: Vec<_> = records
         .into_iter()
-        .map(|r| {
-            SSENotification {
-                id: r.id.to_string(),
-                wallet_address: r.wallet_address,
-                notification_type: parse_notification_type(&r.notification_type, &r.id),
-                title: r.title,
-                message: r.message,
-                data: r.data,
-                priority: parse_priority(&r.priority, &r.id),
-                timestamp: r.timestamp,
-                expires_at: r.expires_at,
-            }
+        .map(|r| SSENotification {
+            id: r.id.to_string(),
+            wallet_address: r.wallet_address,
+            notification_type: parse_notification_type(&r.notification_type, &r.id),
+            title: r.title,
+            message: r.message,
+            data: r.data,
+            priority: parse_priority(&r.priority, &r.id),
+            timestamp: r.timestamp,
+            expires_at: r.expires_at,
         })
         .collect();
 
     tracing::info!(
-        "Fetched {} active notifications (last 30 days) for wallet: {}",
-        notifications.len(),
-        wallet_address
+        "Fetched {} active notifications (last 30 days) for notification stream",
+        notifications.len()
     );
 
     Ok(notifications)
@@ -91,20 +90,19 @@ pub async fn fetch_queued_notifications(
 /// Mark notification as delivered (SSE stream sent it to the client).
 /// Only transitions from undelivered states (created/queued/sent) so it never
 /// clobbers a user-explicitly set state like 'read' or 'unread'.
-pub async fn mark_as_delivered(
-    db_pool: &TlsPool,
-    notification_id: &str,
-) -> Result<(), AppError> {
+pub async fn mark_as_delivered(db_pool: &TlsPool, notification_id: &str) -> Result<(), AppError> {
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .get()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
     diesel::sql_query(
         "UPDATE wallet_notifications \
          SET status = 'delivered', total_attempts = total_attempts + 1, updated_at = NOW() \
-         WHERE id = $1 AND status IN ('created', 'queued', 'sent')"
+         WHERE id = $1 AND status IN ('created', 'queued', 'sent')",
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
     .execute(&mut conn)
@@ -124,7 +122,9 @@ pub async fn mark_as_acknowledged(
     let id = Uuid::parse_str(notification_id)
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
-    let mut conn = db_pool.get().await
+    let mut conn = db_pool
+        .get()
+        .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
     // Only update if not already in a user-controlled state ('read' or 'unread').
@@ -132,13 +132,16 @@ pub async fn mark_as_acknowledged(
     diesel::sql_query(
         "UPDATE wallet_notifications \
          SET status = 'delivered', updated_at = NOW() \
-         WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')"
+         WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')",
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
     .execute(&mut conn)
     .await?;
 
-    tracing::debug!("Notification acknowledged (delivery confirmed): id={}", notification_id);
+    tracing::debug!(
+        "Notification acknowledged (delivery confirmed): id={}",
+        notification_id
+    );
 
     Ok(())
 }
@@ -152,10 +155,7 @@ pub async fn mark_as_acknowledged(
 /// - Expired notifications: Remove immediately
 ///
 /// Called every hour by `PlanExpirationService` background task (main.rs).
-pub async fn cleanup_old_notifications(
-    db_pool: &TlsPool,
-    _days: i64,
-) -> Result<u64, AppError> {
+pub async fn cleanup_old_notifications(db_pool: &TlsPool, _days: i64) -> Result<u64, AppError> {
     let mut conn = db_pool.get().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
@@ -176,14 +176,12 @@ pub async fn cleanup_old_notifications(
 
     // Delete expired notifications immediately
     let expired_result = diesel::sql_query(
-        "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()"
+        "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()",
     )
     .execute(&mut conn)
     .await?;
 
-    let total_cleaned = soft_deleted_result
-        + read_result
-        + expired_result;
+    let total_cleaned = soft_deleted_result + read_result + expired_result;
 
     tracing::info!(
         "Cleaned up {} notifications (soft-deleted: {}, read: {}, expired: {})",
@@ -197,9 +195,7 @@ pub async fn cleanup_old_notifications(
 }
 
 /// Get notification statistics for monitoring (excludes soft-deleted)
-pub async fn get_notification_stats(
-    db_pool: &TlsPool,
-) -> Result<NotificationStats, AppError> {
+pub async fn get_notification_stats(db_pool: &TlsPool) -> Result<NotificationStats, AppError> {
     let mut conn = db_pool.get().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
@@ -212,9 +208,11 @@ pub async fn get_notification_stats(
         count: i64,
     }
 
-    let total: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'")
-        .get_result(&mut conn)
-        .await?;
+    let total: CountRow = diesel::sql_query(
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
+    )
+    .get_result(&mut conn)
+    .await?;
 
     let queued: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('created', 'queued') AND status != 'deleted'")
         .get_result(&mut conn)

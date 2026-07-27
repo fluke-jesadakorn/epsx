@@ -1,9 +1,9 @@
 // Blockchain Monitor Binary
 // Standalone service for monitoring BSC blockchain events and processing payments
 
-use epsx::infrastructure::BlockchainMonitor;
-use epsx::prelude::{TlsPool, TlsConnectionManager};
 use diesel_async::RunQueryDsl;
+use epsx::infrastructure::BlockchainMonitor;
+use epsx::prelude::{TlsConnectionManager, TlsPool};
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
@@ -11,10 +11,10 @@ use tracing::{error, info, warn};
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load environment variables
     epsx::config::env::load_env();
-    
+
     // Determine environment and log level
-    let is_production = std::env::var("RUST_ENV").unwrap_or_default() == "production" || 
-                        std::env::var("NODE_ENV").unwrap_or_default() == "production";
+    let is_production = std::env::var("RUST_ENV").unwrap_or_default() == "production"
+        || std::env::var("NODE_ENV").unwrap_or_default() == "production";
     let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
 
     // Initialize unified logger
@@ -25,31 +25,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Environment already loaded above
 
     // Load configuration from environment
-    let database_url = std::env::var("DATABASE_URL")
-        .expect("DATABASE_URL must be set");
+    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
-    let network = std::env::var("BLOCKCHAIN_NETWORK")
-        .unwrap_or_else(|_| "testnet".to_string());
+    let network = std::env::var("BLOCKCHAIN_NETWORK").unwrap_or_else(|_| "testnet".to_string());
 
     let (rpc_url, contract_address_var) = if network == "mainnet" {
         (
             std::env::var("BSC_MAINNET_RPC_URL")
                 .expect("BSC_MAINNET_RPC_URL must be set for mainnet"),
-            "PAYMENT_ESCROW_CONTRACT_MAINNET"
+            "PAYMENT_ESCROW_CONTRACT_MAINNET",
         )
     } else {
         (
             std::env::var("BSC_TESTNET_RPC_URL")
                 .expect("BSC_TESTNET_RPC_URL must be set for testnet"),
-            "PAYMENT_ESCROW_CONTRACT_TESTNET"
+            "PAYMENT_ESCROW_CONTRACT_TESTNET",
         )
     };
 
-    let contract_address = std::env::var(contract_address_var)
-        .unwrap_or_else(|_| {
-            warn!(" {} not set, using placeholder", contract_address_var);
-            "0x0000000000000000000000000000000000000000".to_string()
-        });
+    let contract_address = std::env::var(contract_address_var).unwrap_or_else(|_| {
+        warn!(" {} not set, using placeholder", contract_address_var);
+        "0x0000000000000000000000000000000000000000".to_string()
+    });
 
     let start_block: u64 = std::env::var("BLOCKCHAIN_START_BLOCK")
         .unwrap_or_else(|_| "0".to_string())
@@ -70,7 +67,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Validate contract address
     if contract_address == "0x0000000000000000000000000000000000000000" {
-        error!("Invalid contract address. Please set {} in your active environment configuration", contract_address_var);
+        error!(
+            "Invalid contract address. Please set {} in your active environment configuration",
+            contract_address_var
+        );
         error!("   Deploy the smart contract first and update the environment variable.");
         std::process::exit(1);
     }
@@ -84,7 +84,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("Failed to create database pool");
 
     // Test connection
-    let _ = pool.get().await.expect("Failed to connect to PostgreSQL database");
+    let _ = pool
+        .get()
+        .await
+        .expect("Failed to connect to PostgreSQL database");
     info!("Database connection established");
 
     // Verify database migration
@@ -101,7 +104,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "SELECT EXISTS (
             SELECT FROM information_schema.tables
             WHERE table_name = 'processed_blockchain_events'
-        ) as exists"
+        ) as exists",
     )
     .get_result::<TableExistsResult>(&mut conn)
     .await;
@@ -112,7 +115,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             if !exists {
                 error!("Database migration not applied!");
                 error!("   Run: diesel migration run");
-                error!("   Or: psql -d {} -f migrations/008_blockchain_payments.sql", database_url);
+                error!(
+                    "   Or: psql -d {} -f migrations/008_blockchain_payments.sql",
+                    database_url
+                );
                 std::process::exit(1);
             }
             info!("Database schema verified");
@@ -130,7 +136,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse supported tokens
     let supported_tokens_str = std::env::var("SUPPORTED_PAYMENT_TOKENS")
         .unwrap_or_else(|_| "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930".to_string());
-    
+
     let supported_tokens: Vec<String> = supported_tokens_str
         .split(',')
         .map(|s| s.trim().to_string())
@@ -155,12 +161,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Start monitoring in background
     info!("Starting event listener...");
-    monitor.start_monitoring()
+    monitor
+        .start_monitoring()
         .await
         .expect("Failed to start blockchain monitoring");
 
     info!("Blockchain monitor is running!");
-    info!("   Listening for PaymentReceived events on contract: {}", contract_address);
+    info!(
+        "   Listening for PaymentReceived events on contract: {}",
+        contract_address
+    );
     info!("   Press Ctrl+C to stop");
 
     // Wait for shutdown signal

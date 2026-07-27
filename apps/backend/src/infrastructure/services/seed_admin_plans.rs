@@ -4,15 +4,14 @@
 //! Uses ON CONFLICT to safely re-run (idempotent).
 
 use diesel_async::RunQueryDsl;
-use tracing::{info, error};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::prelude::TlsPool;
 use epsx_contracts::constants::{
-    SUPER_ADMIN_PLAN_ID, SUPER_ADMIN_PLAN_NAME, SUPER_ADMIN_PLAN_SLUG,
-    MODERATOR_PLAN_ID, MODERATOR_PLAN_NAME, MODERATOR_PLAN_SLUG,
-    SUPPORT_PLAN_ID, SUPPORT_PLAN_NAME, SUPPORT_PLAN_SLUG,
-    SUPER_ADMIN_WALLET,
+    MODERATOR_PLAN_ID, MODERATOR_PLAN_NAME, MODERATOR_PLAN_SLUG, SUPER_ADMIN_PLAN_ID,
+    SUPER_ADMIN_PLAN_NAME, SUPER_ADMIN_PLAN_SLUG, SUPER_ADMIN_WALLET, SUPPORT_PLAN_ID,
+    SUPPORT_PLAN_NAME, SUPPORT_PLAN_SLUG,
 };
 
 struct AdminPlanDef {
@@ -99,7 +98,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
                 is_system = true,
                 plan_type = 'admin',
                 plan_category = 'system',
-                updated_at = NOW()"#
+                updated_at = NOW()"#,
         )
         .bind::<diesel::sql_types::Uuid, _>(plan_id)
         .bind::<diesel::sql_types::Text, _>(def.name)
@@ -137,7 +136,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             let _ = diesel::sql_query(
                 r#"INSERT INTO plan_permissions (plan_id, permission_id)
                 SELECT $1, p.id FROM permissions p WHERE p.permission_string = $2
-                ON CONFLICT (plan_id, permission_id) DO NOTHING"#
+                ON CONFLICT (plan_id, permission_id) DO NOTHING"#,
             )
             .bind::<diesel::sql_types::Uuid, _>(plan_id)
             .bind::<diesel::sql_types::Text, _>(*perm_str)
@@ -160,7 +159,10 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     let mut conn = match pool.get().await {
         Ok(c) => c,
         Err(e) => {
-            error!("Failed to get DB connection for super admin wallet seeding: {}", e);
+            error!(
+                "Failed to get DB connection for super admin wallet seeding: {}",
+                e
+            );
             return;
         }
     };
@@ -174,12 +176,13 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     };
 
     // Use environment variable if provided, otherwise fallback to constant
-    let env_wallet = std::env::var("SUPER_ADMIN_WALLET").unwrap_or_else(|_| SUPER_ADMIN_WALLET.to_string());
-    
+    let env_wallet =
+        std::env::var("SUPER_ADMIN_WALLET").unwrap_or_else(|_| SUPER_ADMIN_WALLET.to_string());
+
     // In production, we MUST require the ENV var. If it matches the hardcoded dev wallet and we're in prod, warn deeply.
-    let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production" || 
-                  std::env::var("ENVIRONMENT").unwrap_or_default() == "production";
-                  
+    let is_prod = std::env::var("NODE_ENV").unwrap_or_default() == "production"
+        || std::env::var("ENVIRONMENT").unwrap_or_default() == "production";
+
     if is_prod && env_wallet == SUPER_ADMIN_WALLET {
         tracing::warn!("⚠️ SECURITY WARNING: Using default hardcoded SUPER_ADMIN_WALLET in production! Set SUPER_ADMIN_WALLET env var to override.");
     }
@@ -188,7 +191,7 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     if let Err(e) = diesel::sql_query(
         r#"INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
         VALUES ($1, true, 'Bronze', '{}')
-        ON CONFLICT (wallet_address) DO NOTHING"#
+        ON CONFLICT (wallet_address) DO NOTHING"#,
     )
     .bind::<diesel::sql_types::Text, _>(&env_wallet)
     .execute(&mut conn)

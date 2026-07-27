@@ -872,10 +872,7 @@ mod tests {
             // the only thing that reads `DATABASE_URL` here, and the
             // dummy value satisfies the `postgresql://` prefix check.
             unsafe {
-                std::env::set_var(
-                    "DATABASE_URL",
-                    "postgres://test:test@localhost:5432/test",
-                );
+                std::env::set_var("DATABASE_URL", "postgres://test:test@localhost:5432/test");
             }
         }
     }
@@ -952,9 +949,9 @@ mod tests {
 
         // Use dynamic dates relative to now so the test doesn't break over time
         let now = Utc::now().timestamp() as f64;
-        let near_future = now + 30.0 * 86400.0;   // +30 days (nearest future)
-        let far_future = now + 180.0 * 86400.0;   // +180 days
-        let past = now - 30.0 * 86400.0;          // -30 days (in the past)
+        let near_future = now + 30.0 * 86400.0; // +30 days (nearest future)
+        let far_future = now + 180.0 * 86400.0; // +180 days
+        let past = now - 30.0 * 86400.0; // -30 days (in the past)
 
         let mut d = vec![StockDataField::Null; 35];
         d[0] = StockDataField::String("NVDA".to_string());

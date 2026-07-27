@@ -1,5 +1,5 @@
-use std::fmt::{self, Display};
 use serde::{Deserialize, Serialize};
+use std::fmt::{self, Display};
 
 use super::PaymentError;
 
@@ -33,7 +33,7 @@ pub enum PaymentStatus {
 
 impl std::str::FromStr for PaymentStatus {
     type Err = PaymentError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "created" => Ok(PaymentStatus::Created),
@@ -78,9 +78,11 @@ impl PaymentStatus {
     pub fn is_final(&self) -> bool {
         matches!(
             self,
-            PaymentStatus::Completed | PaymentStatus::Failed | 
-            PaymentStatus::Cancelled | PaymentStatus::Refunded |
-            PaymentStatus::VerificationFailed
+            PaymentStatus::Completed
+                | PaymentStatus::Failed
+                | PaymentStatus::Cancelled
+                | PaymentStatus::Refunded
+                | PaymentStatus::VerificationFailed
         )
     }
 }

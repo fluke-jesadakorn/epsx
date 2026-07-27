@@ -22,10 +22,20 @@ pub struct Step {
 impl Step {
     /// Convenience constructor for `Step { label, complete: false, icon: None }`.
     pub fn new(label: impl Into<String>) -> Self {
-        Self { label: label.into(), complete: false, icon: None }
+        Self {
+            label: label.into(),
+            complete: false,
+            icon: None,
+        }
     }
-    pub fn complete(mut self) -> Self { self.complete = true; self }
-    pub fn with_icon(mut self, icon: impl Into<String>) -> Self { self.icon = Some(icon.into()); self }
+    pub fn complete(mut self) -> Self {
+        self.complete = true;
+        self
+    }
+    pub fn with_icon(mut self, icon: impl Into<String>) -> Self {
+        self.icon = Some(icon.into());
+        self
+    }
 }
 
 /// Tuple-based stepper (preserved for the existing API used by `pages/payment.rs`).
@@ -45,7 +55,11 @@ pub fn Stepper(
         0u32
     } else {
         let completed = steps.iter().filter(|(_, c)| *c).count()
-            + if current < total && steps.get(current).map(|(_, c)| !*c).unwrap_or(false) { 1 } else { 0 };
+            + if current < total && steps.get(current).map(|(_, c)| !*c).unwrap_or(false) {
+                1
+            } else {
+                0
+            };
         ((completed as f64 / total as f64) * 100.0).round() as u32
     };
     rsx! {
@@ -84,7 +98,11 @@ pub fn StepperSteps(steps: Vec<Step>, current: usize) -> Element {
         0u32
     } else {
         let completed = steps.iter().filter(|s| s.complete).count()
-            + if current < total && steps.get(current).map(|s| !s.complete).unwrap_or(false) { 1 } else { 0 };
+            + if current < total && steps.get(current).map(|s| !s.complete).unwrap_or(false) {
+                1
+            } else {
+                0
+            };
         ((completed as f64 / total as f64) * 100.0).round() as u32
     };
     rsx! {

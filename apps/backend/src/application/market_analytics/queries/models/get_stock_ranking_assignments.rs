@@ -117,7 +117,12 @@ pub async fn get_stock_ranking_assignments_via_port(
     let mut assignments = port
         .get_stock_ranking_assignments(&wallet)
         .await
-        .map_err(|e| format!("SubscriptionRepositoryPort::get_stock_ranking_assignments failed: {}", e))?;
+        .map_err(|e| {
+            format!(
+                "SubscriptionRepositoryPort::get_stock_ranking_assignments failed: {}",
+                e
+            )
+        })?;
 
     // Post-fetch filter: package_id.
     if let Some(pkg) = query.package_id.as_deref() {
@@ -181,24 +186,15 @@ mod tests {
 
     #[async_trait]
     impl SubscriptionRepositoryPort for MockSubscriptionRepository {
-        async fn list_for_plan(
-            &self,
-            _plan_id: PlanId,
-        ) -> AppResult<Vec<Subscription>> {
+        async fn list_for_plan(&self, _plan_id: PlanId) -> AppResult<Vec<Subscription>> {
             Ok(Vec::new())
         }
 
-        async fn list_for_wallet(
-            &self,
-            _wallet: &WalletAddress,
-        ) -> AppResult<Vec<Subscription>> {
+        async fn list_for_wallet(&self, _wallet: &WalletAddress) -> AppResult<Vec<Subscription>> {
             Ok(Vec::new())
         }
 
-        async fn create(
-            &self,
-            _cmd: CreateSubscriptionCommand,
-        ) -> AppResult<Subscription> {
+        async fn create(&self, _cmd: CreateSubscriptionCommand) -> AppResult<Subscription> {
             unimplemented!("canary test does not exercise create")
         }
 
@@ -344,9 +340,8 @@ mod tests {
             },
         ];
 
-        let port: Arc<dyn SubscriptionRepositoryPort> = Arc::new(MockSubscriptionRepository {
-            assignments: seed,
-        });
+        let port: Arc<dyn SubscriptionRepositoryPort> =
+            Arc::new(MockSubscriptionRepository { assignments: seed });
 
         let query = GetStockRankingAssignmentsQuery {
             wallet_address: Some(wallet.to_string()),
@@ -402,9 +397,8 @@ mod tests {
             },
         ];
 
-        let port: Arc<dyn SubscriptionRepositoryPort> = Arc::new(MockSubscriptionRepository {
-            assignments: seed,
-        });
+        let port: Arc<dyn SubscriptionRepositoryPort> =
+            Arc::new(MockSubscriptionRepository { assignments: seed });
 
         let query = GetStockRankingAssignmentsQuery {
             wallet_address: Some(wallet.to_string()),
@@ -474,9 +468,8 @@ mod tests {
             },
         ];
 
-        let port: Arc<dyn SubscriptionRepositoryPort> = Arc::new(MockSubscriptionRepository {
-            assignments: seed,
-        });
+        let port: Arc<dyn SubscriptionRepositoryPort> =
+            Arc::new(MockSubscriptionRepository { assignments: seed });
 
         // Page 1, limit 2
         let query1 = GetStockRankingAssignmentsQuery {
@@ -516,7 +509,8 @@ mod tests {
     /// method.
     #[tokio::test]
     async fn stock_ranking_canary_no_wallet_returns_empty() {
-        let port: Arc<dyn SubscriptionRepositoryPort> = Arc::new(MockSubscriptionRepository::default());
+        let port: Arc<dyn SubscriptionRepositoryPort> =
+            Arc::new(MockSubscriptionRepository::default());
 
         let query = GetStockRankingAssignmentsQuery {
             wallet_address: None,

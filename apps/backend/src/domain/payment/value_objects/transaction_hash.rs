@@ -85,12 +85,12 @@ impl TransactionHash {
     /// Get minimum confirmations required for this network
     pub fn minimum_confirmations(&self) -> u32 {
         match self.network {
-            Network::Ethereum => 1,     // 1 confirmation for Ethereum
-            Network::Binance => 1,      // 1 confirmation for BSC
-            Network::Tron => 1,         // 1 confirmation for TRON
-            Network::Arbitrum => 1,     // 1 confirmation for Arbitrum
-            Network::Polygon => 1,      // 1 confirmation for Polygon
-            Network::Bitcoin => 3,      // 3 confirmations for Bitcoin
+            Network::Ethereum => 1,          // 1 confirmation for Ethereum
+            Network::Binance => 1,           // 1 confirmation for BSC
+            Network::Tron => 1,              // 1 confirmation for TRON
+            Network::Arbitrum => 1,          // 1 confirmation for Arbitrum
+            Network::Polygon => 1,           // 1 confirmation for Polygon
+            Network::Bitcoin => 3,           // 3 confirmations for Bitcoin
             Network::BinanceSmartChain => 1, // 1 confirmation for BSC
         }
     }
@@ -98,12 +98,12 @@ impl TransactionHash {
     /// Get safe confirmations for this network (recommended for large amounts)
     pub fn safe_confirmations(&self) -> u32 {
         match self.network {
-            Network::Ethereum => 12,    // 12 confirmations for Ethereum (~3 minutes)
-            Network::Binance => 20,     // 20 confirmations for BSC (~1 minute)
-            Network::Tron => 20,        // 20 confirmations for TRON (~1 minute)
-            Network::Arbitrum => 1,     // 1 confirmation for Arbitrum (L2)
-            Network::Polygon => 50,     // 50 confirmations for Polygon (~2 minutes)
-            Network::Bitcoin => 6,      // 6 confirmations for Bitcoin (~1 hour)
+            Network::Ethereum => 12, // 12 confirmations for Ethereum (~3 minutes)
+            Network::Binance => 20,  // 20 confirmations for BSC (~1 minute)
+            Network::Tron => 20,     // 20 confirmations for TRON (~1 minute)
+            Network::Arbitrum => 1,  // 1 confirmation for Arbitrum (L2)
+            Network::Polygon => 50,  // 50 confirmations for Polygon (~2 minutes)
+            Network::Bitcoin => 6,   // 6 confirmations for Bitcoin (~1 hour)
             Network::BinanceSmartChain => 20, // 20 confirmations for BSC
         }
     }
@@ -113,7 +113,11 @@ impl TransactionHash {
         let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
             .unwrap_or_default()
             .eq_ignore_ascii_case("mainnet");
-        let bsc_explorer = if is_mainnet { "https://bscscan.com/tx/" } else { "https://testnet.bscscan.com/tx/" };
+        let bsc_explorer = if is_mainnet {
+            "https://bscscan.com/tx/"
+        } else {
+            "https://testnet.bscscan.com/tx/"
+        };
         let base_url = match self.network {
             Network::Ethereum => "https://etherscan.io/tx/",
             Network::Binance => bsc_explorer,
@@ -143,7 +147,11 @@ impl TransactionHash {
     /// Get short hash for display (first 8 and last 8 characters)
     pub fn short_hash(&self) -> String {
         if self.hash.len() > 16 {
-            format!("{}...{}", &self.hash[0..8], &self.hash[self.hash.len()-8..])
+            format!(
+                "{}...{}",
+                &self.hash[0..8],
+                &self.hash[self.hash.len() - 8..]
+            )
         } else {
             self.hash.clone()
         }
@@ -152,9 +160,11 @@ impl TransactionHash {
     /// Validate hash format based on network
     fn validate_hash_format(hash: &str, network: &Network) -> Result<(), TransactionHashError> {
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
-                Self::validate_ethereum_tx_hash(hash)
-            }
+            Network::Ethereum
+            | Network::Binance
+            | Network::Arbitrum
+            | Network::Polygon
+            | Network::BinanceSmartChain => Self::validate_ethereum_tx_hash(hash),
             Network::Tron => Self::validate_tron_tx_hash(hash),
             Network::Bitcoin => Self::validate_bitcoin_tx_hash(hash),
         }
@@ -231,9 +241,13 @@ impl TransactionHash {
     /// Normalize hash format
     fn normalize_hash(hash: &str, network: &Network) -> Result<String, TransactionHashError> {
         let trimmed = hash.trim();
-        
+
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
+            Network::Ethereum
+            | Network::Binance
+            | Network::Arbitrum
+            | Network::Polygon
+            | Network::BinanceSmartChain => {
                 // Ensure 0x prefix for Ethereum-like networks
                 if trimmed.starts_with("0x") {
                     Ok(trimmed.to_lowercase())
@@ -285,7 +299,10 @@ impl ConfirmationStatus {
 
     /// Check if status indicates successful confirmation
     pub fn is_success(&self) -> bool {
-        matches!(self, ConfirmationStatus::Confirmed | ConfirmationStatus::Finalized)
+        matches!(
+            self,
+            ConfirmationStatus::Confirmed | ConfirmationStatus::Finalized
+        )
     }
 
     /// Check if status is final (won't change)
@@ -476,10 +493,16 @@ mod tests {
     #[test]
     fn test_invalid_transaction_hashes() {
         let invalid_hashes = vec![
-            ("0x123", Network::Ethereum),                    // Too short
-            ("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef3", Network::Ethereum), // Too long
-            ("0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefzz", Network::Ethereum), // Invalid character
-            ("12345", Network::Tron),                        // Too short for TRON
+            ("0x123", Network::Ethereum), // Too short
+            (
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef3",
+                Network::Ethereum,
+            ), // Too long
+            (
+                "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdefzz",
+                Network::Ethereum,
+            ), // Invalid character
+            ("12345", Network::Tron),     // Too short for TRON
         ];
 
         for (hash, network) in invalid_hashes {
@@ -493,7 +516,8 @@ mod tests {
         let tx_hash = TransactionHash::new(
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(tx_hash.confirmation_status(), ConfirmationStatus::Pending);
 
@@ -512,7 +536,8 @@ mod tests {
         let tx_hash = TransactionHash::new(
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
-        ).unwrap();
+        )
+        .unwrap();
 
         let url = tx_hash.explorer_url();
         assert!(url.starts_with("https://etherscan.io/tx/0x"));
@@ -524,7 +549,8 @@ mod tests {
         let tx_hash = TransactionHash::new(
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
-        ).unwrap();
+        )
+        .unwrap();
 
         let short = tx_hash.short_hash();
         assert_eq!(short, "0x123456...90abcdef");
@@ -536,7 +562,8 @@ mod tests {
         let tx_hash = TransactionHash::new(
             "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef".to_string(),
             Network::Ethereum,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut receipt = TransactionReceipt::new(
             tx_hash,

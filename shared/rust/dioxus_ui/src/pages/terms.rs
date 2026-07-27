@@ -1,9 +1,9 @@
 //! `/terms` — Terms of Service page.
 //!
 //! Source baseline: `origin/development:apps/frontend/app/terms/page.tsx`.
-//! The six-section legal body is preserved. Its newsletter form is
-//! intentionally omitted because no matching subscription handler or
-//! complete feedback contract exists.
+//! The six-section legal body is preserved. The source newsletter panel is
+//! retained as a truthful unavailable state because no matching subscription
+//! handler or complete feedback contract exists.
 //!
 //! Section coverage (6 sections matching the pinned source legal body):
 //! 1. Introduction
@@ -19,7 +19,42 @@
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use crate::primitives::Icon;
 use dioxus::prelude::*;
+
+const TERMS_INLINE_CSS: &str = r#"
+.terms-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+.terms-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+.terms-page-prod .legal-section-title { color: #c084fc !important; }
+.terms-page-prod .legal-section-text,
+.terms-page-prod .legal-section-list { color: #d1d5db !important; }
+.terms-page-prod .legal-section-list { list-style: disc !important; }
+.terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }
+.terms-page-prod .terms-subscribe-card { margin-top: 2rem !important; padding: 2rem !important; }
+.terms-subscribe-form {
+  display: flex; flex-direction: column; align-items: stretch; gap: 1rem;
+  width: 100%;
+}
+.terms-subscribe-input {
+  display: flex; align-items: center; gap: 0.75rem; min-height: 3rem;
+  padding: 0.75rem 1rem; border: 1px solid rgba(255,255,255,0.78);
+  width: 100%; box-sizing: border-box; border-radius: 0.5rem;
+  color: #9ca3af; background: rgba(0,0,0,0.08);
+}
+.terms-subscribe-input svg { flex: 0 0 auto; color: #c084fc; }
+.terms-subscribe-action {
+  display: inline-flex; width: fit-content; align-items: center; gap: 0.5rem;
+  min-height: 2.75rem; padding: 0.65rem 1rem; border-radius: 0.5rem;
+  color: #fff; background: linear-gradient(90deg, #a855f7, #ec4899);
+  opacity: 0.62; cursor: not-allowed; user-select: none;
+}
+.terms-subscribe-action svg { flex: 0 0 auto; }
+.terms-subscribe-note { color: #9ca3af; }
+@media (max-width: 640px) {
+  .terms-subscribe-card { padding: 1.25rem !important; }
+  .terms-subscribe-action { width: 100%; justify-content: center; }
+}
+"#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Terms and Conditions");
@@ -27,10 +62,15 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         meta,
         rsx! {
             MainLayout { ctx: ctx.clone(),
-                div { class: "container page-content legal-page terms-page",
-                    TermsHero {}
-                    TermsSections {}
-                    TermsFooter {}
+                style { "{TERMS_INLINE_CSS}" }
+                div { class: "terms-page-prod min-h-screen bg-[#08060B] text-white",
+                    div { class: "max-w-4xl mx-auto p-6",
+                        TermsHero {}
+                        div { class: "terms-prod-card border p-8 shadow-xl",
+                            TermsSections {}
+                        }
+                        TermsSubscriptionUnavailable {}
+                    }
                 }
             }
         },
@@ -40,12 +80,12 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn TermsHero() -> Element {
     rsx! {
-        section { class: "legal-hero terms-hero",
-            h1 { class: "legal-hero-title", "Terms and Conditions" }
-            // Wave 48 T6 — Plan 12: hardcoded '6/18/2026' to match
-            // prod (no CMS source of truth in dev).
-            p { class: "legal-hero-subtitle text-muted-foreground",
-                "Last updated: 6/18/2026"
+        div { class: "text-center mb-12",
+            h1 { class: "text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent",
+                "Terms and Conditions"
+            }
+            p { class: "text-gray-400",
+                "Last updated: 7/26/2026"
             }
         }
     }
@@ -144,11 +184,45 @@ fn TermsSections() -> Element {
 }
 
 #[component]
-fn TermsFooter() -> Element {
+fn TermsSubscriptionUnavailable() -> Element {
     rsx! {
-        footer { class: "legal-footer terms-footer",
-            a { class: "btn btn-outline", href: "/privacy", "Read privacy policy" }
-            a { class: "btn btn-outline", href: "/contact", "Contact us" }
+        section {
+            class: "terms-subscribe-card terms-prod-card border p-8 shadow-xl",
+            "data-terms-subscription-state": "unavailable",
+            aria_labelledby: "terms-subscribe-title",
+            h2 {
+                id: "terms-subscribe-title",
+                class: "mb-6 text-2xl font-bold text-purple-400",
+                "Subscribe for Updates"
+            }
+            div {
+                class: "terms-subscribe-form",
+                "aria-describedby": "terms-subscribe-note",
+                div {
+                    class: "terms-subscribe-input",
+                    role: "textbox",
+                    aria_disabled: "true",
+                    tabindex: "-1",
+                    Icon { name: "mail".to_string(), size: Some(18), class_name: Some("shrink-0".to_string()) }
+                    span { "Enter your email" }
+                }
+                div {
+                    class: "terms-subscribe-action",
+                    role: "button",
+                    aria_disabled: "true",
+                    tabindex: "-1",
+                    "data-terms-subscribe-disabled": "true",
+                    Icon { name: "send".to_string(), size: Some(16) }
+                    span { "Subscribe" }
+                }
+            }
+            p {
+                id: "terms-subscribe-note",
+                class: "terms-subscribe-note mt-4 text-sm",
+                role: "note",
+                "Email subscriptions are unavailable until the notification subscription contract is verified. "
+                a { class: "underline underline-offset-2", href: "/contact", "Contact us" }
+            }
         }
     }
 }
@@ -247,16 +321,19 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
 
         assert_eq!(html.matches("<h1").count(), 1);
-        assert_eq!(html.matches("<h2").count(), 6);
+        assert_eq!(html.matches("<h2").count(), 7);
         assert_eq!(html.matches("<h3").count(), 0);
         assert!(html.contains("<article"));
         assert!(html.contains("aria-label=\"Terms and conditions details\""));
-        assert_eq!(html.matches("aria-labelledby=").count(), 6);
-        assert!(html.contains("Last updated: 6/18/2026"));
-        assert!(html.contains("href=\"/privacy\""));
-        assert!(html.contains(">Read privacy policy</a>"));
+        assert_eq!(html.matches("aria-labelledby=").count(), 7);
+        assert!(html.contains("Last updated: 7/26/2026"));
+        assert!(html.contains("data-terms-subscription-state=\"unavailable\""));
+        assert!(html.contains("Subscribe for Updates"));
+        assert!(html.contains("terms-subscribe-input"));
+        assert!(html.contains("terms-subscribe-action"));
+        assert!(html.contains("data-terms-subscribe-disabled=\"true\""));
+        assert!(html.contains("Email subscriptions are unavailable"));
         assert!(html.contains("href=\"/contact\""));
-        assert!(html.contains(">Contact us</a>"));
 
         for forbidden in [
             "<form",
@@ -264,8 +341,6 @@ mod tests {
             "type=\"email\"",
             "type=\"submit\"",
             "/api/public/subscribe",
-            "terms-subscribe",
-            "Subscribe for updates",
             "quarterly digest",
         ] {
             assert!(

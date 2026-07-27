@@ -88,7 +88,11 @@ pub async fn get_transaction_status_handler(
 
     // Validate transaction hash format
     if !tx_hash.starts_with("0x") || tx_hash.len() != 66 {
-        return Err(UnifiedErrorResponse::new(400, "Invalid transaction hash", "Transaction hash must be 66 characters starting with 0x"));
+        return Err(UnifiedErrorResponse::new(
+            400,
+            "Invalid transaction hash",
+            "Transaction hash must be 66 characters starting with 0x",
+        ));
     }
 
     // Wave 11 / Track A: collapse the cross-pool
@@ -100,7 +104,9 @@ pub async fn get_transaction_status_handler(
     // `confirmations` / `block_number` / `error_message` /
     // `last_checked_at`, which the response shape needs.
     let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
-        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
         UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized")
     })?;
 
@@ -109,14 +115,22 @@ pub async fn get_transaction_status_handler(
         .await
         .map_err(|e| {
             error!("Failed to query payment via port: {}", e);
-            UnifiedErrorResponse::new(500, "Database query failed", format!("Cannot query payment: {}", e))
+            UnifiedErrorResponse::new(
+                500,
+                "Database query failed",
+                format!("Cannot query payment: {}", e),
+            )
         })?;
 
     let row = match result {
         Some(r) => r,
         None => {
             // H6: Uniform error response to prevent tx hash enumeration
-            return Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"));
+            return Err(UnifiedErrorResponse::new(
+                404,
+                "Transaction not found",
+                "Unable to retrieve transaction status",
+            ));
         }
     };
 
@@ -126,14 +140,15 @@ pub async fn get_transaction_status_handler(
     // verified here in case the port is swapped for an HTTP
     // impl that doesn't filter by wallet.
     if row.wallet_address.to_lowercase() != wallet_address.to_lowercase() {
-        return Err(UnifiedErrorResponse::new(404, "Transaction not found", "Unable to retrieve transaction status"));
+        return Err(UnifiedErrorResponse::new(
+            404,
+            "Transaction not found",
+            "Unable to retrieve transaction status",
+        ));
     }
 
     if row.status == "confirmed" {
-        tracing::info!(
-            "Returning CONFIRMED status to frontend for tx: {}",
-            tx_hash
-        );
+        tracing::info!("Returning CONFIRMED status to frontend for tx: {}", tx_hash);
     }
 
     let amount = row

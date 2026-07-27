@@ -1,8 +1,8 @@
 // Revoke Assignment Command
 // Revoke stock ranking assignment
 
-use serde::{Deserialize, Serialize};
 use crate::application::shared::Command;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct RevokeAssignmentCommand {

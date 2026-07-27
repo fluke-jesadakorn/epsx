@@ -20,19 +20,24 @@ pub fn FrontendAuthGate(
     /// `isOpen={true}` default. Pages that wrap the gate can
     /// pass `false` to suppress the modal while still rendering
     /// the overlay.
-    #[props(default = true)] open: bool,
+    #[props(default = true)]
+    open: bool,
     /// Fired when the user dismisses the modal (Escape, overlay
     /// click, or close button).
-    #[props(default = None)] on_close: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_close: Option<EventHandler<MouseEvent>>,
     /// Fired after a successful auth. The TS source calls
     /// `router.refresh()` here.
-    #[props(default = None)] on_success: Option<EventHandler<()>>,
+    #[props(default = None)]
+    on_success: Option<EventHandler<()>>,
     /// Variant tag — `"user"` (default) or `"admin"`. Forwarded
     /// to `AuthModal`.
-    #[props(default = "user".to_string())] variant: String,
+    #[props(default = "user".to_string())]
+    variant: String,
     /// Optional list of wallets to show. Default is
     /// `[MetaMask, WalletConnect, Coinbase, Trust, Binance]`.
-    #[props(default = None)] wallets: Option<Vec<WalletInfo>>,
+    #[props(default = None)]
+    wallets: Option<Vec<WalletInfo>>,
 ) -> Element {
     rsx! {
         div { class: "frontend-auth-gate fixed inset-0 bg-background/90 backdrop-blur-sm z-50",
@@ -62,6 +67,5 @@ mod tests {
         // The Dioxus port must produce the same class string.
         // We assert the component function exists and accepts
         // the expected props.
-        
     }
 }

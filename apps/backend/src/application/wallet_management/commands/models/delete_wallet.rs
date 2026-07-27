@@ -1,8 +1,8 @@
 // Delete Wallet Command
 // Represents the intent to delete a wallet from the system
 
+use crate::application::shared::{ApplicationResult, Command};
 use epsx_contracts::value_objects::UserId;
-use crate::application::shared::{Command, ApplicationResult};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -35,7 +35,7 @@ impl Command for DeleteWalletCommand {
         if self.wallet_address.to_string().is_empty() {
             return Err(crate::application::shared::ApplicationError::validation(
                 "wallet_address",
-                "Wallet address cannot be empty".to_string()
+                "Wallet address cannot be empty".to_string(),
             ));
         }
         Ok(())

@@ -15,15 +15,17 @@ pub struct PaymentVerifier {
 impl PaymentVerifier {
     /// Create new payment verifier
     pub fn new(
-        rpc_url: String, 
+        rpc_url: String,
         contract_address: String,
-        supported_tokens: Vec<String>
+        supported_tokens: Vec<String>,
     ) -> Result<Self, AppError> {
-        let provider = Provider::<Http>::try_from(rpc_url)
-            .map_err(|e| AppError::internal_server_error(format!("Failed to create provider: {}", e)))?;
+        let provider = Provider::<Http>::try_from(rpc_url).map_err(|e| {
+            AppError::internal_server_error(format!("Failed to create provider: {}", e))
+        })?;
 
-        let contract_address = contract_address.parse::<H160>()
-            .map_err(|e| AppError::internal_server_error(format!("Invalid contract address: {}", e)))?;
+        let contract_address = contract_address.parse::<H160>().map_err(|e| {
+            AppError::internal_server_error(format!("Invalid contract address: {}", e))
+        })?;
 
         Ok(Self {
             provider: Arc::new(provider),
@@ -34,12 +36,18 @@ impl PaymentVerifier {
 
     /// Verify transaction exists and is confirmed
     pub async fn verify_transaction(&self, tx_hash: &str) -> Result<bool, AppError> {
-        let tx_hash = tx_hash.parse::<H256>()
-            .map_err(|e| AppError::internal_server_error(format!("Invalid transaction hash: {}", e)))?;
+        let tx_hash = tx_hash.parse::<H256>().map_err(|e| {
+            AppError::internal_server_error(format!("Invalid transaction hash: {}", e))
+        })?;
 
         // Get transaction receipt
-        let receipt = self.provider.get_transaction_receipt(tx_hash).await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to get receipt: {}", e)))?;
+        let receipt = self
+            .provider
+            .get_transaction_receipt(tx_hash)
+            .await
+            .map_err(|e| {
+                AppError::internal_server_error(format!("Failed to get receipt: {}", e))
+            })?;
 
         match receipt {
             Some(receipt) => {
@@ -71,25 +79,39 @@ impl PaymentVerifier {
     /// Verify token address is supported
     pub async fn verify_token(&self, token_address: &str) -> Result<bool, AppError> {
         let token_lower = token_address.to_lowercase();
-        Ok(self.supported_tokens.iter().any(|t| t.to_lowercase() == token_lower))
+        Ok(self
+            .supported_tokens
+            .iter()
+            .any(|t| t.to_lowercase() == token_lower))
     }
 
     /// Get transaction confirmations
     pub async fn get_confirmations(&self, tx_hash: &str) -> Result<u64, AppError> {
-        let tx_hash = tx_hash.parse::<H256>()
-            .map_err(|e| AppError::internal_server_error(format!("Invalid transaction hash: {}", e)))?;
+        let tx_hash = tx_hash.parse::<H256>().map_err(|e| {
+            AppError::internal_server_error(format!("Invalid transaction hash: {}", e))
+        })?;
 
         // Get transaction receipt
-        let receipt = self.provider.get_transaction_receipt(tx_hash).await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to get receipt: {}", e)))?;
+        let receipt = self
+            .provider
+            .get_transaction_receipt(tx_hash)
+            .await
+            .map_err(|e| {
+                AppError::internal_server_error(format!("Failed to get receipt: {}", e))
+            })?;
 
         match receipt {
             Some(receipt) => {
                 if let Some(block_number) = receipt.block_number {
-                    let current_block = self.provider.get_block_number().await
-                        .map_err(|e| AppError::internal_server_error(format!("Failed to get block number: {}", e)))?;
+                    let current_block = self.provider.get_block_number().await.map_err(|e| {
+                        AppError::internal_server_error(format!(
+                            "Failed to get block number: {}",
+                            e
+                        ))
+                    })?;
 
-                    let confirmations = current_block.as_u64().saturating_sub(block_number.as_u64());
+                    let confirmations =
+                        current_block.as_u64().saturating_sub(block_number.as_u64());
                     Ok(confirmations)
                 } else {
                     Ok(0)
@@ -110,7 +132,10 @@ impl PaymentVerifier {
     }
 
     /// Comprehensive payment verification
-    pub async fn verify_payment(&self, event: &PaymentEvent) -> Result<VerificationResult, AppError> {
+    pub async fn verify_payment(
+        &self,
+        event: &PaymentEvent,
+    ) -> Result<VerificationResult, AppError> {
         let mut result = VerificationResult {
             is_valid: true,
             errors: Vec::new(),
@@ -120,14 +145,16 @@ impl PaymentVerifier {
         // Verify transaction exists and succeeded
         if !self.verify_transaction(&event.transaction_hash).await? {
             result.is_valid = false;
-            result.errors.push("Transaction not found or failed".to_string());
+            result
+                .errors
+                .push("Transaction not found or failed".to_string());
         }
 
         // Verify amount matches plan
         // This requires the caller to provide expected amount, or we need to fetch it
         // For now, we'll skip this check in verify_payment and let the caller handle it
         // or we could change the signature of verify_payment to accept expected_amount
-        
+
         /*
         if !self.verify_amount(event.amount, expected_amount).await? {
             result.is_valid = false;
@@ -142,7 +169,9 @@ impl PaymentVerifier {
         // Verify token is supported
         if !self.verify_token(&event.token_address).await? {
             result.is_valid = false;
-            result.errors.push(format!("Unsupported token: {}", event.token_address));
+            result
+                .errors
+                .push(format!("Unsupported token: {}", event.token_address));
         }
 
         // Check confirmations (warning if too few)

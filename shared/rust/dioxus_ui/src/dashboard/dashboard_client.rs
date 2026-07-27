@@ -101,7 +101,5 @@ mod tests {
     }
 
     #[test]
-    fn dashboard_client_smoke() {
-        
-    }
+    fn dashboard_client_smoke() {}
 }

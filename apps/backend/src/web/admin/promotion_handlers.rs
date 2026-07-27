@@ -4,13 +4,13 @@ use axum::{
     response::Json as JsonResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
-use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
-use rust_decimal::Decimal;
-use std::collections::HashMap;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use utoipa::ToSchema;
 
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
@@ -130,7 +130,7 @@ pub async fn list_promotions_handler(
         LEFT JOIN plan_promotions pp ON pp.campaign_id = pc.id
         GROUP BY pc.id
         ORDER BY pc.created_at DESC
-        "#
+        "#,
     )
     .load::<CampaignRow>(&mut conn)
     .await;
@@ -197,7 +197,9 @@ pub async fn list_promotions_handler(
 )]
 pub async fn create_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(request): Json<CreatePromotionRequest>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
@@ -227,7 +229,7 @@ pub async fn create_promotion_handler(
         )
         VALUES ($1, $2, $3, $4, $5, $6, 1)
         RETURNING id, created_at, updated_at
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&request.name)
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.description.as_deref())
@@ -335,7 +337,7 @@ pub async fn get_promotion_handler(
             start_date, end_date, created_at, updated_at
         FROM promotional_campaigns
         WHERE id = $1
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Integer, _>(id)
     .get_result::<PromotionRow>(&mut conn)
@@ -388,7 +390,9 @@ pub async fn get_promotion_handler(
 )]
 pub async fn update_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<i32>,
     Json(request): Json<UpdatePromotionRequest>,
@@ -434,7 +438,7 @@ pub async fn update_promotion_handler(
         WHERE id = $4
         RETURNING id, name, description, campaign_type, is_active,
                   start_date, end_date, created_at, updated_at
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.name.as_deref())
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.description.as_deref())
@@ -452,7 +456,10 @@ pub async fn update_promotion_handler(
                 code: row.name.to_uppercase().replace(' ', ""),
                 description: row.description.clone(),
                 discount_type: row.campaign_type.clone(),
-                discount_value: request.discount_value.map(|d| d.to_string()).unwrap_or_else(|| "10".to_string()),
+                discount_value: request
+                    .discount_value
+                    .map(|d| d.to_string())
+                    .unwrap_or_else(|| "10".to_string()),
                 max_discount_amount: Some("100".to_string()),
                 min_purchase_amount: Some("0".to_string()),
                 usage_limit: request.usage_limit.or(Some(1000)),
@@ -502,7 +509,9 @@ pub async fn update_promotion_handler(
 )]
 pub async fn delete_promotion_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<i32>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
@@ -531,8 +540,7 @@ pub async fn delete_promotion_handler(
         Ok(Some(_)) => {
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            let entry = AuditEntry::new("promotion", "delete", "system")
-                .id(&id.to_string());
+            let entry = AuditEntry::new("promotion", "delete", "system").id(&id.to_string());
             app_state.audit.log(ctx, entry);
 
             Ok(JsonResponse(serde_json::json!({

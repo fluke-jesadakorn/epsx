@@ -64,12 +64,16 @@ pub fn CopyButton(text: String, #[props(default = "Copy".to_string())] label: St
 pub fn QrCode(data: String, #[props(default = 200)] size: u32) -> Element {
     // Hash data to a deterministic-looking grid
     let mut h: u64 = 1469598103934665603;
-    for b in data.bytes() { h = (h ^ b as u64).wrapping_mul(1099511628211); }
+    for b in data.bytes() {
+        h = (h ^ b as u64).wrapping_mul(1099511628211);
+    }
     let cells = 25u32;
     let cell = size / cells;
     let mut svg = String::new();
     svg.push_str(&format!("<svg width=\"{size}\" height=\"{size}\" viewBox=\"0 0 {size} {size}\" xmlns=\"http://www.w3.org/2000/svg\">"));
-    svg.push_str(&format!("<rect width=\"{size}\" height=\"{size}\" fill=\"white\"/>"));
+    svg.push_str(&format!(
+        "<rect width=\"{size}\" height=\"{size}\" fill=\"white\"/>"
+    ));
     for y in 0..cells {
         for x in 0..cells {
             h ^= h << 13;
@@ -181,7 +185,8 @@ pub fn Slider(
     #[props(default = 1.0)] step: f64,
     #[props(default = None)] label: Option<String>,
     /// Accessible label for the slider thumb. Falls back to `name` if unset.
-    #[props(default = None)] aria_label: Option<String>,
+    #[props(default = None)]
+    aria_label: Option<String>,
     #[props(default = false)] disabled: bool,
     #[props(default = None)] oninput: Option<EventHandler<FormEvent>>,
 ) -> Element {

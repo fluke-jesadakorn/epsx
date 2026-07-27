@@ -44,8 +44,7 @@ use epsx_contracts::errors::AppResult;
 use uuid::Uuid;
 
 use crate::infrastructure::adapters::repositories::payment_context_repository_adapter::{
-    NewPaymentContextDb, PaymentContextDb, PaymentContextSearchCriteria,
-    UpdatePaymentContextDb,
+    NewPaymentContextDb, PaymentContextDb, PaymentContextSearchCriteria, UpdatePaymentContextDb,
 };
 
 /// Port for payment context (dynamic payment link) operations.

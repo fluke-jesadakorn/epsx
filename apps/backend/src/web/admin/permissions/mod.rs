@@ -4,28 +4,28 @@
 // Reduces 3,743 lines to ~1,800 lines (52% reduction)
 // ============================================================================
 
-pub mod plans;       // Permission plan CRUD operations
-pub mod assignments;  // Wallet-plan assignment management
-pub mod direct;       // Direct wallet permission management
-pub mod validation;   // Permission validation logic
-pub mod bulk;         // Bulk operations for permissions
-pub mod system;       // System-level operations (health, caching, stats)
-pub mod available;    // Available permissions listing
+pub mod assignments; // Wallet-plan assignment management
+pub mod available;
+pub mod bulk; // Bulk operations for permissions
+pub mod direct; // Direct wallet permission management
+pub mod plans; // Permission plan CRUD operations
+pub mod system; // System-level operations (health, caching, stats)
+pub mod validation; // Permission validation logic // Available permissions listing
 
 // Re-export for convenience
-pub use plans::*;
 pub use assignments::*;
-pub use direct::*;
-pub use validation::*;
-pub use bulk::*;
-pub use system::*;
 pub use available::*;
+pub use bulk::*;
+pub use direct::*;
+pub use plans::*;
+pub use system::*;
+pub use validation::*;
 
+use crate::web::auth::AppState;
 use axum::{
-    routing::{get, post, delete, put},
+    routing::{delete, get, post, put},
     Router,
 };
-use crate::web::auth::AppState;
 
 /// Create permission management routes
 /// Organizes all permission-related endpoints in one place
@@ -42,34 +42,54 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/plans/{id}/members", get(plans::get_plan_members))
         .route("/plans/{id}/permissions", get(plans::get_plan_permissions))
         .route("/assignments/plan/{id}", get(plans::get_plan_assignments))
-
         // ============================================================================
         // WALLET-PLAN ASSIGNMENTS
         // ============================================================================
         .route("/assignments", post(assignments::create_assignment))
         .route("/assignments", get(assignments::list_assignments))
-        .route("/assignments/{assignment_id}", delete(assignments::remove_assignment))
-        .route("/assignments/expiring", get(assignments::get_expiring_assignments))
-        .route("/assignments/history/{wallet}", get(assignments::get_assignment_history))
+        .route(
+            "/assignments/{assignment_id}",
+            delete(assignments::remove_assignment),
+        )
+        .route(
+            "/assignments/expiring",
+            get(assignments::get_expiring_assignments),
+        )
+        .route(
+            "/assignments/history/{wallet}",
+            get(assignments::get_assignment_history),
+        )
         .route("/assignments/history", get(assignments::get_plan_history))
-        .route("/wallets/{wallet}/plans", get(assignments::get_wallet_plans))
-
+        .route(
+            "/wallets/{wallet}/plans",
+            get(assignments::get_wallet_plans),
+        )
         // ============================================================================
         // DIRECT PERMISSIONS
         // ============================================================================
         .route("/direct", post(direct::grant_permission))
         .route("/direct", delete(direct::revoke_permission))
         .route("/direct/{wallet}", get(direct::list_wallet_permissions))
-        .route("/plans/{id}/permissions", post(direct::add_permission_to_plan))
-        .route("/plans/{id}/permissions/{permission_id}", delete(direct::remove_permission_from_plan))
-
+        .route(
+            "/plans/{id}/permissions",
+            post(direct::add_permission_to_plan),
+        )
+        .route(
+            "/plans/{id}/permissions/{permission_id}",
+            delete(direct::remove_permission_from_plan),
+        )
         // ============================================================================
         // VALIDATION
         // ============================================================================
         .route("/validate", post(validation::validate_permission))
-        .route("/validate/bulk", post(validation::validate_bulk_permissions))
-        .route("/wallets/{wallet}/permissions", get(validation::get_wallet_permissions))
-
+        .route(
+            "/validate/bulk",
+            post(validation::validate_bulk_permissions),
+        )
+        .route(
+            "/wallets/{wallet}/permissions",
+            get(validation::get_wallet_permissions),
+        )
         // ============================================================================
         // BULK OPERATIONS
         // ============================================================================
@@ -78,7 +98,6 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/bulk/assign-plans", post(bulk::bulk_assign_plans))
         .route("/bulk/apply-template", post(bulk::bulk_apply_template))
         .route("/bulk/validate", post(bulk::bulk_validate))
-
         // ============================================================================
         // SYSTEM OPERATIONS
         // ============================================================================
@@ -87,15 +106,25 @@ pub fn create_permission_routes() -> Router<AppState> {
         .route("/system/cache/clear", post(system::clear_caches))
         .route("/system/routes", get(system::get_route_permissions))
         .route("/system/routes", post(system::register_route_permission))
-
         // ============================================================================
         // AVAILABLE PERMISSIONS / PERMISSION DEFINITIONS
         // ============================================================================
         .route("/available", get(available::list_available_permissions))
         .route("/definitions", get(available::list_permission_definitions))
-        .route("/definitions", post(available::create_permission_definition))
-        .route("/definitions/{id}", put(available::update_permission_definition))
-        .route("/definitions/{id}", delete(available::delete_permission_definition))
-        .route("/definitions/by-name/{permission}", delete(available::delete_permission_by_name))
-
+        .route(
+            "/definitions",
+            post(available::create_permission_definition),
+        )
+        .route(
+            "/definitions/{id}",
+            put(available::update_permission_definition),
+        )
+        .route(
+            "/definitions/{id}",
+            delete(available::delete_permission_definition),
+        )
+        .route(
+            "/definitions/by-name/{permission}",
+            delete(available::delete_permission_by_name),
+        )
 }

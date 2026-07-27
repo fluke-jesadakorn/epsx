@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use utoipa::{ToSchema, IntoParams};
+use utoipa::{IntoParams, ToSchema};
 
 /// Pagination metadata for list responses
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
@@ -40,7 +40,11 @@ impl Pagination {
         let page = page.unwrap_or(1).max(1);
         let limit = limit.unwrap_or(default_limit).min(max_limit);
         let offset = ((page - 1) * limit) as i64;
-        Self { page, limit, offset }
+        Self {
+            page,
+            limit,
+            offset,
+        }
     }
 
     /// Standard pagination: default 20, max 100
@@ -49,7 +53,12 @@ impl Pagination {
     }
 
     /// Standard pagination from signed integer params (common in query structs)
-    pub fn from_signed(page: Option<impl Into<i64>>, limit: Option<impl Into<i64>>, default_limit: u32, max_limit: u32) -> Self {
+    pub fn from_signed(
+        page: Option<impl Into<i64>>,
+        limit: Option<impl Into<i64>>,
+        default_limit: u32,
+        max_limit: u32,
+    ) -> Self {
         Self::new(
             page.map(|p| p.into().max(0) as u32),
             limit.map(|l| l.into().max(0) as u32),

@@ -190,6 +190,13 @@ const expectedServices = [...expected.services].sort((a, b) => a.name.localeComp
 same(actualServices, expectedServices, "rendered services");
 const nodePorts = actualServices.flatMap((service) => service.nodePorts.map((nodePort) => ({ service: service.name, nodePort }))).sort((a, b) => a.nodePort - b.nodePort);
 if (new Set(nodePorts.map((item) => item.nodePort)).size !== nodePorts.length) fail("prod render contains duplicate NodePorts");
+const stagingPayPatch = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/staging/patches/pay-services-nodeport.yaml"), "utf8");
+const stagingPayNodePorts = [...stagingPayPatch.matchAll(/^\s*nodePort: (\d+)$/gm)].map((match) => Number(match[1]));
+const declaredNodePortPairs = contract.environmentNodePortPairs;
+if (!declaredNodePortPairs || !Array.isArray(declaredNodePortPairs.prod) || !Array.isArray(declaredNodePortPairs.staging) || !Array.isArray(declaredNodePortPairs.dev)) fail("environment NodePort pairs are required");
+same([...nodePorts.filter((item) => item.service === "epsx-pay-svc" || item.service === "epsx-pay-bff").map((item) => item.nodePort)].sort((a, b) => a - b), [...declaredNodePortPairs.prod].sort((a, b) => a - b), "prod pay NodePort pair");
+same([...stagingPayNodePorts].sort((a, b) => a - b), [...declaredNodePortPairs.staging].sort((a, b) => a - b), "staging pay NodePort pair");
+if (declaredNodePortPairs.prod.some((port) => declaredNodePortPairs.staging.includes(port)) || declaredNodePortPairs.prod.some((port) => declaredNodePortPairs.dev.includes(port)) || declaredNodePortPairs.staging.some((port) => declaredNodePortPairs.dev.includes(port))) fail("environment pay NodePort pairs must be disjoint");
 
 const actualDeployments = resources.filter((item) => item.kind === "Deployment").map((item) => ({
   name: item.name,
@@ -239,7 +246,8 @@ const expectedImageTransforms = [
   { name: "epsx-admin", newName: "epsx-admin-frontend", newTag: "prod" },
   { name: "epsx-analytics", newName: "epsx-analytics", newTag: "wave12" },
   { name: "epsx-pay-svc", newName: "epsx-pay-svc", newTag: "wave49" },
-  { name: "epsx-pay-bff", newName: "epsx-pay-bff", newTag: "wave49" }
+  { name: "epsx-pay-bff", newName: "epsx-pay-bff", newTag: "wave49" },
+  { name: "epsx-notification", newName: "epsx-notification", newTag: "prod" }
 ];
 same(actualImageTransforms, expectedImageTransforms, "prod image transforms");
 if (actualImageTransforms.some((item) => item.name === "epsx-identity")) fail("identity transform must remain absent until an approved artifact is declared");
@@ -251,20 +259,21 @@ const expectedImageResolution = [
   { id: "analytics", base: "epsx-analytics:wave12", overlayMatch: "epsx-analytics", declaredResult: "epsx-analytics:wave12", rendered: "epsx-analytics:wave12", status: "exact-match-render-unchanged" },
   { id: "pay-service", base: "epsx-pay-svc:prod", overlayMatch: "epsx-pay-svc", declaredResult: "epsx-pay-svc:wave49", rendered: "epsx-pay-svc:wave49", status: "effective-render-change" },
   { id: "pay-bff", base: "epsx-pay-bff:prod", overlayMatch: "epsx-pay-bff", declaredResult: "epsx-pay-bff:wave49", rendered: "epsx-pay-bff:wave49", status: "effective-render-change" },
-  { id: "identity", base: "epsx-identity:dev", overlayMatch: null, declaredResult: null, rendered: "epsx-identity:dev", status: "missing-prod-transform" }
+  { id: "identity", base: "epsx-identity:dev", overlayMatch: null, declaredResult: null, rendered: "epsx-identity:dev", status: "missing-prod-transform" },
+  { id: "notification", base: "epsx-notification:prod", overlayMatch: "epsx-notification", declaredResult: "epsx-notification:prod", rendered: "epsx-notification:prod", status: "exact-match-render-unchanged" }
 ];
 same(contract.imageResolution, expectedImageResolution, "image resolution");
 for (const record of contract.imageResolution) if (!images.includes(record.rendered)) fail(`${record.id}: rendered image evidence missing`);
 if (contract.imageResolution.filter((record) => record.status === "effective-render-change").length !== 4) fail("exactly four visible image replacements are required");
-if (contract.imageResolution.filter((record) => record.status === "exact-match-render-unchanged").length !== 2) fail("exactly two exact-key same-render replacements are required");
+if (contract.imageResolution.filter((record) => record.status === "exact-match-render-unchanged").length !== 3) fail("exactly three exact-key same-render replacements are required");
 if (contract.imageResolution.filter((record) => record.status === "missing-prod-transform").length !== 1) fail("identity must remain the one missing prod transform");
 
 if (!Array.isArray(contract.ingressMap) || contract.ingressMap.length !== 5) fail("five ingress records are required");
 const payIngress = contract.ingressMap.find((item) => item.hostname === "pay.epsx.io");
 if (!payIngress) fail("missing pay ingress record");
-if (payIngress.cloudflareOrigin !== "localhost:4747" || payIngress.nodePort !== 30082 || payIngress.intendedNodePort !== 30083 || payIngress.status !== "blocked-bff-bypass") fail("pay ingress stop mapping drifted");
+if (payIngress.cloudflareOrigin !== "localhost:4752" || payIngress.nodePort !== 30085 || payIngress.intendedNodePort !== 30085 || payIngress.service !== "epsx-pay-bff" || payIngress.status !== "bff-path-static-unproven") fail("pay ingress stop mapping drifted");
 if (!Array.isArray(contract.candidateServices) || contract.candidateServices.length !== 9 || contract.candidateServices.some((item) => item.status !== "blocked")) fail("candidate service inventory drifted");
-if (contract.candidateServices.filter((item) => item.productionBase.startsWith("absent")).length !== 8) fail("exactly eight candidate services must remain recorded as absent");
+if (contract.candidateServices.filter((item) => item.productionBase.startsWith("absent")).length !== 7) fail("exactly seven candidate services must remain recorded as absent");
 
 const expectedP0 = ["A0", "A1", "A2", "A3", "A4", "A5", "A6"];
 if (!Array.isArray(contract.p0Dependencies) || contract.p0Dependencies.length !== expectedP0.length) fail("all seven P0 dependencies are required");
@@ -303,7 +312,7 @@ const report = {
   probes: { liveness: actualDeployments.reduce((sum, item) => sum + item.liveness, 0), readiness: actualDeployments.reduce((sum, item) => sum + item.readiness, 0), startup: actualDeployments.reduce((sum, item) => sum + item.startup, 0), dependencyChecks: 0 },
   secrets: secretSummary,
   ingress: contract.ingressMap.map((item) => ({ hostname: item.hostname, status: item.status })),
-  candidateServices: { total: contract.candidateServices.length, absent: 8, presentButUnsafe: 1 },
+  candidateServices: { total: contract.candidateServices.length, absent: 7, presentButUnsafe: 1, presentButUnproven: 1 },
   p0StatusCounts,
   p0Dependencies: contract.p0Dependencies.map((item) => ({ id: item.id, status: item.status })),
   blockers: contract.blockers.map((item) => ({ id: item.id, category: item.category, status: item.status })),

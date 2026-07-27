@@ -1,7 +1,7 @@
 // Custom validators for application-specific validation rules
+use once_cell::sync::Lazy;
 use regex::Regex;
 use validator::ValidationError;
-use once_cell::sync::Lazy;
 
 /// Custom validator for strong passwords
 pub fn validate_strong_password(password: &str) -> Result<(), ValidationError> {
@@ -26,8 +26,8 @@ pub fn validate_strong_password(password: &str) -> Result<(), ValidationError> {
 
     // Additional checks for common weak passwords
     let weak_patterns = [
-        "password", "123456", "qwerty", "admin", "letmein", 
-        "welcome", "monkey", "dragon", "master", "trustno1"
+        "password", "123456", "qwerty", "admin", "letmein", "welcome", "monkey", "dragon",
+        "master", "trustno1",
     ];
 
     let lower_password = password.to_lowercase();
@@ -44,9 +44,8 @@ pub fn validate_strong_password(password: &str) -> Result<(), ValidationError> {
 
 /// Custom validator for email addresses with additional security checks
 pub fn validate_secure_email(email: &str) -> Result<(), ValidationError> {
-    static EMAIL_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap()
-    });
+    static EMAIL_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$").unwrap());
 
     if !EMAIL_REGEX.is_match(email) {
         let mut error = ValidationError::new("invalid_email");
@@ -57,7 +56,7 @@ pub fn validate_secure_email(email: &str) -> Result<(), ValidationError> {
     // Check for suspicious patterns
     let suspicious_patterns = ["+script", "+alert", "+javascript", "%", "script"];
     let lower_email = email.to_lowercase();
-    
+
     for pattern in &suspicious_patterns {
         if lower_email.contains(pattern) {
             let mut error = ValidationError::new("suspicious_email");
@@ -91,9 +90,8 @@ pub fn validate_display_name(name: &str) -> Result<(), ValidationError> {
     }
 
     // Check for only safe characters
-    static SAFE_NAME_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9\s\-_.,'()]+$").unwrap()
-    });
+    static SAFE_NAME_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[a-zA-Z0-9\s\-_.,'()]+$").unwrap());
 
     if !SAFE_NAME_REGEX.is_match(name) {
         let mut error = ValidationError::new("invalid_name_characters");
@@ -104,7 +102,7 @@ pub fn validate_display_name(name: &str) -> Result<(), ValidationError> {
     // Check for suspicious patterns
     let suspicious_patterns = ["script", "javascript", "vbscript", "onload", "onerror"];
     let lower_name = name.to_lowercase();
-    
+
     for pattern in &suspicious_patterns {
         if lower_name.contains(pattern) {
             let mut error = ValidationError::new("suspicious_name");
@@ -118,9 +116,8 @@ pub fn validate_display_name(name: &str) -> Result<(), ValidationError> {
 
 /// Custom validator for URLs with security checks
 pub fn validate_secure_url(url: &str) -> Result<(), ValidationError> {
-    static URL_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap()
-    });
+    static URL_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^https?://[^\s/$.?#].[^\s]*$").unwrap());
 
     if !URL_REGEX.is_match(url) {
         let mut error = ValidationError::new("invalid_url");
@@ -131,7 +128,7 @@ pub fn validate_secure_url(url: &str) -> Result<(), ValidationError> {
     // Check for suspicious patterns
     let suspicious_patterns = ["javascript:", "vbscript:", "data:", "file:", "ftp:"];
     let lower_url = url.to_lowercase();
-    
+
     for pattern in &suspicious_patterns {
         if lower_url.starts_with(pattern) {
             let mut error = ValidationError::new("suspicious_url");
@@ -152,13 +149,13 @@ pub fn validate_secure_url(url: &str) -> Result<(), ValidationError> {
 
 /// Custom validator for phone numbers
 pub fn validate_phone_number(phone: &str) -> Result<(), ValidationError> {
-    static PHONE_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^\+?[1-9]\d{1,14}$").unwrap()
-    });
+    static PHONE_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^\+?[1-9]\d{1,14}$").unwrap());
 
     if !PHONE_REGEX.is_match(phone) {
         let mut error = ValidationError::new("invalid_phone");
-        error.message = Some("Invalid phone number format. Use international format with optional + prefix".into());
+        error.message = Some(
+            "Invalid phone number format. Use international format with optional + prefix".into(),
+        );
         return Err(error);
     }
 
@@ -180,13 +177,12 @@ pub fn validate_plan_name(plan: &str) -> Result<(), ValidationError> {
     }
 
     // Plan names should be alphanumeric with underscores and dashes
-    static GROUP_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9_-]+$").unwrap()
-    });
+    static GROUP_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_-]+$").unwrap());
 
     if !GROUP_REGEX.is_match(plan) {
         let mut error = ValidationError::new("invalid_plan_format");
-        error.message = Some("Plan name can only contain letters, numbers, underscores, and dashes".into());
+        error.message =
+            Some("Plan name can only contain letters, numbers, underscores, and dashes".into());
         return Err(error);
     }
 
@@ -208,13 +204,14 @@ pub fn validate_permission_string(permission: &str) -> Result<(), ValidationErro
     }
 
     // Check for resource:action format or wildcards
-    static PERMISSION_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9_*-]+:[a-zA-Z0-9_*-]+$").unwrap()
-    });
+    static PERMISSION_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[a-zA-Z0-9_*-]+:[a-zA-Z0-9_*-]+$").unwrap());
 
     if !PERMISSION_REGEX.is_match(permission) {
         let mut error = ValidationError::new("invalid_permission_format");
-        error.message = Some("Permission must be in format 'resource:action' (e.g., 'users:read', 'api:*')".into());
+        error.message = Some(
+            "Permission must be in format 'resource:action' (e.g., 'users:read', 'api:*')".into(),
+        );
         return Err(error);
     }
 
@@ -224,7 +221,8 @@ pub fn validate_permission_string(permission: &str) -> Result<(), ValidationErro
 /// Custom validator for JSON content with depth and size limits
 pub fn validate_json_content(json_str: &str) -> Result<(), ValidationError> {
     // Check JSON size
-    if json_str.len() > 1024 * 1024 { // 1MB limit
+    if json_str.len() > 1024 * 1024 {
+        // 1MB limit
         let mut error = ValidationError::new("json_too_large");
         error.message = Some("JSON content exceeds maximum size of 1MB".into());
         return Err(error);
@@ -232,7 +230,7 @@ pub fn validate_json_content(json_str: &str) -> Result<(), ValidationError> {
 
     // Try to parse JSON to ensure it's valid
     match serde_json::from_str::<serde_json::Value>(json_str) {
-        Ok(_) => {},
+        Ok(_) => {}
         Err(_) => {
             let mut error = ValidationError::new("invalid_json");
             error.message = Some("Invalid JSON format".into());
@@ -242,8 +240,17 @@ pub fn validate_json_content(json_str: &str) -> Result<(), ValidationError> {
 
     // Check for suspicious content in JSON
     let suspicious_patterns = [
-        "javascript:", "eval(", "function(", "<script", "document.", "window.", 
-        "alert(", "confirm(", "prompt(", "setTimeout", "setInterval"
+        "javascript:",
+        "eval(",
+        "function(",
+        "<script",
+        "document.",
+        "window.",
+        "alert(",
+        "confirm(",
+        "prompt(",
+        "setTimeout",
+        "setInterval",
     ];
 
     let lower_json = json_str.to_lowercase();
@@ -273,9 +280,8 @@ pub fn validate_file_name(filename: &str) -> Result<(), ValidationError> {
     }
 
     // Check for safe filename characters
-    static FILENAME_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9\-_.() ]+\.[a-zA-Z0-9]+$").unwrap()
-    });
+    static FILENAME_REGEX: Lazy<Regex> =
+        Lazy::new(|| Regex::new(r"^[a-zA-Z0-9\-_.() ]+\.[a-zA-Z0-9]+$").unwrap());
 
     if !FILENAME_REGEX.is_match(filename) {
         let mut error = ValidationError::new("invalid_filename");
@@ -285,8 +291,8 @@ pub fn validate_file_name(filename: &str) -> Result<(), ValidationError> {
 
     // Check for dangerous extensions
     let dangerous_extensions = [
-        ".exe", ".bat", ".cmd", ".com", ".pif", ".scr", ".vbs", ".js", 
-        ".jar", ".php", ".asp", ".jsp", ".sh", ".ps1", ".dll", ".msi"
+        ".exe", ".bat", ".cmd", ".com", ".pif", ".scr", ".vbs", ".js", ".jar", ".php", ".asp",
+        ".jsp", ".sh", ".ps1", ".dll", ".msi",
     ];
 
     let lower_filename = filename.to_lowercase();
@@ -316,9 +322,7 @@ pub fn validate_api_key_format(api_key: &str) -> Result<(), ValidationError> {
     }
 
     // API keys should be alphanumeric
-    static API_KEY_REGEX: Lazy<Regex> = Lazy::new(|| {
-        Regex::new(r"^[a-zA-Z0-9]+$").unwrap()
-    });
+    static API_KEY_REGEX: Lazy<Regex> = Lazy::new(|| Regex::new(r"^[a-zA-Z0-9]+$").unwrap());
 
     if !API_KEY_REGEX.is_match(api_key) {
         let mut error = ValidationError::new("invalid_api_key_format");
@@ -343,7 +347,7 @@ pub fn validate_positive_decimal(value: &str) -> Result<(), ValidationError> {
                 error.message = Some("Amount cannot exceed 999,999,999.99".into());
                 return Err(error);
             }
-        },
+        }
         Err(_) => {
             let mut error = ValidationError::new("invalid_decimal");
             error.message = Some("Invalid decimal number format".into());
@@ -371,8 +375,8 @@ pub fn validate_currency_code(currency: &str) -> Result<(), ValidationError> {
 
     // Common currency codes validation
     let valid_currencies = [
-        "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "SEK", "NZD",
-        "MXN", "SGD", "HKD", "NOK", "TRY", "RUB", "INR", "BRL", "ZAR", "THB"
+        "USD", "EUR", "GBP", "JPY", "AUD", "CAD", "CHF", "CNY", "SEK", "NZD", "MXN", "SGD", "HKD",
+        "NOK", "TRY", "RUB", "INR", "BRL", "ZAR", "THB",
     ];
 
     if !valid_currencies.contains(&currency) {
@@ -392,16 +396,16 @@ mod tests {
     fn test_validate_strong_password() {
         // Valid password
         assert!(validate_strong_password("MySecurePass123!").is_ok());
-        
+
         // Too short
         assert!(validate_strong_password("Pass1!").is_err());
-        
+
         // No uppercase
         assert!(validate_strong_password("mysecurepass123!").is_err());
-        
+
         // No special character
         assert!(validate_strong_password("MySecurePass123").is_err());
-        
+
         // Weak pattern
         assert!(validate_strong_password("Password123!").is_err());
     }
@@ -410,13 +414,13 @@ mod tests {
     fn test_validate_secure_email() {
         // Valid email
         assert!(validate_secure_email("user@example.com").is_ok());
-        
+
         // Invalid format
         assert!(validate_secure_email("invalid-email").is_err());
-        
+
         // Suspicious content
         assert!(validate_secure_email("user+script@example.com").is_err());
-        
+
         // Too long
         let long_email = format!("{}@example.com", "a".repeat(250));
         assert!(validate_secure_email(&long_email).is_err());
@@ -426,15 +430,15 @@ mod tests {
     fn test_validate_display_name() {
         // Valid name
         assert!(validate_display_name("John Doe").is_ok());
-        
+
         // Empty name
         assert!(validate_display_name("").is_err());
         assert!(validate_display_name("   ").is_err());
-        
+
         // Too long
         let long_name = "a".repeat(101);
         assert!(validate_display_name(&long_name).is_err());
-        
+
         // Invalid characters
         assert!(validate_display_name("John<script>alert('xss')</script>").is_err());
     }
@@ -445,12 +449,12 @@ mod tests {
         assert!(validate_permission_string("users:read").is_ok());
         assert!(validate_permission_string("api:*").is_ok());
         assert!(validate_permission_string("admin:write").is_ok());
-        
+
         // Invalid format
         assert!(validate_permission_string("invalidpermission").is_err());
         assert!(validate_permission_string("users:").is_err());
         assert!(validate_permission_string(":read").is_err());
-        
+
         // Empty
         assert!(validate_permission_string("").is_err());
     }
@@ -460,14 +464,14 @@ mod tests {
         // Valid currencies
         assert!(validate_currency_code("USD").is_ok());
         assert!(validate_currency_code("EUR").is_ok());
-        
+
         // Invalid length
         assert!(validate_currency_code("US").is_err());
         assert!(validate_currency_code("USDX").is_err());
-        
+
         // Invalid case
         assert!(validate_currency_code("usd").is_err());
-        
+
         // Unsupported currency
         assert!(validate_currency_code("XXX").is_err());
     }
@@ -477,7 +481,7 @@ mod tests {
         // Valid amounts
         assert!(validate_positive_decimal("123.45").is_ok());
         assert!(validate_positive_decimal("1").is_ok());
-        
+
         // Invalid amounts
         assert!(validate_positive_decimal("-123.45").is_err());
         assert!(validate_positive_decimal("0").is_err());

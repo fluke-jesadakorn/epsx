@@ -2,38 +2,27 @@
 // Commands and queries for real-time event operations
 
 pub mod commands;
-pub mod queries;
 pub mod controllers; // HTTP controllers (inbound adapters)
-pub mod dtos; // Request/Response DTOs
+pub mod dtos;
+pub mod queries; // Request/Response DTOs
 
 // Re-export command models
 pub use commands::{
-    CreateRealtimeEventCommand,
-    CreateRealtimeEventResponse,
-    MarkEventDeliveredCommand,
-    MarkEventDeliveredResponse,
-    MarkEventFailedCommand,
-    MarkEventFailedResponse,
+    CreateRealtimeEventCommand, CreateRealtimeEventResponse, MarkEventDeliveredCommand,
+    MarkEventDeliveredResponse, MarkEventFailedCommand, MarkEventFailedResponse,
 };
 
 // Re-export command handlers
 pub use commands::{
-    CreateRealtimeEventCommandHandler,
-    MarkEventDeliveredCommandHandler,
+    CreateRealtimeEventCommandHandler, MarkEventDeliveredCommandHandler,
     MarkEventFailedCommandHandler,
 };
 
 // Re-export query models
 pub use queries::{
-    GetRealtimeEventQuery,
-    GetRealtimeEventResponse,
-    ListPendingEventsQuery,
-    ListPendingEventsResponse,
-    PendingEventSummary,
+    GetRealtimeEventQuery, GetRealtimeEventResponse, ListPendingEventsQuery,
+    ListPendingEventsResponse, PendingEventSummary,
 };
 
 // Re-export query handlers
-pub use queries::{
-    GetRealtimeEventQueryHandler,
-    ListPendingEventsQueryHandler,
-};
+pub use queries::{GetRealtimeEventQueryHandler, ListPendingEventsQueryHandler};

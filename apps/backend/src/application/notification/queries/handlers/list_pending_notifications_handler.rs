@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::notification::queries::{
-    ListPendingNotificationsQuery, ListPendingNotificationsResponse, PendingNotificationDTO
+    ListPendingNotificationsQuery, ListPendingNotificationsResponse, PendingNotificationDTO,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::notification::NotificationRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for listing pending notifications ready for delivery
 pub struct ListPendingNotificationsQueryHandler {
@@ -20,14 +20,21 @@ impl ListPendingNotificationsQueryHandler {
 
 #[async_trait]
 impl QueryHandler<ListPendingNotificationsQuery> for ListPendingNotificationsQueryHandler {
-    async fn handle(&self, query: ListPendingNotificationsQuery) -> ApplicationResult<ListPendingNotificationsResponse> {
+    async fn handle(
+        &self,
+        query: ListPendingNotificationsQuery,
+    ) -> ApplicationResult<ListPendingNotificationsResponse> {
         // Load pending notifications from repository
-        let notifications = self.notification_repository.find_pending(query.limit).await
+        let notifications = self
+            .notification_repository
+            .find_pending(query.limit)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // Filter by before timestamp if provided
         let filtered_notifications: Vec<_> = if let Some(before) = query.before {
-            notifications.into_iter()
+            notifications
+                .into_iter()
                 .filter(|n| {
                     if let Some(scheduled_at) = n.schedule().scheduled_at() {
                         scheduled_at <= before
@@ -46,15 +53,17 @@ impl QueryHandler<ListPendingNotificationsQuery> for ListPendingNotificationsQue
         let pending_dtos: Vec<PendingNotificationDTO> = filtered_notifications
             .into_iter()
             .map(|notification| {
-                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
-                    ("user".to_string(), wallet_address.to_string())
-                } else if let Some(topic) = notification.topic() {
-                    ("topic".to_string(), topic.name().to_string())
-                } else {
-                    ("unknown".to_string(), "".to_string())
-                };
+                let (recipient_type, recipient_id) =
+                    if let Some(wallet_address) = notification.recipient_wallet_address() {
+                        ("user".to_string(), wallet_address.to_string())
+                    } else if let Some(topic) = notification.topic() {
+                        ("topic".to_string(), topic.name().to_string())
+                    } else {
+                        ("unknown".to_string(), "".to_string())
+                    };
 
-                let channels: Vec<String> = notification.channels()
+                let channels: Vec<String> = notification
+                    .channels()
                     .enabled_channels()
                     .iter()
                     .map(|ch| ch.channel_type().as_str().to_string())
@@ -69,7 +78,10 @@ impl QueryHandler<ListPendingNotificationsQuery> for ListPendingNotificationsQue
                     notification_type: notification.notification_type().as_str().to_string(),
                     priority: notification.priority().as_str().to_string(),
                     channels,
-                    scheduled_at: notification.schedule().scheduled_at().unwrap_or_else(|| notification.created_at()),
+                    scheduled_at: notification
+                        .schedule()
+                        .scheduled_at()
+                        .unwrap_or_else(|| notification.created_at()),
                     delivery_attempts: notification.delivery_tracking().total_attempts(),
                     created_at: notification.created_at(),
                 }

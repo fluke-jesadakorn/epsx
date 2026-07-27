@@ -30,9 +30,9 @@ pub fn has_permission(user_permissions: &[String], required: &str) -> bool {
 }
 
 pub fn is_admin(user_permissions: &[String]) -> bool {
-    user_permissions.iter().any(|p| {
-        p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*" || p == "*:*:*"
-    })
+    user_permissions
+        .iter()
+        .any(|p| p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*" || p == "*:*:*")
 }
 
 pub fn has_any_permission(user_permissions: &[String], required: &[&str]) -> bool {

@@ -9,7 +9,6 @@
 ///   + description). Used on marketing / pricing pages.
 /// - `PricingCard` — a card displaying a pricing tier (name +
 ///   price + feature list + CTA).
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;

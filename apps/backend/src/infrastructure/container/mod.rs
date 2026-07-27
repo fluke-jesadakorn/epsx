@@ -8,17 +8,10 @@ pub mod simple_container;
 pub mod stateless_service_factory;
 
 // Exports - minimal container for compilation
-pub use simple_container::{
-    SimpleContainer,
-    DomainContainer,
-};
+pub use simple_container::{DomainContainer, SimpleContainer};
 
 // New serverless exports
 pub use stateless_service_factory::{
+    HealthServices, RequestServices, ServiceFactory, StatelessConfig, StatelessHealthStatus,
     StatelessServiceFactory,
-    StatelessConfig,
-    RequestServices,
-    HealthServices,
-    ServiceFactory,
-    StatelessHealthStatus,
 };

@@ -59,26 +59,26 @@
 //! delete) still come back, with `plan_name = None`.
 
 use crate::prelude::*;
+use bigdecimal::{BigDecimal, ToPrimitive};
+use chrono::{DateTime, Datelike, Utc};
 use diesel::prelude::*;
 use diesel::result::OptionalExtension;
 use diesel_async::RunQueryDsl;
-use bigdecimal::{BigDecimal, ToPrimitive};
 use std::str::FromStr;
-use chrono::{DateTime, Utc, Datelike};
-use uuid::Uuid;
 use tracing::debug;
+use uuid::Uuid;
 
-use crate::domain::payment::{
-    Payment, PaymentId, PaymentStatus, PaymentAmount, PaymentReference, TransactionHash,
-};
 use crate::domain::payment::repository_ports::{
-    PaymentRepositoryPort, Subscription, AnalyticsRollup, AnalyticsWindow,
-    DailyRevenueEntry, PlanBreakdownEntry, PaymentMethodEntry, AnalyticsTrends,
-    SubmitTxValidation, CreatePaymentCommand, ActivateSubscriptionCommand,
-    SubscriptionFilters, PaymentRowWithPlanName,
+    ActivateSubscriptionCommand, AnalyticsRollup, AnalyticsTrends, AnalyticsWindow,
+    CreatePaymentCommand, DailyRevenueEntry, PaymentMethodEntry, PaymentRepositoryPort,
+    PaymentRowWithPlanName, PlanBreakdownEntry, SubmitTxValidation, Subscription,
+    SubscriptionFilters,
+};
+use crate::domain::payment::{
+    Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStatus, TransactionHash,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
-use crate::infrastructure::models::payment::{PaymentDb, NewPaymentDb, SubscriptionDb};
+use crate::infrastructure::models::payment::{NewPaymentDb, PaymentDb, SubscriptionDb};
 use crate::schemas::payments::{payments, subscriptions};
 
 use super::payment_repository_adapter::PaymentRepositoryAdapter;
@@ -119,8 +119,15 @@ impl PaymentRepositoryAdapter {
         let payment_id = PaymentId::from_uuid(payment_db.id);
         let payment_reference = PaymentReference::from_string(&payment_db.payment_reference)
             .map_err(|e| format!("Invalid payment reference: {}", e))?;
-        let transaction_hash = payment_db.transaction_hash.clone()
-            .map(|hash| TransactionHash::new(hash, crate::domain::payment::value_objects::Network::BinanceSmartChain))
+        let transaction_hash = payment_db
+            .transaction_hash
+            .clone()
+            .map(|hash| {
+                TransactionHash::new(
+                    hash,
+                    crate::domain::payment::value_objects::Network::BinanceSmartChain,
+                )
+            })
             .transpose()
             .map_err(|e| format!("Invalid transaction hash: {}", e))?;
         let status = match payment_db.status.as_str() {
@@ -293,28 +300,50 @@ impl PaymentRepositoryAdapter {
         let mut conn = self.conn().await?;
         #[derive(diesel::QueryableByName)]
         struct Row {
-            #[diesel(sql_type = diesel::sql_types::Uuid)] id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)] payment_reference: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] transaction_hash: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Text)] wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Numeric)] amount: BigDecimal,
-            #[diesel(sql_type = diesel::sql_types::Text)] currency: String,
-            #[diesel(sql_type = diesel::sql_types::Text)] method: String,
-            #[diesel(sql_type = diesel::sql_types::Text)] status: String,
-            #[diesel(sql_type = diesel::sql_types::Uuid)] plan_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] contract_address: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] token_address: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)] block_number: Option<i64>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)] confirmations: Option<i32>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] created_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] updated_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] expires_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] completed_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)] metadata: Option<serde_json::Value>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] last_checked_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] error_message: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] network: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] plan_name: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            payment_reference: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            transaction_hash: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Numeric)]
+            amount: BigDecimal,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            currency: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            method: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            status: String,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            contract_address: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            token_address: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            block_number: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+            confirmations: Option<i32>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            created_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            updated_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            completed_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            metadata: Option<serde_json::Value>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            last_checked_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            error_message: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            network: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            plan_name: Option<String>,
         }
         let sql = r#"
             SELECT
@@ -376,28 +405,50 @@ impl PaymentRepositoryAdapter {
         let mut conn = self.conn().await?;
         #[derive(diesel::QueryableByName)]
         struct Row {
-            #[diesel(sql_type = diesel::sql_types::Uuid)] id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)] payment_reference: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] transaction_hash: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Text)] wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Numeric)] amount: BigDecimal,
-            #[diesel(sql_type = diesel::sql_types::Text)] currency: String,
-            #[diesel(sql_type = diesel::sql_types::Text)] method: String,
-            #[diesel(sql_type = diesel::sql_types::Text)] status: String,
-            #[diesel(sql_type = diesel::sql_types::Uuid)] plan_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] contract_address: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] token_address: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)] block_number: Option<i64>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)] confirmations: Option<i32>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] created_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] updated_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] expires_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] completed_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)] metadata: Option<serde_json::Value>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] last_checked_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] error_message: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] network: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] plan_name: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            payment_reference: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            transaction_hash: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Numeric)]
+            amount: BigDecimal,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            currency: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            method: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            status: String,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            contract_address: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            token_address: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
+            block_number: Option<i64>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
+            confirmations: Option<i32>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            created_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            updated_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            completed_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            metadata: Option<serde_json::Value>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            last_checked_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            error_message: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            network: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            plan_name: Option<String>,
         }
         let sql = r#"
             SELECT
@@ -463,17 +514,28 @@ impl PaymentRepositoryAdapter {
         let mut conn = self.conn().await?;
         #[derive(diesel::QueryableByName)]
         struct Row {
-            #[diesel(sql_type = diesel::sql_types::Uuid)] id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)] wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Uuid)] plan_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)] payment_id: Option<Uuid>,
-            #[diesel(sql_type = diesel::sql_types::Text)] status: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] started_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)] expires_at: DateTime<Utc>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)] cancelled_at: Option<DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)] auto_renew: Option<bool>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)] metadata: Option<serde_json::Value>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] plan_name: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            wallet_address: String,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: Uuid,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+            payment_id: Option<Uuid>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            status: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            started_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
+            expires_at: DateTime<Utc>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            cancelled_at: Option<DateTime<Utc>>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
+            auto_renew: Option<bool>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            metadata: Option<serde_json::Value>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            plan_name: Option<String>,
         }
         // Branch on which filters are set. 8 combinations of
         // 3 optional filters. This sidesteps Diesel's typestate
@@ -668,7 +730,8 @@ impl PaymentRepositoryAdapter {
             AnalyticsWindow::Last7Days => now - chrono::Duration::days(7),
             AnalyticsWindow::Last24Hours => now - chrono::Duration::hours(24),
             AnalyticsWindow::MonthToDate => {
-                let month_start = now.date_naive()
+                let month_start = now
+                    .date_naive()
                     .with_day(1)
                     .and_then(|d| d.and_hms_opt(0, 0, 0))
                     .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
@@ -705,11 +768,17 @@ impl PaymentRepositoryAdapter {
         .load::<DailyRevenueRow>(&mut conn)
         .await
         .map_err(|e| format!("daily: {}", e))?;
-        let daily_revenue: Vec<DailyRevenueEntry> = daily_rows.into_iter().map(|r| DailyRevenueEntry {
-            date: r.payment_date.format("%Y-%m-%d").to_string(),
-            revenue: r.daily_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0),
-            payment_count: r.payment_count as u32,
-        }).collect();
+        let daily_revenue: Vec<DailyRevenueEntry> = daily_rows
+            .into_iter()
+            .map(|r| DailyRevenueEntry {
+                date: r.payment_date.format("%Y-%m-%d").to_string(),
+                revenue: r
+                    .daily_revenue
+                    .map(|bd| bd.to_f64().unwrap_or(0.0))
+                    .unwrap_or(0.0),
+                payment_count: r.payment_count as u32,
+            })
+            .collect();
 
         // 2. Plan breakdown — JOIN plans inline
         #[derive(QueryableByName)]
@@ -741,18 +810,28 @@ impl PaymentRepositoryAdapter {
         .load::<PlanBreakdownRow>(&mut conn)
         .await
         .map_err(|e| format!("plan: {}", e))?;
-        let plan_breakdown: Vec<PlanBreakdownEntry> = plan_rows.into_iter().map(|r| {
-            let revenue = r.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-            let count = r.subscription_count as u32;
-            let arpu = if count > 0 { revenue / count as f64 } else { 0.0 };
-            PlanBreakdownEntry {
-                plan_id: r.plan_id,
-                plan_name: r.plan_name.unwrap_or_else(|| "Unknown Plan".to_string()),
-                total_revenue: revenue,
-                subscription_count: count,
-                average_revenue_per_user: arpu,
-            }
-        }).collect();
+        let plan_breakdown: Vec<PlanBreakdownEntry> = plan_rows
+            .into_iter()
+            .map(|r| {
+                let revenue = r
+                    .total_revenue
+                    .map(|bd| bd.to_f64().unwrap_or(0.0))
+                    .unwrap_or(0.0);
+                let count = r.subscription_count as u32;
+                let arpu = if count > 0 {
+                    revenue / count as f64
+                } else {
+                    0.0
+                };
+                PlanBreakdownEntry {
+                    plan_id: r.plan_id,
+                    plan_name: r.plan_name.unwrap_or_else(|| "Unknown Plan".to_string()),
+                    total_revenue: revenue,
+                    subscription_count: count,
+                    average_revenue_per_user: arpu,
+                }
+            })
+            .collect();
 
         // 3. Payment methods
         #[derive(QueryableByName)]
@@ -781,16 +860,26 @@ impl PaymentRepositoryAdapter {
         .load::<PaymentMethodRow>(&mut conn)
         .await
         .map_err(|e| format!("method: {}", e))?;
-        let payment_methods: Vec<PaymentMethodEntry> = method_rows.into_iter().map(|r| {
-            let total = r.payment_count as f64;
-            let success = r.successful_count as f64;
-            PaymentMethodEntry {
-                currency: r.currency,
-                payment_count: r.payment_count as u32,
-                total_revenue: r.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0),
-                success_rate: if total > 0.0 { (success / total) * 100.0 } else { 0.0 },
-            }
-        }).collect();
+        let payment_methods: Vec<PaymentMethodEntry> = method_rows
+            .into_iter()
+            .map(|r| {
+                let total = r.payment_count as f64;
+                let success = r.successful_count as f64;
+                PaymentMethodEntry {
+                    currency: r.currency,
+                    payment_count: r.payment_count as u32,
+                    total_revenue: r
+                        .total_revenue
+                        .map(|bd| bd.to_f64().unwrap_or(0.0))
+                        .unwrap_or(0.0),
+                    success_rate: if total > 0.0 {
+                        (success / total) * 100.0
+                    } else {
+                        0.0
+                    },
+                }
+            })
+            .collect();
 
         // 4. Trends
         #[derive(QueryableByName)]
@@ -823,8 +912,14 @@ impl PaymentRepositoryAdapter {
         .get_result::<PeriodStats>(&mut conn)
         .await
         .map_err(|e| format!("previous: {}", e))?;
-        let current_rev = current_period.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
-        let previous_rev = previous_period.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+        let current_rev = current_period
+            .total_revenue
+            .map(|bd| bd.to_f64().unwrap_or(0.0))
+            .unwrap_or(0.0);
+        let previous_rev = previous_period
+            .total_revenue
+            .map(|bd| bd.to_f64().unwrap_or(0.0))
+            .unwrap_or(0.0);
         let growth_rate = if previous_rev > 0.0 {
             ((current_rev - previous_rev) / previous_rev) * 100.0
         } else if current_rev > 0.0 {
@@ -925,11 +1020,22 @@ impl PaymentRepositoryAdapter {
         .map(|r| r.bal)
         .unwrap_or_else(|_| BigDecimal::from(0));
 
-        let effective_price = plan.plan_metadata.as_ref()
+        let effective_price = plan
+            .plan_metadata
+            .as_ref()
             .and_then(|m| m.get("promotion"))
-            .and_then(|p| serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(p.clone()).ok())
+            .and_then(|p| {
+                serde_json::from_value::<
+                        crate::domain::subscription_management::promotion::Promotion,
+                    >(p.clone())
+                    .ok()
+            })
             .map(|promo| {
-                let bp = plan.price.as_ref().map(|p| p.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+                let bp = plan
+                    .price
+                    .as_ref()
+                    .map(|p| p.to_f64().unwrap_or(0.0))
+                    .unwrap_or(0.0);
                 let ep = promo.calculate_effective_price(bp);
                 BigDecimal::from_str(&format!("{:.2}", ep))
                     .unwrap_or_else(|_| plan.price.clone().unwrap_or(BigDecimal::from(0)))
@@ -938,7 +1044,10 @@ impl PaymentRepositoryAdapter {
             .unwrap_or(BigDecimal::from(0));
 
         Ok(SubmitTxValidation {
-            plan_price: plan.price.map(|p| p.to_string()).unwrap_or_else(|| "0".to_string()),
+            plan_price: plan
+                .price
+                .map(|p| p.to_string())
+                .unwrap_or_else(|| "0".to_string()),
             is_active: plan.is_active,
             plan_type: plan.plan_type,
             plan_metadata: plan.plan_metadata.unwrap_or(serde_json::json!({})),
@@ -949,12 +1058,8 @@ impl PaymentRepositoryAdapter {
     /// Replaces the inline `INSERT INTO payments` blocks in
     /// `web/payments/submit_tx_handler.rs:339-414`. Returns the
     /// newly-created `Payment` aggregate.
-    pub async fn create_payment_impl(
-        &self,
-        cmd: CreatePaymentCommand,
-    ) -> Result<Payment, String> {
-        let amount = BigDecimal::from_str(&cmd.amount)
-            .map_err(|e| format!("amount: {}", e))?;
+    pub async fn create_payment_impl(&self, cmd: CreatePaymentCommand) -> Result<Payment, String> {
+        let amount = BigDecimal::from_str(&cmd.amount).map_err(|e| format!("amount: {}", e))?;
         let mut conn = self.conn().await?;
 
         let new = NewPaymentDb {
@@ -1016,7 +1121,9 @@ impl PaymentRepositoryAdapter {
         let mut conn = self.conn().await?;
         let status_str = new_status.as_str();
         let completed_at = match new_status {
-            PaymentStatus::Completed | PaymentStatus::Failed | PaymentStatus::Refunded => Some(Utc::now()),
+            PaymentStatus::Completed | PaymentStatus::Failed | PaymentStatus::Refunded => {
+                Some(Utc::now())
+            }
             _ => None,
         };
         diesel::update(payments::table.filter(payments::id.eq(payment_id.value())))
@@ -1093,16 +1200,15 @@ impl PaymentRepositoryAdapter {
         _reason: Option<String>,
     ) -> Result<(), String> {
         let mut conn = self.conn().await?;
-        let updated = diesel::update(
-            subscriptions::table.filter(subscriptions::id.eq(subscription_id)),
-        )
-        .set((
-            subscriptions::status.eq("cancelled"),
-            subscriptions::cancelled_at.eq(Some(Utc::now())),
-        ))
-        .execute(&mut conn)
-        .await
-        .map_err(|e| format!("update: {}", e))?;
+        let updated =
+            diesel::update(subscriptions::table.filter(subscriptions::id.eq(subscription_id)))
+                .set((
+                    subscriptions::status.eq("cancelled"),
+                    subscriptions::cancelled_at.eq(Some(Utc::now())),
+                ))
+                .execute(&mut conn)
+                .await
+                .map_err(|e| format!("update: {}", e))?;
         if updated == 0 {
             return Err(format!("Subscription {} not found", subscription_id));
         }
@@ -1134,11 +1240,18 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         PaymentRepositoryAdapter::_find_by_status_impl(self, status).await
     }
 
-    async fn find_by_reference(&self, reference: &crate::domain::payment::PaymentReference) -> Result<Option<Payment>, String> {
+    async fn find_by_reference(
+        &self,
+        reference: &crate::domain::payment::PaymentReference,
+    ) -> Result<Option<Payment>, String> {
         PaymentRepositoryAdapter::_find_by_reference_impl(self, reference).await
     }
 
-    async fn find_by_date_range(&self, start: DateTime<Utc>, end: DateTime<Utc>) -> Result<Vec<Payment>, String> {
+    async fn find_by_date_range(
+        &self,
+        start: DateTime<Utc>,
+        end: DateTime<Utc>,
+    ) -> Result<Vec<Payment>, String> {
         PaymentRepositoryAdapter::_find_by_date_range_impl(self, start, end).await
     }
 
@@ -1146,7 +1259,11 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         PaymentRepositoryAdapter::_find_expired_pending_impl(self, threshold).await
     }
 
-    async fn update_status(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String> {
+    async fn update_status(
+        &self,
+        payment_id: &PaymentId,
+        status: PaymentStatus,
+    ) -> Result<(), String> {
         PaymentRepositoryAdapter::_update_status_impl(self, payment_id, status).await
     }
 
@@ -1154,11 +1271,17 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         PaymentRepositoryAdapter::_delete_impl(self, payment_id).await
     }
 
-    async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<crate::domain::payment::PaymentStats, String> {
+    async fn get_user_payment_stats(
+        &self,
+        wallet_address: &WalletAddress,
+    ) -> Result<crate::domain::payment::PaymentStats, String> {
         PaymentRepositoryAdapter::_get_user_payment_stats_impl(self, wallet_address).await
     }
 
-    async fn get_tx_status_with_plan_name(&self, tx_hash: &str) -> Result<Option<PaymentRowWithPlanName>, String> {
+    async fn get_tx_status_with_plan_name(
+        &self,
+        tx_hash: &str,
+    ) -> Result<Option<PaymentRowWithPlanName>, String> {
         self.get_tx_status_with_plan_name_impl(tx_hash).await
     }
 
@@ -1168,11 +1291,16 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         page: u32,
         per_page: u32,
     ) -> Result<Vec<PaymentRowWithPlanName>, String> {
-        self.list_user_payments_with_plan_names_impl(wallet_address, page, per_page).await
+        self.list_user_payments_with_plan_names_impl(wallet_address, page, per_page)
+            .await
     }
 
-    async fn get_admin_payment_details_with_plan_name(&self, payment_id: PaymentId) -> Result<Option<PaymentRowWithPlanName>, String> {
-        self.get_admin_payment_details_with_plan_name_impl(payment_id).await
+    async fn get_admin_payment_details_with_plan_name(
+        &self,
+        payment_id: PaymentId,
+    ) -> Result<Option<PaymentRowWithPlanName>, String> {
+        self.get_admin_payment_details_with_plan_name_impl(payment_id)
+            .await
     }
 
     async fn list_admin_subscriptions_with_plan_names(
@@ -1181,7 +1309,8 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         page: u32,
         per_page: u32,
     ) -> Result<Vec<(Subscription, Option<String>)>, String> {
-        self.list_admin_subscriptions_with_plan_names_impl(filters, page, per_page).await
+        self.list_admin_subscriptions_with_plan_names_impl(filters, page, per_page)
+            .await
     }
 
     async fn list_admin_subscriptions_with_plan_names_paginated(
@@ -1191,16 +1320,27 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         per_page: u32,
     ) -> Result<(Vec<(Subscription, Option<String>)>, u64), String> {
         let count_filters = filters.clone();
-        let rows = self.list_admin_subscriptions_with_plan_names_impl(filters, page, per_page).await?;
-        let total = self.list_admin_subscriptions_count_impl(count_filters).await?;
+        let rows = self
+            .list_admin_subscriptions_with_plan_names_impl(filters, page, per_page)
+            .await?;
+        let total = self
+            .list_admin_subscriptions_count_impl(count_filters)
+            .await?;
         Ok((rows, total))
     }
 
-    async fn get_analytics_rollup(&self, window: AnalyticsWindow) -> Result<AnalyticsRollup, String> {
+    async fn get_analytics_rollup(
+        &self,
+        window: AnalyticsWindow,
+    ) -> Result<AnalyticsRollup, String> {
         self.get_analytics_rollup_impl(window).await
     }
 
-    async fn validate_submit_tx(&self, plan_id: Uuid, wallet_address: &WalletAddress) -> Result<SubmitTxValidation, String> {
+    async fn validate_submit_tx(
+        &self,
+        plan_id: Uuid,
+        wallet_address: &WalletAddress,
+    ) -> Result<SubmitTxValidation, String> {
         self.validate_submit_tx_impl(plan_id, wallet_address).await
     }
 
@@ -1208,15 +1348,28 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         self.create_payment_impl(cmd).await
     }
 
-    async fn update_payment_status(&self, payment_id: PaymentId, new_status: PaymentStatus, audit_note: Option<String>) -> Result<(), String> {
-        self.update_payment_status_impl(payment_id, new_status, audit_note).await
+    async fn update_payment_status(
+        &self,
+        payment_id: PaymentId,
+        new_status: PaymentStatus,
+        audit_note: Option<String>,
+    ) -> Result<(), String> {
+        self.update_payment_status_impl(payment_id, new_status, audit_note)
+            .await
     }
 
-    async fn grant_subscription(&self, cmd: ActivateSubscriptionCommand) -> Result<Subscription, String> {
+    async fn grant_subscription(
+        &self,
+        cmd: ActivateSubscriptionCommand,
+    ) -> Result<Subscription, String> {
         self.grant_subscription_impl(cmd).await
     }
 
-    async fn revoke_subscription(&self, subscription_id: Uuid, reason: Option<String>) -> Result<(), String> {
+    async fn revoke_subscription(
+        &self,
+        subscription_id: Uuid,
+        reason: Option<String>,
+    ) -> Result<(), String> {
         self.revoke_subscription_impl(subscription_id, reason).await
     }
 }
@@ -1256,7 +1409,10 @@ mod tests {
 
     // 1. Object-safety compile-time test.
     fn _assert_object_safe(_: &dyn PaymentRepositoryPort) {}
-    fn _assert_credit_object_safe(_: &dyn crate::domain::payment::repository_ports::CreditRepositoryPort) {}
+    fn _assert_credit_object_safe(
+        _: &dyn crate::domain::payment::repository_ports::CreditRepositoryPort,
+    ) {
+    }
 
     // 2. Trait dispatch test — the in-process impl must be reachable
     // through `Arc<dyn PaymentRepositoryPort>`. This is a no-op on
@@ -1316,6 +1472,9 @@ mod tests {
         // here is just "the file is not empty" — the real
         // canary is code review. Adjust the count if the
         // impl grows.
-        assert!(count >= 1, "expected at least one diesel::sql_query in the cross_pool adapter");
+        assert!(
+            count >= 1,
+            "expected at least one diesel::sql_query in the cross_pool adapter"
+        );
     }
 }

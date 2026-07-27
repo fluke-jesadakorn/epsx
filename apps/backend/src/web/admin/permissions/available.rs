@@ -1,17 +1,17 @@
 // Available Permissions Handler
 // Provides CRUD operations for permission definitions
 
+use crate::web::auth::AppState;
+use crate::web::responses::AdminResponse;
 use axum::{
     extract::{Path, State},
     response::IntoResponse,
     Json,
 };
+use diesel::sql_types::{Bool, Text, Timestamptz, Uuid as SqlUuid, Varchar};
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use crate::web::auth::AppState;
-use crate::web::responses::AdminResponse;
-use diesel::sql_types::{Uuid as SqlUuid, Varchar, Text, Bool, Timestamptz};
 
 #[derive(Debug, Serialize)]
 pub struct PermissionDefinition {
@@ -47,9 +47,7 @@ pub struct UpdatePermissionRequest {
 
 /// List all available permission definitions
 /// GET /api/permissions/definitions
-pub async fn list_permission_definitions(
-    State(app_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_permission_definitions(State(app_state): State<AppState>) -> impl IntoResponse {
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
@@ -111,9 +109,7 @@ pub async fn list_permission_definitions(
 
 /// List all available unique permission strings (legacy endpoint)
 /// GET /admin/permissions/available
-pub async fn list_available_permissions(
-    State(app_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_available_permissions(State(app_state): State<AppState>) -> impl IntoResponse {
     let mut conn = match app_state.db_pool.get().await {
         Ok(conn) => conn,
         Err(e) => {
@@ -154,13 +150,23 @@ pub async fn create_permission_definition(
     // Validate permission format: at least 3 colon-separated parts
     let parts: Vec<&str> = req.permission.split(':').collect();
     if parts.len() < 3 {
-        return AdminResponse::bad_request("Invalid permission format. Use: platform:resource:action").into_response();
+        return AdminResponse::bad_request(
+            "Invalid permission format. Use: platform:resource:action",
+        )
+        .into_response();
     }
 
     // Validate each part
     for part in &parts {
-        if part.is_empty() || (!part.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '*')) {
-            return AdminResponse::bad_request("Permission parts must be alphanumeric, underscore, dash, or wildcard (*)").into_response();
+        if part.is_empty()
+            || (!part
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '*'))
+        {
+            return AdminResponse::bad_request(
+                "Permission parts must be alphanumeric, underscore, dash, or wildcard (*)",
+            )
+            .into_response();
         }
     }
 
@@ -177,13 +183,17 @@ pub async fn create_permission_definition(
     let resource = parts[1].to_string();
     let action = parts[2].to_string();
     let category = req.category.or_else(|| Some(parts[1].to_string()));
-    
+
     // Derive name from permission if not provided
     let name = req.name.or_else(|| {
-        Some(format!("{} {}", 
-            parts[1].replace(['_', '-'], " "),
-            parts[2].replace(['_', '-'], " ")
-        ).to_uppercase())
+        Some(
+            format!(
+                "{} {}",
+                parts[1].replace(['_', '-'], " "),
+                parts[2].replace(['_', '-'], " ")
+            )
+            .to_uppercase(),
+        )
     });
 
     #[derive(diesel::QueryableByName)]
@@ -225,19 +235,18 @@ pub async fn create_permission_definition(
     .await;
 
     match result {
-        Ok(row) => {
-            AdminResponse::success(PermissionDefinition {
-                id: row.id,
-                permission_string: row.permission_string,
-                name: row.name,
-                description: row.description,
-                platform: row.platform,
-                category: row.category,
-                is_system: row.is_system,
-                is_active: row.is_active,
-                created_at: row.created_at,
-            }).into_response()
-        }
+        Ok(row) => AdminResponse::success(PermissionDefinition {
+            id: row.id,
+            permission_string: row.permission_string,
+            name: row.name,
+            description: row.description,
+            platform: row.platform,
+            category: row.category,
+            is_system: row.is_system,
+            is_active: row.is_active,
+            created_at: row.created_at,
+        })
+        .into_response(),
         Err(e) => {
             tracing::error!("Failed to create permission definition: {}", e);
             AdminResponse::server_error("Failed to create permission").into_response()
@@ -267,20 +276,18 @@ pub async fn update_permission_definition(
         is_system: bool,
     }
 
-    let check_result = diesel::sql_query(
-        "SELECT is_system FROM permissions WHERE id = $1"
-    )
-    .bind::<SqlUuid, _>(id)
-    .get_result::<CheckRow>(&mut conn)
-    .await;
+    let check_result = diesel::sql_query("SELECT is_system FROM permissions WHERE id = $1")
+        .bind::<SqlUuid, _>(id)
+        .get_result::<CheckRow>(&mut conn)
+        .await;
 
     match check_result {
         Ok(row) => {
             if row.is_system {
                 // For system permissions, only allow updating display fields (name, description, category)
-                // but we should probably verify this is what we want. 
+                // but we should probably verify this is what we want.
                 // For now, let's allow updating system permission METADATA but caution user in UI.
-                // Or follow "Delete" pattern and block it? 
+                // Or follow "Delete" pattern and block it?
                 // The prompt says "improve better /access page can edit permissions", implying all.
                 // But usually system permissions are code-defined.
                 // Let's safe-guard: if system, allow updating ONLY name/desc/category, but NOT is_active
@@ -320,13 +327,13 @@ pub async fn update_permission_definition(
     }
 
     // Build dynamic update query
-    // Since diesel sql_query is specific, and we want to update selective fields, 
+    // Since diesel sql_query is specific, and we want to update selective fields,
     // we'll just update all nullable fields provided.
-    // If a field is None in request, we prefer NOT to update it? 
+    // If a field is None in request, we prefer NOT to update it?
     // Or we expect the frontend to send the full object?
     // Let's assume standard PUT/PATCH behavior: update what is provided or all if PUT.
     // For simplicity with sql_query, let's do COALESCE matching.
-    
+
     let result = diesel::sql_query(
         "UPDATE permissions SET 
             name = COALESCE($2, name),
@@ -346,19 +353,18 @@ pub async fn update_permission_definition(
     .await;
 
     match result {
-        Ok(row) => {
-            AdminResponse::success(PermissionDefinition {
-                id: row.id,
-                permission_string: row.permission_string,
-                name: row.name,
-                description: row.description,
-                platform: row.platform,
-                category: row.category,
-                is_system: row.is_system,
-                is_active: row.is_active,
-                created_at: row.created_at,
-            }).into_response()
-        }
+        Ok(row) => AdminResponse::success(PermissionDefinition {
+            id: row.id,
+            permission_string: row.permission_string,
+            name: row.name,
+            description: row.description,
+            platform: row.platform,
+            category: row.category,
+            is_system: row.is_system,
+            is_active: row.is_active,
+            created_at: row.created_at,
+        })
+        .into_response(),
         Err(e) => {
             tracing::error!("Failed to update permission definition: {}", e);
             AdminResponse::server_error("Failed to update permission").into_response()
@@ -387,18 +393,16 @@ pub async fn delete_permission_definition(
         is_system: bool,
     }
 
-    let check_result = diesel::sql_query(
-        "SELECT is_system FROM permissions WHERE id = $1"
-    )
-    .bind::<SqlUuid, _>(id)
-    .get_result::<CheckRow>(&mut conn)
-    .await;
-
+    let check_result = diesel::sql_query("SELECT is_system FROM permissions WHERE id = $1")
+        .bind::<SqlUuid, _>(id)
+        .get_result::<CheckRow>(&mut conn)
+        .await;
 
     match check_result {
         Ok(row) => {
             if row.is_system {
-                return AdminResponse::bad_request("Cannot delete system permissions").into_response();
+                return AdminResponse::bad_request("Cannot delete system permissions")
+                    .into_response();
             }
         }
         Err(diesel::result::Error::NotFound) => {
@@ -423,7 +427,8 @@ pub async fn delete_permission_definition(
             if count > 0 {
                 AdminResponse::success("Permission deleted").into_response()
             } else {
-                AdminResponse::not_found("Permission not found or is a system permission").into_response()
+                AdminResponse::not_found("Permission not found or is a system permission")
+                    .into_response()
             }
         }
         Err(e) => {
@@ -462,7 +467,8 @@ pub async fn delete_permission_by_name(
             if count > 0 {
                 AdminResponse::success("Permission deleted").into_response()
             } else {
-                AdminResponse::not_found("Permission not found or is a system permission").into_response()
+                AdminResponse::not_found("Permission not found or is a system permission")
+                    .into_response()
             }
         }
         Err(e) => {

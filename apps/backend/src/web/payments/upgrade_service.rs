@@ -41,7 +41,10 @@ pub fn calculate_upgrade_days(
     }
     let new_days = remaining_value / new_daily;
     // Floor to i64
-    new_days.to_string().split('.').next()
+    new_days
+        .to_string()
+        .split('.')
+        .next()
         .and_then(|s| s.parse::<i64>().ok())
         .unwrap_or(0)
         .max(0)

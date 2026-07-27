@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use super::{
-    Payment, PaymentId, PaymentStatus, PaymentAmount,
-    TransactionHash, CryptoAddress, PaymentReference
+    CryptoAddress, Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStatus,
+    TransactionHash,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 
@@ -133,26 +133,36 @@ pub trait PaymentRepositoryPort: Send + Sync {
     async fn find_by_status(&self, status: PaymentStatus) -> Result<Vec<Payment>, String>;
 
     /// Find payments by reference
-    async fn find_by_reference(&self, reference: &PaymentReference) -> Result<Option<Payment>, String>;
+    async fn find_by_reference(
+        &self,
+        reference: &PaymentReference,
+    ) -> Result<Option<Payment>, String>;
 
     /// Find payments within date range
     async fn find_by_date_range(
         &self,
         start: DateTime<Utc>,
-        end: DateTime<Utc>
+        end: DateTime<Utc>,
     ) -> Result<Vec<Payment>, String>;
 
     /// Find pending payments older than threshold
     async fn find_expired_pending(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String>;
 
     /// Update payment status
-    async fn update_status(&self, payment_id: &PaymentId, status: PaymentStatus) -> Result<(), String>;
+    async fn update_status(
+        &self,
+        payment_id: &PaymentId,
+        status: PaymentStatus,
+    ) -> Result<(), String>;
 
     /// Delete payment
     async fn delete(&self, payment_id: &PaymentId) -> Result<(), String>;
 
     /// Get payment statistics for user
-    async fn get_user_payment_stats(&self, wallet_address: &WalletAddress) -> Result<PaymentStats, String>;
+    async fn get_user_payment_stats(
+        &self,
+        wallet_address: &WalletAddress,
+    ) -> Result<PaymentStats, String>;
 
     // -----------------------------------------------------------------
     // Wave 11 / Track A additions — the 8 cross-pool collapses
@@ -254,10 +264,7 @@ pub trait PaymentRepositoryPort: Send + Sync {
     /// Create a new payment row. Replaces the inline `INSERT INTO
     /// payments` blocks in `submit_tx_handler.rs:339-414`. The impl
     /// runs against the payments pool only.
-    async fn create_payment(
-        &self,
-        cmd: CreatePaymentCommand,
-    ) -> Result<Payment, String>;
+    async fn create_payment(&self, cmd: CreatePaymentCommand) -> Result<Payment, String>;
 
     /// Update the status of a payment, with optional audit note.
     /// Replaces the inline `UPDATE payments SET status = ...` blocks
@@ -331,7 +338,10 @@ impl PaymentRowWithPlanName {
     /// Convert a `PaymentDb` row + plan name into the port DTO.
     /// Lives in the domain layer (no `diesel` import) but the
     /// concrete adapter uses it as the conversion point.
-    pub fn from_db(db: &crate::infrastructure::models::payment::PaymentDb, plan_name: Option<String>) -> Self {
+    pub fn from_db(
+        db: &crate::infrastructure::models::payment::PaymentDb,
+        plan_name: Option<String>,
+    ) -> Self {
         Self {
             id: db.id,
             payment_reference: db.payment_reference.clone(),
@@ -419,29 +429,50 @@ pub struct ActivateSubscriptionCommand {
 #[async_trait]
 pub trait TransactionRepositoryPort: Send + Sync {
     /// Store transaction hash for monitoring
-    async fn store_transaction(&self, payment_id: &PaymentId, tx_hash: &TransactionHash) -> Result<(), String>;
+    async fn store_transaction(
+        &self,
+        payment_id: &PaymentId,
+        tx_hash: &TransactionHash,
+    ) -> Result<(), String>;
 
     /// Find transaction by hash
-    async fn find_by_hash(&self, tx_hash: &TransactionHash) -> Result<Option<TransactionRecord>, String>;
+    async fn find_by_hash(
+        &self,
+        tx_hash: &TransactionHash,
+    ) -> Result<Option<TransactionRecord>, String>;
 
     /// Update transaction confirmation status
-    async fn update_confirmations(&self, tx_hash: &TransactionHash, confirmations: u32) -> Result<(), String>;
+    async fn update_confirmations(
+        &self,
+        tx_hash: &TransactionHash,
+        confirmations: u32,
+    ) -> Result<(), String>;
 
     /// Find transactions needing confirmation checks
     async fn find_pending_confirmations(&self) -> Result<Vec<TransactionRecord>, String>;
 
     /// Get transaction history for payment
-    async fn get_transaction_history(&self, payment_id: &PaymentId) -> Result<Vec<TransactionRecord>, String>;
+    async fn get_transaction_history(
+        &self,
+        payment_id: &PaymentId,
+    ) -> Result<Vec<TransactionRecord>, String>;
 }
 
 /// Port for crypto address management
 #[async_trait]
 pub trait CryptoAddressRepositoryPort: Send + Sync {
     /// Generate new address for payment
-    async fn generate_address(&self, payment_id: &PaymentId, network: &str) -> Result<CryptoAddress, String>;
+    async fn generate_address(
+        &self,
+        payment_id: &PaymentId,
+        network: &str,
+    ) -> Result<CryptoAddress, String>;
 
     /// Find address by payment ID
-    async fn find_by_payment(&self, payment_id: &PaymentId) -> Result<Option<CryptoAddress>, String>;
+    async fn find_by_payment(
+        &self,
+        payment_id: &PaymentId,
+    ) -> Result<Option<CryptoAddress>, String>;
 
     /// Mark address as used
     async fn mark_address_used(&self, address: &CryptoAddress) -> Result<(), String>;
@@ -450,7 +481,11 @@ pub trait CryptoAddressRepositoryPort: Send + Sync {
     async fn get_address_balance(&self, address: &CryptoAddress) -> Result<PaymentAmount, String>;
 
     /// Find addresses by user for reuse
-    async fn find_user_addresses(&self, wallet_address: &WalletAddress, network: &str) -> Result<Vec<CryptoAddress>, String>;
+    async fn find_user_addresses(
+        &self,
+        wallet_address: &WalletAddress,
+        network: &str,
+    ) -> Result<Vec<CryptoAddress>, String>;
 }
 
 /// Port for payment method configuration
@@ -460,13 +495,21 @@ pub trait PaymentMethodRepositoryPort: Send + Sync {
     async fn get_available_methods(&self) -> Result<Vec<super::PaymentMethod>, String>;
 
     /// Get payment method configuration
-    async fn get_method_config(&self, method_type: &str) -> Result<Option<super::PaymentMethodConfig>, String>;
+    async fn get_method_config(
+        &self,
+        method_type: &str,
+    ) -> Result<Option<super::PaymentMethodConfig>, String>;
 
     /// Update payment method availability
-    async fn update_method_availability(&self, method_type: &str, available: bool) -> Result<(), String>;
+    async fn update_method_availability(
+        &self,
+        method_type: &str,
+        available: bool,
+    ) -> Result<(), String>;
 
     /// Get exchange rates for currency conversion
-    async fn get_exchange_rates(&self, base_currency: &str) -> Result<super::ExchangeRates, String>;
+    async fn get_exchange_rates(&self, base_currency: &str)
+        -> Result<super::ExchangeRates, String>;
 }
 
 /// Payment statistics
@@ -572,7 +615,8 @@ pub trait CreditRepositoryPort: Send + Sync {
     async fn get_balance(&self, wallet_address: &str) -> Result<Option<CreditBalanceRow>, String>;
 
     /// Get or create wallet credits record (returns balance)
-    async fn get_or_create_balance(&self, wallet_address: &str) -> Result<CreditBalanceRow, String>;
+    async fn get_or_create_balance(&self, wallet_address: &str)
+        -> Result<CreditBalanceRow, String>;
 
     /// Get credit transactions for a wallet
     async fn get_transactions(
@@ -610,7 +654,7 @@ pub trait CreditRepositoryPort: Send + Sync {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditBalanceRow {
     pub wallet_address: String,
-    pub balance: String,        // BigDecimal as string
+    pub balance: String, // BigDecimal as string
     pub pending_balance: String,
     pub lifetime_earned: String,
     pub lifetime_spent: String,

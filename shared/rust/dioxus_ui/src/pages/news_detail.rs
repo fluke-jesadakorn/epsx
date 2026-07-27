@@ -1355,10 +1355,7 @@ mod tests {
                     "article": article("Live article", "Published body")
                 }),
             ),
-            context(
-                "missing-article",
-                serde_json::json!({"state": "not_found"}),
-            ),
+            context("missing-article", serde_json::json!({"state": "not_found"})),
             context(
                 "failed-article",
                 serde_json::json!({"state": "error", "code": "dependency_unavailable"}),

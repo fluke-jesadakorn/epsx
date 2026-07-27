@@ -1,17 +1,16 @@
 // Database Types and Models
 // Unified type definitions for database operations
 
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
-use std::sync::Arc;
-use bigdecimal::BigDecimal;
 use crate::infrastructure::database::diesel_connection_manager::TlsPool;
+use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
+use std::sync::Arc;
+use uuid::Uuid;
 
 // Database Pool Types
 pub type DbPool = &'static TlsPool;
 
 // Session Types
-
 
 // User Repository Types
 #[derive(Clone)]
@@ -77,20 +76,25 @@ impl NotificationRepositoryAdapter {
     pub fn new(pool: Arc<DbPool>) -> Self {
         Self { _pool: pool }
     }
-    
+
     pub async fn deliver_notification_to_topic(
         &self,
         _topic: &str,
         _title: &str,
         _body: &str,
         _data: Option<serde_json::Value>,
-    ) -> Result<crate::domain::notification::aggregates::notification::DeliveryResult, crate::application::ApplicationError> {
+    ) -> Result<
+        crate::domain::notification::aggregates::notification::DeliveryResult,
+        crate::application::ApplicationError,
+    > {
         // Topic notification delivery placeholder
         // Future: Integrate with FCM topic messaging or notification service
-        Ok(crate::domain::notification::aggregates::notification::DeliveryResult::Success {
-            message_id: Some("placeholder_message_id".to_string()),
-            delivered_at: chrono::Utc::now(),
-        })
+        Ok(
+            crate::domain::notification::aggregates::notification::DeliveryResult::Success {
+                message_id: Some("placeholder_message_id".to_string()),
+                delivered_at: chrono::Utc::now(),
+            },
+        )
     }
 
     pub async fn deliver_notification_to_user(
@@ -99,7 +103,10 @@ impl NotificationRepositoryAdapter {
         _wallet_address: uuid::Uuid,
         _fcm_token: Option<String>,
         _email: Option<String>,
-    ) -> Result<Vec<crate::domain::notification::aggregates::notification::DeliveryResult>, crate::application::ApplicationError> {
+    ) -> Result<
+        Vec<crate::domain::notification::aggregates::notification::DeliveryResult>,
+        crate::application::ApplicationError,
+    > {
         // User notification delivery placeholder
         // Future: Integrate with FCM/APNS for push notifications and email service
         Ok(vec![])
@@ -146,30 +153,32 @@ impl NotificationMapper {
         image_url: Option<String>,
         data_payload: Option<serde_json::Value>,
     ) -> Result<crate::domain::notification::aggregates::notification::Notification, String> {
-        use crate::domain::notification::value_objects::*;
         use crate::domain::notification::aggregates::notification::Notification;
-        
+        use crate::domain::notification::value_objects::*;
+
         // Create content from title and body
         let content = NotificationContent::new(title, body)?;
-        
+
         // Parse channel configuration
-        let channel_configs: Vec<DeliveryChannelConfig> = channels.iter()
+        let channel_configs: Vec<DeliveryChannelConfig> = channels
+            .iter()
             .filter_map(|ch| {
                 let channel_type = DeliveryChannelType::from_str(ch).ok()?;
                 Some(DeliveryChannelConfig::new(channel_type))
             })
             .collect();
-        
+
         let multi_channel = if channel_configs.is_empty() {
             // Default to in-app if no channels specified
-            MultiChannelConfig::single_channel(DeliveryChannelConfig::new(DeliveryChannelType::InApp))
+            MultiChannelConfig::single_channel(DeliveryChannelConfig::new(
+                DeliveryChannelType::InApp,
+            ))
         } else {
             MultiChannelConfig::new(channel_configs)
         };
-        
+
         // Create schedule info
         let schedule = if let Some(scheduled_at) = scheduled_for {
-            
             if let Some(exp) = expires_at {
                 ScheduleInfo::scheduled_with_expiry(scheduled_at, exp)?
             } else {
@@ -180,7 +189,7 @@ impl NotificationMapper {
         } else {
             ScheduleInfo::immediate()
         };
-        
+
         // Create the notification based on whether it's for a user or topic
         let notification = if let Some(wallet_id) = recipient_wallet_address {
             Notification::create_for_user(
@@ -204,9 +213,11 @@ impl NotificationMapper {
                 None, // created_by
             )?
         } else {
-            return Err("Either recipient_wallet_address or fcm_topic_id must be provided".to_string());
+            return Err(
+                "Either recipient_wallet_address or fcm_topic_id must be provided".to_string(),
+            );
         };
-        
+
         // Apply optional metadata
         let mut notification = notification;
         if let Some(url) = action_url {
@@ -218,7 +229,7 @@ impl NotificationMapper {
         if let Some(payload) = data_payload {
             notification.metadata_mut().set_data_payload(payload);
         }
-        
+
         Ok(notification)
     }
 }
@@ -256,8 +267,6 @@ impl UserCreateResponse {
 
 // Database model types for mappers compatibility
 // Legacy User/NewUser/UpdateUser structs removed - Web3-first uses WalletUser only
-
-
 
 // Permission Plan Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
@@ -428,8 +437,6 @@ pub struct UpdateWalletUserDb {
     pub current_plan_id: Option<Option<i32>>,
     pub plan_expires_at: Option<Option<DateTime<Utc>>>,
 }
-
-
 
 // ============================================================================
 // Permission Plan Models (Diesel)

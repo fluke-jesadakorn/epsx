@@ -1,8 +1,8 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/common_types.rs
 // Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
 // `crate::value_object::*` (sibling module in this crate).
-use serde::{Deserialize, Serialize};
 use crate::value_object::{ValueObject, ValueObjectError};
+use serde::{Deserialize, Serialize};
 
 /// Payment identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -20,15 +20,16 @@ impl PayId {
 
 impl ValueObject for PayId {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("Payment ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Payment ID cannot be empty".to_string(),
+            ));
         }
         Ok(())
     }
 }
-
 
 /// Currency enumeration
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -48,7 +49,7 @@ impl Currency {
     pub fn symbol(&self) -> &'static str {
         match self {
             Currency::USD => "USD",
-            Currency::EUR => "EUR", 
+            Currency::EUR => "EUR",
             Currency::BTC => "BTC",
             Currency::ETH => "ETH",
             Currency::USDT => "USDT",
@@ -77,11 +78,11 @@ impl Currency {
             Currency::BTC => vec![Network::Bitcoin],
             Currency::ETH => vec![Network::Ethereum, Network::Arbitrum, Network::Polygon],
             Currency::USDT | Currency::USDC => vec![
-                Network::Ethereum, 
-                Network::Binance, 
-                Network::Tron, 
-                Network::Arbitrum, 
-                Network::Polygon
+                Network::Ethereum,
+                Network::Binance,
+                Network::Tron,
+                Network::Arbitrum,
+                Network::Polygon,
             ],
             Currency::BNB => vec![Network::Binance],
             Currency::TRX => vec![Network::Tron],
@@ -91,7 +92,7 @@ impl Currency {
 
 impl ValueObject for Currency {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         // All enum variants are valid by definition
         Ok(())
@@ -109,7 +110,7 @@ pub enum PayStatus {
 
 impl ValueObject for PayStatus {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         // All enum variants are valid by definition
         Ok(())
@@ -144,7 +145,7 @@ impl Network {
 
 impl ValueObject for Network {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         // All enum variants are valid by definition
         Ok(())

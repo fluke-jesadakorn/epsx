@@ -123,7 +123,11 @@ impl ServiceClient {
         }
     }
 
-    fn apply_ctx(&self, mut req: reqwest::RequestBuilder, ctx: Option<&RequestContext>) -> reqwest::RequestBuilder {
+    fn apply_ctx(
+        &self,
+        mut req: reqwest::RequestBuilder,
+        ctx: Option<&RequestContext>,
+    ) -> reqwest::RequestBuilder {
         if let Some(ctx) = ctx {
             req = req.header("x-request-id", ctx.request_id.to_string());
             if let Some(token) = &ctx.auth_token {
@@ -145,31 +149,70 @@ impl ServiceClient {
         self.handle_response(res).await
     }
 
-    pub async fn get_with_ctx(&self, path: &str, ctx: &RequestContext) -> Result<serde_json::Value> {
+    pub async fn get_with_ctx(
+        &self,
+        path: &str,
+        ctx: &RequestContext,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.get(self.url(path)), Some(ctx));
         let res = req.send().await?;
         self.handle_response(res).await
     }
 
-    pub async fn post_plain(&self, path: &str, body: &serde_json::Value) -> Result<serde_json::Value> {
+    pub async fn post_plain(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.post(self.url(path)).json(body), None);
         let res = req.send().await?;
         self.handle_response(res).await
     }
 
-    pub async fn post_with_ctx(&self, path: &str, body: &serde_json::Value, ctx: &RequestContext) -> Result<serde_json::Value> {
+    pub async fn post_with_ctx(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+        ctx: &RequestContext,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.post(self.url(path)).json(body), Some(ctx));
         let res = req.send().await?;
         self.handle_response(res).await
     }
 
-    pub async fn put_plain(&self, path: &str, body: &serde_json::Value) -> Result<serde_json::Value> {
+    /// POST while preserving the upstream success status for adapters whose
+    /// public contract distinguishes durable enqueue (`202`) from an ordinary
+    /// JSON mutation (`200`). Error classification remains centralized in
+    /// `handle_response`.
+    pub async fn post_with_ctx_status(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+        ctx: &RequestContext,
+    ) -> Result<(reqwest::StatusCode, serde_json::Value)> {
+        let req = self.apply_ctx(self.inner.post(self.url(path)).json(body), Some(ctx));
+        let res = req.send().await?;
+        let status = res.status();
+        let value = self.handle_response(res).await?;
+        Ok((status, value))
+    }
+
+    pub async fn put_plain(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.put(self.url(path)).json(body), None);
         let res = req.send().await?;
         self.handle_response(res).await
     }
 
-    pub async fn put_with_ctx(&self, path: &str, body: &serde_json::Value, ctx: &RequestContext) -> Result<serde_json::Value> {
+    pub async fn put_with_ctx(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+        ctx: &RequestContext,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.put(self.url(path)).json(body), Some(ctx));
         let res = req.send().await?;
         self.handle_response(res).await
@@ -181,7 +224,11 @@ impl ServiceClient {
         self.handle_response(res).await
     }
 
-    pub async fn delete_with_ctx(&self, path: &str, ctx: &RequestContext) -> Result<serde_json::Value> {
+    pub async fn delete_with_ctx(
+        &self,
+        path: &str,
+        ctx: &RequestContext,
+    ) -> Result<serde_json::Value> {
         let req = self.apply_ctx(self.inner.delete(self.url(path)), Some(ctx));
         let res = req.send().await?;
         self.handle_response(res).await
@@ -300,5 +347,35 @@ mod tests {
         let display = error.to_string();
         assert!(!display.contains("credential=secret"));
         assert!(!display.contains("header-secret"));
+    }
+
+    #[tokio::test]
+    async fn service_client_preserves_durable_enqueue_status() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            let mut request = [0_u8; 1024];
+            let _ = socket.read(&mut request).await.unwrap();
+            let body = r#"{"status":"queued"}"#;
+            let response = format!(
+                "HTTP/1.1 202 Accepted\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                body.len()
+            );
+            socket.write_all(response.as_bytes()).await.unwrap();
+        });
+
+        let client = ServiceClient::new(ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: Duration::from_secs(1),
+        });
+        let (status, value) = client
+            .post_with_ctx_status("/enqueue", &serde_json::json!({}), &RequestContext::new())
+            .await
+            .unwrap();
+        server.await.unwrap();
+
+        assert_eq!(status, reqwest::StatusCode::ACCEPTED);
+        assert_eq!(value["status"], "queued");
     }
 }

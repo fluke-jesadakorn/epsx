@@ -1,6 +1,7 @@
 # ============================================================================
-# wave49(slice-1): staging NodePort patches. Same allocations as prod
-# (30082 + 30083) so the staging tunnel config matches prod 1:1.
+# wave49(slice-1): staging NodePort patches. The 30082/30083 pair is
+# intentionally distinct from prod's 30084/30085 pair because NodePorts
+# are cluster-global when both overlays share the local Colima cluster.
 # ============================================================================
 
 apiVersion: v1

@@ -14,10 +14,15 @@ pub fn ChatBubble(
     body: String,
     /// Whether the bubble is from the current user (drives
     /// alignment + color).
-    #[props(default = false)] is_self: bool,
+    #[props(default = false)]
+    is_self: bool,
 ) -> Element {
     let align = if is_self { "items-end" } else { "items-start" };
-    let color = if is_self { "bg-orange-500 text-white" } else { "bg-slate-100 dark:bg-slate-800 text-foreground" };
+    let color = if is_self {
+        "bg-orange-500 text-white"
+    } else {
+        "bg-slate-100 dark:bg-slate-800 text-foreground"
+    };
     rsx! {
         div { class: "chat-bubble flex flex-col {align} gap-1",
             span { class: "chat-bubble-sender text-xs text-slate-500", "{sender}" }
@@ -33,7 +38,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_bubble_smoke() {
-        
-    }
+    fn chat_bubble_smoke() {}
 }

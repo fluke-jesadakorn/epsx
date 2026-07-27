@@ -1,9 +1,9 @@
 // Get Portfolio Rankings Query
 // Portfolio view with positive-growth stocks only
 
-use serde::{Deserialize, Serialize};
+use crate::application::market_analytics::dtos::CardDashboardResponse;
 use crate::application::shared::Query;
-use crate::application::market_analytics::dtos::{CardDashboardResponse};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone)]
 pub struct GetPortfolioRankingsQuery {

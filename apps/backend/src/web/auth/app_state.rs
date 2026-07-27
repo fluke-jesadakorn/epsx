@@ -4,14 +4,14 @@ use crate::prelude::TlsPool;
 
 use std::sync::Arc;
 
+use crate::domain::auth::ports::IdentityProviderPort;
+use crate::domain::payment::repository_ports::{
+    CreditRepositoryPort, PaymentRepositoryPort, TransactionHistoryProvider,
+};
 use crate::infrastructure::cache::Cache;
 use crate::infrastructure::container::DomainContainer;
 use crate::infrastructure::redis::RedisPool;
 use crate::infrastructure::services::audit_service::AuditService;
-use crate::domain::payment::repository_ports::{
-    PaymentRepositoryPort, CreditRepositoryPort, TransactionHistoryProvider,
-};
-use crate::domain::auth::ports::IdentityProviderPort;
 use epsx_contracts::pubsub_port::PubsubPort;
 
 use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PermissionPlanRepositoryAdapter;
@@ -236,10 +236,7 @@ impl AppState {
     /// `NOTIFICATIONS_DATABASE_URL`); `None` means notifications are
     /// not wired and the publisher call sites will log a warning
     /// instead of writing notifications to the wrong pool.
-    pub fn with_notification_port_opt(
-        mut self,
-        port: Option<Arc<dyn NotificationPort>>,
-    ) -> Self {
+    pub fn with_notification_port_opt(mut self, port: Option<Arc<dyn NotificationPort>>) -> Self {
         self.notification_port = port;
         self
     }
@@ -248,20 +245,14 @@ impl AppState {
     /// to the AppState. Called by the container factories
     /// (e.g. `stateless_service_factory::create_auth_app_state`)
     /// after the in-process adapter is constructed.
-    pub fn with_payment_repo(
-        mut self,
-        port: Option<Arc<dyn PaymentRepositoryPort>>,
-    ) -> Self {
+    pub fn with_payment_repo(mut self, port: Option<Arc<dyn PaymentRepositoryPort>>) -> Self {
         self.payment_repo = port;
         self
     }
 
     /// Wave 11 / Track A — attach the `CreditRepositoryPort`
     /// to the AppState. See `with_payment_repo`.
-    pub fn with_credit_repo(
-        mut self,
-        port: Option<Arc<dyn CreditRepositoryPort>>,
-    ) -> Self {
+    pub fn with_credit_repo(mut self, port: Option<Arc<dyn CreditRepositoryPort>>) -> Self {
         self.credit_repo = port;
         self
     }

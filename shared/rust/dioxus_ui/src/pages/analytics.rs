@@ -1,146 +1,586 @@
-//! `/analytics` — truthful analytics availability shell.
-//!
-//! The pinned TypeScript page renders public or authenticated EPS rankings
-//! returned by the analytics backend. Ranking access, offsets, plan details,
-//! filters, pagination, and watchlist state are all server-owned. The Rust BFF
-//! has no current verified rankings loader, so this page must not turn absent
-//! data or any legacy compatibility parameter into rankings, zero/empty
-//! success, plan access, or interactive capabilities.
+//! `/analytics` — server-rendered, backend-authorized EPS ranking cards.
+
+use std::collections::HashSet;
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{PageContext, PageMeta};
+use crate::components::stock_data_card::{StockCardWatchlist, StockDataCard};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
-const ANALYTICS_SIGN_IN_PATH: &str = "/auth?return_url=%2Fanalytics";
+pub const ANALYTICS_DATA_PARAM: &str = "data_analytics";
+pub const ANALYTICS_STATE_PARAM: &str = "data_analytics_state";
+pub const ANALYTICS_FILTERS_DATA_PARAM: &str = "data_analytics_filters";
+pub const ANALYTICS_FILTERS_STATE_PARAM: &str = "data_analytics_filters_state";
+pub const ANALYTICS_QUERY_PARAM: &str = "data_analytics_query";
+pub const ANALYTICS_WATCHLIST_DATA_PARAM: &str = "data_analytics_watchlist";
+pub const ANALYTICS_WATCHLIST_STATE_PARAM: &str = "data_analytics_watchlist_state";
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct AnalyticsResponse {
+    pub success: bool,
+    pub data: Vec<AnalyticsRow>,
+    pub pagination: AnalyticsPagination,
+    pub metadata: AnalyticsMetadata,
+    pub access_info: Option<AnalyticsAccessInfo>,
+    pub message: Option<String>,
+    pub processing_time_ms: u64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct AnalyticsRow {
+    pub rank: i32,
+    pub symbol: String,
+    pub company_name: Option<String>,
+    pub latest_date: String,
+    pub value: f64,
+    pub active_status: String,
+    pub quarterly_performance: Vec<QuarterlyPerformance>,
+    pub next_quarter_estimate: Option<NextQuarterEstimate>,
+    pub next_earnings_date: Option<i64>,
+    pub last_earnings_date: Option<i64>,
+    pub next_earnings_date_formatted: Option<String>,
+    pub days_until_next_earnings: Option<i32>,
+    pub progress_percentage: Option<f64>,
+    pub current_eps: Option<f64>,
+    pub growth_factor: Option<f64>,
+    pub price_current: Option<f64>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct QuarterlyPerformance {
+    pub quarter: String,
+    pub date: String,
+    pub price: f64,
+    pub eps: f64,
+    pub eps_growth: f64,
+    pub price_growth: f64,
+    pub announcement_date: Option<String>,
+    pub announcement_timestamp: Option<i64>,
+    #[serde(default)]
+    pub is_estimated: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct NextQuarterEstimate {
+    pub quarter: String,
+    pub estimated_eps: f64,
+    pub announcement_date: String,
+    pub announcement_timestamp: i64,
+    pub days_until_announcement: i32,
+    pub estimated_price_target: Option<f64>,
+    pub confidence: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsMetadata {
+    pub available_countries: Vec<String>,
+    pub available_sectors: Vec<String>,
+    pub request_timestamp: String,
+    pub data_source: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsAccessInfo {
+    pub min_accessible_rank: i32,
+    pub locked_ranks_count: i32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsPagination {
+    pub page: i32,
+    pub limit: i32,
+    pub total: i64,
+    #[serde(rename = "totalPages")]
+    pub total_pages: i32,
+    #[serde(rename = "hasNext")]
+    pub has_next: bool,
+    #[serde(rename = "hasPrev")]
+    pub has_prev: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsFilters {
+    pub countries: Vec<AnalyticsCountry>,
+    pub sectors: Vec<String>,
+    #[serde(default)]
+    pub exchanges: Vec<String>,
+    #[serde(default)]
+    pub stock_types: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsCountry {
+    pub value: String,
+    pub label: String,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PartialEq, Eq)]
+pub struct AnalyticsQueryState {
+    pub page: u32,
+    pub limit: Option<u32>,
+    pub country: Option<String>,
+    pub sector: Option<String>,
+    pub sort_by: Option<String>,
+    pub min_eps: Option<String>,
+    pub min_growth: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WatchlistData {
+    pub symbols: Vec<String>,
+}
+
+fn safe_text(value: &str, max: usize) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= max
+        && !value.chars().any(|character| character.is_control())
+}
+
+pub fn normalize_watchlist_symbol(value: &str) -> Option<String> {
+    let symbol = value.trim().to_ascii_uppercase();
+    let mut chars = symbol.chars();
+    let first = chars.next()?;
+    if symbol.len() > 20
+        || !first.is_ascii_alphanumeric()
+        || !chars
+            .all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '-'))
+    {
+        return None;
+    }
+    Some(symbol)
+}
+
+impl WatchlistData {
+    pub fn validated(self) -> Result<Self, ()> {
+        let mut seen = HashSet::new();
+        let mut symbols = Vec::with_capacity(self.symbols.len());
+        if self.symbols.len() > 1_000 {
+            return Err(());
+        }
+        for symbol in self.symbols {
+            let symbol = normalize_watchlist_symbol(&symbol).ok_or(())?;
+            if seen.insert(symbol.clone()) {
+                symbols.push(symbol);
+            }
+        }
+        Ok(Self { symbols })
+    }
+}
+
+impl AnalyticsFilters {
+    pub fn validated(self) -> Result<Self, ()> {
+        if self.countries.len() > 500
+            || self.sectors.len() > 500
+            || self.exchanges.len() > 500
+            || self.stock_types.len() > 500
+        {
+            return Err(());
+        }
+        let mut country_values = HashSet::new();
+        for country in &self.countries {
+            if !safe_text(&country.value, 64)
+                || !safe_text(&country.label, 128)
+                || !country_values.insert(country.value.as_str())
+            {
+                return Err(());
+            }
+        }
+        for value in self
+            .sectors
+            .iter()
+            .chain(self.exchanges.iter())
+            .chain(self.stock_types.iter())
+        {
+            if !safe_text(value, 128) {
+                return Err(());
+            }
+        }
+        Ok(self)
+    }
+}
+
+impl AnalyticsResponse {
+    pub fn validated(self) -> Result<Self, ()> {
+        let pagination = &self.pagination;
+        if !self.success
+            || pagination.page < 1
+            || !(1..=100).contains(&pagination.limit)
+            || pagination.total < 0
+            || pagination.total_pages < 0
+            || self.data.len() > pagination.limit as usize
+            || pagination.total < self.data.len() as i64
+            || !safe_text(&self.metadata.request_timestamp, 128)
+            || !safe_text(&self.metadata.data_source, 128)
+        {
+            return Err(());
+        }
+        if let Some(access) = &self.access_info {
+            if access.min_accessible_rank < 0 || access.locked_ranks_count < 0 {
+                return Err(());
+            }
+        }
+        if self.metadata.available_countries.len() > 500
+            || self.metadata.available_sectors.len() > 500
+            || self
+                .metadata
+                .available_countries
+                .iter()
+                .chain(self.metadata.available_sectors.iter())
+                .any(|value| !safe_text(value, 128))
+        {
+            return Err(());
+        }
+        for row in &self.data {
+            if row.rank < 1
+                || !valid_ranking_symbol(&row.symbol)
+                || !safe_text(&row.latest_date, 128)
+                || !safe_text(&row.active_status, 64)
+                || row
+                    .company_name
+                    .as_deref()
+                    .is_some_and(|value| !safe_text(value, 256))
+                || row.quarterly_performance.len() > 32
+                || row
+                    .progress_percentage
+                    .is_some_and(|value| !(0.0..=100.0).contains(&value))
+            {
+                return Err(());
+            }
+            for quarter in &row.quarterly_performance {
+                if !safe_text(&quarter.quarter, 64)
+                    || !safe_text(&quarter.date, 128)
+                    || quarter
+                        .announcement_date
+                        .as_deref()
+                        .is_some_and(|value| !safe_text(value, 128))
+                {
+                    return Err(());
+                }
+            }
+            if let Some(estimate) = &row.next_quarter_estimate {
+                if !safe_text(&estimate.quarter, 64)
+                    || !safe_text(&estimate.announcement_date, 128)
+                    || !safe_text(&estimate.confidence, 64)
+                {
+                    return Err(());
+                }
+            }
+        }
+        Ok(self)
+    }
+}
+
+fn valid_ranking_symbol(value: &str) -> bool {
+    safe_text(value, 32)
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '.' | '-' | '_' | ':')
+        })
+}
+
+impl AnalyticsQueryState {
+    pub fn from_normalized_query(query: &str) -> Result<Self, ()> {
+        let mut state = Self {
+            page: 1,
+            ..Default::default()
+        };
+        if query.is_empty() {
+            return Ok(state);
+        }
+        let url = url::Url::parse(&format!("https://frontend.invalid/?{query}")).map_err(|_| ())?;
+        let mut seen = HashSet::new();
+        for (key, value) in url.query_pairs() {
+            if !seen.insert(key.to_string()) {
+                return Err(());
+            }
+            match key.as_ref() {
+                "page" => state.page = value.parse().map_err(|_| ())?,
+                "limit" => state.limit = Some(value.parse().map_err(|_| ())?),
+                "country" => state.country = Some(value.into_owned()),
+                "sector" => state.sector = Some(value.into_owned()),
+                "sort_by" => state.sort_by = Some(value.into_owned()),
+                "min_eps" => state.min_eps = Some(value.into_owned()),
+                "min_growth" => state.min_growth = Some(value.into_owned()),
+                _ => return Err(()),
+            }
+        }
+        if state.page == 0 || state.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
+            return Err(());
+        }
+        Ok(state)
+    }
+
+    pub fn page_url(&self, page: u32, authoritative_limit: u32) -> String {
+        self.url_with(
+            page,
+            authoritative_limit,
+            self.country.as_deref(),
+            self.sector.as_deref(),
+        )
+    }
+
+    pub fn reset_url(&self, authoritative_limit: u32) -> String {
+        self.url_with(1, authoritative_limit, None, None)
+    }
+
+    fn url_with(
+        &self,
+        page: u32,
+        authoritative_limit: u32,
+        country: Option<&str>,
+        sector: Option<&str>,
+    ) -> String {
+        let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+        serializer.append_pair("page", &page.to_string());
+        serializer.append_pair("limit", &authoritative_limit.to_string());
+        if let Some(country) = country {
+            serializer.append_pair("country", country);
+        }
+        if let Some(sector) = sector {
+            serializer.append_pair("sector", sector);
+        }
+        if let Some(sort_by) = &self.sort_by {
+            serializer.append_pair("sort_by", sort_by);
+        }
+        if let Some(min_eps) = &self.min_eps {
+            serializer.append_pair("min_eps", min_eps);
+        }
+        if let Some(min_growth) = &self.min_growth {
+            serializer.append_pair("min_growth", min_growth);
+        }
+        format!("/analytics?{}", serializer.finish())
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Analytics unavailable");
-    (meta, rsx! { AnalyticsUnavailablePage { ctx: ctx.clone() } })
+    let meta = PageMeta::app("Analytics");
+    let response = ctx
+        .param(ANALYTICS_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
+        .and_then(|response| response.validated().ok());
+    let filters = ctx
+        .param(ANALYTICS_FILTERS_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<AnalyticsFilters>(raw).ok())
+        .and_then(|filters| filters.validated().ok());
+    let query = ctx
+        .param(ANALYTICS_QUERY_PARAM)
+        .and_then(|raw| serde_json::from_str::<AnalyticsQueryState>(raw).ok())
+        .unwrap_or_else(|| AnalyticsQueryState {
+            page: 1,
+            ..Default::default()
+        });
+    let watchlist = ctx
+        .param(ANALYTICS_WATCHLIST_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<WatchlistData>(raw).ok())
+        .and_then(|watchlist| watchlist.validated().ok());
+    let state = ctx
+        .param(ANALYTICS_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or("unavailable");
+    let filters_state = ctx
+        .param(ANALYTICS_FILTERS_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or("unavailable")
+        .to_string();
+    let watchlist_state = ctx
+        .param(ANALYTICS_WATCHLIST_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or(if ctx.user.is_some() {
+            "unavailable"
+        } else {
+            "signed_out"
+        })
+        .to_string();
+
+    let body = match (state, response) {
+        ("ready", Some(response)) if !response.data.is_empty() => rsx! {
+            AnalyticsPage {
+                ctx: ctx.clone(),
+                response,
+                filters,
+                filters_state,
+                query,
+                watchlist,
+                watchlist_state,
+            }
+        },
+        ("empty", Some(response)) if response.data.is_empty() => rsx! {
+            AnalyticsPage {
+                ctx: ctx.clone(),
+                response,
+                filters,
+                filters_state,
+                query,
+                watchlist,
+                watchlist_state,
+            }
+        },
+        ("malformed", _) => rsx! {
+            AnalyticsFailurePage {
+                ctx: ctx.clone(),
+                failure_state: "malformed".to_string(),
+                filters,
+                filters_state,
+                query,
+            }
+        },
+        _ => rsx! {
+            AnalyticsFailurePage {
+                ctx: ctx.clone(),
+                failure_state: "unavailable".to_string(),
+                filters,
+                filters_state,
+                query,
+            }
+        },
+    };
+    (meta, body)
 }
 
 #[component]
-fn AnalyticsUnavailablePage(ctx: PageContext) -> Element {
-    // The source route is public: its AnalyticsAuthWrapper is a pass-through
-    // and its data layer selects public versus authenticated backend reads.
-    // Authentication only changes this safe navigation link; it is never used
-    // here to invent ranking, permission, plan, or watchlist state.
+fn AnalyticsPage(
+    ctx: PageContext,
+    response: AnalyticsResponse,
+    filters: Option<AnalyticsFilters>,
+    filters_state: String,
+    query: AnalyticsQueryState,
+    watchlist: Option<WatchlistData>,
+    watchlist_state: String,
+) -> Element {
+    let is_empty = response.data.is_empty();
     let signed_in = ctx.user.is_some();
-
     rsx! {
         MainLayout { ctx,
-            AnalyticsUnavailableContent { signed_in }
+            div { class: "analytics-page relative min-h-screen",
+                AnalyticsBackground {}
+                div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
+                    AnalyticsHeader {}
+                    section {
+                        class: "analytics-rankings overflow-visible",
+                        "data-section": "analytics-rankings",
+                        "data-analytics-state": if is_empty { "empty" } else { "ready" },
+                        AnalyticsAccessStatus { access: response.access_info.clone() }
+                        AnalyticsFilterForm {
+                            filters,
+                            filters_state,
+                            query: query.clone(),
+                            authoritative_limit: response.pagination.limit,
+                        }
+                        if is_empty {
+                            div { class: "py-12 text-center", "data-section": "analytics-empty-state",
+                                div { class: "mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50",
+                                    Icon { name: "sparkles".to_string(), size: Some(32), class_name: Some("text-slate-400".to_string()) }
+                                }
+                                p { class: "text-slate-400", "No rankings match the selected filters" }
+                            }
+                        } else {
+                            AnalyticsCardGrid {
+                                rows: response.data.clone(),
+                                signed_in,
+                                watchlist,
+                                watchlist_state,
+                            }
+                            AnalyticsPaginationNav {
+                                pagination: response.pagination.clone(),
+                                query,
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }
 
 #[component]
-fn AnalyticsUnavailableContent(signed_in: bool) -> Element {
+fn AnalyticsBackground() -> Element {
     rsx! {
-        div { class: "relative min-h-screen analytics-page",
-            div {
-                class: "pointer-events-none fixed inset-0 z-0",
-                "aria-hidden": "true",
-                div { class: "absolute inset-0 bg-gradient-to-b from-white via-gray-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" }
-                div { class: "absolute -left-40 -top-40 h-[400px] w-[400px] rounded-full bg-purple-600/15 blur-3xl" }
-                div { class: "absolute -right-32 top-1/3 h-[300px] w-[300px] rounded-full bg-blue-600/10 blur-3xl" }
-            }
+        div { class: "pointer-events-none fixed inset-0 z-0", "aria-hidden": "true",
+            div { class: "absolute inset-0 bg-gradient-to-b from-white via-gray-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" }
+            div { class: "absolute -left-40 -top-40 h-[400px] w-[400px] rounded-full bg-purple-600/15 blur-3xl" }
+            div { class: "absolute -right-32 top-1/3 h-[300px] w-[300px] rounded-full bg-blue-600/10 blur-3xl" }
+        }
+    }
+}
 
-            div { class: "container page-content relative z-10 mx-auto max-w-7xl",
-                header {
-                    class: "analytics-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
-                    "data-section": "analytics-header",
-                    div { class: "flex items-center gap-3",
-                        div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500",
-                            Icon {
-                                name: "bar-chart-3".to_string(),
-                                size: Some(20),
-                                class_name: Some("text-white".to_string())
-                            }
-                        }
-                        div {
-                            h1 { class: "text-2xl font-bold text-foreground", "Analytics" }
-                            p { class: "text-sm text-slate-400", "Top-performing stocks by EPS growth" }
-                        }
-                    }
-                    span {
-                        class: "inline-flex w-fit items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-semibold text-amber-500",
-                        Icon { name: "alert-circle".to_string(), size: Some(14) }
-                        "Data unavailable"
-                    }
+#[component]
+fn AnalyticsHeader() -> Element {
+    rsx! {
+        header { class: "analytics-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", "data-section": "analytics-header",
+            div { class: "flex min-w-0 items-center gap-3",
+                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 shadow-lg",
+                    Icon { name: "bar-chart-3".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
                 }
+                div { class: "min-w-0",
+                    h1 { class: "text-2xl font-bold text-foreground", "Analytics" }
+                    p { class: "max-w-full text-sm text-slate-400", "Top-performing stocks by EPS growth" }
+                }
+            }
+            div { class: "flex gap-2",
+                span { class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400",
+                    Icon { name: "trending-up".to_string(), size: Some(14) }
+                    "Live"
+                }
+                span { class: "inline-flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400",
+                    Icon { name: "sparkles".to_string(), size: Some(14) }
+                    "AI-Powered"
+                }
+            }
+        }
+    }
+}
 
-                section {
-                    class: "analytics-unavailable card card-glass overflow-hidden",
-                    "data-section": "analytics-unavailable",
-                    "data-analytics-state": "unavailable",
-                    aria_labelledby: "analytics-unavailable-title",
-                    role: "alert",
-                    div { class: "h-1.5 bg-gradient-to-r from-purple-500 via-pink-500 to-orange-500" }
-                    div { class: "card-body space-y-6 p-6 sm:p-8",
-                        div { class: "flex flex-col gap-4 sm:flex-row sm:items-start",
-                            div { class: "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-500",
-                                Icon { name: "database".to_string(), size: Some(28) }
-                            }
-                            div { class: "max-w-3xl",
-                                p { class: "text-xs font-semibold uppercase tracking-widest text-amber-500",
-                                    "Analytics unavailable"
-                                }
-                                h2 {
-                                    id: "analytics-unavailable-title",
-                                    class: "mt-2 text-2xl font-semibold text-foreground",
-                                    "Rankings cannot be verified right now"
-                                }
-                                p { class: "mt-3 text-sm leading-6 text-muted-foreground",
-                                    "This page does not yet have a verified rankings response that matches the production analytics contract. No ranking rows, market metrics, access level, watchlist state, or pagination result is being inferred."
-                                }
-                            }
-                        }
-
-                        div { class: "grid grid-cols-1 gap-3 md:grid-cols-3",
-                            AnalyticsBoundaryItem {
-                                icon: "bar-chart-3",
-                                title: "EPS rankings",
-                                body: "Ranking rows remain hidden until the backend response can be validated end to end."
-                            }
-                            AnalyticsBoundaryItem {
-                                icon: "filter",
-                                title: "Filters and pagination",
-                                body: "Search, sorting, filters, and page controls are not offered without verified results."
-                            }
-                            AnalyticsBoundaryItem {
-                                icon: "shield",
-                                title: "Access and watchlist",
-                                body: "The frontend does not calculate rank offsets, plan access, permissions, or watchlist membership."
-                            }
-                        }
-
-                        nav {
-                            class: "flex flex-col gap-3 border-t border-border/40 pt-6 sm:flex-row",
-                            "aria-label": "Analytics alternatives",
-                            a {
-                                class: "btn btn-primary",
-                                href: "/plans",
-                                Icon { name: "layers".to_string(), size: Some(16) }
-                                " Browse plans"
-                            }
-                            if signed_in {
-                                a {
-                                    class: "btn btn-ghost",
-                                    href: "/account",
-                                    Icon { name: "user".to_string(), size: Some(16) }
-                                    " Return to account"
+#[component]
+fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
+    let viewing = access.as_ref().map(|access| {
+        if access.min_accessible_rank <= 1 {
+            "All ranks".to_string()
+        } else {
+            format!("Ranks {}+", access.min_accessible_rank)
+        }
+    });
+    let locked = access
+        .as_ref()
+        .and_then(|access| match access.locked_ranks_count {
+            0 => None,
+            1 => Some("Rank 1 locked".to_string()),
+            count => Some(format!("Ranks 1-{count} locked")),
+        });
+    rsx! {
+        section { class: "relative mb-4 overflow-hidden rounded-2xl border border-slate-500/30 bg-gradient-to-r from-slate-500/10 via-gray-500/10 to-purple-500/10 backdrop-blur-xl", "data-section": "analytics-plan-status",
+            div { class: "relative flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex items-center gap-4",
+                    div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-slate-400 via-gray-500 to-slate-600 shadow-lg",
+                        Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-white".to_string()) }
+                    }
+                    div {
+                        h2 { class: "text-base font-bold text-white", "Rankings access" }
+                        div { class: "mt-1 flex flex-wrap items-center gap-2 text-sm",
+                            Icon { name: "sparkles".to_string(), size: Some(14), class_name: Some("text-slate-400".to_string()) }
+                            if let Some(viewing) = viewing {
+                                span { class: "text-slate-300", "Viewing: "
+                                    span { class: "font-semibold text-white", "{viewing}" }
                                 }
                             } else {
-                                a {
-                                    class: "btn btn-ghost",
-                                    href: ANALYTICS_SIGN_IN_PATH,
-                                    Icon { name: "wallet".to_string(), size: Some(16) }
-                                    " Sign in"
+                                span { class: "text-slate-400", "Access summary unavailable" }
+                            }
+                            if let Some(locked) = locked {
+                                span { class: "text-slate-500", "•" }
+                                span { class: "flex items-center gap-1 text-slate-400",
+                                    Icon { name: "lock".to_string(), size: Some(12) }
+                                    "{locked}"
                                 }
                             }
                         }
+                    }
+                }
+                if access.as_ref().is_some_and(|access| access.locked_ranks_count > 0) {
+                    a { class: "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/20 sm:w-auto", href: "/plans",
+                        Icon { name: "rocket".to_string(), size: Some(16) }
+                        "Review plans"
                     }
                 }
             }
@@ -149,17 +589,363 @@ fn AnalyticsUnavailableContent(signed_in: bool) -> Element {
 }
 
 #[component]
-fn AnalyticsBoundaryItem(icon: &'static str, title: &'static str, body: &'static str) -> Element {
+fn AnalyticsFilterForm(
+    filters: Option<AnalyticsFilters>,
+    filters_state: String,
+    query: AnalyticsQueryState,
+    authoritative_limit: i32,
+) -> Element {
+    let ready = filters_state == "ready" && filters.is_some();
+    let active_count = usize::from(query.country.is_some()) + usize::from(query.sector.is_some());
+    let reset_url = query.reset_url(authoritative_limit.max(1) as u32);
     rsx! {
-        div { class: "rounded-xl border border-border bg-muted/30 p-4",
-            div { class: "flex items-center gap-2 font-semibold text-foreground",
-                Icon { name: icon.to_string(), size: Some(18) }
-                "{title}"
+        form {
+            class: "mb-6 rounded-xl border border-gray-200 bg-white backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
+            action: "/analytics",
+            method: "get",
+            "data-section": "analytics-filters",
+            "data-analytics-filters-state": if ready { "ready" } else { "unavailable" },
+            h2 { class: "flex items-center gap-2 px-3 pt-3 text-sm font-medium text-slate-300 sm:hidden",
+                Icon { name: "sliders-horizontal".to_string(), size: Some(16), class_name: Some("text-slate-400".to_string()) }
+                "Filters"
+                if active_count > 0 {
+                    span { class: "rounded-full bg-purple-500/20 px-2 py-0.5 text-xs font-semibold text-purple-300", "{active_count}" }
+                }
             }
-            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{body}" }
-            span {
-                class: "mt-3 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-500",
-                "Unavailable"
+            input { r#type: "hidden", name: "page", value: "1" }
+            input { r#type: "hidden", name: "limit", value: "{authoritative_limit}" }
+            if let Some(value) = &query.sort_by {
+                input { r#type: "hidden", name: "sort_by", value: "{value}" }
+            }
+            if let Some(value) = &query.min_eps {
+                input { r#type: "hidden", name: "min_eps", value: "{value}" }
+            }
+            if let Some(value) = &query.min_growth {
+                input { r#type: "hidden", name: "min_growth", value: "{value}" }
+            }
+            div { class: "flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4",
+                div { class: "min-w-0 flex-1",
+                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400", r#for: "analytics-country",
+                        Icon { name: "globe".to_string(), size: Some(12) }
+                        "Country"
+                    }
+                    select {
+                        id: "analytics-country",
+                        name: "country",
+                        disabled: !ready,
+                        class: "h-9 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-gray-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
+                        option { value: "", selected: query.country.is_none(), "All Countries" }
+                        if let Some(filters) = &filters {
+                            for country in &filters.countries {
+                                option {
+                                    value: "{country.value}",
+                                    selected: query.country.as_deref() == Some(country.value.as_str()),
+                                    "{country.label}"
+                                }
+                            }
+                        }
+                    }
+                }
+                div { class: "min-w-0 flex-1",
+                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400", r#for: "analytics-sector",
+                        Icon { name: "sparkles".to_string(), size: Some(12) }
+                        "Sector"
+                    }
+                    select {
+                        id: "analytics-sector",
+                        name: "sector",
+                        disabled: !ready,
+                        class: "h-9 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-gray-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
+                        option { value: "", selected: query.sector.is_none(), "All Sectors" }
+                        if let Some(filters) = &filters {
+                            for sector in &filters.sectors {
+                                option {
+                                    value: "{sector}",
+                                    selected: query.sector.as_deref() == Some(sector.as_str()),
+                                    "{sector}"
+                                }
+                            }
+                        }
+                    }
+                }
+                div { class: "flex items-end gap-2",
+                    button {
+                        class: "inline-flex h-9 items-center gap-1.5 rounded-lg bg-purple-600 px-4 text-sm font-medium text-white transition-colors hover:bg-purple-500 disabled:pointer-events-none disabled:opacity-40",
+                        r#type: "submit",
+                        disabled: !ready,
+                        Icon { name: "search".to_string(), size: Some(14) }
+                        "Apply"
+                    }
+                    if active_count > 0 {
+                        a {
+                            class: "inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-200 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60",
+                            href: "{reset_url}",
+                            Icon { name: "rotate-ccw".to_string(), size: Some(14) }
+                            span { class: "hidden sm:inline", "Reset" }
+                        }
+                    }
+                }
+            }
+            if !ready {
+                p { class: "border-t border-white/[0.04] px-4 py-2 text-xs text-amber-300", role: "status",
+                    "Filter options are temporarily unavailable."
+                }
+            }
+        }
+    }
+}
+
+fn row_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) {
+    let latest = row.quarterly_performance.first();
+    let growth = latest
+        .map(|quarter| quarter.eps_growth)
+        .or(row.growth_factor)
+        .unwrap_or(0.0);
+    let price = latest
+        .map(|quarter| quarter.price)
+        .or(row.price_current)
+        .unwrap_or(row.value);
+    let days = row
+        .next_quarter_estimate
+        .as_ref()
+        .map(|estimate| estimate.days_until_announcement)
+        .or(row.days_until_next_earnings)
+        .filter(|days| *days >= 0);
+    (growth, price, days, row.progress_percentage)
+}
+
+#[component]
+fn AnalyticsCardGrid(
+    rows: Vec<AnalyticsRow>,
+    signed_in: bool,
+    watchlist: Option<WatchlistData>,
+    watchlist_state: String,
+) -> Element {
+    let watched = watchlist
+        .map(|watchlist| watchlist.symbols.into_iter().collect::<HashSet<_>>())
+        .unwrap_or_default();
+    rsx! {
+        section {
+            class: "analytics-card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+            "data-section": "analytics-card-grid",
+            "aria-label": "EPS growth rankings",
+            for row in rows {
+                {
+                    let (growth, price, days, progress) = row_card_values(&row);
+                    let watchlist = if !signed_in {
+                        StockCardWatchlist::SignedOut
+                    } else if watchlist_state == "ready" {
+                        StockCardWatchlist::Ready {
+                            is_watchlisted: watched.contains(&row.symbol.to_ascii_uppercase()),
+                        }
+                    } else {
+                        StockCardWatchlist::Unavailable
+                    };
+                    rsx! {
+                        StockDataCard {
+                            symbol: row.symbol,
+                            rank: row.rank,
+                            eps_growth: growth,
+                            price,
+                            company_name: row.company_name,
+                            days_until_next_action: days,
+                            progress_percentage: progress,
+                            watchlist: Some(watchlist),
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum PageToken {
+    Page(u32),
+    Ellipsis,
+}
+
+fn visible_pages(page: u32, total_pages: u32) -> Vec<PageToken> {
+    if total_pages <= 7 {
+        return (1..=total_pages).map(PageToken::Page).collect();
+    }
+    let mut pages = vec![PageToken::Page(1)];
+    let start = page.saturating_sub(2).max(2);
+    let end = page.saturating_add(2).min(total_pages - 1);
+    if start > 2 {
+        pages.push(PageToken::Ellipsis);
+    }
+    pages.extend((start..=end).map(PageToken::Page));
+    if end < total_pages - 1 {
+        pages.push(PageToken::Ellipsis);
+    }
+    pages.push(PageToken::Page(total_pages));
+    pages
+}
+
+fn preserved_hidden_filters(query: &AnalyticsQueryState) -> Element {
+    rsx! {
+        if let Some(value) = &query.country {
+            input { r#type: "hidden", name: "country", value: "{value}" }
+        }
+        if let Some(value) = &query.sector {
+            input { r#type: "hidden", name: "sector", value: "{value}" }
+        }
+        if let Some(value) = &query.sort_by {
+            input { r#type: "hidden", name: "sort_by", value: "{value}" }
+        }
+        if let Some(value) = &query.min_eps {
+            input { r#type: "hidden", name: "min_eps", value: "{value}" }
+        }
+        if let Some(value) = &query.min_growth {
+            input { r#type: "hidden", name: "min_growth", value: "{value}" }
+        }
+    }
+}
+
+#[component]
+fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQueryState) -> Element {
+    let page = pagination.page.max(1) as u32;
+    let limit = pagination.limit.max(1) as u32;
+    let total_pages = pagination.total_pages.max(1) as u32;
+    let start = i64::from(page.saturating_sub(1)) * i64::from(limit) + 1;
+    let end = (i64::from(page) * i64::from(limit)).min(pagination.total);
+    let previous_url = query.page_url(page.saturating_sub(1).max(1), limit);
+    let next_url = query.page_url(page.saturating_add(1).min(total_pages), limit);
+    let standard_limits = [10_u32, 25, 50, 100];
+    rsx! {
+        nav {
+            class: "mt-8 rounded-xl border border-gray-200 bg-white p-4 backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
+            "aria-label": "Analytics pagination",
+            "data-section": "analytics-pagination",
+            div { class: "mb-4 flex flex-col items-center justify-between gap-3 sm:flex-row",
+                p { class: "text-sm text-slate-400",
+                    "Showing "
+                    span { class: "font-medium text-slate-200", "{start}-{end}" }
+                    " of {pagination.total}"
+                }
+                form {
+                    class: "flex items-center gap-2",
+                    action: "/analytics",
+                    method: "get",
+                    input { r#type: "hidden", name: "page", value: "1" }
+                    {preserved_hidden_filters(&query)}
+                    label { class: "text-xs text-slate-400", r#for: "analytics-limit", "Per page" }
+                    select {
+                        id: "analytics-limit",
+                        name: "limit",
+                        class: "h-9 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm text-slate-200",
+                        "data-analytics-limit": "true",
+                        if !standard_limits.contains(&limit) {
+                            option { value: "{limit}", selected: true, "{limit}" }
+                        }
+                        for candidate in standard_limits {
+                            option { value: "{candidate}", selected: candidate == limit, "{candidate}" }
+                        }
+                    }
+                    button { class: "sr-only", r#type: "submit", "Apply page size" }
+                }
+            }
+            div { class: "flex items-center justify-center gap-1",
+                if pagination.has_prev {
+                    a {
+                        class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                        href: "{previous_url}",
+                        rel: "prev",
+                        Icon { name: "chevron-left".to_string(), size: Some(16) }
+                        span { class: "hidden sm:block", "Prev" }
+                    }
+                } else {
+                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-500 opacity-30", aria_disabled: "true",
+                        Icon { name: "chevron-left".to_string(), size: Some(16) }
+                        span { class: "hidden sm:block", "Prev" }
+                    }
+                }
+                div { class: "mx-1 flex items-center gap-1",
+                    for (index, token) in visible_pages(page, total_pages).into_iter().enumerate() {
+                        match token {
+                            PageToken::Ellipsis => rsx! {
+                                span { class: "flex h-9 w-9 items-center justify-center text-sm text-slate-500", "data-page-gap": index, "…" }
+                            },
+                            PageToken::Page(candidate) if candidate == page => rsx! {
+                                span {
+                                    class: "flex h-9 w-9 items-center justify-center rounded-lg border border-purple-500 bg-purple-600 text-sm font-medium text-white",
+                                    "aria-current": "page",
+                                    "{candidate}"
+                                }
+                            },
+                            PageToken::Page(candidate) => {
+                                let href = query.page_url(candidate, limit);
+                                rsx! {
+                                    a {
+                                        class: "flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-slate-800/60 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                                        href: "{href}",
+                                        "aria-label": "Page {candidate}",
+                                        "{candidate}"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if pagination.has_next {
+                    a {
+                        class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                        href: "{next_url}",
+                        rel: "next",
+                        span { class: "hidden sm:block", "Next" }
+                        Icon { name: "chevron-right".to_string(), size: Some(16) }
+                    }
+                } else {
+                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-500 opacity-30", aria_disabled: "true",
+                        span { class: "hidden sm:block", "Next" }
+                        Icon { name: "chevron-right".to_string(), size: Some(16) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn AnalyticsFailurePage(
+    ctx: PageContext,
+    failure_state: String,
+    filters: Option<AnalyticsFilters>,
+    filters_state: String,
+    query: AnalyticsQueryState,
+) -> Element {
+    let malformed = failure_state == "malformed";
+    rsx! {
+        MainLayout { ctx,
+            div { class: "analytics-page relative min-h-screen",
+                AnalyticsBackground {}
+                div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
+                    AnalyticsHeader {}
+                    section {
+                        "data-section": "analytics-failure",
+                        "data-analytics-state": "{failure_state}",
+                        role: "alert",
+                        AnalyticsFilterForm {
+                            filters,
+                            filters_state,
+                            query,
+                            authoritative_limit: 10,
+                        }
+                        div { class: "rounded-2xl border border-white/[0.06] bg-slate-900/70 px-6 py-12 text-center",
+                            h2 { class: "text-lg font-semibold text-slate-200",
+                                if malformed { "Ranking data could not be validated" } else { "Rankings are temporarily unavailable" }
+                            }
+                            p { class: "mx-auto mt-2 max-w-2xl text-sm text-slate-400",
+                                if malformed {
+                                    "The analytics service returned an unexpected response. No ranking cards or inferred market values are shown."
+                                } else {
+                                    "The analytics dependency could not be reached. No sample market data is being shown."
+                                }
+                            }
+                        }
+                    }
+                }
             }
         }
     }
@@ -185,7 +971,7 @@ mod tests {
                 chain_id: "1".to_string(),
                 roles: vec!["user".to_string()],
                 email: None,
-                tier: Some("unverified-client-tier".to_string()),
+                tier: None,
                 permissions: vec![],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
@@ -195,132 +981,259 @@ mod tests {
         }
     }
 
-    fn render_html(ctx: &PageContext) -> String {
-        let (_meta, element) = render(ctx);
-        dioxus_ssr::render_element(element)
+    fn ranking(rank: i32, symbol: &str, growth: f64) -> serde_json::Value {
+        serde_json::json!({
+            "rank": rank,
+            "symbol": symbol,
+            "company_name": format!("{symbol} Company"),
+            "latest_date": "2026-07-27",
+            "value": 90.0,
+            "active_status": "TRACK",
+            "quarterly_performance": [{
+                "quarter": "Q2",
+                "date": "2026-06-30",
+                "price": 1234.5,
+                "eps": 2.5,
+                "eps_growth": growth,
+                "price_growth": 4.0,
+                "announcement_date": "Jul 20, 2026",
+                "announcement_timestamp": 1784505600,
+                "is_estimated": false
+            }],
+            "next_quarter_estimate": {
+                "quarter": "2026-Q3",
+                "estimated_eps": 3.0,
+                "announcement_date": "Oct 20, 2026",
+                "announcement_timestamp": 1792454400,
+                "days_until_announcement": 45,
+                "estimated_price_target": 1300.0,
+                "confidence": "High"
+            },
+            "next_earnings_date": 1792454400,
+            "last_earnings_date": 1784505600,
+            "next_earnings_date_formatted": "Oct 20, 2026",
+            "days_until_next_earnings": 45,
+            "progress_percentage": 50.0,
+            "current_eps": 2.5,
+            "growth_factor": growth,
+            "price_current": 1234.5
+        })
     }
 
-    fn render_content(signed_in: bool) -> String {
-        dioxus_ssr::render_element(rsx! { AnalyticsUnavailableContent { signed_in } })
+    fn response(rows: Vec<serde_json::Value>, total: i64, total_pages: i32) -> String {
+        serde_json::json!({
+            "success": true,
+            "data": rows,
+            "pagination": {
+                "page": 1,
+                "limit": 10,
+                "total": total,
+                "totalPages": total_pages,
+                "hasNext": total_pages > 1,
+                "hasPrev": false
+            },
+            "metadata": {
+                "available_countries": ["america"],
+                "available_sectors": ["Technology"],
+                "request_timestamp": "2026-07-27T00:00:00Z",
+                "data_source": "live"
+            },
+            "access_info": {
+                "min_accessible_rank": 100,
+                "locked_ranks_count": 99
+            },
+            "message": "live",
+            "processing_time_ms": 3
+        })
+        .to_string()
     }
 
-    fn assert_no_ranking_or_mutation_claims(html: &str) {
-        for forbidden in [
-            "Parker-Hannifin",
-            "BHARTIARTL",
-            "$952.30",
-            "Ranks 100+",
-            "Ranks 1-99",
-            "Total trades",
-            "1,234",
-            "Win rate",
-            "62%",
-            "P&L over time",
-            "Volume by day",
-            "Recent events",
-            "Last 30 days",
-            "AI-Powered",
-            "Export Analytics Data",
-            "analytics-filter-apply",
-            "analytics-filter-clear",
-            "analytics:read",
-            "watchlist-toggle",
-            "/api/v1/analytics/summary",
-        ] {
+    fn filters() -> String {
+        serde_json::json!({
+            "countries": [{"value": "america", "label": "United States"}],
+            "sectors": ["Technology", "Healthcare"],
+            "exchanges": ["NASDAQ"],
+            "stock_types": ["common"]
+        })
+        .to_string()
+    }
+
+    fn ready_ctx(rows: Vec<serde_json::Value>, total: i64, total_pages: i32) -> PageContext {
+        let mut ctx = page_ctx();
+        ctx.params
+            .insert(ANALYTICS_STATE_PARAM.to_string(), "ready".to_string());
+        ctx.params.insert(
+            ANALYTICS_DATA_PARAM.to_string(),
+            response(rows, total, total_pages),
+        );
+        ctx.params.insert(
+            ANALYTICS_FILTERS_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        ctx.params
+            .insert(ANALYTICS_FILTERS_DATA_PARAM.to_string(), filters());
+        ctx.params.insert(
+            ANALYTICS_QUERY_PARAM.to_string(),
+            serde_json::to_string(&AnalyticsQueryState {
+                page: 1,
+                limit: Some(10),
+                country: Some("america".to_string()),
+                sector: None,
+                sort_by: Some("growth_factor".to_string()),
+                min_eps: None,
+                min_growth: None,
+            })
+            .unwrap(),
+        );
+        ctx
+    }
+
+    fn html(ctx: &PageContext) -> String {
+        dioxus_ssr::render_element(render(ctx).1)
+    }
+
+    #[test]
+    fn validated_response_renders_cards_not_a_table_with_backend_access() {
+        let rendered = html(&ready_ctx(
+            vec![ranking(100, "LIVE", 42.25), ranking(101, "LOSS", -7.5)],
+            22,
+            3,
+        ));
+        assert!(rendered.contains("data-analytics-state=\"ready\""));
+        assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 2);
+        assert!(!rendered.contains("<table"));
+        assert!(rendered.contains("RANK #100"));
+        assert!(rendered.contains("LIVE Company"));
+        assert!(rendered.contains("$1,234.50"));
+        assert!(rendered.contains("+42.25%"));
+        assert!(rendered.contains("-7.50%"));
+        assert!(rendered.contains("45 Days"));
+        assert!(rendered.contains("Ranks 100+"));
+        assert!(rendered.contains("Ranks 1-99 locked"));
+        assert!(rendered.contains("grid-cols-1"));
+        assert!(rendered.contains("2xl:grid-cols-5"));
+    }
+
+    #[test]
+    fn public_first_page_renders_ten_backend_ranked_cards_in_source_order() {
+        let rows = (100..=109)
+            .map(|rank| ranking(rank, &format!("LIVE{rank}"), f64::from(rank - 99)))
+            .collect();
+        let rendered = html(&ready_ctx(rows, 100, 10));
+
+        assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 10);
+        assert!(!rendered.contains("<table"));
+        let mut previous = 0;
+        for rank in 100..=109 {
+            let position = rendered.find(&format!("RANK #{rank}")).unwrap();
             assert!(
-                !html.contains(forbidden),
-                "analytics page must not render canned data or an unsupported capability `{forbidden}`. Got: {html}"
+                position > previous,
+                "rank {rank} must preserve backend order"
             );
+            previous = position;
         }
     }
 
     #[test]
-    fn signed_out_route_is_public_accessible_and_truthfully_unavailable() {
-        let html = render_html(&page_ctx());
+    fn filters_and_pagination_preserve_supported_fields_and_authoritative_limit() {
+        let rendered = html(&ready_ctx(vec![ranking(100, "LIVE", 1.0)], 22, 3));
+        assert!(rendered.contains(">United States</option>"));
+        assert!(rendered.contains(">Technology</option>"));
+        assert!(rendered.contains(">Healthcare</option>"));
+        assert!(rendered.contains("name=\"page\" value=\"1\""));
+        assert!(rendered.contains("name=\"limit\" value=\"10\""));
+        assert!(rendered.contains("Showing "));
+        assert!(rendered.contains("1-10"));
+        assert!(rendered.contains(
+            "href=\"/analytics?page=2&#38;limit=10&#38;country=america&#38;sort_by=growth_factor\""
+        ));
+        assert!(rendered.contains("aria-label=\"Page 3\""));
+        assert!(rendered.contains("data-analytics-limit=\"true\""));
 
-        assert!(html.contains("data-analytics-state=\"unavailable\""));
-        assert!(html.contains("role=\"alert\""));
-        assert!(html.contains("Rankings cannot be verified right now"));
-        assert!(!html.contains("href=\"/analytics\""));
-        assert!(!html.contains("> Retry</a>"));
-        assert!(html.contains("href=\"/plans\""));
-        assert!(html.contains("href=\"/auth?return_url=%2Fanalytics\""));
-        assert!(!html.contains("Sign in required"));
-        assert!(!html.contains("Permission required"));
-        assert_no_ranking_or_mutation_claims(&html);
+        let state = AnalyticsQueryState {
+            page: 4,
+            limit: Some(100),
+            country: Some("united states".into()),
+            sector: Some("Health Care".into()),
+            sort_by: Some("eps_growth".into()),
+            min_eps: Some("1.5".into()),
+            min_growth: Some("-2".into()),
+        };
+        assert_eq!(
+            state.page_url(2, 25),
+            "/analytics?page=2&limit=25&country=united+states&sector=Health+Care&sort_by=eps_growth&min_eps=1.5&min_growth=-2"
+        );
     }
 
     #[test]
-    fn signed_in_user_needs_no_frontend_permission_to_see_unavailable_state() {
-        let html = render_html(&signed_in_ctx());
+    fn empty_malformed_and_unavailable_states_are_distinct() {
+        let mut empty = ready_ctx(vec![], 0, 0);
+        empty
+            .params
+            .insert(ANALYTICS_STATE_PARAM.to_string(), "empty".to_string());
+        let empty_html = html(&empty);
+        assert!(empty_html.contains("data-analytics-state=\"empty\""));
+        assert!(empty_html.contains("No rankings match"));
 
-        assert!(html.contains("data-analytics-state=\"unavailable\""));
-        assert!(html.contains("href=\"/account\""));
-        assert!(!html.contains("Permission required"));
-        assert!(!html.contains("unverified-client-tier"));
-        assert_no_ranking_or_mutation_claims(&html);
+        let mut malformed = page_ctx();
+        malformed
+            .params
+            .insert(ANALYTICS_STATE_PARAM.to_string(), "malformed".to_string());
+        let malformed_html = html(&malformed);
+        assert!(malformed_html.contains("data-analytics-state=\"malformed\""));
+        assert!(malformed_html.contains("could not be validated"));
+
+        let unavailable_html = html(&page_ctx());
+        assert!(unavailable_html.contains("data-analytics-state=\"unavailable\""));
+        assert!(unavailable_html.contains("temporarily unavailable"));
+        assert!(!unavailable_html.contains("data-stock-card=\"true\""));
     }
 
     #[test]
-    fn canned_partial_and_malformed_payloads_cannot_render_rankings() {
-        let payloads = [
-            r#"{"stats":{"total_views":12345},"top_movers":[{"asset":"CANARY-CANNED-ASSET","change_24h_pct":99.9}],"rankings":[{"symbol":"CANARY-CANNED-RANK","rank":1}],"watchlist":["CANARY-CANNED-WATCHLIST"]}"#,
-            r#"{"rankings":[{"symbol":"CANARY-PARTIAL-RANK"}]}"#,
-            r#"{"rankings":[{"symbol":"CANARY-MALFORMED"}"#,
-        ];
+    fn watchlist_controls_fail_closed_and_signed_out_hearts_link_to_auth() {
+        let signed_out = html(&ready_ctx(vec![ranking(100, "LIVE", 1.0)], 1, 1));
+        assert!(signed_out.contains("data-watchlist-signed-out=\"true\""));
+        assert!(signed_out.contains("href=\"/auth?return_url=%2Fanalytics\""));
 
-        for payload in payloads {
-            let mut ctx = signed_in_ctx();
+        let mut signed_in = signed_in_ctx();
+        signed_in.params = ready_ctx(vec![ranking(100, "LIVE", 1.0)], 1, 1).params;
+        signed_in.params.insert(
+            ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        signed_in.params.insert(
+            ANALYTICS_WATCHLIST_DATA_PARAM.to_string(),
+            serde_json::json!({"symbols": ["live"]}).to_string(),
+        );
+        let ready = html(&signed_in);
+        assert!(ready.contains("data-watchlist-toggle=\"true\""));
+        assert!(ready.contains("data-watchlisted=\"true\""));
+        assert!(ready.contains("Remove LIVE from watchlist"));
+
+        signed_in.params.insert(
+            ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),
+            "unavailable".to_string(),
+        );
+        signed_in.params.remove(ANALYTICS_WATCHLIST_DATA_PARAM);
+        let unavailable = html(&signed_in);
+        assert!(unavailable.contains("data-watchlist-unavailable=\"true\""));
+        assert!(!unavailable.contains("data-watchlist-toggle=\"true\""));
+    }
+
+    #[test]
+    fn semantic_validation_rejects_partial_and_invalid_payloads() {
+        let mut ctx = page_ctx();
+        ctx.params
+            .insert(ANALYTICS_STATE_PARAM.to_string(), "ready".to_string());
+        for payload in [
+            r#"{"success":true,"data":[{"rank":100,"symbol":"PARTIAL"}]}"#,
+            r#"{"success":true,"data":[],"pagination":{"page":1,"limit":0,"total":0,"totalPages":0,"hasNext":false,"hasPrev":false},"metadata":{"available_countries":[],"available_sectors":[],"request_timestamp":"x","data_source":"x"},"access_info":null,"message":null,"processing_time_ms":0}"#,
+        ] {
             ctx.params
-                .insert("data_analytics".to_string(), payload.to_string());
-            let html = render_html(&ctx);
-
-            assert!(html.contains("data-analytics-state=\"unavailable\""));
-            for canary in [
-                "CANARY-CANNED-ASSET",
-                "CANARY-CANNED-RANK",
-                "CANARY-CANNED-WATCHLIST",
-                "CANARY-PARTIAL-RANK",
-                "CANARY-MALFORMED",
-            ] {
-                assert!(
-                    !html.contains(canary),
-                    "compatibility payload value `{canary}` must never reach analytics output"
-                );
-            }
-            assert_no_ranking_or_mutation_claims(&html);
+                .insert(ANALYTICS_DATA_PARAM.to_string(), payload.to_string());
+            let rendered = html(&ctx);
+            assert!(rendered.contains("data-analytics-state=\"unavailable\""));
+            assert!(!rendered.contains("PARTIAL"));
         }
-    }
-
-    #[test]
-    fn unavailable_surface_has_no_fake_controls_or_mutations() {
-        let html = render_content(false);
-
-        assert!(html.contains("aria-labelledby=\"analytics-unavailable-title\""));
-        assert!(html.contains("aria-label=\"Analytics alternatives\""));
-        assert!(!html.contains("href=\"/analytics\""));
-        assert!(html.contains("href=\"/plans\""));
-        assert!(html.contains("href=\"/auth?return_url=%2Fanalytics\""));
-        for forbidden in [
-            "<form",
-            "<input",
-            "<select",
-            "<button",
-            "<script",
-            "onclick=",
-            "action=",
-            "Export",
-            "Add to watchlist",
-            "Remove from watchlist",
-            "Next page",
-            "Previous page",
-            "> Retry</a>",
-        ] {
-            assert!(
-                !html.contains(forbidden),
-                "unavailable analytics surface exposed unsupported control or mutation `{forbidden}`. Got: {html}"
-            );
-        }
-        assert_no_ranking_or_mutation_claims(&html);
     }
 }

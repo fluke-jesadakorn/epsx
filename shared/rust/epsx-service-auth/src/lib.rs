@@ -100,6 +100,7 @@ pub struct JwksVerifierConfig {
     issuer: String,
     jwks_url: String,
     cache_ttl: Duration,
+    audiences: Vec<String>,
 }
 
 impl JwksVerifierConfig {
@@ -171,7 +172,26 @@ impl JwksVerifierConfig {
             issuer,
             jwks_url,
             cache_ttl,
+            audiences: vec![FRONTEND_AUDIENCE.to_string(), ADMIN_AUDIENCE.to_string()],
         })
+    }
+
+    /// Add one explicitly scoped audience for a service boundary. The default
+    /// frontend/admin audiences remain unchanged; callers must still enforce
+    /// the audience and permission at their route boundary.
+    pub fn with_additional_audience(
+        mut self,
+        audience: impl Into<String>,
+    ) -> Result<Self, VerifyError> {
+        let audience = audience.into();
+        if audience.trim().is_empty()
+            || audience.trim() != audience
+            || self.audiences.iter().any(|known| known == &audience)
+        {
+            return Err(VerifyError::Configuration("audience"));
+        }
+        self.audiences.push(audience);
+        Ok(self)
     }
 }
 
@@ -372,7 +392,8 @@ impl AccessTokenVerifier for JwksVerifier {
 
         let mut validation = Validation::new(Algorithm::RS256);
         validation.set_issuer(&[self.config.issuer.as_str()]);
-        validation.set_audience(&[FRONTEND_AUDIENCE, ADMIN_AUDIENCE]);
+        let audience_refs: Vec<&str> = self.config.audiences.iter().map(String::as_str).collect();
+        validation.set_audience(&audience_refs);
         validation.validate_exp = true;
         validation.validate_nbf = true;
         validation.leeway = 30;
@@ -395,7 +416,7 @@ impl AccessTokenVerifier for JwksVerifier {
             return Err(VerifyError::Validation);
         }
         let audience = match claims.aud.as_slice() {
-            [audience] if audience == FRONTEND_AUDIENCE || audience == ADMIN_AUDIENCE => {
+            [audience] if self.config.audiences.iter().any(|known| known == audience) => {
                 audience.clone()
             }
             _ => return Err(VerifyError::Validation),
@@ -628,6 +649,53 @@ mod tests {
                 ]
             );
         }
+    }
+
+    #[tokio::test]
+    async fn additional_service_audience_is_opt_in_and_still_single_valued() {
+        let key = TestKey::generate();
+        let base = JwksVerifierConfig::new(
+            "https://issuer.example",
+            "https://issuer.example/.well-known/jwks.json",
+            Duration::from_secs(300),
+            false,
+        )
+        .unwrap();
+        let config = base
+            .with_additional_audience("epsx-notification-publisher")
+            .unwrap();
+        let verifier = JwksVerifier::with_seeded_keys(
+            config,
+            reqwest::Client::new(),
+            Jwks {
+                keys: vec![RsaJwk {
+                    kty: key.jwk.kty.clone(),
+                    use_: key.jwk.use_.clone(),
+                    alg: key.jwk.alg.clone(),
+                    kid: key.jwk.kid.clone(),
+                    n: key.jwk.n.clone(),
+                    e: key.jwk.e.clone(),
+                }],
+            },
+        )
+        .unwrap();
+        let mut candidate = claims();
+        candidate.aud = vec!["epsx-notification-publisher".into()];
+        let principal = verifier
+            .verify(&key.sign(candidate, Algorithm::RS256))
+            .await
+            .unwrap();
+        assert_eq!(principal.audience, "epsx-notification-publisher");
+
+        let mut multiple = claims();
+        multiple.aud = vec![
+            FRONTEND_AUDIENCE.into(),
+            "epsx-notification-publisher".into(),
+        ];
+        assert!(verifier
+            .verify(&key.sign(multiple, Algorithm::RS256))
+            .await
+            .is_err());
     }
 
     #[tokio::test]

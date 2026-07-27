@@ -1,10 +1,10 @@
-use chrono::{DateTime, Utc};// Real-time Events Domain Events
+use chrono::{DateTime, Utc}; // Real-time Events Domain Events
 
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
 
-use crate::domain::shared_kernel::DomainEvent;
 use super::value_objects::{EventId, EventType};
+use crate::domain::shared_kernel::DomainEvent;
 
 /// Event was created and ready for processing
 #[derive(Debug, Clone, Serialize, Deserialize)]

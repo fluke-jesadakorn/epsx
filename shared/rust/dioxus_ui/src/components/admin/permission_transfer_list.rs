@@ -17,8 +17,8 @@
 //! with smoke render + key prop handling (status variants, empty
 //! list).
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Data shape
@@ -128,7 +128,11 @@ pub fn PermissionTransferList(
     let filtered: Vec<PermissionTransfer> = if filter == "all" {
         transfers
     } else {
-        transfers.iter().filter(|t| t.status == filter).cloned().collect()
+        transfers
+            .iter()
+            .filter(|t| t.status == filter)
+            .cloned()
+            .collect()
     };
     rsx! {
         div { class: "permission-transfer-list space-y-4",
@@ -198,7 +202,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-success/10"), "PermissionTransferStatusBadge granted must use success class. Got: {html}");
+        assert!(
+            html.contains("bg-success/10"),
+            "PermissionTransferStatusBadge granted must use success class. Got: {html}"
+        );
     }
 
     /// `PermissionTransferStatusBadge` for "revoked" uses destructive class.
@@ -210,7 +217,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-destructive/10"), "PermissionTransferStatusBadge revoked must use destructive class. Got: {html}");
+        assert!(
+            html.contains("bg-destructive/10"),
+            "PermissionTransferStatusBadge revoked must use destructive class. Got: {html}"
+        );
     }
 
     /// `PermissionTransferStatusBadge` for "pending" uses warning class.
@@ -222,7 +232,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-warning/10"), "PermissionTransferStatusBadge pending must use warning class. Got: {html}");
+        assert!(
+            html.contains("bg-warning/10"),
+            "PermissionTransferStatusBadge pending must use warning class. Got: {html}"
+        );
     }
 
     /// `PermissionTransferList` with all filter shows all rows.
@@ -234,9 +247,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("permission-transfer-list"), "PermissionTransferList must render container class. Got: {html}");
-        assert!(html.contains("permission-transfer-row"), "PermissionTransferList must render row. Got: {html}");
-        assert!(html.contains("wallets:manage"), "PermissionTransferList must render permission. Got: {html}");
+        assert!(
+            html.contains("permission-transfer-list"),
+            "PermissionTransferList must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("permission-transfer-row"),
+            "PermissionTransferList must render row. Got: {html}"
+        );
+        assert!(
+            html.contains("wallets:manage"),
+            "PermissionTransferList must render permission. Got: {html}"
+        );
     }
 
     /// `PermissionTransferList` filter chips show all 4 statuses.
@@ -249,7 +271,10 @@ mod tests {
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
         for f in &["all", "granted", "revoked", "pending"] {
-            assert!(html.contains(f), "PermissionTransferList must render `{f}` filter chip. Got: {html}");
+            assert!(
+                html.contains(f),
+                "PermissionTransferList must render `{f}` filter chip. Got: {html}"
+            );
         }
     }
 
@@ -262,8 +287,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("permission-transfer-empty"), "PermissionTransferList empty must show empty state. Got: {html}");
-        assert!(html.contains("No transfers found"), "PermissionTransferList empty must show message. Got: {html}");
+        assert!(
+            html.contains("permission-transfer-empty"),
+            "PermissionTransferList empty must show empty state. Got: {html}"
+        );
+        assert!(
+            html.contains("No transfers found"),
+            "PermissionTransferList empty must show message. Got: {html}"
+        );
     }
 
     /// `PermissionTransferList` with filter="granted" filters to granted only.
@@ -276,17 +307,35 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("permission-transfer-list"), "PermissionTransferList must render container. Got: {html}");
+        assert!(
+            html.contains("permission-transfer-list"),
+            "PermissionTransferList must render container. Got: {html}"
+        );
         // with empty transfers list, we should still see the empty state regardless of filter
-        assert!(html.contains("No transfers found"), "PermissionTransferList with 0 transfers must show empty state. Got: {html}");
+        assert!(
+            html.contains("No transfers found"),
+            "PermissionTransferList with 0 transfers must show empty state. Got: {html}"
+        );
     }
 
     /// `transfer_status_class` returns the expected class per status.
     #[test]
     fn transfer_status_class_matches_source() {
-        assert_eq!(transfer_status_class("granted"), "bg-success/10 text-success border border-success/20");
-        assert_eq!(transfer_status_class("revoked"), "bg-destructive/10 text-destructive border border-destructive/20");
-        assert_eq!(transfer_status_class("pending"), "bg-warning/10 text-warning border border-warning/20");
-        assert_eq!(transfer_status_class("unknown"), "bg-muted text-muted-foreground border border-border/50");
+        assert_eq!(
+            transfer_status_class("granted"),
+            "bg-success/10 text-success border border-success/20"
+        );
+        assert_eq!(
+            transfer_status_class("revoked"),
+            "bg-destructive/10 text-destructive border border-destructive/20"
+        );
+        assert_eq!(
+            transfer_status_class("pending"),
+            "bg-warning/10 text-warning border border-warning/20"
+        );
+        assert_eq!(
+            transfer_status_class("unknown"),
+            "bg-muted text-muted-foreground border border-border/50"
+        );
     }
 }

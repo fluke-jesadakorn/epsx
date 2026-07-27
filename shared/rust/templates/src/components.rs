@@ -101,48 +101,120 @@ impl Btn {
         }
     }
 
-    pub fn primary(mut self) -> Self { self.kind = BtnKind::Primary; self }
-    pub fn gradient(mut self) -> Self { self.kind = BtnKind::Gradient; self }
-    pub fn brand(mut self) -> Self { self.kind = BtnKind::Brand; self }
-    pub fn cool(mut self) -> Self { self.kind = BtnKind::Cool; self }
-    pub fn outline(mut self) -> Self { self.kind = BtnKind::Outline; self }
-    pub fn ghost(mut self) -> Self { self.kind = BtnKind::Ghost; self }
-    pub fn glass(mut self) -> Self { self.kind = BtnKind::Glass; self }
-    pub fn danger(mut self) -> Self { self.kind = BtnKind::Danger; self }
-    pub fn link_style(mut self) -> Self { self.kind = BtnKind::Link; self }
+    pub fn primary(mut self) -> Self {
+        self.kind = BtnKind::Primary;
+        self
+    }
+    pub fn gradient(mut self) -> Self {
+        self.kind = BtnKind::Gradient;
+        self
+    }
+    pub fn brand(mut self) -> Self {
+        self.kind = BtnKind::Brand;
+        self
+    }
+    pub fn cool(mut self) -> Self {
+        self.kind = BtnKind::Cool;
+        self
+    }
+    pub fn outline(mut self) -> Self {
+        self.kind = BtnKind::Outline;
+        self
+    }
+    pub fn ghost(mut self) -> Self {
+        self.kind = BtnKind::Ghost;
+        self
+    }
+    pub fn glass(mut self) -> Self {
+        self.kind = BtnKind::Glass;
+        self
+    }
+    pub fn danger(mut self) -> Self {
+        self.kind = BtnKind::Danger;
+        self
+    }
+    pub fn link_style(mut self) -> Self {
+        self.kind = BtnKind::Link;
+        self
+    }
 
-    pub fn sm(mut self) -> Self { self.size = BtnSize::Sm; self }
-    pub fn md(mut self) -> Self { self.size = BtnSize::Md; self }
-    pub fn lg(mut self) -> Self { self.size = BtnSize::Lg; self }
-    pub fn xl(mut self) -> Self { self.size = BtnSize::Xl; self }
+    pub fn sm(mut self) -> Self {
+        self.size = BtnSize::Sm;
+        self
+    }
+    pub fn md(mut self) -> Self {
+        self.size = BtnSize::Md;
+        self
+    }
+    pub fn lg(mut self) -> Self {
+        self.size = BtnSize::Lg;
+        self
+    }
+    pub fn xl(mut self) -> Self {
+        self.size = BtnSize::Xl;
+        self
+    }
 
-    pub fn href(mut self, href: impl Into<String>) -> Self { self.href = Some(href.into()); self }
-    pub fn onclick(mut self, js: impl Into<String>) -> Self { self.onclick = Some(js.into()); self }
-    pub fn block(mut self) -> Self { self.block = true; self }
-    pub fn icon_left(mut self, fa_name: impl Into<String>) -> Self { self.icon_left = Some(fa_name.into()); self }
-    pub fn icon_right(mut self, fa_name: impl Into<String>) -> Self { self.icon_right = Some(fa_name.into()); self }
-    pub fn cls(mut self, extra: impl Into<String>) -> Self { self.extra_cls = extra.into(); self }
+    pub fn href(mut self, href: impl Into<String>) -> Self {
+        self.href = Some(href.into());
+        self
+    }
+    pub fn onclick(mut self, js: impl Into<String>) -> Self {
+        self.onclick = Some(js.into());
+        self
+    }
+    pub fn block(mut self) -> Self {
+        self.block = true;
+        self
+    }
+    pub fn icon_left(mut self, fa_name: impl Into<String>) -> Self {
+        self.icon_left = Some(fa_name.into());
+        self
+    }
+    pub fn icon_right(mut self, fa_name: impl Into<String>) -> Self {
+        self.icon_right = Some(fa_name.into());
+        self
+    }
+    pub fn cls(mut self, extra: impl Into<String>) -> Self {
+        self.extra_cls = extra.into();
+        self
+    }
     pub fn attr(mut self, k: &str, v: &str) -> Self {
-        if !self.extra_attrs.is_empty() { self.extra_attrs.push(' '); }
-        self.extra_attrs.push_str(&format!(r#"{}="{}""#, k, html_escape_attr(v)));
+        if !self.extra_attrs.is_empty() {
+            self.extra_attrs.push(' ');
+        }
+        self.extra_attrs
+            .push_str(&format!(r#"{}="{}""#, k, html_escape_attr(v)));
         self
     }
 
     pub fn render(self) -> String {
         let size_cls = self.size.cls();
-        let block_cls = if self.block { " w-full justify-center" } else { "" };
+        let block_cls = if self.block {
+            " w-full justify-center"
+        } else {
+            ""
+        };
         let kind_cls = self.kind.cls();
-        let full_cls = format!("{kind_cls} {size_cls}{block_cls} {}", self.extra_cls).trim().to_string();
+        let full_cls = format!("{kind_cls} {size_cls}{block_cls} {}", self.extra_cls)
+            .trim()
+            .to_string();
 
-        let left = self.icon_left.as_deref()
+        let left = self
+            .icon_left
+            .as_deref()
             .map(|i| format!(r#"<i data-lucide="{i}"></i>"#))
             .unwrap_or_default();
-        let right = self.icon_right.as_deref()
+        let right = self
+            .icon_right
+            .as_deref()
             .map(|i| format!(r#"<i data-lucide="{i}"></i>"#))
             .unwrap_or_default();
 
         let attrs = self.extra_attrs;
-        let onclick_attr = self.onclick.as_deref()
+        let onclick_attr = self
+            .onclick
+            .as_deref()
             .map(|o| format!(r#" onclick="{o}""#))
             .unwrap_or_default();
 
@@ -152,7 +224,11 @@ impl Btn {
                 href = html_escape_attr(&href),
                 cls = full_cls,
                 onclick = onclick_attr,
-                attrs = if attrs.is_empty() { String::new() } else { format!(" {attrs}") },
+                attrs = if attrs.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {attrs}")
+                },
                 left = left,
                 label = html_escape_text(&self.label),
                 right = right,
@@ -162,7 +238,11 @@ impl Btn {
                 r##"<button type="button" class="{cls}"{onclick}{attrs}>{left}<span>{label}</span>{right}</button>"##,
                 cls = full_cls,
                 onclick = onclick_attr,
-                attrs = if attrs.is_empty() { String::new() } else { format!(" {attrs}") },
+                attrs = if attrs.is_empty() {
+                    String::new()
+                } else {
+                    format!(" {attrs}")
+                },
                 left = left,
                 label = html_escape_text(&self.label),
                 right = right,
@@ -236,16 +316,46 @@ impl Card {
         }
     }
 
-    pub fn default(mut self) -> Self { self.kind = CardKind::Default; self }
-    pub fn glass(mut self) -> Self { self.kind = CardKind::Glass; self }
-    pub fn insight(mut self) -> Self { self.kind = CardKind::Insight; self }
-    pub fn flat(mut self) -> Self { self.kind = CardKind::Flat; self }
-    pub fn hover(mut self) -> Self { self.hover = true; self }
-    pub fn footer(mut self, html: impl Into<String>) -> Self { self.footer = Some(html.into()); self }
-    pub fn icon(mut self, fa_name: impl Into<String>) -> Self { self.icon = Some(fa_name.into()); self }
-    pub fn icon_color(mut self, color: impl Into<String>) -> Self { self.icon_color = Some(color.into()); self }
-    pub fn badge(mut self, html: impl Into<String>) -> Self { self.badge = Some(html.into()); self }
-    pub fn cls(mut self, extra: impl Into<String>) -> Self { self.extra_cls = extra.into(); self }
+    pub fn default(mut self) -> Self {
+        self.kind = CardKind::Default;
+        self
+    }
+    pub fn glass(mut self) -> Self {
+        self.kind = CardKind::Glass;
+        self
+    }
+    pub fn insight(mut self) -> Self {
+        self.kind = CardKind::Insight;
+        self
+    }
+    pub fn flat(mut self) -> Self {
+        self.kind = CardKind::Flat;
+        self
+    }
+    pub fn hover(mut self) -> Self {
+        self.hover = true;
+        self
+    }
+    pub fn footer(mut self, html: impl Into<String>) -> Self {
+        self.footer = Some(html.into());
+        self
+    }
+    pub fn icon(mut self, fa_name: impl Into<String>) -> Self {
+        self.icon = Some(fa_name.into());
+        self
+    }
+    pub fn icon_color(mut self, color: impl Into<String>) -> Self {
+        self.icon_color = Some(color.into());
+        self
+    }
+    pub fn badge(mut self, html: impl Into<String>) -> Self {
+        self.badge = Some(html.into());
+        self
+    }
+    pub fn cls(mut self, extra: impl Into<String>) -> Self {
+        self.extra_cls = extra.into();
+        self
+    }
 
     pub fn render(self) -> String {
         let kind_cls = self.kind.cls();
@@ -255,7 +365,9 @@ impl Card {
         } else {
             String::from("padding:1.5rem;")
         };
-        let cls = format!("{kind_cls}{hover_cls} {}", self.extra_cls).trim().to_string();
+        let cls = format!("{kind_cls}{hover_cls} {}", self.extra_cls)
+            .trim()
+            .to_string();
 
         let title_html = self.title.as_deref().map(|t| {
             let icon_html = self.icon.as_deref().map(|i| {
@@ -354,25 +466,73 @@ impl Badge {
         }
     }
 
-    pub fn default(mut self) -> Self { self.kind = BadgeKind::Default; self }
-    pub fn primary(mut self) -> Self { self.kind = BadgeKind::Primary; self }
-    pub fn success(mut self) -> Self { self.kind = BadgeKind::Success; self }
-    pub fn warning(mut self) -> Self { self.kind = BadgeKind::Warning; self }
-    pub fn danger(mut self) -> Self { self.kind = BadgeKind::Danger; self }
-    pub fn info(mut self) -> Self { self.kind = BadgeKind::Info; self }
-    pub fn brand(mut self) -> Self { self.kind = BadgeKind::Brand; self }
-    pub fn cool(mut self) -> Self { self.kind = BadgeKind::Cool; self }
-    pub fn warm(mut self) -> Self { self.kind = BadgeKind::Warm; self }
-    pub fn purple(mut self) -> Self { self.kind = BadgeKind::Purple; self }
-    pub fn outline(mut self) -> Self { self.kind = BadgeKind::Outline; self }
-    pub fn pill(mut self) -> Self { self.pill = true; self }
-    pub fn icon(mut self, fa_name: impl Into<String>) -> Self { self.icon = Some(fa_name.into()); self }
-    pub fn with_kind(mut self, k: BadgeKind) -> Self { self.kind = k; self }
+    pub fn default(mut self) -> Self {
+        self.kind = BadgeKind::Default;
+        self
+    }
+    pub fn primary(mut self) -> Self {
+        self.kind = BadgeKind::Primary;
+        self
+    }
+    pub fn success(mut self) -> Self {
+        self.kind = BadgeKind::Success;
+        self
+    }
+    pub fn warning(mut self) -> Self {
+        self.kind = BadgeKind::Warning;
+        self
+    }
+    pub fn danger(mut self) -> Self {
+        self.kind = BadgeKind::Danger;
+        self
+    }
+    pub fn info(mut self) -> Self {
+        self.kind = BadgeKind::Info;
+        self
+    }
+    pub fn brand(mut self) -> Self {
+        self.kind = BadgeKind::Brand;
+        self
+    }
+    pub fn cool(mut self) -> Self {
+        self.kind = BadgeKind::Cool;
+        self
+    }
+    pub fn warm(mut self) -> Self {
+        self.kind = BadgeKind::Warm;
+        self
+    }
+    pub fn purple(mut self) -> Self {
+        self.kind = BadgeKind::Purple;
+        self
+    }
+    pub fn outline(mut self) -> Self {
+        self.kind = BadgeKind::Outline;
+        self
+    }
+    pub fn pill(mut self) -> Self {
+        self.pill = true;
+        self
+    }
+    pub fn icon(mut self, fa_name: impl Into<String>) -> Self {
+        self.icon = Some(fa_name.into());
+        self
+    }
+    pub fn with_kind(mut self, k: BadgeKind) -> Self {
+        self.kind = k;
+        self
+    }
 
     pub fn render(self) -> String {
         let cls = self.kind.cls();
-        let radius = if self.pill { "border-radius:9999px;" } else { "" };
-        let icon_html = self.icon.as_deref()
+        let radius = if self.pill {
+            "border-radius:9999px;"
+        } else {
+            ""
+        };
+        let icon_html = self
+            .icon
+            .as_deref()
             .map(|i| format!(r#" <i data-lucide="{i}" style="font-size:0.75em;"></i>"#))
             .unwrap_or_default();
         format!(
@@ -405,7 +565,12 @@ pub enum InputKind {
 impl InputKind {
     fn tag(self) -> &'static str {
         match self {
-            InputKind::Text | InputKind::Email | InputKind::Password | InputKind::Number | InputKind::Url | InputKind::Tel => "input",
+            InputKind::Text
+            | InputKind::Email
+            | InputKind::Password
+            | InputKind::Number
+            | InputKind::Url
+            | InputKind::Tel => "input",
             InputKind::Textarea => "textarea",
             InputKind::Select => "select",
         }
@@ -448,42 +613,105 @@ impl Input {
         }
     }
 
-    pub fn text(mut self) -> Self { self.kind = InputKind::Text; self }
-    pub fn email(mut self) -> Self { self.kind = InputKind::Email; self }
-    pub fn password(mut self) -> Self { self.kind = InputKind::Password; self }
-    pub fn number(mut self) -> Self { self.kind = InputKind::Number; self }
-    pub fn url(mut self) -> Self { self.kind = InputKind::Url; self }
-    pub fn tel(mut self) -> Self { self.kind = InputKind::Tel; self }
-    pub fn textarea(mut self) -> Self { self.kind = InputKind::Textarea; self }
+    pub fn text(mut self) -> Self {
+        self.kind = InputKind::Text;
+        self
+    }
+    pub fn email(mut self) -> Self {
+        self.kind = InputKind::Email;
+        self
+    }
+    pub fn password(mut self) -> Self {
+        self.kind = InputKind::Password;
+        self
+    }
+    pub fn number(mut self) -> Self {
+        self.kind = InputKind::Number;
+        self
+    }
+    pub fn url(mut self) -> Self {
+        self.kind = InputKind::Url;
+        self
+    }
+    pub fn tel(mut self) -> Self {
+        self.kind = InputKind::Tel;
+        self
+    }
+    pub fn textarea(mut self) -> Self {
+        self.kind = InputKind::Textarea;
+        self
+    }
     pub fn select(mut self, options: Vec<(impl Into<String>, impl Into<String>)>) -> Self {
         self.kind = InputKind::Select;
-        self.options = options.into_iter().map(|(v, l)| (v.into(), l.into())).collect();
+        self.options = options
+            .into_iter()
+            .map(|(v, l)| (v.into(), l.into()))
+            .collect();
         self
     }
 
-    pub fn label(mut self, l: impl Into<String>) -> Self { self.label = Some(l.into()); self }
-    pub fn placeholder(mut self, p: impl Into<String>) -> Self { self.placeholder = Some(p.into()); self }
-    pub fn value(mut self, v: impl Into<String>) -> Self { self.value = v.into(); self }
-    pub fn required(mut self) -> Self { self.required = true; self }
-    pub fn disabled(mut self) -> Self { self.disabled = true; self }
-    pub fn icon(mut self, fa_name: impl Into<String>) -> Self { self.icon = Some(fa_name.into()); self }
-    pub fn help(mut self, h: impl Into<String>) -> Self { self.help = Some(h.into()); self }
-    pub fn error(mut self, e: impl Into<String>) -> Self { self.error = Some(e.into()); self }
-    pub fn rows(mut self, r: u32) -> Self { self.rows = r; self }
+    pub fn label(mut self, l: impl Into<String>) -> Self {
+        self.label = Some(l.into());
+        self
+    }
+    pub fn placeholder(mut self, p: impl Into<String>) -> Self {
+        self.placeholder = Some(p.into());
+        self
+    }
+    pub fn value(mut self, v: impl Into<String>) -> Self {
+        self.value = v.into();
+        self
+    }
+    pub fn required(mut self) -> Self {
+        self.required = true;
+        self
+    }
+    pub fn disabled(mut self) -> Self {
+        self.disabled = true;
+        self
+    }
+    pub fn icon(mut self, fa_name: impl Into<String>) -> Self {
+        self.icon = Some(fa_name.into());
+        self
+    }
+    pub fn help(mut self, h: impl Into<String>) -> Self {
+        self.help = Some(h.into());
+        self
+    }
+    pub fn error(mut self, e: impl Into<String>) -> Self {
+        self.error = Some(e.into());
+        self
+    }
+    pub fn rows(mut self, r: u32) -> Self {
+        self.rows = r;
+        self
+    }
     pub fn attr(mut self, k: &str, v: &str) -> Self {
-        if !self.extra_attrs.is_empty() { self.extra_attrs.push(' '); }
-        self.extra_attrs.push_str(&format!(r#"{}="{}""#, k, html_escape_attr(v)));
+        if !self.extra_attrs.is_empty() {
+            self.extra_attrs.push(' ');
+        }
+        self.extra_attrs
+            .push_str(&format!(r#"{}="{}""#, k, html_escape_attr(v)));
         self
     }
 
     pub fn render(self) -> String {
-        let label_html = self.label.as_deref().map(|l| {
-            format!(r#"<label for="{name}" class="label">{l}{req}</label>"#,
-                name = self.name,
-                l = html_escape_text(l),
-                req = if self.required { r#" <span style="color:var(--epsx-red);">*</span>"# } else { "" }
-            )
-        }).unwrap_or_default();
+        let label_html = self
+            .label
+            .as_deref()
+            .map(|l| {
+                format!(
+                    r#"<label for="{name}" class="label">{l}{req}</label>"#,
+                    name = self.name,
+                    l = html_escape_text(l),
+                    req = if self.required {
+                        r#" <span style="color:var(--epsx-red);">*</span>"#
+                    } else {
+                        ""
+                    }
+                )
+            })
+            .unwrap_or_default();
 
         let help_html = self.help.as_deref()
             .map(|h| format!(r#"<p style="margin-top:0.375rem;font-size:0.8125rem;color:var(--text-subtle);">{h}</p>"#,
@@ -501,7 +729,11 @@ impl Input {
 
         let control = match self.kind {
             InputKind::Textarea => {
-                let pad_left = if icon_html.is_some() { "padding-left:2.5rem;" } else { "" };
+                let pad_left = if icon_html.is_some() {
+                    "padding-left:2.5rem;"
+                } else {
+                    ""
+                };
                 format!(
                     r#"<textarea id="{id}" name="{id}" rows="{rows}" placeholder="{ph}" {req} {dis} {attrs} class="input" style="{pad_left}{style}">{val}</textarea>"#,
                     id = self.name,
@@ -511,18 +743,28 @@ impl Input {
                     dis = if self.disabled { "disabled" } else { "" },
                     attrs = self.extra_attrs,
                     pad_left = pad_left,
-                    style = if self.error.is_some() { "border-color:var(--epsx-red);" } else { "" },
+                    style = if self.error.is_some() {
+                        "border-color:var(--epsx-red);"
+                    } else {
+                        ""
+                    },
                     val = html_escape_text(&self.value)
                 )
             }
             InputKind::Select => {
-                let opts: Vec<String> = self.options.iter().map(|(v, l)| {
-                    let sel = if v == &self.value { " selected" } else { "" };
-                    format!(r#"<option value="{v}"{sel}>{l}</option>"#,
-                        v = html_escape_attr(v),
-                        sel = sel,
-                        l = html_escape_text(l))
-                }).collect();
+                let opts: Vec<String> = self
+                    .options
+                    .iter()
+                    .map(|(v, l)| {
+                        let sel = if v == &self.value { " selected" } else { "" };
+                        format!(
+                            r#"<option value="{v}"{sel}>{l}</option>"#,
+                            v = html_escape_attr(v),
+                            sel = sel,
+                            l = html_escape_text(l)
+                        )
+                    })
+                    .collect();
                 format!(
                     r#"<select id="{id}" name="{id}" {req} {dis} {attrs} class="input">{opts}</select>"#,
                     id = self.name,
@@ -533,7 +775,11 @@ impl Input {
                 )
             }
             _ => {
-                let pad_left = if icon_html.is_some() { "padding-left:2.5rem;" } else { "" };
+                let pad_left = if icon_html.is_some() {
+                    "padding-left:2.5rem;"
+                } else {
+                    ""
+                };
                 let input_type = match self.kind {
                     InputKind::Text => "text",
                     InputKind::Email => "email",
@@ -553,24 +799,32 @@ impl Input {
                     dis = if self.disabled { "disabled" } else { "" },
                     attrs = self.extra_attrs,
                     pad_left = pad_left,
-                    style = if self.error.is_some() { "border-color:var(--epsx-red);" } else { "" }
+                    style = if self.error.is_some() {
+                        "border-color:var(--epsx-red);"
+                    } else {
+                        ""
+                    }
                 )
             }
         };
 
         let field_html = if icon_html.is_some() {
-            format!(r#"<div class="input-icon-wrap">{icon}{control}</div>"#,
+            format!(
+                r#"<div class="input-icon-wrap">{icon}{control}</div>"#,
                 icon = icon_html.unwrap(),
-                control = control)
+                control = control
+            )
         } else {
             control
         };
 
-        format!(r#"<div style="margin-bottom:1rem;">{label}{field}{help}{error}</div>"#,
+        format!(
+            r#"<div style="margin-bottom:1rem;">{label}{field}{help}{error}</div>"#,
             label = label_html,
             field = field_html,
             help = help_html,
-            error = error_html)
+            error = error_html
+        )
     }
 }
 
@@ -612,7 +866,10 @@ impl StatCard {
         self.icon_color = color.into();
         self
     }
-    pub fn href(mut self, h: impl Into<String>) -> Self { self.href = Some(h.into()); self }
+    pub fn href(mut self, h: impl Into<String>) -> Self {
+        self.href = Some(h.into());
+        self
+    }
 
     pub fn render(self) -> String {
         let icon_html = self.icon.as_deref().map(|i| {
@@ -620,10 +877,22 @@ impl StatCard {
                 c = self.icon_color, i = i)
         }).unwrap_or_default();
 
-        let change_html = self.change.as_deref().map(|c| {
-            let b = Badge::new(c).with_kind(self.change_kind).pill().icon(if c.starts_with('-') { "arrow-down" } else { "arrow-up" }).render();
-            format!(r#"<div style="margin-top:0.5rem;">{b}</div>"#, b = b)
-        }).unwrap_or_default();
+        let change_html = self
+            .change
+            .as_deref()
+            .map(|c| {
+                let b = Badge::new(c)
+                    .with_kind(self.change_kind)
+                    .pill()
+                    .icon(if c.starts_with('-') {
+                        "arrow-down"
+                    } else {
+                        "arrow-up"
+                    })
+                    .render();
+                format!(r#"<div style="margin-top:0.5rem;">{b}</div>"#, b = b)
+            })
+            .unwrap_or_default();
 
         let card_body = format!(
             r##"<div class="card-glass hover-scale" style="padding:1.5rem;display:flex;align-items:flex-start;gap:1rem;">
@@ -641,8 +910,11 @@ impl StatCard {
         );
 
         if let Some(href) = self.href {
-            format!(r#"<a href="{href}" style="text-decoration:none;">{card_body}</a>"#,
-                href = html_escape_attr(&href), card_body = card_body)
+            format!(
+                r#"<a href="{href}" style="text-decoration:none;">{card_body}</a>"#,
+                href = html_escape_attr(&href),
+                card_body = card_body
+            )
         } else {
             card_body
         }
@@ -671,7 +943,9 @@ impl Tabs {
     }
     pub fn tab(mut self, name: impl Into<String>, label: impl Into<String>) -> Self {
         let n = name.into();
-        if self.active.is_empty() { self.active = n.clone(); }
+        if self.active.is_empty() {
+            self.active = n.clone();
+        }
         self.tabs.push((n, label.into()));
         self
     }
@@ -687,8 +961,10 @@ impl Tabs {
                 g = self.group, n = html_escape_attr(n), active = active_cls, l = html_escape_text(l)
             )
         }).collect();
-        format!(r#"<div class="tabs-nav" role="tablist">{items}</div>"#,
-            items = items.join(""))
+        format!(
+            r#"<div class="tabs-nav" role="tablist">{items}</div>"#,
+            items = items.join("")
+        )
     }
 }
 
@@ -715,23 +991,47 @@ impl Skeleton {
             gap: 8,
         }
     }
-    pub fn w(mut self, w: impl Into<String>) -> Self { self.width = w.into(); self }
-    pub fn h(mut self, h: impl Into<String>) -> Self { self.height = h.into(); self }
-    pub fn rounded(mut self) -> Self { self.rounded = true; self }
-    pub fn count(mut self, n: u32) -> Self { self.count = n; self }
-    pub fn gap(mut self, g: u32) -> Self { self.gap = g; self }
+    pub fn w(mut self, w: impl Into<String>) -> Self {
+        self.width = w.into();
+        self
+    }
+    pub fn h(mut self, h: impl Into<String>) -> Self {
+        self.height = h.into();
+        self
+    }
+    pub fn rounded(mut self) -> Self {
+        self.rounded = true;
+        self
+    }
+    pub fn count(mut self, n: u32) -> Self {
+        self.count = n;
+        self
+    }
+    pub fn gap(mut self, g: u32) -> Self {
+        self.gap = g;
+        self
+    }
 
     pub fn render(self) -> String {
-        let radius = if self.rounded { "border-radius:9999px;" } else { "border-radius:0.375rem;" };
+        let radius = if self.rounded {
+            "border-radius:9999px;"
+        } else {
+            "border-radius:0.375rem;"
+        };
         let bar = format!(
             r##"<div class="skeleton" style="width:{w};height:{h};{radius}"></div>"##,
-            w = self.width, h = self.height, radius = radius
+            w = self.width,
+            h = self.height,
+            radius = radius
         );
         if self.count <= 1 {
             bar
         } else {
-            format!(r#"<div style="display:flex;flex-direction:column;gap:{g}px;">{bars}</div>"#,
-                g = self.gap, bars = vec![bar; self.count as usize].join(""))
+            format!(
+                r#"<div style="display:flex;flex-direction:column;gap:{g}px;">{bars}</div>"#,
+                g = self.gap,
+                bars = vec![bar; self.count as usize].join("")
+            )
         }
     }
 }
@@ -757,19 +1057,49 @@ impl Icon {
             extra_cls: String::new(),
         }
     }
-    pub fn regular(mut self) -> Self { self }
-    pub fn brand(mut self) -> Self { self }
-    pub fn size(mut self, s: impl Into<String>) -> Self { self.size = Some(s.into()); self }
-    pub fn color(mut self, c: impl Into<String>) -> Self { self.color = Some(c.into()); self }
-    pub fn cls(mut self, c: impl Into<String>) -> Self { self.extra_cls = c.into(); self }
+    pub fn regular(mut self) -> Self {
+        self
+    }
+    pub fn brand(mut self) -> Self {
+        self
+    }
+    pub fn size(mut self, s: impl Into<String>) -> Self {
+        self.size = Some(s.into());
+        self
+    }
+    pub fn color(mut self, c: impl Into<String>) -> Self {
+        self.color = Some(c.into());
+        self
+    }
+    pub fn cls(mut self, c: impl Into<String>) -> Self {
+        self.extra_cls = c.into();
+        self
+    }
 
     pub fn render(self) -> String {
-        let cls = if self.extra_cls.is_empty() { String::new() } else { format!(r#" class="{}""#, self.extra_cls) };
+        let cls = if self.extra_cls.is_empty() {
+            String::new()
+        } else {
+            format!(r#" class="{}""#, self.extra_cls)
+        };
         let mut style = String::new();
-        if let Some(s) = &self.size { style.push_str(&format!("width:{s};height:{s};")); }
-        if let Some(c) = &self.color { style.push_str(&format!("color:{c};")); }
-        let style_attr = if style.is_empty() { String::new() } else { format!(r#" style="{style}""#) };
-        format!(r#"<i data-lucide="{name}"{cls}{style_attr}></i>"#, name = self.name, cls = cls, style_attr = style_attr)
+        if let Some(s) = &self.size {
+            style.push_str(&format!("width:{s};height:{s};"));
+        }
+        if let Some(c) = &self.color {
+            style.push_str(&format!("color:{c};"));
+        }
+        let style_attr = if style.is_empty() {
+            String::new()
+        } else {
+            format!(r#" style="{style}""#)
+        };
+        format!(
+            r#"<i data-lucide="{name}"{cls}{style_attr}></i>"#,
+            name = self.name,
+            cls = cls,
+            style_attr = style_attr
+        )
     }
 }
 
@@ -795,17 +1125,29 @@ fn html_escape_attr(s: &str) -> String {
 // =====================================================================
 
 /// `btn_primary(label)` → `Btn::new(label).primary().render()`
-pub fn btn_primary(label: impl Into<String>) -> String { Btn::new(label).primary().render() }
+pub fn btn_primary(label: impl Into<String>) -> String {
+    Btn::new(label).primary().render()
+}
 /// `btn_gradient(label)` → `Btn::new(label).gradient().render()`
-pub fn btn_gradient(label: impl Into<String>) -> String { Btn::new(label).gradient().render() }
+pub fn btn_gradient(label: impl Into<String>) -> String {
+    Btn::new(label).gradient().render()
+}
 /// `btn_brand(label)` → `Btn::new(label).brand().render()`
-pub fn btn_brand(label: impl Into<String>) -> String { Btn::new(label).brand().render() }
+pub fn btn_brand(label: impl Into<String>) -> String {
+    Btn::new(label).brand().render()
+}
 /// `btn_outline(label)` → `Btn::new(label).outline().render()`
-pub fn btn_outline(label: impl Into<String>) -> String { Btn::new(label).outline().render() }
+pub fn btn_outline(label: impl Into<String>) -> String {
+    Btn::new(label).outline().render()
+}
 /// `btn_ghost(label)` → `Btn::new(label).ghost().render()`
-pub fn btn_ghost(label: impl Into<String>) -> String { Btn::new(label).ghost().render() }
+pub fn btn_ghost(label: impl Into<String>) -> String {
+    Btn::new(label).ghost().render()
+}
 /// `btn_danger(label)` → `Btn::new(label).danger().render()`
-pub fn btn_danger(label: impl Into<String>) -> String { Btn::new(label).danger().render() }
+pub fn btn_danger(label: impl Into<String>) -> String {
+    Btn::new(label).danger().render()
+}
 
 /// `card(title, body)` → `Card::new(title, body).glass().render()`
 pub fn card(title: impl Into<String>, body: impl Into<String>) -> String {
@@ -821,15 +1163,25 @@ pub fn card_insight(title: impl Into<String>, body: impl Into<String>) -> String
 }
 
 /// `badge_success(label)` → `Badge::new(label).success().render()`
-pub fn badge_success(label: impl Into<String>) -> String { Badge::new(label).success().render() }
+pub fn badge_success(label: impl Into<String>) -> String {
+    Badge::new(label).success().render()
+}
 /// `badge_danger(label)` → `Badge::new(label).danger().render()`
-pub fn badge_danger(label: impl Into<String>) -> String { Badge::new(label).danger().render() }
+pub fn badge_danger(label: impl Into<String>) -> String {
+    Badge::new(label).danger().render()
+}
 /// `badge_warn(label)` → `Badge::new(label).warning().render()`
-pub fn badge_warn(label: impl Into<String>) -> String { Badge::new(label).warning().render() }
+pub fn badge_warn(label: impl Into<String>) -> String {
+    Badge::new(label).warning().render()
+}
 /// `badge_info(label)` → `Badge::new(label).info().render()`
-pub fn badge_info(label: impl Into<String>) -> String { Badge::new(label).info().render() }
+pub fn badge_info(label: impl Into<String>) -> String {
+    Badge::new(label).info().render()
+}
 /// `badge_warm(label)` → `Badge::new(label).warm().render()`
-pub fn badge_warm(label: impl Into<String>) -> String { Badge::new(label).warm().render() }
+pub fn badge_warm(label: impl Into<String>) -> String {
+    Badge::new(label).warm().render()
+}
 
 /// `stat(label, value)` → `StatCard::new(label, value).render()`
 pub fn stat(label: impl Into<String>, value: impl Into<String>) -> String {
@@ -850,7 +1202,12 @@ mod tests {
 
     #[test]
     fn btn_gradient_with_icons() {
-        let html = Btn::new("Trade").gradient().lg().icon_left("bolt").icon_right("arrow-right").render();
+        let html = Btn::new("Trade")
+            .gradient()
+            .lg()
+            .icon_left("bolt")
+            .icon_right("arrow-right")
+            .render();
         assert!(html.contains("btn-gradient"));
         assert!(html.contains("btn-lg"));
         assert!(html.contains(r#"data-lucide="bolt""#));
@@ -866,7 +1223,11 @@ mod tests {
 
     #[test]
     fn card_with_hover_and_icon() {
-        let html = Card::new("Hello", "World").glass().hover().icon("user").render();
+        let html = Card::new("Hello", "World")
+            .glass()
+            .hover()
+            .icon("user")
+            .render();
         assert!(html.contains("card-glass"));
         assert!(html.contains("hover-scale"));
         assert!(html.contains(r#"data-lucide="user""#));
@@ -882,14 +1243,27 @@ mod tests {
 
     #[test]
     fn badge_variants() {
-        assert!(Badge::new("ok").success().pill().render().contains("badge-success"));
+        assert!(Badge::new("ok")
+            .success()
+            .pill()
+            .render()
+            .contains("badge-success"));
         assert!(Badge::new("x").danger().render().contains("badge-danger"));
-        assert!(Badge::new("!").warning().icon("exclamation").render().contains(r#"data-lucide="exclamation""#));
+        assert!(Badge::new("!")
+            .warning()
+            .icon("exclamation")
+            .render()
+            .contains(r#"data-lucide="exclamation""#));
     }
 
     #[test]
     fn input_text_with_label() {
-        let html = Input::new("email").email().label("Email").required().placeholder("you@x.com").render();
+        let html = Input::new("email")
+            .email()
+            .label("Email")
+            .required()
+            .placeholder("you@x.com")
+            .render();
         assert!(html.contains(r#"type="email""#));
         assert!(html.contains(r#"<label for="email""#));
         assert!(html.contains("required"));
@@ -898,7 +1272,11 @@ mod tests {
 
     #[test]
     fn input_with_icon() {
-        let html = Input::new("user").text().icon("user").label("Username").render();
+        let html = Input::new("user")
+            .text()
+            .icon("user")
+            .label("Username")
+            .render();
         assert!(html.contains("input-icon-wrap"));
         assert!(html.contains(r#"data-lucide="user""#));
     }
@@ -906,7 +1284,11 @@ mod tests {
     #[test]
     fn input_select() {
         let opts = vec![("us", "United States"), ("ca", "Canada")];
-        let html = Input::new("country").label("Country").select(opts).value("ca").render();
+        let html = Input::new("country")
+            .label("Country")
+            .select(opts)
+            .value("ca")
+            .render();
         assert!(html.contains("<select"));
         assert!(html.contains(r#"value="us""#));
         assert!(html.contains("selected"));
@@ -914,7 +1296,12 @@ mod tests {
 
     #[test]
     fn input_textarea() {
-        let html = Input::new("msg").textarea().rows(6).label("Message").value("hi").render();
+        let html = Input::new("msg")
+            .textarea()
+            .rows(6)
+            .label("Message")
+            .value("hi")
+            .render();
         assert!(html.contains("<textarea"));
         assert!(html.contains(r#"rows="6""#));
         assert!(html.contains(">hi</textarea>"));
@@ -922,7 +1309,10 @@ mod tests {
 
     #[test]
     fn stat_card_with_change() {
-        let html = StatCard::new("Revenue", "$1,234").change("+12.5%", BadgeKind::Success).icon("chart-line", "var(--epsx-orange)").render();
+        let html = StatCard::new("Revenue", "$1,234")
+            .change("+12.5%", BadgeKind::Success)
+            .icon("chart-line", "var(--epsx-orange)")
+            .render();
         assert!(html.contains("Revenue"));
         assert!(html.contains("$1,234"));
         assert!(html.contains(r#"data-lucide="chart-line""#));
@@ -931,7 +1321,12 @@ mod tests {
 
     #[test]
     fn tabs_render_all_with_active() {
-        let html = Tabs::new("g1").tab("a", "Alpha").tab("b", "Beta").tab("c", "Gamma").active("b").render();
+        let html = Tabs::new("g1")
+            .tab("a", "Alpha")
+            .tab("b", "Beta")
+            .tab("c", "Gamma")
+            .active("b")
+            .render();
         assert!(html.contains(r#"data-tab-group="g1""#));
         assert!(html.contains(r#"data-tab-name="b" class="tab active""#));
         assert!(html.contains("Alpha"));
@@ -954,7 +1349,10 @@ mod tests {
 
     #[test]
     fn icon_with_size_and_color() {
-        let html = Icon::fa("user").size("1.5rem").color("var(--epsx-orange)").render();
+        let html = Icon::fa("user")
+            .size("1.5rem")
+            .color("var(--epsx-orange)")
+            .render();
         assert!(html.contains(r#"data-lucide="user""#));
         assert!(html.contains("width:1.5rem"));
         assert!(html.contains("height:1.5rem"));

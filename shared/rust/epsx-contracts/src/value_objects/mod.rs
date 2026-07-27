@@ -6,27 +6,27 @@
 // value_objects/; at HEAD it did not. The wrapper lives here so it can be
 // shared with the future epsx-identity binary.
 
-pub mod user_id;
-pub mod session_id;
-pub mod email;
-pub mod user_limits;
 pub mod common_types;
+pub mod email;
 pub mod identifiers;
+pub mod market;
 pub mod payments;
 pub mod quarterly_eps_data;
-pub mod symbol;
-pub mod market;
 pub mod ranking_offset;
+pub mod session_id;
+pub mod symbol;
+pub mod user_id;
+pub mod user_limits;
 
 // Re-export commonly used value objects
-pub use user_id::UserId;
-pub use session_id::{ SessionId, SessId };
-pub use email::Email;
-pub use user_limits::{ ResolvedUserLimits, UserDynamicLimit };
 pub use common_types::*;
+pub use email::Email;
 pub use identifiers::*;
-pub use payments::{ Currency, Network };
-pub use quarterly_eps_data::QuarterlyEPSData;
-pub use symbol::Symbol;
 pub use market::Market;
+pub use payments::{Currency, Network};
+pub use quarterly_eps_data::QuarterlyEPSData;
 pub use ranking_offset::RankingOffset;
+pub use session_id::{SessId, SessionId};
+pub use symbol::Symbol;
+pub use user_id::UserId;
+pub use user_limits::{ResolvedUserLimits, UserDynamicLimit};

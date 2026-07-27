@@ -1,19 +1,16 @@
 use crate::prelude::TlsPool;
-use std::sync::Arc;
+use chrono::{Duration, Utc};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use std::str::FromStr;
+use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
-use chrono::{Utc, Duration};
 
-use uuid::Uuid;
-use epsx_contracts::errors::AppError;
+use crate::domain::wallet_management::{aggregates::WalletMetadata, value_objects::WalletAddress};
 use crate::infrastructure::blockchain::{BscEventListener, PaymentEvent};
-use crate::domain::wallet_management::{
-    aggregates::WalletMetadata,
-    value_objects::WalletAddress,
-};
+use epsx_contracts::errors::AppError;
+use uuid::Uuid;
 
 /// Blockchain monitoring service that listens for payment events
 /// and triggers plan access extension (Direct Payment Model)
@@ -66,12 +63,12 @@ impl BlockchainMonitor {
         tokio::spawn(async move {
             let mut listener = listener.write().await;
 
-            let result = listener.start_listening(|event| {
-                let pool = db_pool.clone();
-                Box::pin(async move {
-                    Self::process_payment_event(event, pool).await
+            let result = listener
+                .start_listening(|event| {
+                    let pool = db_pool.clone();
+                    Box::pin(async move { Self::process_payment_event(event, pool).await })
                 })
-            }).await;
+                .await;
 
             if let Err(e) = result {
                 error!("Blockchain listener error: {}", e);
@@ -98,21 +95,32 @@ impl BlockchainMonitor {
 
     /// Process a payment event - Direct Payment Model (V2: PaymentWithContext)
     /// Creates/extends wallet_plan_assignments for proper plan activation
-    async fn process_payment_event(event: PaymentEvent, pool: Arc<&'static TlsPool>) -> Result<(), AppError> {
+    async fn process_payment_event(
+        event: PaymentEvent,
+        pool: Arc<&'static TlsPool>,
+    ) -> Result<(), AppError> {
         info!("Processing payment event: {}", event.unique_id());
         info!("   User: {}", event.user_address);
-        info!("   Context: type={}, id={}", event.context_type, event.context_id);
+        info!(
+            "   Context: type={}, id={}",
+            event.context_type, event.context_id
+        );
         info!("   Amount: ${}", event.amount);
         info!("   TX: {}", event.transaction_hash);
 
         // Only process PLAN payments (context_type == 0) for plan activation
         if event.context_type != 0 {
-            info!("Skipping non-plan payment (context_type={})", event.context_type);
+            info!(
+                "Skipping non-plan payment (context_type={})",
+                event.context_type
+            );
             return Ok(());
         }
 
         // Step 1: Check if event already processed (prevent duplicates)
-        let mut conn = pool.get().await
+        let mut conn = pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
 
         #[derive(QueryableByName)]
@@ -138,8 +146,10 @@ impl BlockchainMonitor {
         }
 
         // Step 2: Insert event as processing
-        let amount_bd = bigdecimal::BigDecimal::from_str(&event.amount.to_string())
-            .map_err(|e| AppError::internal_server_error(format!("Failed to convert amount: {}", e)))?;
+        let amount_bd =
+            bigdecimal::BigDecimal::from_str(&event.amount.to_string()).map_err(|e| {
+                AppError::internal_server_error(format!("Failed to convert amount: {}", e))
+            })?;
 
         diesel::sql_query(
             r#"
@@ -148,7 +158,7 @@ impl BlockchainMonitor {
                 contract_address, user_address, plan_id, token_address,
                 amount, payment_id, event_timestamp, processing_status
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
         .bind::<diesel::sql_types::Integer, _>(event.log_index as i32)
@@ -181,22 +191,24 @@ impl BlockchainMonitor {
 
         // Map contract context_id (tier_level) to database plan UUID
         // For PLAN payments (context_type=0), context_id maps to tier_level
-        let plan_uuid: Uuid = diesel::sql_query(
-            "SELECT id FROM plans WHERE tier_level = $1 LIMIT 1"
-        )
-        .bind::<diesel::sql_types::Integer, _>(event.context_id as i32)
-        .get_result::<IdResult>(&mut conn)
-        .await
-        .map(|r| r.id)
-        .map_err(|_| AppError::entity_not_found(format!("Subscription plan {}", event.context_id)))?;
+        let plan_uuid: Uuid =
+            diesel::sql_query("SELECT id FROM plans WHERE tier_level = $1 LIMIT 1")
+                .bind::<diesel::sql_types::Integer, _>(event.context_id as i32)
+                .get_result::<IdResult>(&mut conn)
+                .await
+                .map(|r| r.id)
+                .map_err(|_| {
+                    AppError::entity_not_found(format!("Subscription plan {}", event.context_id))
+                })?;
 
         let now = Utc::now();
         let standard_duration_days: i64 = 30;
 
         // Step 4: Ensure wallet_users entry exists (required for FK constraint)
         let metadata = WalletMetadata::default();
-        let metadata_json = serde_json::to_value(&metadata)
-            .map_err(|e| AppError::internal_server_error(format!("Failed to serialize metadata: {}", e)))?;
+        let metadata_json = serde_json::to_value(&metadata).map_err(|e| {
+            AppError::internal_server_error(format!("Failed to serialize metadata: {}", e))
+        })?;
 
         diesel::sql_query(
             r#"
@@ -237,16 +249,32 @@ impl BlockchainMonitor {
         .optional()
         .map_err(|e| AppError::database_error(format!("Failed to check existing assignment: {}", e)))?;
 
-        let payment_reference = format!("BC-{}", &event.transaction_hash[..10.min(event.transaction_hash.len())]);
+        let payment_reference = format!(
+            "BC-{}",
+            &event.transaction_hash[..10.min(event.transaction_hash.len())]
+        );
 
         if let Some(existing) = existing_assignment {
             // REACTIVATE/EXTEND existing assignment
-            let base_time = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
+            let base_time = if existing.is_active && existing.expires_at > now {
+                existing.expires_at
+            } else {
+                now
+            };
             let new_expiry = base_time + Duration::days(standard_duration_days);
 
-            info!("{} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
-                if existing.is_active { "Extending" } else { "Reactivating" },
-                plan_uuid, wallet_addr.as_str(), existing.expires_at, new_expiry);
+            info!(
+                "{} plan {} for wallet {}. Old expiry: {}, New expiry: {}",
+                if existing.is_active {
+                    "Extending"
+                } else {
+                    "Reactivating"
+                },
+                plan_uuid,
+                wallet_addr.as_str(),
+                existing.expires_at,
+                new_expiry
+            );
 
             // Deactivate other subscription plans first
             diesel::sql_query(
@@ -257,7 +285,7 @@ impl BlockchainMonitor {
                   AND is_active = true
                   AND plan_id != $2
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
-                "#
+                "#,
             )
             .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
@@ -270,7 +298,7 @@ impl BlockchainMonitor {
                 UPDATE wallet_plan_assignments
                 SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
                 WHERE id = $3
-                "#
+                "#,
             )
             .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
@@ -279,9 +307,16 @@ impl BlockchainMonitor {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to extend plan: {}", e)))?;
 
-            info!("{} user {} plan access until {}",
-                if existing.is_active { "Extended" } else { "Reactivated" },
-                wallet_addr.as_str(), new_expiry);
+            info!(
+                "{} user {} plan access until {}",
+                if existing.is_active {
+                    "Extended"
+                } else {
+                    "Reactivated"
+                },
+                wallet_addr.as_str(),
+                new_expiry
+            );
         } else {
             // NEW assignment: no prior record for this wallet+plan
             let new_expiry = now + Duration::days(standard_duration_days);
@@ -293,7 +328,7 @@ impl BlockchainMonitor {
                 WHERE LOWER(wallet_address) = LOWER($1)
                   AND is_active = true
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
-                "#
+                "#,
             )
             .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
             .execute(&mut conn)
@@ -321,7 +356,12 @@ impl BlockchainMonitor {
                 AppError::database_error(format!("Failed to create plan assignment: {}", e))
             })?;
 
-            info!("Created new plan assignment for user {} → plan {} (expires: {})", wallet_addr.as_str(), plan_uuid, new_expiry);
+            info!(
+                "Created new plan assignment for user {} → plan {} (expires: {})",
+                wallet_addr.as_str(),
+                plan_uuid,
+                new_expiry
+            );
         }
 
         // Fix 2: Sync payments.status so frontend polling resolves correctly
@@ -339,7 +379,7 @@ impl BlockchainMonitor {
             UPDATE processed_blockchain_events
             SET processing_status = $1, processed_at = $2
             WHERE transaction_hash = $3 AND log_index = $4
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>("completed")
         .bind::<diesel::sql_types::Timestamp, _>(Utc::now().naive_utc())
@@ -350,7 +390,10 @@ impl BlockchainMonitor {
         .map_err(|e| AppError::database_error(format!("Failed to update event status: {}", e)))?;
 
         info!("Payment event processed successfully");
-        info!("   User: {} now has access to plan {}", event.user_address, event.context_id);
+        info!(
+            "   User: {} now has access to plan {}",
+            event.user_address, event.context_id
+        );
 
         Ok(())
     }

@@ -25,15 +25,15 @@ use utoipa::ToSchema;
 pub struct UnifiedApiResponse<T = Value> {
     /// Request success status
     pub success: bool,
-    
+
     /// Response data (only present on success)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<T>,
-    
+
     /// Error information (only present on failure)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<ErrorInfo>,
-    
+
     /// Response metadata
     #[serde(skip_serializing_if = "Option::is_none")]
     pub meta: Option<ResponseMeta>,
@@ -44,17 +44,17 @@ pub struct UnifiedApiResponse<T = Value> {
 pub struct ErrorInfo {
     /// HTTP status code
     pub code: u16,
-    
+
     /// Human-readable error message
     pub message: String,
-    
+
     /// Detailed reason/explanation
     pub reason: String,
-    
+
     /// Error type/category
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error_type: Option<String>,
-    
+
     /// Additional error details
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<Value>,
@@ -104,14 +104,14 @@ pub struct PaginationMeta {
 pub struct PermissionContext {
     /// User's plan/tier level
     pub user_plan: String,
-    
+
     /// Available actions for current context
     pub available_actions: Vec<String>,
-    
+
     /// Restricted actions with reasons
     #[serde(skip_serializing_if = "Option::is_none")]
     pub restricted_actions: Option<Vec<RestrictedAction>>,
-    
+
     /// Feature access flags
     #[serde(skip_serializing_if = "Option::is_none")]
     pub feature_access: Option<Value>,
@@ -179,7 +179,7 @@ impl<T> UnifiedApiResponse<T> {
             meta: Some(
                 ResponseMeta::default()
                     .with_pagination(pagination)
-                    .with_permissions(permissions)
+                    .with_permissions(permissions),
             ),
         }
     }
@@ -193,7 +193,7 @@ impl<T> UnifiedApiResponse<T> {
             meta: Some(ResponseMeta::default().with_message(message.to_string())),
         }
     }
-    
+
     /// Create error response
     pub fn error(code: u16, message: &str, reason: &str) -> Self {
         Self {
@@ -209,7 +209,7 @@ impl<T> UnifiedApiResponse<T> {
             meta: Some(ResponseMeta::default()),
         }
     }
-    
+
     /// Create error response with details
     pub fn error_with_details(
         code: u16,
@@ -231,12 +231,12 @@ impl<T> UnifiedApiResponse<T> {
             meta: Some(ResponseMeta::default()),
         }
     }
-    
+
     /// Create authentication error
     pub fn auth_error(reason: &str) -> Self {
         Self::error(401, "Authentication required", reason)
     }
-    
+
     /// Create authorization error
     pub fn permission_error(required_permission: &str) -> Self {
         Self::error(
@@ -245,7 +245,7 @@ impl<T> UnifiedApiResponse<T> {
             &format!("Required permission: {}", required_permission),
         )
     }
-    
+
     /// Create validation error
     pub fn validation_error(details: Value) -> Self {
         Self::error_with_details(
@@ -256,12 +256,16 @@ impl<T> UnifiedApiResponse<T> {
             details,
         )
     }
-    
+
     /// Create not found error
     pub fn not_found(resource: &str) -> Self {
-        Self::error(404, "Resource not found", &format!("{} not found", resource))
+        Self::error(
+            404,
+            "Resource not found",
+            &format!("{} not found", resource),
+        )
     }
-    
+
     /// Create server error
     pub fn server_error(reason: &str) -> Self {
         Self::error(500, "Internal server error", reason)
@@ -311,15 +315,16 @@ impl PermissionContext {
     /// Create permission context from JWT permissions (permission-first approach)
     pub fn from_permissions(user_permissions: &[String]) -> Self {
         // Derive plan from permissions for display purposes only
-        let user_plan = if epsx_contracts::permissions::has_admin_platform_permission(user_permissions) {
-            "admin".to_string()
-        } else if user_permissions.iter().any(|p| p.contains("premium")) {
-            "premium".to_string()
-        } else if user_permissions.iter().any(|p| p.contains("standard")) {
-            "standard".to_string()
-        } else {
-            "basic".to_string()
-        };
+        let user_plan =
+            if epsx_contracts::permissions::has_admin_platform_permission(user_permissions) {
+                "admin".to_string()
+            } else if user_permissions.iter().any(|p| p.contains("premium")) {
+                "premium".to_string()
+            } else if user_permissions.iter().any(|p| p.contains("standard")) {
+                "standard".to_string()
+            } else {
+                "basic".to_string()
+            };
 
         // Convert structured permissions to frontend action permissions
         let available_actions: Vec<String> = user_permissions
@@ -359,11 +364,13 @@ where
             StatusCode::OK
         } else {
             match &self.error {
-                Some(err) => StatusCode::from_u16(err.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR),
+                Some(err) => {
+                    StatusCode::from_u16(err.code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR)
+                }
                 None => StatusCode::INTERNAL_SERVER_ERROR,
             }
         };
-        
+
         (status, Json(self)).into_response()
     }
 }
@@ -375,7 +382,9 @@ macro_rules! success_response {
         $crate::web::responses::unified_response::UnifiedApiResponse::success($data)
     };
     ($data:expr, $meta:expr) => {
-        $crate::web::responses::unified_response::UnifiedApiResponse::success_with_meta($data, $meta)
+        $crate::web::responses::unified_response::UnifiedApiResponse::success_with_meta(
+            $data, $meta,
+        )
     };
 }
 
@@ -383,7 +392,9 @@ macro_rules! success_response {
 #[macro_export]
 macro_rules! error_response {
     ($code:expr, $message:expr, $reason:expr) => {
-        $crate::web::responses::unified_response::UnifiedApiResponse::<()>::error($code, $message, $reason)
+        $crate::web::responses::unified_response::UnifiedApiResponse::<()>::error(
+            $code, $message, $reason,
+        )
     };
 }
 
@@ -406,7 +417,7 @@ mod tests {
         assert!(!response.success);
         assert!(response.data.is_none());
         assert!(response.error.is_some());
-        
+
         let error = response.error.unwrap();
         assert_eq!(error.code, 400);
         assert_eq!(error.message, "Bad request");

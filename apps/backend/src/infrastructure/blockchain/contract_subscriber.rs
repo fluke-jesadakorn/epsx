@@ -2,8 +2,8 @@
 // Real-time payment event monitoring with reconnection and HTTP fallback
 
 use crate::config::contracts::{Chain, ChainContractConfig, PAYMENT_EVENT_TOPIC};
+use crate::infrastructure::blockchain::{parse_payment_event, PaymentEvent, PaymentVerifier};
 use epsx_contracts::errors::AppError;
-use crate::infrastructure::blockchain::{PaymentEvent, parse_payment_event, PaymentVerifier};
 
 use ethers::types::U256;
 use futures_util::{SinkExt, StreamExt};
@@ -91,7 +91,8 @@ impl ContractSubscriber {
     ) -> Result<Self, AppError> {
         let payment_verifier = Arc::new(PaymentVerifier::new(
             config.http_url.clone(),
-            config.contract_address
+            config
+                .contract_address
                 .as_ref()
                 .map(|a| format!("0x{}", hex::encode(a.as_bytes())))
                 .unwrap_or_default(),
@@ -113,7 +114,10 @@ impl ContractSubscriber {
     /// Start subscription with callback
     pub async fn subscribe<F>(&mut self, callback: F) -> Result<(), AppError>
     where
-        F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
+        F: Fn(
+                PaymentEvent,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
             + Send
             + Sync
             + 'static,
@@ -147,7 +151,10 @@ impl ContractSubscriber {
 
         // If both fail, fall back to HTTP polling
         if ws_result.is_err() {
-            warn!("WebSocket unavailable, falling back to HTTP polling for {}", self.chain);
+            warn!(
+                "WebSocket unavailable, falling back to HTTP polling for {}",
+                self.chain
+            );
             self.run_http_polling(callback).await
         } else {
             ws_result
@@ -157,7 +164,10 @@ impl ContractSubscriber {
     /// Run WebSocket subscription
     async fn run_websocket<F>(&mut self, callback: Arc<F>) -> Result<(), AppError>
     where
-        F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
+        F: Fn(
+                PaymentEvent,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
             + Send
             + Sync
             + 'static,
@@ -165,23 +175,26 @@ impl ContractSubscriber {
         self.state = SubscriptionState::Connecting;
 
         // Parse contract address
-        let contract_addr = self.config.contract_address.ok_or_else(|| {
-            AppError::internal_server_error("No contract address configured")
-        })?;
+        let contract_addr = self
+            .config
+            .contract_address
+            .ok_or_else(|| AppError::internal_server_error("No contract address configured"))?;
 
         // Connect with timeout
         let ws_url = self.config.ws_url.clone();
-        let url = url::Url::parse(&ws_url)
-            .map_err(|e| AppError::internal_server_error(format!("Invalid WebSocket URL: {}", e)))?;
+        let url = url::Url::parse(&ws_url).map_err(|e| {
+            AppError::internal_server_error(format!("Invalid WebSocket URL: {}", e))
+        })?;
 
         info!("Connecting to WebSocket: {}", ws_url);
-        let (ws_stream, _) = tokio::time::timeout(
-            Duration::from_secs(10),
-            connect_async(url),
-        )
-        .await
-        .map_err(|_| AppError::internal_server_error("WebSocket connection timeout".to_string()))?
-        .map_err(|e| AppError::internal_server_error(format!("WebSocket connection failed: {}", e)))?;
+        let (ws_stream, _) = tokio::time::timeout(Duration::from_secs(10), connect_async(url))
+            .await
+            .map_err(|_| {
+                AppError::internal_server_error("WebSocket connection timeout".to_string())
+            })?
+            .map_err(|e| {
+                AppError::internal_server_error(format!("WebSocket connection failed: {}", e))
+            })?;
 
         info!("WebSocket connected for {}", self.chain);
         self.state = SubscriptionState::Connected;
@@ -202,13 +215,21 @@ impl ContractSubscriber {
             id: 1,
         };
 
-        let subscribe_msg = serde_json::to_string(&subscribe_request)
-            .map_err(|e| AppError::internal_server_error(format!("JSON serialization error: {}", e)))?;
+        let subscribe_msg = serde_json::to_string(&subscribe_request).map_err(|e| {
+            AppError::internal_server_error(format!("JSON serialization error: {}", e))
+        })?;
 
-        ws_sender.send(WsMessage::Text(subscribe_msg)).await
-            .map_err(|e| AppError::internal_server_error(format!("Failed to send subscription: {}", e)))?;
+        ws_sender
+            .send(WsMessage::Text(subscribe_msg))
+            .await
+            .map_err(|e| {
+                AppError::internal_server_error(format!("Failed to send subscription: {}", e))
+            })?;
 
-        info!("Subscription request sent for contract {} on {}", contract_hex, self.chain);
+        info!(
+            "Subscription request sent for contract {} on {}",
+            contract_hex, self.chain
+        );
 
         // Process messages
         let verifier = Arc::clone(&self.payment_verifier);
@@ -224,7 +245,9 @@ impl ContractSubscriber {
                         &verifier,
                         Arc::clone(&callback),
                         &mut current_state,
-                    ).await {
+                    )
+                    .await
+                    {
                         error!("Error handling message: {}", e);
                     }
                 }
@@ -246,7 +269,9 @@ impl ContractSubscriber {
             }
         }
 
-        Err(AppError::internal_server_error("WebSocket connection ended".to_string()))
+        Err(AppError::internal_server_error(
+            "WebSocket connection ended".to_string(),
+        ))
     }
 
     /// Handle incoming WebSocket message
@@ -258,15 +283,17 @@ impl ContractSubscriber {
         state: &mut SubscriptionState,
     ) -> Result<(), AppError>
     where
-        F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
+        F: Fn(
+                PaymentEvent,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
             + Send
             + Sync,
     {
-        let response: JsonRpcResponse = serde_json::from_str(text)
-            .map_err(|e| {
-                debug!("Failed to parse JSON (non-subscription message?): {}", e);
-                AppError::internal_server_error(format!("JSON parse error: {}", e))
-            })?;
+        let response: JsonRpcResponse = serde_json::from_str(text).map_err(|e| {
+            debug!("Failed to parse JSON (non-subscription message?): {}", e);
+            AppError::internal_server_error(format!("JSON parse error: {}", e))
+        })?;
 
         // Handle subscription confirmation
         if let Some(method) = &response.method {
@@ -281,7 +308,10 @@ impl ContractSubscriber {
                     if let Ok(log) = Self::parse_log(&params.result) {
                         if let Ok(event) = parse_payment_event(&log) {
                             if event.is_valid() {
-                                info!("Payment event received on {}: tx={}", chain, event.transaction_hash);
+                                info!(
+                                    "Payment event received on {}: tx={}",
+                                    chain, event.transaction_hash
+                                );
 
                                 // Verify and process
                                 match verifier.verify_payment(&event).await {
@@ -292,7 +322,10 @@ impl ContractSubscriber {
                                                 error!("Callback failed: {}", e);
                                             }
                                         } else {
-                                            error!("Payment verification failed: {:?}", verification.errors);
+                                            error!(
+                                                "Payment verification failed: {:?}",
+                                                verification.errors
+                                            );
                                         }
                                     }
                                     Err(e) => {
@@ -330,22 +363,27 @@ impl ContractSubscriber {
         let log_data: LogData = serde_json::from_value(value.clone())
             .map_err(|e| AppError::internal_server_error(format!("Failed to parse log: {}", e)))?;
 
-        let address = log_data.address.parse::<ethers::types::H160>()
+        let address = log_data
+            .address
+            .parse::<ethers::types::H160>()
             .map_err(|e| AppError::internal_server_error(format!("Invalid address: {}", e)))?;
 
-        let topics: Vec<ethers::types::H256> = log_data.topics.iter()
+        let topics: Vec<ethers::types::H256> = log_data
+            .topics
+            .iter()
             .filter_map(|t| t.parse::<ethers::types::H256>().ok())
             .collect();
 
         let data = log_data.data.trim_start_matches("0x");
-        let data_bytes = hex::decode(data)
-            .unwrap_or_default();
+        let data_bytes = hex::decode(data).unwrap_or_default();
 
         let block_number = log_data.block_number.trim_start_matches("0x");
         let block_num = U256::from_str_radix(block_number, 16)
             .map_err(|e| AppError::internal_server_error(format!("Invalid block number: {}", e)))?;
 
-        let tx_hash = log_data.transaction_hash.parse::<ethers::types::H256>()
+        let tx_hash = log_data
+            .transaction_hash
+            .parse::<ethers::types::H256>()
             .map_err(|e| AppError::internal_server_error(format!("Invalid tx hash: {}", e)))?;
 
         let log_index = log_data.log_index.trim_start_matches("0x");
@@ -366,14 +404,19 @@ impl ContractSubscriber {
     /// Run HTTP polling fallback
     async fn run_http_polling<F>(&mut self, _callback: Arc<F>) -> Result<(), AppError>
     where
-        F: Fn(PaymentEvent) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
+        F: Fn(
+                PaymentEvent,
+            )
+                -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<(), AppError>> + Send>>
             + Send
             + Sync,
     {
         warn!("HTTP polling not implemented in contract_subscriber - use BscEventListener for polling");
         // The existing BscEventListener already handles HTTP polling
         // This is a fallback placeholder
-        Err(AppError::internal_server_error("Use BscEventListener for HTTP polling".to_string()))
+        Err(AppError::internal_server_error(
+            "Use BscEventListener for HTTP polling".to_string(),
+        ))
     }
 
     /// Get current state
@@ -388,7 +431,10 @@ impl ContractSubscriber {
 
     /// Check if connected
     pub fn is_connected(&self) -> bool {
-        matches!(self.state, SubscriptionState::Connected | SubscriptionState::Subscribed)
+        matches!(
+            self.state,
+            SubscriptionState::Connected | SubscriptionState::Subscribed
+        )
     }
 }
 

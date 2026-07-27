@@ -1,15 +1,15 @@
-use axum::{
-    extract::{Query, State},
-    Json,
-    response::IntoResponse,
-    http::StatusCode,
-};
 use crate::domain::shared_kernel::entities::audit::AuditQuery;
 use crate::infrastructure::repositories::audit_log_repository::DieselAuditLogRepository;
-use serde::Deserialize;
-use utoipa::{ToSchema, IntoParams};
 use crate::web::auth::AppState;
+use axum::{
+    extract::{Query, State},
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 use epsx_contracts::value_objects::UserId;
+use serde::Deserialize;
+use utoipa::{IntoParams, ToSchema};
 
 #[derive(Debug, Deserialize, ToSchema, IntoParams)]
 pub struct AuditLogQueryParams {
@@ -41,16 +41,23 @@ pub async fn get_audit_logs_handler(
     State(_state): State<AppState>,
     Query(params): Query<AuditLogQueryParams>,
 ) -> impl IntoResponse {
-    let from_date = params.from_date.as_ref()
+    let from_date = params
+        .from_date
+        .as_ref()
         .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
         .map(|d| d.with_timezone(&chrono::Utc));
 
-    let to_date = params.to_date.as_ref()
+    let to_date = params
+        .to_date
+        .as_ref()
         .and_then(|d| chrono::DateTime::parse_from_rfc3339(d).ok())
         .map(|d| d.with_timezone(&chrono::Utc));
 
     // Resolve wallet search from explicit param or search field
-    let mut wallet_address = params.wallet_address.as_ref().map(|w| UserId::from_string_unchecked(w.clone()));
+    let mut wallet_address = params
+        .wallet_address
+        .as_ref()
+        .map(|w| UserId::from_string_unchecked(w.clone()));
     let mut search = params.search.clone();
 
     if wallet_address.is_none() {
@@ -65,7 +72,8 @@ pub async fn get_audit_logs_handler(
     // Normalize category
     let category = params.category.as_deref().and_then(|c| match c {
         "all" => None,
-        c @ ("permission" | "wallet" | "plan" | "system" | "payment" | "auth" | "developer" | "notification") => Some(c.to_string()),
+        c @ ("permission" | "wallet" | "plan" | "system" | "payment" | "auth" | "developer"
+        | "notification") => Some(c.to_string()),
         _ => None,
     });
 
@@ -84,24 +92,27 @@ pub async fn get_audit_logs_handler(
     };
 
     match DieselAuditLogRepository::find_all_unified(&query).await {
-        Ok((logs, total)) => {
-             Json(serde_json::json!({
-                 "success": true,
-                 "data": {
-                     "entries": logs,
-                     "total_pages": (total as f64 / page_size as f64).ceil() as u64,
-                     "total": total,
-                     "page": params.page.unwrap_or(1),
-                     "page_size": page_size
-                 }
-             })).into_response()
-        },
+        Ok((logs, total)) => Json(serde_json::json!({
+            "success": true,
+            "data": {
+                "entries": logs,
+                "total_pages": (total as f64 / page_size as f64).ceil() as u64,
+                "total": total,
+                "page": params.page.unwrap_or(1),
+                "page_size": page_size
+            }
+        }))
+        .into_response(),
         Err(e) => {
             tracing::error!("Failed to fetch audit logs: {:?}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(serde_json::json!({
-                "success": false,
-                "error": "Failed to fetch audit logs"
-            }))).into_response()
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({
+                    "success": false,
+                    "error": "Failed to fetch audit logs"
+                })),
+            )
+                .into_response()
         }
     }
 }

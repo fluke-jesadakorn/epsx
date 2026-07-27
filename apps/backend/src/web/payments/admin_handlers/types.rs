@@ -2,9 +2,9 @@
 //!
 //! DTOs and structs for admin payment operations
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 pub use crate::web::pagination::PaginationInfo;
 
@@ -63,7 +63,10 @@ pub struct AdminPaymentInfo {
 
 impl AdminPaymentInfo {
     /// Create from PaymentDb with plan name
-    pub fn from_db(pay: crate::infrastructure::models::payment::PaymentDb, plan_name: String) -> Self {
+    pub fn from_db(
+        pay: crate::infrastructure::models::payment::PaymentDb,
+        plan_name: String,
+    ) -> Self {
         Self {
             id: pay.id,
             payment_reference: pay.payment_reference,
@@ -101,7 +104,10 @@ impl AdminPaymentInfo {
             currency: row.currency.clone(),
             status: row.status.clone(),
             plan_id: row.plan_id,
-            plan_name: row.plan_name.clone().unwrap_or_else(|| "Unknown Plan".to_string()),
+            plan_name: row
+                .plan_name
+                .clone()
+                .unwrap_or_else(|| "Unknown Plan".to_string()),
             transaction_hash: row.transaction_hash.clone(),
             contract_address: row.contract_address.clone(),
             token_address: row.token_address.clone(),

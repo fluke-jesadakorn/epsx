@@ -3,7 +3,11 @@ use crate::primitives::icon::Icon;
 use dioxus::prelude::*;
 
 #[component]
-pub fn ErrorView(title: Option<String>, description: Option<String>, retry_href: Option<String>) -> Element {
+pub fn ErrorView(
+    title: Option<String>,
+    description: Option<String>,
+    retry_href: Option<String>,
+) -> Element {
     rsx! {
         div { class: "error-view flex flex-col items-center text-center p-12",
             div { class: "error-view-icon", Icon { name: "info".to_string(), size: Some(48), class_name: Some("text-destructive".to_string()) } }

@@ -91,11 +91,12 @@ impl NotificationPort for SmokeNotificationPort {
             message: req.message,
             priority: req.priority,
         };
-        let payload = serde_json::to_vec(&sse)
-            .map_err(|e| epsx_contracts::errors::AppError::new(
+        let payload = serde_json::to_vec(&sse).map_err(|e| {
+            epsx_contracts::errors::AppError::new(
                 epsx_contracts::errors::ErrorKind::InternalError,
                 format!("smoke port: serialize SSE: {}", e),
-            ))?;
+            )
+        })?;
         // Fire-and-forget, like the production in-process adapter.
         self.pubsub
             .publish(&channel_for_wallet(&wallet), &payload)
@@ -112,11 +113,12 @@ impl NotificationPort for SmokeNotificationPort {
             message: req.message,
             priority: req.priority,
         };
-        let payload = serde_json::to_vec(&sse)
-            .map_err(|e| epsx_contracts::errors::AppError::new(
+        let payload = serde_json::to_vec(&sse).map_err(|e| {
+            epsx_contracts::errors::AppError::new(
                 epsx_contracts::errors::ErrorKind::InternalError,
                 format!("smoke port: serialize SSE: {}", e),
-            ))?;
+            )
+        })?;
         self.pubsub.publish(CHANNEL_BROADCAST, &payload).await?;
         Ok(())
     }
@@ -128,8 +130,9 @@ async fn wave10_send_publishes_to_wallet_channel_via_pubsub() {
     let pubsub: Arc<dyn PubsubPort> = Arc::new(InMemoryPubsubAdapter::new());
 
     // 2. Stand up the notification port pointing at it.
-    let port: Arc<dyn NotificationPort> =
-        Arc::new(SmokeNotificationPort { pubsub: pubsub.clone() });
+    let port: Arc<dyn NotificationPort> = Arc::new(SmokeNotificationPort {
+        pubsub: pubsub.clone(),
+    });
 
     // 3. Subscribe to the wallet channel before publishing.
     let mut stream = pubsub
@@ -146,6 +149,7 @@ async fn wave10_send_publishes_to_wallet_channel_via_pubsub() {
             message: "You received 100 credits".to_string(),
             data: Some(serde_json::json!({ "amount": 100 })),
             action_url: None,
+            expires_at: None,
         })
         .await
         .expect("port.send should succeed");
@@ -162,14 +166,18 @@ async fn wave10_send_publishes_to_wallet_channel_via_pubsub() {
     assert_eq!(sse.wallet_address, "0xabc", "wallet should be lowercased");
     assert_eq!(sse.title, "Credits Received");
     assert_eq!(sse.priority, "high");
-    assert_eq!(sse.id, id, "the SSE id should match the port's return value");
+    assert_eq!(
+        sse.id, id,
+        "the SSE id should match the port's return value"
+    );
 }
 
 #[tokio::test]
 async fn wave10_broadcast_publishes_to_all_channel_via_pubsub() {
     let pubsub: Arc<dyn PubsubPort> = Arc::new(InMemoryPubsubAdapter::new());
-    let port: Arc<dyn NotificationPort> =
-        Arc::new(SmokeNotificationPort { pubsub: pubsub.clone() });
+    let port: Arc<dyn NotificationPort> = Arc::new(SmokeNotificationPort {
+        pubsub: pubsub.clone(),
+    });
 
     let mut stream = pubsub
         .subscribe(&[CHANNEL_BROADCAST])
@@ -181,6 +189,7 @@ async fn wave10_broadcast_publishes_to_all_channel_via_pubsub() {
         title: "Maintenance Window".to_string(),
         message: "Service will be down for 10 minutes".to_string(),
         data: Some(serde_json::json!({ "window": "tonight" })),
+        expires_at: None,
     })
     .await
     .expect("port.broadcast should succeed");
@@ -202,8 +211,9 @@ async fn wave10_wallet_subscription_does_not_receive_broadcasts() {
     // other's messages — this is the chat-pubsub-canary-equivalent
     // for the notification port.
     let pubsub: Arc<dyn PubsubPort> = Arc::new(InMemoryPubsubAdapter::new());
-    let port: Arc<dyn NotificationPort> =
-        Arc::new(SmokeNotificationPort { pubsub: pubsub.clone() });
+    let port: Arc<dyn NotificationPort> = Arc::new(SmokeNotificationPort {
+        pubsub: pubsub.clone(),
+    });
 
     let mut wallet_stream = pubsub
         .subscribe(&["notifications:wallet:0xdef"])
@@ -220,6 +230,7 @@ async fn wave10_wallet_subscription_does_not_receive_broadcasts() {
         message: "Hello!".to_string(),
         data: None,
         action_url: None,
+        expires_at: None,
     })
     .await
     .expect("send");

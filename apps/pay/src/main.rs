@@ -26,7 +26,7 @@ use axum::{
 };
 use dioxus::prelude::*;
 use epsx_client::ServiceClient;
-use epsx_templates::{page_shell_with_body_class, theme_toggle_button, logo};
+use epsx_templates::{logo, page_shell_with_body_class, theme_toggle_button};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -67,10 +67,16 @@ async fn main() {
     epsx_observability::Observability::init("bff-pay");
 
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3002);
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(3002);
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
 
-    let cfg = epsx_client::ClientConfig { base_url: api_url.clone(), timeout: std::time::Duration::from_secs(30) };
+    let cfg = epsx_client::ClientConfig {
+        base_url: api_url.clone(),
+        timeout: std::time::Duration::from_secs(30),
+    };
     let state = AppState {
         pay: Arc::new(ServiceClient::new(cfg.clone())),
         identity: Arc::new(ServiceClient::new(cfg.clone())),
@@ -109,27 +115,42 @@ async fn create_pay_intent(
     axum::extract::State(state): axum::extract::State<AppState>,
     Json(body): Json<PayIntentBody>,
 ) -> Result<Response, StatusCode> {
-    let chain_decimal = body.chain_id.as_deref()
+    let chain_decimal = body
+        .chain_id
+        .as_deref()
         .and_then(|s| u64::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .or_else(|| body.chain_id.as_deref().and_then(|s| s.parse().ok()))
         .unwrap_or(56);
-    let payee = body.payee.clone()
+    let payee = body
+        .payee
+        .clone()
         .or_else(|| body.merchant.clone())
         .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
-    let payer = body.payer.clone()
+    let payer = body
+        .payer
+        .clone()
         .unwrap_or_else(|| "0x0000000000000000000000000000000000000000".to_string());
-    let token = body.token.clone()
+    let token = body
+        .token
+        .clone()
         .or_else(|| Some(body.currency.clone()))
         .unwrap_or_else(|| "USDT".to_string());
-    let res = state.pay.post_plain("/api/v1/pay/intents", &serde_json::json!({
-        "amount": body.amount,
-        "token": token,
-        "chain_id": chain_decimal,
-        "description": body.description,
-        "payer": payer,
-        "payee": payee,
-    })).await;
-    res.map(|v| Json(v).into_response()).map_err(|_| StatusCode::BAD_GATEWAY)
+    let res = state
+        .pay
+        .post_plain(
+            "/api/v1/pay/intents",
+            &serde_json::json!({
+                "amount": body.amount,
+                "token": token,
+                "chain_id": chain_decimal,
+                "description": body.description,
+                "payer": payer,
+                "payee": payee,
+            }),
+        )
+        .await;
+    res.map(|v| Json(v).into_response())
+        .map_err(|_| StatusCode::BAD_GATEWAY)
 }
 
 async fn get_pay_intent(
@@ -137,7 +158,10 @@ async fn get_pay_intent(
     AxPath(id): AxPath<String>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/intents/{}", id);
-    state.pay.get_plain(&path).await
+    state
+        .pay
+        .get_plain(&path)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -148,7 +172,10 @@ async fn execute_pay(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/intents/{}/execute", id);
-    state.pay.post_plain(&path, &body).await
+    state
+        .pay
+        .post_plain(&path, &body)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -158,7 +185,10 @@ async fn pay_status(
     AxPath(id): AxPath<String>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/intents/{}", id);
-    state.pay.get_plain(&path).await
+    state
+        .pay
+        .get_plain(&path)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -171,7 +201,10 @@ async fn create_pay_link(
     axum::extract::State(state): axum::extract::State<AppState>,
     Json(body): Json<serde_json::Value>,
 ) -> Result<Response, StatusCode> {
-    state.pay.post_plain("/api/v1/pay/links", &body).await
+    state
+        .pay
+        .post_plain("/api/v1/pay/links", &body)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -181,7 +214,10 @@ async fn get_pay_link(
     AxPath(slug): AxPath<String>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/links/{}", slug);
-    state.pay.get_plain(&path).await
+    state
+        .pay
+        .get_plain(&path)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -192,7 +228,10 @@ async fn redeem_pay_link(
     Json(body): Json<serde_json::Value>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/links/{}/redeem", slug);
-    state.pay.post_plain(&path, &body).await
+    state
+        .pay
+        .post_plain(&path, &body)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -202,7 +241,10 @@ async fn get_pay_history(
     AxPath(address): AxPath<String>,
 ) -> Result<Response, StatusCode> {
     let path = format!("/api/v1/pay/history/{}", address);
-    state.pay.get_plain(&path).await
+    state
+        .pay
+        .get_plain(&path)
+        .await
         .map(|v| Json(v).into_response())
         .map_err(|_| StatusCode::BAD_GATEWAY)
 }
@@ -294,8 +336,8 @@ async fn resolve_pay_link_redirect(slug: &str) -> Option<Response> {
     // use the axum router's `State` from inside a free function,
     // so we construct a ServiceClient on demand. The timeout is
     // tight (3s) so a slow upstream doesn't block the page.
-    let api_url = std::env::var("API_URL")
-        .unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
+    let api_url =
+        std::env::var("API_URL").unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
     let cfg = epsx_client::ClientConfig {
         base_url: api_url,
         timeout: std::time::Duration::from_secs(3),
@@ -360,7 +402,10 @@ async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
     // Falls through to the regular SSR fallback if the link
     // can't be resolved (expired / unknown slug).
     if path.starts_with("/r/") && !path.contains("//") {
-        let slug = path.trim_start_matches("/r/").trim_end_matches('/').to_string();
+        let slug = path
+            .trim_start_matches("/r/")
+            .trim_end_matches('/')
+            .to_string();
         if !slug.is_empty() {
             if let Some(redirect) = resolve_pay_link_redirect(&slug).await {
                 return redirect;
@@ -371,7 +416,10 @@ async fn pay_ssr_fallback(uri: axum::http::Uri) -> Response {
     // Build the page VDom.
     let mut vdom = VirtualDom::new_with_props(
         PageRouter,
-        PageRouterProps { path: path.clone(), query: query.clone() },
+        PageRouterProps {
+            path: path.clone(),
+            query: query.clone(),
+        },
     );
 
     // Dioxus 0.7 SSR: rebuild_in_place walks the component tree

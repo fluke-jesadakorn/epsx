@@ -17,7 +17,7 @@ use axum::{
     Json,
 };
 
-use crate::infrastructure::storage::{Bucket, upload_file};
+use crate::infrastructure::storage::{upload_file, Bucket};
 use crate::web::{auth::AppState, responses::UnifiedApiResponse};
 
 /// Upload an image used in a notification payload.
@@ -32,19 +32,42 @@ pub async fn upload_notification_image(
     State(app_state): State<AppState>,
     mut multipart: Multipart,
 ) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
-    let s3 = app_state.s3.as_ref()
-        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+    let s3 = app_state.s3.as_ref().ok_or_else(|| {
+        Json(UnifiedApiResponse::error(
+            503,
+            "Storage unavailable",
+            "S3 storage not configured",
+        ))
+    })?;
 
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                "No file provided",
+            )))
+        }
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     let original_name = field.file_name().unwrap_or("image").to_string();
     let bytes = match field.bytes().await {
         Ok(b) => b,
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     match upload_file(s3, Bucket::Notifications, &bytes, &original_name, None).await {

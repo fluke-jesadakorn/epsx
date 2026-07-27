@@ -8,32 +8,35 @@
 
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::not_found();
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content",
-                div { class: "not-found",
-                    div { class: "not-found-code", "404" }
-                    h1 { class: "not-found-title", "Page not found" }
-                    p { class: "not-found-description text-muted-foreground",
-                        "The page you are looking for does not exist."
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                div { class: "container page-content",
+                    div { class: "not-found",
+                        div { class: "not-found-code", "404" }
+                        h1 { class: "not-found-title", "Page not found" }
+                        p { class: "not-found-description text-muted-foreground",
+                            "The page you are looking for does not exist."
+                        }
+                        NotFoundIllustration {}
+                        div { class: "not-found-actions",
+                            a { class: "btn btn-primary btn-lg", href: "/", "Back to home" }
+                            a { class: "btn btn-outline btn-lg", href: "/contact", "Contact support" }
+                        }
+                        NotFoundDestinations {}
                     }
-                    NotFoundIllustration {}
-                    div { class: "not-found-actions",
-                        a { class: "btn btn-primary btn-lg", href: "/", "Back to home" }
-                        a { class: "btn btn-outline btn-lg", href: "/contact", "Contact support" }
-                    }
-                    NotFoundDestinations {}
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 /// Decorative SVG illustration — a stylized "?" inside a dashed
@@ -109,9 +112,15 @@ mod tests {
         let (meta, el) = render(&ctx);
         assert_eq!(meta.status, crate::pages::PageStatus::NotFound);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "not-found page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "not-found page should render non-empty HTML"
+        );
         // Sanity: 404 + title visible.
         assert!(html.contains("404"), "not-found page should display 404");
-        assert!(html.contains("Page not found"), "not-found page should display the title");
+        assert!(
+            html.contains("Page not found"),
+            "not-found page should display the title"
+        );
     }
 }

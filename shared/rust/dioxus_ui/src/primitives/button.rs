@@ -4,8 +4,18 @@ use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ButtonKind {
-    Primary, Gradient, Brand, Cool, Outline, Ghost, Glass, Danger, Link,
-    Destructive, Secondary, Default,
+    Primary,
+    Gradient,
+    Brand,
+    Cool,
+    Outline,
+    Ghost,
+    Glass,
+    Danger,
+    Link,
+    Destructive,
+    Secondary,
+    Default,
 }
 
 impl ButtonKind {
@@ -28,7 +38,13 @@ impl ButtonKind {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ButtonSize { Sm, Md, Lg, Xl, Icon }
+pub enum ButtonSize {
+    Sm,
+    Md,
+    Lg,
+    Xl,
+    Icon,
+}
 
 impl ButtonSize {
     pub fn classes(&self) -> &'static str {
@@ -72,9 +88,16 @@ pub fn Button(
     let loading = loading.unwrap_or(false);
     let block = block.unwrap_or(false);
     let mut cls = format!("{} {}", kind.classes(), size.classes());
-    if block { cls.push_str(" btn-block"); }
-    if loading { cls.push_str(" btn-loading"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if block {
+        cls.push_str(" btn-block");
+    }
+    if loading {
+        cls.push_str(" btn-loading");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     if let Some(url) = href {
         rsx! {

@@ -1,12 +1,12 @@
 // WalletReadModelProjection
 // Projects WalletUser events into read_model.wallet_details
 
+use crate::infrastructure::cqrs::projection::{Projection, ProjectionCheckpoint, ProjectionEvent};
 use crate::prelude::*;
-use crate::infrastructure::cqrs::projection::{Projection, ProjectionEvent, ProjectionCheckpoint};
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
 use async_trait::async_trait;
 use chrono::Utc;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 
 pub struct WalletReadModelProjection {
     _pool: Arc<&'static TlsPool>,
@@ -55,9 +55,10 @@ impl Projection for WalletReadModelProjection {
     }
 
     async fn get_checkpoint(&self, pool: &TlsPool) -> AppResult<Option<ProjectionCheckpoint>> {
-        let mut conn = pool.get().await.map_err(|e| {
-            AppError::database_error(format!("Failed to get connection: {}", e))
-        })?;
+        let mut conn = pool
+            .get()
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
 
         #[derive(QueryableByName)]
         struct CheckpointRow {
@@ -86,15 +87,13 @@ impl Projection for WalletReadModelProjection {
                 is_healthy
             FROM read_model.projection_checkpoints
             WHERE projection_name = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(self.projection_name())
         .get_result::<CheckpointRow>(&mut conn)
         .await
         .optional()
-        .map_err(|e| {
-            AppError::database_error(format!("Failed to get checkpoint: {}", e))
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to get checkpoint: {}", e)))?;
 
         Ok(result.map(|row| ProjectionCheckpoint {
             projection_name: row.projection_name,
@@ -127,19 +126,19 @@ impl Projection for WalletReadModelProjection {
                 events_processed_count = $4,
                 processed_at = $5,
                 is_healthy = $6
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&checkpoint.projection_name)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(checkpoint.last_processed_event_id)
+        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Uuid>, _>(
+            checkpoint.last_processed_event_id,
+        )
         .bind::<diesel::sql_types::BigInt, _>(checkpoint.last_processed_sequence)
         .bind::<diesel::sql_types::BigInt, _>(checkpoint.events_processed_count)
         .bind::<diesel::sql_types::Timestamptz, _>(checkpoint.processed_at)
         .bind::<diesel::sql_types::Bool, _>(checkpoint.is_healthy)
         .execute(conn)
         .await
-        .map_err(|e| {
-            AppError::database_error(format!("Failed to save checkpoint: {}", e))
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to save checkpoint: {}", e)))?;
 
         Ok(())
     }
@@ -179,7 +178,7 @@ impl WalletReadModelProjection {
                 projection_version = read_model.wallet_details.projection_version + 1,
                 last_event_id = $6,
                 last_projected_at = $7
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .bind::<diesel::sql_types::Bool, _>(true)
@@ -222,7 +221,7 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(event.event_id)
         .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
@@ -251,7 +250,7 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(event.event_id)
         .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
@@ -283,7 +282,7 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(event.event_id)
         .bind::<diesel::sql_types::Text, _>(&event.aggregate_id)
@@ -317,9 +316,9 @@ impl WalletReadModelProjection {
         let payload = &event.event_payload;
 
         // Extract wallet_address from session event
-        let wallet_address = payload["wallet_address"]
-            .as_str()
-            .ok_or_else(|| AppError::internal_error("Missing wallet_address in session event".to_string()))?;
+        let wallet_address = payload["wallet_address"].as_str().ok_or_else(|| {
+            AppError::internal_error("Missing wallet_address in session event".to_string())
+        })?;
 
         diesel::sql_query(
             r#"
@@ -335,7 +334,7 @@ impl WalletReadModelProjection {
                 last_event_id = $2,
                 last_projected_at = NOW()
             WHERE wallet_address = $3
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Timestamptz, _>(event.occurred_at)
         .bind::<diesel::sql_types::Uuid, _>(event.event_id)
@@ -357,9 +356,9 @@ impl WalletReadModelProjection {
     ) -> AppResult<()> {
         let payload = &event.event_payload;
 
-        let wallet_address = payload["wallet_address"]
-            .as_str()
-            .ok_or_else(|| AppError::internal_error("Missing wallet_address in session event".to_string()))?;
+        let wallet_address = payload["wallet_address"].as_str().ok_or_else(|| {
+            AppError::internal_error("Missing wallet_address in session event".to_string())
+        })?;
 
         diesel::sql_query(
             r#"
@@ -371,7 +370,7 @@ impl WalletReadModelProjection {
                 last_event_id = $1,
                 last_projected_at = NOW()
             WHERE wallet_address = $2
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(event.event_id)
         .bind::<diesel::sql_types::Text, _>(wallet_address)

@@ -2,17 +2,17 @@
 // PostgreSQL implementation of PlanRepositoryPort using Diesel
 // (Previously PermissionPlanRepositoryAdapter - renamed for clarity)
 use crate::prelude::*;
-use tracing::{error, info};
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
+use tracing::{error, info};
 
 use crate::domain::permission_management::{
-    Plan, PlanId, PlanSlug, PermissionString, PlanCategory, PlanGroup,
-    repository_ports::{PlanRepositoryPort, PlanSearchCriteria, PlanStatistics},
     aggregates::plan::LoadPlanParams,
+    repository_ports::{PlanRepositoryPort, PlanSearchCriteria, PlanStatistics},
+    PermissionString, Plan, PlanCategory, PlanGroup, PlanId, PlanSlug,
 };
-use crate::infrastructure::models::plan::{PlanDb, NewPlanDb};
-use crate::schemas::primary::{plans, plan_permissions};
+use crate::infrastructure::models::plan::{NewPlanDb, PlanDb};
+use crate::schemas::primary::{plan_permissions, plans};
 use std::collections::HashSet;
 
 #[derive(diesel::QueryableByName)]
@@ -86,17 +86,16 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
             let permissions: HashSet<PermissionString> = permission_rows
                 .iter()
-                .filter_map(|r| {
-                    PermissionString::new(r.permission_string.clone()).ok()
-                })
+                .filter_map(|r| PermissionString::new(r.permission_string.clone()).ok())
                 .collect();
 
             let plan_id = PlanId::from_uuid(row.id);
-            let slug = PlanSlug::new(row.slug)
-                .map_err(|e| AppError::validation_error(e.to_string()))?;
+            let slug =
+                PlanSlug::new(row.slug).map_err(|e| AppError::validation_error(e.to_string()))?;
 
             // Convert BigDecimal to f64 for domain model
-            let price_f64 = row.price
+            let price_f64 = row
+                .price
                 .and_then(|bd| bd.to_string().parse::<f64>().ok())
                 .unwrap_or(0.0);
 
@@ -179,16 +178,10 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
             let p = pattern.clone();
-            query = query.filter(
-                plans::name.ilike(pattern)
-                    .or(plans::description.ilike(p))
-            );
+            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
         }
 
-        query = query.order((
-            plans::tier_level.asc(),
-            plans::created_at.desc(),
-        ));
+        query = query.order((plans::tier_level.asc(), plans::created_at.desc()));
 
         if let Some(limit_val) = criteria.limit {
             query = query.limit(limit_val);
@@ -228,7 +221,11 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             description: plan.description().to_string(),
             plan_type: plan.plan_type().to_string(),
             plan_metadata: plan.metadata().clone(),
-            price: plan.price().to_string().parse::<bigdecimal::BigDecimal>().ok(),
+            price: plan
+                .price()
+                .to_string()
+                .parse::<bigdecimal::BigDecimal>()
+                .ok(),
             currency: Some(plan.currency().to_string()),
             billing_cycle: Some(plan.billing_cycle().to_string()),
             is_active: plan.is_active(),
@@ -305,10 +302,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         }
 
         // Build permission strings for the atomic replace query
-        let perm_strings: Vec<&str> = permissions_vec
-            .iter()
-            .map(|p| p.as_str())
-            .collect();
+        let perm_strings: Vec<&str> = permissions_vec.iter().map(|p| p.as_str()).collect();
 
         if perm_strings.is_empty() {
             // No permissions - just delete all existing associations
@@ -338,7 +332,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 let result = diesel::sql_query(
                     r#"INSERT INTO plan_permissions (plan_id, permission_id)
                     SELECT $1, p.id FROM permissions p WHERE p.permission_string = $2
-                    ON CONFLICT (plan_id, permission_id) DO NOTHING"#
+                    ON CONFLICT (plan_id, permission_id) DO NOTHING"#,
                 )
                 .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
                 .bind::<diesel::sql_types::Text, _>(*perm_str)
@@ -357,7 +351,11 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 .map_err(|e| AppError::database_error(e.to_string()))?;
         }
 
-        info!("Permission plan {} saved with {} permissions", plan.id(), perm_strings.len());
+        info!(
+            "Permission plan {} saved with {} permissions",
+            plan.id(),
+            perm_strings.len()
+        );
         Ok(())
     }
 
@@ -401,10 +399,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
             let p = pattern.clone();
-            query = query.filter(
-                plans::name.ilike(pattern)
-                    .or(plans::description.ilike(p))
-            );
+            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
         }
 
         let count = query
@@ -439,7 +434,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             })?;
 
         let total_members: i64 = diesel::sql_query(
-            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_plan_assignments"
+            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_plan_assignments",
         )
         .get_result::<CountResult>(&mut conn)
         .await
@@ -458,7 +453,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         let mut conn = self.db_pool.conn().await?;
 
         let exists = diesel::select(diesel::dsl::exists(
-            plans::table.filter(plans::slug.eq(slug.as_str()))
+            plans::table.filter(plans::slug.eq(slug.as_str())),
         ))
         .get_result::<bool>(&mut conn)
         .await
@@ -471,18 +466,26 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 // Additional helper methods for subscription plan management
 impl PlanRepositoryAdapter {
     /// Get all subscription plans (database_types.rs compatibility layer)
-    pub async fn get_subscription_plans(&self) -> Result<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>, diesel::result::Error> {
+    pub async fn get_subscription_plans(
+        &self,
+    ) -> Result<
+        Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>,
+        diesel::result::Error,
+    > {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|_e| diesel::result::Error::NotFound)?;
 
         plans::table
             .filter(plans::plan_type.eq("subscription"))
             .order_by((
                 plans::tier_level.asc(),
-                plans::price.assume_not_null().asc()
+                plans::price.assume_not_null().asc(),
             ))
             .select(DbPermissionPlan::as_select())
             .load::<DbPermissionPlan>(&mut conn)
@@ -490,11 +493,20 @@ impl PlanRepositoryAdapter {
     }
 
     /// Get plan by ID (database_types.rs compatibility layer)
-    pub async fn get_plan_by_id(&self, plan_id: uuid::Uuid) -> Result<Option<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>, diesel::result::Error> {
+    pub async fn get_plan_by_id(
+        &self,
+        plan_id: uuid::Uuid,
+    ) -> Result<
+        Option<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>,
+        diesel::result::Error,
+    > {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|_e| diesel::result::Error::NotFound)?;
 
         plans::table
@@ -507,11 +519,20 @@ impl PlanRepositoryAdapter {
     }
 
     /// Update plan (database_types.rs compatibility layer)
-    pub async fn update_plan(&self, plan: crate::infrastructure::adapters::repositories::database_types::PermissionPlan) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionPlan, diesel::result::Error> {
+    pub async fn update_plan(
+        &self,
+        plan: crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
+    ) -> Result<
+        crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
+        diesel::result::Error,
+    > {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
         use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|_e| diesel::result::Error::NotFound)?;
 
         diesel::update(plans::table.filter(plans::id.eq(plan.id)))
@@ -534,11 +555,20 @@ impl PlanRepositoryAdapter {
     }
 
     /// Create a new permission plan (database_types.rs compatibility layer)
-    pub async fn create_plan(&self, new_plan: crate::infrastructure::adapters::repositories::database_types::NewPermissionPlan) -> Result<crate::infrastructure::adapters::repositories::database_types::PermissionPlan, diesel::result::Error> {
-        use crate::schemas::primary::plans;
+    pub async fn create_plan(
+        &self,
+        new_plan: crate::infrastructure::adapters::repositories::database_types::NewPermissionPlan,
+    ) -> Result<
+        crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
+        diesel::result::Error,
+    > {
         use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
+        use crate::schemas::primary::plans;
 
-        let mut conn = self.db_pool.conn().await
+        let mut conn = self
+            .db_pool
+            .conn()
+            .await
             .map_err(|_e| diesel::result::Error::NotFound)?;
 
         diesel::insert_into(plans::table)

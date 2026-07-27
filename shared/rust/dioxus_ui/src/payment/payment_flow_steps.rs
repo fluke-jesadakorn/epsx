@@ -95,7 +95,5 @@ mod tests {
     }
 
     #[test]
-    fn payment_flow_steps_smoke() {
-        
-    }
+    fn payment_flow_steps_smoke() {}
 }

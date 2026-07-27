@@ -2,15 +2,15 @@
 // CQRS handler for retrieving detailed wallet information
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletDetailQuery, GetWalletDetailResponse, WalletActivitySummaryDto, WalletDetailDto,
-    WalletPlanDto, WalletPermissionDto,
+    WalletPermissionDto, WalletPlanDto,
 };
 use crate::application::wallet_management::wallet_management_repository::WalletManagementRepository;
+use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use std::sync::Arc;
 use tracing::{error, info};
 
@@ -60,11 +60,13 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })?
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| ApplicationError::infrastructure(format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            ApplicationError::infrastructure(format!("Failed to get database connection: {}", e))
+        })?;
 
         // 4. Get permissions (union of group and direct permissions)
-        let permissions_result = diesel::sql_query(r#"
+        let permissions_result = diesel::sql_query(
+            r#"
             SELECT
                 p.permission_string as permission,
                 'plan' as source,
@@ -91,12 +93,16 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
               AND p.is_active = true
 
             ORDER BY permission
-        "#)
+        "#,
+        )
         .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
         .load::<PermissionDetailRow>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to fetch permissions for {}: {}", query.wallet_address, e);
+            error!(
+                "Failed to fetch permissions for {}: {}",
+                query.wallet_address, e
+            );
             ApplicationError::infrastructure(format!("Failed to fetch permissions: {}", e))
         })?;
 

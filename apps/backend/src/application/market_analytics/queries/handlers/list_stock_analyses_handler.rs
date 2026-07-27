@@ -1,11 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    ListStockAnalysesQuery, ListStockAnalysesResponse, StockAnalysisSummary
+    ListStockAnalysesQuery, ListStockAnalysesResponse, StockAnalysisSummary,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::{
-    StockAnalysisRepositoryPort, StockAnalysisSearchCriteria, MarketSector, Country
+    Country, MarketSector, StockAnalysisRepositoryPort, StockAnalysisSearchCriteria,
 };
+use crate::prelude::*;
 use crate::web::pagination::Pagination;
 
 /// Query handler for listing stock analyses
@@ -23,18 +23,25 @@ impl ListStockAnalysesQueryHandler {
 
 #[async_trait]
 impl QueryHandler<ListStockAnalysesQuery> for ListStockAnalysesQueryHandler {
-    async fn handle(&self, query: ListStockAnalysesQuery) -> ApplicationResult<ListStockAnalysesResponse> {
+    async fn handle(
+        &self,
+        query: ListStockAnalysesQuery,
+    ) -> ApplicationResult<ListStockAnalysesResponse> {
         // 1. Parse filters
         let sector = if let Some(sector_str) = query.sector {
-            Some(MarketSector::new(sector_str)
-                .map_err(|e| ApplicationError::validation("sector", e.to_string()))?)
+            Some(
+                MarketSector::new(sector_str)
+                    .map_err(|e| ApplicationError::validation("sector", e.to_string()))?,
+            )
         } else {
             None
         };
 
         let country = if let Some(country_str) = query.country {
-            Some(Country::new(country_str)
-                .map_err(|e| ApplicationError::validation("country", e.to_string()))?)
+            Some(
+                Country::new(country_str)
+                    .map_err(|e| ApplicationError::validation("country", e.to_string()))?,
+            )
         } else {
             None
         };
@@ -52,15 +59,22 @@ impl QueryHandler<ListStockAnalysesQuery> for ListStockAnalysesQueryHandler {
         };
 
         // 3. Get analyses and total count
-        let analyses = self.stock_analysis_repository.find_all(criteria.clone()).await
+        let analyses = self
+            .stock_analysis_repository
+            .find_all(criteria.clone())
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
-        let total = self.stock_analysis_repository.count(criteria).await
+        let total = self
+            .stock_analysis_repository
+            .count(criteria)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Map to summaries
-        let summaries: Vec<StockAnalysisSummary> = analyses.into_iter().map(|analysis| {
-            StockAnalysisSummary {
+        let summaries: Vec<StockAnalysisSummary> = analyses
+            .into_iter()
+            .map(|analysis| StockAnalysisSummary {
                 symbol: analysis.symbol().to_string(),
                 company_name: analysis.company_name().to_string(),
                 current_eps: analysis.current_eps().value(),
@@ -70,8 +84,8 @@ impl QueryHandler<ListStockAnalysesQuery> for ListStockAnalysesQueryHandler {
                 country: analysis.country().name().to_string(),
                 analysis_score: analysis.analysis_score().overall_score,
                 last_updated: analysis.last_updated(),
-            }
-        }).collect();
+            })
+            .collect();
 
         // 5. Return response
         Ok(ListStockAnalysesResponse {

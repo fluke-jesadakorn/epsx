@@ -49,10 +49,7 @@ pub fn KbdSeparator() -> Element {
 /// Keyboard shortcut help dialog body. Renders a list of shortcuts
 /// grouped by category.
 #[component]
-pub fn KbdHelp(
-    title: String,
-    groups: Vec<(String, Vec<(String, Vec<String>)>)>,
-) -> Element {
+pub fn KbdHelp(title: String, groups: Vec<(String, Vec<(String, Vec<String>)>)>) -> Element {
     rsx! {
         div { class: "kbd-help flex flex-col gap-4 p-4",
             h3 { class: "kbd-help-title text-lg font-semibold", "{title}" }

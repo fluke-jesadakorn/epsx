@@ -2,9 +2,9 @@
 // Domain service for calculating bills and overages
 
 use crate::domain::resource_management::aggregates::UserResourceUsage;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BillingSummary {
@@ -75,10 +75,10 @@ impl BillingCalculationService {
 
         let daily_old_rate = old_plan_cost / total_days_in_period as f64;
         let daily_new_rate = new_plan_cost / total_days_in_period as f64;
-        
+
         let remaining_old_cost = daily_old_rate * days_remaining as f64;
         let new_cost_for_period = daily_new_rate * days_remaining as f64;
-        
+
         new_cost_for_period - remaining_old_cost
     }
 
@@ -97,11 +97,13 @@ impl BillingCalculationService {
 
         // Calculate projected usage based on current trends
         let projection_multiplier = days_in_period as f64 / current_day as f64;
-        
+
         let mut projected_usage = usage.clone();
         for (resource_type, current) in &usage.current_usage {
             let projected = (*current as f64 * projection_multiplier) as i64;
-            projected_usage.current_usage.insert(resource_type.clone(), projected);
+            projected_usage
+                .current_usage
+                .insert(resource_type.clone(), projected);
         }
 
         self.calculate_billing(&projected_usage, base_plan_cost, overage_pricing)

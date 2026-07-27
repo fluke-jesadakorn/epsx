@@ -21,8 +21,8 @@
 //! Each component gets a colocated `#[cfg(test)] mod tests` block
 //! with smoke render + key prop handling.
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Constants
@@ -447,12 +447,28 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-filter-section"), "PaymentLinksFilterSection must render container class. Got: {html}");
-        assert!(html.contains("Context Type"), "PaymentLinksFilterSection must render Context Type label. Got: {html}");
-        assert!(html.contains("Status"), "PaymentLinksFilterSection must render Status label. Got: {html}");
-        assert!(html.contains("Reset"), "PaymentLinksFilterSection must render Reset. Got: {html}");
+        assert!(
+            html.contains("payment-links-filter-section"),
+            "PaymentLinksFilterSection must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Context Type"),
+            "PaymentLinksFilterSection must render Context Type label. Got: {html}"
+        );
+        assert!(
+            html.contains("Status"),
+            "PaymentLinksFilterSection must render Status label. Got: {html}"
+        );
+        assert!(
+            html.contains("Reset"),
+            "PaymentLinksFilterSection must render Reset. Got: {html}"
+        );
         for ctx in all_context_types().iter() {
-            assert!(html.contains(ctx.label()), "PaymentLinksFilterSection must render context type `{}`. Got: {html}", ctx.label());
+            assert!(
+                html.contains(ctx.label()),
+                "PaymentLinksFilterSection must render context type `{}`. Got: {html}",
+                ctx.label()
+            );
         }
     }
 
@@ -470,9 +486,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-action-cards"), "PaymentLinksActionCards must render container class. Got: {html}");
-        assert!(html.contains("New Link"), "PaymentLinksActionCards must render New Link button. Got: {html}");
-        assert!(html.contains("Refresh"), "PaymentLinksActionCards must render Refresh button. Got: {html}");
+        assert!(
+            html.contains("payment-links-action-cards"),
+            "PaymentLinksActionCards must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("New Link"),
+            "PaymentLinksActionCards must render New Link button. Got: {html}"
+        );
+        assert!(
+            html.contains("Refresh"),
+            "PaymentLinksActionCards must render Refresh button. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with `is_open=false` renders nothing.
@@ -489,7 +514,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(!html.contains("create-payment-link-modal"), "CreatePaymentLinkModal must hide when closed. Got: {html}");
+        assert!(
+            !html.contains("create-payment-link-modal"),
+            "CreatePaymentLinkModal must hide when closed. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with `is_open=true` renders the full form.
@@ -506,18 +534,54 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("create-payment-link-modal"), "CreatePaymentLinkModal must render container class. Got: {html}");
-        assert!(html.contains("Create Payment Link"), "CreatePaymentLinkModal must render header. Got: {html}");
-        assert!(html.contains("Context Type *"), "CreatePaymentLinkModal must render Context Type label. Got: {html}");
-        assert!(html.contains("Name *"), "CreatePaymentLinkModal must render Name label. Got: {html}");
-        assert!(html.contains("Description"), "CreatePaymentLinkModal must render Description label. Got: {html}");
-        assert!(html.contains("Amount *"), "CreatePaymentLinkModal must render Amount label. Got: {html}");
-        assert!(html.contains("Currency"), "CreatePaymentLinkModal must render Currency label. Got: {html}");
-        assert!(html.contains("Expires In"), "CreatePaymentLinkModal must render Expires In label. Got: {html}");
-        assert!(html.contains("Max Uses"), "CreatePaymentLinkModal must render Max Uses label. Got: {html}");
-        assert!(html.contains("Custom Slug"), "CreatePaymentLinkModal must render Custom Slug label. Got: {html}");
-        assert!(html.contains("Cancel"), "CreatePaymentLinkModal must render Cancel button. Got: {html}");
-        assert!(html.contains("Create Link"), "CreatePaymentLinkModal must render Create Link button. Got: {html}");
+        assert!(
+            html.contains("create-payment-link-modal"),
+            "CreatePaymentLinkModal must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Create Payment Link"),
+            "CreatePaymentLinkModal must render header. Got: {html}"
+        );
+        assert!(
+            html.contains("Context Type *"),
+            "CreatePaymentLinkModal must render Context Type label. Got: {html}"
+        );
+        assert!(
+            html.contains("Name *"),
+            "CreatePaymentLinkModal must render Name label. Got: {html}"
+        );
+        assert!(
+            html.contains("Description"),
+            "CreatePaymentLinkModal must render Description label. Got: {html}"
+        );
+        assert!(
+            html.contains("Amount *"),
+            "CreatePaymentLinkModal must render Amount label. Got: {html}"
+        );
+        assert!(
+            html.contains("Currency"),
+            "CreatePaymentLinkModal must render Currency label. Got: {html}"
+        );
+        assert!(
+            html.contains("Expires In"),
+            "CreatePaymentLinkModal must render Expires In label. Got: {html}"
+        );
+        assert!(
+            html.contains("Max Uses"),
+            "CreatePaymentLinkModal must render Max Uses label. Got: {html}"
+        );
+        assert!(
+            html.contains("Custom Slug"),
+            "CreatePaymentLinkModal must render Custom Slug label. Got: {html}"
+        );
+        assert!(
+            html.contains("Cancel"),
+            "CreatePaymentLinkModal must render Cancel button. Got: {html}"
+        );
+        assert!(
+            html.contains("Create Link"),
+            "CreatePaymentLinkModal must render Create Link button. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with `form_context_type="plan"` shows Plan ID.
@@ -535,7 +599,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Plan ID"), "CreatePaymentLinkModal with plan context must render Plan ID label. Got: {html}");
+        assert!(
+            html.contains("Plan ID"),
+            "CreatePaymentLinkModal with plan context must render Plan ID label. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with `form_context_type="group"` shows Group ID.
@@ -553,7 +620,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Group ID"), "CreatePaymentLinkModal with group context must render Group ID label. Got: {html}");
+        assert!(
+            html.contains("Group ID"),
+            "CreatePaymentLinkModal with group context must render Group ID label. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with `form_context_type="product"` omits ID field.
@@ -571,8 +641,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(!html.contains("Plan ID"), "CreatePaymentLinkModal with product context must omit Plan ID label. Got: {html}");
-        assert!(!html.contains("Group ID"), "CreatePaymentLinkModal with product context must omit Group ID label. Got: {html}");
+        assert!(
+            !html.contains("Plan ID"),
+            "CreatePaymentLinkModal with product context must omit Plan ID label. Got: {html}"
+        );
+        assert!(
+            !html.contains("Group ID"),
+            "CreatePaymentLinkModal with product context must omit Group ID label. Got: {html}"
+        );
     }
 
     /// `CreatePaymentLinkModal` with error shows the error banner.
@@ -590,8 +666,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Amount is required"), "CreatePaymentLinkModal must render error banner. Got: {html}");
-        assert!(html.contains("bg-destructive/10"), "CreatePaymentLinkModal must use destructive bg. Got: {html}");
+        assert!(
+            html.contains("Amount is required"),
+            "CreatePaymentLinkModal must render error banner. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-destructive/10"),
+            "CreatePaymentLinkModal must use destructive bg. Got: {html}"
+        );
     }
 
     /// `PaymentLinksLoadingState` renders the animated skeleton.
@@ -603,10 +685,19 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-loading"), "PaymentLinksLoadingState must render container class. Got: {html}");
-        assert!(html.contains("animate-pulse"), "PaymentLinksLoadingState must animate. Got: {html}");
+        assert!(
+            html.contains("payment-links-loading"),
+            "PaymentLinksLoadingState must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("animate-pulse"),
+            "PaymentLinksLoadingState must animate. Got: {html}"
+        );
         for i in 0..4 {
-            assert!(html.contains(&format!("skel-{i}")), "PaymentLinksLoadingState must render skel-{i}. Got: {html}");
+            assert!(
+                html.contains(&format!("skel-{i}")),
+                "PaymentLinksLoadingState must render skel-{i}. Got: {html}"
+            );
         }
     }
 
@@ -619,8 +710,17 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-empty-state"), "PaymentLinksEmptyState must render container class. Got: {html}");
-        assert!(html.contains("No payment links yet"), "PaymentLinksEmptyState must render headline. Got: {html}");
-        assert!(html.contains("Create your first payment link"), "PaymentLinksEmptyState must render subhead. Got: {html}");
+        assert!(
+            html.contains("payment-links-empty-state"),
+            "PaymentLinksEmptyState must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No payment links yet"),
+            "PaymentLinksEmptyState must render headline. Got: {html}"
+        );
+        assert!(
+            html.contains("Create your first payment link"),
+            "PaymentLinksEmptyState must render subhead. Got: {html}"
+        );
     }
 }

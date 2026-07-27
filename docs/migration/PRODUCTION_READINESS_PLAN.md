@@ -1081,8 +1081,8 @@ bounded path set. Shared contract files require coordination through package A0.
   letter delivery, safe SMTP behavior, realtime ownership, observability, and
   rollback are proven.
 
-- **A11.0 status:** the deterministic lifecycle contract pins 14 source records
-  and 53 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
+  - **A11.0 status:** the deterministic lifecycle contract pins 14 source records
+  and 88 target anchors across 12 blocked surfaces. Its 22 STOP blockers cover
   migration history/adoption, truthful asynchronous delivery, preferences/SSE/
   push, publisher inbox/outbox and idempotency, retry/dead-letter behavior,
   templates/privacy, reconciliation, observability, deployability, single-writer

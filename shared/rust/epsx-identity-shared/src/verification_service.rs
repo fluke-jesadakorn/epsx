@@ -3,48 +3,60 @@
 // Also handles blockchain permission queries: NFT, Token, DAO
 
 use chrono::Utc;
-use ethers::{
-    types::{Address, U256},
-    providers::{Http, Provider, Middleware},
-    contract::Contract,
-    abi::Abi,
-};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use std::sync::Arc;
+use ethers::{
+    abi::Abi,
+    contract::Contract,
+    providers::{Http, Middleware, Provider},
+    types::{Address, U256},
+};
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{debug, info, warn};
 
-use crate::config::get_bsc_chain_id;
 use super::auth_service::{UnifiedWeb3AuthService, Web3AuthError};
+use crate::config::get_bsc_chain_id;
 
 impl UnifiedWeb3AuthService {
     /// Get or create user for wallet
-    pub(super) async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
+    pub(super) async fn get_or_create_user(
+        &self,
+        wallet_address: &str,
+    ) -> Result<(String, bool), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
         use crate::schemas::primary::wallet_users;
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
-        let user_exists: Option<String> = diesel_async::RunQueryDsl::first(wallet_users::table
-            .filter(wallet_users::wallet_address.eq(wallet_address))
-            .select(wallet_users::wallet_address), &mut conn)
-            .await
-            .optional()
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        let user_exists: Option<String> = diesel_async::RunQueryDsl::first(
+            wallet_users::table
+                .filter(wallet_users::wallet_address.eq(wallet_address))
+                .select(wallet_users::wallet_address),
+            &mut conn,
+        )
+        .await
+        .optional()
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         if user_exists.is_some() {
             let now = Utc::now();
-            diesel_async::RunQueryDsl::execute(diesel::update(wallet_users::table)
-                .filter(wallet_users::wallet_address.eq(wallet_address))
-                .set((
-                    wallet_users::last_auth_at.eq(&now),
-                    wallet_users::updated_at.eq(&now),
-                )), &mut conn)
-                .await
-                .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+            diesel_async::RunQueryDsl::execute(
+                diesel::update(wallet_users::table)
+                    .filter(wallet_users::wallet_address.eq(wallet_address))
+                    .set((
+                        wallet_users::last_auth_at.eq(&now),
+                        wallet_users::updated_at.eq(&now),
+                    )),
+                &mut conn,
+            )
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
             debug!("Updated existing wallet user activity: {}", wallet_address);
             return Ok((wallet_address.to_string(), false));
@@ -65,11 +77,14 @@ impl UnifiedWeb3AuthService {
         });
 
         let now = chrono::Utc::now();
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        diesel_async::RunQueryDsl::execute(diesel::insert_into(wallet_users::table)
-            .values((
+        diesel_async::RunQueryDsl::execute(
+            diesel::insert_into(wallet_users::table).values((
                 wallet_users::wallet_address.eq(wallet_address),
                 wallet_users::is_active.eq(true),
                 wallet_users::tier_level.eq("Bronze"),
@@ -77,9 +92,11 @@ impl UnifiedWeb3AuthService {
                 wallet_users::created_at.eq(&now),
                 wallet_users::updated_at.eq(&now),
                 wallet_users::last_auth_at.eq(&now),
-            )), &mut conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+            )),
+            &mut conn,
+        )
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!(
             wallet_address = %wallet_address,
@@ -89,14 +106,19 @@ impl UnifiedWeb3AuthService {
             "New wallet user created successfully"
         );
 
-        self.emit_new_wallet_event(wallet_address, &connection_metadata).await;
+        self.emit_new_wallet_event(wallet_address, &connection_metadata)
+            .await;
         self.assign_free_plan_to_wallet(wallet_address).await;
 
         Ok((wallet_address.to_string(), true))
     }
 
     /// Emit new wallet creation event for admin notifications
-    pub(super) async fn emit_new_wallet_event(&self, wallet_address: &str, metadata: &serde_json::Value) {
+    pub(super) async fn emit_new_wallet_event(
+        &self,
+        wallet_address: &str,
+        metadata: &serde_json::Value,
+    ) {
         let event_payload = serde_json::json!({
             "event_type": "new_wallet_connected",
             "timestamp": Utc::now().to_rfc3339(),
@@ -120,7 +142,9 @@ impl UnifiedWeb3AuthService {
 
     /// Assign Free Plan to a newly created wallet
     pub(super) async fn assign_free_plan_to_wallet(&self, wallet_address: &str) {
-        use crate::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
+        use crate::constants::{
+            FREE_PLAN_NAME, FREE_PLAN_RANKINGS_LIMIT, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_SLUG,
+        };
 
         let wallet_address = wallet_address.trim().to_lowercase();
 
@@ -250,7 +274,10 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get NFT-based permissions
-    pub(super) async fn get_nft_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub(super) async fn get_nft_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let mut permissions = Vec::new();
 
         let nft_contract = match std::env::var("ENTERPRISE_NFT_CONTRACT") {
@@ -271,12 +298,18 @@ impl UnifiedWeb3AuthService {
 
         let wallet_addr = match Address::from_str(wallet_address) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
         };
 
         let contract_addr = match Address::from_str(&nft_contract) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid NFT contract address {}: {}", nft_contract, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid NFT contract address {}: {}", nft_contract, e);
+                return Ok(permissions);
+            }
         };
 
         let balance_of_abi = r#"[{"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
@@ -288,9 +321,15 @@ impl UnifiedWeb3AuthService {
                     Ok(balance) if balance > U256::zero() => {
                         permissions.push("epsx:premium:nft_holder".to_string());
                         permissions.push("epsx:analytics:exclusive".to_string());
-                        info!("Wallet {} owns {} NFTs, granted premium NFT permissions", wallet_address, balance);
+                        info!(
+                            "Wallet {} owns {} NFTs, granted premium NFT permissions",
+                            wallet_address, balance
+                        );
                     }
-                    Ok(_) => debug!("Wallet {} owns no NFTs from contract {}", wallet_address, nft_contract),
+                    Ok(_) => debug!(
+                        "Wallet {} owns no NFTs from contract {}",
+                        wallet_address, nft_contract
+                    ),
                     Err(e) => warn!("Failed to check NFT balance for {}: {}", wallet_address, e),
                 },
                 Err(e) => warn!("Failed to create NFT contract call: {}", e),
@@ -303,17 +342,26 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get token-based permissions based on BNB balance
-    pub(super) async fn get_token_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub(super) async fn get_token_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let mut permissions = Vec::new();
 
         let provider = match self.bsc_provider() {
             Ok(p) => p,
-            Err(e) => { warn!("Failed to create BSC provider: {}", e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Failed to create BSC provider: {}", e);
+                return Ok(permissions);
+            }
         };
 
         let address = match Address::from_str(wallet_address) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
         };
 
         match provider.get_balance(address, None).await {
@@ -329,7 +377,12 @@ impl UnifiedWeb3AuthService {
                     permissions.push("epsx:premium:monthly".to_string());
                     permissions.push("epsx:analytics:standard".to_string());
                 }
-                debug!("Wallet {} has {} BNB, granted {} token permissions", wallet_address, bnb, permissions.len());
+                debug!(
+                    "Wallet {} has {} BNB, granted {} token permissions",
+                    wallet_address,
+                    bnb,
+                    permissions.len()
+                );
             }
             Err(e) => warn!("Failed to get BNB balance for {}: {}", wallet_address, e),
         }
@@ -338,7 +391,10 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get DAO governance permissions based on governance token holdings
-    pub(super) async fn get_dao_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub(super) async fn get_dao_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let mut permissions = Vec::new();
 
         let governance_token = match std::env::var("ENTERPRISE_GOVERNANCE_TOKEN") {
@@ -351,17 +407,29 @@ impl UnifiedWeb3AuthService {
 
         let provider = match self.bsc_provider() {
             Ok(p) => p,
-            Err(e) => { warn!("Failed to create BSC provider for DAO check: {}", e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Failed to create BSC provider for DAO check: {}", e);
+                return Ok(permissions);
+            }
         };
 
         let wallet_addr = match Address::from_str(wallet_address) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
         };
 
         let token_addr = match Address::from_str(&governance_token) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid governance token address {}: {}", governance_token, e); return Ok(permissions); }
+            Err(e) => {
+                warn!(
+                    "Invalid governance token address {}: {}",
+                    governance_token, e
+                );
+                return Ok(permissions);
+            }
         };
 
         let balance_of_abi = r#"[{"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
@@ -382,10 +450,18 @@ impl UnifiedWeb3AuthService {
                         } else if token_bal >= 10.0 {
                             permissions.push("epsx:dao:participant".to_string());
                         }
-                        info!("Wallet {} holds {} governance tokens, granted {} DAO permissions", wallet_address, token_bal, permissions.len());
+                        info!(
+                            "Wallet {} holds {} governance tokens, granted {} DAO permissions",
+                            wallet_address,
+                            token_bal,
+                            permissions.len()
+                        );
                     }
                     Ok(_) => debug!("Wallet {} holds no governance tokens", wallet_address),
-                    Err(e) => warn!("Failed to check governance token balance for {}: {}", wallet_address, e),
+                    Err(e) => warn!(
+                        "Failed to check governance token balance for {}: {}",
+                        wallet_address, e
+                    ),
                 },
                 Err(e) => warn!("Failed to create governance token contract call: {}", e),
             }

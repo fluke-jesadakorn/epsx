@@ -1,8 +1,8 @@
+use rust_decimal::prelude::ToPrimitive;
 use rust_decimal::Decimal;
 use rust_decimal_macros::dec;
-use rust_decimal::prelude::ToPrimitive;
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
-use serde::{Serialize, Deserialize};
 
 /// Credit Amount Value Object
 /// Represents a credit amount with validation (always in USD equivalent)
@@ -169,10 +169,7 @@ impl CreditTransactionType {
 
     /// Check if transaction type removes credits
     pub fn is_debit(&self) -> bool {
-        matches!(
-            self,
-            Self::Revoke | Self::PaymentDebit | Self::Expiry
-        )
+        matches!(self, Self::Revoke | Self::PaymentDebit | Self::Expiry)
     }
 
     /// Get human-readable label
@@ -260,7 +257,10 @@ impl Display for CreditError {
             Self::NegativeAmount(amount) => {
                 write!(f, "Credit amount cannot be negative: {}", amount)
             }
-            Self::TooManyDecimals { amount, max_decimals } => {
+            Self::TooManyDecimals {
+                amount,
+                max_decimals,
+            } => {
                 write!(
                     f,
                     "Credit amount {} has too many decimal places (max: {})",
@@ -274,7 +274,10 @@ impl Display for CreditError {
                     amount, maximum
                 )
             }
-            Self::InsufficientCredits { available, required } => {
+            Self::InsufficientCredits {
+                available,
+                required,
+            } => {
                 write!(
                     f,
                     "Insufficient credits: available ${:.2}, required ${:.2}",

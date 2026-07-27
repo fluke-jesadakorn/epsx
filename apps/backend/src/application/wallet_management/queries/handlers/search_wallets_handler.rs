@@ -1,8 +1,8 @@
 use crate::prelude::*;
 
-use crate::application::shared::{Query, QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::models::{
-    SearchWalletsQuery, SearchWalletsResponse
+    SearchWalletsQuery, SearchWalletsResponse,
 };
 use crate::domain::wallet_management::WalletUserRepositoryPort;
 // Redundant import removed
@@ -35,8 +35,12 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
         let has_created_before = query.created_before.is_some();
         let has_last_login_after = query.last_login_after.is_some();
 
-        let has_permissions = query.has_permissions.iter()
-            .filter_map(|p| crate::domain::wallet_management::value_objects::Permission::new(p).ok())
+        let has_permissions = query
+            .has_permissions
+            .iter()
+            .filter_map(|p| {
+                crate::domain::wallet_management::value_objects::Permission::new(p).ok()
+            })
             .collect();
 
         let criteria = crate::domain::wallet_management::WalletUserSearchCriteria {
@@ -55,13 +59,19 @@ impl QueryHandler<SearchWalletsQuery> for SearchWalletsQueryHandler {
         };
 
         // 3. Search repository
-        let result = self.wallet_repository
-            .find_by_criteria(&criteria, query.pagination.page_size, query.pagination.offset())
+        let result = self
+            .wallet_repository
+            .find_by_criteria(
+                &criteria,
+                query.pagination.page_size,
+                query.pagination.offset(),
+            )
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 4. Map to response
-        let total_pages = (result.total_count as f64 / query.pagination.page_size as f64).ceil() as u32;
+        let total_pages =
+            (result.total_count as f64 / query.pagination.page_size as f64).ceil() as u32;
         let current_page = query.pagination.page;
 
         // Map WalletUser to WalletSummary
