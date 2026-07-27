@@ -526,9 +526,6 @@ mod tests {
         ) -> *const CrateEPSRanking {
             a
         }
-        // Compile-time equality. Runtime assertion kept for
-        // future-proofing the test fn itself.
-        assert!(true, "type-level re-export sanity holds for EPSRanking");
         let _ = assert_same_type;
     }
 

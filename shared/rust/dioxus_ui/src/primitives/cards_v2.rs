@@ -112,7 +112,6 @@ pub fn PricingCard(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn metric_card_value_uses_large_text() {

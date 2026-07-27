@@ -32,21 +32,18 @@ use serde::{Deserialize, Serialize};
 /// `Failed { reason }` for the error path. The checkout
 /// component maps this into `UnifiedPaymentStep` for the
 /// visual stepper.
-#[derive(Clone, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Debug, Default, Serialize, Deserialize)]
 pub enum WizardStep {
+    #[default]
     Idle,
     ConnectWallet,
     SelectPlan,
     Approve,
     Pay,
     Done,
-    Failed { reason: String },
-}
-
-impl Default for WizardStep {
-    fn default() -> Self {
-        Self::Idle
-    }
+    Failed {
+        reason: String,
+    },
 }
 
 /// URL params parsed from the BFF SSR fallback (`?amount=…&currency=…&chain_id=…&token=…&intent=…`).
@@ -101,6 +98,7 @@ impl PaymentWizardState {
 
     /// Advance to the next step. Returns `true` if the step
     /// changed, `false` if already at the target.
+    #[cfg(test)]
     pub fn advance(&mut self) -> bool {
         let next = match &self.step {
             WizardStep::Idle => WizardStep::ConnectWallet,
@@ -115,6 +113,7 @@ impl PaymentWizardState {
     }
 
     /// Move to the failed state with a reason.
+    #[cfg(test)]
     pub fn fail(&mut self, reason: impl Into<String>) {
         self.step = WizardStep::Failed {
             reason: reason.into(),

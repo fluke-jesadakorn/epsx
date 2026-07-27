@@ -325,14 +325,9 @@ impl LocalRankingOffsetBus {
 ///
 /// **Field semantics** (matches the proto Track A adds to
 /// `shared/proto/identity.proto`):
-///   - `wallet`        — the lowercased / EIP-55 wallet
-///                       address whose ranking offset
-///                       changed.
-///   - `offset`        — the new plan-tier ranking offset
-///                       (0..=1000 per
-///                       `epsx-contracts::value_objects::ranking_offset`).
-///   - `changed_at_ms` — Unix epoch milliseconds when the
-///                       change was emitted (server clock).
+/// - `wallet` — the lowercased / EIP-55 wallet whose ranking offset changed.
+/// - `offset` — the new plan-tier ranking offset (0..=1000).
+/// - `changed_at_ms` — Unix epoch milliseconds from the server clock.
 ///
 /// `Serialize` is included so the `/v1/rankings/stream`
 /// HTTP passthrough can re-emit the same JSON shape to
@@ -1899,7 +1894,7 @@ mod tests {
             assert_eq!(r.offset, received_count as i32);
             assert_eq!(r.changed_at_ms, 1_700_000_000_000 + received_count as i64);
             received_count += 1;
-            if received_count % 20 == 0 {
+            if received_count.is_multiple_of(20) {
                 eprintln!(
                     "[wave15 regression] drained {}/{} events ({:.1}s elapsed)",
                     received_count,
@@ -2232,15 +2227,17 @@ mod construction_site_parity_guards {
     /// inside the function body), NOT the whole function
     /// body or the whole file. This scoping avoids false
     /// positives from:
-    ///   - The module-level doc comment (which legitimately
-    ///     explains the wave-15 bug by name).
-    ///   - The function-level doc comment (which also
-    ///     mentions `.timeout(_)` to explain the
-    ///     wave-15 root cause).
-    ///   - The `construction_site_parity_guards` test
-    ///     itself (which contains `.timeout(` as a string
-    ///     literal in the `FORBIDDEN_BUILDER_KNOBS` list
-    ///     below).
+    ///
+    /// - The module-level doc comment (which legitimately
+    ///   explains the wave-15 bug by name).
+    /// - The function-level doc comment (which also
+    ///   mentions `.timeout(_)` to explain the
+    ///   wave-15 root cause).
+    /// - The `construction_site_parity_guards` test
+    ///   itself (which contains `.timeout(` as a string
+    ///   literal in the `FORBIDDEN_BUILDER_KNOBS` list
+    ///   below).
+    ///
     /// The markers are a structural contract: a future
     /// refactor that adds a real builder call to the
     /// function MUST place it between the markers, OR

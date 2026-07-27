@@ -27,7 +27,6 @@ mod audit_log_adapter;
 mod auth;
 mod chat_admin_adapter;
 mod commerce_adapter;
-mod commerce_admin_adapter;
 mod dashboard_user_status_adapter;
 mod developer_portal_adapter;
 mod media_adapter;
@@ -36,7 +35,6 @@ mod notification_admin_adapter;
 mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;
-mod settings_adapter;
 mod settings_admin_adapter;
 mod ssr;
 mod wallet_stats_adapter;
@@ -169,6 +167,7 @@ fn parse_admin_notification_form(body: &[u8]) -> Result<AdminNotificationSendFor
     })
 }
 
+#[cfg(test)]
 fn admin_notification_form_redirect(state: &'static str) -> Response {
     let state = matches!(state, "accepted")
         .then_some("accepted")
@@ -1483,7 +1482,7 @@ mod routing_tests {
         for invalid in [
             format!("{body}&message=duplicate"),
             format!("{body}&broadcast=true"),
-            format!("recipient_wallet_address=0x123&title=x&message=y"),
+            "recipient_wallet_address=0x123&title=x&message=y".to_string(),
             format!("recipient_wallet_address={wallet}&title=&message=y&idempotency_key=x"),
         ] {
             assert!(
@@ -2848,7 +2847,7 @@ async fn verified_admin_form_context(
     state: &AppState,
     headers: &HeaderMap,
 ) -> Result<RequestContext, StatusCode> {
-    let mut context = verified_admin_auth_context(state, headers).await?;
+    let context = verified_admin_auth_context(state, headers).await?;
     let content_type = headers
         .get(header::CONTENT_TYPE)
         .and_then(|value| value.to_str().ok())
@@ -4049,7 +4048,7 @@ async fn submit_media_upload_form(
     let mut filename = None;
     let mut bytes = None;
     let mut idempotency_key = None;
-    while let Ok(Some(mut field)) = multipart.next_field().await {
+    while let Ok(Some(field)) = multipart.next_field().await {
         let Some(name) = field.name().map(str::to_string) else {
             return media_mutation_redirect("public", "malformed", None);
         };

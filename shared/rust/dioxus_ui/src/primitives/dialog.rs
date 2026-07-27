@@ -128,7 +128,6 @@ pub fn DialogClose(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn title_class_starts_with_dialog_title() {

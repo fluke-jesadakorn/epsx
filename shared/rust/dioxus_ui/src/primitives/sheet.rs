@@ -33,7 +33,7 @@ impl SheetSide {
 
     /// Accept the TS shadcn string form ("left" | "right" | "top" |
     /// "bottom"); anything else falls back to Right.
-    pub fn from_str(s: Option<&str>) -> Self {
+    pub fn from_name(s: Option<&str>) -> Self {
         match s.unwrap_or("right") {
             "left" => SheetSide::Left,
             "top" => SheetSide::Top,
@@ -55,7 +55,7 @@ pub fn Sheet(
     if !open {
         return rsx! { Fragment {} };
     }
-    let base = SheetSide::from_str(side.as_deref()).classes();
+    let base = SheetSide::from_name(side.as_deref()).classes();
     let extra = class_name.unwrap_or_default();
     let cls = if extra.is_empty() {
         base.to_string()
@@ -126,7 +126,7 @@ pub fn SheetContent(
     class_name: Option<String>,
     children: Element,
 ) -> Element {
-    let base = SheetSide::from_str(side.as_deref()).classes();
+    let base = SheetSide::from_name(side.as_deref()).classes();
     let extra = class_name.unwrap_or_default();
     let cls = if extra.is_empty() {
         base.to_string()

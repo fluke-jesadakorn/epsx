@@ -81,7 +81,6 @@ pub fn TagInput(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn tag_input_class_uses_focus_ring() {

@@ -20,8 +20,6 @@
 //! keeps the dark page background, and uses the prod's gradient
 //! hero + dark card + `text-purple-400` section headings verbatim.
 
-use crate::primitives::*;
-
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;

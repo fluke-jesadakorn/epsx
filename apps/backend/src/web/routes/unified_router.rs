@@ -206,7 +206,8 @@ impl UnifiedRouteBuilder {
         // async (it touches the notifications pool), so we cannot
         // build it inside this sync path — the caller (main.rs)
         // builds it in async context and hands us the Arc.
-        let app_state = app_state
+
+        app_state
             .with_notification_port_opt(self.notification_port.clone())
             .with_payment_repo(self.payment_repo.clone())
             .with_credit_repo(self.credit_repo.clone())
@@ -217,8 +218,7 @@ impl UnifiedRouteBuilder {
             // path. Both are recoverable in production (no
             // panics).
             .with_payment_context_repository_port_opt(self.payment_context_repository_port.clone())
-            .with_subscription_repository_port_opt(self.subscription_repository_port.clone());
-        app_state
+            .with_subscription_repository_port_opt(self.subscription_repository_port.clone())
     }
 
     /// Build complete router with all routes and middleware

@@ -8,19 +8,15 @@ use serde::{Deserialize, Serialize};
 /// so the UI can render the right pill / icon.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AuthMethod {
     Wallet,
     Email,
     Demo,
     OAuth,
     Siwe,
+    #[default]
     Unknown,
-}
-
-impl Default for AuthMethod {
-    fn default() -> Self {
-        Self::Unknown
-    }
 }
 
 /// Existing user shape — extended with the optional auth metadata
@@ -159,13 +155,7 @@ impl User {
             AuthMethod::Email => "mail".to_string(),
             AuthMethod::OAuth => "shield".to_string(),
             AuthMethod::Demo => "user".to_string(),
-            AuthMethod::Unknown => {
-                if self.is_authed() {
-                    "user".to_string()
-                } else {
-                    "user".to_string()
-                }
-            }
+            AuthMethod::Unknown => "user".to_string(),
         }
     }
 }

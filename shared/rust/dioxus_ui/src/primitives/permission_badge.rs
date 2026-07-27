@@ -59,7 +59,7 @@ pub struct PermissionBadgeProps {
 /// `permission` is the technical code (e.g. `"epsx:analytics:view"`).
 /// `title` is the human-readable display label; when `None` the
 /// permission code is shown verbatim (a useful fallback during loading).
-pub fn PermissionBadge(props: PermissionBadgeProps) -> Element {
+pub fn permission_badge(props: PermissionBadgeProps) -> Element {
     let PermissionBadgeProps {
         permission,
         title,
@@ -130,6 +130,8 @@ pub fn PermissionBadge(props: PermissionBadgeProps) -> Element {
 
     badge_inner
 }
+
+pub use permission_badge as PermissionBadge;
 
 /// Best-effort icon-name mapping for a permission string. Returns one of
 /// the canonical lucide names already exposed by the Dioxus Icon

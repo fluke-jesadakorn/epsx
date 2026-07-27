@@ -209,9 +209,11 @@ fn plan_detail_load(ctx: &PageContext) -> PlanDetailLoad {
             else {
                 return PlanDetailLoad::Malformed;
             };
-            (canonical_plan_id(&projection.id) == Some(route_id))
-                .then_some(PlanDetailLoad::Ready(projection))
-                .unwrap_or(PlanDetailLoad::Malformed)
+            if canonical_plan_id(&projection.id) == Some(route_id) {
+                PlanDetailLoad::Ready(projection)
+            } else {
+                PlanDetailLoad::Malformed
+            }
         }
         Some(ADMIN_PLANS_FORBIDDEN) => PlanDetailLoad::Forbidden,
         Some(ADMIN_PLANS_MALFORMED) => PlanDetailLoad::Malformed,

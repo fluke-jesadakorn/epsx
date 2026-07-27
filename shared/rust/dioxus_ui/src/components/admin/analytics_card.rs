@@ -66,7 +66,7 @@ impl AnalyticsIconName {
         }
     }
 
-    pub fn from_str(name: &str) -> Self {
+    pub fn from_name(name: &str) -> Self {
         match name {
             "users" => AnalyticsIconName::Users,
             "permissions" => AnalyticsIconName::Permissions,
@@ -91,7 +91,7 @@ impl AnalyticsIconName {
 #[component]
 pub fn AnalyticsIcon(name: String, class_name: Option<String>, size: Option<usize>) -> Element {
     let size = size.unwrap_or(24);
-    let icon = AnalyticsIconName::from_str(&name);
+    let icon = AnalyticsIconName::from_name(&name);
     let lucide_name = icon.lucide_name();
     let body = epsx_templates::lucide_icon(lucide_name);
     let cls = class_name.unwrap_or_default();
@@ -136,7 +136,7 @@ impl AnalyticsStatusColor {
             AnalyticsStatusColor::Purple => "bg-gradient-to-br from-purple-500 to-orange-500 text-white shadow-lg shadow-purple-500/20",
         }
     }
-    pub fn from_str(name: &str) -> Self {
+    pub fn from_name(name: &str) -> Self {
         match name {
             "green" => AnalyticsStatusColor::Green,
             "yellow" => AnalyticsStatusColor::Yellow,
@@ -163,7 +163,7 @@ impl AnalyticsTrend {
             AnalyticsTrend::Neutral => "text-slate-400 bg-muted/30 border border-border/20",
         }
     }
-    pub fn from_str(name: &str) -> Self {
+    pub fn from_name(name: &str) -> Self {
         match name {
             "up" => AnalyticsTrend::Up,
             "down" => AnalyticsTrend::Down,
@@ -190,8 +190,8 @@ pub fn AnalyticsStatsCard(
     class_name: Option<String>,
 ) -> Element {
     let status_color =
-        AnalyticsStatusColor::from_str(&status_color.unwrap_or_else(|| "purple".to_string()));
-    let trend = AnalyticsTrend::from_str(&trend.unwrap_or_else(|| "neutral".to_string()));
+        AnalyticsStatusColor::from_name(&status_color.unwrap_or_else(|| "purple".to_string()));
+    let trend = AnalyticsTrend::from_name(&trend.unwrap_or_else(|| "neutral".to_string()));
     let trend_value = trend_value.unwrap_or_default();
 
     let mut cls = "group relative bg-card border border-border/20 rounded-2xl shadow-xl overflow-hidden transition-all duration-300 hover:border-[#1fc7d4]/30 active:scale-[0.99] p-8".to_string();

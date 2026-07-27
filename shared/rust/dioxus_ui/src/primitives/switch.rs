@@ -4,9 +4,10 @@ use dioxus::prelude::*;
 
 /// Switch size variants. The corresponding CSS class is added to the root
 /// element so the design-system CSS can size the track + thumb.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum SwitchSize {
     Sm,
+    #[default]
     Md,
     Lg,
 }
@@ -18,12 +19,6 @@ impl SwitchSize {
             SwitchSize::Md => "md",
             SwitchSize::Lg => "lg",
         }
-    }
-}
-
-impl Default for SwitchSize {
-    fn default() -> Self {
-        SwitchSize::Md
     }
 }
 

@@ -291,69 +291,16 @@ fn wallet_detail_load(ctx: &PageContext) -> WalletDetailLoad {
             else {
                 return WalletDetailLoad::Malformed;
             };
-            (canonical_wallet_address(&projection.address) == Some(route_address))
-                .then_some(WalletDetailLoad::Ready(projection))
-                .unwrap_or(WalletDetailLoad::Malformed)
+            if canonical_wallet_address(&projection.address) == Some(route_address) {
+                WalletDetailLoad::Ready(projection)
+            } else {
+                WalletDetailLoad::Malformed
+            }
         }
         Some(ADMIN_WALLET_DETAIL_FORBIDDEN) => WalletDetailLoad::Forbidden,
         Some(ADMIN_WALLET_DETAIL_MALFORMED) => WalletDetailLoad::Malformed,
         Some(ADMIN_WALLET_DETAIL_UNAVAILABLE) | None => WalletDetailLoad::Unavailable,
         Some(_) => WalletDetailLoad::Malformed,
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-enum WalletSurface {
-    List,
-    Detail,
-    Disable,
-}
-
-impl WalletSurface {
-    fn marker(self) -> &'static str {
-        match self {
-            Self::List => "list",
-            Self::Detail => "detail",
-            Self::Disable => "disable",
-        }
-    }
-
-    fn meta_title(self) -> &'static str {
-        match self {
-            Self::List => "Wallets unavailable",
-            Self::Detail => "Wallet detail unavailable",
-            Self::Disable => "Wallet operation unavailable",
-        }
-    }
-
-    fn eyebrow(self) -> &'static str {
-        match self {
-            Self::List => "Wallet inventory",
-            Self::Detail => "Wallet workspace",
-            Self::Disable => "Wallet operation",
-        }
-    }
-
-    fn title(self) -> &'static str {
-        match self {
-            Self::List => "Wallet inventory is unavailable",
-            Self::Detail => "This wallet cannot be verified",
-            Self::Disable => "Wallet changes are unavailable",
-        }
-    }
-
-    fn detail(self) -> &'static str {
-        match self {
-            Self::List => {
-                "No wallet records, counts, balances, platforms, permissions, subscription summaries, or activity are shown because an authoritative wallet list contract is not connected."
-            }
-            Self::Detail => {
-                "No identity, balance, chain, subscription, permission, activity, or transaction data is shown because the backend has not verified the requested wallet."
-            }
-            Self::Disable => {
-                "No status or impact is inferred, and no disable or re-enable action is offered because an authorized, idempotent, audited wallet mutation is not connected."
-            }
-        }
     }
 }
 
@@ -626,7 +573,7 @@ fn RenderWalletList(ctx: PageContext) -> Element {
 
     rsx! {
         div {
-            "data-admin-wallets-surface": WalletSurface::List.marker(),
+            "data-admin-wallets-surface": "list",
             PageLayout {
                 max_width: Some(PageMaxWidth::SevenXl),
                 PageHeader {
@@ -895,31 +842,6 @@ fn format_count(value: i64) -> String {
     formatted
 }
 
-fn render_surface(
-    ctx: &PageContext,
-    surface: WalletSurface,
-    route_reference: Option<String>,
-) -> (PageMeta, Element) {
-    let meta = PageMeta::admin(surface.meta_title());
-    let retry_href = route_reference
-        .as_deref()
-        .map(|reference| route_href(surface, reference))
-        .unwrap_or_else(|| WALLETS_PATH.to_string());
-
-    (
-        meta,
-        rsx! {
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("the private admin wallet workspace".to_string()),
-                // Never disclose a route identifier in signed-out HTML.
-                return_url: Some(WALLETS_PATH.to_string()),
-                WalletUnavailable { surface, route_reference, retry_href }
-            }
-        },
-    )
-}
-
 fn encode_path_segment(reference: &str) -> String {
     let mut encoded = String::with_capacity(reference.len());
     for byte in reference.as_bytes() {
@@ -936,88 +858,6 @@ fn encode_path_segment(reference: &str) -> String {
         }
     }
     encoded
-}
-
-fn route_href(surface: WalletSurface, reference: &str) -> String {
-    let encoded = encode_path_segment(reference);
-    match surface {
-        WalletSurface::List => WALLETS_PATH.to_string(),
-        WalletSurface::Detail => format!("/wallet-management/{encoded}"),
-        WalletSurface::Disable => {
-            format!("/wallet-management/wallets/{encoded}/disable")
-        }
-    }
-}
-
-#[component]
-fn WalletUnavailable(
-    surface: WalletSurface,
-    route_reference: Option<String>,
-    retry_href: String,
-) -> Element {
-    let title_id = format!("admin-wallet-{}-unavailable-title", surface.marker());
-
-    rsx! {
-        div {
-            class: "container page-content max-w-6xl py-10",
-            "data-admin-wallets-state": "unavailable",
-            "data-admin-wallets-surface": surface.marker(),
-            section {
-                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
-                role: "status",
-                aria_labelledby: title_id.clone(),
-                div {
-                    class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]",
-                    aria_hidden: "true",
-                }
-                div { class: "grid gap-8 p-8 md:grid-cols-[auto_1fr] md:p-12",
-                    div {
-                        class: "flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400",
-                        aria_hidden: "true",
-                        Icon { name: "wallet".to_string(), size: Some(30) }
-                    }
-                    div {
-                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-violet-400",
-                            {surface.eyebrow()}
-                        }
-                        h1 { id: title_id, class: "mt-3 text-3xl font-black tracking-tight text-foreground",
-                            {surface.title()}
-                        }
-                        div { class: "mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5",
-                            p { class: "text-sm font-semibold leading-6 text-foreground",
-                                {surface.detail()}
-                            }
-                        }
-                        if let Some(reference) = route_reference {
-                            p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
-                                "Unverified route reference: "
-                                code { "data-admin-wallet-route-reference": "bounded", "{reference}" }
-                            }
-                        }
-                        p { class: "mt-5 max-w-3xl text-sm leading-6 text-muted-foreground",
-                            "The verified session keeps this workspace private. Only the Rust backend may authorize wallet reads or changes and return canonical typed data."
-                        }
-                        nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet workspace recovery",
-                            a { class: "btn btn-primary", href: retry_href,
-                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                " Retry wallet availability"
-                            }
-                            if surface != WalletSurface::List {
-                                a { class: "btn btn-outline", href: WALLETS_PATH,
-                                    Icon { name: "arrow-left".to_string(), size: Some(16) }
-                                    " Wallet list"
-                                }
-                            }
-                            a { class: "btn btn-ghost", href: "/",
-                                Icon { name: "home".to_string(), size: Some(16) }
-                                " Admin home"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]

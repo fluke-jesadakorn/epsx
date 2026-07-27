@@ -290,15 +290,15 @@ impl NotificationPage {
         let mut href = format!("{NOTIFICATIONS_PATH}?page={}", page.clamp(1, 50_001));
         if let Some(status) = &self.status {
             href.push_str("&status=");
-            href.push_str(&status);
+            href.push_str(status);
         }
         if let Some(notification_type) = &self.notification_type {
             href.push_str("&type=");
-            href.push_str(&notification_type);
+            href.push_str(notification_type);
         }
         if let Some(priority) = &self.priority {
             href.push_str("&priority=");
-            href.push_str(&priority);
+            href.push_str(priority);
         }
         href
     }

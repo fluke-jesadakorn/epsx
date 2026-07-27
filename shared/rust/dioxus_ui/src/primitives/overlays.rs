@@ -139,7 +139,7 @@ pub fn Accordion(
     // the inner closures can `move` them. `Option<Vec<String>>` is not
     // `Copy`, so capturing by reference inside an `FnMut` closure fails.
     let open_keys_owned = open_keys.clone();
-    let on_change_owned = on_change.clone();
+    let on_change_owned = on_change;
     rsx! {
         div { class: "accordion",
             for item in items.iter() {
@@ -152,7 +152,7 @@ pub fn Accordion(
                     };
                     let key_for_toggle = key.clone();
                     let open_keys_local = open_keys_owned.clone();
-                    let on_change_local = on_change_owned.clone();
+                    let on_change_local = on_change_owned;
                     let on_toggle = move |_| {
                         let mut next: Vec<String> = match &open_keys_local {
                             Some(v) => v.clone(),
@@ -316,12 +316,10 @@ pub fn CommandPalette(
             let len = filtered_signal.read().len();
             let next = if len == 0 {
                 0
+            } else if *focus_idx.read() == 0 {
+                len - 1
             } else {
-                if *focus_idx.read() == 0 {
-                    len - 1
-                } else {
-                    *focus_idx.read() - 1
-                }
+                *focus_idx.read() - 1
             };
             focus_idx.set(next);
         }

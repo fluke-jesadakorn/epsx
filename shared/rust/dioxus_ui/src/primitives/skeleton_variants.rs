@@ -22,7 +22,7 @@ pub fn SkeletonAvatar(
     #[props(default = 40)] size: u32,
     #[props(default = None)] class: Option<String>,
 ) -> Element {
-    let mut cls = format!("skeleton-avatar rounded-full bg-muted animate-pulse");
+    let mut cls = "skeleton-avatar rounded-full bg-muted animate-pulse".to_string();
     if let Some(c) = class {
         cls.push(' ');
         cls.push_str(&c);
@@ -80,7 +80,6 @@ pub fn SkeletonCard(#[props(default = None)] class: Option<String>) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn skeleton_avatar_is_circular() {

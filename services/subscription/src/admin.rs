@@ -474,7 +474,7 @@ pub async fn update_plan(
     .bind(current)
     .execute(&mut *tx)
     .await
-    .map_or(false, |result| result.rows_affected() == 1);
+    .is_ok_and(|result| result.rows_affected() == 1);
     let audit_ok = sqlx::query(
         "INSERT INTO public.subscription_admin_operations
             (operation_id,idempotency_key,action,resource_key,actor,version_before,version_after,result)
@@ -694,7 +694,7 @@ async fn mutate_access(
         .bind(current)
         .execute(&mut *tx)
         .await
-        .map_or(false, |result| result.rows_affected() == 1)
+        .is_ok_and(|result| result.rows_affected() == 1)
     };
     if !changed {
         return error(headers, StatusCode::CONFLICT, "access_write_rejected");

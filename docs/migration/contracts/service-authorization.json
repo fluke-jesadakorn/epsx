@@ -315,7 +315,7 @@
     {
       "name": "gateway",
       "source": "services/gateway/src/lib.rs",
-      "routerAnchor": "let app = Router::new()",
+      "routerAnchor": "pub fn build_router(state: AppState) -> Router",
       "currentBoundary": "Method-and-normalized-path policy verifies canonical RS256/JWKS access tokens, strips spoofable identity and hop-by-hop headers, and denies unknown, internal, and payment-drift routes before upstream I/O. Owner comparisons and direct-service parity remain blocked downstream.",
       "routes": [
         {
@@ -4396,7 +4396,7 @@
     {
       "name": "analytics",
       "source": "services/analytics/src/lib.rs",
-      "routerAnchor": "let app = Router::new()",
+      "routerAnchor": "pub fn build_router(",
       "currentBoundary": "The shared RS256/JWKS boundary classifies exact methods and paths before handlers: track requires a verified frontend/admin principal, event operator reads require the admin audience plus admin:analytics:view, the redacted audit read requires the admin audience plus admin:audit:read, and internal/unknown surfaces return 404. Legacy UUID event attribution remains unresolved.",
       "routes": [
         {

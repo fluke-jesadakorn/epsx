@@ -9,7 +9,7 @@ use axum::{
     extract::{Multipart, Path, Query, State},
     http::{HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
-    Extension, Json,
+    Extension,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;

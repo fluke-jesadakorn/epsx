@@ -40,10 +40,6 @@ use state::payment_wizard_state::PaymentWizardState;
 #[derive(Clone)]
 struct AppState {
     pay: Arc<ServiceClient>,
-    identity: Arc<ServiceClient>,
-    content: Arc<ServiceClient>,
-    analytics: Arc<ServiceClient>,
-    api_url: String,
 }
 
 #[derive(Deserialize)]
@@ -51,10 +47,14 @@ struct PayIntentBody {
     amount: String,
     currency: String,
     description: Option<String>,
-    order_id: Option<String>,
-    success_url: Option<String>,
-    cancel_url: Option<String>,
-    metadata: Option<serde_json::Value>,
+    #[serde(rename = "order_id")]
+    _order_id: Option<String>,
+    #[serde(rename = "success_url")]
+    _success_url: Option<String>,
+    #[serde(rename = "cancel_url")]
+    _cancel_url: Option<String>,
+    #[serde(rename = "metadata")]
+    _metadata: Option<serde_json::Value>,
     payer: Option<String>,
     payee: Option<String>,
     merchant: Option<String>,
@@ -78,11 +78,7 @@ async fn main() {
         timeout: std::time::Duration::from_secs(30),
     };
     let state = AppState {
-        pay: Arc::new(ServiceClient::new(cfg.clone())),
-        identity: Arc::new(ServiceClient::new(cfg.clone())),
-        content: Arc::new(ServiceClient::new(cfg.clone())),
-        analytics: Arc::new(ServiceClient::new(cfg.clone())),
-        api_url,
+        pay: Arc::new(ServiceClient::new(cfg)),
     };
 
     let app = Router::new()

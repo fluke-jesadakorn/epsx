@@ -114,7 +114,7 @@ pub(crate) enum AdminChatListLoad {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminChatDetailLoad {
-    Ready(AdminChatDetail),
+    Ready(Box<AdminChatDetail>),
     Forbidden,
     Unavailable,
     Malformed,
@@ -126,22 +126,25 @@ struct BackendMeta {
     timestamp: String,
     #[serde(default)]
     request_id: Option<String>,
-    #[serde(default)]
-    version: Option<String>,
-    #[serde(default)]
-    message: Option<String>,
+    #[serde(default, rename = "version")]
+    _version: Option<String>,
+    #[serde(default, rename = "message")]
+    _message: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BackendError {
-    code: u16,
-    message: String,
-    reason: String,
-    #[serde(default)]
-    error_type: Option<String>,
-    #[serde(default)]
-    details: Option<serde_json::Value>,
+    #[serde(rename = "code")]
+    _code: u16,
+    #[serde(rename = "message")]
+    _message: String,
+    #[serde(rename = "reason")]
+    _reason: String,
+    #[serde(default, rename = "error_type")]
+    _error_type: Option<String>,
+    #[serde(default, rename = "details")]
+    _details: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -226,7 +229,7 @@ pub(crate) async fn load_admin_chat_detail(
     if decode_admin_chat_detail(value).is_none() {
         AdminChatDetailLoad::Malformed
     } else {
-        AdminChatDetailLoad::Ready(detail)
+        AdminChatDetailLoad::Ready(Box::new(detail))
     }
 }
 

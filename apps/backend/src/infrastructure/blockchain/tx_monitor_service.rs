@@ -1014,6 +1014,28 @@ pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
         .unwrap_or_else(|| "not_found".to_string()))
 }
 
+/// Start the transaction monitor as a background task.
+pub fn spawn_transaction_monitor() {
+    tokio::spawn(async {
+        let config = TransactionMonitorConfig::default();
+
+        if config.receiver_addresses.is_empty() {
+            warn!(
+                "No PAYMENT_RECEIVES_ADDRESS or PAYMENT_ESCROW_ADDRESS found, transaction monitor running with defaults"
+            );
+        }
+
+        match TransactionMonitorService::new(config) {
+            Ok(service) => {
+                service.start().await;
+            }
+            Err(e) => {
+                error!("Failed to start transaction monitor: {}", e);
+            }
+        }
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1139,26 +1161,4 @@ mod tests {
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("No ERC20 Transfer events"));
     }
-}
-
-/// Start the transaction monitor as a background task
-pub fn spawn_transaction_monitor() {
-    tokio::spawn(async {
-        let config = TransactionMonitorConfig::default();
-
-        if config.receiver_addresses.is_empty() {
-            warn!(
-                "No PAYMENT_RECEIVES_ADDRESS or PAYMENT_ESCROW_ADDRESS found, transaction monitor running with defaults"
-            );
-        }
-
-        match TransactionMonitorService::new(config) {
-            Ok(service) => {
-                service.start().await;
-            }
-            Err(e) => {
-                error!("Failed to start transaction monitor: {}", e);
-            }
-        }
-    });
 }

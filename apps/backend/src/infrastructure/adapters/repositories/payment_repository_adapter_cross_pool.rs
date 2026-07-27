@@ -65,7 +65,6 @@ use diesel::prelude::*;
 use diesel::result::OptionalExtension;
 use diesel_async::RunQueryDsl;
 use std::str::FromStr;
-use tracing::debug;
 use uuid::Uuid;
 
 use crate::domain::payment::repository_ports::{
@@ -729,15 +728,12 @@ impl PaymentRepositoryAdapter {
             AnalyticsWindow::Last30Days => now - chrono::Duration::days(30),
             AnalyticsWindow::Last7Days => now - chrono::Duration::days(7),
             AnalyticsWindow::Last24Hours => now - chrono::Duration::hours(24),
-            AnalyticsWindow::MonthToDate => {
-                let month_start = now
-                    .date_naive()
-                    .with_day(1)
-                    .and_then(|d| d.and_hms_opt(0, 0, 0))
-                    .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
-                    .unwrap_or(now);
-                month_start
-            }
+            AnalyticsWindow::MonthToDate => now
+                .date_naive()
+                .with_day(1)
+                .and_then(|d| d.and_hms_opt(0, 0, 0))
+                .map(|dt| DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+                .unwrap_or(now),
         };
 
         // 1. Daily revenue
@@ -976,12 +972,11 @@ impl PaymentRepositoryAdapter {
     }
 
     /// Replaces `web/payments/submit_tx_handler.rs:158-184` +
-    /// `285-294`. Reads plans (cross-schema via SQL) and
-    /// wallet_credits (payments schema) in one call.
+    /// `285-294`. Reads the authoritative plan across schemas.
     pub async fn validate_submit_tx_impl(
         &self,
         plan_id: Uuid,
-        wallet_address: &WalletAddress,
+        _wallet_address: &WalletAddress,
     ) -> Result<SubmitTxValidation, String> {
         let mut conn = self.conn().await?;
 
@@ -1005,20 +1000,6 @@ impl PaymentRepositoryAdapter {
         .optional()
         .map_err(|e| format!("plan: {}", e))?
         .ok_or_else(|| "Plan not found".to_string())?;
-
-        #[derive(QueryableByName)]
-        struct BalanceRow {
-            #[diesel(sql_type = diesel::sql_types::Numeric)]
-            bal: BigDecimal,
-        }
-        let balance: BigDecimal = diesel::sql_query(
-            "SELECT COALESCE((SELECT balance FROM wallet_credits WHERE wallet_address = $1), 0) as bal",
-        )
-        .bind::<diesel::sql_types::Text, _>(wallet_address.as_str())
-        .get_result::<BalanceRow>(&mut conn)
-        .await
-        .map(|r| r.bal)
-        .unwrap_or_else(|_| BigDecimal::from(0));
 
         let effective_price = plan
             .plan_metadata

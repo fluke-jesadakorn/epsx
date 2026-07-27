@@ -41,20 +41,18 @@ pub fn WalletConnectionModal(
                 },
                 onkeydown: move |e| {
                     let key = e.key();
-                    if key == Key::Enter {
-                        if let Some(cb) = on_click.as_ref() {
-                            // Keyboard activation: forward as a
-                            // synthetic mouse event. The TS source
-                            // wires this the same way (a click event
-                            // fires on Enter or Space). In SSR, the
-                            // page-level handler is typically a
-                            // navigation, so a no-op payload is
-                            // acceptable here — the click handler
-                            // below will fire when the user actually
-                            // clicks. Future waves can wire a real
-                            // synthetic MouseEvent.
-                            e.prevent_default();
-                        }
+                    if key == Key::Enter && on_click.is_some() {
+                        // Keyboard activation: forward as a
+                        // synthetic mouse event. The TS source
+                        // wires this the same way (a click event
+                        // fires on Enter or Space). In SSR, the
+                        // page-level handler is typically a
+                        // navigation, so a no-op payload is
+                        // acceptable here — the click handler
+                        // below will fire when the user actually
+                        // clicks. Future waves can wire a real
+                        // synthetic MouseEvent.
+                        e.prevent_default();
                     }
                 },
                 {c}
@@ -78,7 +76,6 @@ pub fn WalletConnectionModal(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn wallet_connection_modal_signature_matches_ts() {

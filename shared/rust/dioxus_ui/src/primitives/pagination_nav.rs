@@ -173,12 +173,10 @@ enum PageSlot {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn prev_disabled_when_on_first_page() {
         let cur = 1u32;
-        let total = 5u32;
         let prev_disabled = cur <= 1;
         assert!(prev_disabled);
     }

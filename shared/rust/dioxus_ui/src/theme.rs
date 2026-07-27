@@ -69,6 +69,7 @@ pub const EPSX_CSS_VARS: &str = r#"
 }
 "#;
 
+#[cfg(test)]
 const THEME_STORAGE_KEY: &str = "epsx-theme";
 
 /// Inline pre-paint script — runs before any Dioxus hydration. Reads the
@@ -106,7 +107,7 @@ pub enum ThemeMode {
 }
 
 impl ThemeMode {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "dark" => ThemeMode::Dark,
             _ => ThemeMode::Light,
@@ -232,17 +233,17 @@ mod tests {
 
     #[test]
     fn theme_mode_parse() {
-        assert_eq!(ThemeMode::from_str("dark"), ThemeMode::Dark);
-        assert_eq!(ThemeMode::from_str("light"), ThemeMode::Light);
+        assert_eq!(ThemeMode::from_name("dark"), ThemeMode::Dark);
+        assert_eq!(ThemeMode::from_name("light"), ThemeMode::Light);
         // Unknown values fall back to Light — the conservative default.
-        assert_eq!(ThemeMode::from_str("garbage"), ThemeMode::Light);
-        assert_eq!(ThemeMode::from_str(""), ThemeMode::Light);
+        assert_eq!(ThemeMode::from_name("garbage"), ThemeMode::Light);
+        assert_eq!(ThemeMode::from_name(""), ThemeMode::Light);
     }
 
     #[test]
     fn theme_mode_as_str_round_trip() {
         for m in [ThemeMode::Light, ThemeMode::Dark] {
-            assert_eq!(ThemeMode::from_str(m.as_str()), m);
+            assert_eq!(ThemeMode::from_name(m.as_str()), m);
         }
     }
 

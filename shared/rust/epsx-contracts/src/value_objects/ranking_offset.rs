@@ -24,7 +24,7 @@
 //!     (`get_wallet_ranking_offset` return type)
 //!   - `apps/backend/src/infrastructure/adapters/permission/
 //!      in_process_ranking_offset_adapter.rs` (the adapter this
-//!      wave adds)
+//!     wave adds)
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -122,7 +122,7 @@ impl From<i32> for RankingOffset {
     /// something unexpected. **Prefer `RankingOffset::new` for
     /// new code.**
     fn from(value: i32) -> Self {
-        if value < 0 || value > RANKING_OFFSET_MAX {
+        if !(0..=RANKING_OFFSET_MAX).contains(&value) {
             tracing::debug!(
                 "RankingOffset::from({}) out of range; falling back to free-plan offset",
                 value

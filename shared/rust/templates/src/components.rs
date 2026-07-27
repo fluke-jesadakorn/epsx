@@ -562,21 +562,6 @@ pub enum InputKind {
     Select,
 }
 
-impl InputKind {
-    fn tag(self) -> &'static str {
-        match self {
-            InputKind::Text
-            | InputKind::Email
-            | InputKind::Password
-            | InputKind::Number
-            | InputKind::Url
-            | InputKind::Tel => "input",
-            InputKind::Textarea => "textarea",
-            InputKind::Select => "select",
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct Input {
     name: String,
@@ -981,6 +966,12 @@ pub struct Skeleton {
     gap: u32,
 }
 
+impl Default for Skeleton {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Skeleton {
     pub fn new() -> Self {
         Self {
@@ -1057,10 +1048,10 @@ impl Icon {
             extra_cls: String::new(),
         }
     }
-    pub fn regular(mut self) -> Self {
+    pub fn regular(self) -> Self {
         self
     }
-    pub fn brand(mut self) -> Self {
+    pub fn brand(self) -> Self {
         self
     }
     pub fn size(mut self, s: impl Into<String>) -> Self {

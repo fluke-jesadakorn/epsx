@@ -47,7 +47,7 @@ pub fn DynamicPricingClient(
     let active = personal_plans.clone();
     rsx! {
         div { class: "dynamic-pricing-client",
-            if !affiliate_code.is_some() {
+            if affiliate_code.is_none() {
                 // No affiliate — render the personal plans by default.
             } else {
                 div { class: "dynamic-pricing-affiliate-banner text-xs text-orange-500 mb-2",

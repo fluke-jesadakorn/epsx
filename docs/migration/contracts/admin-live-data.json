@@ -2592,7 +2592,7 @@
         "handler": "wallet_wallets::render_disable",
         "anchors": [
           "pub fn render_disable(ctx: &PageContext)",
-          "Self::Disable => \"Wallet changes are unavailable\"",
+          "\"data-admin-wallet-disable-state\": ADMIN_WALLET_DISABLE_FORM",
           "fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance()"
         ]
       },

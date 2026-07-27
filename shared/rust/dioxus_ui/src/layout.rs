@@ -1,7 +1,5 @@
 //! Layout chrome — navbar, footer, sidebar, dashboard shell, page header.
 
-use dioxus::prelude::*;
-
 pub mod breadcrumbs;
 pub mod footer;
 pub mod navbar;

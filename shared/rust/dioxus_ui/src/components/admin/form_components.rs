@@ -40,18 +40,6 @@ mod tests {
     use super::*;
     use dioxus::prelude::*;
 
-    /// Every form component is reachable from
-    /// `crate::components::admin::*`. This is a compile-time
-    /// guarantee — if any of the `pub use` lines breaks, this
-    /// module fails to compile.
-    #[test]
-    fn test_form_components_module_exports() {
-        // The `pub use` lines above are the test — if any link is
-        // broken, this file won't compile. This test just confirms
-        // the module loads.
-        assert!(true);
-    }
-
     /// Smoke render: `Button` resolves and renders non-empty HTML.
     #[test]
     fn test_form_components_button_smoke() {

@@ -258,9 +258,9 @@ fn escape(s: &str) -> String {
 fn inline(s: &str) -> String {
     let mut out = escape(s);
     out = bold_pass(&mut out);
-    out = italic_pass(&mut out);
-    out = code_pass(&mut out);
-    out = link_pass(&mut out);
+    out = italic_pass(&out);
+    out = code_pass(&out);
+    out = link_pass(&out);
     out
 }
 

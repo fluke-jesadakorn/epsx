@@ -165,7 +165,7 @@ async fn create_plan(
 ) -> Result<Json<SubscriptionPlan>, StatusCode> {
     let plan: SubscriptionPlan = sqlx::query_as::<_, SubscriptionPlan>(
         "INSERT INTO public.subscription_plans (merchant_id, name, description, amount, currency, chain_id, interval) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *"
-    ).bind(&req.merchant_id).bind(&req.name).bind(&req.description).bind(&req.amount).bind(&req.currency).bind(&req.chain_id).bind(&req.interval)
+    ).bind(req.merchant_id).bind(&req.name).bind(&req.description).bind(&req.amount).bind(&req.currency).bind(&req.chain_id).bind(req.interval)
     .fetch_one(&state.db).await.map_err(|e| { tracing::error!("create_plan: {}", e); StatusCode::INTERNAL_SERVER_ERROR })?;
     Ok(Json(plan))
 }
@@ -189,7 +189,7 @@ async fn get_plan(
     let plan: SubscriptionPlan = sqlx::query_as::<_, SubscriptionPlan>(
         "SELECT * FROM public.subscription_plans WHERE id = $1",
     )
-    .bind(&id)
+    .bind(id)
     .fetch_one(&state.db)
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -202,7 +202,7 @@ async fn create_subscription(
 ) -> Result<Json<Subscription>, StatusCode> {
     let sub: Subscription = sqlx::query_as::<_, Subscription>(
         "INSERT INTO public.subscriptions (user_id, plan_id, account_id, payment_token) VALUES ($1, $2, $3, $4) RETURNING *"
-    ).bind(&req.user_id).bind(&req.plan_id).bind(&req.account_id).bind(&req.payment_token)
+    ).bind(req.user_id).bind(req.plan_id).bind(&req.account_id).bind(&req.payment_token)
     .fetch_one(&state.db).await.map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(sub))
 }
@@ -225,7 +225,7 @@ async fn get_subscription(
 ) -> Result<Json<Subscription>, StatusCode> {
     let sub: Subscription =
         sqlx::query_as::<_, Subscription>("SELECT * FROM public.subscriptions WHERE id = $1")
-            .bind(&id)
+            .bind(id)
             .fetch_one(&state.db)
             .await
             .map_err(|_| StatusCode::NOT_FOUND)?;
@@ -239,7 +239,7 @@ async fn cancel_subscription(
     let sub: Subscription = sqlx::query_as::<_, Subscription>(
         "UPDATE public.subscriptions SET status = 'cancelled' WHERE id = $1 RETURNING *",
     )
-    .bind(&id)
+    .bind(id)
     .fetch_one(&state.db)
     .await
     .map_err(|_| StatusCode::NOT_FOUND)?;

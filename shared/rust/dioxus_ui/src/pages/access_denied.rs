@@ -43,10 +43,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// Common-reasons panel — REMOVED in Wave 49 T2 (Plan 13).
-/// Prod's /access-denied does not render this card; the dev was
-/// over-designed relative to prod. Kept as a comment so future
-/// contributors don't re-add it without checking prod first.
+// Common-reasons panel — REMOVED in Wave 49 T2 (Plan 13).
+// Prod's /access-denied does not render this card; the dev was
+// over-designed relative to prod. Kept as a comment so future
+// contributors don't re-add it without checking prod first.
 
 // === wave5-page-depth-track-b ===
 // Unit test for the access-denied page. Smoke test only — the

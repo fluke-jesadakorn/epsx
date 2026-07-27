@@ -404,7 +404,7 @@ pub(crate) fn clear_session_response(
     try_clear_session_response(status, code, |headers| {
         append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Admin).is_ok()
     })
-    .unwrap_or_else(|error| error)
+    .unwrap_or_else(|error| *error)
 }
 
 fn clear_refresh_session_response(
@@ -416,7 +416,7 @@ fn clear_refresh_session_response(
         append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Admin).is_ok()
     }) {
         Ok(response) => refresh_response(response, RefreshDisposition::Clear),
-        Err(error) => error,
+        Err(error) => *error,
     }
 }
 
@@ -424,13 +424,13 @@ pub(crate) fn try_clear_session_response(
     status: StatusCode,
     code: &'static str,
     append: impl FnOnce(&mut axum::http::HeaderMap) -> bool,
-) -> Result<Response, Response> {
+) -> Result<Response, Box<Response>> {
     let mut response = safe_error(status, code);
     if !append(response.headers_mut()) {
-        return Err(safe_error(
+        return Err(Box::new(safe_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "session_cookie_error",
-        ));
+        )));
     }
     Ok(response)
 }

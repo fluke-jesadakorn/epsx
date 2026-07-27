@@ -1,6 +1,5 @@
 use serde::{Deserialize, Serialize};
 use std::env;
-use std::path::Path;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -93,11 +92,9 @@ impl AppConfig {
     pub fn load() -> Result<Self> {
         dotenvy::dotenv().ok();
 
-        let environment = env::var("ENVIRONMENT").unwrap_or_else(|_| "development".to_string());
-
         let config_path = env::var("CONFIG_PATH").unwrap_or_else(|_| "config.toml".to_string());
 
-        let mut builder = config::Config::builder()
+        let builder = config::Config::builder()
             .add_source(config::File::with_name(&config_path).required(false))
             .add_source(config::Environment::with_prefix("EPSX").separator("__"));
 

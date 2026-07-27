@@ -12,6 +12,9 @@
 
 use dioxus::prelude::*;
 
+pub type Shortcut = (String, Vec<String>);
+pub type ShortcutGroup = (String, Vec<Shortcut>);
+
 /// Single-row keyboard shortcut display. Renders a label and a
 /// key-combo hint side-by-side.
 ///
@@ -49,7 +52,7 @@ pub fn KbdSeparator() -> Element {
 /// Keyboard shortcut help dialog body. Renders a list of shortcuts
 /// grouped by category.
 #[component]
-pub fn KbdHelp(title: String, groups: Vec<(String, Vec<(String, Vec<String>)>)>) -> Element {
+pub fn KbdHelp(title: String, groups: Vec<ShortcutGroup>) -> Element {
     rsx! {
         div { class: "kbd-help flex flex-col gap-4 p-4",
             h3 { class: "kbd-help-title text-lg font-semibold", "{title}" }
@@ -80,7 +83,7 @@ mod tests {
 
     #[test]
     fn kbd_help_groups_have_distinct_names() {
-        let groups: Vec<(String, Vec<(String, Vec<String>)>)> = vec![
+        let groups: Vec<ShortcutGroup> = vec![
             ("General".to_string(), vec![]),
             ("Navigation".to_string(), vec![]),
         ];

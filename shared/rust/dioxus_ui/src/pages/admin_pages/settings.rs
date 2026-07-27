@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::layout::admin_shell::AdminShell;
 use crate::primitives::Icon;
 

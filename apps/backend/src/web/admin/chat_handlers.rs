@@ -26,7 +26,7 @@ use crate::schemas::primary::chat_conversations;
 use crate::web::{
     auth::AppState,
     middleware::{OpenIDUserContext, RequestId},
-    responses::{PaginationMeta, UnifiedApiResponse},
+    responses::UnifiedApiResponse,
 };
 
 const ADMIN_AUDIENCE: &str = "epsx-admin";
@@ -113,14 +113,10 @@ async fn claim_chat_operation(
     .get_result::<ExistingChatOperation>(&mut conn)
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
-    if existing.action == action
+    let _same_operation = existing.action == action
         && existing.conversation_id == conversation_id
-        && existing.actor == context.wallet_address
-    {
-        Err(ChatMutationClaimError::Conflict)
-    } else {
-        Err(ChatMutationClaimError::Conflict)
-    }
+        && existing.actor == context.wallet_address;
+    Err(ChatMutationClaimError::Conflict)
 }
 
 async fn complete_chat_operation(
@@ -353,7 +349,7 @@ fn validate_query(query: &AdminConversationQuery) -> Result<(), epsx_contracts::
         .page
         .checked_sub(1)
         .and_then(|page| page.checked_mul(query.limit))
-        .and_then(|offset| i64::try_from(offset).ok())
+        .map(i64::from)
         .filter(|offset| *offset <= MAX_OFFSET)
         .ok_or_else(|| {
             epsx_contracts::errors::AppError::bad_request("chat page is out of bounds")

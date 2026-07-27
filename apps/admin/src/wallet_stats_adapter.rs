@@ -4,23 +4,17 @@
 //! plans, permissions, activity, and correlation evidence are parsed only to
 //! prove the exact service DTO and are never projected into SSR state.
 
+#[cfg(test)]
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::AdminWalletStatsSummary;
+#[cfg(test)]
 use serde::Deserialize;
 
-// Keep the commerce loaders behind the already-owned route adapter module so
-// no central app module or SSR registry change is required for this slice.
-#[path = "commerce_adapter.rs"]
-mod commerce_adapter;
-pub(crate) use commerce_adapter::{
-    access_mutation_path, credit_mutation_path, decode_admin_envelope, load_access,
-    load_credit_stats, load_payment_links, load_plan_detail, load_plans, load_wallet_detail,
-    load_wallet_list, payment_intent_cancel_path, payment_link_mutation_path, plan_detail_path,
-    plan_mutation_path, send_admin_json, wallet_detail_path, wallet_metadata_mutation_path,
-    wallet_status_mutation_path, AdminCommerceLoad, AdminCommerceMutationLoad, CreditCommand,
-    ExpectedVersionCommand, WalletMetadataCommand,
-};
+#[cfg(test)]
+use super::commerce_adapter::decode_admin_envelope;
 
+#[cfg(test)]
 const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
+#[cfg(test)]
 const MAX_ADMIN_WALLET_STATS_RESPONSE_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -35,11 +29,13 @@ impl AdminWalletStatsQuery {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn upstream_path(self) -> &'static str {
         WALLET_STATS_PATH
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminWalletStatsLoad {
     Ready(AdminWalletStatsSummary),
@@ -48,6 +44,7 @@ pub(crate) enum AdminWalletStatsLoad {
     Malformed,
 }
 
+#[cfg(test)]
 pub(crate) async fn load_admin_wallet_stats(
     client: &epsx_client::ServiceClient,
     query: AdminWalletStatsQuery,
@@ -106,6 +103,7 @@ pub(crate) async fn load_admin_wallet_stats(
     classify_payload(payload)
 }
 
+#[cfg(test)]
 async fn read_response_body_limited(
     mut response: reqwest::Response,
     limit: usize,
@@ -128,6 +126,7 @@ async fn read_response_body_limited(
     Ok(body)
 }
 
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BackendWalletStatsResponse {
@@ -140,6 +139,7 @@ struct BackendWalletStatsResponse {
     growth_rate: f64,
 }
 
+#[cfg(test)]
 fn classify_payload(payload: BackendWalletStatsResponse) -> AdminWalletStatsLoad {
     let BackendWalletStatsResponse {
         total_users,

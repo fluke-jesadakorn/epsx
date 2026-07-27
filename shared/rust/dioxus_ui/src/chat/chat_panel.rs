@@ -40,7 +40,6 @@ pub fn ChatPanel(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_panel_smoke() {}

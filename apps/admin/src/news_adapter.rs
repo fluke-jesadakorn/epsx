@@ -138,7 +138,7 @@ pub(crate) enum AdminNewsLoad {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminNewsEditorLoad {
-    Ready(AdminNewsEditorProjection),
+    Ready(Box<AdminNewsEditorProjection>),
     Forbidden,
     Unavailable,
     Malformed,
@@ -255,7 +255,7 @@ pub(crate) async fn load_admin_news_editor(
     if projection.id != id {
         return AdminNewsEditorLoad::Malformed;
     }
-    AdminNewsEditorLoad::Ready(projection)
+    AdminNewsEditorLoad::Ready(Box::new(projection))
 }
 
 pub(crate) async fn create_admin_news(
@@ -966,7 +966,9 @@ fn days_in_month(year: u32, month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 if year.is_multiple_of(400) || (year.is_multiple_of(4) && !year.is_multiple_of(100)) => {
+            29
+        }
         2 => 28,
         _ => 0,
     }

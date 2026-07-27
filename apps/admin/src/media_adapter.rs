@@ -43,9 +43,12 @@ struct MutationEnvelope {
 struct LegacyMediaMutation {
     bucket: String,
     key: String,
-    url: Option<String>,
-    thumb_url: Option<String>,
-    mime: Option<String>,
+    #[serde(rename = "url")]
+    _url: Option<String>,
+    #[serde(rename = "thumb_url")]
+    _thumb_url: Option<String>,
+    #[serde(rename = "mime")]
+    _mime: Option<String>,
     size: Option<u64>,
     deleted: bool,
 }

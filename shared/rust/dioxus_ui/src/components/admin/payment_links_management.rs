@@ -48,13 +48,6 @@ fn format_pl_date(date_str: String) -> String {
     date_str
 }
 
-fn is_pl_expired(expires_at: Option<String>) -> bool {
-    match expires_at {
-        Some(s) => s.is_empty(),
-        None => false,
-    }
-}
-
 // ============================================================================
 // PaymentLinksHeaderRow
 // ============================================================================

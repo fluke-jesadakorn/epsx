@@ -5,8 +5,6 @@
 //! components add Dioxus interactivity (state, events, refs) on top of the
 //! already-styled markup.
 
-use dioxus::prelude::*;
-
 pub mod admin_metric_card;
 pub mod admin_table;
 pub mod alert;

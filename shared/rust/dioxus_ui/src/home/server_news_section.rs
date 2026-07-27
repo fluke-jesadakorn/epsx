@@ -98,7 +98,6 @@ fn SmallNewsCard(title: String, date: String) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn server_news_section_smoke() {}

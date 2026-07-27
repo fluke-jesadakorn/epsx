@@ -15,10 +15,9 @@ use clap::{Parser, ValueEnum};
 use epsx_notification::{
     build_auth_verifier, canonical_owner, delivery::DeliveryWorker, protect_router,
     verify_lifecycle_schema_compatibility, verify_schema_compatibility,
-    NOTIFICATIONS_MANAGE_PERMISSION, NOTIFICATION_PUBLISHER_AUDIENCE,
-    NOTIFICATION_PUBLISH_PERMISSION,
+    NOTIFICATIONS_MANAGE_PERMISSION,
 };
-use epsx_service_auth::{VerifiedPrincipal, ADMIN_AUDIENCE, FRONTEND_AUDIENCE};
+use epsx_service_auth::{VerifiedPrincipal, ADMIN_AUDIENCE};
 use futures::StreamExt;
 use handlebars::Handlebars;
 use hmac::{Hmac, Mac};
@@ -764,8 +763,10 @@ fn template_image_urls_are_safe(body: &str) -> bool {
             return false;
         }
         let content_start = value_start + 1;
-        let Some(relative_end) = lower[content_start..]
+        let Some(relative_end) = lower
             .as_bytes()
+            .get(content_start..)
+            .expect("content start was derived from the same string")
             .iter()
             .position(|candidate| *candidate == quote)
         else {
@@ -834,8 +835,10 @@ fn template_link_urls_are_safe(body: &str) -> bool {
             return false;
         }
         let content_start = value_start + 1;
-        let Some(relative_end) = lower[content_start..]
+        let Some(relative_end) = lower
             .as_bytes()
+            .get(content_start..)
+            .expect("content start was derived from the same string")
             .iter()
             .position(|candidate| *candidate == quote)
         else {
@@ -1714,15 +1717,17 @@ async fn run_delivery_worker(state: AppState) {
                             ))) => {
                                 let (status, error, message_id) = send_push(
                                     &state,
-                                    &job.id,
-                                    &vapid_key_id,
-                                    &endpoint,
-                                    &p256dh,
-                                    &auth,
-                                    title.as_deref().unwrap_or("EPSX notification"),
-                                    &body,
-                                    data.as_ref(),
-                                    action_url.as_deref(),
+                                    PushDelivery {
+                                        job_id: &job.id,
+                                        vapid_key_id: &vapid_key_id,
+                                        endpoint: &endpoint,
+                                        p256dh: &p256dh,
+                                        auth: &auth,
+                                        title: title.as_deref().unwrap_or("EPSX notification"),
+                                        body: &body,
+                                        data: data.as_ref(),
+                                        action_url: action_url.as_deref(),
+                                    },
                                 )
                                 .await;
                                 if status == "sent" {
@@ -2914,15 +2919,14 @@ fn validate_publish_request(request: &PublishNotificationRequest) -> Result<(), 
     if request.plan_id.is_some_and(|plan_id| plan_id.is_nil()) {
         return Err(StatusCode::BAD_REQUEST);
     }
-    if request.plan_id.is_some() {
-        if request.recipient_wallet_address != "all"
+    if request.plan_id.is_some()
+        && (request.recipient_wallet_address != "all"
             || matches!(
                 request.event_type.as_str(),
                 "notification.send" | "notification.broadcast"
-            )
-        {
-            return Err(StatusCode::BAD_REQUEST);
-        }
+            ))
+    {
+        return Err(StatusCode::BAD_REQUEST);
     }
     Ok(())
 }
@@ -4298,19 +4302,23 @@ fn email_provider_unavailable() -> (String, Option<String>, bool, Option<String>
 /// retries and state transitions; this function only performs encryption,
 /// VAPID signing, and one bounded provider call. Endpoint identifiers and
 /// payload contents are deliberately absent from logs and error text.
+struct PushDelivery<'a> {
+    job_id: &'a str,
+    vapid_key_id: &'a str,
+    endpoint: &'a str,
+    p256dh: &'a str,
+    auth: &'a str,
+    title: &'a str,
+    body: &'a str,
+    data: Option<&'a serde_json::Value>,
+    action_url: Option<&'a str>,
+}
+
 async fn send_push(
     state: &AppState,
-    job_id: &str,
-    vapid_key_id: &str,
-    endpoint: &str,
-    p256dh: &str,
-    auth: &str,
-    title: &str,
-    body: &str,
-    data: Option<&serde_json::Value>,
-    action_url: Option<&str>,
+    delivery: PushDelivery<'_>,
 ) -> (String, Option<String>, Option<String>) {
-    let Some(private_key) = vapid_private_key_for_id(state, vapid_key_id) else {
+    let Some(private_key) = vapid_private_key_for_id(state, delivery.vapid_key_id) else {
         return (
             "failed".to_string(),
             Some("provider_not_configured".to_string()),
@@ -4318,10 +4326,10 @@ async fn send_push(
         );
     };
     let payload = serde_json::json!({
-        "title": title,
-        "body": body,
-        "data": data,
-        "action_url": action_url.filter(|url| valid_action_url(url)),
+        "title": delivery.title,
+        "body": delivery.body,
+        "data": delivery.data,
+        "action_url": delivery.action_url.filter(|url| valid_action_url(url)),
     });
     let content = match serde_json::to_vec(&payload) {
         Ok(content) if content.len() <= 3800 => content,
@@ -4341,7 +4349,7 @@ async fn send_push(
         }
     };
 
-    let subscription = SubscriptionInfo::new(endpoint, p256dh, auth);
+    let subscription = SubscriptionInfo::new(delivery.endpoint, delivery.p256dh, delivery.auth);
     let mut signature = if private_key.starts_with(b"-----BEGIN") {
         match VapidSignatureBuilder::from_pem(private_key, &subscription) {
             Ok(builder) => builder,
@@ -4375,7 +4383,7 @@ async fn send_push(
         Err(error) => return push_build_failure(error),
     };
 
-    let provider_message_id = push_message_id(job_id);
+    let provider_message_id = push_message_id(delivery.job_id);
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(
             SMTP_TRANSPORT_TIMEOUT_SECONDS,
@@ -4431,7 +4439,7 @@ async fn send_push(
         if let Err(error) = sqlx::query(
             "UPDATE public.notification_push_subscriptions SET revoked_at = NOW() WHERE endpoint = $1 AND revoked_at IS NULL",
         )
-        .bind(endpoint)
+        .bind(delivery.endpoint)
         .execute(&state.db)
         .await
         {
@@ -4806,6 +4814,21 @@ async fn admin_metrics(
     State(state): State<AppState>,
     Extension(_principal): Extension<VerifiedPrincipal>,
 ) -> Result<Json<NotificationMetricsResponse>, StatusCode> {
+    type NotificationMetricsRow = (
+        i64,
+        Option<i64>,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<i64>,
+    );
+
     let (
         queue_depth,
         queue_age_seconds,
@@ -4819,20 +4842,7 @@ async fn admin_metrics(
         delivery_attempts,
         replay_cursors,
         replay_cursor_age_seconds,
-    ): (
-        i64,
-        Option<i64>,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        Option<i64>,
-    ) = sqlx::query_as(
+    ): NotificationMetricsRow = sqlx::query_as(
         "SELECT COUNT(*) FILTER (WHERE state IN ('queued', 'leased', 'attempting', 'retry_wait'))::bigint, GREATEST(0, EXTRACT(EPOCH FROM (NOW() - MIN(available_at) FILTER (WHERE state IN ('queued', 'leased', 'attempting', 'retry_wait')))))::bigint, (SELECT COUNT(*) FROM public.notifications WHERE status = 'suppressed')::bigint, COUNT(*) FILTER (WHERE state = 'retry_wait')::bigint, COUNT(*) FILTER (WHERE state = 'terminal_failed')::bigint, COUNT(*) FILTER (WHERE state = 'dead_lettered')::bigint, COUNT(*) FILTER (WHERE state = 'provider_accepted')::bigint, COUNT(*) FILTER (WHERE state = 'attempting')::bigint, (SELECT COUNT(*) FROM public.notification_provider_events)::bigint, (SELECT COUNT(*) FROM public.notification_delivery_attempts)::bigint, (SELECT COUNT(*) FROM public.notification_replay_cursors)::bigint, (SELECT GREATEST(0, EXTRACT(EPOCH FROM (NOW() - MIN(updated_at))))::bigint FROM public.notification_replay_cursors) FROM public.notification_channel_jobs",
     )
         .fetch_one(&state.db)
@@ -5447,6 +5457,8 @@ async fn unread_count(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use epsx_notification::{NOTIFICATION_PUBLISHER_AUDIENCE, NOTIFICATION_PUBLISH_PERMISSION};
+    use epsx_service_auth::FRONTEND_AUDIENCE;
 
     fn valid_send_request() -> SendNotificationRequest {
         let owner = "0x1111111111111111111111111111111111111111";
@@ -5989,15 +6001,17 @@ mod tests {
         let job_id = "push-provider-runtime-job";
         let (status, error, provider_message_id) = send_push(
             &state,
-            job_id,
-            "active",
-            &format!("http://{address}/push"),
-            "BH1HTeKM7-NwaLGHEqxeu2IamQaVVLkcsFHPIHmsCnqxcBHPQBprF41bEMOr3O1hUQ2jU1opNEm1F_lZV_sxMP8",
-            "sBXU5_tIYz-5w7G2B25BEw",
-            "Runtime push",
-            "Provider acceptance audit",
-            Some(&serde_json::json!({"source": "runtime"})),
-            Some("/notifications/runtime"),
+            PushDelivery {
+                job_id,
+                vapid_key_id: "active",
+                endpoint: &format!("http://{address}/push"),
+                p256dh: "BH1HTeKM7-NwaLGHEqxeu2IamQaVVLkcsFHPIHmsCnqxcBHPQBprF41bEMOr3O1hUQ2jU1opNEm1F_lZV_sxMP8",
+                auth: "sBXU5_tIYz-5w7G2B25BEw",
+                title: "Runtime push",
+                body: "Provider acceptance audit",
+                data: Some(&serde_json::json!({"source": "runtime"})),
+                action_url: Some("/notifications/runtime"),
+            },
         )
         .await;
 
@@ -7153,7 +7167,7 @@ mod tests {
             .execute(&db)
             .await?;
         sqlx::query("DELETE FROM public.notifications WHERE id = ANY($1)")
-            .bind(&vec![selected_id, read_id, other_id, broadcast_id])
+            .bind(vec![selected_id, read_id, other_id, broadcast_id])
             .execute(&db)
             .await?;
         db.close().await;
@@ -8473,10 +8487,7 @@ mod tests {
 
         let mut redis_ready = false;
         for _ in 0..40 {
-            let mut connection = match publisher.get_multiplexed_async_connection().await {
-                Ok(connection) => Some(connection),
-                Err(_) => None,
-            };
+            let mut connection = publisher.get_multiplexed_async_connection().await.ok();
             if let Some(connection) = connection.as_mut() {
                 if redis::cmd("PING")
                     .query_async::<String>(connection)
@@ -8536,10 +8547,7 @@ mod tests {
         redis_process = RedisChild::start(port);
         let mut restored = false;
         for _ in 0..40 {
-            let mut connection = match publisher.get_multiplexed_async_connection().await {
-                Ok(connection) => Some(connection),
-                Err(_) => None,
-            };
+            let mut connection = publisher.get_multiplexed_async_connection().await.ok();
             if let Some(connection) = connection.as_mut() {
                 if redis::cmd("PING")
                     .query_async::<String>(connection)

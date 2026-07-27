@@ -361,12 +361,12 @@ fn validate_pagination(
     Ok((limit, offset))
 }
 
+type ValidatedApiKeyCreate = (Option<DateTime<Utc>>, Vec<ModuleAccessRequest>, Vec<Uuid>);
+type ApiKeyCreateValidationError = (&'static str, serde_json::Value);
+
 fn validate_create_body(
     body: &CreateApiKeyBody,
-) -> Result<
-    (Option<DateTime<Utc>>, Vec<ModuleAccessRequest>, Vec<Uuid>),
-    (&'static str, serde_json::Value),
-> {
+) -> Result<ValidatedApiKeyCreate, ApiKeyCreateValidationError> {
     if !valid_text(&body.client_name, 255, false) {
         return Err((
             "client_name is required and bounded",

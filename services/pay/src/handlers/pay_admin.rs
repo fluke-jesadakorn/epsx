@@ -231,7 +231,7 @@ pub async fn admin_force_cancel_pay_intent(
             )
         }
     };
-    match existing_operation(&mut *tx, &key, "intent.force-cancel", &id).await {
+    match existing_operation(&mut tx, &key, "intent.force-cancel", &id).await {
         Ok(ExistingOperation::Replay(result)) => return response(&headers, StatusCode::OK, result),
         Ok(ExistingOperation::Absent) => {}
         Ok(ExistingOperation::Conflict) | Err(_) => {
@@ -422,7 +422,7 @@ async fn mutate_admin_escrow(
             )
         }
     };
-    match existing_operation(&mut *tx, &key, action, id).await {
+    match existing_operation(&mut tx, &key, action, id).await {
         Ok(ExistingOperation::Replay(result)) => return response(headers, StatusCode::OK, result),
         Ok(ExistingOperation::Absent) => {}
         Ok(ExistingOperation::Conflict) | Err(_) => {

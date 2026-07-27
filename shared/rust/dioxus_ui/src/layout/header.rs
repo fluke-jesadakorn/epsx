@@ -114,7 +114,7 @@ pub fn Header(
                         } else {
                             DefaultBell {
                                 unread: effective_unread,
-                                on_bell_click: on_bell_click.clone(),
+                                on_bell_click: on_bell_click,
                             }
                         }
                     }

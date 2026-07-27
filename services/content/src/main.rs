@@ -13,7 +13,7 @@ use notify_debouncer_mini::new_debouncer;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -265,7 +265,7 @@ async fn not_found() -> StatusCode {
 }
 
 async fn load_block_registry(
-    path: &PathBuf,
+    path: &Path,
     registry: &Arc<RwLock<BlockRegistry>>,
 ) -> Result<(), String> {
     let mut reg = registry.write().await;
@@ -405,7 +405,7 @@ async fn sync_blocks_to_db(db: &sqlx::PgPool, registry: &BlockRegistry) -> Resul
     Ok(())
 }
 
-async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &PathBuf) -> Result<(), String> {
+async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &Path) -> Result<(), String> {
     let themes_dir = content_path.join("themes");
     if !themes_dir.exists() {
         return Ok(());
@@ -912,7 +912,7 @@ async fn get_site_settings(
 // Served by the content service since they're display-only / content-driven.
 // =====================================================================
 
-fn read_content_json(content_path: &PathBuf, rel: &str) -> Option<serde_json::Value> {
+fn read_content_json(content_path: &Path, rel: &str) -> Option<serde_json::Value> {
     let p = content_path.join(rel);
     if !p.exists() {
         return None;
@@ -988,8 +988,8 @@ async fn news_post(
             let mut title = slug.replace('-', " ");
             let mut published = "June 9, 2026".to_string();
             let body_start;
-            if trimmed.starts_with("---") {
-                let after = trimmed[3..].trim_start_matches('\n');
+            if let Some(frontmatter) = trimmed.strip_prefix("---") {
+                let after = frontmatter.trim_start_matches('\n');
                 if let Some(close) = after.find("\n---") {
                     for line in after[..close].lines() {
                         let line = line.trim();

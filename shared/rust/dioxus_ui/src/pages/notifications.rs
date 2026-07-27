@@ -184,16 +184,11 @@ impl NotificationPriorityFilter {
 /// Serde otherwise gives missing fields and explicit `null` the same `None`
 /// representation. The sentinel keeps those states distinct until the whole
 /// service row is validated.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum RequiredNullable<T> {
+    #[default]
     Missing,
     Present(Option<T>),
-}
-
-impl<T> Default for RequiredNullable<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de, T> Deserialize<'de> for RequiredNullable<T>

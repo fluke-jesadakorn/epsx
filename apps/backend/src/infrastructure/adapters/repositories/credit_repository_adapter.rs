@@ -552,13 +552,6 @@ mod tests {
     fn _assert_credit_port_object_safe(_: &dyn CreditRepositoryPort) {}
 
     #[test]
-    fn test_repository_creation() {
-        // This is just a placeholder to show the structure
-        // Real tests would require database setup
-        assert!(true);
-    }
-
-    #[test]
     fn credit_balance_row_round_trip_strings() {
         // The port DTO carries BigDecimal as a string. Verify
         // the round-trip preserves "0", positive, and negative

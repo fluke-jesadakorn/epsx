@@ -122,9 +122,7 @@ pub fn NewsEditorFormFields(
     let body = body_value.clone().unwrap_or_else(|| {
         "## Introduction\n\nWrite your news article here in markdown.\n\n- Point 1\n- Point 2\n\n[Read more](https://epsx.io)".to_string()
     });
-    let on_title = on_title_change
-        .clone()
-        .unwrap_or_else(|| EventHandler::new(|_: String| {}));
+    let on_title = on_title_change.unwrap_or_else(|| EventHandler::new(|_: String| {}));
     rsx! {
         div { class: "news-editor-form-fields space-y-4",
             div { class: "field",

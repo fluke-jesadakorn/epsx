@@ -43,7 +43,6 @@ use axum::{
     extract::{Query, State},
     http::StatusCode,
     response::Json as JsonResponse,
-    Json,
 };
 use chrono::Utc;
 use serde::Deserialize;

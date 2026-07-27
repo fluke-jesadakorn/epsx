@@ -66,7 +66,7 @@ pub fn Combobox(
                     required: required && !allow_free,
                     value: "{query.read()}",
                     onfocus: move |_| open.set(true),
-                    onblur: move |_| { let _ = open.set(false); },
+                    onblur: move |_| { open.set(false); },
                     oninput: move |e| { query.set(e.value().to_string()); open.set(true); focus_idx.set(0); },
                     onkeydown: move |e| {
                         let k = e.key();
@@ -183,7 +183,7 @@ pub fn ComboboxAsync(
                     required: required,
                     value: "{query.read()}",
                     onfocus: move |_| open.set(true),
-                    onblur: move |_| { let _ = open.set(false); },
+                    onblur: move |_| { open.set(false); },
                     oninput: move |e| { query.set(e.value().to_string()); open.set(true); focus_idx.set(0); },
                     onkeydown: move |e| {
                         let k = e.key();
@@ -266,7 +266,7 @@ pub fn ComboboxMulti(
     // Use a Signal so the closures can clone on every call without moving.
     let value_signal = use_signal(|| value.clone());
     let mut open = use_signal(|| false);
-    let mut query = use_signal(|| String::new());
+    let mut query = use_signal(String::new);
     let value_for_render = value.clone();
     let placeholder_str = placeholder.unwrap_or_else(|| "Type to search…".to_string());
 
@@ -298,7 +298,7 @@ pub fn ComboboxMulti(
                             .find(|(val, _)| val == &v_for_chip)
                             .map(|(_, l)| l.clone())
                             .unwrap_or_else(|| v_for_chip.clone());
-                        let value_signal_for_remove = value_signal.clone();
+                        let value_signal_for_remove = value_signal;
                         rsx! {
                             span { class: "combobox-multi-chip badge badge-primary", role: "presentation",
                                 "{label_for_chip}"
@@ -328,7 +328,7 @@ pub fn ComboboxMulti(
                     placeholder: placeholder_str.clone(),
                     value: "{query.read()}",
                     onfocus: move |_| open.set(true),
-                    onblur: move |_| { let _ = open.set(false); },
+                    onblur: move |_| { open.set(false); },
                     oninput: move |e| { query.set(e.value().to_string()); open.set(true); },
                     onkeydown: move |e| {
                         if e.key() == Key::Escape { open.set(false); }
@@ -340,10 +340,10 @@ pub fn ComboboxMulti(
                     for (val, lbl) in filtered.iter() {
                         {
                             let val_for_toggle = val.clone();
-                            let at_max = max.map_or(false, |m| value_signal.read().len() >= m);
+                            let at_max = max.is_some_and(|m| value_signal.read().len() >= m);
                             let is_selected = value_signal.read().contains(&val_for_toggle);
                             let disabled_for_option = at_max && !is_selected;
-                            let value_signal_for_toggle = value_signal.clone();
+                            let value_signal_for_toggle = value_signal;
                             let val_for_toggle_in_closure = val_for_toggle.clone();
                             rsx! {
                                 li {

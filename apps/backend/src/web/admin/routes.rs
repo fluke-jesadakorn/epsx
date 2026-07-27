@@ -22,8 +22,6 @@ use super::plan_handlers::{
 // used in the route mount below. See
 // `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
 // preconditions item 3.
-#[allow(deprecated)]
-use super::plan_handlers::list_subscriptions_handler as _legacy_list_subscriptions_handler;
 // Promotion management handlers
 use super::promotion_handlers::{
     create_promotion_handler, delete_promotion_handler, get_promotion_handler,

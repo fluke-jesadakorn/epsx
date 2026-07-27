@@ -151,7 +151,7 @@ mod tests {
         // were moved into sibling modules in the wave 10 prep
         // pass; this test now also proves those modules are
         // visible from the crate root.
-        crate::security_headers::RequestId(String::new());
+        let _request_id = crate::security_headers::RequestId(String::new());
         let _ = crate::governor_limiters::auth_rate_limiter;
     }
 }

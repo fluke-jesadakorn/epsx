@@ -72,7 +72,6 @@ pub fn Center(#[props(default = None)] class: Option<String>, children: Element)
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn aspect_ratio_class() {

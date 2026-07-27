@@ -138,10 +138,10 @@ pub fn PaymentFilterSection(
     on_change: EventHandler<PaymentFilters>,
     on_reset: EventHandler<()>,
 ) -> Element {
-    let emit = |f: PaymentFilters| {
-        let f_clone = f.clone();
-        move |_: String| on_change.call(f_clone.clone())
-    };
+    let filters_for_search = filters.clone();
+    let filters_for_status = filters.clone();
+    let filters_for_method = filters.clone();
+    let filters_for_plan = filters.clone();
     rsx! {
         div { class: "payments-management-filters rounded-xl border border-border/20 bg-card p-4 mb-6",
             div { class: "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 items-end",
@@ -155,6 +155,11 @@ pub fn PaymentFilterSection(
                             r#type: "text",
                             placeholder: "Reference, wallet...",
                             value: "{filters.search}",
+                            oninput: move |event| {
+                                let mut next = filters_for_search.clone();
+                                next.search = event.value();
+                                on_change.call(next);
+                            },
                         }
                     }
                 }
@@ -164,6 +169,11 @@ pub fn PaymentFilterSection(
                     select {
                         class: "w-full px-4 py-3 bg-muted/30 border border-border/40 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-muted/50 transition-all font-bold text-sm",
                         value: "{filters.status}",
+                        onchange: move |event| {
+                            let mut next = filters_for_status.clone();
+                            next.status = event.value();
+                            on_change.call(next);
+                        },
                         option { value: "", "All Status" }
                         option { value: "succeeded", "Succeeded" }
                         option { value: "pending", "Pending" }
@@ -176,6 +186,11 @@ pub fn PaymentFilterSection(
                     select {
                         class: "w-full px-4 py-3 bg-muted/30 border border-border/40 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-muted/50 transition-all font-bold text-sm",
                         value: "{filters.payment_method}",
+                        onchange: move |event| {
+                            let mut next = filters_for_method.clone();
+                            next.payment_method = event.value();
+                            on_change.call(next);
+                        },
                         option { value: "", "All Methods" }
                         option { value: "on_chain", "On Chain" }
                         option { value: "on_line", "Online" }
@@ -187,6 +202,11 @@ pub fn PaymentFilterSection(
                     select {
                         class: "w-full px-4 py-3 bg-muted/30 border border-border/40 rounded-2xl text-foreground focus:outline-none focus:border-[#1fc7d4]/50 focus:bg-muted/50 transition-all font-bold text-sm",
                         value: "{filters.plan_template}",
+                        onchange: move |event| {
+                            let mut next = filters_for_plan.clone();
+                            next.plan_template = event.value();
+                            on_change.call(next);
+                        },
                         option { value: "BASIC", "Basic" }
                         option { value: "PRO", "Pro" }
                         option { value: "ENTERPRISE", "Enterprise" }

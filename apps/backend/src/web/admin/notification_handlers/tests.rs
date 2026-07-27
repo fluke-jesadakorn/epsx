@@ -18,7 +18,7 @@
 //! symbol is not at the new path, this test file fails to compile.
 
 #[cfg(test)]
-mod tests {
+mod route_tests {
     use axum::{
         body::Body,
         http::{Request, StatusCode},

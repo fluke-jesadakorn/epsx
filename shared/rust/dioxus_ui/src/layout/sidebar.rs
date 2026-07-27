@@ -155,7 +155,7 @@ pub fn AdminSidebar(
                             current_path: current_path.clone(),
                             is_authenticated,
                             chat_count: item.chat_count.unwrap_or(0),
-                            expanded: expanded.clone(),
+                            expanded: expanded,
                         }
                     }
                 }

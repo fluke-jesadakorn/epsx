@@ -305,16 +305,28 @@ fn auth_page_session_state(
 /// failure into an empty or demo list. The Dioxus page treats `ok` as
 /// permission to parse the exact service payload and every other state as
 /// unavailable.
+struct NotificationLoadSelection<'a> {
+    page: u32,
+    status: Option<&'a str>,
+    notification_type: Option<&'a str>,
+    priority: Option<&'a str>,
+    start_date: Option<&'a str>,
+    end_date: Option<&'a str>,
+}
+
 fn record_notification_load(
     params: &mut HashMap<String, String>,
-    page: u32,
-    status: Option<&str>,
-    notification_type: Option<&str>,
-    priority: Option<&str>,
-    start_date: Option<&str>,
-    end_date: Option<&str>,
+    selection: NotificationLoadSelection<'_>,
     outcome: crate::api::NotificationListLoadOutcome,
 ) {
+    let NotificationLoadSelection {
+        page,
+        status,
+        notification_type,
+        priority,
+        start_date,
+        end_date,
+    } = selection;
     params.remove(NOTIFICATIONS_DATA_PARAM);
     params.remove(NOTIFICATIONS_STATE_PARAM);
     params.remove(NOTIFICATIONS_STATUS_PARAM);
@@ -859,7 +871,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let (meta, body_element) = render_page(&ctx, false);
     let status = notifications_ssr_status(&path, &ctx.params)
         .or_else(|| news_ssr_status(&path, &ctx.params))
-        .unwrap_or_else(|| match meta.status {
+        .unwrap_or(match meta.status {
             PageStatus::Ok => StatusCode::OK,
             PageStatus::NotFound => StatusCode::NOT_FOUND,
         });
@@ -917,14 +929,14 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let authenticated_header_runtime = format!(
         "{authenticated_header_runtime}{notification_push_runtime}{notification_mutation_runtime}{notification_realtime_runtime}"
     );
-    let recovery_runtime = recover_session
-        .then(|| {
-            format!(
-                "<script data-epsx-session-recovery>{}</script>",
-                epsx_bff::browser_auth::browser_session_recovery_script()
-            )
-        })
-        .unwrap_or_default();
+    let recovery_runtime = if recover_session {
+        format!(
+            "<script data-epsx-session-recovery>{}</script>",
+            epsx_bff::browser_auth::browser_session_recovery_script()
+        )
+    } else {
+        String::new()
+    };
     // The development frontend mounts the floating support affordance from
     // the global layout for authenticated pages. Keep the same shell-level
     // placement in the SSR document; `/chat` owns its full-page conversation
@@ -1115,12 +1127,14 @@ async fn fetch_page_data(
                 Ok((page, status, notification_type, priority, start_date, end_date, outcome)) => {
                     record_notification_load(
                         params,
-                        page,
-                        status.as_deref(),
-                        notification_type.as_deref(),
-                        priority.as_deref(),
-                        start_date.as_deref(),
-                        end_date.as_deref(),
+                        NotificationLoadSelection {
+                            page,
+                            status: status.as_deref(),
+                            notification_type: notification_type.as_deref(),
+                            priority: priority.as_deref(),
+                            start_date: start_date.as_deref(),
+                            end_date: end_date.as_deref(),
+                        },
                         outcome,
                     )
                 }
@@ -1279,7 +1293,7 @@ async fn load_analytics_rankings(
             AnalyticsLoadError::Malformed
         })?
         .validated()
-        .map_err(|()| {
+        .map_err(|_| {
             tracing::warn!("analytics rankings response failed semantic validation");
             AnalyticsLoadError::Malformed
         })
@@ -1301,7 +1315,7 @@ async fn load_analytics_filters(
             AnalyticsLoadError::Malformed
         })?
         .validated()
-        .map_err(|()| {
+        .map_err(|_| {
             tracing::warn!("analytics filters response failed semantic validation");
             AnalyticsLoadError::Malformed
         })
@@ -2612,6 +2626,7 @@ mod tests {
     use super::safe_return_url;
     use super::urlencode;
     use super::AnalyticsLoadError;
+    use super::NotificationLoadSelection;
     use super::NotificationPageRequest;
     use crate::api::{NotificationPreferencesLoadError, NotificationPreferencesLoadOutcome};
     use axum::http::{header, HeaderMap, HeaderValue};
@@ -3080,12 +3095,14 @@ mod tests {
 
         record_notification_load(
             &mut params,
-            1,
-            None,
-            None,
-            None,
-            None,
-            None,
+            NotificationLoadSelection {
+                page: 1,
+                status: None,
+                notification_type: None,
+                priority: None,
+                start_date: None,
+                end_date: None,
+            },
             crate::api::NotificationListLoadOutcome::Ready(payload.clone()),
         );
 
@@ -3109,12 +3126,14 @@ mod tests {
         let empty = serde_json::json!({"items": [], "total": 0});
         record_notification_load(
             &mut params,
-            1,
-            None,
-            None,
-            None,
-            None,
-            None,
+            NotificationLoadSelection {
+                page: 1,
+                status: None,
+                notification_type: None,
+                priority: None,
+                start_date: None,
+                end_date: None,
+            },
             crate::api::NotificationListLoadOutcome::Empty(empty.clone()),
         );
         assert_eq!(
@@ -3148,7 +3167,18 @@ mod tests {
                 serde_json::json!({"items": [{"title": "stale"}], "total": 1}).to_string(),
             )]);
 
-            record_notification_load(&mut params, 1, None, None, None, None, None, outcome);
+            record_notification_load(
+                &mut params,
+                NotificationLoadSelection {
+                    page: 1,
+                    status: None,
+                    notification_type: None,
+                    priority: None,
+                    start_date: None,
+                    end_date: None,
+                },
+                outcome,
+            );
 
             assert_eq!(
                 params
@@ -3403,7 +3433,7 @@ mod tests {
         };
         let (meta, _) = epsx_dioxus_ui::pages::home::render(&ctx);
         assert_eq!(meta.status, PageStatus::Ok);
-        let status = news_ssr_status(&ctx.path, &ctx.params).unwrap_or_else(|| match meta.status {
+        let status = news_ssr_status(&ctx.path, &ctx.params).unwrap_or(match meta.status {
             PageStatus::Ok => StatusCode::OK,
             PageStatus::NotFound => StatusCode::NOT_FOUND,
         });

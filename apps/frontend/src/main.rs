@@ -15,7 +15,7 @@
 use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
-    routing::{any, delete, get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use epsx_bff::{

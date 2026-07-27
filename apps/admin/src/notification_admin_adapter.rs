@@ -576,15 +576,14 @@ fn classify_admin_notification_payload(
     if payload.items.is_empty() && payload.total > 0 && payload.offset < payload.total {
         return AdminNotificationLoad::Malformed;
     }
-    if !payload.items.is_empty() {
-        if payload.offset >= payload.total
+    if !payload.items.is_empty()
+        && (payload.offset >= payload.total
             || i64::try_from(payload.items.len())
                 .ok()
                 .and_then(|items| payload.offset.checked_add(items))
-                .is_none_or(|end| end > payload.total)
-        {
-            return AdminNotificationLoad::Malformed;
-        }
+                .is_none_or(|end| end > payload.total))
+    {
+        return AdminNotificationLoad::Malformed;
     }
 
     let Some(items) = payload
@@ -751,7 +750,9 @@ fn days_in_month(year: u32, month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 if year.is_multiple_of(400) || (year.is_multiple_of(4) && !year.is_multiple_of(100)) => {
+            29
+        }
         2 => 28,
         _ => 0,
     }

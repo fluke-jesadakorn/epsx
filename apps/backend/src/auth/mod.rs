@@ -22,12 +22,6 @@ pub use epsx_identity_shared::*;
 pub mod auth_service {
     pub use epsx_identity_shared::auth_service::*;
 }
-pub mod challenge_service {
-    pub use epsx_identity_shared::challenge_service::*;
-}
-pub mod verification_service {
-    pub use epsx_identity_shared::verification_service::*;
-}
 pub mod token_service {
     pub use epsx_identity_shared::token_service::*;
 }

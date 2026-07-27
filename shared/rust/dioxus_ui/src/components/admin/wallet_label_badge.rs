@@ -106,7 +106,7 @@ pub enum WalletLabelSize {
 }
 
 impl WalletLabelSize {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "md" => WalletLabelSize::Md,
             _ => WalletLabelSize::Sm,
@@ -138,7 +138,7 @@ pub fn WalletLabelBadge(
     /// that calls the callback.
     on_remove: Option<EventHandler<MouseEvent>>,
 ) -> Element {
-    let size_kind = WalletLabelSize::from_str(size.as_deref().unwrap_or("sm"));
+    let size_kind = WalletLabelSize::from_name(size.as_deref().unwrap_or("sm"));
     let colors = get_label_color(&label);
     let mut cls = format!(
         "inline-flex items-center gap-1 font-medium border rounded-full {} {} {} {}",

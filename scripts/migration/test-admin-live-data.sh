@@ -20,7 +20,7 @@ assert_test_count() {
 }
 
 (cd "$repo_root" && cargo test --offline --locked -p epsx-admin) >"$temp_dir/admin-rust.out" 2>&1
-assert_test_count "$temp_dir/admin-rust.out" 161
+assert_test_count "$temp_dir/admin-rust.out" 160
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui wallet_wallets --lib) >"$temp_dir/wallet-ui-rust.out" 2>&1
 assert_test_count "$temp_dir/wallet-ui-rust.out" 16
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui admin_pages::dashboard::tests --lib) >"$temp_dir/dashboard-ui-rust.out" 2>&1
@@ -188,4 +188,4 @@ set -e
 [ "$redirect_semantics_status" -eq 1 ] || { cat "$temp_dir/redirect-semantics-tamper.out" >&2; exit 1; }
 grep -q "must retain the exact three redirect proof gaps" "$temp_dir/redirect-semantics-tamper.out"
 
-echo "admin-live-data self-test: PASS (Rust admin/dashboard+commerce UI/backend exact counts 161/16/8/1/5/6, integrity=0, readiness=0, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/commerce-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"
+echo "admin-live-data self-test: PASS (Rust admin/dashboard+commerce UI/backend exact counts 160/16/6/1/5/8, integrity=0, readiness=0, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/commerce-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"

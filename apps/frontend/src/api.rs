@@ -611,7 +611,7 @@ fn clear_session_response(state: &AppState, status: StatusCode, code: &'static s
         append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Frontend)
             .is_ok()
     })
-    .unwrap_or_else(|error| error)
+    .unwrap_or_else(|error| *error)
 }
 
 fn clear_refresh_session_response(
@@ -624,7 +624,7 @@ fn clear_refresh_session_response(
             .is_ok()
     }) {
         Ok(response) => refresh_response(response, RefreshDisposition::Clear),
-        Err(error) => error,
+        Err(error) => *error,
     }
 }
 
@@ -632,13 +632,13 @@ fn try_clear_session_response(
     status: StatusCode,
     code: &'static str,
     append: impl FnOnce(&mut axum::http::HeaderMap) -> bool,
-) -> Result<Response, Response> {
+) -> Result<Response, Box<Response>> {
     let mut response = safe_error(status, code);
     if !append(response.headers_mut()) {
-        return Err(safe_error(
+        return Err(Box::new(safe_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "session_cookie_error",
-        ));
+        )));
     }
     Ok(response)
 }
@@ -683,7 +683,7 @@ pub(crate) fn decode_watchlist_response(
     if !envelope.success {
         return Err(());
     }
-    envelope.data.ok_or(())?.validated()
+    envelope.data.ok_or(())?.validated().map_err(|_| ())
 }
 
 fn private_watchlist_response(mut response: Response) -> Response {
@@ -890,6 +890,7 @@ mod watchlist_contract_tests {
 const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;
 const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
 pub(crate) const NOTIFICATION_SSR_PAGE_SIZE: u16 = 20;
+#[cfg(test)]
 pub(crate) const NOTIFICATION_SSR_MAX_PAGE: u32 =
     (NOTIFICATION_LIST_OFFSET_MAX / NOTIFICATION_SSR_PAGE_SIZE as u32) + 1;
 // The list endpoint returns at most 100 rows. A 2 MiB cap leaves roughly
@@ -910,7 +911,7 @@ const NOTIFICATION_ID_MAX: usize = 128;
 const NOTIFICATION_RECIPIENT_MAX: usize = 2 * 1024;
 const NOTIFICATION_SUBJECT_MAX: usize = 512;
 const NOTIFICATION_BODY_MAX: usize = 16 * 1024;
-const NOTIFICATION_ERROR_MAX: usize = 1 * 1024;
+const NOTIFICATION_ERROR_MAX: usize = 1024;
 const NOTIFICATION_TITLE_MAX: usize = 512;
 const NOTIFICATION_TYPE_MAX: usize = 64;
 const NOTIFICATION_PRIORITY_MAX: usize = 32;
@@ -934,11 +935,13 @@ impl NotificationListQuery {
     /// The browser selects only a canonical page number. Page size, offset,
     /// and owner are not caller-controlled: size is frozen to the development
     /// source's 20 rows and offset is derived here.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page(page: u32) -> Option<Self> {
         Self::for_ssr_page_and_status(page, None)
     }
 
     /// Build a fixed owner-scoped SSR page with the bounded status filter.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page_and_status(page: u32, status: Option<&str>) -> Option<Self> {
         Self::for_ssr_page_and_filters(page, status, None, None)
     }
@@ -947,6 +950,7 @@ impl NotificationListQuery {
     /// type, and priority filters. The caller supplies canonical values only;
     /// this final boundary still rejects whitespace/control/unbounded values
     /// before an upstream request is possible.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page_and_filters(
         page: u32,
         status: Option<&str>,
@@ -1191,16 +1195,11 @@ impl NotificationListQuery {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum RequiredNullable<T> {
+    #[default]
     Missing,
     Present(Option<T>),
-}
-
-impl<T> Default for RequiredNullable<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de, T> Deserialize<'de> for RequiredNullable<T>
@@ -1304,7 +1303,7 @@ impl NotificationListWire {
             });
             let broadcast_matches = item.user_id.as_ref()?.is_none()
                 && item.recipient.eq_ignore_ascii_case("all")
-                && item.channel != "";
+                && !item.channel.is_empty();
             if !owner_matches && !broadcast_matches {
                 return Err(());
             }
@@ -3203,12 +3202,12 @@ async fn read_notification_preferences_response(
                 "malformed_notification_preferences_response",
             )
         })?;
-    if !validate_notification_preferences(&NotificationPreferencesRequest {
+    if validate_notification_preferences(&NotificationPreferencesRequest {
         channels: preferences.channels.clone(),
         quiet_hours: preferences.quiet_hours.clone(),
         timezone: preferences.timezone.clone(),
     })
-    .is_ok()
+    .is_err()
     {
         return Err(safe_error(
             StatusCode::BAD_GATEWAY,
@@ -4566,9 +4565,7 @@ fn valid_cover_image_url(value: &str) -> bool {
 }
 
 fn canonical_https_authority(value: &str) -> Option<&str> {
-    let Some((scheme, rest)) = value.split_once("://") else {
-        return None;
-    };
+    let (scheme, rest) = value.split_once("://")?;
     if !scheme.eq_ignore_ascii_case("https") {
         return None;
     }
@@ -6370,7 +6367,7 @@ mod auth_session_tests {
             |_| false,
         ) {
             Ok(_) => panic!("forced cookie failure unexpectedly succeeded"),
-            Err(response) => response,
+            Err(response) => *response,
         };
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert!(response.headers().get(SESSION_STATE_HEADER).is_none());

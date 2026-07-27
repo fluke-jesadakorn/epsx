@@ -52,7 +52,6 @@ pub fn InputWithIcon(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn icon_wrap_class_is_present() {

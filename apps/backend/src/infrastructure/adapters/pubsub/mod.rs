@@ -51,7 +51,7 @@ pub use redis_pubsub_adapter::RedisPubsubAdapter;
 #[cfg(test)]
 mod chat_pubsub_canary_tests {
     use super::*;
-    use epsx_contracts::pubsub_port::{MessageStream, PubsubPort};
+    use epsx_contracts::pubsub_port::PubsubPort;
     use std::sync::Arc;
 
     /// The audit-flagged canary: publish on `chat:new`, subscribe

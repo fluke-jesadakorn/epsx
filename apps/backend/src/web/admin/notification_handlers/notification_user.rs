@@ -54,7 +54,7 @@ async fn require_notifications_pool() -> Result<&'static TlsPool, AppError> {
     security(("bearerAuth" = []))
 )]
 pub async fn get_user_notifications_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -184,7 +184,7 @@ pub async fn get_user_notifications_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn mark_notification_read_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -241,7 +241,7 @@ pub async fn mark_notification_read_handler(
 
 /// Mark notification as unread
 pub async fn mark_notification_unread_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -311,7 +311,7 @@ pub async fn mark_notification_unread_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn delete_notification_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -377,7 +377,7 @@ pub async fn delete_notification_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn get_unread_count_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -428,7 +428,7 @@ pub async fn get_unread_count_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn mark_all_notifications_read_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,
@@ -479,7 +479,7 @@ pub async fn mark_all_notifications_read_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn clear_all_notifications_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     axum::Extension(user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,
     >,

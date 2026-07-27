@@ -38,7 +38,7 @@ pub enum WalletRowStatus {
 }
 
 impl WalletRowStatus {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "disabled" => WalletRowStatus::Disabled,
             _ => WalletRowStatus::Active,
@@ -122,7 +122,7 @@ pub fn AdminWalletTableRow(
     /// Edit-metadata handler.
     on_edit: EventHandler<WalletRowData>,
 ) -> Element {
-    let status_kind = WalletRowStatus::from_str(&wallet.status);
+    let status_kind = WalletRowStatus::from_name(&wallet.status);
     let is_disabled = status_kind == WalletRowStatus::Disabled;
     let mut cls = "group hover:bg-muted/30 transition-colors".to_string();
     if is_selected {

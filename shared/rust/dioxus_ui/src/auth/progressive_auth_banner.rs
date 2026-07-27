@@ -42,7 +42,6 @@ pub fn ProgressiveAuthBannerLegacy(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn progressive_auth_banner_legacy_signature_matches_ts() {

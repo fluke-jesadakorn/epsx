@@ -452,7 +452,8 @@ pub fn build_router(
     verifier: Arc<dyn AccessTokenVerifier>,
 ) -> Router {
     let state = AppState { store, verifier };
-    let app = Router::new()
+
+    Router::new()
         .route("/health", get(health))
         .route("/api/v1/analytics/track", post(track_event))
         .route("/api/v1/analytics/events", get(list_events))
@@ -467,8 +468,7 @@ pub fn build_router(
             state.clone(),
             authorize_request,
         ))
-        .with_state(state);
-    app
+        .with_state(state)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

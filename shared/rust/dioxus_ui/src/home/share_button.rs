@@ -43,7 +43,6 @@ pub fn ShareButton(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn share_button_smoke() {}

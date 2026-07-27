@@ -206,9 +206,8 @@ impl CommandHandler<CreatePaymentCommand> for CreatePaymentCommandHandler {
 mod tests {
     use super::*;
     use crate::domain::payment::repository_ports::{
-        ActivateSubscriptionCommand as PortActivateSubscriptionCommand, AnalyticsRollup,
-        AnalyticsWindow, CreatePaymentCommand as PortCreatePaymentCommand, PaymentRowWithPlanName,
-        SubmitTxValidation, Subscription, SubscriptionFilters,
+        ActivateSubscriptionCommand as PortActivateSubscriptionCommand,
+        CreatePaymentCommand as PortCreatePaymentCommand, Subscription,
     };
     use crate::domain::payment::value_objects::{Currency, Network, PaymentMethodType};
     use crate::domain::payment::PaymentStatus;

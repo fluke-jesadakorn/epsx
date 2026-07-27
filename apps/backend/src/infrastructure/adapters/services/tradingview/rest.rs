@@ -113,7 +113,7 @@ impl TradingViewRestClient {
     ) -> Result<TradingViewResponse, MarketDataError> {
         let retry_strategy = ExponentialBackoff::from_millis(100).map(jitter).take(3);
 
-        Retry::spawn(retry_strategy, || async {
+        Retry::start(retry_strategy, || async {
             info!("Making request to TradingView API");
             debug!("Attempting to fetch data from TradingView");
 
@@ -160,7 +160,7 @@ impl TradingViewRestClient {
             .take(max_retries)
             .map(jitter);
 
-        Retry::spawn(retry_strategy, || {
+        Retry::start(retry_strategy, || {
             self.execute_custom_request_once(payload.clone())
         })
         .await

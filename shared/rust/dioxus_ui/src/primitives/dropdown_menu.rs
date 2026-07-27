@@ -90,21 +90,3 @@ pub fn Content(
 pub fn Group(children: Element) -> Element {
     rsx! { div { class: "dropdown-menu-group", role: "group", {children} } }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn align_class_mapping_is_distinct() {
-        let a = match Some("start") {
-            Some(x) => x,
-            _ => "center",
-        };
-        let b = match Some("end") {
-            Some(x) => x,
-            _ => "center",
-        };
-        assert_ne!(a, b);
-    }
-}

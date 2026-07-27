@@ -18,6 +18,9 @@ pub const ANALYTICS_QUERY_PARAM: &str = "data_analytics_query";
 pub const ANALYTICS_WATCHLIST_DATA_PARAM: &str = "data_analytics_watchlist";
 pub const ANALYTICS_WATCHLIST_STATE_PARAM: &str = "data_analytics_watchlist_state";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct AnalyticsValidationError;
+
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 pub struct AnalyticsResponse {
     pub success: bool,
@@ -155,14 +158,14 @@ pub fn normalize_watchlist_symbol(value: &str) -> Option<String> {
 }
 
 impl WatchlistData {
-    pub fn validated(self) -> Result<Self, ()> {
+    pub fn validated(self) -> Result<Self, AnalyticsValidationError> {
         let mut seen = HashSet::new();
         let mut symbols = Vec::with_capacity(self.symbols.len());
         if self.symbols.len() > 1_000 {
-            return Err(());
+            return Err(AnalyticsValidationError);
         }
         for symbol in self.symbols {
-            let symbol = normalize_watchlist_symbol(&symbol).ok_or(())?;
+            let symbol = normalize_watchlist_symbol(&symbol).ok_or(AnalyticsValidationError)?;
             if seen.insert(symbol.clone()) {
                 symbols.push(symbol);
             }
@@ -172,13 +175,13 @@ impl WatchlistData {
 }
 
 impl AnalyticsFilters {
-    pub fn validated(self) -> Result<Self, ()> {
+    pub fn validated(self) -> Result<Self, AnalyticsValidationError> {
         if self.countries.len() > 500
             || self.sectors.len() > 500
             || self.exchanges.len() > 500
             || self.stock_types.len() > 500
         {
-            return Err(());
+            return Err(AnalyticsValidationError);
         }
         let mut country_values = HashSet::new();
         for country in &self.countries {
@@ -186,7 +189,7 @@ impl AnalyticsFilters {
                 || !safe_text(&country.label, 128)
                 || !country_values.insert(country.value.as_str())
             {
-                return Err(());
+                return Err(AnalyticsValidationError);
             }
         }
         for value in self
@@ -196,7 +199,7 @@ impl AnalyticsFilters {
             .chain(self.stock_types.iter())
         {
             if !safe_text(value, 128) {
-                return Err(());
+                return Err(AnalyticsValidationError);
             }
         }
         Ok(self)
@@ -204,7 +207,7 @@ impl AnalyticsFilters {
 }
 
 impl AnalyticsResponse {
-    pub fn validated(self) -> Result<Self, ()> {
+    pub fn validated(self) -> Result<Self, AnalyticsValidationError> {
         let pagination = &self.pagination;
         if !self.success
             || pagination.page < 1
@@ -216,11 +219,11 @@ impl AnalyticsResponse {
             || !safe_text(&self.metadata.request_timestamp, 128)
             || !safe_text(&self.metadata.data_source, 128)
         {
-            return Err(());
+            return Err(AnalyticsValidationError);
         }
         if let Some(access) = &self.access_info {
             if access.min_accessible_rank < 0 || access.locked_ranks_count < 0 {
-                return Err(());
+                return Err(AnalyticsValidationError);
             }
         }
         if self.metadata.available_countries.len() > 500
@@ -232,7 +235,7 @@ impl AnalyticsResponse {
                 .chain(self.metadata.available_sectors.iter())
                 .any(|value| !safe_text(value, 128))
         {
-            return Err(());
+            return Err(AnalyticsValidationError);
         }
         for row in &self.data {
             if row.rank < 1
@@ -248,7 +251,7 @@ impl AnalyticsResponse {
                     .progress_percentage
                     .is_some_and(|value| !(0.0..=100.0).contains(&value))
             {
-                return Err(());
+                return Err(AnalyticsValidationError);
             }
             for quarter in &row.quarterly_performance {
                 if !safe_text(&quarter.quarter, 64)
@@ -258,7 +261,7 @@ impl AnalyticsResponse {
                         .as_deref()
                         .is_some_and(|value| !safe_text(value, 128))
                 {
-                    return Err(());
+                    return Err(AnalyticsValidationError);
                 }
             }
             if let Some(estimate) = &row.next_quarter_estimate {
@@ -266,7 +269,7 @@ impl AnalyticsResponse {
                     || !safe_text(&estimate.announcement_date, 128)
                     || !safe_text(&estimate.confidence, 64)
                 {
-                    return Err(());
+                    return Err(AnalyticsValidationError);
                 }
             }
         }
@@ -282,7 +285,7 @@ fn valid_ranking_symbol(value: &str) -> bool {
 }
 
 impl AnalyticsQueryState {
-    pub fn from_normalized_query(query: &str) -> Result<Self, ()> {
+    pub fn from_normalized_query(query: &str) -> Result<Self, AnalyticsValidationError> {
         let mut state = Self {
             page: 1,
             ..Default::default()
@@ -290,25 +293,26 @@ impl AnalyticsQueryState {
         if query.is_empty() {
             return Ok(state);
         }
-        let url = url::Url::parse(&format!("https://frontend.invalid/?{query}")).map_err(|_| ())?;
+        let url = url::Url::parse(&format!("https://frontend.invalid/?{query}"))
+            .map_err(|_| AnalyticsValidationError)?;
         let mut seen = HashSet::new();
         for (key, value) in url.query_pairs() {
             if !seen.insert(key.to_string()) {
-                return Err(());
+                return Err(AnalyticsValidationError);
             }
             match key.as_ref() {
-                "page" => state.page = value.parse().map_err(|_| ())?,
-                "limit" => state.limit = Some(value.parse().map_err(|_| ())?),
+                "page" => state.page = value.parse().map_err(|_| AnalyticsValidationError)?,
+                "limit" => state.limit = Some(value.parse().map_err(|_| AnalyticsValidationError)?),
                 "country" => state.country = Some(value.into_owned()),
                 "sector" => state.sector = Some(value.into_owned()),
                 "sort_by" => state.sort_by = Some(value.into_owned()),
                 "min_eps" => state.min_eps = Some(value.into_owned()),
                 "min_growth" => state.min_growth = Some(value.into_owned()),
-                _ => return Err(()),
+                _ => return Err(AnalyticsValidationError),
             }
         }
         if state.page == 0 || state.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
-            return Err(());
+            return Err(AnalyticsValidationError);
         }
         Ok(state)
     }

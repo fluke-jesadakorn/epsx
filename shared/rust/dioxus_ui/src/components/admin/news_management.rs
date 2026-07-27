@@ -133,9 +133,9 @@ pub fn NewsArticleCard(
                                 title: "Toggle pin",
                                 onclick: {
                                     let id_for_pin = id.clone();
-                                    let h = on_toggle_pin.clone();
+                                    let h = on_toggle_pin;
                                     move |_| {
-                                        if let Some(h) = h.clone() { h.call(id_for_pin.clone()); }
+                                        if let Some(h) = h { h.call(id_for_pin.clone()); }
                                     }
                                 },
                                 if article.is_pinned {
@@ -150,9 +150,9 @@ pub fn NewsArticleCard(
                                 title: "Toggle publish",
                                 onclick: {
                                     let id_for_pub = id.clone();
-                                    let h = on_toggle_publish.clone();
+                                    let h = on_toggle_publish;
                                     move |_| {
-                                        if let Some(h) = h.clone() { h.call(id_for_pub.clone()); }
+                                        if let Some(h) = h { h.call(id_for_pub.clone()); }
                                     }
                                 },
                                 if article.status == "published" {
@@ -173,9 +173,9 @@ pub fn NewsArticleCard(
                                 title: "Delete",
                                 onclick: {
                                     let id_for_del = id.clone();
-                                    let h = on_delete.clone();
+                                    let h = on_delete;
                                     move |_| {
-                                        if let Some(h) = h.clone() { h.call(id_for_del.clone()); }
+                                        if let Some(h) = h { h.call(id_for_del.clone()); }
                                     }
                                 },
                                 Icon { name: "trash-2".to_string(), size: Some(16) }

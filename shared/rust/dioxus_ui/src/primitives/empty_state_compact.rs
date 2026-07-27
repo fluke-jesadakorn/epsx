@@ -66,7 +66,6 @@ pub fn EmptyStateWithAction(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn empty_state_compact_uses_dashed_border() {

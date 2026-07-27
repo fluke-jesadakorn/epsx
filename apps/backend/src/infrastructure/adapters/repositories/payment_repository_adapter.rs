@@ -29,7 +29,6 @@ use chrono::{DateTime, Utc};
 use std::str::FromStr;
 use uuid::Uuid;
 
-use crate::domain::payment::repository_ports::PaymentRepositoryPort;
 use crate::domain::payment::{
     Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStats, PaymentStatus,
     TransactionHash,

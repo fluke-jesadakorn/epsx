@@ -16,6 +16,10 @@ use super::icon::Icon;
 
 use dioxus::prelude::*;
 
+fn button_is_disabled(is_loading: bool, disabled: Option<bool>) -> bool {
+    is_loading || disabled.unwrap_or(false)
+}
+
 #[component]
 pub fn LoadingButton(
     is_loading: bool,
@@ -30,7 +34,7 @@ pub fn LoadingButton(
     children: Element,
 ) -> Element {
     let loading = is_loading;
-    let disabled_combined = loading || disabled.unwrap_or(false);
+    let disabled_combined = button_is_disabled(loading, disabled);
     let text = loading_text.unwrap_or_else(|| "Loading...".to_string());
 
     rsx! {
@@ -56,7 +60,7 @@ pub fn LoadingButton(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::button_is_disabled;
 
     #[test]
     fn default_loading_text_is_loading() {
@@ -67,17 +71,11 @@ mod tests {
 
     #[test]
     fn disabled_when_loading_regardless_of_explicit_disabled() {
-        let explicit_disabled: Option<bool> = None;
-        let loading = true;
-        let result = loading || explicit_disabled.unwrap_or(false);
-        assert!(result);
+        assert!(button_is_disabled(true, None));
     }
 
     #[test]
     fn disabled_when_explicit_disabled_even_if_not_loading() {
-        let explicit_disabled: Option<bool> = Some(true);
-        let loading = false;
-        let result = loading || explicit_disabled.unwrap_or(false);
-        assert!(result);
+        assert!(button_is_disabled(false, Some(true)));
     }
 }

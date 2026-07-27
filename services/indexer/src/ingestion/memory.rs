@@ -215,8 +215,8 @@ impl SelectedChainRepository for MemoryBlockRepository {
         let actual = snapshot_for(&state, mutation.chain_id()).expected();
         if mutation.expected() != &actual {
             return Err(SelectionConflict::ExpectedState {
-                expected: mutation.expected().clone(),
-                actual,
+                expected: Box::new(mutation.expected().clone()),
+                actual: Box::new(actual),
             }
             .into());
         }
@@ -266,9 +266,9 @@ fn validate_live_lease(
     };
     if lease.owner.as_ref() != Some(owner)
         || lease.last_fence != Some(fence)
-        || !lease
+        || lease
             .expires_at
-            .is_some_and(|expires_at| expires_at > state.now)
+            .is_none_or(|expires_at| expires_at <= state.now)
     {
         return Err(SelectionConflict::StaleLease.into());
     }
@@ -1226,7 +1226,7 @@ mod tests {
     async fn noop_reorg_is_typed_and_repository_rejection_is_atomic() {
         let repository = MemoryBlockRepository::default();
         let grant = lease(&repository, "worker-a").await;
-        let blocks = vec![
+        let blocks = [
             batch_at(56, 100, 10, 9, 0),
             batch_at(56, 101, 11, 10, 0),
             batch_at(56, 102, 12, 11, 0),
@@ -1341,7 +1341,7 @@ mod tests {
     async fn finalized_selection_advances_only_on_selection_and_blocks_deep_reorg() {
         let repository = MemoryBlockRepository::default();
         let grant = lease(&repository, "worker-a").await;
-        let blocks = vec![
+        let blocks = [
             batch_at(56, 100, 10, 9, 0),
             batch_at(56, 101, 11, 10, 0),
             batch_at(56, 102, 12, 11, 0),

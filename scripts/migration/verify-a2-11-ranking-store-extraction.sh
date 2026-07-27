@@ -184,15 +184,15 @@ const invariantIds = process.env.EPSX_A2_11_STATIC_ONLY === "1" ? contract.invar
 exactIds(contract.invariants, invariantIds, "invariant");
 
 const currentImplementation = [
-  ["impl-workspace-manifest", "Cargo.toml", "c5da30c730102fa073254e0b3b03c571ceb9fcb81e29ff8ae3fded35fcdb971a"],
+  ["impl-workspace-manifest", "Cargo.toml", "fc6ee677dcbd9c283e761c84ecc9b94f9864aa29eb81a747f07efb69a69d71db"],
   ["impl-workspace-lock", "Cargo.lock", "485fa21e13dcf52cfc27abdcdfa55adcc6b5200d7781c2dc670226b745bfd2c1"],
-  ["impl-backend-manifest", "apps/backend/Cargo.toml", "4b4cc24581b0b575fe5dc6cada9165f27b9cbd60c0d260a2d4f6488b961a936c"],
+  ["impl-backend-manifest", "apps/backend/Cargo.toml", "ef72f6a6fa72772d83b450593e4d3feff713d5c11dea5a81436a112083a3c55e"],
   ["impl-backend-compatibility-reexport", "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs", "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"],
   ["impl-ranking-store-manifest", "shared/rust/epsx-ranking-store/Cargo.toml", "c2d0bb14dd1b97a1ef8fe99b31af83acd833bf7ffac05d32b4ca35e67cfe225b"],
   ["impl-ranking-store-library", "shared/rust/epsx-ranking-store/src/lib.rs", "8c2228460a82e54972d0200991ee4bea73d27bcc1380fb67925e4323b93c5ee1"],
   ["impl-shared-repository-contract", "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs", "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"],
   ["impl-identity-manifest-unchanged", "shared/rust/epsx-identity-service/Cargo.toml", "54f7020be797a137a4c69d1e3fbccf0d21f88923a616bd48f0757aa770cf7c8f"],
-  ["impl-identity-auth-composition-unchanged", "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs", "1d9fc78e74d9959030bbd83c27989f987b7f200b8c70f8d0ad8110b36db60a58"],
+  ["impl-identity-auth-composition-unchanged", "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs", "306c3c0da4b017422ee49fab298ec6300b77544e0ec6278faea533823edad9a9"],
   ["impl-identity-runtime-main-fail-closed", "shared/rust/epsx-identity-service/src/main.rs", "de437e95ed219eb50dceb5bdfb55e0a9587d81bc45aa4df3bca1071249a59bbb"],
   ["impl-identity-ranking-service-fail-closed", "shared/rust/epsx-identity-service/src/identity_service.rs", "06bfd2c331e3c51031b2cd188860fe042d8a36ccdd227268d90af07dd43a0c0b"],
   ["impl-identity-proto-unchanged", "shared/proto/identity.proto", "f33f7256048403c79219913051347d85d05238e9c62269e37e8bffdae9f69d23"],

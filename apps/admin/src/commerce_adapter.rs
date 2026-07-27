@@ -7,29 +7,17 @@
 
 use chrono::DateTime;
 use epsx_dioxus_ui::pages::admin_pages::{
-    payments::{
-        decode_admin_payment_link_list_projection, AdminPaymentLinkListProjection,
-        AdminPaymentLinkProjection, ADMIN_PAYMENT_LINKS_EMPTY, ADMIN_PAYMENT_LINKS_FORBIDDEN,
-        ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY, ADMIN_PAYMENT_LINKS_UNAVAILABLE,
-    },
-    wallet_access::{
-        decode_admin_access_projection, AdminAccessProjection, ADMIN_ACCESS_FORBIDDEN,
-        ADMIN_ACCESS_MALFORMED, ADMIN_ACCESS_READY, ADMIN_ACCESS_UNAVAILABLE,
-    },
-    wallet_credits::{
-        decode_admin_credit_stats_projection, AdminCreditStatsProjection, ADMIN_CREDITS_FORBIDDEN,
-        ADMIN_CREDITS_MALFORMED, ADMIN_CREDITS_READY, ADMIN_CREDITS_UNAVAILABLE,
-    },
+    payments::{decode_admin_payment_link_list_projection, AdminPaymentLinkListProjection},
+    wallet_access::{decode_admin_access_projection, AdminAccessProjection},
+    wallet_credits::{decode_admin_credit_stats_projection, AdminCreditStatsProjection},
     wallet_plans::{
         decode_admin_plan_list_projection, decode_admin_plan_projection, AdminPlanListProjection,
-        AdminPlanProjection, ADMIN_PLANS_EMPTY, ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED,
-        ADMIN_PLANS_READY, ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_STATE_PARAM,
+        AdminPlanProjection,
     },
     wallet_wallets::{
         decode_admin_wallet_detail_projection, decode_admin_wallet_list_projection,
         decode_admin_wallet_stats_projection, AdminWalletDetailProjection,
-        AdminWalletListProjection, AdminWalletStatsSummary, ADMIN_WALLET_DETAIL_FORBIDDEN,
-        ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY, ADMIN_WALLET_DETAIL_UNAVAILABLE,
+        AdminWalletListProjection, AdminWalletStatsSummary,
     },
 };
 use serde::de::DeserializeOwned;
@@ -65,26 +53,8 @@ pub(crate) enum AdminCommerceMutationLoad<T> {
 }
 
 #[derive(Clone, Debug, Serialize)]
-pub(crate) struct ExpectedVersionCommand {
-    pub expected_version: i64,
-}
-
-#[derive(Clone, Debug, Serialize)]
 pub(crate) struct WalletStatusCommand {
     pub expected_version: i64,
-    pub reason: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub(crate) struct WalletMetadataCommand {
-    pub expected_version: i64,
-    pub metadata: Value,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub(crate) struct CreditCommand {
-    pub expected_version: i64,
-    pub amount_minor: i64,
     pub reason: String,
 }
 
@@ -97,10 +67,7 @@ pub(crate) fn wallet_status_mutation_path(address: &str, enable: bool) -> Option
     })
 }
 
-pub(crate) fn wallet_metadata_mutation_path(address: &str) -> Option<String> {
-    canonical_wallet(address).map(|address| format!("/api/v1/admin/wallets/{address}/metadata"))
-}
-
+#[cfg(test)]
 pub(crate) fn credit_mutation_path(address: &str, operation: &str) -> Option<String> {
     if !matches!(operation, "grant" | "revoke") {
         return None;
@@ -108,6 +75,7 @@ pub(crate) fn credit_mutation_path(address: &str, operation: &str) -> Option<Str
     canonical_wallet(address).map(|address| format!("/api/v1/admin/credits/{address}/{operation}"))
 }
 
+#[cfg(test)]
 pub(crate) fn access_mutation_path(operation: &str) -> Option<&'static str> {
     match operation {
         "assign" => Some("/api/v1/admin/subscription/access/assign"),
@@ -116,6 +84,7 @@ pub(crate) fn access_mutation_path(operation: &str) -> Option<&'static str> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn plan_mutation_path(plan_id: Option<&str>) -> Option<String> {
     match plan_id {
         None => Some("/api/v1/admin/subscription/plans".to_string()),
@@ -125,6 +94,7 @@ pub(crate) fn plan_mutation_path(plan_id: Option<&str>) -> Option<String> {
     }
 }
 
+#[cfg(test)]
 pub(crate) fn payment_link_mutation_path(link_id: Option<&str>) -> Option<String> {
     match link_id {
         None => Some("/api/v1/admin/pay/links".to_string()),
@@ -135,6 +105,7 @@ pub(crate) fn payment_link_mutation_path(link_id: Option<&str>) -> Option<String
     }
 }
 
+#[cfg(test)]
 pub(crate) fn payment_intent_cancel_path(intent_id: &str) -> Option<String> {
     valid_resource_id(intent_id).then(|| format!("/api/v1/admin/pay/intents/{intent_id}/cancel"))
 }
@@ -154,9 +125,11 @@ struct BackendWallet {
     label: Option<String>,
     role: Option<String>,
     status: String,
-    metadata: Value,
+    #[serde(rename = "metadata")]
+    _metadata: Value,
     version: i64,
-    created_at: Option<String>,
+    #[serde(rename = "created_at")]
+    _created_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -166,9 +139,11 @@ struct BackendWalletStats {
     active: i64,
     disabled: i64,
     new_30_days: i64,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct AdminApiResponseEnvelope {
@@ -187,7 +162,8 @@ struct BackendCreditStats {
     granted_today_minor: i64,
     revoked_today_minor: i64,
     active_accounts: i64,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -197,7 +173,8 @@ struct BackendWalletList {
     total: i64,
     limit: i64,
     offset: i64,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -220,7 +197,8 @@ struct BackendWalletMutationEvidence {
 #[serde(deny_unknown_fields)]
 struct BackendAccessList {
     items: Vec<BackendAccessAssignment>,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -232,8 +210,10 @@ struct BackendAccessAssignment {
     permission: String,
     expires_at: Option<String>,
     version: i64,
-    assigned_by: String,
-    updated_at: String,
+    #[serde(rename = "assigned_by")]
+    _assigned_by: String,
+    #[serde(rename = "updated_at")]
+    _updated_at: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -243,14 +223,16 @@ struct BackendPlanList {
     total: i64,
     limit: i64,
     offset: i64,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BackendPlan {
     id: String,
-    merchant_id: String,
+    #[serde(rename = "merchant_id")]
+    _merchant_id: String,
     name: String,
     description: Option<String>,
     amount: String,
@@ -258,7 +240,8 @@ struct BackendPlan {
     chain_id: String,
     interval: i32,
     active: Option<bool>,
-    created_at: Option<String>,
+    #[serde(rename = "created_at")]
+    _created_at: Option<String>,
     version: i64,
 }
 
@@ -269,7 +252,8 @@ struct BackendLinkList {
     total: i64,
     limit: i64,
     offset: i64,
-    correlation_id: String,
+    #[serde(rename = "correlation_id")]
+    _correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -277,11 +261,13 @@ struct BackendLinkList {
 struct BackendLink {
     id: String,
     slug: String,
-    intent_id: String,
+    #[serde(rename = "intent_id")]
+    _intent_id: String,
     max_uses: i32,
     current_uses: i32,
     expires_at: Option<String>,
-    created_at: String,
+    #[serde(rename = "created_at")]
+    _created_at: String,
     status: String,
     version: i64,
 }
@@ -564,47 +550,9 @@ async fn get_json<T: DeserializeOwned>(
     serde_json::from_slice(&body).map_err(|_| UpstreamError::Malformed)
 }
 
-async fn get_admin_json<T: DeserializeOwned>(
-    client: &epsx_client::ServiceClient,
-    path: &str,
-    ctx: &epsx_client::RequestContext,
-) -> Result<T, UpstreamError> {
-    let Some(token) = ctx
-        .auth_token
-        .as_deref()
-        .filter(|token| !token.trim().is_empty())
-    else {
-        return Err(UpstreamError::Unavailable);
-    };
-    let http_client = reqwest::Client::builder()
-        .timeout(client.config().timeout)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-        .map_err(|_| UpstreamError::Unavailable)?;
-    let response = http_client
-        .get(format!(
-            "{}{}",
-            client.base_url().trim_end_matches('/'),
-            path
-        ))
-        .header("x-request-id", ctx.request_id.to_string())
-        .bearer_auth(token)
-        .send()
-        .await
-        .map_err(|_| UpstreamError::Unavailable)?;
-    if !response.status().is_success() {
-        return Err(match response.status() {
-            reqwest::StatusCode::FORBIDDEN => UpstreamError::Forbidden,
-            reqwest::StatusCode::BAD_REQUEST => UpstreamError::Malformed,
-            _ => UpstreamError::Unavailable,
-        });
-    }
-    let body = read_body_limited(response).await?;
-    decode_admin_envelope(&body).map_err(|_| UpstreamError::Malformed)
-}
-
 /// Decode the backend-owned admin envelope before any route projection is
 /// attempted. Raw DTOs and unsuccessful envelopes are never accepted.
+#[cfg(test)]
 pub(crate) fn decode_admin_envelope<T: DeserializeOwned>(body: &[u8]) -> Result<T, ()> {
     let envelope: AdminApiResponseEnvelope = serde_json::from_slice(body).map_err(|_| ())?;
     if !envelope.success
@@ -619,78 +567,6 @@ pub(crate) fn decode_admin_envelope<T: DeserializeOwned>(body: &[u8]) -> Result<
     }
     let _admin_meta = envelope.admin_meta;
     serde_json::from_value(envelope.data.unwrap()).map_err(|_| ())
-}
-
-/// Forward a typed mutation through the route-owned BFF boundary. The
-/// service response must use the same admin envelope as reads; callers must
-/// re-load the authoritative projection after a successful response.
-pub(crate) async fn send_admin_json<T: DeserializeOwned, B: Serialize>(
-    client: &epsx_client::ServiceClient,
-    method: reqwest::Method,
-    path: &str,
-    body: &B,
-    idempotency_key: &str,
-    ctx: &epsx_client::RequestContext,
-) -> AdminCommerceMutationLoad<T> {
-    if path.is_empty()
-        || !(1..=128).contains(&idempotency_key.len())
-        || !idempotency_key
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && byte != b' ')
-    {
-        return AdminCommerceMutationLoad::Malformed;
-    }
-    let Some(token) = ctx
-        .auth_token
-        .as_deref()
-        .filter(|token| !token.trim().is_empty())
-    else {
-        return AdminCommerceMutationLoad::Unavailable;
-    };
-    let http_client = match reqwest::Client::builder()
-        .timeout(client.config().timeout)
-        .redirect(reqwest::redirect::Policy::none())
-        .build()
-    {
-        Ok(client) => client,
-        Err(_) => return AdminCommerceMutationLoad::Unavailable,
-    };
-    let request = match http_client
-        .request(
-            method,
-            format!("{}{}", client.base_url().trim_end_matches('/'), path),
-        )
-        .header("x-request-id", ctx.request_id.to_string())
-        .header("idempotency-key", idempotency_key)
-        .bearer_auth(token)
-        .json(body)
-        .build()
-    {
-        Ok(request) => request,
-        Err(_) => return AdminCommerceMutationLoad::Unavailable,
-    };
-    let response = match http_client.execute(request).await {
-        Ok(response) => response,
-        Err(_) => return AdminCommerceMutationLoad::Unavailable,
-    };
-    let status = response.status();
-    if status == reqwest::StatusCode::FORBIDDEN {
-        return AdminCommerceMutationLoad::Forbidden;
-    }
-    let body = match read_body_limited(response).await {
-        Ok(body) => body,
-        Err(_) => return AdminCommerceMutationLoad::Unavailable,
-    };
-    if status == reqwest::StatusCode::CONFLICT {
-        return AdminCommerceMutationLoad::Conflict;
-    }
-    if !status.is_success() {
-        return AdminCommerceMutationLoad::Malformed;
-    }
-    match decode_admin_envelope(&body) {
-        Ok(value) => AdminCommerceMutationLoad::Ready(value),
-        Err(_) => AdminCommerceMutationLoad::Malformed,
-    }
 }
 
 /// Send the wallet service's raw, evidence-bearing status mutation. Wallet
@@ -845,6 +721,7 @@ fn canonical_uuid(value: &str) -> Option<String> {
     (value.len() == 36 && !value.contains('/') && !value.contains('%')).then(|| uuid.to_string())
 }
 
+#[cfg(test)]
 fn valid_resource_id(value: &str) -> bool {
     (1..=66).contains(&value.len())
         && value
@@ -855,6 +732,29 @@ fn valid_resource_id(value: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use epsx_dioxus_ui::pages::admin_pages::{
+        payments::{
+            AdminPaymentLinkProjection, ADMIN_PAYMENT_LINKS_EMPTY, ADMIN_PAYMENT_LINKS_FORBIDDEN,
+            ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
+            ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+        },
+        wallet_access::{
+            ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED, ADMIN_ACCESS_READY,
+            ADMIN_ACCESS_UNAVAILABLE,
+        },
+        wallet_credits::{
+            ADMIN_CREDITS_FORBIDDEN, ADMIN_CREDITS_MALFORMED, ADMIN_CREDITS_READY,
+            ADMIN_CREDITS_UNAVAILABLE,
+        },
+        wallet_plans::{
+            ADMIN_PLANS_EMPTY, ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED, ADMIN_PLANS_READY,
+            ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_STATE_PARAM,
+        },
+        wallet_wallets::{
+            ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED,
+            ADMIN_WALLET_DETAIL_READY, ADMIN_WALLET_DETAIL_UNAVAILABLE,
+        },
+    };
 
     const ADDRESS: &str = "0x1111111111111111111111111111111111111111";
     const PLAN_ID: &str = "00000000-0000-0000-0000-000000000001";

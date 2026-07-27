@@ -4,8 +4,8 @@
 //! which renders the policy builder page (template picker +
 //! configuration + target actions + conditions + actions/responses
 //! + test results). The full implementation has 8+ sub-components
-//! and lives behind a hook; we port the 5 most-reused building
-//! blocks as drop-in Dioxus components.
+//!   and lives behind a hook; we port the 5 most-reused building
+//!   blocks as drop-in Dioxus components.
 //!
 //! | Component | Use case |
 //! | --- | --- |

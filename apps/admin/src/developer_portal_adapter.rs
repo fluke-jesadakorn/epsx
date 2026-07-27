@@ -103,8 +103,10 @@ struct ApiKeyList {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawRateLimits {
-    per_minute: i32,
-    per_day: i32,
+    #[serde(rename = "per_minute")]
+    _per_minute: i32,
+    #[serde(rename = "per_day")]
+    _per_day: i32,
 }
 
 #[derive(Debug, Deserialize)]

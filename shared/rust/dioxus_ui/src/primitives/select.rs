@@ -117,7 +117,7 @@ pub fn MultiSelect(
                             .find(|(val, _)| val == &v_for_chip)
                             .map(|(_, l)| l.clone())
                             .unwrap_or_else(|| v_for_chip.clone());
-                        let value_signal_for_remove = value_signal.clone();
+                        let value_signal_for_remove = value_signal;
                         rsx! {
                             span { class: "multiselect-chip badge badge-primary flex items-center gap-1", role: "presentation",
                                 "{label_for_chip}"
@@ -143,7 +143,7 @@ pub fn MultiSelect(
                 button {
                     r#type: "button",
                     class: "multiselect-trigger",
-                    disabled: disabled || max.map_or(false, |m| value_signal.read().len() >= m),
+                    disabled: disabled || max.is_some_and(|m| value_signal.read().len() >= m),
                     "aria-haspopup": "listbox",
                     "aria-expanded": open.read().to_string(),
                     onclick: move |_| {
@@ -161,9 +161,9 @@ pub fn MultiSelect(
                             let val_for_toggle = val.clone();
                             let val_for_click = val_for_toggle.clone();
                             let is_selected = value_signal.read().contains(&val_for_toggle);
-                            let at_max = max.map_or(false, |m| value_signal.read().len() >= m);
+                            let at_max = max.is_some_and(|m| value_signal.read().len() >= m);
                             let disabled_for_option = disabled || (at_max && !is_selected);
-                            let value_signal_for_toggle = value_signal.clone();
+                            let value_signal_for_toggle = value_signal;
                             rsx! {
                                 li {
                                     role: "option",
