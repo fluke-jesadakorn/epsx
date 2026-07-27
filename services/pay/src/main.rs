@@ -235,6 +235,19 @@ async fn main() {
             "/api/v1/admin/pay/escrows/{id}/force-refund",
             post(handlers::pay_admin::admin_force_refund_escrow),
         )
+        .route(
+            "/api/v1/admin/pay/links",
+            post(handlers::admin_commerce::create_admin_pay_link)
+                .get(handlers::admin_commerce::list_admin_pay_links),
+        )
+        .route(
+            "/api/v1/admin/pay/links/{id}/disable",
+            post(handlers::admin_commerce::disable_admin_pay_link),
+        )
+        .route(
+            "/api/v1/admin/pay/intents/{id}/cancel",
+            post(handlers::admin_commerce::cancel_admin_pay_intent),
+        )
         .with_state(app_state);
     let app = protect_router(app, verifier);
 

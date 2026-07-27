@@ -14,6 +14,8 @@ use thiserror::Error;
 
 pub const PAYMENTS_VIEW_PERMISSION: &str = "admin:payments:view";
 pub const PAYMENTS_MANAGE_PERMISSION: &str = "admin:payments:manage";
+pub const PAYMENT_LINKS_VIEW_PERMISSION: &str = "admin:payment-links:view";
+pub const PAYMENT_LINKS_MANAGE_PERMISSION: &str = "admin:payment-links:manage";
 
 #[derive(Debug, Error)]
 pub enum PayConfigError {
@@ -70,6 +72,7 @@ pub fn canonical_owner(
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AccessPolicy {
     Public,
+    AdminPermission(&'static str),
     OwnerRead,
     PaymentsRead,
     UnsafePaymentsManage,
@@ -84,6 +87,45 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     }
     if path.contains('%') || path.contains('\\') {
         return AccessPolicy::Blocked;
+    }
+
+    if path == "/api/v1/admin/pay" || path.starts_with("/api/v1/admin/pay/") {
+        let tail = path.strip_prefix("/api/v1/admin/pay/").unwrap_or_default();
+        let segments: Vec<_> = tail.split('/').collect();
+        if segments.iter().any(|segment| segment.is_empty()) {
+            return AccessPolicy::Blocked;
+        }
+        return match (method, segments.as_slice()) {
+            (&Method::GET, ["links"]) => {
+                AccessPolicy::AdminPermission(PAYMENT_LINKS_VIEW_PERMISSION)
+            }
+            (&Method::POST, ["links"]) => {
+                AccessPolicy::AdminPermission(PAYMENT_LINKS_MANAGE_PERMISSION)
+            }
+            (&Method::POST, ["links", id, "disable"]) if safe_dynamic_segment(id) => {
+                AccessPolicy::AdminPermission(PAYMENT_LINKS_MANAGE_PERMISSION)
+            }
+            (&Method::POST, ["intents", id, "cancel"]) if safe_dynamic_segment(id) => {
+                AccessPolicy::AdminPermission(PAYMENTS_MANAGE_PERMISSION)
+            }
+            _ => {
+                // Preserve the existing read/force operation classifier below.
+                return match (method, segments.as_slice()) {
+                    (&Method::GET, ["intents"]) => AccessPolicy::PaymentsRead,
+                    (&Method::POST, ["intents", id, "force-cancel"])
+                        if safe_dynamic_segment(id) =>
+                    {
+                        AccessPolicy::UnsafePaymentsManage
+                    }
+                    (&Method::POST, ["escrows", id, "force-release" | "force-refund"])
+                        if safe_dynamic_segment(id) =>
+                    {
+                        AccessPolicy::UnsafePaymentsManage
+                    }
+                    _ => AccessPolicy::Blocked,
+                };
+            }
+        };
     }
 
     if let Some(tail) = path.strip_prefix("/api/v1/admin/pay/") {
@@ -193,6 +235,22 @@ async fn authorize_request(
     match classify(request.method(), request.uri().path()) {
         AccessPolicy::Public => {
             request.headers_mut().remove(header::AUTHORIZATION);
+        }
+        AccessPolicy::AdminPermission(required) => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != ADMIN_AUDIENCE
+                || !principal
+                    .permissions
+                    .iter()
+                    .any(|permission| permission == required)
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
         }
         AccessPolicy::OwnerRead => {
             let principal =
@@ -596,6 +654,18 @@ mod tests {
         assert_eq!(
             canonical_owner(&principal, Some("")),
             Err(StatusCode::NOT_FOUND)
+        );
+    }
+
+    #[test]
+    fn admin_resource_prefix_is_a_strict_path_boundary() {
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/pay/links"),
+            AccessPolicy::AdminPermission(PAYMENT_LINKS_VIEW_PERMISSION)
+        ));
+        assert_eq!(
+            classify(&Method::GET, "/api/v1/admin/pay/linksfoo"),
+            AccessPolicy::Blocked
         );
     }
 
