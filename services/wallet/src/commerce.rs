@@ -422,7 +422,9 @@ async fn mutate_wallet_status(
     if current.1 != request.expected_version {
         return error(headers, StatusCode::CONFLICT, "stale_wallet_version");
     }
-    let next_version = current.1.saturating_add(1);
+    let Some(next_version) = current.1.checked_add(1) else {
+        return error(headers, StatusCode::CONFLICT, "wallet_version_exhausted");
+    };
     let operation_id = Uuid::new_v4();
     let result = serde_json::json!({"address": address, "chain_id": current.0, "status": status, "version": next_version, "operation_id": operation_id});
     if sqlx::query("INSERT INTO public.wallet_admin_state (address, chain_id, status, metadata, version, updated_at) VALUES ($1, $2, $3, '{}'::jsonb, $4, NOW()) ON CONFLICT (address, chain_id) DO UPDATE SET status = EXCLUDED.status, version = EXCLUDED.version, updated_at = NOW()")
@@ -508,7 +510,9 @@ pub async fn update_admin_wallet_metadata(
     if current.1 != request.expected_version {
         return error(&headers, StatusCode::CONFLICT, "stale_wallet_version");
     }
-    let next_version = current.1.saturating_add(1);
+    let Some(next_version) = current.1.checked_add(1) else {
+        return error(&headers, StatusCode::CONFLICT, "wallet_version_exhausted");
+    };
     let operation_id = Uuid::new_v4();
     let result = serde_json::json!({"address": address, "chain_id": current.0, "version": next_version, "operation_id": operation_id});
     if sqlx::query("INSERT INTO public.wallet_admin_state (address, chain_id, status, metadata, version, updated_at) VALUES ($1,$2,'active',$3,$4,NOW()) ON CONFLICT (address,chain_id) DO UPDATE SET metadata=EXCLUDED.metadata, version=EXCLUDED.version, updated_at=NOW()")
@@ -551,8 +555,32 @@ async fn locked_wallet_state(
     tx: &mut Transaction<'_, Postgres>,
     address: &str,
 ) -> Result<Option<(String, i64)>, sqlx::Error> {
-    sqlx::query_as::<_, (String, i64)>("SELECT a.chain_id, COALESCE(s.version,0) FROM public.accounts a LEFT JOIN public.wallet_admin_state s ON lower(s.address)=lower(a.address) AND s.chain_id=a.chain_id WHERE lower(a.address)=$1 ORDER BY a.created_at DESC LIMIT 1 FOR UPDATE")
-        .bind(address).fetch_optional(&mut **tx).await
+    let account = sqlx::query_as::<_, (String,)>(
+        "SELECT chain_id
+           FROM public.accounts
+          WHERE lower(address)=$1
+          ORDER BY created_at DESC
+          LIMIT 1
+          FOR UPDATE",
+    )
+    .bind(address)
+    .fetch_optional(&mut **tx)
+    .await?;
+    let Some((chain_id,)) = account else {
+        return Ok(None);
+    };
+    let version = sqlx::query_scalar::<_, i64>(
+        "SELECT version
+           FROM public.wallet_admin_state
+          WHERE lower(address)=lower($1) AND chain_id=$2
+          FOR UPDATE",
+    )
+    .bind(address)
+    .bind(&chain_id)
+    .fetch_optional(&mut **tx)
+    .await?
+    .unwrap_or(0);
+    Ok(Some((chain_id, version)))
 }
 
 async fn existing_operation(
@@ -597,6 +625,23 @@ pub async fn get_admin_credits(
     let Some(address) = canonical_address(&address) else {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_wallet_address");
     };
+    let wallet_exists = sqlx::query_scalar::<_, i64>(
+        "SELECT 1 FROM public.accounts WHERE lower(address)=lower($1) LIMIT 1",
+    )
+    .bind(&address)
+    .fetch_optional(&state.db)
+    .await;
+    match wallet_exists {
+        Ok(Some(1)) => {}
+        Ok(_) => return error(&headers, StatusCode::NOT_FOUND, "wallet_not_found"),
+        Err(_) => {
+            return error(
+                &headers,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "credit_read_unavailable",
+            )
+        }
+    }
     let account = sqlx::query_as::<_, (i64, i64)>(
         "SELECT balance_minor, version FROM public.wallet_credit_accounts WHERE address=$1",
     )
@@ -685,7 +730,34 @@ async fn mutate_credits(
             )
         }
     };
-    if let Ok(Some(result)) = sqlx::query_scalar::<_, Value>("SELECT jsonb_build_object('address', address, 'balance_minor', balance_after_minor, 'version', 0, 'operation_id', entry_id) FROM public.wallet_credit_ledger WHERE idempotency_key=$1").bind(&key).fetch_optional(&mut *tx).await { return json(headers, StatusCode::OK, result); }
+    if let Ok(Some(result)) = sqlx::query_scalar::<_, Value>(
+        "SELECT result
+           FROM public.wallet_credit_ledger
+          WHERE idempotency_key=$1 AND result IS NOT NULL",
+    )
+    .bind(&key)
+    .fetch_optional(&mut *tx)
+    .await
+    {
+        return json(headers, StatusCode::OK, result);
+    }
+    let wallet_exists = sqlx::query_scalar::<_, i64>(
+        "SELECT 1 FROM public.accounts WHERE lower(address)=lower($1) LIMIT 1",
+    )
+    .bind(&address)
+    .fetch_optional(&mut *tx)
+    .await;
+    match wallet_exists {
+        Ok(Some(1)) => {}
+        Ok(_) => return error(headers, StatusCode::NOT_FOUND, "wallet_not_found"),
+        Err(_) => {
+            return error(
+                headers,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "credit_write_unavailable",
+            )
+        }
+    }
     let current = sqlx::query_as::<_, (i64, i64)>("INSERT INTO public.wallet_credit_accounts(address) VALUES($1) ON CONFLICT(address) DO NOTHING RETURNING balance_minor, version").bind(&address).fetch_optional(&mut *tx).await;
     let current = match current { Ok(Some(value)) => value, Ok(None) => match sqlx::query_as::<_, (i64, i64)>("SELECT balance_minor, version FROM public.wallet_credit_accounts WHERE address=$1 FOR UPDATE").bind(&address).fetch_one(&mut *tx).await { Ok(value) => value, Err(_) => return error(headers, StatusCode::SERVICE_UNAVAILABLE, "credit_write_unavailable") }, Err(_) => return error(headers, StatusCode::SERVICE_UNAVAILABLE, "credit_write_unavailable") };
     if current.1 != request.expected_version {
@@ -706,10 +778,24 @@ async fn mutate_credits(
             )
         }
     };
-    let next_version = current.1.saturating_add(1);
+    let Some(next_version) = current.1.checked_add(1) else {
+        return error(headers, StatusCode::CONFLICT, "credit_version_exhausted");
+    };
     let entry_id = Uuid::new_v4();
+    let observed_at = Utc::now();
+    let result = serde_json::json!({
+        "address": address,
+        "balance_minor": balance_after,
+        "version": next_version,
+        "evidence": {
+            "operation_id": entry_id,
+            "version": next_version,
+            "observed_at": observed_at,
+        },
+        "correlation_id": correlation(headers),
+    });
     if sqlx::query("UPDATE public.wallet_credit_accounts SET balance_minor=$1, version=$2, updated_at=NOW() WHERE address=$3 AND version=$4") .bind(balance_after).bind(next_version).bind(&address).bind(current.1).execute(&mut *tx).await.map_or(true, |result| result.rows_affected()!=1) { return error(headers, StatusCode::CONFLICT, "stale_credit_version") }
-    if sqlx::query("INSERT INTO public.wallet_credit_ledger(entry_id,idempotency_key,address,operation,delta_minor,balance_after_minor,reason,actor) VALUES($1,$2,$3,$4,$5,$6,$7,$8)").bind(entry_id).bind(&key).bind(&address).bind(operation).bind(delta).bind(balance_after).bind(request.reason.trim()).bind(&principal.subject).execute(&mut *tx).await.is_err() { return error(headers, StatusCode::CONFLICT, "idempotency_conflict") }
+    if sqlx::query("INSERT INTO public.wallet_credit_ledger(entry_id,idempotency_key,address,operation,delta_minor,balance_after_minor,reason,actor,result) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)").bind(entry_id).bind(&key).bind(&address).bind(operation).bind(delta).bind(balance_after).bind(request.reason.trim()).bind(&principal.subject).bind(&result).execute(&mut *tx).await.is_err() { return error(headers, StatusCode::CONFLICT, "idempotency_conflict") }
     if tx.commit().await.is_err() {
         return error(
             headers,
@@ -717,11 +803,26 @@ async fn mutate_credits(
             "credit_write_unavailable",
         );
     }
-    json(
-        headers,
-        StatusCode::OK,
-        serde_json::json!({"address": address, "balance_minor": balance_after, "version": next_version, "evidence": {"operation_id": entry_id, "version": next_version, "observed_at": Utc::now()}, "correlation_id": correlation(headers)}),
+    let observed = sqlx::query_as::<_, (i64, i64)>(
+        "SELECT balance_minor, version
+           FROM public.wallet_credit_accounts
+          WHERE address=$1",
     )
+    .bind(&address)
+    .fetch_optional(&state.db)
+    .await;
+    let read_after_write_ok = match observed {
+        Ok(Some((balance, version))) => balance == balance_after && version == next_version,
+        _ => false,
+    };
+    if !read_after_write_ok {
+        return error(
+            headers,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "credit_read_after_write_unavailable",
+        );
+    }
+    json(headers, StatusCode::OK, result)
 }
 
 #[allow(dead_code)]

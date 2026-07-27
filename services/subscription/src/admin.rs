@@ -63,6 +63,14 @@ pub struct PlanQuery {
     pub offset: Option<i64>,
 }
 
+#[derive(Debug, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
+pub struct AccessQuery {
+    pub wallet_address: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct PlanListResponse {
     pub items: Vec<AdminPlan>,
@@ -422,7 +430,9 @@ pub async fn update_plan(
     if current != expected {
         return error(&headers, StatusCode::CONFLICT, "stale_plan_version");
     }
-    let next = current.saturating_add(1);
+    let Some(next) = current.checked_add(1) else {
+        return error(&headers, StatusCode::CONFLICT, "plan_version_exhausted");
+    };
     let plan = sqlx::query_as::<_, AdminPlan>(
         "UPDATE public.subscription_plans
             SET name=$1,description=$2,amount=$3,currency=$4,chain_id=$5,
@@ -496,24 +506,17 @@ pub async fn update_plan(
 pub async fn get_access(
     State(state): State<AppState>,
     headers: HeaderMap,
-    Query(query): Query<std::collections::HashMap<String, String>>,
+    Query(query): Query<AccessQuery>,
 ) -> Response {
-    let wallet = match query.get("wallet_address") {
+    let wallet = match query.wallet_address.as_deref() {
         Some(value) => match canonical_wallet(value) {
             Some(wallet) => Some(wallet),
             None => return error(&headers, StatusCode::BAD_REQUEST, "invalid_wallet_address"),
         },
         None => None,
     };
-    let limit = query
-        .get("limit")
-        .and_then(|value| value.parse::<i64>().ok())
-        .unwrap_or(MAX_LIMIT)
-        .min(MAX_LIMIT);
-    let offset = query
-        .get("offset")
-        .and_then(|value| value.parse::<i64>().ok())
-        .unwrap_or(0);
+    let limit = query.limit.unwrap_or(MAX_LIMIT).min(MAX_LIMIT);
+    let offset = query.offset.unwrap_or(0);
     if limit < 1 || !(0..=MAX_OFFSET).contains(&offset) {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_pagination");
     }
@@ -523,7 +526,8 @@ pub async fn get_access(
            FROM public.subscription_access_assignments a
            JOIN public.subscription_plans p ON p.id=a.plan_id
           WHERE ($1::text IS NULL OR lower(a.wallet_address)=lower($1))
-          ORDER BY p.name,a.permission LIMIT $2 OFFSET $3",
+          ORDER BY p.name,a.permission
+          LIMIT $2 OFFSET $3",
     )
     .bind(wallet)
     .bind(limit)
@@ -615,7 +619,8 @@ async fn mutate_access(
     if !matches!(plan_exists, Ok(Some(1))) {
         return error(headers, StatusCode::NOT_FOUND, "plan_not_found");
     }
-    let current = sqlx::query_scalar::<_, i64>(
+    let resource_key = format!("{}:{}:{}", wallet, request.plan_id, request.permission);
+    let current_assignment = sqlx::query_scalar::<_, i64>(
         "SELECT version FROM public.subscription_access_assignments
           WHERE lower(wallet_address)=lower($1) AND plan_id=$2 AND permission=$3 FOR UPDATE",
     )
@@ -624,9 +629,30 @@ async fn mutate_access(
     .bind(&request.permission)
     .fetch_optional(&mut *tx)
     .await;
-    let current = match current {
+    let current = match current_assignment {
         Ok(Some(value)) => value,
-        Ok(None) => 0,
+        Ok(None) => match sqlx::query_scalar::<_, i64>(
+            "SELECT version_after
+               FROM public.subscription_admin_operations
+              WHERE resource_key=$1 AND version_after IS NOT NULL
+              ORDER BY created_at DESC
+              LIMIT 1
+              FOR UPDATE",
+        )
+        .bind(&resource_key)
+        .fetch_optional(&mut *tx)
+        .await
+        {
+            Ok(Some(value)) => value,
+            Ok(None) => 0,
+            Err(_) => {
+                return error(
+                    headers,
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "access_write_unavailable",
+                )
+            }
+        },
         Err(_) => {
             return error(
                 headers,
@@ -638,7 +664,9 @@ async fn mutate_access(
     if current != request.expected_version {
         return error(headers, StatusCode::CONFLICT, "stale_access_version");
     }
-    let next = current.saturating_add(1);
+    let Some(next) = current.checked_add(1) else {
+        return error(headers, StatusCode::CONFLICT, "access_version_exhausted");
+    };
     let changed = if action == "assign" {
         sqlx::query(
             "INSERT INTO public.subscription_access_assignments
@@ -688,7 +716,7 @@ async fn mutate_access(
     .bind(operation_id)
     .bind(&key)
     .bind(format!("access.{action}"))
-    .bind(format!("{}:{}:{}", wallet, request.plan_id, request.permission))
+    .bind(&resource_key)
     .bind(&principal.subject)
     .bind(current)
     .bind(next)
@@ -704,6 +732,28 @@ async fn mutate_access(
             headers,
             StatusCode::SERVICE_UNAVAILABLE,
             "access_write_unavailable",
+        );
+    }
+    let observed_version = sqlx::query_scalar::<_, i64>(
+        "SELECT version
+           FROM public.subscription_access_assignments
+          WHERE lower(wallet_address)=lower($1) AND plan_id=$2 AND permission=$3",
+    )
+    .bind(&wallet)
+    .bind(request.plan_id)
+    .bind(&request.permission)
+    .fetch_optional(&state.db)
+    .await;
+    let read_after_write_ok = match (action, observed_version) {
+        ("assign", Ok(Some(version))) => version == next,
+        ("revoke", Ok(None)) => true,
+        _ => false,
+    };
+    if !read_after_write_ok {
+        return error(
+            headers,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "access_read_after_write_unavailable",
         );
     }
     response(headers, StatusCode::OK, result)

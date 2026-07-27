@@ -113,7 +113,17 @@ pub async fn get_pay_link(
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
     .ok_or(StatusCode::NOT_FOUND)?;
 
-    if !is_publicly_usable(&link, chrono::Utc::now()) {
+    let admin_status = sqlx::query_scalar::<_, String>(
+        "SELECT COALESCE(status, 'active')
+           FROM public.pay_link_admin_state
+          WHERE link_id = $1",
+    )
+    .bind(&link.id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .unwrap_or_else(|| "active".to_string());
+    if !is_publicly_usable_with_admin_status(&link, &admin_status, chrono::Utc::now()) {
         return Err(StatusCode::GONE);
     }
 
@@ -124,6 +134,14 @@ pub async fn get_pay_link(
 fn is_publicly_usable(link: &PayLink, now: chrono::DateTime<chrono::Utc>) -> bool {
     (link.max_uses == 0 || link.current_uses < link.max_uses)
         && link.expires_at.is_none_or(|expires_at| expires_at > now)
+}
+
+fn is_publicly_usable_with_admin_status(
+    link: &PayLink,
+    admin_status: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> bool {
+    admin_status == "active" && is_publicly_usable(link, now)
 }
 
 // ============================================================================
@@ -143,6 +161,10 @@ pub async fn redeem_pay_link(
             "UPDATE public.pay_links
             SET current_uses = current_uses + 1
           WHERE slug = $1
+            AND COALESCE(
+                (SELECT status FROM public.pay_link_admin_state s WHERE s.link_id = pay_links.id),
+                'active'
+            ) = 'active'
             AND (max_uses IS NULL OR max_uses = 0 OR current_uses < max_uses)
             AND (expires_at IS NULL OR expires_at > NOW())
         RETURNING intent_id, max_uses, current_uses, expires_at",
@@ -211,6 +233,21 @@ mod tests {
         assert!(!is_publicly_usable(
             &link(2, 0, Some(now - chrono::Duration::seconds(1))),
             now
+        ));
+    }
+
+    #[test]
+    fn disabled_admin_state_is_not_publicly_usable() {
+        let now = chrono::Utc::now();
+        assert!(is_publicly_usable_with_admin_status(
+            &link(1, 0, Some(now + chrono::Duration::minutes(1))),
+            "active",
+            now,
+        ));
+        assert!(!is_publicly_usable_with_admin_status(
+            &link(1, 0, Some(now + chrono::Duration::minutes(1))),
+            "disabled",
+            now,
         ));
     }
 

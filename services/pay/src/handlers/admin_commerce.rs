@@ -311,7 +311,13 @@ pub async fn disable_admin_pay_link(
     if current != request.expected_version {
         return error(&headers, StatusCode::CONFLICT, "stale_payment_link_version");
     }
-    let next = current.saturating_add(1);
+    let Some(next) = current.checked_add(1) else {
+        return error(
+            &headers,
+            StatusCode::CONFLICT,
+            "payment_link_version_exhausted",
+        );
+    };
     if sqlx::query(
         "UPDATE public.pay_link_admin_state SET status='disabled',version=$1,updated_at=NOW() WHERE link_id=$2 AND version=$3",
     )
@@ -327,12 +333,14 @@ pub async fn disable_admin_pay_link(
     let operation_id = Uuid::new_v4();
     let result = serde_json::json!({"id":id,"status":"disabled","version":next,"evidence":{"operation_id":operation_id,"financial_finality":"not_applicable"},"actor":principal.subject});
     if sqlx::query(
-        "INSERT INTO public.pay_admin_operations(operation_id,idempotency_key,action,resource_id,actor,version_before,version_after,result) VALUES($1,$2,'link.disable',$3,$4,NULL,NULL,$5)",
+        "INSERT INTO public.pay_admin_operations(operation_id,idempotency_key,action,resource_id,actor,resource_version_before,resource_version_after,result) VALUES($1,$2,'link.disable',$3,$4,$5,$6,$7)",
     )
     .bind(operation_id)
     .bind(&key)
     .bind(&id)
     .bind(&principal.subject)
+    .bind(current)
+    .bind(next)
     .bind(&result)
     .execute(&mut *tx)
     .await
@@ -345,6 +353,25 @@ pub async fn disable_admin_pay_link(
             &headers,
             StatusCode::SERVICE_UNAVAILABLE,
             "payment_link_write_unavailable",
+        );
+    }
+    let observed = sqlx::query_as::<_, (String, i64)>(
+        "SELECT COALESCE(status, 'active'), version
+           FROM public.pay_link_admin_state
+          WHERE link_id=$1",
+    )
+    .bind(&id)
+    .fetch_optional(&state.db)
+    .await;
+    let read_after_write_ok = match observed {
+        Ok(Some((status, version))) => status == "disabled" && version == next,
+        _ => false,
+    };
+    if !read_after_write_ok {
+        return error(
+            &headers,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "payment_link_read_after_write_unavailable",
         );
     }
     response(&headers, StatusCode::OK, result)
