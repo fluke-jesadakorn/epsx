@@ -294,12 +294,12 @@
     {
       "id": "impl-workspace-manifest",
       "file": "Cargo.toml",
-      "sha256": "bc46c71ec8efc6d7c7af81ffe0c4e0813bfcb1427d6e8b616b3933178c6a947a"
+      "sha256": "c5da30c730102fa073254e0b3b03c571ceb9fcb81e29ff8ae3fded35fcdb971a"
     },
     {
       "id": "impl-workspace-lock",
       "file": "Cargo.lock",
-      "sha256": "47f08101d842d66800ecc7a50ce220bf3854f7cca27345fe62d69de184379883"
+      "sha256": "485fa21e13dcf52cfc27abdcdfa55adcc6b5200d7781c2dc670226b745bfd2c1"
     },
     {
       "id": "impl-backend-manifest",
@@ -339,12 +339,12 @@
     {
       "id": "impl-identity-runtime-main-fail-closed",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
+      "sha256": "de437e95ed219eb50dceb5bdfb55e0a9587d81bc45aa4df3bca1071249a59bbb"
     },
     {
       "id": "impl-identity-ranking-service-fail-closed",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
+      "sha256": "06bfd2c331e3c51031b2cd188860fe042d8a36ccdd227268d90af07dd43a0c0b"
     },
     {
       "id": "impl-identity-proto-unchanged",

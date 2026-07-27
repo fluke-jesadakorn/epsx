@@ -126,8 +126,14 @@
       "anchors": [
         "pub fn protect_router",
         "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin",
+        "(&Method::POST, [\"publish\"]) => AccessPolicy::Publisher",
+        "(&Method::POST, [\"provider-events\"]) => AccessPolicy::Provider",
+        "AccessPolicy::Owner =>",
         "principal.audience != ADMIN_AUDIENCE",
-        "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
+        "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)",
+        "principal.audience != NOTIFICATION_PUBLISHER_AUDIENCE",
+        "principal.audience != NOTIFICATION_PROVIDER_AUDIENCE",
+        "!valid_internal_subject(&principal.subject)"
       ]
     },
     {
@@ -276,9 +282,9 @@
   "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
   "inventorySummary": {
     "serviceCount": 9,
-    "routeCount": 148,
-    "mutationCount": 76,
-    "highRiskMutationCount": 76,
+    "routeCount": 166,
+    "mutationCount": 89,
+    "highRiskMutationCount": 89,
     "byService": {
       "gateway": 21,
       "identity": 11,
@@ -286,23 +292,23 @@
       "pay": 26,
       "subscription": 16,
       "content": 23,
-      "notification": 18,
+      "notification": 36,
       "analytics": 8,
       "indexer": 6
     },
     "byClassification": {
-      "public-allowlist": 32,
+      "public-allowlist": 33,
       "router-dispatch-only": 20,
       "blocked-by-default": 1,
       "authenticated-user": 3,
-      "permission-specific-admin-operator": 58,
-      "owner-only": 30,
-      "internal-webhook": 4
+      "permission-specific-admin-operator": 62,
+      "owner-only": 41,
+      "internal-webhook": 6
     },
     "byObservedStatus": {
-      "partial": 52,
+      "partial": 69,
       "blocked": 85,
-      "aligned": 11
+      "aligned": 12
     }
   },
   "services": [
@@ -3533,7 +3539,7 @@
       "name": "notification",
       "source": "services/notification/src/main.rs",
       "routerAnchor": "let app = Router::new()",
-      "currentBoundary": "The direct service now classifies exact methods and paths before handlers, uses the shared RS256/JWKS verifier, requires admin:notifications:manage for templates/send and the redacted global admin inventory, and binds owner operations to the verified wallet string. Runtime database, delivery, and legacy owner-data compatibility remain incomplete.",
+      "currentBoundary": "The direct service classifies exact methods and paths before handlers, derives owner identity only from verified frontend/admin JWT claims, requires admin:notifications:manage for operator routes, and requires dedicated authenticated workload audiences, permissions, and service subjects for publisher/provider routes. Runtime database, delivery, and legacy owner-data compatibility remain incomplete.",
       "routes": [
         {
           "id": "notification.get.health",
@@ -3560,6 +3566,384 @@
           "canonicalEvidence": [
             "backend-public-boundary"
           ]
+        },
+        {
+          "id": "notification.get.ready",
+          "method": "GET",
+          "path": "/ready",
+          "routeAnchor": "\"/ready\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "GET/HEAD readiness is anonymous but exposes only bounded dependency readiness; all other methods fail before handler dispatch."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.template-audit",
+          "method": "GET",
+          "path": "/api/v1/notification/templates/{id}/audit",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/audit\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before returning bounded template audit records; live rollback reconciliation remains unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.template-preview",
+          "method": "POST",
+          "path": "/api/v1/notification/templates/{id}/preview",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/preview\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before rendering a non-delivering preview; live template/provider parity remains unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.template-rollback",
+          "method": "POST",
+          "path": "/api/v1/notification/templates/{id}/rollback",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/rollback\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before transactional template rollback; production rollback and cache reconciliation remain unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.publish",
+          "method": "POST",
+          "path": "/api/v1/notification/publish",
+          "routeAnchor": "\"/api/v1/notification/publish\"",
+          "classification": "internal-webhook",
+          "identitySource": "notification-publisher-rs256-jwks-workload",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "partial",
+            "summary": "Only a valid svc:* workload subject with the dedicated publisher audience and internal publish permission can enqueue; multi-service credential lifecycle remains unproved."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary", "service-internal-boundary"]
+        },
+        {
+          "id": "notification.post.provider-events",
+          "method": "POST",
+          "path": "/api/v1/notification/provider-events",
+          "routeAnchor": "\"/api/v1/notification/provider-events\"",
+          "classification": "internal-webhook",
+          "identitySource": "notification-provider-rs256-jwks-workload-and-callback-signature",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "partial",
+            "summary": "Only a valid svc:* provider workload subject with the dedicated audience and provider-events permission reaches callback signature and deduplication checks; production provider lineage remains unproved."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary", "service-internal-boundary"]
+        },
+        {
+          "id": "notification.post.admin-dead-letter-redrive",
+          "method": "POST",
+          "path": "/api/v1/notification/admin/dead-letters/{id}/redrive",
+          "routeAnchor": "\"/api/v1/notification/admin/dead-letters/{id}/redrive\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The exact admin audience and notification-manage permission are required before bounded dead-letter redrive; production retry and rollback drills remain unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.stream",
+          "method": "GET",
+          "path": "/api/v1/notification/stream",
+          "routeAnchor": "\"/api/v1/notification/stream\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stream owner is the verified JWT subject and replay cursors are owner-bound",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The stream derives its owner only from the verified principal and binds replay to that owner; multi-replica and browser reconnect proof remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.stream-ack",
+          "method": "POST",
+          "path": "/api/v1/notification/stream/ack",
+          "routeAnchor": "\"/api/v1/notification/stream/ack\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "acknowledgement owner is the verified JWT subject and cursor ownership must match",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Cursor acknowledgement uses only the verified principal and rejects cross-owner replay; live browser reconnect behavior remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.push",
+          "method": "GET",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push inventory owner is the verified JWT subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Push status derives owner identity only from the verified principal; production VAPID and browser permission proof remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.push",
+          "method": "PUT",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push subscription owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Subscription writes bind the endpoint to the verified principal; production VAPID lineage and browser delivery remain blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.delete.push",
+          "method": "DELETE",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push subscription owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Endpoint revocation filters by the verified principal; production delivery and revocation proof remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.delete.push-unsubscribe",
+          "method": "DELETE",
+          "path": "/api/v1/notification/push/unsubscribe",
+          "routeAnchor": "\"/api/v1/notification/push/unsubscribe\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "all revoked subscriptions are filtered by the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Bulk revocation accepts no caller-selected wallet and deletes only subscriptions for the verified principal; production browser lifecycle remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.preferences",
+          "method": "GET",
+          "path": "/api/v1/notification/preferences",
+          "routeAnchor": "\"/api/v1/notification/preferences\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "preference owner is the verified JWT subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Preference reads derive the owner only from the verified principal; populated legacy reconciliation remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.preferences",
+          "method": "PUT",
+          "path": "/api/v1/notification/preferences",
+          "routeAnchor": "\"/api/v1/notification/preferences\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "preference owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Preference updates derive owner identity only from the verified principal and validate the bounded preference document; production reconciliation remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.click",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/click",
+          "routeAnchor": "\"/api/v1/notification/{id}/click\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Click engagement requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.dismiss",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/dismiss",
+          "routeAnchor": "\"/api/v1/notification/{id}/dismiss\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Dismissal requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.acknowledge",
+          "method": "PUT",
+          "path": "/api/v1/notification/{id}/acknowledge",
+          "routeAnchor": "\"/api/v1/notification/{id}/acknowledge\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Acknowledgement requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
         },
         {
           "id": "notification.get.templates",

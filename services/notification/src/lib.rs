@@ -826,6 +826,7 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
         | (&Method::GET, ["stream"])
         | (&Method::POST, ["stream", "ack"])
         | (&Method::GET | &Method::PUT | &Method::DELETE, ["push"])
+        | (&Method::DELETE, ["push", "unsubscribe"])
         | (&Method::POST, ["mark-all-read" | "clear-all"]) => AccessPolicy::Owner,
         (&Method::GET | &Method::DELETE, [id]) if safe_notification_id(id) => AccessPolicy::Owner,
         (&Method::POST, [id, "read" | "unread"]) if safe_notification_id(id) => AccessPolicy::Owner,
@@ -1267,6 +1268,7 @@ mod tests {
             (Method::GET, "/api/v1/notification/push"),
             (Method::PUT, "/api/v1/notification/push"),
             (Method::DELETE, "/api/v1/notification/push"),
+            (Method::DELETE, "/api/v1/notification/push/unsubscribe"),
             (Method::POST, "/api/v1/notification/mark-all-read"),
             (Method::POST, "/api/v1/notification/clear-all"),
             (Method::GET, "/api/v1/notification/notification-id"),
@@ -1289,8 +1291,8 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
-        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 36);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 38);
+        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 38);
 
         for bearer in [None, Some("invalid"), Some("other-audience")] {
             let expected = if bearer == Some("other-audience") {
@@ -1307,7 +1309,7 @@ mod tests {
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 38);
     }
 
     #[tokio::test]

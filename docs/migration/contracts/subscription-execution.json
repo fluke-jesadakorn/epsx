@@ -275,7 +275,7 @@
     {
       "id": "tgt-pay-bff-create",
       "file": "apps/pay/src/main.rs",
-      "anchor": ".post_plain(\"/api/v1/pay/intents\", &serde_json::json!({"
+      "anchor": "\"/api/v1/pay/intents\","
     },
     {
       "id": "tgt-identity-no-entitlement-route",

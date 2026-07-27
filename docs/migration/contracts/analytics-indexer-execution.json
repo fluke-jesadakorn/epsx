@@ -340,19 +340,19 @@
       "id": "tgt-ui-rankings-unavailable",
       "domain": "marketAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "\"data-analytics-state\": \"unavailable\""
+      "anchor": "failure_state: \"unavailable\".to_string(),"
     },
     {
       "id": "tgt-ui-payloads-ignored",
       "domain": "eventAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "fn canned_partial_and_malformed_payloads_cannot_render_rankings()"
+      "anchor": "fn semantic_validation_rejects_partial_and_invalid_payloads()"
     },
     {
       "id": "tgt-home-market-unavailable",
       "domain": "marketAnalytics",
       "file": "shared/rust/dioxus_ui/src/pages/home.rs",
-      "anchor": "\"data-home-market-state\": \"unavailable\""
+      "anchor": "HomeAnalyticsOutcome::Unavailable => \"unavailable\","
     },
     {
       "id": "tgt-portfolio-unavailable",
@@ -361,10 +361,10 @@
       "anchor": "\"data-portfolio-state\": \"unavailable\""
     },
     {
-      "id": "tgt-frontend-rankings-loader-absent",
+      "id": "tgt-frontend-rankings-loader",
       "domain": "marketAnalytics",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": "Ranking data and entitlement"
+      "anchor": "async fn load_analytics_rankings("
     },
     {
       "id": "tgt-frontend-track-upstream-status",
@@ -402,7 +402,7 @@
       "id": "market-ui",
       "domain": "marketAnalytics",
       "sourceContract": "search, sort, filters, pagination, plan range, watchlist and export render backend truth",
-      "targetObserved": "analytics, authenticated portfolio, and the home market preview now fail closed without sample records or Live claims; typed live loading/empty/error/stale behavior is still absent",
+      "targetObserved": "analytics and the home market preview now use strict service loaders with ready, empty, malformed, and unavailable outcomes; authenticated portfolio remains fail-closed and live stale/browser evidence is incomplete",
       "status": "blocked",
       "blockerIds": ["B05", "B06", "B07", "B21"]
     },
@@ -545,7 +545,7 @@
       "category": "ui-truthfulness",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Analytics, authenticated portfolio, and the home market preview now fail closed without verified market/owner loaders; none has production-complete market UX.",
+      "summary": "Analytics and the home market preview now have strict service loaders, while authenticated portfolio remains fail-closed; none has production-complete live/browser market UX proof.",
       "resolution": "Consume typed owner-safe BFF data, render loading/empty/error/stale states, and never label fixtures or unavailable data as live.",
       "evidenceIds": ["tgt-ui-rankings-unavailable", "tgt-ui-payloads-ignored", "tgt-home-market-unavailable", "tgt-portfolio-unavailable"]
     },
@@ -939,8 +939,8 @@
     },
     {
       "id": "N11",
-      "reason": "Frontend ranking loading is deliberately absent, while event tracking still swallows upstream failure.",
-      "evidenceIds": ["tgt-frontend-rankings-loader-absent", "tgt-frontend-track-upstream-status"]
+      "reason": "Frontend ranking loading exists but lacks live reconciliation and complete browser/runtime proof, while event tracking still swallows upstream failure.",
+      "evidenceIds": ["tgt-frontend-rankings-loader", "tgt-frontend-track-upstream-status"]
     },
     {
       "id": "N12",

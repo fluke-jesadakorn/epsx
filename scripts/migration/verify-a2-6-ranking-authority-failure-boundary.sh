@@ -211,8 +211,8 @@ if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fa
 
 const expectedImplementation = [
   ["impl-fail-closed-grpc-client", "apps/analytics/src/grpc_client.rs", "bafac48faf1e9d03d1990ba57f922a01a350ff7763bed7ede2e70917a2c7a559"],
-  ["impl-lazy-runtime-wiring", "apps/analytics/src/main.rs", "4ba28a2829a0d213754159e4102d4e3e6ceec6accaef31e6746e958492b592fa"],
-  ["impl-fail-closed-ranking-handler", "apps/backend/src/web/analytics/eps/cache.rs", "282b0be9a63d8e25cfd84970e90da03ea6db1f3a0582f0cf2659c67eaf7b57c6"],
+  ["impl-lazy-runtime-wiring", "apps/analytics/src/main.rs", "1a51dcd8f822afdb08e907e31870b2e71e66380a44aead567baedbd92fd6cbda"],
+  ["impl-fail-closed-ranking-handler", "apps/backend/src/web/analytics/eps/cache.rs", "79dd69b3f235457c296ddc6e9f269495df7f1634754ac52a8345bcac8a3d279b"],
 ];
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== expectedImplementation.length) fail("three implementation records are required");
 const contentByFile = new Map();
@@ -263,9 +263,17 @@ contains(handler, "resolve_market_ranking_offset(", "authority resolution helper
 contains(handler, "wallet_address.as_deref()", "verified wallet authority input");
 contains(handler, "ErrorKind::ServiceUnavailable", "handler fail-closed error");
 excludes(handler, "using free tier", "authenticated authority downgrade log");
-const authorityIndex = handler.indexOf("let rank_offset = resolve_market_ranking_offset(");
-const providerIndex = handler.indexOf("fetch_market_rankings(");
-if (authorityIndex < 0 || providerIndex < 0 || authorityIndex >= providerIndex) fail("authority must resolve before provider work");
+const authorityIndex = handler.indexOf("let rank_offset =");
+const authorityEnd = handler.indexOf("let limit_cap", authorityIndex);
+const authorityFlow = handler.slice(authorityIndex, authorityEnd);
+const providerIndex = handler.indexOf("fetch_market_rankings(", authorityEnd);
+if (
+  authorityIndex < 0
+  || authorityEnd < 0
+  || !authorityFlow.includes("resolve_market_ranking_offset(")
+  || providerIndex < 0
+  || authorityEnd >= providerIndex
+) fail("authority must resolve before provider work");
 for (const name of expectedTests) if (!grpc.includes(name) && !handler.includes(name)) fail(`missing hermetic test source: ${name}`);
 
 process.stdout.write(JSON.stringify({

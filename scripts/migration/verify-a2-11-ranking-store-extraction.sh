@@ -184,8 +184,8 @@ const invariantIds = process.env.EPSX_A2_11_STATIC_ONLY === "1" ? contract.invar
 exactIds(contract.invariants, invariantIds, "invariant");
 
 const currentImplementation = [
-  ["impl-workspace-manifest", "Cargo.toml", "bc46c71ec8efc6d7c7af81ffe0c4e0813bfcb1427d6e8b616b3933178c6a947a"],
-  ["impl-workspace-lock", "Cargo.lock", "47f08101d842d66800ecc7a50ce220bf3854f7cca27345fe62d69de184379883"],
+  ["impl-workspace-manifest", "Cargo.toml", "c5da30c730102fa073254e0b3b03c571ceb9fcb81e29ff8ae3fded35fcdb971a"],
+  ["impl-workspace-lock", "Cargo.lock", "485fa21e13dcf52cfc27abdcdfa55adcc6b5200d7781c2dc670226b745bfd2c1"],
   ["impl-backend-manifest", "apps/backend/Cargo.toml", "4b4cc24581b0b575fe5dc6cada9165f27b9cbd60c0d260a2d4f6488b961a936c"],
   ["impl-backend-compatibility-reexport", "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs", "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"],
   ["impl-ranking-store-manifest", "shared/rust/epsx-ranking-store/Cargo.toml", "c2d0bb14dd1b97a1ef8fe99b31af83acd833bf7ffac05d32b4ca35e67cfe225b"],
@@ -193,8 +193,8 @@ const currentImplementation = [
   ["impl-shared-repository-contract", "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs", "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"],
   ["impl-identity-manifest-unchanged", "shared/rust/epsx-identity-service/Cargo.toml", "54f7020be797a137a4c69d1e3fbccf0d21f88923a616bd48f0757aa770cf7c8f"],
   ["impl-identity-auth-composition-unchanged", "shared/rust/epsx-identity-service/src/authenticated_ranking_rpc.rs", "1d9fc78e74d9959030bbd83c27989f987b7f200b8c70f8d0ad8110b36db60a58"],
-  ["impl-identity-runtime-main-fail-closed", "shared/rust/epsx-identity-service/src/main.rs", "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"],
-  ["impl-identity-ranking-service-fail-closed", "shared/rust/epsx-identity-service/src/identity_service.rs", "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"],
+  ["impl-identity-runtime-main-fail-closed", "shared/rust/epsx-identity-service/src/main.rs", "de437e95ed219eb50dceb5bdfb55e0a9587d81bc45aa4df3bca1071249a59bbb"],
+  ["impl-identity-ranking-service-fail-closed", "shared/rust/epsx-identity-service/src/identity_service.rs", "06bfd2c331e3c51031b2cd188860fe042d8a36ccdd227268d90af07dd43a0c0b"],
   ["impl-identity-proto-unchanged", "shared/proto/identity.proto", "f33f7256048403c79219913051347d85d05238e9c62269e37e8bffdae9f69d23"],
 ];
 const expectedImplementation = process.env.EPSX_A2_11_STATIC_ONLY === "1"

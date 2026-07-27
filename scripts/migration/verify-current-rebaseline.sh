@@ -44,7 +44,7 @@ if (migration.baseline?.sourceRef !== "development" || migration.baseline?.sourc
 const serviceAuth = readJson(contract.activeContracts.serviceAuthorization);
 const routesByService = (serviceAuth.services ?? []).flatMap((service) => service.routes ?? []);
 if (routesByService.some((route) => route.classification === "unknown" || route.caseProfile === "unknown" || route.identitySource === "undecided-fail-closed")) fail("service authorization still contains unknown or undecided routes");
-if (routesByService.length !== 148) fail(`service authorization route count drifted: ${routesByService.length}`);
+if (routesByService.length !== 166) fail(`service authorization route count drifted: ${routesByService.length}`);
 const frontendMain = readFileSync(resolve(root, "apps/frontend/src/main.rs"), "utf8");
 const frontendApi = readFileSync(resolve(root, "apps/frontend/src/api.rs"), "utf8");
 for (const forbidden of ["api_subscription_plans", "api_subscription_subscribe", "api_subscription_create_plan", "api_wallet_connect", "sub_1", "pub async fn save_page("]) {

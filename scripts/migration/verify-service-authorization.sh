@@ -397,7 +397,13 @@ def validate(
             router_anchor = service.get("routerAnchor")
             if not isinstance(router_anchor, str) or router_anchor not in source_text:
                 errors.append(f"{context}.routerAnchor is missing from {source}")
-            for path, methods in extract_route_calls(source_text):
+            # Runtime inventories must not mistake test-only Axum routers for
+            # production mounts. Service modules keep their cfg(test) module
+            # after the runtime implementation, so bound extraction to the
+            # production source prefix while retaining the full text for
+            # evidence-anchor validation below.
+            route_source_text = source_text.split("\n#[cfg(test)]", 1)[0]
+            for path, methods in extract_route_calls(route_source_text):
                 if not methods:
                     errors.append(
                         f"{source}: route {path!r} has no recognized Axum method mount"
