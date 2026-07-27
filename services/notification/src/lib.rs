@@ -12,7 +12,13 @@ use epsx_service_auth::{
 use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 
+pub mod delivery;
+
 pub const NOTIFICATIONS_MANAGE_PERMISSION: &str = "admin:notifications:manage";
+pub const NOTIFICATION_PUBLISHER_AUDIENCE: &str = "epsx-notification-publisher";
+pub const NOTIFICATION_PUBLISH_PERMISSION: &str = "internal:notifications:publish";
+pub const NOTIFICATION_PROVIDER_AUDIENCE: &str = "epsx-notification-provider";
+pub const NOTIFICATION_PROVIDER_EVENTS_PERMISSION: &str = "internal:notifications:provider-events";
 
 const NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
 WITH expected_columns (
@@ -76,6 +82,23 @@ expected_key_constraints (table_name, constraint_name, constraint_type, column_n
         ('templates', 'templates_pkey', 'p', 'id'),
         ('templates', 'templates_name_key', 'u', 'name'),
         ('notifications', 'notifications_pkey', 'p', 'id')
+),
+expected_check_constraints (table_name, constraint_name) AS (
+    VALUES
+        ('templates', 'templates_channel_check'),
+        ('templates', 'templates_variables_object_check'),
+        ('notifications', 'notifications_channel_check')
+),
+expected_foreign_keys (source_table, constraint_name, target_table) AS (
+    VALUES
+        ('notification_channel_jobs', 'notification_channel_jobs_notification_id_fkey', 'notifications'),
+        ('notification_channel_jobs', 'notification_channel_jobs_source_event_id_fkey', 'notification_outbox'),
+        ('notification_dead_letters', 'notification_dead_letters_job_id_fkey', 'notification_channel_jobs'),
+        ('notification_delivery_attempts', 'notification_delivery_attempts_job_id_fkey', 'notification_channel_jobs'),
+        ('notification_engagement', 'notification_engagement_notification_id_fkey', 'notifications'),
+        ('notification_provider_events', 'notification_provider_events_job_id_fkey', 'notification_channel_jobs'),
+        ('notification_template_audit', 'notification_template_audit_template_id_fkey', 'templates'),
+        ('notification_template_versions', 'notification_template_versions_template_id_fkey', 'templates')
 ),
 expected_indexes (
     table_name,
@@ -295,7 +318,21 @@ not_null_constraint_compatibility AS (
     GROUP BY exposure.exposed
 ),
 foreign_key_compatibility AS (
-    SELECT COUNT(*) = 0 AS compatible
+    SELECT COUNT(*) = 8
+       AND COUNT(*) FILTER (
+           WHERE expected_foreign.source_table IS NOT NULL
+             AND expected_foreign.constraint_name = constraint_record.conname
+             AND expected_foreign.target_table = target_table.relname
+             AND cardinality(constraint_record.conkey) = 1
+             AND cardinality(constraint_record.confkey) = 1
+             AND constraint_record.convalidated
+             AND NOT constraint_record.condeferrable
+             AND NOT constraint_record.condeferred
+             AND constraint_record.confdeltype = 'r'
+             AND constraint_record.conparentid = 0
+             AND constraint_record.coninhcount = 0
+             AND constraint_record.conislocal
+       ) = 8 AS compatible
     FROM pg_catalog.pg_constraint AS constraint_record
     JOIN pg_catalog.pg_class AS source_table
       ON source_table.oid = constraint_record.conrelid
@@ -305,19 +342,35 @@ foreign_key_compatibility AS (
       ON target_table.oid = constraint_record.confrelid
     JOIN pg_catalog.pg_namespace AS target_namespace
       ON target_namespace.oid = target_table.relnamespace
+    LEFT JOIN expected_foreign_keys AS expected_foreign
+      ON expected_foreign.source_table = source_table.relname
+     AND expected_foreign.constraint_name = constraint_record.conname
+     AND expected_foreign.target_table = target_table.relname
     WHERE constraint_record.contype = 'f'
-      AND (
-          (source_namespace.nspname = 'public' AND source_table.relname IN ('templates', 'notifications'))
-          OR (target_namespace.nspname = 'public' AND target_table.relname IN ('templates', 'notifications'))
-      )
+      AND source_namespace.nspname = 'public'
+      AND target_namespace.nspname = 'public'
+      AND expected_foreign.source_table IS NOT NULL
 ),
 check_constraint_compatibility AS (
-    SELECT COUNT(*) = 0 AS compatible
+    SELECT COUNT(*) = 3
+       AND COUNT(*) FILTER (
+           WHERE expected_check.table_name IS NOT NULL
+             AND expected_check.constraint_name = constraint_record.conname
+             AND constraint_record.convalidated
+             AND NOT constraint_record.condeferrable
+             AND NOT constraint_record.condeferred
+             AND constraint_record.conparentid = 0
+             AND constraint_record.coninhcount = 0
+             AND constraint_record.conislocal
+       ) = 3 AS compatible
     FROM pg_catalog.pg_constraint AS constraint_record
     JOIN pg_catalog.pg_class AS table_record
       ON table_record.oid = constraint_record.conrelid
     JOIN pg_catalog.pg_namespace AS namespace_record
       ON namespace_record.oid = table_record.relnamespace
+    LEFT JOIN expected_check_constraints AS expected_check
+      ON expected_check.table_name = table_record.relname
+     AND expected_check.constraint_name = constraint_record.conname
     WHERE namespace_record.nspname = 'public'
       AND table_record.relname IN ('templates', 'notifications')
       AND constraint_record.contype = 'c'
@@ -436,6 +489,38 @@ SELECT
     AND COALESCE((SELECT compatible FROM index_inventory_compatibility), false)
 "#;
 
+const NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
+SELECT COUNT(*) = 14
+FROM information_schema.tables
+WHERE table_schema = 'public'
+  AND table_type = 'BASE TABLE'
+  AND table_name IN (
+      'notification_template_versions',
+      'notification_preferences',
+      'notification_inbox',
+      'notification_outbox',
+      'notification_channel_jobs',
+      'notification_delivery_attempts',
+      'notification_dead_letters',
+      'notification_replay_cursors',
+      'notification_push_subscriptions',
+      'notification_request_idempotency',
+      'notification_provider_events',
+      'notification_engagement',
+      'notification_template_audit',
+      'notification_expirations'
+  )
+  AND EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'notification_push_subscriptions'
+        AND column_name = 'vapid_key_id'
+        AND data_type = 'character varying'
+        AND is_nullable = 'NO'
+  )
+"#;
+
 #[derive(Debug, Error)]
 pub enum NotificationSchemaError {
     #[error("notification schema compatibility query failed")]
@@ -444,6 +529,145 @@ pub enum NotificationSchemaError {
         "notification schema is incompatible; run the reviewed notification migration before startup"
     )]
     Incompatible,
+    #[error(
+        "notification lifecycle schema is incompatible; run the additive lifecycle migration before startup"
+    )]
+    LifecycleIncompatible,
+}
+
+/// The durable notification lifecycle is intentionally independent from channel
+/// delivery and user engagement. These types are the backend-owned transition
+/// vocabulary for the follow-on workers; they do not change the legacy
+/// `public.notifications.status` column.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationRecordState {
+    Created,
+    Cancelled,
+    Expired,
+    Deleted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NotificationRecordEvent {
+    Cancel,
+    Expire,
+    Delete,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelJobState {
+    Queued,
+    Leased,
+    Attempting,
+    RetryWait,
+    ProviderAccepted,
+    TerminalFailed,
+    DeadLettered,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ChannelJobEvent {
+    LeaseGranted,
+    LeaseExpired,
+    BeginAttempt,
+    ProviderAccepted,
+    RetryScheduled,
+    TerminalFailure,
+    DeadLetter,
+    Redrive,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutboxState {
+    Pending,
+    Published,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OutboxEvent {
+    Published,
+    Failed,
+    Retry,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InboxState {
+    Received,
+    Processed,
+    Rejected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InboxEvent {
+    Processed,
+    Rejected,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeliveryOutcome {
+    TransientFailure,
+    PermanentFailure,
+    Accepted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[error("invalid notification lifecycle transition")]
+pub struct InvalidLifecycleTransition;
+
+impl NotificationRecordState {
+    pub fn transition(
+        self,
+        event: NotificationRecordEvent,
+    ) -> Result<Self, InvalidLifecycleTransition> {
+        match (self, event) {
+            (Self::Created, NotificationRecordEvent::Cancel) => Ok(Self::Cancelled),
+            (Self::Created, NotificationRecordEvent::Expire) => Ok(Self::Expired),
+            (Self::Created | Self::Cancelled | Self::Expired, NotificationRecordEvent::Delete) => {
+                Ok(Self::Deleted)
+            }
+            _ => Err(InvalidLifecycleTransition),
+        }
+    }
+}
+
+impl ChannelJobState {
+    pub fn transition(self, event: ChannelJobEvent) -> Result<Self, InvalidLifecycleTransition> {
+        match (self, event) {
+            (Self::Queued, ChannelJobEvent::LeaseGranted) => Ok(Self::Leased),
+            (Self::Leased, ChannelJobEvent::LeaseExpired) => Ok(Self::Queued),
+            (Self::Leased, ChannelJobEvent::BeginAttempt) => Ok(Self::Attempting),
+            (Self::Attempting, ChannelJobEvent::LeaseExpired) => Ok(Self::Queued),
+            (Self::Attempting, ChannelJobEvent::ProviderAccepted) => Ok(Self::ProviderAccepted),
+            (Self::Attempting, ChannelJobEvent::RetryScheduled) => Ok(Self::RetryWait),
+            (Self::Attempting, ChannelJobEvent::TerminalFailure) => Ok(Self::TerminalFailed),
+            (Self::RetryWait, ChannelJobEvent::LeaseGranted) => Ok(Self::Leased),
+            (Self::TerminalFailed, ChannelJobEvent::DeadLetter) => Ok(Self::DeadLettered),
+            (Self::DeadLettered, ChannelJobEvent::Redrive) => Ok(Self::Queued),
+            _ => Err(InvalidLifecycleTransition),
+        }
+    }
+}
+
+impl OutboxState {
+    pub fn transition(self, event: OutboxEvent) -> Result<Self, InvalidLifecycleTransition> {
+        match (self, event) {
+            (Self::Pending, OutboxEvent::Published) => Ok(Self::Published),
+            (Self::Pending, OutboxEvent::Failed) => Ok(Self::Failed),
+            (Self::Failed, OutboxEvent::Retry) => Ok(Self::Pending),
+            _ => Err(InvalidLifecycleTransition),
+        }
+    }
+}
+
+impl InboxState {
+    pub fn transition(self, event: InboxEvent) -> Result<Self, InvalidLifecycleTransition> {
+        match (self, event) {
+            (Self::Received, InboxEvent::Processed) => Ok(Self::Processed),
+            (Self::Received, InboxEvent::Rejected) => Ok(Self::Rejected),
+            _ => Err(InvalidLifecycleTransition),
+        }
+    }
 }
 
 pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), NotificationSchemaError> {
@@ -453,6 +677,20 @@ pub async fn verify_schema_compatibility(db: &sqlx::PgPool) -> Result<(), Notifi
         .map_err(NotificationSchemaError::Query)?;
     if !compatible {
         return Err(NotificationSchemaError::Incompatible);
+    }
+    Ok(())
+}
+
+pub async fn verify_lifecycle_schema_compatibility(
+    db: &sqlx::PgPool,
+) -> Result<(), NotificationSchemaError> {
+    let compatible =
+        sqlx::query_scalar::<_, bool>(NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY)
+            .fetch_one(db)
+            .await
+            .map_err(NotificationSchemaError::Query)?;
+    if !compatible {
+        return Err(NotificationSchemaError::LifecycleIncompatible);
     }
     Ok(())
 }
@@ -478,7 +716,9 @@ pub fn build_auth_verifier(
         .user_agent("epsx-notification/1")
         .build()?;
     let config =
-        JwksVerifierConfig::new(issuer, jwks_url, Duration::from_secs(5 * 60), production)?;
+        JwksVerifierConfig::new(issuer, jwks_url, Duration::from_secs(5 * 60), production)?
+            .with_additional_audience(NOTIFICATION_PUBLISHER_AUDIENCE)?
+            .with_additional_audience(NOTIFICATION_PROVIDER_AUDIENCE)?;
     Ok(Arc::new(JwksVerifier::new(config, client)))
 }
 
@@ -502,10 +742,33 @@ pub fn canonical_owner(
     principal: &VerifiedPrincipal,
     claimed_user_id: Option<&str>,
 ) -> Result<String, StatusCode> {
-    if claimed_user_id.is_some_and(|claimed| claimed != principal.wallet_address) {
+    let owner = normalize_wallet_address(&principal.wallet_address).ok_or(StatusCode::FORBIDDEN)?;
+    if claimed_user_id.is_some_and(|claimed| {
+        normalize_wallet_address(claimed).is_none_or(|claimed| claimed != owner)
+    }) {
         return Err(StatusCode::FORBIDDEN);
     }
-    Ok(principal.wallet_address.clone())
+    Ok(owner)
+}
+
+fn normalize_wallet_address(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 42
+        || bytes[0] != b'0'
+        || !matches!(bytes[1], b'x' | b'X')
+        || !bytes[2..].iter().all(u8::is_ascii_hexdigit)
+    {
+        return None;
+    }
+    Some(value.to_ascii_lowercase())
+}
+
+fn valid_internal_subject(subject: &str) -> bool {
+    subject.starts_with("svc:")
+        && (5..=128).contains(&subject.len())
+        && subject.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, ':' | '_' | '-' | '.')
+        })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -513,11 +776,13 @@ enum AccessPolicy {
     Public,
     Owner,
     NotificationsAdmin,
+    Publisher,
+    Provider,
     Blocked,
 }
 
 fn classify(method: &Method, path: &str) -> AccessPolicy {
-    if matches!(method, &Method::GET | &Method::HEAD) && path == "/health" {
+    if matches!(method, &Method::GET | &Method::HEAD) && matches!(path, "/health" | "/ready") {
         return AccessPolicy::Public;
     }
     if path.contains('%') || path.contains('\\') {
@@ -533,34 +798,64 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
 
     match (method, segments.as_slice()) {
         (&Method::GET, ["admin", "list" | "metrics"]) => AccessPolicy::NotificationsAdmin,
-        (&Method::POST, ["admin", id, "read"])
-            if safe_notification_id(id) => AccessPolicy::NotificationsAdmin,
+        (&Method::POST, ["admin", id, "read"]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
         (&Method::DELETE, ["admin", id]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
+        (&Method::POST, ["admin", "dead-letters", id, "redrive"]) if safe_notification_id(id) => {
             AccessPolicy::NotificationsAdmin
         }
         (&Method::GET | &Method::POST, ["templates"]) | (&Method::POST, ["send"]) => {
             AccessPolicy::NotificationsAdmin
         }
+        (&Method::POST, ["publish"]) => AccessPolicy::Publisher,
+        (&Method::POST, ["provider-events"]) => AccessPolicy::Provider,
+        (&Method::POST, ["templates", id, "preview" | "rollback"]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
         (&Method::GET | &Method::DELETE, ["templates", id]) if safe_notification_id(id) => {
             AccessPolicy::NotificationsAdmin
         }
-        (&Method::GET, ["list" | "unread-count"])
+        (&Method::GET, ["templates", id, "audit"]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
+        (&Method::GET | &Method::PUT, ["preferences"])
+        | (&Method::GET, ["list" | "unread-count"])
+        | (&Method::GET, ["stream"])
+        | (&Method::POST, ["stream", "ack"])
+        | (&Method::GET | &Method::PUT | &Method::DELETE, ["push"])
         | (&Method::POST, ["mark-all-read" | "clear-all"]) => AccessPolicy::Owner,
         (&Method::GET | &Method::DELETE, [id]) if safe_notification_id(id) => AccessPolicy::Owner,
         (&Method::POST, [id, "read" | "unread"]) if safe_notification_id(id) => AccessPolicy::Owner,
+        (&Method::POST, [id, "click" | "dismiss"]) if safe_notification_id(id) => {
+            AccessPolicy::Owner
+        }
+        (&Method::PUT, [id, "acknowledge"]) if safe_notification_id(id) => AccessPolicy::Owner,
         _ => AccessPolicy::Blocked,
     }
 }
 
 fn safe_notification_id(id: &str) -> bool {
     (1..=66).contains(&id.len())
-        && id.bytes().all(|byte| {
-            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')
-        })
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         && !matches!(
             id,
-            "templates" | "send" | "list" | "unread-count" | "mark-all-read" | "clear-all"
+            "templates"
+                | "send"
+                | "list"
+                | "unread-count"
+                | "mark-all-read"
+                | "clear-all"
                 | "admin"
+                | "acknowledge"
+                | "click"
+                | "dismiss"
+                | "provider-events"
+                | "dead-letters"
         )
 }
 
@@ -593,6 +888,34 @@ async fn authorize_request(
                 };
             if principal.audience != ADMIN_AUDIENCE
                 || !principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
+        }
+        AccessPolicy::Publisher => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != NOTIFICATION_PUBLISHER_AUDIENCE
+                || !principal.has_permission(NOTIFICATION_PUBLISH_PERMISSION)
+                || !valid_internal_subject(&principal.subject)
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
+        }
+        AccessPolicy::Provider => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != NOTIFICATION_PROVIDER_AUDIENCE
+                || !principal.has_permission(NOTIFICATION_PROVIDER_EVENTS_PERMISSION)
+                || !valid_internal_subject(&principal.subject)
             {
                 return auth_error(StatusCode::FORBIDDEN);
             }
@@ -655,32 +978,210 @@ mod tests {
 
     struct FakeVerifier;
 
+    const OWNER_WALLET: &str = "0x1111111111111111111111111111111111111111";
+    const ADMIN_WALLET: &str = "0x2222222222222222222222222222222222222222";
+    const OTHER_WALLET: &str = "0x3333333333333333333333333333333333333333";
+
+    #[test]
+    fn lifecycle_schema_probe_is_read_only_and_requires_all_foundation_tables() {
+        assert!(NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY
+            .trim_start()
+            .starts_with("SELECT"));
+        assert!(
+            NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains("table_type = 'BASE TABLE'")
+        );
+        assert!(NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains("vapid_key_id"));
+        assert!(NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY
+            .contains("information_schema.columns"));
+        assert!(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY.contains("expected_check_constraints"));
+        for constraint in [
+            "templates_channel_check",
+            "templates_variables_object_check",
+            "notifications_channel_check",
+        ] {
+            assert!(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY.contains(constraint));
+        }
+        assert!(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY.contains("expected_foreign_keys"));
+        for foreign_key in [
+            "notification_channel_jobs_notification_id_fkey",
+            "notification_channel_jobs_source_event_id_fkey",
+            "notification_dead_letters_job_id_fkey",
+            "notification_delivery_attempts_job_id_fkey",
+            "notification_engagement_notification_id_fkey",
+            "notification_provider_events_job_id_fkey",
+            "notification_template_audit_template_id_fkey",
+            "notification_template_versions_template_id_fkey",
+        ] {
+            assert!(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY.contains(foreign_key));
+        }
+        for table in [
+            "notification_template_versions",
+            "notification_preferences",
+            "notification_inbox",
+            "notification_outbox",
+            "notification_channel_jobs",
+            "notification_delivery_attempts",
+            "notification_dead_letters",
+            "notification_replay_cursors",
+            "notification_push_subscriptions",
+            "notification_request_idempotency",
+            "notification_provider_events",
+            "notification_engagement",
+            "notification_template_audit",
+            "notification_expirations",
+        ] {
+            assert!(NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains(table));
+        }
+        assert!(!NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains("INSERT"));
+        assert!(!NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains("UPDATE"));
+        assert!(!NOTIFICATION_LIFECYCLE_SCHEMA_COMPATIBILITY_QUERY.contains("DELETE"));
+    }
+
+    #[test]
+    fn lifecycle_transitions_keep_record_delivery_and_inbox_states_guarded() {
+        assert_eq!(
+            NotificationRecordState::Created
+                .transition(NotificationRecordEvent::Expire)
+                .unwrap(),
+            NotificationRecordState::Expired
+        );
+        assert_eq!(
+            NotificationRecordState::Expired
+                .transition(NotificationRecordEvent::Delete)
+                .unwrap(),
+            NotificationRecordState::Deleted
+        );
+        assert!(NotificationRecordState::Deleted
+            .transition(NotificationRecordEvent::Delete)
+            .is_err());
+
+        let job = ChannelJobState::Queued
+            .transition(ChannelJobEvent::LeaseGranted)
+            .unwrap()
+            .transition(ChannelJobEvent::BeginAttempt)
+            .unwrap()
+            .transition(ChannelJobEvent::RetryScheduled)
+            .unwrap()
+            .transition(ChannelJobEvent::LeaseGranted)
+            .unwrap()
+            .transition(ChannelJobEvent::BeginAttempt)
+            .unwrap()
+            .transition(ChannelJobEvent::ProviderAccepted)
+            .unwrap();
+        assert_eq!(job, ChannelJobState::ProviderAccepted);
+        assert!(job.transition(ChannelJobEvent::Redrive).is_err());
+        assert_eq!(
+            ChannelJobState::Leased
+                .transition(ChannelJobEvent::BeginAttempt)
+                .unwrap()
+                .transition(ChannelJobEvent::LeaseExpired)
+                .unwrap(),
+            ChannelJobState::Queued
+        );
+
+        assert_eq!(
+            OutboxState::Pending
+                .transition(OutboxEvent::Failed)
+                .unwrap()
+                .transition(OutboxEvent::Retry)
+                .unwrap(),
+            OutboxState::Pending
+        );
+        assert_eq!(
+            InboxState::Received
+                .transition(InboxEvent::Processed)
+                .unwrap(),
+            InboxState::Processed
+        );
+        assert!(InboxState::Processed
+            .transition(InboxEvent::Rejected)
+            .is_err());
+    }
+
+    #[test]
+    fn delivery_outcomes_are_distinct_from_provider_and_engagement_state() {
+        assert_eq!(
+            [
+                DeliveryOutcome::TransientFailure,
+                DeliveryOutcome::PermanentFailure,
+                DeliveryOutcome::Accepted,
+            ]
+            .len(),
+            3
+        );
+        assert_ne!(
+            ChannelJobState::ProviderAccepted,
+            ChannelJobState::TerminalFailed
+        );
+    }
+
+    #[test]
+    fn internal_subjects_are_explicit_service_identities() {
+        assert!(valid_internal_subject("svc:payments"));
+        assert!(valid_internal_subject("svc:permission-worker.v2"));
+        assert!(!valid_internal_subject("publisher"));
+        assert!(!valid_internal_subject("svc:publisher user"));
+        assert!(!valid_internal_subject(
+            "0x1111111111111111111111111111111111111111"
+        ));
+    }
+
     #[async_trait]
     impl AccessTokenVerifier for FakeVerifier {
         async fn verify(&self, token: &str) -> Result<VerifiedPrincipal, VerifyError> {
             let (subject, audience, permissions) = match token {
-                "frontend-owner" => ("0xabc", FRONTEND_AUDIENCE, vec![]),
-                "admin-owner" => ("0xabc", ADMIN_AUDIENCE, vec![]),
+                "frontend-owner" => (OWNER_WALLET, FRONTEND_AUDIENCE, vec![]),
+                "admin-owner" => (OWNER_WALLET, ADMIN_AUDIENCE, vec![]),
                 "admin-manage" => (
-                    "0xadmin",
+                    ADMIN_WALLET,
                     ADMIN_AUDIENCE,
                     vec![NOTIFICATIONS_MANAGE_PERMISSION.into()],
                 ),
                 "admin-resource-wildcard" => (
-                    "0xadmin",
+                    ADMIN_WALLET,
                     ADMIN_AUDIENCE,
                     vec!["admin:notifications:*".into()],
                 ),
-                "admin-domain-wildcard" => ("0xadmin", ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
+                "admin-domain-wildcard" => (ADMIN_WALLET, ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
+                "publisher" => (
+                    "svc:publisher",
+                    NOTIFICATION_PUBLISHER_AUDIENCE,
+                    vec![NOTIFICATION_PUBLISH_PERMISSION.into()],
+                ),
+                "publisher-wrong-permission" => (
+                    "svc:publisher",
+                    NOTIFICATION_PUBLISHER_AUDIENCE,
+                    vec!["internal:notifications:read".into()],
+                ),
+                "publisher-bad-subject" => (
+                    "publisher",
+                    NOTIFICATION_PUBLISHER_AUDIENCE,
+                    vec![NOTIFICATION_PUBLISH_PERMISSION.into()],
+                ),
+                "provider" => (
+                    "svc:provider",
+                    NOTIFICATION_PROVIDER_AUDIENCE,
+                    vec![NOTIFICATION_PROVIDER_EVENTS_PERMISSION.into()],
+                ),
+                "provider-wrong-permission" => (
+                    "svc:provider",
+                    NOTIFICATION_PROVIDER_AUDIENCE,
+                    vec!["internal:notifications:read".into()],
+                ),
+                "provider-bad-subject" => (
+                    "provider",
+                    NOTIFICATION_PROVIDER_AUDIENCE,
+                    vec![NOTIFICATION_PROVIDER_EVENTS_PERMISSION.into()],
+                ),
                 "admin-invalid-wildcard" => {
-                    ("0xadmin", ADMIN_AUDIENCE, vec!["admin:*:manage".into()])
+                    (ADMIN_WALLET, ADMIN_AUDIENCE, vec!["admin:*:manage".into()])
                 }
                 "frontend-manage" => (
-                    "0xabc",
+                    OWNER_WALLET,
                     FRONTEND_AUDIENCE,
                     vec![NOTIFICATIONS_MANAGE_PERMISSION.into()],
                 ),
-                "other-audience" => ("0xabc", "epsx-other", vec![]),
+                "other-audience" => (OWNER_WALLET, "epsx-other", vec![]),
                 _ => return Err(VerifyError::Validation),
             };
             Ok(VerifiedPrincipal {
@@ -739,7 +1240,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn health_is_the_only_anonymous_surface_and_strips_credentials() {
+    async fn health_and_readiness_are_the_only_anonymous_surfaces_and_strip_credentials() {
         let (app, downstream) = app();
         for method in [Method::GET, Method::HEAD] {
             let mut health = request(method, "/health", Some("admin-manage"));
@@ -759,12 +1260,25 @@ mod tests {
         let routes = [
             (Method::GET, "/api/v1/notification/list"),
             (Method::GET, "/api/v1/notification/unread-count"),
+            (Method::GET, "/api/v1/notification/preferences"),
+            (Method::PUT, "/api/v1/notification/preferences"),
+            (Method::GET, "/api/v1/notification/stream"),
+            (Method::POST, "/api/v1/notification/stream/ack"),
+            (Method::GET, "/api/v1/notification/push"),
+            (Method::PUT, "/api/v1/notification/push"),
+            (Method::DELETE, "/api/v1/notification/push"),
             (Method::POST, "/api/v1/notification/mark-all-read"),
             (Method::POST, "/api/v1/notification/clear-all"),
             (Method::GET, "/api/v1/notification/notification-id"),
             (Method::DELETE, "/api/v1/notification/notification-id"),
             (Method::POST, "/api/v1/notification/notification-id/read"),
             (Method::POST, "/api/v1/notification/notification-id/unread"),
+            (Method::POST, "/api/v1/notification/notification-id/click"),
+            (Method::POST, "/api/v1/notification/notification-id/dismiss"),
+            (
+                Method::PUT,
+                "/api/v1/notification/notification-id/acknowledge",
+            ),
         ];
         let (app, downstream) = app();
         for bearer in ["frontend-owner", "admin-owner"] {
@@ -775,8 +1289,8 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 16);
-        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 16);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
+        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 36);
 
         for bearer in [None, Some("invalid"), Some("other-audience")] {
             let expected = if bearer == Some("other-audience") {
@@ -793,7 +1307,7 @@ mod tests {
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 16);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
     }
 
     #[tokio::test]
@@ -801,12 +1315,31 @@ mod tests {
         let routes = [
             (Method::GET, "/api/v1/notification/admin/list"),
             (Method::GET, "/api/v1/notification/admin/metrics"),
-            (Method::POST, "/api/v1/notification/admin/notification-1/read"),
+            (
+                Method::POST,
+                "/api/v1/notification/admin/notification-1/read",
+            ),
             (Method::DELETE, "/api/v1/notification/admin/notification-1"),
+            (
+                Method::POST,
+                "/api/v1/notification/admin/dead-letters/job-1/redrive",
+            ),
             (Method::GET, "/api/v1/notification/templates"),
             (Method::POST, "/api/v1/notification/templates"),
             (Method::GET, "/api/v1/notification/templates/template-id"),
             (Method::DELETE, "/api/v1/notification/templates/template-id"),
+            (
+                Method::POST,
+                "/api/v1/notification/templates/template-id/preview",
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/templates/template-id/rollback",
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/templates/template-id/audit",
+            ),
             (Method::POST, "/api/v1/notification/send"),
         ];
         let (app, downstream) = app();
@@ -822,7 +1355,11 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 27);
+        assert_eq!(
+            downstream.hits.load(Ordering::SeqCst),
+            routes.len() * 3,
+            "every approved admin route must reach downstream for each accepted permission form"
+        );
 
         for bearer in [
             None,
@@ -846,7 +1383,88 @@ mod tests {
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 27);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), routes.len() * 3);
+    }
+
+    #[tokio::test]
+    async fn publisher_route_requires_internal_audience_and_permission() {
+        let (app, downstream) = app();
+        assert_eq!(
+            status(
+                &app,
+                request(
+                    Method::POST,
+                    "/api/v1/notification/publish",
+                    Some("publisher")
+                ),
+            )
+            .await,
+            StatusCode::OK
+        );
+        for bearer in [
+            None,
+            Some("invalid"),
+            Some("frontend-owner"),
+            Some("admin-manage"),
+            Some("publisher-wrong-permission"),
+            Some("publisher-bad-subject"),
+        ] {
+            let expected = if bearer.is_none() || bearer == Some("invalid") {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::FORBIDDEN
+            };
+            assert_eq!(
+                status(
+                    &app,
+                    request(Method::POST, "/api/v1/notification/publish", bearer),
+                )
+                .await,
+                expected
+            );
+        }
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 1);
+    }
+
+    #[tokio::test]
+    async fn provider_event_route_requires_internal_audience_and_permission() {
+        let (app, downstream) = app();
+        assert_eq!(
+            status(
+                &app,
+                request(
+                    Method::POST,
+                    "/api/v1/notification/provider-events",
+                    Some("provider"),
+                ),
+            )
+            .await,
+            StatusCode::OK
+        );
+        for bearer in [
+            None,
+            Some("invalid"),
+            Some("frontend-owner"),
+            Some("admin-manage"),
+            Some("publisher"),
+            Some("provider-wrong-permission"),
+            Some("provider-bad-subject"),
+        ] {
+            let expected = if bearer.is_none() || bearer == Some("invalid") {
+                StatusCode::UNAUTHORIZED
+            } else {
+                StatusCode::FORBIDDEN
+            };
+            assert_eq!(
+                status(
+                    &app,
+                    request(Method::POST, "/api/v1/notification/provider-events", bearer,),
+                )
+                .await,
+                expected
+            );
+        }
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 1);
     }
 
     #[tokio::test]
@@ -892,15 +1510,22 @@ mod tests {
     #[tokio::test]
     async fn caller_selected_owner_is_rejected_and_missing_owner_is_derived() {
         let principal = VerifiedPrincipal {
-            subject: "0xabc".into(),
-            wallet_address: "0xabc".into(),
+            subject: OWNER_WALLET.into(),
+            wallet_address: "0x1111111111111111111111111111111111111111".into(),
             audience: FRONTEND_AUDIENCE.into(),
             permissions: vec![],
         };
-        assert_eq!(canonical_owner(&principal, None).unwrap(), "0xabc");
-        assert_eq!(canonical_owner(&principal, Some("0xabc")).unwrap(), "0xabc");
+        assert_eq!(canonical_owner(&principal, None).unwrap(), OWNER_WALLET);
         assert_eq!(
-            canonical_owner(&principal, Some("0xdef")),
+            canonical_owner(
+                &principal,
+                Some("0X1111111111111111111111111111111111111111")
+            )
+            .unwrap(),
+            OWNER_WALLET
+        );
+        assert_eq!(
+            canonical_owner(&principal, Some(OTHER_WALLET)),
             Err(StatusCode::FORBIDDEN)
         );
         assert_eq!(
@@ -920,6 +1545,10 @@ mod tests {
             (Method::POST, "/api/v1/notification/list"),
             (Method::POST, "/api/v1/notification/admin/list"),
             (Method::HEAD, "/api/v1/notification/admin/list"),
+            (Method::POST, "/api/v1/notification/admin/metrics"),
+            (Method::HEAD, "/api/v1/notification/admin/metrics"),
+            (Method::GET, "/api/v1/notification/provider-events"),
+            (Method::PUT, "/api/v1/notification/provider-events"),
             (Method::GET, "/api/v1/notification/admin/list/extra"),
             (Method::GET, "/api/v1/notification/admin%2flist"),
             (Method::GET, "/api/v1/notification/admin/%6cist"),
@@ -963,7 +1592,7 @@ mod tests {
         async fn owner_handler(
             Extension(principal): Extension<VerifiedPrincipal>,
         ) -> Result<&'static str, StatusCode> {
-            canonical_owner(&principal, Some("0xdef"))?;
+            canonical_owner(&principal, Some(OTHER_WALLET))?;
             Ok("unreachable")
         }
 
