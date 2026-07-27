@@ -163,7 +163,7 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
             AccessPolicy::OwnerRead
         }
         (&Method::POST, ["escrows", id, "resolve"]) if safe_dynamic_segment(id) => {
-            AccessPolicy::UnsafePaymentsManage
+            AccessPolicy::UnsafeFinancialMutation
         }
         (&Method::POST, ["intents"]) | (&Method::POST, ["links"]) => {
             AccessPolicy::UnsafeFinancialMutation
@@ -291,10 +291,7 @@ async fn authorize_request(
             {
                 return auth_error(StatusCode::FORBIDDEN);
             }
-            // A valid operator credential still cannot reach the current
-            // force/resolve handlers: their DB-only transitions have no
-            // idempotency, transaction, chain, or audit proof under A6.
-            return StatusCode::NOT_FOUND.into_response();
+            request.extensions_mut().insert(principal);
         }
         AccessPolicy::UnsafeFinancialMutation
         | AccessPolicy::InternalIdentityUnavailable

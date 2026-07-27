@@ -12,8 +12,12 @@ use serde::Deserialize;
 #[path = "commerce_adapter.rs"]
 mod commerce_adapter;
 pub(crate) use commerce_adapter::{
-    load_access, load_credit_stats, load_payment_links, load_plan_detail, load_plans,
-    load_wallet_detail, plan_detail_path, wallet_detail_path, AdminCommerceLoad,
+    access_mutation_path, credit_mutation_path, decode_admin_envelope, load_access,
+    load_credit_stats, load_payment_links, load_plan_detail, load_plans, load_wallet_detail,
+    load_wallet_list, payment_intent_cancel_path, payment_link_mutation_path, plan_detail_path,
+    plan_mutation_path, send_admin_json, wallet_detail_path, wallet_metadata_mutation_path,
+    wallet_status_mutation_path, AdminCommerceLoad, AdminCommerceMutationLoad, CreditCommand,
+    ExpectedVersionCommand, WalletMetadataCommand,
 };
 
 const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
@@ -94,7 +98,7 @@ pub(crate) async fn load_admin_wallet_stats(
             Ok(body) => body,
             Err(()) => return AdminWalletStatsLoad::Unavailable,
         };
-    let payload = match serde_json::from_slice::<BackendWalletStatsResponse>(&body) {
+    let payload = match decode_admin_envelope::<BackendWalletStatsResponse>(&body) {
         Ok(payload) => payload,
         Err(_) => return AdminWalletStatsLoad::Malformed,
     };
@@ -127,37 +131,49 @@ async fn read_response_body_limited(
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BackendWalletStatsResponse {
-    total: i64,
-    active: i64,
-    disabled: i64,
-    new_30_days: i64,
-    correlation_id: String,
+    total_users: i64,
+    active_users: i64,
+    inactive_users: i64,
+    users_by_tier: serde_json::Value,
+    new_users_30_days: i64,
+    active_users_30_days: i64,
+    growth_rate: f64,
 }
 
 fn classify_payload(payload: BackendWalletStatsResponse) -> AdminWalletStatsLoad {
     let BackendWalletStatsResponse {
-        total,
-        active,
-        disabled,
-        new_30_days,
-        correlation_id,
+        total_users,
+        active_users,
+        inactive_users,
+        users_by_tier,
+        new_users_30_days,
+        active_users_30_days,
+        growth_rate,
     } = payload;
-    if [total, active, disabled, new_30_days]
+    if !users_by_tier.is_object()
+        || !growth_rate.is_finite()
+        || [
+            total_users,
+            active_users,
+            inactive_users,
+            new_users_30_days,
+            active_users_30_days,
+        ]
         .into_iter()
         .any(|count| count < 0)
-        || active
-            .checked_add(disabled)
-            .is_none_or(|known_total| known_total != total)
-        || new_30_days > total
-        || uuid::Uuid::parse_str(&correlation_id).is_err()
+        || active_users
+            .checked_add(inactive_users)
+            .is_none_or(|known_total| known_total != total_users)
+        || new_users_30_days > total_users
+        || active_users_30_days > active_users
     {
         return AdminWalletStatsLoad::Malformed;
     }
     AdminWalletStatsLoad::Ready(AdminWalletStatsSummary {
-        total_users: total,
-        active_users: active,
-        inactive_users: disabled,
-        new_users_30_days: new_30_days,
+        total_users,
+        active_users,
+        inactive_users,
+        new_users_30_days,
     })
 }
 
@@ -198,16 +214,25 @@ mod tests {
 
     fn valid_payload() -> Value {
         json!({
-            "total": 11,
-            "active": 8,
-            "disabled": 3,
-            "new_30_days": 2,
-            "correlation_id": "e44f180b-3d2b-41ec-badf-cb4332f05fb2"
+            "success": true,
+            "data": {
+                "total_users": 11,
+                "active_users": 8,
+                "inactive_users": 3,
+                "users_by_tier": {},
+                "new_users_30_days": 2,
+                "active_users_30_days": 6,
+                "growth_rate": 1.5
+            },
+            "error": null,
+            "message": "Wallet statistics retrieved",
+            "timestamp": "2026-07-27T00:00:00Z",
+            "admin_meta": null
         })
     }
 
     fn classify_value(value: Value) -> AdminWalletStatsLoad {
-        match serde_json::from_value::<BackendWalletStatsResponse>(value) {
+        match decode_admin_envelope::<BackendWalletStatsResponse>(value.to_string().as_bytes()) {
             Ok(payload) => classify_payload(payload),
             Err(_) => AdminWalletStatsLoad::Malformed,
         }
@@ -264,10 +289,11 @@ mod tests {
     #[test]
     fn zero_counts_are_authoritative_ready_data() {
         let mut value = valid_payload();
-        value["total"] = json!(0);
-        value["active"] = json!(0);
-        value["disabled"] = json!(0);
-        value["new_30_days"] = json!(0);
+        value["data"]["total_users"] = json!(0);
+        value["data"]["active_users"] = json!(0);
+        value["data"]["inactive_users"] = json!(0);
+        value["data"]["new_users_30_days"] = json!(0);
+        value["data"]["active_users_30_days"] = json!(0);
         assert!(matches!(
             classify_value(value),
             AdminWalletStatsLoad::Ready(AdminWalletStatsSummary { total_users: 0, .. })
@@ -283,19 +309,19 @@ mod tests {
         cases.push(value);
 
         let mut value = valid_payload();
-        value["active"] = json!(-1);
+        value["data"]["active_users"] = json!(-1);
         cases.push(value);
 
         let mut value = valid_payload();
-        value["total"] = json!(12);
+        value["data"]["total_users"] = json!(12);
         cases.push(value);
 
         let mut value = valid_payload();
-        value["new_30_days"] = json!(12);
+        value["data"]["new_users_30_days"] = json!(12);
         cases.push(value);
 
         let mut value = valid_payload();
-        value["correlation_id"] = json!("not-a-uuid");
+        value["data"]["active_users_30_days"] = json!(12);
         cases.push(value);
 
         for case in cases {
@@ -304,6 +330,37 @@ mod tests {
                 AdminWalletStatsLoad::Malformed
             ));
         }
+    }
+
+    #[test]
+    fn raw_dto_and_unsuccessful_or_unknown_envelopes_are_rejected() {
+        let raw = json!({
+            "total": 11,
+            "active": 8,
+            "disabled": 3,
+            "new_30_days": 2,
+            "correlation_id": "e44f180b-3d2b-41ec-badf-cb4332f05fb2"
+        });
+        assert!(matches!(
+            classify_value(raw),
+            AdminWalletStatsLoad::Malformed
+        ));
+
+        let mut failed = valid_payload();
+        failed["success"] = json!(false);
+        failed["data"] = Value::Null;
+        failed["error"] = json!("permission denied");
+        assert!(matches!(
+            classify_value(failed),
+            AdminWalletStatsLoad::Malformed
+        ));
+
+        let mut unknown = valid_payload();
+        unknown["unexpected"] = json!(true);
+        assert!(matches!(
+            classify_value(unknown),
+            AdminWalletStatsLoad::Malformed
+        ));
     }
 
     #[tokio::test]

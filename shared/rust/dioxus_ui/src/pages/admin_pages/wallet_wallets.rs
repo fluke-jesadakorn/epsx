@@ -22,6 +22,8 @@ const MAX_CHAIN_ID_CHARS: usize = 10;
 
 pub const ADMIN_WALLET_STATS_DATA_PARAM: &str = "data_admin_wallet_stats";
 pub const ADMIN_WALLET_STATS_STATE_PARAM: &str = "data_admin_wallet_stats_state";
+pub const ADMIN_WALLET_LIST_DATA_PARAM: &str = "data_admin_wallet_list";
+pub const ADMIN_WALLET_LIST_STATE_PARAM: &str = "data_admin_wallet_list_state";
 pub const ADMIN_WALLET_DETAIL_DATA_PARAM: &str = "data_admin_wallet_detail";
 pub const ADMIN_WALLET_DETAIL_STATE_PARAM: &str = "data_admin_wallet_detail_state";
 
@@ -29,6 +31,10 @@ pub const ADMIN_WALLET_STATS_READY: &str = "ready";
 pub const ADMIN_WALLET_STATS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_STATS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_STATS_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_LIST_READY: &str = "ready";
+pub const ADMIN_WALLET_LIST_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_LIST_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_LIST_MALFORMED: &str = "malformed";
 pub const ADMIN_WALLET_DETAIL_READY: &str = "ready";
 pub const ADMIN_WALLET_DETAIL_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_DETAIL_UNAVAILABLE: &str = "unavailable";
@@ -66,12 +72,99 @@ pub fn decode_admin_wallet_stats_projection(
     Some(projection)
 }
 
+/// A bounded row projection for the wallet inventory.  Metadata, timestamps,
+/// balances, entitlements, and audit identity stay outside PageContext.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletListItemProjection {
+    pub address: String,
+    pub chain_id: String,
+    pub label: Option<String>,
+    pub role: Option<String>,
+    pub status: String,
+    pub version: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletListProjection {
+    pub items: Vec<AdminWalletListItemProjection>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+pub fn decode_admin_wallet_list_projection(
+    value: serde_json::Value,
+) -> Option<AdminWalletListProjection> {
+    let projection: AdminWalletListProjection = serde_json::from_value(value).ok()?;
+    if projection.total < 0
+        || !(1..=100).contains(&projection.limit)
+        || !(0..=10_000_000).contains(&projection.offset)
+        || projection.items.len() > projection.limit as usize
+    {
+        return None;
+    }
+    if projection.items.iter().any(|item| {
+        canonical_wallet_address(&item.address).is_none()
+            || !valid_chain_id(&item.chain_id)
+            || item
+                .label
+                .as_deref()
+                .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_LABEL_CHARS))
+            || item
+                .role
+                .as_deref()
+                .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_ROLE_CHARS))
+            || !matches!(item.status.as_str(), "active" | "disabled")
+            || item.version < 0
+    }) {
+        return None;
+    }
+    Some(projection)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum WalletStatsLoad {
     Ready(AdminWalletStatsSummary),
     Forbidden,
     Unavailable,
     Malformed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WalletListLoad {
+    Ready(AdminWalletListProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn wallet_list_load(ctx: &PageContext) -> Option<WalletListLoad> {
+    let state = ctx
+        .params
+        .get(ADMIN_WALLET_LIST_STATE_PARAM)
+        .map(String::as_str)?;
+    Some(match state {
+        ADMIN_WALLET_LIST_READY => ctx
+            .params
+            .get(ADMIN_WALLET_LIST_DATA_PARAM)
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .and_then(decode_admin_wallet_list_projection)
+            .map(|projection| {
+                if projection.items.is_empty() && projection.total == 0 {
+                    WalletListLoad::Empty
+                } else {
+                    WalletListLoad::Ready(projection)
+                }
+            })
+            .unwrap_or(WalletListLoad::Malformed),
+        ADMIN_WALLET_LIST_FORBIDDEN => WalletListLoad::Forbidden,
+        ADMIN_WALLET_LIST_UNAVAILABLE => WalletListLoad::Unavailable,
+        ADMIN_WALLET_LIST_MALFORMED => WalletListLoad::Malformed,
+        _ => WalletListLoad::Malformed,
+    })
 }
 
 fn wallet_stats_load(ctx: &PageContext) -> WalletStatsLoad {
@@ -418,6 +511,8 @@ fn WalletDetailProblem(state: &'static str, title: String, detail: String) -> El
 
 #[component]
 fn RenderWalletList(ctx: PageContext) -> Element {
+    let inventory = wallet_list_load(&ctx);
+    let has_inventory = inventory.is_some();
     let load = wallet_stats_load(&ctx);
 
     rsx! {
@@ -434,34 +529,117 @@ fn RenderWalletList(ctx: PageContext) -> Element {
                     extra_actions: None,
                     class_name: None,
                 }
-                match load {
-                    WalletStatsLoad::Ready(projection) => rsx! {
-                        WalletStatsReady { projection }
-                    },
-                    WalletStatsLoad::Forbidden => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_FORBIDDEN,
-                            title: "Wallet summary access was denied".to_string(),
-                            detail: "The backend did not authorize this session to read wallet status totals.".to_string(),
+                match inventory {
+                    Some(WalletListLoad::Ready(projection)) => rsx! { WalletListReady { projection } },
+                    Some(WalletListLoad::Empty) => rsx! { WalletListEmpty {} },
+                    Some(WalletListLoad::Forbidden) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_FORBIDDEN,
+                            title: "Wallet inventory access was denied".to_string(),
+                            detail: "The backend did not authorize this session to read wallet rows.".to_string(),
                         }
                     },
-                    WalletStatsLoad::Unavailable => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_UNAVAILABLE,
-                            title: "Wallet summary is unavailable".to_string(),
-                            detail: "The wallet backend could not provide an authoritative status summary. No totals are being shown.".to_string(),
+                    Some(WalletListLoad::Unavailable) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_UNAVAILABLE,
+                            title: "Wallet inventory is unavailable".to_string(),
+                            detail: "The wallet backend could not provide an authoritative wallet list. No rows are being shown.".to_string(),
                         }
                     },
-                    WalletStatsLoad::Malformed => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_MALFORMED,
-                            title: "Wallet summary could not be verified".to_string(),
-                            detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                    Some(WalletListLoad::Malformed) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_MALFORMED,
+                            title: "Wallet inventory could not be verified".to_string(),
+                            detail: "The backend response did not match the strict bounded wallet-list contract. No rows are being shown.".to_string(),
                         }
+                    },
+                    None => match load {
+                        WalletStatsLoad::Ready(projection) => rsx! { WalletStatsReady { projection } },
+                        WalletStatsLoad::Forbidden => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_FORBIDDEN,
+                                title: "Wallet summary access was denied".to_string(),
+                                detail: "The backend did not authorize this session to read wallet status totals.".to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Unavailable => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_UNAVAILABLE,
+                                title: "Wallet summary is unavailable".to_string(),
+                                detail: "The wallet backend could not provide an authoritative status summary. No totals are being shown.".to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Malformed => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_MALFORMED,
+                                title: "Wallet summary could not be verified".to_string(),
+                                detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                            }
+                        },
                     },
                 }
-                WalletInventoryUnavailableNotice {}
+                if !has_inventory {
+                    WalletInventoryUnavailableNotice {}
+                }
             }
+        }
+    }
+}
+
+#[component]
+fn WalletListReady(projection: AdminWalletListProjection) -> Element {
+    rsx! {
+        section {
+            class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+            "data-admin-wallet-list-state": ADMIN_WALLET_LIST_READY,
+            h2 { class: "p-5 text-lg font-semibold text-foreground", "Wallet inventory" }
+            p { class: "px-5 pb-4 text-sm text-muted-foreground", "{projection.total} backend-authoritative records in this bounded response." }
+            ul { class: "divide-y divide-border/30 border-t border-border/30", aria_label: "Wallet inventory",
+                for wallet in projection.items { WalletListRow { wallet } }
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletListRow(wallet: AdminWalletListItemProjection) -> Element {
+    let detail_href = format!(
+        "/wallet-management/{}",
+        encode_path_segment(&wallet.address)
+    );
+    let status = if wallet.status == "active" {
+        "Active"
+    } else {
+        "Disabled"
+    };
+    rsx! {
+        li { class: "grid gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center",
+            div {
+                p { class: "break-all font-mono text-sm text-foreground", "{wallet.address}" }
+                p { class: "mt-1 text-xs text-muted-foreground", "Chain {wallet.chain_id} · {status}" }
+            }
+            p { class: "text-sm text-muted-foreground", "Version {wallet.version}" }
+            a { class: "btn btn-sm btn-outline", href: detail_href, "Read detail" }
+        }
+    }
+}
+
+#[component]
+fn WalletListEmpty() -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-border/30 bg-card p-8 text-center", role: "status", "data-admin-wallet-list-state": ADMIN_WALLET_LIST_READY,
+            h2 { class: "text-xl font-semibold text-foreground", "No wallets returned" }
+            p { class: "mt-2 text-sm text-muted-foreground", "The backend returned an authoritative empty wallet inventory." }
+        }
+    }
+}
+
+#[component]
+fn WalletListProblem(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6", role: "status", "data-admin-wallet-list-state": state,
+            h2 { class: "text-xl font-bold text-foreground", "{title}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -894,6 +1072,73 @@ mod tests {
         ] {
             assert!(decode_admin_wallet_stats_projection(malformed).is_none());
         }
+    }
+
+    #[test]
+    fn wallet_list_projection_is_bounded_redacted_and_route_safe() {
+        let value = serde_json::json!({
+            "items": [{
+                "address": TEST_ADDRESS,
+                "chain_id": "56",
+                "label": "Treasury",
+                "role": "user",
+                "status": "active",
+                "version": 4
+            }],
+            "total": 1,
+            "limit": 100,
+            "offset": 0
+        });
+        let projection = decode_admin_wallet_list_projection(value).unwrap();
+        assert_eq!(projection.items[0].address, TEST_ADDRESS);
+        assert_eq!(projection.items[0].version, 4);
+
+        let mut hostile = serde_json::json!({
+            "items": [{
+                "address": format!("{TEST_ADDRESS}/../x"),
+                "chain_id": "56",
+                "label": "Treasury",
+                "role": "user",
+                "status": "active",
+                "version": 4
+            }],
+            "total": 1,
+            "limit": 100,
+            "offset": 0
+        });
+        assert!(decode_admin_wallet_list_projection(hostile.take()).is_none());
+    }
+
+    #[test]
+    fn wallet_list_page_renders_only_verified_rows_and_detail_links() {
+        let mut ctx = authenticated_ctx();
+        ctx.params.insert(
+            ADMIN_WALLET_LIST_STATE_PARAM.to_string(),
+            ADMIN_WALLET_LIST_READY.to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_WALLET_LIST_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "items": [{
+                    "address": TEST_ADDRESS,
+                    "chain_id": "56",
+                    "label": null,
+                    "role": "user",
+                    "status": "disabled",
+                    "version": 2
+                }],
+                "total": 1,
+                "limit": 100,
+                "offset": 0
+            })
+            .to_string(),
+        );
+        let rendered = html(render(&ctx).1);
+        assert!(rendered.contains("data-admin-wallet-list-state=\"ready\""));
+        assert!(rendered.contains(TEST_ADDRESS));
+        assert!(rendered.contains("/wallet-management/0x1111111111111111111111111111111111111111"));
+        assert!(!rendered.contains("metadata"));
+        assert!(!rendered.contains("<form"));
     }
 
     #[test]

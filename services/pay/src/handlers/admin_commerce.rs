@@ -268,7 +268,7 @@ pub async fn disable_admin_pay_link(
     let Some(key) = idempotency_key(&headers) else {
         return error(&headers, StatusCode::BAD_REQUEST, "missing_idempotency_key");
     };
-    if request.expected_version < 0 || !valid_resource_id(&id) {
+    if request.expected_version <= 0 || !valid_resource_id(&id) {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_payment_link");
     }
     let mut tx = match state.db.begin().await {
@@ -387,7 +387,7 @@ pub async fn cancel_admin_pay_intent(
     let Some(key) = idempotency_key(&headers) else {
         return error(&headers, StatusCode::BAD_REQUEST, "missing_idempotency_key");
     };
-    if request.expected_version < 0 || !valid_resource_id(&id) {
+    if request.expected_version <= 0 || !valid_resource_id(&id) {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_payment_intent");
     };
     let mut tx = match state.db.begin().await {
@@ -422,7 +422,7 @@ pub async fn cancel_admin_pay_intent(
         }
     };
     let version_before = intent.updated_at;
-    if request.expected_version > 0 && request.expected_version != version_before.timestamp() {
+    if request.expected_version != version_before.timestamp_micros() {
         return error(
             &headers,
             StatusCode::CONFLICT,
@@ -436,18 +436,40 @@ pub async fn cancel_admin_pay_intent(
             "payment_intent_not_cancellable",
         );
     };
-    let updated=sqlx::query("UPDATE public.pay_intents SET status='cancelled',updated_at=NOW() WHERE id=$1 AND status='pending'").bind(&id).execute(&mut *tx).await;
-    if updated.map_or(true, |result| result.rows_affected() != 1) {
-        return error(
-            &headers,
-            StatusCode::CONFLICT,
-            "payment_intent_write_rejected",
-        );
+    let version_after = sqlx::query_scalar::<_, DateTime<Utc>>(
+        "UPDATE public.pay_intents SET status='cancelled',updated_at=NOW()
+          WHERE id=$1 AND status='pending'
+       RETURNING updated_at",
+    )
+    .bind(&id)
+    .fetch_optional(&mut *tx)
+    .await;
+    let version_after = match version_after {
+        Ok(Some(value)) if value > version_before => value,
+        _ => {
+            return error(
+                &headers,
+                StatusCode::CONFLICT,
+                "payment_intent_write_rejected",
+            )
+        }
     };
     let operation_id = Uuid::new_v4();
-    let now = Utc::now();
-    if sqlx::query("INSERT INTO public.pay_admin_operations(operation_id,idempotency_key,action,resource_id,actor,version_before,version_after,result) VALUES($1,$2,'intent.cancel',$3,$4,$5,$6,$7)").bind(operation_id).bind(&key).bind(&id).bind(&principal.subject).bind(version_before).bind(now).bind(serde_json::json!({"id":id,"status":"cancelled"})).execute(&mut *tx).await.is_err(){return error(&headers,StatusCode::CONFLICT,"idempotency_conflict")};
-    if sqlx::query("INSERT INTO public.pay_ledger_entries(operation_id,resource_id,entry_type,status,amount,token_address,chain_id,finalized_at) VALUES($1,$2,'intent.cancel','finalized',$3,$4,$5,$6)").bind(operation_id).bind(&id).bind(&intent.amount).bind(&intent.token_address).bind(&intent.chain_id).bind(now).execute(&mut *tx).await.is_err(){return error(&headers,StatusCode::CONFLICT,"ledger_write_rejected")};
+    let result = serde_json::json!({
+        "id": id,
+        "status": "cancelled",
+        "evidence": {
+            "operation_id": operation_id,
+            "version_before": version_before,
+            "version_after": version_after,
+            "observed_at": version_after,
+            "financial_finality": "not_applicable",
+            "ledger_entry": "finalized",
+            "correlation_id": correlation(&headers)
+        }
+    });
+    if sqlx::query("INSERT INTO public.pay_admin_operations(operation_id,idempotency_key,action,resource_id,actor,version_before,version_after,result) VALUES($1,$2,'intent.cancel',$3,$4,$5,$6,$7)").bind(operation_id).bind(&key).bind(&id).bind(&principal.subject).bind(version_before).bind(version_after).bind(&result).execute(&mut *tx).await.is_err(){return error(&headers,StatusCode::CONFLICT,"idempotency_conflict")};
+    if sqlx::query("INSERT INTO public.pay_ledger_entries(operation_id,resource_id,entry_type,status,amount,token_address,chain_id,finalized_at) VALUES($1,$2,'intent.cancel','finalized',$3,$4,$5,$6)").bind(operation_id).bind(&id).bind(&intent.amount).bind(&intent.token_address).bind(&intent.chain_id).bind(version_after).execute(&mut *tx).await.is_err(){return error(&headers,StatusCode::CONFLICT,"ledger_write_rejected")};
     if tx.commit().await.is_err() {
         return error(
             &headers,
@@ -455,9 +477,19 @@ pub async fn cancel_admin_pay_intent(
             "payment_write_unavailable",
         );
     };
-    response(
-        &headers,
-        StatusCode::OK,
-        serde_json::json!({"id":id,"status":"cancelled","evidence":{"operation_id":operation_id,"observed_at":now,"financial_finality":"not_applicable","ledger_entry":"finalized"},"correlation_id":correlation(&headers)}),
+    let observed = sqlx::query_as::<_, (String, DateTime<Utc>)>(
+        "SELECT status,updated_at FROM public.pay_intents WHERE id=$1",
     )
+    .bind(&id)
+    .fetch_optional(&state.db)
+    .await;
+    if !matches!(observed, Ok(Some((status, updated_at))) if status == "cancelled" && updated_at == version_after)
+    {
+        return error(
+            &headers,
+            StatusCode::SERVICE_UNAVAILABLE,
+            "payment_intent_read_after_write_unavailable",
+        );
+    }
+    response(&headers, StatusCode::OK, result)
 }
