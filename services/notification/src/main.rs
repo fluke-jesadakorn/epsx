@@ -1,14 +1,15 @@
 use axum::{
     extract::{Extension, Path as AxPath, RawQuery, State},
-    http::StatusCode,
+    http::{HeaderMap, StatusCode},
     routing::{get, post},
     Json, Router,
 };
 use clap::{Parser, ValueEnum};
 use epsx_notification::{
     build_auth_verifier, canonical_owner, protect_router, verify_schema_compatibility,
+    NOTIFICATIONS_MANAGE_PERMISSION,
 };
-use epsx_service_auth::VerifiedPrincipal;
+use epsx_service_auth::{VerifiedPrincipal, ADMIN_AUDIENCE};
 use handlebars::Handlebars;
 use lettre::{
     message::{header, MultiPart, SinglePart},
@@ -116,6 +117,7 @@ struct CreateTemplateRequest {
 }
 
 #[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct SendNotificationRequest {
     user_id: Option<String>,
     channel: String,
@@ -132,6 +134,107 @@ struct SendNotificationResponse {
     status: String,
     delivered: bool,
     error: Option<String>,
+    request_id: String,
+}
+
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 56;
+const MAX_RECIPIENT_CHARS: usize = 255;
+const MAX_SUBJECT_CHARS: usize = 255;
+const MAX_BODY_CHARS: usize = 16_384;
+const MAX_DATA_BYTES: usize = 32 * 1024;
+
+fn bounded_control_free(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (1..=MAX_IDEMPOTENCY_KEY_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn validate_send_request(request: &SendNotificationRequest) -> Result<(), StatusCode> {
+    if !matches!(request.channel.as_str(), "email" | "in_app")
+        || !bounded_control_free(&request.recipient, MAX_RECIPIENT_CHARS)
+        || request
+            .user_id
+            .as_deref()
+            .is_some_and(|value| !bounded_control_free(value, 66))
+        || request
+            .template_id
+            .as_deref()
+            .is_some_and(|value| !bounded_control_free(value, 66))
+        || request
+            .subject
+            .as_deref()
+            .is_some_and(|value| !bounded_control_free(value, MAX_SUBJECT_CHARS))
+        || request
+            .body
+            .as_deref()
+            .is_some_and(|value| !bounded_control_free(value, MAX_BODY_CHARS))
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if request.channel == "email"
+        && request
+            .recipient
+            .parse::<lettre::message::Mailbox>()
+            .is_err()
+    {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if request.template_id.is_none() && request.body.is_none() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if request.data.as_ref().is_some_and(|data| !data.is_object()) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if request.data.as_ref().is_some_and(|data| {
+        serde_json::to_vec(data)
+            .map(|bytes| bytes.len() > MAX_DATA_BYTES)
+            .unwrap_or(true)
+    }) {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    Ok(())
+}
+
+fn request_id(headers: &HeaderMap) -> String {
+    headers
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| bounded_control_free(value, 128))
+        .map(str::to_string)
+        .unwrap_or_else(|| Uuid::new_v4().to_string())
+}
+
+fn idempotent_notification_id(key: &str) -> String {
+    format!("idem_{key}")
+}
+
+fn response_from_existing(
+    notification: &Notification,
+    request_id: String,
+) -> SendNotificationResponse {
+    SendNotificationResponse {
+        id: notification.id.clone(),
+        status: notification.status.clone(),
+        delivered: notification.status == "sent" && notification.error.is_none(),
+        error: notification.error.clone(),
+        request_id,
+    }
+}
+
+fn require_admin_notifications(principal: &VerifiedPrincipal) -> Result<(), StatusCode> {
+    if principal.audience != ADMIN_AUDIENCE
+        || !principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)
+    {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -486,9 +589,20 @@ async fn delete_template(
 
 async fn send_notification(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    headers: HeaderMap,
     Json(req): Json<SendNotificationRequest>,
 ) -> Result<Json<SendNotificationResponse>, StatusCode> {
-    let id = format!("0x{}", Uuid::new_v4().simple());
+    require_admin_notifications(&principal)?;
+    validate_send_request(&req)?;
+    let request_id = request_id(&headers);
+    let idempotency_key = headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| valid_idempotency_key(value))
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let id = idempotent_notification_id(idempotency_key);
+
     let (subject, body) = if let Some(template_id) = &req.template_id {
         let template: Option<Template> = sqlx::query_as::<_, Template>(
             "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE id = $1 AND active = true"
@@ -497,28 +611,92 @@ async fn send_notification(
         .fetch_optional(&state.db).await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
-        if let Some(t) = template {
-            let data_map: HashMap<String, serde_json::Value> = req
-                .data
-                .clone()
-                .and_then(|d| serde_json::from_value(d).ok())
-                .unwrap_or_default();
-            let rendered = state
-                .templates
-                .read()
-                .await
-                .render(&t.name, &data_map)
-                .unwrap_or_else(|_| t.body.clone());
-            (t.subject, rendered)
-        } else {
-            (req.subject.clone(), req.body.clone().unwrap_or_default())
-        }
+        let t = template.ok_or(StatusCode::NOT_FOUND)?;
+        let data_map: HashMap<String, serde_json::Value> = req
+            .data
+            .clone()
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?
+            .unwrap_or_default();
+        let rendered = state
+            .templates
+            .read()
+            .await
+            .render(&t.name, &data_map)
+            .map_err(|_| StatusCode::UNPROCESSABLE_ENTITY)?;
+        (t.subject, rendered)
     } else {
-        (req.subject.clone(), req.body.clone().unwrap_or_default())
+        (
+            req.subject.clone(),
+            req.body.clone().ok_or(StatusCode::BAD_REQUEST)?,
+        )
     };
 
     let subject_str = subject.clone().unwrap_or_default();
     let body_str = body.clone();
+
+    let existing: Option<Notification> = sqlx::query_as::<_, Notification>(
+        "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM public.notifications WHERE id = $1",
+    )
+    .bind(&id)
+    .fetch_optional(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if let Some(existing) = existing {
+        let same_request = existing.channel == req.channel
+            && existing.recipient == req.recipient
+            && existing.template_id == req.template_id
+            && existing.subject.as_deref().unwrap_or_default() == subject_str
+            && existing.body == body_str
+            && existing.data == req.data;
+        if !same_request {
+            return Err(StatusCode::CONFLICT);
+        }
+        return Ok(Json(response_from_existing(&existing, request_id)));
+    }
+
+    // Claim the idempotency key before attempting delivery. A retry observes
+    // the durable pending/sent/failed row and never sends a second message.
+    let claimed = sqlx::query(
+        "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NULL, NULL)
+         ON CONFLICT (id) DO NOTHING",
+    )
+    .bind(&id)
+    .bind(&req.user_id)
+    .bind(&req.channel)
+    .bind(&req.recipient)
+    .bind(&req.template_id)
+    .bind(&subject_str)
+    .bind(&body_str)
+    .bind(req.data.clone())
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+    .rows_affected();
+    if claimed == 0 {
+        let existing: Option<Notification> = sqlx::query_as::<_, Notification>(
+            "SELECT id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at, created_at, read_at, title, notification_type, priority, action_url FROM public.notifications WHERE id = $1",
+        )
+        .bind(&id)
+        .fetch_optional(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        let Some(existing) = existing else {
+            return Err(StatusCode::CONFLICT);
+        };
+        let same_request = existing.channel == req.channel
+            && existing.recipient == req.recipient
+            && existing.template_id == req.template_id
+            && existing.subject.as_deref().unwrap_or_default() == subject_str
+            && existing.body == body_str
+            && existing.data == req.data;
+        if !same_request {
+            return Err(StatusCode::CONFLICT);
+        }
+        return Ok(Json(response_from_existing(&existing, request_id)));
+    }
 
     let (status, error, delivered) = match req.channel.as_str() {
         "email" => send_email(&state, &req.recipient, &subject_str, &body_str).await,
@@ -542,17 +720,11 @@ async fn send_notification(
     };
 
     sqlx::query(
-        "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error, sent_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)"
+        "UPDATE public.notifications
+         SET status = $2, error = $3, sent_at = $4
+         WHERE id = $1",
     )
     .bind(&id)
-    .bind(&req.user_id)
-    .bind(&req.channel)
-    .bind(&req.recipient)
-    .bind(&req.template_id)
-    .bind(&subject_str)
-    .bind(&body_str)
-    .bind(req.data.clone())
     .bind(&status)
     .bind(&error)
     .bind(if status == "sent" {
@@ -560,7 +732,8 @@ async fn send_notification(
     } else {
         None
     })
-    .execute(&state.db).await
+    .execute(&state.db)
+    .await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     Ok(Json(SendNotificationResponse {
@@ -568,6 +741,7 @@ async fn send_notification(
         status,
         delivered,
         error,
+        request_id,
     }))
 }
 
@@ -595,14 +769,11 @@ async fn send_email(
     let smtp = match smtp_opt {
         Some(s) => s,
         None => {
-            // No SMTP configured, log only
-            tracing::info!(
-                "[EMAIL MOCK] To: {} Subject: {} Body: {}",
-                to,
-                subject,
-                body
+            return (
+                "failed".to_string(),
+                Some("delivery_not_configured".to_string()),
+                false,
             );
-            return ("sent".to_string(), None, true);
         }
     };
 
@@ -644,9 +815,17 @@ async fn send_email(
     match email {
         Ok(msg) => match smtp.send(&msg) {
             Ok(_) => ("sent".to_string(), None, true),
-            Err(e) => ("failed".to_string(), Some(e.to_string()), false),
+            Err(_) => (
+                "failed".to_string(),
+                Some("delivery_failed".to_string()),
+                false,
+            ),
         },
-        Err(e) => ("failed".to_string(), Some(e.to_string()), false),
+        Err(_) => (
+            "failed".to_string(),
+            Some("delivery_failed".to_string()),
+            false,
+        ),
     }
 }
 
@@ -697,9 +876,10 @@ async fn list_notifications(
 
 async fn list_admin_notifications(
     State(state): State<AppState>,
-    Extension(_principal): Extension<VerifiedPrincipal>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     RawQuery(raw_query): RawQuery,
 ) -> Result<Json<AdminNotificationListResponse>, StatusCode> {
+    require_admin_notifications(&principal)?;
     let query = AdminNotificationQuery::parse(raw_query.as_deref())?;
     let mut transaction = state
         .db
@@ -921,6 +1101,86 @@ async fn unread_count(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+
+    fn valid_send_request() -> SendNotificationRequest {
+        SendNotificationRequest {
+            user_id: Some("0xrecipient".into()),
+            channel: "in_app".into(),
+            recipient: "0xrecipient".into(),
+            template_id: None,
+            subject: Some("Migration update".into()),
+            body: Some("The migration is ready for review.".into()),
+            data: Some(serde_json::json!({"source": "admin"})),
+        }
+    }
+
+    #[test]
+    fn send_request_validation_is_bounded_and_requires_content() {
+        let valid = valid_send_request();
+        assert_eq!(validate_send_request(&valid), Ok(()));
+
+        let mut unknown_channel = valid_send_request();
+        unknown_channel.channel = "sms".into();
+        assert_eq!(
+            validate_send_request(&unknown_channel),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut no_content = valid_send_request();
+        no_content.body = None;
+        no_content.subject = None;
+        assert_eq!(
+            validate_send_request(&no_content),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut non_object_data = valid_send_request();
+        non_object_data.data = Some(serde_json::json!(["private"]));
+        assert_eq!(
+            validate_send_request(&non_object_data),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut oversized_body = valid_send_request();
+        oversized_body.body = Some("x".repeat(MAX_BODY_CHARS + 1));
+        assert_eq!(
+            validate_send_request(&oversized_body),
+            Err(StatusCode::BAD_REQUEST)
+        );
+    }
+
+    #[test]
+    fn email_validation_rejects_invalid_recipients_and_unknown_request_fields() {
+        let mut invalid_email = valid_send_request();
+        invalid_email.channel = "email".into();
+        invalid_email.recipient = "not-an-email".into();
+        assert_eq!(
+            validate_send_request(&invalid_email),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let unknown = serde_json::json!({
+            "channel": "in_app",
+            "recipient": "0xrecipient",
+            "body": "body",
+            "unexpected": true
+        });
+        assert!(serde_json::from_value::<SendNotificationRequest>(unknown).is_err());
+    }
+
+    #[test]
+    fn idempotency_key_is_ascii_bounded_and_maps_to_a_canonical_record_id() {
+        assert!(valid_idempotency_key("admin.send.2026-07-22_01"));
+        assert!(!valid_idempotency_key(""));
+        assert!(!valid_idempotency_key("contains space"));
+        assert!(!valid_idempotency_key(
+            &"x".repeat(MAX_IDEMPOTENCY_KEY_CHARS + 1)
+        ));
+        assert_eq!(
+            idempotent_notification_id("admin.send.2026-07-22_01"),
+            "idem_admin.send.2026-07-22_01"
+        );
+    }
 
     fn valid_admin_row() -> AdminNotificationRow {
         AdminNotificationRow {

@@ -4,19 +4,29 @@
 //! Settings are stored in system_settings table and are NOT tied to any specific wallet.
 
 use axum::{
-    extract::{Path, State},
-    http::StatusCode,
+    extract::{Extension, Path, State},
+    http::HeaderMap,
     Json,
 };
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};
 use utoipa::ToSchema;
 
 use crate::web::auth::AppState;
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use epsx_contracts::errors::{AppError, ErrorKind};
+
+const ADMIN_AUDIENCE: &str = "epsx-admin";
+const SETTINGS_READ_PERMISSION: &str = "admin:settings:read";
+const SETTINGS_MANAGE_PERMISSION: &str = "admin:settings:manage";
+const MAX_SETTINGS: usize = 100;
+const MAX_CATEGORY_CHARS: usize = 64;
+const MAX_KEY_CHARS: usize = 128;
+const MAX_VALUE_BYTES: usize = 32 * 1024;
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 56;
 
 // ============================================================================
 // DTOs
@@ -24,16 +34,32 @@ use epsx_contracts::errors::{AppError, ErrorKind};
 
 /// Request to update settings
 #[derive(Debug, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct UpdateSettingsRequest {
     pub settings: Vec<SettingUpdate>,
 }
 
 /// Individual setting update
-#[derive(Debug, Deserialize, ToSchema)]
+#[derive(Debug, Clone, Deserialize, ToSchema)]
+#[serde(deny_unknown_fields)]
 pub struct SettingUpdate {
     pub category: String,
     pub key: String,
     pub value: Value,
+    #[serde(default)]
+    pub expected_updated_at: Option<String>,
+}
+
+#[derive(Debug)]
+enum SettingsTransactionError {
+    Database(diesel::result::Error),
+    Conflict,
+}
+
+impl From<diesel::result::Error> for SettingsTransactionError {
+    fn from(error: diesel::result::Error) -> Self {
+        Self::Database(error)
+    }
 }
 
 /// Response for a single setting
@@ -82,6 +108,100 @@ struct SystemSettingRow {
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
+fn request_id(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| bounded_text(value, 128))
+        .map(str::to_string)
+}
+
+fn bounded_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn safe_setting_token(value: &str, max_chars: usize) -> bool {
+    (1..=max_chars).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (1..=MAX_IDEMPOTENCY_KEY_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn authorize(
+    context: &OpenIDUserContext,
+    permission: &str,
+    operation: &'static str,
+    headers: &HeaderMap,
+) -> Result<(), AppError> {
+    let correlation_id = request_id(headers);
+    if !matches!(
+        context.token_audiences.as_deref(),
+        Some([audience]) if audience == ADMIN_AUDIENCE
+    ) {
+        return Err(AppError::with_full_context(
+            ErrorKind::AuthenticationError,
+            "A valid admin audience is required",
+            Some(context.wallet_address.clone()),
+            correlation_id,
+            operation,
+            "admin-settings",
+        ));
+    }
+    if !epsx_contracts::permissions::has_permission(&context.permissions, permission) {
+        return Err(AppError::with_full_context(
+            ErrorKind::AuthorizationError,
+            "The required settings permission is missing",
+            Some(context.wallet_address.clone()),
+            request_id(headers),
+            operation,
+            "admin-settings",
+        ));
+    }
+    Ok(())
+}
+
+fn validate_updates(request: &UpdateSettingsRequest) -> Result<(), AppError> {
+    if request.settings.is_empty() || request.settings.len() > MAX_SETTINGS {
+        return Err(AppError::bad_request(
+            "settings must contain 1 to 100 entries",
+        ));
+    }
+    for setting in &request.settings {
+        if !safe_setting_token(&setting.category, MAX_CATEGORY_CHARS)
+            || !safe_setting_token(&setting.key, MAX_KEY_CHARS)
+        {
+            return Err(AppError::bad_request(
+                "setting category and key are invalid",
+            ));
+        }
+        if serde_json::to_vec(&setting.value)
+            .map(|value| value.len() > MAX_VALUE_BYTES)
+            .unwrap_or(true)
+        {
+            return Err(AppError::bad_request(
+                "setting value exceeds the size limit",
+            ));
+        }
+        if let Some(expected) = setting.expected_updated_at.as_deref() {
+            if !bounded_text(expected, 64)
+                || expected.parse::<chrono::DateTime<chrono::Utc>>().is_err()
+            {
+                return Err(AppError::bad_request("expected_updated_at must be RFC3339"));
+            }
+        }
+    }
+    Ok(())
+}
+
 // ============================================================================
 // Handlers
 // ============================================================================
@@ -99,7 +219,15 @@ struct SystemSettingRow {
 )]
 pub async fn get_all_settings_handler(
     State(app_state): State<AppState>,
+    Extension(context): Extension<OpenIDUserContext>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
+    authorize(
+        &context,
+        SETTINGS_READ_PERMISSION,
+        "admin.settings.read",
+        &headers,
+    )?;
     info!("Getting all system settings");
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
@@ -155,8 +283,19 @@ pub async fn get_all_settings_handler(
 )]
 pub async fn get_settings_by_category_handler(
     State(app_state): State<AppState>,
+    Extension(context): Extension<OpenIDUserContext>,
     Path(category): Path<String>,
+    headers: HeaderMap,
 ) -> Result<Json<Value>, AppError> {
+    authorize(
+        &context,
+        SETTINGS_READ_PERMISSION,
+        "admin.settings.read_category",
+        &headers,
+    )?;
+    if !safe_setting_token(&category, MAX_CATEGORY_CHARS) {
+        return Err(AppError::bad_request("setting category is invalid"));
+    }
     info!("Getting settings for category: {}", category);
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
@@ -215,79 +354,117 @@ pub async fn get_settings_by_category_handler(
 )]
 pub async fn update_settings_handler(
     State(app_state): State<AppState>,
+    Extension(context): Extension<OpenIDUserContext>,
+    headers: HeaderMap,
     Json(request): Json<UpdateSettingsRequest>,
-) -> Result<Json<Value>, StatusCode> {
-    if request.settings.is_empty() || request.settings.len() > 50 {
-        return Err(StatusCode::BAD_REQUEST);
-    }
-    if request.settings.iter().any(|setting| {
-        setting.category.is_empty()
-            || setting.category.len() > 64
-            || setting.key.is_empty()
-            || setting.key.len() > 128
-            || setting
-                .category
-                .chars()
-                .any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
-            || setting
-                .key
-                .chars()
-                .any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
-    }) {
-        return Err(StatusCode::BAD_REQUEST);
-    }
+) -> Result<Json<Value>, AppError> {
+    authorize(
+        &context,
+        SETTINGS_MANAGE_PERMISSION,
+        "admin.settings.update",
+        &headers,
+    )?;
+    validate_updates(&request)?;
+    let idempotency_key = headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| valid_idempotency_key(value))
+        .ok_or_else(|| AppError::bad_request("a valid Idempotency-Key header is required"))?;
+    let response_request_id =
+        request_id(&headers).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     info!("Updating {} settings", request.settings.len());
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
+        AppError::database_error("Failed to get DB connection")
     })?;
 
-    let mut updated_count = 0;
-    let mut errors: Vec<String> = Vec::new();
+    let settings = request.settings;
+    let idempotency_key = idempotency_key.to_string();
+    let updated_count = conn
+        .transaction::<_, SettingsTransactionError, _>(|conn| {
+            Box::pin(async move {
+                // The schema has no idempotency ledger. This lock prevents
+                // concurrent reuse of a key, while expected_updated_at keeps
+                // retries from silently overwriting a newer value.
+                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .execute(conn)
+                    .await?;
 
-    for setting in &request.settings {
-        let result = diesel::sql_query(
-            "INSERT INTO system_settings (category, key, value, updated_at) 
-             VALUES ($1, $2, $3, NOW()) 
-             ON CONFLICT (category, key) 
-             DO UPDATE SET value = $3, updated_at = NOW()",
-        )
-        .bind::<diesel::sql_types::Varchar, _>(&setting.category)
-        .bind::<diesel::sql_types::Varchar, _>(&setting.key)
-        .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
-        .execute(&mut conn)
-        .await;
+                let mut updated_count = 0;
+                for setting in settings {
+                    let existing = diesel::sql_query(
+                        "SELECT id, category, key, value, description, updated_at
+                         FROM system_settings WHERE category = $1 AND key = $2 FOR UPDATE",
+                    )
+                    .bind::<diesel::sql_types::Varchar, _>(&setting.category)
+                    .bind::<diesel::sql_types::Varchar, _>(&setting.key)
+                    .get_result::<SystemSettingRow>(conn)
+                    .await;
+                    let existing = match existing {
+                        Ok(row) => Some(row),
+                        Err(diesel::result::Error::NotFound) => None,
+                        Err(error) => return Err(SettingsTransactionError::Database(error)),
+                    };
 
-        match result {
-            Ok(_) => {
-                updated_count += 1;
-                info!("Updated setting: {}.{}", setting.category, setting.key);
-            }
-            Err(e) => {
-                error!(
-                    "Failed to update {}.{}: {}",
-                    setting.category, setting.key, e
-                );
-                errors.push(format!("{}.{}: {}", setting.category, setting.key, e));
-            }
-        }
-    }
+                    let expected = setting
+                        .expected_updated_at
+                        .as_deref()
+                        .map(|value| value.parse::<chrono::DateTime<chrono::Utc>>())
+                        .transpose()
+                        .map_err(|_| SettingsTransactionError::Conflict)?;
+                    match (&existing, expected) {
+                        (Some(row), Some(expected)) if row.updated_at != expected => {
+                            return Err(SettingsTransactionError::Conflict);
+                        }
+                        (Some(_), None) | (None, Some(_)) => {
+                            return Err(SettingsTransactionError::Conflict);
+                        }
+                        _ => {}
+                    }
 
-    if errors.is_empty() {
-        Ok(Json(json!({
-            "success": true,
-            "message": format!("Updated {} settings", updated_count),
-            "updated_count": updated_count
-        })))
-    } else {
-        Ok(Json(json!({
-            "success": false,
-            "message": "Some settings failed to update",
-            "updated_count": updated_count,
-            "errors": errors
-        })))
-    }
+                    if existing.is_some() {
+                        diesel::sql_query(
+                            "UPDATE system_settings SET value = $3, updated_at = NOW()
+                             WHERE category = $1 AND key = $2",
+                        )
+                        .bind::<diesel::sql_types::Varchar, _>(&setting.category)
+                        .bind::<diesel::sql_types::Varchar, _>(&setting.key)
+                        .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
+                        .execute(conn)
+                        .await?;
+                    } else {
+                        diesel::sql_query(
+                            "INSERT INTO system_settings (category, key, value, updated_at)
+                             VALUES ($1, $2, $3, NOW())",
+                        )
+                        .bind::<diesel::sql_types::Varchar, _>(&setting.category)
+                        .bind::<diesel::sql_types::Varchar, _>(&setting.key)
+                        .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
+                        .execute(conn)
+                        .await?;
+                    }
+                    updated_count += 1;
+                }
+                Ok(updated_count)
+            })
+        })
+        .await
+        .map_err(|error| match error {
+            SettingsTransactionError::Conflict => AppError::new(
+                ErrorKind::ConcurrencyConflict,
+                "settings changed; reload before retrying",
+            ),
+            SettingsTransactionError::Database(error) => AppError::from(error),
+        })?;
+
+    Ok(Json(json!({
+        "success": true,
+        "message": "Settings updated",
+        "updated_count": updated_count,
+        "request_id": response_request_id
+    })))
 }
 
 /// Reset settings to defaults
@@ -302,10 +479,99 @@ pub async fn update_settings_handler(
     tag = "admin-settings"
 )]
 pub async fn reset_settings_handler(
-    State(_app_state): State<AppState>,
-) -> Result<Json<Value>, StatusCode> {
-    // Reset previously deleted every stored setting and recreated an
-    // in-process sample catalog. Keep that destructive legacy operation
-    // unreachable until a versioned, auditable replacement exists.
-    Err(StatusCode::NOT_IMPLEMENTED)
+    Extension(context): Extension<OpenIDUserContext>,
+    headers: HeaderMap,
+) -> Result<Json<Value>, AppError> {
+    authorize(
+        &context,
+        SETTINGS_MANAGE_PERMISSION,
+        "admin.settings.reset",
+        &headers,
+    )?;
+    Err(AppError::business_rule_violation(
+        "settings reset is unavailable because no authoritative defaults are configured",
+    ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn valid_request() -> UpdateSettingsRequest {
+        UpdateSettingsRequest {
+            settings: vec![SettingUpdate {
+                category: "general".into(),
+                key: "systemName".into(),
+                value: json!("EPSX"),
+                expected_updated_at: None,
+            }],
+        }
+    }
+
+    fn context(audiences: Option<Vec<&str>>, permissions: Vec<&str>) -> OpenIDUserContext {
+        OpenIDUserContext {
+            sub: "0xadmin".into(),
+            wallet_address: "0xadmin".into(),
+            permissions: permissions.into_iter().map(str::to_string).collect(),
+            token_audiences: audiences
+                .map(|values| values.into_iter().map(str::to_string).collect()),
+            auth_method: "jwt".into(),
+            jti: "jti".into(),
+            exp: 2,
+            iat: 1,
+            auth_time: 1,
+        }
+    }
+
+    #[test]
+    fn settings_validation_rejects_unbounded_or_malformed_writes() {
+        assert!(validate_updates(&valid_request()).is_ok());
+        assert!(validate_updates(&UpdateSettingsRequest { settings: vec![] }).is_err());
+
+        let mut invalid = valid_request();
+        invalid.settings[0].category = "general/settings".into();
+        assert!(validate_updates(&invalid).is_err());
+        invalid = valid_request();
+        invalid.settings[0].expected_updated_at = Some("not-a-timestamp".into());
+        assert!(validate_updates(&invalid).is_err());
+        invalid = valid_request();
+        invalid.settings[0].value = json!("x".repeat(MAX_VALUE_BYTES + 1));
+        assert!(validate_updates(&invalid).is_err());
+    }
+
+    #[test]
+    fn settings_authorization_requires_exact_admin_audience_and_granular_permission() {
+        let headers = HeaderMap::new();
+        assert!(authorize(
+            &context(Some(vec!["epsx-admin"]), vec![SETTINGS_READ_PERMISSION]),
+            SETTINGS_READ_PERMISSION,
+            "test.read",
+            &headers,
+        )
+        .is_ok());
+        assert!(authorize(
+            &context(Some(vec!["epsx-frontend"]), vec![SETTINGS_READ_PERMISSION]),
+            SETTINGS_READ_PERMISSION,
+            "test.read",
+            &headers,
+        )
+        .is_err());
+        assert!(authorize(
+            &context(Some(vec!["epsx-admin"]), vec![]),
+            SETTINGS_READ_PERMISSION,
+            "test.read",
+            &headers,
+        )
+        .is_err());
+        assert!(authorize(
+            &context(
+                Some(vec!["epsx-admin", "epsx-frontend"]),
+                vec![SETTINGS_READ_PERMISSION]
+            ),
+            SETTINGS_READ_PERMISSION,
+            "test.read",
+            &headers,
+        )
+        .is_err());
+    }
 }

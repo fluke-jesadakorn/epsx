@@ -5,34 +5,181 @@
 //! action payloads never cross the admin BFF boundary.
 
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
-    decode_admin_notification_metrics, AdminNotificationList, AdminNotificationMetrics,
+    decode_admin_notification_create_result, AdminNotificationCreateResult, AdminNotificationList,
     AdminNotificationSummary,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const ADMIN_NOTIFICATION_LIMIT: i64 = 20;
 const MAX_ADMIN_NOTIFICATION_PAGE: i64 = 50_001;
 const MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES: usize = 256 * 1024;
-const MAX_ADMIN_NOTIFICATION_METRICS_RESPONSE_BYTES: usize = 32 * 1024;
+const MAX_NOTIFICATION_SEND_BODY_BYTES: usize = 32 * 1024;
+const MAX_NOTIFICATION_SEND_TEXT_CHARS: usize = 16_384;
+const MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS: usize = 56;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdminNotificationSendRequest {
+    pub(crate) user_id: Option<String>,
+    pub(crate) channel: String,
+    pub(crate) recipient: String,
+    pub(crate) template_id: Option<String>,
+    pub(crate) subject: Option<String>,
+    pub(crate) body: Option<String>,
+    pub(crate) data: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNotificationSendResult {
+    Ready(AdminNotificationCreateResult),
+    Forbidden,
+    Conflict,
+    Invalid,
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendNotificationSendResponse {
+    id: String,
+    status: String,
+    delivered: bool,
+    #[serde(rename = "error")]
+    _error: Option<String>,
+    request_id: String,
+}
+
+fn bounded_send_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_send_request(request: &AdminNotificationSendRequest) -> bool {
+    matches!(request.channel.as_str(), "email" | "in_app")
+        && bounded_send_text(&request.recipient, 255)
+        && request
+            .user_id
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 66))
+        && request
+            .template_id
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 66))
+        && request
+            .subject
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 255))
+        && request
+            .body
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, MAX_NOTIFICATION_SEND_TEXT_CHARS))
+        && (request.template_id.is_some() || request.body.is_some())
+        && request.data.as_ref().is_none_or(|data| {
+            data.is_object()
+                && serde_json::to_vec(data)
+                    .map(|bytes| bytes.len() <= MAX_NOTIFICATION_SEND_BODY_BYTES)
+                    .unwrap_or(false)
+        })
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (1..=MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn project_send_response(response: BackendNotificationSendResponse) -> AdminNotificationSendResult {
+    let value = serde_json::json!({
+        "id": response.id,
+        "status": response.status,
+        "delivered": response.delivered,
+        "request_id": response.request_id,
+    });
+    match decode_admin_notification_create_result(value) {
+        Some(result) => AdminNotificationSendResult::Ready(result),
+        None => AdminNotificationSendResult::Malformed,
+    }
+}
+
+pub(crate) async fn send_admin_notification(
+    client: &epsx_client::ServiceClient,
+    request: &AdminNotificationSendRequest,
+    idempotency_key: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationSendResult {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNotificationSendResult::Unavailable;
+    };
+    if !valid_send_request(request) || !valid_idempotency_key(idempotency_key) {
+        return AdminNotificationSendResult::Invalid;
+    }
+
+    let url = format!(
+        "{}/api/v1/notification/send",
+        client.base_url().trim_end_matches('/')
+    );
+    let response = match client
+        .clone_for_bearer()
+        .post(url)
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .json(request)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNotificationSendResult::Unavailable,
+    };
+
+    let status = response.status();
+    if status == reqwest::StatusCode::FORBIDDEN {
+        return AdminNotificationSendResult::Forbidden;
+    }
+    if status == reqwest::StatusCode::CONFLICT {
+        return AdminNotificationSendResult::Conflict;
+    }
+    if matches!(
+        status,
+        reqwest::StatusCode::BAD_REQUEST
+            | reqwest::StatusCode::NOT_FOUND
+            | reqwest::StatusCode::PAYLOAD_TOO_LARGE
+            | reqwest::StatusCode::UNPROCESSABLE_ENTITY
+    ) {
+        return AdminNotificationSendResult::Invalid;
+    }
+    if !status.is_success() {
+        return AdminNotificationSendResult::Unavailable;
+    }
+
+    let body =
+        match read_response_body_limited(response, MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES).await {
+            Ok(body) => body,
+            Err(()) => return AdminNotificationSendResult::Unavailable,
+        };
+    match serde_json::from_slice::<BackendNotificationSendResponse>(&body) {
+        Ok(response) => project_send_response(response),
+        Err(_) => AdminNotificationSendResult::Malformed,
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdminNotificationQuery {
     pub(crate) page: i64,
     pub(crate) offset: i64,
-    pub(crate) status: Option<String>,
-    pub(crate) notification_type: Option<String>,
-    pub(crate) priority: Option<String>,
-    pub(crate) wallet_address: Option<String>,
 }
 
 impl AdminNotificationQuery {
     pub(crate) fn from_raw(raw_query: &str) -> Result<Self, ()> {
         let mut page = 1_i64;
         let mut page_seen = false;
-        let mut status = None;
-        let mut notification_type = None;
-        let mut priority = None;
-        let mut wallet_address = None;
         let mut url = reqwest::Url::parse("http://admin.invalid/")
             .expect("the fixed admin notification query base URL is valid");
         url.set_query((!raw_query.is_empty()).then_some(raw_query));
@@ -47,26 +194,6 @@ impl AdminNotificationQuery {
                 if !(1..=MAX_ADMIN_NOTIFICATION_PAGE).contains(&page) {
                     return Err(());
                 }
-            } else if key == "status" {
-                if status.is_some() {
-                    return Err(());
-                }
-                status = Some(parse_admin_status(&value)?);
-            } else if key == "type" || key == "notification_type" {
-                if notification_type.is_some() {
-                    return Err(());
-                }
-                notification_type = Some(parse_admin_notification_type(&value)?);
-            } else if key == "priority" {
-                if priority.is_some() {
-                    return Err(());
-                }
-                priority = Some(parse_admin_priority(&value)?);
-            } else if key == "wallet_address" {
-                if wallet_address.is_some() {
-                    return Err(());
-                }
-                wallet_address = Some(parse_admin_wallet_address(&value)?);
             }
         }
 
@@ -74,78 +201,15 @@ impl AdminNotificationQuery {
             .checked_sub(1)
             .and_then(|page_index| page_index.checked_mul(ADMIN_NOTIFICATION_LIMIT))
             .ok_or(())?;
-        Ok(Self {
-            page,
-            offset,
-            status,
-            notification_type,
-            priority,
-            wallet_address,
-        })
+        Ok(Self { page, offset })
     }
 
     pub(crate) fn upstream_path(&self) -> String {
-        if self.status.is_none()
-            && self.notification_type.is_none()
-            && self.priority.is_none()
-            && self.wallet_address.is_none()
-        {
-            return format!(
-                "/api/v1/notification/admin/list?limit={ADMIN_NOTIFICATION_LIMIT}&offset={}",
-                self.offset
-            );
-        }
-        let mut query = url::form_urlencoded::Serializer::new(String::new());
-        query.append_pair("limit", &ADMIN_NOTIFICATION_LIMIT.to_string());
-        query.append_pair("offset", &self.offset.to_string());
-        if let Some(status) = self.status.as_deref() {
-            query.append_pair("status", status);
-        }
-        if let Some(notification_type) = self.notification_type.as_deref() {
-            query.append_pair("type", notification_type);
-        }
-        if let Some(priority) = self.priority.as_deref() {
-            query.append_pair("priority", priority);
-        }
-        if let Some(wallet_address) = self.wallet_address.as_deref() {
-            query.append_pair("wallet_address", wallet_address);
-        }
-        format!("/api/v1/notification/admin/list?{}", query.finish())
+        format!(
+            "/api/v1/notification/admin/list?limit={ADMIN_NOTIFICATION_LIMIT}&offset={}",
+            self.offset
+        )
     }
-}
-
-fn parse_admin_status(value: &str) -> Result<String, ()> {
-    matches!(
-        value,
-        "all" | "read" | "unread" | "pending" | "sent" | "failed" | "suppressed" | "expired"
-    )
-    .then_some(value.to_string())
-    .ok_or(())
-}
-
-fn parse_admin_notification_type(value: &str) -> Result<String, ()> {
-    (!value.is_empty()
-        && value.len() <= 50
-        && value.bytes().all(|byte| {
-            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
-        }))
-    .then_some(value.to_string())
-    .ok_or(())
-}
-
-fn parse_admin_priority(value: &str) -> Result<String, ()> {
-    matches!(value, "low" | "normal" | "high" | "critical" | "urgent")
-        .then_some(value.to_string())
-        .ok_or(())
-}
-
-fn parse_admin_wallet_address(value: &str) -> Result<String, ()> {
-    let normalized = value.to_ascii_lowercase();
-    (normalized.len() == 42
-        && normalized.starts_with("0x")
-        && normalized[2..].bytes().all(|byte| byte.is_ascii_hexdigit()))
-    .then_some(normalized)
-    .ok_or(())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -155,67 +219,6 @@ pub(crate) enum AdminNotificationLoad {
     Forbidden,
     Unavailable,
     Malformed,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub(crate) enum AdminNotificationMetricsLoad {
-    Ready(AdminNotificationMetrics),
-    Forbidden,
-    Unavailable,
-    Malformed,
-}
-
-pub(crate) async fn load_admin_notification_metrics(
-    client: &epsx_client::ServiceClient,
-    ctx: &epsx_client::RequestContext,
-) -> AdminNotificationMetricsLoad {
-    let Some(token) = ctx
-        .auth_token
-        .as_deref()
-        .filter(|token| !token.trim().is_empty())
-    else {
-        return AdminNotificationMetricsLoad::Unavailable;
-    };
-
-    let url = format!(
-        "{}/api/v1/notification/admin/metrics",
-        client.base_url().trim_end_matches('/')
-    );
-    let response = match client
-        .clone_for_bearer()
-        .get(url)
-        .header("x-request-id", ctx.request_id.to_string())
-        .bearer_auth(token)
-        .send()
-        .await
-    {
-        Ok(response) => response,
-        Err(_) => return AdminNotificationMetricsLoad::Unavailable,
-    };
-
-    if !response.status().is_success() {
-        return if response.status() == reqwest::StatusCode::FORBIDDEN {
-            AdminNotificationMetricsLoad::Forbidden
-        } else {
-            AdminNotificationMetricsLoad::Unavailable
-        };
-    }
-
-    let body =
-        match read_response_body_limited(response, MAX_ADMIN_NOTIFICATION_METRICS_RESPONSE_BYTES)
-            .await
-        {
-            Ok(body) => body,
-            Err(()) => return AdminNotificationMetricsLoad::Unavailable,
-        };
-    let value = match serde_json::from_slice::<serde_json::Value>(&body) {
-        Ok(value) => value,
-        Err(_) => return AdminNotificationMetricsLoad::Malformed,
-    };
-    match decode_admin_notification_metrics(value) {
-        Some(metrics) => AdminNotificationMetricsLoad::Ready(metrics),
-        None => AdminNotificationMetricsLoad::Malformed,
-    }
 }
 
 pub(crate) async fn load_admin_notifications(
@@ -379,10 +382,7 @@ fn validate_and_project_notification(
             .as_deref()
             .is_some_and(|value| !bounded_control_free(value, 0, 255))
         || !safe_channel(&item.channel)
-        || !matches!(
-            item.status.as_str(),
-            "pending" | "sent" | "failed" | "suppressed" | "expired"
-        )
+        || !matches!(item.status.as_str(), "pending" | "sent" | "failed")
         || item
             .notification_type
             .as_deref()
@@ -569,36 +569,77 @@ mod tests {
         })
     }
 
+    fn send_request() -> AdminNotificationSendRequest {
+        AdminNotificationSendRequest {
+            user_id: Some("0xrecipient".into()),
+            channel: "in_app".into(),
+            recipient: "0xrecipient".into(),
+            template_id: None,
+            subject: Some("Migration update".into()),
+            body: Some("The migration is ready.".into()),
+            data: Some(json!({"source": "admin"})),
+        }
+    }
+
+    #[test]
+    fn send_adapter_validates_bounded_input_and_idempotency_keys() {
+        assert!(valid_send_request(&send_request()));
+        assert!(valid_idempotency_key("admin.send.2026-07-22_01"));
+
+        let mut invalid = send_request();
+        invalid.channel = "sms".into();
+        assert!(!valid_send_request(&invalid));
+        invalid = send_request();
+        invalid.body = None;
+        invalid.template_id = None;
+        assert!(!valid_send_request(&invalid));
+        invalid = send_request();
+        invalid.data = Some(json!(["private"]));
+        assert!(!valid_send_request(&invalid));
+        assert!(!valid_idempotency_key("contains space"));
+        assert!(!valid_idempotency_key(
+            &"x".repeat(MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS + 1)
+        ));
+    }
+
+    #[test]
+    fn send_adapter_projects_only_safe_success_fields() {
+        let result = project_send_response(BackendNotificationSendResponse {
+            id: "idem_admin-send-01".into(),
+            status: "sent".into(),
+            delivered: true,
+            _error: Some("smtp details must not cross the BFF".into()),
+            request_id: "request-01".into(),
+        });
+        assert_eq!(
+            result,
+            AdminNotificationSendResult::Ready(AdminNotificationCreateResult {
+                id: "idem_admin-send-01".into(),
+                status: "sent".into(),
+                delivered: true,
+                request_id: "request-01".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn send_adapter_rejects_malformed_backend_acknowledgements() {
+        let result = project_send_response(BackendNotificationSendResponse {
+            id: "random-id".into(),
+            status: "sent".into(),
+            delivered: true,
+            _error: None,
+            request_id: "request-01".into(),
+        });
+        assert_eq!(result, AdminNotificationSendResult::Malformed);
+    }
+
     fn payload(items: Vec<Value>, total: i64, offset: i64) -> Value {
         json!({
             "items": items,
             "total": total,
             "limit": 20,
             "offset": offset
-        })
-    }
-
-    fn metrics_payload() -> Value {
-        json!({
-            "queue_depth": 4,
-            "queue_age_seconds": 2,
-            "suppressed": 1,
-            "retry_wait": 1,
-            "terminal_failed": 0,
-            "dead_lettered": 0,
-            "provider_accepted": 3,
-            "attempting": 1,
-            "channel_outcomes": {"in_app": 4},
-            "provider_events": 3,
-            "delivery_attempts": 4,
-            "replay_cursors": 2,
-            "replay_cursor_age_seconds": 1,
-            "active_streams": 1,
-            "stream_connections_total": 2,
-            "stream_reconnects_total": 1,
-            "stream_replayed_events_total": 1,
-            "stream_lag_seconds": 1,
-            "stream_query_failures_total": 0
         })
     }
 
@@ -623,67 +664,23 @@ mod tests {
         load
     }
 
-    async fn load_metrics_from_response(body: Value) -> AdminNotificationMetricsLoad {
-        let bytes = body.to_string().into_bytes();
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let _ = read_request(&mut stream).await;
-            let headers = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
-                bytes.len()
-            );
-            stream.write_all(headers.as_bytes()).await.unwrap();
-            stream.write_all(&bytes).await.unwrap();
-        });
-        let load =
-            load_admin_notification_metrics(&loopback_client(address), &verified_context()).await;
-        server.await.unwrap();
-        load
-    }
-
     #[test]
     fn query_defaults_drops_unknown_fields_and_builds_exact_path() {
         assert_eq!(
             AdminNotificationQuery::from_raw("").unwrap(),
-            AdminNotificationQuery {
-                page: 1,
-                offset: 0,
-                status: None,
-                notification_type: None,
-                priority: None,
-                wallet_address: None,
-            }
+            AdminNotificationQuery { page: 1, offset: 0 }
         );
         assert_eq!(
             AdminNotificationQuery::from_raw("tab=delivery&page=3&force=send").unwrap(),
             AdminNotificationQuery {
                 page: 3,
-                offset: 40,
-                status: None,
-                notification_type: None,
-                priority: None,
-                wallet_address: None,
+                offset: 40
             }
         );
         assert_eq!(
             query().upstream_path(),
             "/api/v1/notification/admin/list?limit=20&offset=20"
         );
-    }
-
-    #[test]
-    fn query_forwards_bounded_inventory_filters() {
-        let query = AdminNotificationQuery::from_raw(
-            "page=3&status=read&type=portfolio-alert&priority=urgent&wallet_address=0X1111111111111111111111111111111111111111",
-        )
-        .unwrap();
-        assert_eq!(
-            query.upstream_path(),
-            "/api/v1/notification/admin/list?limit=20&offset=40&status=read&type=portfolio-alert&priority=urgent&wallet_address=0x1111111111111111111111111111111111111111"
-        );
-        assert!(AdminNotificationQuery::from_raw("type=system&notification_type=system").is_err());
     }
 
     #[test]
@@ -697,12 +694,6 @@ mod tests {
             "page=50002",
             "page=18446744073709551615",
             "page=%0D%0A2",
-            "status=unknown",
-            "status=sent&status=failed",
-            "type=bad%20type",
-            "priority=medium",
-            "wallet_address=0xattacker",
-            "wallet_address=0x1111111111111111111111111111111111111111&wallet_address=0x2222222222222222222222222222222222222222",
         ] {
             assert!(AdminNotificationQuery::from_raw(raw).is_err(), "{raw}");
         }
@@ -764,44 +755,6 @@ mod tests {
                 .await
                 .is_err()
         );
-    }
-
-    #[tokio::test]
-    async fn metrics_loader_forwards_exact_bearer_and_rejects_drift() {
-        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-        let address = listener.local_addr().unwrap();
-        let body = metrics_payload().to_string();
-        let server = tokio::spawn(async move {
-            let (mut stream, _) = listener.accept().await.unwrap();
-            let request = read_request(&mut stream).await;
-            let response = format!(
-                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
-                body.len()
-            );
-            stream.write_all(response.as_bytes()).await.unwrap();
-            request
-        });
-        let load =
-            load_admin_notification_metrics(&loopback_client(address), &verified_context()).await;
-        assert!(matches!(load, AdminNotificationMetricsLoad::Ready(_)));
-        let request = server.await.unwrap();
-        assert!(request.starts_with("GET /api/v1/notification/admin/metrics HTTP/1.1\r\n"));
-        let headers = request.to_ascii_lowercase();
-        assert!(headers.contains("\r\nauthorization: bearer verified-admin-token\r\n"));
-        assert!(headers.contains("\r\nx-request-id: d9dbcc48-7f46-46cb-9b87-7cda68cb3af2\r\n"));
-
-        let mut unknown = metrics_payload();
-        unknown["body"] = json!("private");
-        assert!(matches!(
-            load_metrics_from_response(unknown).await,
-            AdminNotificationMetricsLoad::Malformed
-        ));
-        let mut negative = metrics_payload();
-        negative["queue_depth"] = json!(-1);
-        assert!(matches!(
-            load_metrics_from_response(negative).await,
-            AdminNotificationMetricsLoad::Malformed
-        ));
     }
 
     #[tokio::test]
@@ -958,18 +911,6 @@ mod tests {
         assert!(recovery.items.is_empty());
         assert_eq!(recovery.total, 3);
         assert_eq!(recovery.offset, 20);
-    }
-
-    #[tokio::test]
-    async fn preference_suppressed_inventory_rows_remain_ready() {
-        let mut suppressed = item();
-        suppressed["status"] = json!("suppressed");
-        let AdminNotificationLoad::Ready(projection) =
-            load_from_response(payload(vec![suppressed], 41, 20)).await
-        else {
-            panic!("suppressed notifications are a valid inventory state")
-        };
-        assert_eq!(projection.items[0].status, "suppressed");
     }
 
     #[tokio::test]
