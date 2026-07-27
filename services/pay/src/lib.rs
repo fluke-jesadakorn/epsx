@@ -199,7 +199,11 @@ fn safe_segments(path: &str) -> Option<Vec<&str>> {
 }
 
 fn safe_dynamic_segment(segment: &str) -> bool {
-    !segment.starts_with("force-")
+    !segment.is_empty()
+        && segment
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && !segment.starts_with("force-")
         && !matches!(
             segment,
             "health"
@@ -663,10 +667,35 @@ mod tests {
             classify(&Method::GET, "/api/v1/admin/pay/links"),
             AccessPolicy::AdminPermission(PAYMENT_LINKS_VIEW_PERMISSION)
         ));
-        assert_eq!(
-            classify(&Method::GET, "/api/v1/admin/pay/linksfoo"),
-            AccessPolicy::Blocked
-        );
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/pay/links"),
+            AccessPolicy::AdminPermission(PAYMENT_LINKS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/pay/links/link-id/disable"),
+            AccessPolicy::AdminPermission(PAYMENT_LINKS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/pay/intents"),
+            AccessPolicy::PaymentsRead
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/pay/intents/intent-id/cancel"),
+            AccessPolicy::AdminPermission(PAYMENTS_MANAGE_PERMISSION)
+        ));
+        for path in [
+            "/api/v1/admin/payfoo",
+            "/api/v1/admin/pay/linksfoo",
+            "/api/v1/admin/pay/links/../disable",
+            "/api/v1/admin/pay/links/link.id/disable",
+            "/api/v1/admin/pay/links/link%2Did/disable",
+        ] {
+            assert_eq!(
+                classify(&Method::POST, path),
+                AccessPolicy::Blocked,
+                "{path}"
+            );
+        }
     }
 
     #[test]

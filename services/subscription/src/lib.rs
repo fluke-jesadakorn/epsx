@@ -256,10 +256,12 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
             return AccessPolicy::Blocked;
         }
         return match (method, segments.as_slice()) {
-            (&Method::GET, ["plans"] | ["plans", _]) => {
+            (&Method::GET, ["plans"]) => AccessPolicy::AdminPermission(PLANS_READ_PERMISSION),
+            (&Method::GET, ["plans", id]) if safe_dynamic_segment(id) => {
                 AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
             }
-            (&Method::POST, ["plans"]) | (&Method::PATCH, ["plans", _]) => {
+            (&Method::POST, ["plans"]) => AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION),
+            (&Method::PATCH, ["plans", id]) if safe_dynamic_segment(id) => {
                 AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION)
             }
             (&Method::GET, ["access"]) => AccessPolicy::AdminPermission(ACCESS_READ_PERMISSION),
@@ -292,7 +294,14 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
 }
 
 fn safe_dynamic_segment(segment: &str) -> bool {
-    !segment.is_empty() && !matches!(segment, "." | "..")
+    !segment.is_empty()
+        && segment
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && !matches!(
+            segment,
+            "plans" | "subscriptions" | "vault" | "access" | "assign" | "revoke" | "cancel"
+        )
 }
 
 async fn authorize_request(
@@ -561,10 +570,32 @@ mod tests {
             classify(&Method::GET, "/api/v1/admin/subscription/plans"),
             AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
         ));
-        assert_eq!(
-            classify(&Method::GET, "/api/v1/admin/subscription/plansfoo"),
-            AccessPolicy::Blocked
-        );
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/subscription/plans"),
+            AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/subscription/access"),
+            AccessPolicy::AdminPermission(ACCESS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/subscription/access/assign"),
+            AccessPolicy::AdminPermission(ACCESS_MANAGE_PERMISSION)
+        ));
+        for path in [
+            "/api/v1/admin/subscriptionfoo",
+            "/api/v1/admin/subscription/plansfoo",
+            "/api/v1/admin/subscription/plans/plan.id",
+            "/api/v1/admin/subscription/plans/../",
+            "/api/v1/admin/subscription/plans/%2e%2e",
+            "/api/v1/admin/subscription/accessfoo",
+        ] {
+            assert_eq!(
+                classify(&Method::GET, path),
+                AccessPolicy::Blocked,
+                "{path}"
+            );
+        }
     }
 
     #[tokio::test]

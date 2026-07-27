@@ -1073,14 +1073,29 @@ mod tests {
             classify(&Method::GET, "/api/v1/admin/wallets"),
             AccessPolicy::AdminPermission(WALLETS_READ_PERMISSION)
         ));
-        assert_eq!(
-            classify(&Method::GET, "/api/v1/admin/walletsfoo"),
-            AccessPolicy::Blocked
-        );
-        assert_eq!(
-            classify(&Method::GET, "/api/v1/admin/creditsfoo"),
-            AccessPolicy::Blocked
-        );
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/wallets/0xabc/disable"),
+            AccessPolicy::AdminPermission(WALLETS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/credits"),
+            AccessPolicy::AdminPermission(CREDITS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/credits/0xabc/grant"),
+            AccessPolicy::AdminPermission(CREDITS_MANAGE_PERMISSION)
+        ));
+        for (method, path) in [
+            (Method::GET, "/api/v1/admin/walletsfoo"),
+            (Method::POST, "/api/v1/admin/wallets/../disable"),
+            (Method::POST, "/api/v1/admin/wallets/%2e%2e/disable"),
+            (Method::POST, "/api/v1/admin/wallets/0xabc//disable"),
+            (Method::GET, "/api/v1/admin/creditsfoo"),
+            (Method::POST, "/api/v1/admin/credits/../grant"),
+            (Method::POST, "/api/v1/admin/credits/%2e%2e/grant"),
+        ] {
+            assert_eq!(classify(&method, path), AccessPolicy::Blocked, "{path}");
+        }
     }
 
     #[tokio::test]
