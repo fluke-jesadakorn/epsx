@@ -54,13 +54,13 @@ impl ApiKeyRepository {
         let now = Utc::now();
         let id = Uuid::new_v4();
 
-        // Insert API key (including full_key for user to copy later)
+        // Store only the hash.  The plaintext secret is returned by the
+        // create handler once and is never persisted or returned by reads.
         diesel::insert_into(api_keys::table)
             .values((
                 api_keys::id.eq(&id),
                 api_keys::key_hash.eq(&key_hash),
                 api_keys::key_prefix.eq(&prefix),
-                api_keys::full_key.eq(&full_key),
                 api_keys::client_name.eq(&request.client_name),
                 api_keys::client_description.eq(&request.client_description),
                 api_keys::client_contact_email.eq(&request.client_contact_email),
@@ -146,7 +146,6 @@ impl ApiKeyRepository {
             expires_at: Option<chrono::DateTime<Utc>>,
             created_at: chrono::DateTime<Utc>,
             created_by: String,
-            full_key: Option<String>,
         }
 
         // Revocation and timestamp data (separate query)
@@ -176,7 +175,6 @@ impl ApiKeyRepository {
                 api_keys::expires_at,
                 api_keys::created_at,
                 api_keys::created_by,
-                api_keys::full_key,
             ))
             .first(&mut conn)
             .await
@@ -206,7 +204,7 @@ impl ApiKeyRepository {
             Ok(Some(ApiKey {
                 id: core.id,
                 key_prefix: core.key_prefix,
-                full_key: core.full_key,
+                full_key: None,
                 client_name: core.client_name,
                 client_description: core.client_description,
                 client_contact_email: core.client_contact_email,
@@ -472,16 +470,17 @@ impl ApiKeyRepository {
             selected_permissions: Option<Vec<Option<String>>>,
         }
 
-        let result = diesel::sql_query(
-            "SELECT selected_permissions FROM api_keys WHERE id = $1"
-        )
+        let result = diesel::sql_query("SELECT selected_permissions FROM api_keys WHERE id = $1")
         .bind::<diesel::sql_types::Uuid, _>(&api_key_id)
         .get_result::<PermissionsRow>(conn)
         .await
-        .ok();
+        .map_err(|e| AppError::database_error(format!(
+            "Failed to fetch selected permissions: {}",
+            e
+        )))?;
 
         Ok(result
-            .and_then(|r| r.selected_permissions)
+            .selected_permissions
             .unwrap_or_default()
             .into_iter()
             .flatten()
@@ -536,7 +535,6 @@ impl ApiKeyRepository {
             last_used_at: Option<chrono::DateTime<Utc>>,
             created_at: chrono::DateTime<Utc>,
             created_by: String,
-            full_key: Option<String>,
         }
 
         let rows: Vec<ApiKeyListRow> = query
@@ -556,7 +554,6 @@ impl ApiKeyRepository {
                 api_keys::last_used_at,
                 api_keys::created_at,
                 api_keys::created_by,
-                api_keys::full_key,
             ))
             .load(&mut conn)
             .await
@@ -573,7 +570,7 @@ impl ApiKeyRepository {
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
-                full_key: row.full_key,
+                full_key: None,
                 client_name: row.client_name,
                 client_description: row.client_description,
                 client_contact_email: row.client_contact_email,
@@ -659,7 +656,6 @@ impl ApiKeyRepository {
             last_used_at: Option<chrono::DateTime<Utc>>,
             created_at: chrono::DateTime<Utc>,
             created_by: String,
-            full_key: Option<String>,
             selected_permissions: Vec<Option<String>>,
         }
 
@@ -680,7 +676,6 @@ impl ApiKeyRepository {
                 api_keys::last_used_at,
                 api_keys::created_at,
                 api_keys::created_by,
-                api_keys::full_key,
                 api_keys::selected_permissions,
             ))
             .load(&mut conn)
@@ -698,7 +693,7 @@ impl ApiKeyRepository {
             keys.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
-                full_key: row.full_key,
+                full_key: None,
                 client_name: row.client_name,
                 client_description: row.client_description,
                 client_contact_email: row.client_contact_email,
@@ -847,7 +842,6 @@ impl ApiKeyRepository {
             last_used_at: Option<chrono::DateTime<Utc>>,
             created_at: chrono::DateTime<Utc>,
             created_by: String,
-            full_key: Option<String>,
         }
 
         let now = Utc::now();
@@ -889,7 +883,6 @@ impl ApiKeyRepository {
                 api_keys::last_used_at,
                 api_keys::created_at,
                 api_keys::created_by,
-                api_keys::full_key,
             ))
             .load(&mut conn)
             .await
@@ -908,7 +901,7 @@ impl ApiKeyRepository {
             api_keys_result.push(ApiKey {
                 id: row.id,
                 key_prefix: row.key_prefix,
-                full_key: row.full_key,
+                full_key: None,
                 client_name: row.client_name,
                 client_description: row.client_description,
                 client_contact_email: row.client_contact_email,

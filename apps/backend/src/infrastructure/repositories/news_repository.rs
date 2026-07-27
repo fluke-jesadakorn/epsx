@@ -4,7 +4,7 @@ use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
-    NewsArticleDb, NewNewsArticle, UpdateNewsArticle, NewsListQuery, PinNewsArticle,
+    NewNewsArticle, NewsArticleDb, NewsListQuery, PinNewsArticle, UpdateNewsArticle,
 };
 use crate::prelude::TlsPool;
 use crate::schemas::primary::news_articles;
@@ -46,6 +46,29 @@ impl NewsRepository {
             .map_err(|e| e.to_string())
     }
 
+    /// Update only when the caller still holds the version returned by the
+    /// previous read.  Admin mutation handlers use this for optimistic
+    /// concurrency instead of allowing a stale editor to overwrite a newer
+    /// article.
+    pub async fn update_if_unchanged(
+        pool: &TlsPool,
+        id: Uuid,
+        expected_updated_at: chrono::DateTime<Utc>,
+        update: UpdateNewsArticle,
+    ) -> Result<Option<NewsArticleDb>, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        diesel::update(
+            news_articles::table
+                .filter(news_articles::id.eq(id))
+                .filter(news_articles::updated_at.eq(expected_updated_at)),
+        )
+        .set(&update)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .map_err(|e| e.to_string())
+    }
+
     pub async fn delete(pool: &TlsPool, id: Uuid) -> Result<(), String> {
         let mut conn = pool.get().await.map_err(|e| e.to_string())?;
         diesel::delete(news_articles::table.find(id))
@@ -53,6 +76,23 @@ impl NewsRepository {
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
+    }
+
+    pub async fn delete_if_unchanged(
+        pool: &TlsPool,
+        id: Uuid,
+        expected_updated_at: chrono::DateTime<Utc>,
+    ) -> Result<bool, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let deleted = diesel::delete(
+            news_articles::table
+                .filter(news_articles::id.eq(id))
+                .filter(news_articles::updated_at.eq(expected_updated_at)),
+        )
+        .execute(&mut conn)
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(deleted == 1)
     }
 
     pub async fn get_by_id(pool: &TlsPool, id: Uuid) -> Result<Option<NewsArticleDb>, String> {
@@ -181,6 +221,30 @@ impl NewsRepository {
             .get_result(&mut conn)
             .await
             .map_err(|e| e.to_string())
+    }
+
+    pub async fn pin_if_unchanged(
+        pool: &TlsPool,
+        id: Uuid,
+        expected_updated_at: chrono::DateTime<Utc>,
+        pinned: bool,
+    ) -> Result<Option<NewsArticleDb>, String> {
+        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let changeset = PinNewsArticle {
+            is_pinned: pinned,
+            pinned_at: pinned.then(Utc::now),
+            updated_at: Utc::now(),
+        };
+        diesel::update(
+            news_articles::table
+                .filter(news_articles::id.eq(id))
+                .filter(news_articles::updated_at.eq(expected_updated_at)),
+        )
+        .set(&changeset)
+        .get_result(&mut conn)
+        .await
+        .optional()
+        .map_err(|e| e.to_string())
     }
 
     pub async fn list_featured(pool: &TlsPool, limit: i64) -> Result<Vec<NewsArticleDb>, String> {
