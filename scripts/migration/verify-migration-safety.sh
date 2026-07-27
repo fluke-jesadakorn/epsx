@@ -129,8 +129,13 @@ for (const id of fixture.knownBlockedIds) {
 }
 
 const tracked = git("ls-files", "-z").split("\0").filter(Boolean).sort();
-const migrationSqlFiles = tracked.filter((file) => file.endsWith(".sql") && /(^|\/)migrations?\//.test(file));
-const rustFiles = tracked.filter((file) => file.endsWith(".rs"));
+// `git ls-files` also reports an intentionally deleted worktree path. The
+// safety scan is a current-worktree inventory, so do not resurrect deleted
+// source just to make the scanner readable; the deletion is reviewed by the
+// normal Git diff and route/evidence checks.
+const present = (file) => existsSync(resolve(root, file));
+const migrationSqlFiles = tracked.filter((file) => file.endsWith(".sql") && /(^|\/)migrations?\//.test(file) && present(file));
+const rustFiles = tracked.filter((file) => file.endsWith(".rs") && present(file));
 
 const stripComments = (content, marker) => {
   let inBlock = false;

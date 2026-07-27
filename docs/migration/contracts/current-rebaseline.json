@@ -10,8 +10,8 @@
   },
   "targetBase": {
     "ref": "origin/migration/dioxus-microservices",
-    "commit": "584c3f680f023fd191e43416f073e0d674765049",
-    "role": "requested migration baseline before readiness changes"
+    "commit": "034f95ace04b123c96eefb56cdbc9e8ea5914d99",
+    "role": "requested migration baseline before implementation changes"
   },
   "routeInventory": {
     "contract": "docs/migration/contracts/routes.json",

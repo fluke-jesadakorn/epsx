@@ -1,8 +1,8 @@
 # Migration readiness handoff
 
 Date: 2026-07-27  
-Branch: `goal/migration-readiness`  
-Target baseline: `origin/migration/dioxus-microservices` at `584c3f680f023fd191e43416f073e0d674765049`  
+Branch: `migration/dioxus-microservices`
+Target baseline: `origin/migration/dioxus-microservices` at `034f95ace04b123c96eefb56cdbc9e8ea5914d99`
 Development source baseline: `development` at `6fe4d5bb3e170ba0644c07979735482bcc0f17c6`
 
 ## Result
@@ -18,6 +18,7 @@ This branch completes the safely provable source and non-production migration wo
 ## Implemented
 
 - Rebaselined contracts, route inventories, API envelopes, permissions, migration safety, service authorization, and readiness evidence against development behavior.
+- Rebaselined the current target guard to `034f95ac`, removed the orphaned legacy `apps/frontend/src/pages.rs` business-data producer, and removed the unsupported frontend OAuth route so it cannot advertise an unimplemented identity flow.
 - Removed active frontend/BFF fake wallet, plan, subscription, content-edit, and publication producers; backend-owned policies and mutations now fail closed when no verified authority exists.
 - Added bearer propagation and upstream failure handling for analytics tracking; analytics persists verified subjects and no longer derives financial metrics from event counts.
 - Made identity ranking offset behavior fail closed until an entitlement/ranking authority is wired; preserved historical adapters only in hermetic tests/evidence.

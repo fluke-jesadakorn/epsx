@@ -242,15 +242,6 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/me", get(auth_me))
-        // Wave 23 T3 — OAuth start route. The auth page links to
-        // `/api/v1/auth/oauth/{provider}` (e.g. `google`) and the
-        // dev BFF must respond with a real HTTP status (not 404) so
-        // the click is observable. We 501 with a clear "not
-        // implemented" JSON when the backend identity service has no
-        // OAuth integration yet (current state of the Rust backend
-        // — see `shared/rust/epsx-identity-shared`); a future wave
-        // can wire the real provider redirect.
-        .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
         .route(
             "/api/v1/notifications",
             get(notifications_api).head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
@@ -769,6 +760,8 @@ mod routing_tests {
             "/api/v1/dashboard/stats",
             "/api/v1/portfolio/0x0000000000000000000000000000000000000001",
             "/api/v1/payment/not-an-authorized-intent",
+            "/api/v1/auth/oauth/google",
+            "/api/v1/auth/oauth/unknown",
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");

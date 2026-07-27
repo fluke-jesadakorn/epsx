@@ -25,7 +25,9 @@ if (contract.schemaVersion !== 1 || contract.artifact !== "current-migration-reb
 if (contract.productionReady !== false) fail("productionReady must remain false");
 if (git("rev-parse", "development") !== contract.source.commit) fail("development source commit drifted");
 if (git("rev-parse", contract.targetBase.commit + "^{commit}") !== contract.targetBase.commit) fail("target base commit is missing");
-if (git("rev-parse", "--abbrev-ref", "HEAD") !== "goal/migration-readiness") fail("must run on goal/migration-readiness");
+const targetBase = contract.targetBase.commit;
+const targetAncestry = Bun.spawnSync(["git", "-C", root, "merge-base", "--is-ancestor", targetBase, "HEAD"], { stdout: "pipe", stderr: "pipe" });
+if (targetAncestry.exitCode !== 0) fail(`current HEAD is not based on target commit ${targetBase}`);
 const routes = readJson(contract.routeInventory.contract);
 if (routes.sourceRef !== "development") fail("route inventory sourceRef must be development");
 for (const [name, count, rootKey] of [["frontend", contract.routeInventory.frontendCount, "frontendSourceRoot"], ["admin", contract.routeInventory.adminCount, "adminSourceRoot"]]) {

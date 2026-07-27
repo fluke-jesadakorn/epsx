@@ -47,8 +47,7 @@ impl AuthPageSessionState {
 /// `docs/wave5-page-depth/design.md` §"Track A — Hero pages" /
 /// `auth_page.rs`. Two-column layout:
 ///   - LEFT: marketing pitch (hero copy + 3 value props + 1 testimonial)
-///   - RIGHT: the auth form (SIWE ConnectButton + email magic link +
-///     Google OAuth button)
+///   - RIGHT: the wallet-only SIWE auth form
 ///
 /// Wave 50 — wired up the full SIWE flow:
 /// - The `<ConnectButton data_connect_wallet=true>` renders a raw
@@ -589,9 +588,8 @@ mod tests {
         }
     }
 
-    /// Wave 5 — `test_auth_options`. Originally exposed SIWE +
-    /// email magic link + Google OAuth. Wave 49 T1 (Plan 13) changed
-    /// /auth to match prod's wallet-only design (Welcome to EPSX /
+    /// Wave 5 — `test_auth_options`. The current contract is the
+    /// wallet-only design (Welcome to EPSX /
     /// Connect Wallet / 3-feature security list). The 3 auth options
     /// test now asserts the wallet-only CTA + 3-feature security
     /// list, matching the prod baseline PNG.
