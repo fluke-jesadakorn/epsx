@@ -123,6 +123,13 @@ pub fn build_router(state: AppState) -> Router {
     let app = Router::new()
         .route("/health", get(health))
         .route("/api/v1/identity/{*path}", any(proxy_identity))
+        .route("/api/v1/admin/wallets/{*path}", any(proxy_wallet))
+        .route("/api/v1/admin/credits/{*path}", any(proxy_wallet))
+        .route("/api/v1/admin/pay/{*path}", any(proxy_payment))
+        .route(
+            "/api/v1/admin/subscription/{*path}",
+            any(proxy_subscription),
+        )
         .route("/api/v1/wallet/{*path}", any(proxy_wallet))
         .route("/api/v1/payment/{*path}", any(proxy_payment))
         .route("/api/v1/pay/{*path}", any(proxy_payment))

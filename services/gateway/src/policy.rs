@@ -44,6 +44,26 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
             AccessPolicy::Permission("admin:users:delete")
         }
 
+        // Extracted wallet and credit admin boundaries. The wallet service
+        // remains authoritative for address canonicalization, versions,
+        // idempotency, and read-after-write verification.
+        (&Method::GET, ["api", "v1", "admin", "wallets"])
+        | (&Method::GET, ["api", "v1", "admin", "wallets", "stats"])
+        | (&Method::GET, ["api", "v1", "admin", "wallets", _]) => {
+            AccessPolicy::Permission("admin:users:read")
+        }
+        (&Method::POST, ["api", "v1", "admin", "wallets", _, "disable" | "enable"])
+        | (&Method::PATCH, ["api", "v1", "admin", "wallets", _, "metadata"]) => {
+            AccessPolicy::Permission("admin:users:update")
+        }
+        (&Method::GET, ["api", "v1", "admin", "credits"])
+        | (&Method::GET, ["api", "v1", "admin", "credits", _]) => {
+            AccessPolicy::Permission("admin:credits:read")
+        }
+        (&Method::POST, ["api", "v1", "admin", "credits", _, "grant" | "revoke"]) => {
+            AccessPolicy::Permission("admin:credits:manage")
+        }
+
         // Wallet. Owner comparisons are still required in the wallet service;
         // this gateway slice supplies only the verified principal boundary.
         (&Method::GET, ["api", "v1", "wallet", "balance", _, _])
@@ -65,6 +85,18 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
         | (&Method::GET, ["api", "v1", "subscription", "subscriptions", _])
         | (&Method::POST, ["api", "v1", "subscription", "subscriptions", _, "cancel"]) => {
             AccessPolicy::Authenticated
+        }
+
+        // Extracted subscription admin plans/access boundary.
+        (&Method::GET, ["api", "v1", "admin", "subscription", "plans"])
+        | (&Method::GET, ["api", "v1", "admin", "subscription", "plans", _])
+        | (&Method::GET, ["api", "v1", "admin", "subscription", "access"]) => {
+            AccessPolicy::Permission("admin:plans:read")
+        }
+        (&Method::POST, ["api", "v1", "admin", "subscription", "plans"])
+        | (&Method::PATCH, ["api", "v1", "admin", "subscription", "plans", _])
+        | (&Method::POST, ["api", "v1", "admin", "subscription", "access", "assign" | "revoke"]) => {
+            AccessPolicy::Permission("admin:plans:manage")
         }
 
         // Content public rendering and read models.
@@ -132,6 +164,20 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
         (&Method::GET, ["api", "v1", "analytics", "admin", "audit-log"]) => {
             AccessPolicy::Permission("admin:audit:read")
         }
+
+        // Extracted Pay admin reads and narrowly scoped management actions.
+        (&Method::GET, ["api", "v1", "admin", "pay", "intents"])
+        | (&Method::GET, ["api", "v1", "admin", "pay", "links"]) => {
+            AccessPolicy::Permission("admin:payments:view")
+        }
+        (&Method::POST, ["api", "v1", "admin", "pay", "links"])
+        | (&Method::POST, ["api", "v1", "admin", "pay", "links", _, "disable"])
+        | (&Method::POST, ["api", "v1", "admin", "pay", "intents", _, "cancel"])
+        | (&Method::POST, ["api", "v1", "admin", "pay", "intents", _, "force-cancel"])
+        | (
+            &Method::POST,
+            ["api", "v1", "admin", "pay", "escrows", _, "force-release" | "force-refund"],
+        ) => AccessPolicy::Permission("admin:payments:manage"),
 
         // Indexer reads are public; sync is narrowed to the intended POST
         // operator mutation despite the candidate service's `any` mount.

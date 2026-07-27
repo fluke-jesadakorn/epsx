@@ -280,24 +280,33 @@ pub async fn admin_list_conversations(
         epsx_contracts::errors::AppError::database_error("chat database unavailable")
     })?;
 
-    let mut filtered = chat_conversations::table.into_boxed();
+    let mut count_query = chat_conversations::table.into_boxed();
     if let Some(status) = query.status.as_deref() {
-        filtered = filtered.filter(chat_conversations::status.eq(status));
+        count_query = count_query.filter(chat_conversations::status.eq(status));
     }
     if let Some(topic_id) = query.topic_id {
-        filtered = filtered.filter(chat_conversations::topic_id.eq(topic_id));
+        count_query = count_query.filter(chat_conversations::topic_id.eq(topic_id));
     }
     if let Some(agent) = query.agent.as_deref() {
-        filtered = filtered.filter(chat_conversations::assigned_agent.eq(agent));
+        count_query = count_query.filter(chat_conversations::assigned_agent.eq(agent));
     }
 
-    let total = filtered
-        .clone()
+    let total = count_query
         .select(count_star())
         .first::<i64>(&mut conn)
         .await
         .map_err(|_| epsx_contracts::errors::AppError::database_error("chat count unavailable"))?;
-    let rows = filtered
+    let mut rows_query = chat_conversations::table.into_boxed();
+    if let Some(status) = query.status.as_deref() {
+        rows_query = rows_query.filter(chat_conversations::status.eq(status));
+    }
+    if let Some(topic_id) = query.topic_id {
+        rows_query = rows_query.filter(chat_conversations::topic_id.eq(topic_id));
+    }
+    if let Some(agent) = query.agent.as_deref() {
+        rows_query = rows_query.filter(chat_conversations::assigned_agent.eq(agent));
+    }
+    let rows = rows_query
         .order(chat_conversations::last_message_at.desc())
         .limit(i64::from(query.limit))
         .offset(offset(&query))

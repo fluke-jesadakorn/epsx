@@ -15,6 +15,7 @@ pulldown-cmark = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
+uuid = { workspace = true }
 
 [dev-dependencies]
 # === wave3a-wiring-track-a ===

@@ -208,6 +208,22 @@ fn correlation_id(headers: &HeaderMap) -> Result<String, &'static str> {
     }
 }
 
+fn idempotency_key(headers: &HeaderMap) -> Result<&str, &'static str> {
+    let value = headers
+        .get("idempotency-key")
+        .ok_or("Idempotency-Key is required for developer portal mutations")?
+        .to_str()
+        .map_err(|_| "Idempotency-Key must be ASCII")?;
+    if value.is_empty()
+        || value.chars().count() > 128
+        || value.trim() != value
+        || value.chars().any(char::is_control)
+    {
+        return Err("Idempotency-Key must be bounded and control-free");
+    }
+    Ok(value)
+}
+
 fn response_with_id<T: Serialize>(
     mut body: UnifiedApiResponse<T>,
     request_id: &str,
@@ -235,7 +251,7 @@ fn error_response<T: Serialize>(
     details: serde_json::Value,
 ) -> Response {
     response_with_id(
-        UnifiedApiResponse::error_with_details(
+        UnifiedApiResponse::<T>::error_with_details(
             status.as_u16(),
             message,
             reason,

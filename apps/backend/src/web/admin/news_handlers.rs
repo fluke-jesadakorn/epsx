@@ -111,7 +111,7 @@ fn error_response<T: serde::Serialize>(
     details: serde_json::Value,
 ) -> Response {
     response_with_id(
-        UnifiedApiResponse::error_with_details(
+        UnifiedApiResponse::<T>::error_with_details(
             status.as_u16(),
             message,
             reason,
