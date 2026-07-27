@@ -4,7 +4,7 @@ Status: **integrity PASS target; production readiness STOP**. This is an audit a
 
 ## Baseline and conservative result
 
-The source is pinned to `origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`. The audit covers the exact 27 source admin pages in [`contracts/routes.json`](contracts/routes.json), with no target-only alias or migration addition counted as source parity. It separately locks the three source routes whose target kind is intentionally `redirect`:
+The source is pinned to `development@6fe4d5bb3e170ba0644c07979735482bcc0f17c6`. The audit covers the exact 27 source admin pages in [`contracts/routes.json`](contracts/routes.json), with no target-only alias or migration addition counted as source parity. It separately locks the three source routes whose target kind is intentionally `redirect`:
 
 - `/auth` → `/` now returns a fixed HTTP 307;
 - `/notifications` → `/notifications/manage` currently returns a 200 document whose script calls `location.replace`;
@@ -17,8 +17,8 @@ All three redirects therefore remain non-aligned until three evidence gaps close
 The baseline is deliberately strict:
 
 - **2 aligned:** `/access-denied` and `/unauthorized`;
-- **7 partial:** `/audit-log`, `/media`, `/news`, `/notifications`, `/notifications/manage`, `/wallet-management`, and `/wallet-management/wallets`;
-- **18 blocked**;
+- **8 partial:** `/`, `/audit-log`, `/media`, `/news`, `/notifications`, `/notifications/manage`, `/wallet-management`, and `/wallet-management/wallets`;
+- **17 blocked**;
 - **25 non-aligned** and **20 cross-cutting STOP blockers**.
 
 The B2.1 proof closes the two source denial surfaces. `/access-denied` now preserves all five source query fields with bounded, control-filtered decoding and escaped output; `route` is used only for display and the sanitized reauthentication return target. `/unauthorized` retains the exact static source copy and ignores query input. Both inherit the pinned admin title, description, and keywords, return an accepted SSR 200 denial document, expose one heading plus alert/navigation landmarks, use only sanitized same-origin links, invoke the canonical same-origin logout endpoint before reauthentication, and preserve source `history.back()` behavior with an accessible static `/` fallback. Focus order, light and dark rendering at 390×844 and 1440×900, non-transparent computed dark decoration, responsive overflow, unsafe targets, cookie clearing, and zero browser/page errors are covered by an ephemeral loopback admin RS256/JWKS Playwright fixture. This does not close A1's separate disposable-PostgreSQL proof for durable refresh-token revocation.
@@ -31,14 +31,14 @@ The target-only `/policies` reserved path is not one of the 27 source routes and
 
 Integrity mode is deterministic and offline. It verifies:
 
-1. `origin/development` still resolves to the accepted full source SHA;
+1. `development` still resolves to the pinned full source SHA;
 2. every one of the 27 pinned source files exists at that commit and contains its recorded anchors;
 3. the current target implementation, dispatcher, admin SSR, and BFF contain the recorded anchors;
 4. the route set, source files, and target handlers equal the checked route inventory exactly;
 5. all 27 routes occur in exactly one of seven execution batches;
 6. the three redirects equal the inventory's exact redirect-classified set;
 7. every route inventories dynamic params, reads, fallbacks, read/manage gates, mutations, request/envelope/status findings, six async states, keyboard, responsive behavior, hydration, dependencies, and at least one blocker while non-aligned;
-8. the accepted baseline remains 2 aligned / 7 partial / 18 blocked until evidence is deliberately updated.
+8. the accepted baseline remains 2 aligned / 8 partial / 17 blocked until evidence is deliberately updated.
 
 This gate does **not** prove a service is reachable, a database is migrated, a browser interaction works, a mutation is durable, or production is ready. Readiness mode exits `3` while any route or global blocker remains.
 
