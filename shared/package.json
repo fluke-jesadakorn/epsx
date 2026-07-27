@@ -18,7 +18,8 @@
   },
   "scripts": {
     "lint": "bunx eslint .",
-    "lint:fix": "bunx eslint . --fix"
+    "lint:fix": "bunx eslint . --fix",
+    "type-check": "tsc --noEmit -p tsconfig.json"
   },
   "devDependencies": {
     "@rainbow-me/rainbowkit": "^2.2.10",
@@ -26,7 +27,7 @@
     "viem": "^2.41.2",
     "eslint": "^9.0.0",
     "react": "19.2.3",
-    "@types/react": "19.2.7",
+    "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
     "typescript": "^5.0.0",
     "class-variance-authority": "^0.7.0",
