@@ -89,14 +89,18 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
 
         // Extracted subscription admin plans/access boundary.
         (&Method::GET, ["api", "v1", "admin", "subscription", "plans"])
-        | (&Method::GET, ["api", "v1", "admin", "subscription", "plans", _])
-        | (&Method::GET, ["api", "v1", "admin", "subscription", "access"]) => {
+        | (&Method::GET, ["api", "v1", "admin", "subscription", "plans", _]) => {
             AccessPolicy::Permission("admin:plans:read")
         }
         (&Method::POST, ["api", "v1", "admin", "subscription", "plans"])
-        | (&Method::PATCH, ["api", "v1", "admin", "subscription", "plans", _])
-        | (&Method::POST, ["api", "v1", "admin", "subscription", "access", "assign" | "revoke"]) => {
+        | (&Method::PATCH, ["api", "v1", "admin", "subscription", "plans", _]) => {
             AccessPolicy::Permission("admin:plans:manage")
+        }
+        (&Method::GET, ["api", "v1", "admin", "subscription", "access"]) => {
+            AccessPolicy::Permission("admin:access:read")
+        }
+        (&Method::POST, ["api", "v1", "admin", "subscription", "access", "assign" | "revoke"]) => {
+            AccessPolicy::Permission("admin:access:manage")
         }
 
         // Content public rendering and read models.
@@ -166,13 +170,17 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
         }
 
         // Extracted Pay admin reads and narrowly scoped management actions.
-        (&Method::GET, ["api", "v1", "admin", "pay", "intents"])
-        | (&Method::GET, ["api", "v1", "admin", "pay", "links"]) => {
+        (&Method::GET, ["api", "v1", "admin", "pay", "intents"]) => {
             AccessPolicy::Permission("admin:payments:view")
         }
+        (&Method::GET, ["api", "v1", "admin", "pay", "links"]) => {
+            AccessPolicy::Permission("admin:payment-links:view")
+        }
         (&Method::POST, ["api", "v1", "admin", "pay", "links"])
-        | (&Method::POST, ["api", "v1", "admin", "pay", "links", _, "disable"])
-        | (&Method::POST, ["api", "v1", "admin", "pay", "intents", _, "cancel"])
+        | (&Method::POST, ["api", "v1", "admin", "pay", "links", _, "disable"]) => {
+            AccessPolicy::Permission("admin:payment-links:manage")
+        }
+        (&Method::POST, ["api", "v1", "admin", "pay", "intents", _, "cancel"])
         | (&Method::POST, ["api", "v1", "admin", "pay", "intents", _, "force-cancel"])
         | (
             &Method::POST,

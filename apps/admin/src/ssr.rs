@@ -18,6 +18,11 @@ use axum::{
 use epsx_bff::session::AccessVerification;
 use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
+use epsx_dioxus_ui::pages::admin_pages::analytics::{
+    ADMIN_ANALYTICS_DATA_PARAM, ADMIN_ANALYTICS_EMPTY, ADMIN_ANALYTICS_FORBIDDEN,
+    ADMIN_ANALYTICS_MALFORMED, ADMIN_ANALYTICS_READY, ADMIN_ANALYTICS_STATE_PARAM,
+    ADMIN_ANALYTICS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_CATEGORY_PARAM, ADMIN_AUDIT_CURSOR_PARAM, ADMIN_AUDIT_DATA_PARAM,
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
@@ -33,6 +38,11 @@ use epsx_dioxus_ui::pages::admin_pages::dashboard::{
     ADMIN_DASHBOARD_USER_STATUS_MALFORMED, ADMIN_DASHBOARD_USER_STATUS_PARAM,
     ADMIN_DASHBOARD_USER_STATUS_READY, ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM,
     ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::developer_portal::{
+    ADMIN_DEVELOPER_DATA_PARAM, ADMIN_DEVELOPER_EMPTY, ADMIN_DEVELOPER_FORBIDDEN,
+    ADMIN_DEVELOPER_MALFORMED, ADMIN_DEVELOPER_READY, ADMIN_DEVELOPER_STATE_PARAM,
+    ADMIN_DEVELOPER_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::media::{
     ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
@@ -54,32 +64,64 @@ use epsx_dioxus_ui::pages::admin_pages::notifications::{
     ADMIN_NOTIFICATIONS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
-    decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
-    ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED, ADMIN_PAYMENTS_OFFSET_PARAM,
-    ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY, ADMIN_PAYMENTS_STATE_PARAM,
-    ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM, ADMIN_PAYMENTS_UNAVAILABLE,
+    decode_admin_payment_intent_list, AdminPaymentLinkListProjection, ADMIN_PAYMENTS_DATA_PARAM,
+    ADMIN_PAYMENTS_EMPTY, ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED,
+    ADMIN_PAYMENTS_OFFSET_PARAM, ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY,
+    ADMIN_PAYMENTS_STATE_PARAM, ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM,
+    ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM, ADMIN_PAYMENT_LINKS_EMPTY,
+    ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
+    ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::settings::{
+    ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
+    ADMIN_SETTINGS_MALFORMED, ADMIN_SETTINGS_READY, ADMIN_SETTINGS_STATE_PARAM,
+    ADMIN_SETTINGS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_access::{
+    AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM, ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED,
+    ADMIN_ACCESS_READY, ADMIN_ACCESS_STATE_PARAM, ADMIN_ACCESS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_credits::{
+    AdminCreditStatsProjection, ADMIN_CREDITS_DATA_PARAM, ADMIN_CREDITS_FORBIDDEN,
+    ADMIN_CREDITS_MALFORMED, ADMIN_CREDITS_READY, ADMIN_CREDITS_STATE_PARAM,
+    ADMIN_CREDITS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_plans::{
+    AdminPlanListProjection, AdminPlanProjection, ADMIN_PLANS_DATA_PARAM, ADMIN_PLANS_EMPTY,
+    ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED, ADMIN_PLANS_READY, ADMIN_PLANS_STATE_PARAM,
+    ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_DATA_PARAM, ADMIN_PLAN_DETAIL_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
+    AdminWalletDetailProjection, AdminWalletStatsSummary, ADMIN_WALLET_DETAIL_DATA_PARAM,
+    ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
+    ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
     ADMIN_WALLET_STATS_DATA_PARAM, ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED,
     ADMIN_WALLET_STATS_READY, ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
+use super::analytics_admin_adapter::{load_admin_analytics, AdminAnalyticsLoad};
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
 use super::chat_admin_adapter::{
     load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
 };
+use super::commerce_admin_adapter::{
+    load_access, load_credit_stats, load_payment_links, load_plan_detail, load_plans,
+    load_wallet_detail, load_wallet_stats, CommerceLoad,
+};
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
 };
+use super::developer_portal_adapter::{load_admin_developer_portal, AdminDeveloperLoad};
 use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
     load_admin_notification_metrics, load_admin_notifications, AdminNotificationLoad,
     AdminNotificationMetricsLoad, AdminNotificationQuery,
 };
+use super::settings_adapter::{load_admin_settings, AdminSettingsLoad};
 use super::wallet_stats_adapter::{
     load_admin_wallet_stats, AdminWalletStatsLoad, AdminWalletStatsQuery,
 };
@@ -364,6 +406,92 @@ fn record_admin_audit_load(
     params.insert(ADMIN_AUDIT_STATE_PARAM.to_string(), state.to_string());
 }
 
+fn record_admin_settings_load(params: &mut HashMap<String, String>, load: AdminSettingsLoad) {
+    params.remove(ADMIN_SETTINGS_DATA_PARAM);
+    let state = match load {
+        AdminSettingsLoad::Ready(projection) => {
+            params.insert(
+                ADMIN_SETTINGS_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed admin-settings projection is serializable"),
+            );
+            ADMIN_SETTINGS_READY
+        }
+        AdminSettingsLoad::Empty => ADMIN_SETTINGS_EMPTY,
+        AdminSettingsLoad::Forbidden => ADMIN_SETTINGS_FORBIDDEN,
+        AdminSettingsLoad::Unavailable => ADMIN_SETTINGS_UNAVAILABLE,
+        AdminSettingsLoad::Malformed => ADMIN_SETTINGS_MALFORMED,
+    };
+    params.insert(ADMIN_SETTINGS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: AdminAnalyticsLoad) {
+    params.remove(ADMIN_ANALYTICS_DATA_PARAM);
+    let state = match load {
+        AdminAnalyticsLoad::Ready(snapshot) => {
+            params.insert(
+                ADMIN_ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&snapshot)
+                    .expect("the typed admin-analytics projection is serializable"),
+            );
+            ADMIN_ANALYTICS_READY
+        }
+        AdminAnalyticsLoad::Empty => ADMIN_ANALYTICS_EMPTY,
+        AdminAnalyticsLoad::Forbidden => ADMIN_ANALYTICS_FORBIDDEN,
+        AdminAnalyticsLoad::Unavailable => ADMIN_ANALYTICS_UNAVAILABLE,
+        AdminAnalyticsLoad::Malformed => ADMIN_ANALYTICS_MALFORMED,
+    };
+    params.insert(ADMIN_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_developer_load(params: &mut HashMap<String, String>, load: AdminDeveloperLoad) {
+    params.remove(ADMIN_DEVELOPER_DATA_PARAM);
+    let state = match load {
+        AdminDeveloperLoad::Ready(projection) => {
+            params.insert(
+                ADMIN_DEVELOPER_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed developer-portal projection is serializable"),
+            );
+            ADMIN_DEVELOPER_READY
+        }
+        AdminDeveloperLoad::Empty => ADMIN_DEVELOPER_EMPTY,
+        AdminDeveloperLoad::Forbidden => ADMIN_DEVELOPER_FORBIDDEN,
+        AdminDeveloperLoad::Unavailable => ADMIN_DEVELOPER_UNAVAILABLE,
+        AdminDeveloperLoad::Malformed => ADMIN_DEVELOPER_MALFORMED,
+    };
+    params.insert(ADMIN_DEVELOPER_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_commerce_load<T: serde::Serialize>(
+    params: &mut HashMap<String, String>,
+    load: CommerceLoad<T>,
+    data_param: &str,
+    state_param: &str,
+    ready: &str,
+    empty: Option<&str>,
+    forbidden: &str,
+    unavailable: &str,
+    malformed: &str,
+) {
+    params.remove(data_param);
+    let state = match load {
+        CommerceLoad::Ready(projection) => {
+            params.insert(
+                data_param.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed commerce projection is serializable"),
+            );
+            ready
+        }
+        CommerceLoad::Empty => empty.unwrap_or(malformed),
+        CommerceLoad::Forbidden => forbidden,
+        CommerceLoad::Unavailable => unavailable,
+        CommerceLoad::Malformed => malformed,
+    };
+    params.insert(state_param.to_string(), state.to_string());
+}
+
 fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
     (
         status,
@@ -609,29 +737,245 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Malformed);
         }
     }
-    // Wallet inventory starts with one narrow aggregate read. The adapter
-    // accepts no query grammar, sends only the canonical verified bearer and
-    // request ID, and projects four counts; wallet rows and every mutation
-    // remain unavailable.
+    // Wallet inventory starts with one narrow aggregate read. The service
+    // adapter projects four counts; wallet rows and every mutation remain
+    // outside this SSR read contract.
     if route_path == "/wallet-management/wallets" {
         match AdminWalletStatsQuery::from_raw(&query) {
-            Ok(wallet_stats_query) => match verified_access_token.as_ref() {
+            Ok(_) => match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let load = load_admin_wallet_stats(
-                        &state.wallet,
-                        wallet_stats_query,
-                        &request_context,
-                    )
-                    .await;
-                    record_admin_wallet_stats_load(&mut params, load);
+                    let load = load_wallet_stats(&state.wallet, &request_context).await;
+                    record_commerce_load(
+                        &mut params,
+                        load,
+                        ADMIN_WALLET_STATS_DATA_PARAM,
+                        ADMIN_WALLET_STATS_STATE_PARAM,
+                        ADMIN_WALLET_STATS_READY,
+                        None,
+                        ADMIN_WALLET_STATS_FORBIDDEN,
+                        ADMIN_WALLET_STATS_UNAVAILABLE,
+                        ADMIN_WALLET_STATS_MALFORMED,
+                    );
                 }
-                None => {
-                    record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Unavailable)
-                }
+                None => record_commerce_load(
+                    &mut params,
+                    CommerceLoad::<AdminWalletStatsSummary>::Unavailable,
+                    ADMIN_WALLET_STATS_DATA_PARAM,
+                    ADMIN_WALLET_STATS_STATE_PARAM,
+                    ADMIN_WALLET_STATS_READY,
+                    None,
+                    ADMIN_WALLET_STATS_FORBIDDEN,
+                    ADMIN_WALLET_STATS_UNAVAILABLE,
+                    ADMIN_WALLET_STATS_MALFORMED,
+                ),
             },
-            Err(()) => record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Malformed),
+            Err(()) => record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminWalletStatsSummary>::Malformed,
+                ADMIN_WALLET_STATS_DATA_PARAM,
+                ADMIN_WALLET_STATS_STATE_PARAM,
+                ADMIN_WALLET_STATS_READY,
+                None,
+                ADMIN_WALLET_STATS_FORBIDDEN,
+                ADMIN_WALLET_STATS_UNAVAILABLE,
+                ADMIN_WALLET_STATS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/credits" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_credit_stats(&state.wallet, &request_context).await;
+                record_commerce_load(
+                    &mut params,
+                    load,
+                    ADMIN_CREDITS_DATA_PARAM,
+                    ADMIN_CREDITS_STATE_PARAM,
+                    ADMIN_CREDITS_READY,
+                    None,
+                    ADMIN_CREDITS_FORBIDDEN,
+                    ADMIN_CREDITS_UNAVAILABLE,
+                    ADMIN_CREDITS_MALFORMED,
+                );
+            }
+            None => record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminCreditStatsProjection>::Unavailable,
+                ADMIN_CREDITS_DATA_PARAM,
+                ADMIN_CREDITS_STATE_PARAM,
+                ADMIN_CREDITS_READY,
+                None,
+                ADMIN_CREDITS_FORBIDDEN,
+                ADMIN_CREDITS_UNAVAILABLE,
+                ADMIN_CREDITS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/access" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_access(&state.subscription, &request_context).await;
+                record_commerce_load(
+                    &mut params,
+                    load,
+                    ADMIN_ACCESS_DATA_PARAM,
+                    ADMIN_ACCESS_STATE_PARAM,
+                    ADMIN_ACCESS_READY,
+                    None,
+                    ADMIN_ACCESS_FORBIDDEN,
+                    ADMIN_ACCESS_UNAVAILABLE,
+                    ADMIN_ACCESS_MALFORMED,
+                );
+            }
+            None => record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminAccessProjection>::Unavailable,
+                ADMIN_ACCESS_DATA_PARAM,
+                ADMIN_ACCESS_STATE_PARAM,
+                ADMIN_ACCESS_READY,
+                None,
+                ADMIN_ACCESS_FORBIDDEN,
+                ADMIN_ACCESS_UNAVAILABLE,
+                ADMIN_ACCESS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/access/plans" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_plans(&state.subscription, &request_context).await;
+                record_commerce_load(
+                    &mut params,
+                    load,
+                    ADMIN_PLANS_DATA_PARAM,
+                    ADMIN_PLANS_STATE_PARAM,
+                    ADMIN_PLANS_READY,
+                    Some(ADMIN_PLANS_EMPTY),
+                    ADMIN_PLANS_FORBIDDEN,
+                    ADMIN_PLANS_UNAVAILABLE,
+                    ADMIN_PLANS_MALFORMED,
+                );
+            }
+            None => record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminPlanListProjection>::Unavailable,
+                ADMIN_PLANS_DATA_PARAM,
+                ADMIN_PLANS_STATE_PARAM,
+                ADMIN_PLANS_READY,
+                Some(ADMIN_PLANS_EMPTY),
+                ADMIN_PLANS_FORBIDDEN,
+                ADMIN_PLANS_UNAVAILABLE,
+                ADMIN_PLANS_MALFORMED,
+            ),
+        }
+    }
+    if let Some(plan_id) = route_path
+        .strip_prefix("/wallet-management/access/plans/")
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_plan_detail(&state.subscription, plan_id, &request_context).await;
+                    record_commerce_load(
+                        &mut params,
+                        load,
+                        ADMIN_PLAN_DETAIL_DATA_PARAM,
+                        ADMIN_PLAN_DETAIL_STATE_PARAM,
+                        ADMIN_PLANS_READY,
+                        None,
+                        ADMIN_PLANS_FORBIDDEN,
+                        ADMIN_PLANS_UNAVAILABLE,
+                        ADMIN_PLANS_MALFORMED,
+                    );
+                }
+                None => record_commerce_load(
+                    &mut params,
+                    CommerceLoad::<AdminPlanProjection>::Unavailable,
+                    ADMIN_PLAN_DETAIL_DATA_PARAM,
+                    ADMIN_PLAN_DETAIL_STATE_PARAM,
+                    ADMIN_PLANS_READY,
+                    None,
+                    ADMIN_PLANS_FORBIDDEN,
+                    ADMIN_PLANS_UNAVAILABLE,
+                    ADMIN_PLANS_MALFORMED,
+                ),
+            }
+        } else {
+            record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminPlanProjection>::Malformed,
+                ADMIN_PLAN_DETAIL_DATA_PARAM,
+                ADMIN_PLAN_DETAIL_STATE_PARAM,
+                ADMIN_PLANS_READY,
+                None,
+                ADMIN_PLANS_FORBIDDEN,
+                ADMIN_PLANS_UNAVAILABLE,
+                ADMIN_PLANS_MALFORMED,
+            );
+        }
+    }
+    if let Some(address) = route_path
+        .strip_prefix("/wallet-management/")
+        .filter(|value| {
+            !value.is_empty()
+                && !value.contains('/')
+                && !matches!(*value, "wallets" | "credits" | "access")
+        })
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_wallet_detail(&state.wallet, address, &request_context).await;
+                    record_commerce_load(
+                        &mut params,
+                        load,
+                        ADMIN_WALLET_DETAIL_DATA_PARAM,
+                        ADMIN_WALLET_DETAIL_STATE_PARAM,
+                        ADMIN_WALLET_DETAIL_READY,
+                        None,
+                        ADMIN_WALLET_DETAIL_FORBIDDEN,
+                        ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                        ADMIN_WALLET_DETAIL_MALFORMED,
+                    );
+                }
+                None => record_commerce_load(
+                    &mut params,
+                    CommerceLoad::<AdminWalletDetailProjection>::Unavailable,
+                    ADMIN_WALLET_DETAIL_DATA_PARAM,
+                    ADMIN_WALLET_DETAIL_STATE_PARAM,
+                    ADMIN_WALLET_DETAIL_READY,
+                    None,
+                    ADMIN_WALLET_DETAIL_FORBIDDEN,
+                    ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                    ADMIN_WALLET_DETAIL_MALFORMED,
+                ),
+            }
+        } else {
+            record_commerce_load(
+                &mut params,
+                CommerceLoad::<AdminWalletDetailProjection>::Malformed,
+                ADMIN_WALLET_DETAIL_DATA_PARAM,
+                ADMIN_WALLET_DETAIL_STATE_PARAM,
+                ADMIN_WALLET_DETAIL_READY,
+                None,
+                ADMIN_WALLET_DETAIL_FORBIDDEN,
+                ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                ADMIN_WALLET_DETAIL_MALFORMED,
+            );
         }
     }
     if route_path == "/payments" {
@@ -673,6 +1017,36 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             record_payment_intent_load(&mut params, result);
                         }
                         None => record_payment_intent_load(&mut params, Err(())),
+                    }
+                } else if tab == "payment-links" {
+                    match verified_access_token.as_ref() {
+                        Some(token) => {
+                            let mut request_context = RequestContext::from_headers(&headers);
+                            request_context.auth_token = Some(token.clone());
+                            let load = load_payment_links(&state.payment, &request_context).await;
+                            record_commerce_load(
+                                &mut params,
+                                load,
+                                ADMIN_PAYMENT_LINKS_DATA_PARAM,
+                                ADMIN_PAYMENT_LINKS_STATE_PARAM,
+                                ADMIN_PAYMENT_LINKS_READY,
+                                Some(ADMIN_PAYMENT_LINKS_EMPTY),
+                                ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                                ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                                ADMIN_PAYMENT_LINKS_MALFORMED,
+                            );
+                        }
+                        None => record_commerce_load(
+                            &mut params,
+                            CommerceLoad::<AdminPaymentLinkListProjection>::Unavailable,
+                            ADMIN_PAYMENT_LINKS_DATA_PARAM,
+                            ADMIN_PAYMENT_LINKS_STATE_PARAM,
+                            ADMIN_PAYMENT_LINKS_READY,
+                            Some(ADMIN_PAYMENT_LINKS_EMPTY),
+                            ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                            ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                            ADMIN_PAYMENT_LINKS_MALFORMED,
+                        ),
                     }
                 }
             }
@@ -804,6 +1178,39 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     AdminAuditQuery::from_raw("").expect("the empty admin-audit query is valid");
                 record_admin_audit_load(&mut params, &default_query, AdminAuditLoad::Malformed);
             }
+        }
+    }
+    if route_path == "/settings" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_settings(&state.identity, &request_context).await;
+                record_admin_settings_load(&mut params, load);
+            }
+            None => record_admin_settings_load(&mut params, AdminSettingsLoad::Unavailable),
+        }
+    }
+    if route_path == "/analytics" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_analytics(&state.identity, &request_context).await;
+                record_admin_analytics_load(&mut params, load);
+            }
+            None => record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Unavailable),
+        }
+    }
+    if route_path == "/developer-portal" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_developer_portal(&state.identity, &request_context).await;
+                record_admin_developer_load(&mut params, load);
+            }
+            None => record_admin_developer_load(&mut params, AdminDeveloperLoad::Unavailable),
         }
     }
     // Wave 3a Track B — admin doesn't render the wallet dropdown yet,

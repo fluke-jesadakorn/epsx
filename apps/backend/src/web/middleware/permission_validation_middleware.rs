@@ -178,8 +178,14 @@ fn get_required_permission(method: &str, path: &str) -> Option<String> {
         ("GET", p) if is_payment_admin_path(p) => Some("admin:payments:view".to_string()),
         (_, p) if is_payment_admin_path(p) => Some("admin:payments:manage".to_string()),
 
-        // Settings routes (/api/admin/settings — unified_router.rs, not create_admin_routes)
-        (_, p) if p.contains("/admin/settings") => Some("admin:settings:manage".to_string()),
+        // Settings routes (/api/admin/settings — unified_router.rs, not
+        // create_admin_routes). Reads and mutations are separate grants.
+        ("GET", p) if p == "/api/admin/settings" || p.starts_with("/api/admin/settings/") => {
+            Some("admin:settings:read".to_string())
+        }
+        (_, p) if p == "/api/admin/settings" || p.starts_with("/api/admin/settings/") => {
+            Some("admin:settings:manage".to_string())
+        }
 
         // Analytics routes (user-facing, no permission required)
         ("GET", p) if p.starts_with("/api/auth/analytics") => None,
@@ -370,6 +376,10 @@ mod tests {
         // Settings routes (unified_router.rs, not create_admin_routes)
         assert_eq!(
             get_required_permission("GET", "/api/admin/settings"),
+            Some("admin:settings:read".to_string())
+        );
+        assert_eq!(
+            get_required_permission("PUT", "/api/admin/settings"),
             Some("admin:settings:manage".to_string())
         );
 

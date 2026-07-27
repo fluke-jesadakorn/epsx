@@ -498,21 +498,36 @@ pub async fn get_access(
     headers: HeaderMap,
     Query(query): Query<std::collections::HashMap<String, String>>,
 ) -> Response {
-    let Some(wallet) = query
-        .get("wallet_address")
-        .and_then(|value| canonical_wallet(value))
-    else {
-        return error(&headers, StatusCode::BAD_REQUEST, "invalid_wallet_address");
+    let wallet = match query.get("wallet_address") {
+        Some(value) => match canonical_wallet(value) {
+            Some(wallet) => Some(wallet),
+            None => return error(&headers, StatusCode::BAD_REQUEST, "invalid_wallet_address"),
+        },
+        None => None,
     };
+    let limit = query
+        .get("limit")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(MAX_LIMIT)
+        .min(MAX_LIMIT);
+    let offset = query
+        .get("offset")
+        .and_then(|value| value.parse::<i64>().ok())
+        .unwrap_or(0);
+    if limit < 1 || !(0..=MAX_OFFSET).contains(&offset) {
+        return error(&headers, StatusCode::BAD_REQUEST, "invalid_pagination");
+    }
     let items = sqlx::query_as::<_, AccessAssignment>(
         "SELECT a.wallet_address,a.plan_id,p.name,a.permission,a.expires_at,a.version,
                 a.assigned_by,a.updated_at
            FROM public.subscription_access_assignments a
            JOIN public.subscription_plans p ON p.id=a.plan_id
-          WHERE lower(a.wallet_address)=lower($1)
-          ORDER BY p.name,a.permission",
+          WHERE ($1::text IS NULL OR lower(a.wallet_address)=lower($1))
+          ORDER BY p.name,a.permission LIMIT $2 OFFSET $3",
     )
     .bind(wallet)
+    .bind(limit)
+    .bind(offset)
     .fetch_all(&state.db)
     .await;
     match items {

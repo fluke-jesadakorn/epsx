@@ -15,8 +15,8 @@ use serde_json::{json, Value};
 use tracing::{error, info};
 use utoipa::ToSchema;
 
-use epsx_contracts::errors::{AppError, ErrorKind};
 use crate::web::auth::AppState;
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 // ============================================================================
 // DTOs
@@ -83,42 +83,6 @@ struct SystemSettingRow {
 }
 
 // ============================================================================
-// Default Settings
-// ============================================================================
-
-fn get_default_settings() -> std::collections::HashMap<String, std::collections::HashMap<String, Value>> {
-    let mut defaults = std::collections::HashMap::new();
-    
-    // General settings
-    let mut general = std::collections::HashMap::new();
-    general.insert("systemName".to_string(), json!("EPSX Admin Console"));
-    general.insert("adminEmail".to_string(), json!("admin@epsx.com"));
-    general.insert("maintenanceMode".to_string(), json!(false));
-    defaults.insert("general".to_string(), general);
-    
-    // Notification settings
-    let mut notifications = std::collections::HashMap::new();
-    notifications.insert("emailNotifications".to_string(), json!(true));
-    notifications.insert("pushNotifications".to_string(), json!(false));
-    notifications.insert("smsNotifications".to_string(), json!(true));
-    notifications.insert("securityAlerts".to_string(), json!(true));
-    defaults.insert("notifications".to_string(), notifications);
-    
-    // Security settings
-    let mut security = std::collections::HashMap::new();
-    security.insert("sessionTimeout".to_string(), json!(30));
-    defaults.insert("security".to_string(), security);
-    
-    // Appearance settings
-    let mut appearance = std::collections::HashMap::new();
-    appearance.insert("theme".to_string(), json!("light"));
-    appearance.insert("primaryColor".to_string(), json!("#FF8C00"));
-    defaults.insert("appearance".to_string(), appearance);
-    
-    defaults
-}
-
-// ============================================================================
 // Handlers
 // ============================================================================
 
@@ -137,10 +101,13 @@ pub async fn get_all_settings_handler(
     State(app_state): State<AppState>,
 ) -> Result<Json<Value>, AppError> {
     info!("Getting all system settings");
-    
+
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
-        AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to get DB connection: {}", e),
+        )
     })?;
 
     // Query all settings from database
@@ -153,23 +120,18 @@ pub async fn get_all_settings_handler(
         error!("Failed to query settings: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
-    
+
     // Plan settings by category
-    let mut settings: std::collections::HashMap<String, std::collections::HashMap<String, Value>> = 
+    let mut settings: std::collections::HashMap<String, std::collections::HashMap<String, Value>> =
         std::collections::HashMap::new();
-    
+
     for row in rows {
         let category_settings = settings.entry(row.category.clone()).or_default();
         category_settings.insert(row.key, row.value);
     }
-    
-    // If no settings in DB, return defaults
-    if settings.is_empty() {
-        settings = get_default_settings();
-    }
-    
+
     info!("Retrieved {} categories of settings", settings.len());
-    
+
     Ok(Json(json!({
         "success": true,
         "data": settings
@@ -196,10 +158,13 @@ pub async fn get_settings_by_category_handler(
     Path(category): Path<String>,
 ) -> Result<Json<Value>, AppError> {
     info!("Getting settings for category: {}", category);
-    
+
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
-        AppError::new(ErrorKind::DatabaseError, format!("Failed to get DB connection: {}", e))
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to get DB connection: {}", e),
+        )
     })?;
 
     // Query settings for specific category
@@ -213,23 +178,19 @@ pub async fn get_settings_by_category_handler(
         error!("Failed to query settings: {}", e);
         AppError::new(ErrorKind::DatabaseError, format!("Failed to query settings: {}", e))
     })?;
-    
+
     // Build response
     let mut settings: std::collections::HashMap<String, Value> = std::collections::HashMap::new();
     for row in rows {
         settings.insert(row.key, row.value);
     }
-    
-    // If no settings found, check defaults
-    if settings.is_empty() {
-        let defaults = get_default_settings();
-        if let Some(default_category) = defaults.get(&category) {
-            settings = default_category.clone();
-        }
-    }
-    
-    info!("Retrieved {} settings for category: {}", settings.len(), category);
-    
+
+    info!(
+        "Retrieved {} settings for category: {}",
+        settings.len(),
+        category
+    );
+
     Ok(Json(json!({
         "success": true,
         "data": {
@@ -256,41 +217,63 @@ pub async fn update_settings_handler(
     State(app_state): State<AppState>,
     Json(request): Json<UpdateSettingsRequest>,
 ) -> Result<Json<Value>, StatusCode> {
+    if request.settings.is_empty() || request.settings.len() > 50 {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    if request.settings.iter().any(|setting| {
+        setting.category.is_empty()
+            || setting.category.len() > 64
+            || setting.key.is_empty()
+            || setting.key.len() > 128
+            || setting
+                .category
+                .chars()
+                .any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
+            || setting
+                .key
+                .chars()
+                .any(|c| !c.is_ascii_alphanumeric() && c != '_' && c != '-')
+    }) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
     info!("Updating {} settings", request.settings.len());
-    
+
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    
+
     let mut updated_count = 0;
     let mut errors: Vec<String> = Vec::new();
-    
+
     for setting in &request.settings {
         let result = diesel::sql_query(
             "INSERT INTO system_settings (category, key, value, updated_at) 
              VALUES ($1, $2, $3, NOW()) 
              ON CONFLICT (category, key) 
-             DO UPDATE SET value = $3, updated_at = NOW()"
+             DO UPDATE SET value = $3, updated_at = NOW()",
         )
         .bind::<diesel::sql_types::Varchar, _>(&setting.category)
         .bind::<diesel::sql_types::Varchar, _>(&setting.key)
         .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
         .execute(&mut conn)
         .await;
-        
+
         match result {
             Ok(_) => {
                 updated_count += 1;
                 info!("Updated setting: {}.{}", setting.category, setting.key);
             }
             Err(e) => {
-                error!("Failed to update {}.{}: {}", setting.category, setting.key, e);
+                error!(
+                    "Failed to update {}.{}: {}",
+                    setting.category, setting.key, e
+                );
                 errors.push(format!("{}.{}: {}", setting.category, setting.key, e));
             }
         }
     }
-    
+
     if errors.is_empty() {
         Ok(Json(json!({
             "success": true,
@@ -319,50 +302,10 @@ pub async fn update_settings_handler(
     tag = "admin-settings"
 )]
 pub async fn reset_settings_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<Value>, StatusCode> {
-    info!("Resetting all settings to defaults");
-    
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
-        error!("Failed to get DB connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-    
-    // Delete all existing settings
-    diesel::sql_query("DELETE FROM system_settings")
-        .execute(&mut conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to delete settings: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
-    // Insert default settings
-    let defaults = get_default_settings();
-    let mut inserted_count = 0;
-    
-    for (category, settings) in &defaults {
-        for (key, value) in settings {
-            let result = diesel::sql_query(
-                "INSERT INTO system_settings (category, key, value, updated_at) VALUES ($1, $2, $3, NOW())"
-            )
-            .bind::<diesel::sql_types::Varchar, _>(category)
-            .bind::<diesel::sql_types::Varchar, _>(key)
-            .bind::<diesel::sql_types::Jsonb, _>(value)
-            .execute(&mut conn)
-            .await;
-            
-            if result.is_ok() {
-                inserted_count += 1;
-            }
-        }
-    }
-    
-    info!("Reset {} settings to defaults", inserted_count);
-    
-    Ok(Json(json!({
-        "success": true,
-        "message": format!("Reset {} settings to defaults", inserted_count),
-        "data": defaults
-    })))
+    // Reset previously deleted every stored setting and recreated an
+    // in-process sample catalog. Keep that destructive legacy operation
+    // unreachable until a versioned, auditable replacement exists.
+    Err(StatusCode::NOT_IMPLEMENTED)
 }

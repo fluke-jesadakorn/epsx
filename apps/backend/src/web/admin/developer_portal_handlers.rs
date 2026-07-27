@@ -111,8 +111,39 @@ pub struct UpdateModuleBody {
 
 #[derive(Debug, Serialize)]
 pub struct ApiKeyListResponse {
-    pub api_keys: Vec<AdminApiKeyView>,
+    pub api_keys: Vec<AdminApiKeySummaryView>,
     pub total: i64,
+}
+
+/// The bounded inventory endpoint exposes only fields needed by the
+/// read-only developer portal. Management/detail endpoints continue to use
+/// `AdminApiKeyView`, but list consumers must not receive wallet ownership,
+/// contacts, permissions, rate limits, or revocation metadata by default.
+#[derive(Debug, Serialize)]
+pub struct AdminApiKeySummaryView {
+    pub id: Uuid,
+    pub key_prefix: String,
+    pub client_name: String,
+    pub status: ApiKeyStatus,
+    pub total_requests: i64,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
+impl From<ApiKey> for AdminApiKeySummaryView {
+    fn from(value: ApiKey) -> Self {
+        Self {
+            id: value.id,
+            key_prefix: value.key_prefix,
+            client_name: value.client_name,
+            status: value.status,
+            total_requests: value.total_requests,
+            expires_at: value.expires_at,
+            last_used_at: value.last_used_at,
+            created_at: value.created_at,
+        }
+    }
 }
 
 /// A read projection that can never contain the plaintext API-key secret.
@@ -544,7 +575,10 @@ pub async fn list_api_keys_handler(
     match result {
         Ok((api_keys, total)) => response_with_id(
             UnifiedApiResponse::success(ApiKeyListResponse {
-                api_keys: api_keys.into_iter().map(AdminApiKeyView::from).collect(),
+                api_keys: api_keys
+                    .into_iter()
+                    .map(AdminApiKeySummaryView::from)
+                    .collect(),
                 total,
             }),
             &request_id,

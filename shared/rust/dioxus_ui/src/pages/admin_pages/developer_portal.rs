@@ -275,7 +275,7 @@ fn DeveloperPortalReady(projection: AdminDeveloperPortalProjection) -> Element {
                 } else {
                     div { class: "divide-y divide-border/30 border-t border-border/30",
                         for key in projection.api_keys {
-                            DeveloperApiKeyRow { key }
+                            DeveloperApiKeyRow { api_key: key }
                         }
                     }
                 }
@@ -315,26 +315,26 @@ fn SummaryCard(label: &'static str, value: String, icon: &'static str) -> Elemen
 }
 
 #[component]
-fn DeveloperApiKeyRow(key: AdminDeveloperApiKeySummary) -> Element {
-    let status_class = match key.status.as_str() {
+fn DeveloperApiKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
+    let status_class = match api_key.status.as_str() {
         "active" => "border-green-500/20 bg-green-500/10 text-green-400",
         "expired" => "border-red-500/20 bg-red-500/10 text-red-400",
         _ => "border-amber-500/20 bg-amber-500/10 text-amber-400",
     };
-    let expires_at = key.expires_at.as_deref().unwrap_or("No expiry");
-    let last_used_at = key.last_used_at.as_deref().unwrap_or("Not used");
+    let expires_at = api_key.expires_at.as_deref().unwrap_or("No expiry");
+    let last_used_at = api_key.last_used_at.as_deref().unwrap_or("Not used");
     rsx! {
         article { class: "grid gap-4 p-5 md:grid-cols-12 md:items-center",
             div { class: "min-w-0 md:col-span-4",
-                h3 { class: "truncate text-sm font-semibold text-foreground", "{key.client_name}" }
-                p { class: "mt-1 break-all font-mono text-xs text-muted-foreground", "Prefix: {key.key_prefix}" }
+                h3 { class: "truncate text-sm font-semibold text-foreground", "{api_key.client_name}" }
+                p { class: "mt-1 break-all font-mono text-xs text-muted-foreground", "Prefix: {api_key.key_prefix}" }
             }
             div { class: "md:col-span-2",
-                span { class: "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {status_class}", "{key.status}" }
+                span { class: "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {status_class}", "{api_key.status}" }
             }
             div { class: "md:col-span-2",
                 p { class: "text-xs uppercase tracking-wide text-muted-foreground", "Requests" }
-                p { class: "mt-1 text-sm text-foreground", "{key.total_requests}" }
+                p { class: "mt-1 text-sm text-foreground", "{api_key.total_requests}" }
             }
             div { class: "md:col-span-2",
                 p { class: "text-xs uppercase tracking-wide text-muted-foreground", "Expires" }

@@ -549,6 +549,11 @@ pub fn create_admin_routes() -> Router<AppState> {
         .merge(news_write)
         .merge(media_read)
         .merge(media_write)
+        // Every admin operation is an admin-audience boundary. Individual
+        // subrouters still carry their read/manage permission guards; this
+        // outer layer prevents API-key and non-admin JWT fallback paths from
+        // reaching any admin handler.
+        .layer(from_fn(require_exact_admin_audience))
 }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

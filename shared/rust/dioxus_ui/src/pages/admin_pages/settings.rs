@@ -7,6 +7,7 @@
 //! and fail closed until the backend supplies typed, authorized settings data.
 
 use dioxus::prelude::*;
+use serde::Deserialize;
 
 use crate::auth::AuthGate;
 use crate::components::admin::page_layout::{PageGradient, PageHeader};
@@ -14,6 +15,81 @@ use crate::layout::admin_shell::AdminShell;
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
+
+pub const ADMIN_SETTINGS_DATA_PARAM: &str = "data_admin_settings";
+pub const ADMIN_SETTINGS_STATE_PARAM: &str = "data_admin_settings_state";
+pub const ADMIN_SETTINGS_READY: &str = "ready";
+pub const ADMIN_SETTINGS_EMPTY: &str = "empty";
+pub const ADMIN_SETTINGS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_SETTINGS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_SETTINGS_MALFORMED: &str = "malformed";
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct AdminSettingsProjection {
+    categories: Vec<AdminSettingsCategory>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct AdminSettingsCategory {
+    name: String,
+    values: Vec<AdminSetting>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+struct AdminSetting {
+    key: String,
+    value: AdminSettingValue,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq)]
+enum AdminSettingValue {
+    Text(String),
+    Bool(bool),
+    Number(i64),
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum AdminSettingsLoad {
+    Ready(AdminSettingsProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn settings_load(ctx: &PageContext) -> AdminSettingsLoad {
+    let state = ctx
+        .params
+        .get(ADMIN_SETTINGS_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or(ADMIN_SETTINGS_UNAVAILABLE);
+    match state {
+        ADMIN_SETTINGS_READY => ctx
+            .params
+            .get(ADMIN_SETTINGS_DATA_PARAM)
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .map(AdminSettingsLoad::Ready)
+            .unwrap_or(AdminSettingsLoad::Malformed),
+        ADMIN_SETTINGS_EMPTY => AdminSettingsLoad::Empty,
+        ADMIN_SETTINGS_FORBIDDEN => AdminSettingsLoad::Forbidden,
+        ADMIN_SETTINGS_MALFORMED => AdminSettingsLoad::Malformed,
+        ADMIN_SETTINGS_UNAVAILABLE => AdminSettingsLoad::Unavailable,
+        _ => AdminSettingsLoad::Malformed,
+    }
+}
+
+fn settings_state(load: &AdminSettingsLoad) -> &'static str {
+    match load {
+        AdminSettingsLoad::Ready(_) => ADMIN_SETTINGS_READY,
+        AdminSettingsLoad::Empty => ADMIN_SETTINGS_EMPTY,
+        AdminSettingsLoad::Forbidden => ADMIN_SETTINGS_FORBIDDEN,
+        AdminSettingsLoad::Unavailable => ADMIN_SETTINGS_UNAVAILABLE,
+        AdminSettingsLoad::Malformed => ADMIN_SETTINGS_MALFORMED,
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Settings");
@@ -25,6 +101,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 /// or authorization policy; those decisions belong to the backend.
 #[component]
 fn RenderSettings(ctx: PageContext) -> Element {
+    let load = settings_load(&ctx);
+    let state = settings_state(&load);
     rsx! {
         AuthGate {
             user: ctx.user.clone(),
@@ -39,7 +117,10 @@ fn RenderSettings(ctx: PageContext) -> Element {
                 ],
                 div {
                     class: "container page-content admin-settings py-8",
-                    "data-admin-settings-state": "unavailable",
+                    "data-admin-settings-state": state,
+                    if let AdminSettingsLoad::Ready(projection) = load {
+                        SettingsReady { projection }
+                    } else {
                     PageHeader {
                         title: "Settings Nexus".to_string(),
                         subtitle: Some("Universal configuration interface for security, appearance, and system protocols".to_string()),
@@ -104,9 +185,56 @@ fn RenderSettings(ctx: PageContext) -> Element {
                             }
                         }
                     }
+                    }
                 }
             }
         }
+    }
+}
+
+#[component]
+fn SettingsReady(projection: AdminSettingsProjection) -> Element {
+    rsx! {
+        section {
+            class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
+            aria_labelledby: "admin-settings-ready-title",
+            "data-section": "admin-settings-ready",
+            div { class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
+            div { class: "p-8 md:p-10",
+                div { class: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
+                    div {
+                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-[#1fc7d4]", "Backend-authoritative configuration" }
+                        h2 { id: "admin-settings-ready-title", class: "mt-2 text-2xl font-black tracking-tight text-foreground", "Settings" }
+                        p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "These values were read from the backend and are displayed read-only. No local defaults or secret fields are shown." }
+                    }
+                    span { class: "inline-flex h-fit rounded-full border border-emerald-500/25 bg-emerald-500/10 px-3 py-1 text-xs font-semibold text-emerald-500", "Verified read" }
+                }
+                div { class: "mt-8 grid gap-6 md:grid-cols-2",
+                    for category in projection.categories {
+                        section { class: "rounded-2xl border border-border/30 bg-background/30 p-5", aria_labelledby: format!("admin-settings-category-{}", category.name),
+                            h3 { id: format!("admin-settings-category-{}", category.name), class: "text-sm font-bold capitalize text-foreground", "{category.name}" }
+                            dl { class: "mt-4 space-y-3",
+                                for setting in category.values {
+                                    div { class: "flex items-start justify-between gap-4 border-b border-border/20 pb-3 last:border-0 last:pb-0",
+                                        dt { class: "text-sm text-muted-foreground", "{setting.key}" }
+                                        dd { class: "max-w-[60%] break-words text-right text-sm font-semibold text-foreground", {render_setting_value(&setting.value)} }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                p { class: "mt-8 border-t border-border/30 pt-5 text-xs leading-5 text-muted-foreground", "Settings changes remain unavailable until the backend exposes a versioned, idempotent, audited manage contract." }
+            }
+        }
+    }
+}
+
+fn render_setting_value(value: &AdminSettingValue) -> String {
+    match value {
+        AdminSettingValue::Text(value) => value.clone(),
+        AdminSettingValue::Bool(value) => value.to_string(),
+        AdminSettingValue::Number(value) => value.to_string(),
     }
 }
 

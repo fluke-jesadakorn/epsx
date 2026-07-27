@@ -20,16 +20,20 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod analytics_admin_adapter;
 mod audit_log_adapter;
 mod auth;
 mod chat_admin_adapter;
+mod commerce_admin_adapter;
 mod dashboard_user_status_adapter;
+mod developer_portal_adapter;
 mod media_adapter;
 mod news_adapter;
 mod notification_admin_adapter;
 mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;
+mod settings_adapter;
 mod ssr;
 mod wallet_stats_adapter;
 

@@ -112,12 +112,11 @@ impl UsageService {
             .await?;
 
         if api_key_ids.is_empty() {
-            return Ok(UsageStats {
-                total_requests,
-                average_success_rate: 100.0,
-                requests_24h: 0,
-                error_rate_24h: 0.0,
-            });
+            // A wallet without keys has no measured success rate. Returning
+            // 100% here would fabricate an operational metric from absence of
+            // data; the admin read surface maps this dependency result to an
+            // explicit unavailable state.
+            return Err(diesel::result::Error::NotFound);
         }
 
         // Query analytics database for 24h stats
