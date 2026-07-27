@@ -1,9 +1,11 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::notification::queries::{
-    ListNotificationsQuery, ListNotificationsResponse, NotificationSummaryDTO
+    ListNotificationsQuery, ListNotificationsResponse, NotificationSummaryDTO,
 };
-use crate::domain::notification::{NotificationRepositoryPort, NotificationSearchCriteria, NotificationStatus, NotificationType};
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
+use crate::domain::notification::{
+    NotificationRepositoryPort, NotificationSearchCriteria, NotificationStatus, NotificationType,
+};
+use crate::prelude::*;
 
 /// Query handler for listing notifications with filters
 pub struct ListNotificationsQueryHandler {
@@ -20,22 +22,29 @@ impl ListNotificationsQueryHandler {
 
 #[async_trait]
 impl QueryHandler<ListNotificationsQuery> for ListNotificationsQueryHandler {
-    async fn handle(&self, query: ListNotificationsQuery) -> ApplicationResult<ListNotificationsResponse> {
+    async fn handle(
+        &self,
+        query: ListNotificationsQuery,
+    ) -> ApplicationResult<ListNotificationsResponse> {
         // Parse wallet address if provided
         let recipient_wallet_address = query.wallet_address.clone();
 
         // Parse status if provided
         let status = if let Some(s) = &query.status {
-            Some(NotificationStatus::from_str(s)
-                .map_err(|e| ApplicationError::validation("status", e))?)
+            Some(
+                NotificationStatus::from_str(s)
+                    .map_err(|e| ApplicationError::validation("status", e))?,
+            )
         } else {
             None
         };
 
         // Parse notification type if provided
         let notification_type = if let Some(nt) = &query.notification_type {
-            Some(NotificationType::from_str(nt)
-                .map_err(|e| ApplicationError::validation("notification_type", e))?)
+            Some(
+                NotificationType::from_str(nt)
+                    .map_err(|e| ApplicationError::validation("notification_type", e))?,
+            )
         } else {
             None
         };
@@ -54,24 +63,31 @@ impl QueryHandler<ListNotificationsQuery> for ListNotificationsQueryHandler {
         };
 
         // Load notifications from repository
-        let notifications = self.notification_repository.find_all(criteria.clone()).await
+        let notifications = self
+            .notification_repository
+            .find_all(criteria.clone())
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // Get total count
-        let total = self.notification_repository.count(criteria).await
+        let total = self
+            .notification_repository
+            .count(criteria)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // Map domain aggregates to summary DTOs
         let notification_summaries: Vec<NotificationSummaryDTO> = notifications
             .into_iter()
             .map(|notification| {
-                let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
-                    ("user".to_string(), wallet_address.to_string())
-                } else if let Some(topic) = notification.topic() {
-                    ("topic".to_string(), topic.name().to_string())
-                } else {
-                    ("unknown".to_string(), "".to_string())
-                };
+                let (recipient_type, recipient_id) =
+                    if let Some(wallet_address) = notification.recipient_wallet_address() {
+                        ("user".to_string(), wallet_address.to_string())
+                    } else if let Some(topic) = notification.topic() {
+                        ("topic".to_string(), topic.name().to_string())
+                    } else {
+                        ("unknown".to_string(), "".to_string())
+                    };
 
                 NotificationSummaryDTO {
                     notification_id: notification.id().as_str().to_string(),

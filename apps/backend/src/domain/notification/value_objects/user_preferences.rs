@@ -1,8 +1,8 @@
-use std::fmt::{self, Display};
-use std::collections::HashSet;
-use chrono::{NaiveTime, Utc, DateTime};
-use serde::{Deserialize, Serialize};
 use super::delivery_channel::DeliveryChannelType;
+use chrono::{DateTime, NaiveTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use std::fmt::{self, Display};
 
 /// Notification Types - pure domain enums
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -230,7 +230,10 @@ impl UserNotificationPreferences {
         }
 
         // Check if notification type is allowed
-        if !self.content_preferences.allows_notification_type(notification_type) {
+        if !self
+            .content_preferences
+            .allows_notification_type(notification_type)
+        {
             return false;
         }
 
@@ -245,7 +248,10 @@ impl UserNotificationPreferences {
         if let Some(quiet_hours) = &self.quiet_hours {
             if quiet_hours.is_in_quiet_period(current_time, &self.timezone) {
                 // Allow urgent notifications during quiet hours
-                matches!(notification_type, NotificationType::System | NotificationType::Security)
+                matches!(
+                    notification_type,
+                    NotificationType::System | NotificationType::Security
+                )
             } else {
                 true
             }
@@ -261,7 +267,8 @@ impl UserNotificationPreferences {
         recent_count: u32,
         window_hours: u32,
     ) -> bool {
-        self.frequency_limits.allows_notification(channel, recent_count, window_hours)
+        self.frequency_limits
+            .allows_notification(channel, recent_count, window_hours)
     }
 
     /// Get last updated timestamp
@@ -335,10 +342,18 @@ impl ChannelSettings {
     /// Get count of enabled channels
     pub fn enabled_channel_count(&self) -> u8 {
         let mut count = 0;
-        if self.web_push_enabled { count += 1; }
-        if self.in_app_enabled { count += 1; }
-        if self.email_enabled { count += 1; }
-        if self.sms_enabled { count += 1; }
+        if self.web_push_enabled {
+            count += 1;
+        }
+        if self.in_app_enabled {
+            count += 1;
+        }
+        if self.email_enabled {
+            count += 1;
+        }
+        if self.sms_enabled {
+            count += 1;
+        }
         count
     }
 
@@ -351,10 +366,10 @@ impl ChannelSettings {
 impl Default for ChannelSettings {
     fn default() -> Self {
         Self {
-            web_push_enabled: true,  // Default enabled
-            in_app_enabled: true,    // Default enabled
-            email_enabled: false,    // Default disabled (requires explicit opt-in)
-            sms_enabled: false,      // Default disabled (requires explicit opt-in)
+            web_push_enabled: true, // Default enabled
+            in_app_enabled: true,   // Default enabled
+            email_enabled: false,   // Default disabled (requires explicit opt-in)
+            sms_enabled: false,     // Default disabled (requires explicit opt-in)
         }
     }
 }
@@ -421,11 +436,21 @@ impl ContentPreferences {
     /// Get count of allowed types
     pub fn allowed_type_count(&self) -> u8 {
         let mut count = 0;
-        if self.system_notifications { count += 1; }
-        if self.admin_notifications { count += 1; }
-        if self.security_notifications { count += 1; }
-        if self.feature_notifications { count += 1; }
-        if self.marketing_notifications { count += 1; }
+        if self.system_notifications {
+            count += 1;
+        }
+        if self.admin_notifications {
+            count += 1;
+        }
+        if self.security_notifications {
+            count += 1;
+        }
+        if self.feature_notifications {
+            count += 1;
+        }
+        if self.marketing_notifications {
+            count += 1;
+        }
         count
     }
 }
@@ -433,10 +458,10 @@ impl ContentPreferences {
 impl Default for ContentPreferences {
     fn default() -> Self {
         Self {
-            system_notifications: true,   // Always enabled by default
-            admin_notifications: true,    // Enabled for admins
-            security_notifications: true, // Always enabled for security
-            feature_notifications: true,  // Default enabled
+            system_notifications: true,     // Always enabled by default
+            admin_notifications: true,      // Enabled for admins
+            security_notifications: true,   // Always enabled for security
+            feature_notifications: true,    // Default enabled
             marketing_notifications: false, // Default disabled (requires opt-in)
         }
     }
@@ -521,9 +546,11 @@ impl QuietHours {
             duration.num_minutes() as f32 / 60.0
         } else {
             // Overnight
-            let to_midnight = NaiveTime::from_hms_opt(23, 59, 59).unwrap()
+            let to_midnight = NaiveTime::from_hms_opt(23, 59, 59)
+                .unwrap()
                 .signed_duration_since(self.start_time);
-            let from_midnight = self.end_time
+            let from_midnight = self
+                .end_time
                 .signed_duration_since(NaiveTime::from_hms_opt(0, 0, 0).unwrap());
             (to_midnight.num_minutes() + from_midnight.num_minutes()) as f32 / 60.0
         }
@@ -564,11 +591,11 @@ impl FrequencyLimits {
 impl Default for FrequencyLimits {
     fn default() -> Self {
         Self {
-            max_per_hour: 10,        // Max 10 notifications per hour
-            max_per_day: 50,         // Max 50 notifications per day
-            max_push_per_hour: 5,    // Max 5 push notifications per hour
-            max_email_per_day: 10,   // Max 10 emails per day
-            max_sms_per_day: 3,      // Max 3 SMS per day
+            max_per_hour: 10,      // Max 10 notifications per hour
+            max_per_day: 50,       // Max 50 notifications per day
+            max_push_per_hour: 5,  // Max 5 push notifications per hour
+            max_email_per_day: 10, // Max 10 emails per day
+            max_sms_per_day: 3,    // Max 3 SMS per day
         }
     }
 }
@@ -586,11 +613,14 @@ pub struct PreferenceSummary {
 impl Display for UserNotificationPreferences {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let summary = self.summary();
-        write!(f, "User {} preferences: {} channels, {} types, {} blocked topics",
-               self.wallet_address,
-               summary.enabled_channels,
-               summary.allowed_types,
-               summary.blocked_topic_count)
+        write!(
+            f,
+            "User {} preferences: {} channels, {} types, {} blocked topics",
+            self.wallet_address,
+            summary.enabled_channels,
+            summary.allowed_types,
+            summary.blocked_topic_count
+        )
     }
 }
 
@@ -604,7 +634,7 @@ mod tests {
     fn test_new_preferences() {
         let wallet_address = Uuid::new_v4();
         let prefs = UserNotificationPreferences::new(wallet_address);
-        
+
         assert_eq!(prefs.wallet_address(), wallet_address);
         assert_eq!(prefs.timezone(), "UTC");
         assert!(prefs.channel_settings().has_any_enabled());
@@ -614,24 +644,40 @@ mod tests {
     fn test_channel_settings() {
         let wallet_address = Uuid::new_v4();
         let mut prefs = UserNotificationPreferences::new(wallet_address);
-        
-        assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::WebPush));
-        assert!(prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::InApp));
-        
-        prefs.channel_settings_mut().disable_channel(&DeliveryChannelType::WebPush);
-        assert!(!prefs.channel_settings().is_channel_enabled(&DeliveryChannelType::WebPush));
+
+        assert!(prefs
+            .channel_settings()
+            .is_channel_enabled(&DeliveryChannelType::WebPush));
+        assert!(prefs
+            .channel_settings()
+            .is_channel_enabled(&DeliveryChannelType::InApp));
+
+        prefs
+            .channel_settings_mut()
+            .disable_channel(&DeliveryChannelType::WebPush);
+        assert!(!prefs
+            .channel_settings()
+            .is_channel_enabled(&DeliveryChannelType::WebPush));
     }
 
     #[test]
     fn test_content_preferences() {
         let wallet_address = Uuid::new_v4();
         let mut prefs = UserNotificationPreferences::new(wallet_address);
-        
-        assert!(prefs.content_preferences().allows_notification_type(&NotificationType::System));
-        assert!(!prefs.content_preferences().allows_notification_type(&NotificationType::Marketing));
-        
-        prefs.content_preferences_mut().enable_type(&NotificationType::Marketing);
-        assert!(prefs.content_preferences().allows_notification_type(&NotificationType::Marketing));
+
+        assert!(prefs
+            .content_preferences()
+            .allows_notification_type(&NotificationType::System));
+        assert!(!prefs
+            .content_preferences()
+            .allows_notification_type(&NotificationType::Marketing));
+
+        prefs
+            .content_preferences_mut()
+            .enable_type(&NotificationType::Marketing);
+        assert!(prefs
+            .content_preferences()
+            .allows_notification_type(&NotificationType::Marketing));
     }
 
     #[test]
@@ -639,12 +685,12 @@ mod tests {
         let start = NaiveTime::from_hms_opt(22, 0, 0).unwrap();
         let end = NaiveTime::from_hms_opt(7, 0, 0).unwrap();
         let quiet_hours = QuietHours::new(start, end).unwrap();
-        
+
         // Test overnight quiet hours
         let night_time = Utc.with_ymd_and_hms(2024, 1, 1, 23, 30, 0).unwrap();
         let morning_time = Utc.with_ymd_and_hms(2024, 1, 1, 6, 30, 0).unwrap();
         let day_time = Utc.with_ymd_and_hms(2024, 1, 1, 12, 0, 0).unwrap();
-        
+
         assert!(quiet_hours.is_in_quiet_period(night_time, "UTC"));
         assert!(quiet_hours.is_in_quiet_period(morning_time, "UTC"));
         assert!(!quiet_hours.is_in_quiet_period(day_time, "UTC"));
@@ -654,12 +700,12 @@ mod tests {
     fn test_topic_blocking() {
         let wallet_address = Uuid::new_v4();
         let mut prefs = UserNotificationPreferences::new(wallet_address);
-        
+
         assert!(!prefs.is_topic_blocked("marketing"));
-        
+
         prefs.block_topic("marketing".to_string());
         assert!(prefs.is_topic_blocked("marketing"));
-        
+
         prefs.unblock_topic("marketing");
         assert!(!prefs.is_topic_blocked("marketing"));
     }
@@ -668,12 +714,14 @@ mod tests {
     fn test_should_receive_notification() {
         let wallet_address = Uuid::new_v4();
         let mut prefs = UserNotificationPreferences::new(wallet_address);
-        
+
         // Block marketing notifications
-        prefs.content_preferences_mut().disable_type(&NotificationType::Marketing);
-        
+        prefs
+            .content_preferences_mut()
+            .disable_type(&NotificationType::Marketing);
+
         let current_time = Utc::now();
-        
+
         // Should not receive marketing notifications
         assert!(!prefs.should_receive_notification(
             &NotificationType::Marketing,
@@ -681,7 +729,7 @@ mod tests {
             None,
             current_time
         ));
-        
+
         // Should receive system notifications
         assert!(prefs.should_receive_notification(
             &NotificationType::System,
@@ -694,10 +742,10 @@ mod tests {
     #[test]
     fn test_frequency_limits() {
         let limits = FrequencyLimits::default();
-        
+
         // Should allow under limit
         assert!(limits.allows_notification(&DeliveryChannelType::WebPush, 3, 1));
-        
+
         // Should block over limit
         assert!(!limits.allows_notification(&DeliveryChannelType::WebPush, 10, 1));
     }
@@ -707,7 +755,7 @@ mod tests {
         let start = NaiveTime::from_hms_opt(22, 0, 0).unwrap();
         let end = NaiveTime::from_hms_opt(7, 0, 0).unwrap();
         let quiet_hours = QuietHours::new(start, end).unwrap();
-        
+
         let duration = quiet_hours.duration_hours();
         assert!((duration - 9.0).abs() < 0.1); // 22:00 to 07:00 = 9 hours
     }

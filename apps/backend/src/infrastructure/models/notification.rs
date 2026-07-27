@@ -1,8 +1,8 @@
 //! Diesel models for notifications
 use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable};
-use uuid::Uuid;
+use diesel::{Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 /// Diesel Queryable model for notifications table
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]

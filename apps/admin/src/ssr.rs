@@ -52,33 +52,34 @@ use epsx_dioxus_ui::pages::admin_pages::developer_portal::{
 };
 use epsx_dioxus_ui::pages::admin_pages::media::{
     ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
-    ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_MUTATION_COMMITTED, ADMIN_MEDIA_MUTATION_DATA_PARAM,
-    ADMIN_MEDIA_MUTATION_ERROR_PARAM, ADMIN_MEDIA_MUTATION_STATE_PARAM,
-    ADMIN_MEDIA_MUTATION_CONFLICT, ADMIN_MEDIA_MUTATION_FORBIDDEN,
-    ADMIN_MEDIA_MUTATION_MALFORMED, ADMIN_MEDIA_MUTATION_UNAVAILABLE, ADMIN_MEDIA_READY,
+    ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_MUTATION_COMMITTED, ADMIN_MEDIA_MUTATION_CONFLICT,
+    ADMIN_MEDIA_MUTATION_DATA_PARAM, ADMIN_MEDIA_MUTATION_ERROR_PARAM,
+    ADMIN_MEDIA_MUTATION_FORBIDDEN, ADMIN_MEDIA_MUTATION_MALFORMED,
+    ADMIN_MEDIA_MUTATION_STATE_PARAM, ADMIN_MEDIA_MUTATION_UNAVAILABLE, ADMIN_MEDIA_READY,
     ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EDITOR_DATA_PARAM, ADMIN_NEWS_EDITOR_FORM,
-    ADMIN_NEWS_EDITOR_READY, ADMIN_NEWS_EDITOR_STATE_PARAM, ADMIN_NEWS_EMPTY,
-    ADMIN_NEWS_IMAGE_STATE_PARAM, ADMIN_NEWS_IMAGE_COMMITTED, ADMIN_NEWS_IMAGE_URL_PARAM,
-    ADMIN_NEWS_FORBIDDEN, ADMIN_NEWS_MALFORMED, ADMIN_NEWS_MUTATION_CONFLICT,
-    ADMIN_NEWS_MUTATION_ERROR_PARAM, ADMIN_NEWS_MUTATION_FORBIDDEN,
-    ADMIN_NEWS_MUTATION_MALFORMED, ADMIN_NEWS_MUTATION_STATE_PARAM,
+    ADMIN_NEWS_EDITOR_READY, ADMIN_NEWS_EDITOR_STATE_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN,
+    ADMIN_NEWS_IMAGE_COMMITTED, ADMIN_NEWS_IMAGE_STATE_PARAM, ADMIN_NEWS_IMAGE_URL_PARAM,
+    ADMIN_NEWS_MALFORMED, ADMIN_NEWS_MUTATION_CONFLICT, ADMIN_NEWS_MUTATION_ERROR_PARAM,
+    ADMIN_NEWS_MUTATION_FORBIDDEN, ADMIN_NEWS_MUTATION_MALFORMED, ADMIN_NEWS_MUTATION_STATE_PARAM,
     ADMIN_NEWS_MUTATION_UNAVAILABLE, ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY,
     ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM, ADMIN_NEWS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
-    decode_admin_notification_create_result, ADMIN_NOTIFICATION_CREATE_CONFLICT,
-    ADMIN_NOTIFICATION_CREATE_DATA_PARAM, ADMIN_NOTIFICATION_CREATE_FAILED,
-    ADMIN_NOTIFICATION_CREATE_FORM, ADMIN_NOTIFICATION_CREATE_FORBIDDEN,
-    ADMIN_NOTIFICATION_CREATE_INVALID, ADMIN_NOTIFICATION_CREATE_MALFORMED,
-    ADMIN_NOTIFICATION_CREATE_PENDING, ADMIN_NOTIFICATION_CREATE_SENT,
-    ADMIN_NOTIFICATION_CREATE_STATE_PARAM, ADMIN_NOTIFICATION_CREATE_UNAVAILABLE,
+    decode_admin_notification_create_result, AdminNotificationMetrics,
     ADMIN_NOTIFICATIONS_DATA_PARAM, ADMIN_NOTIFICATIONS_EMPTY, ADMIN_NOTIFICATIONS_FORBIDDEN,
-    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY,
-    ADMIN_NOTIFICATIONS_MUTATION_PARAM, ADMIN_NOTIFICATIONS_STATE_PARAM,
-    ADMIN_NOTIFICATIONS_UNAVAILABLE, ADMIN_NOTIFICATION_METRICS_DATA_PARAM,
+    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_MUTATION_PARAM,
+    ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY, ADMIN_NOTIFICATIONS_SEND_ACCEPTED,
+    ADMIN_NOTIFICATIONS_SEND_ERROR, ADMIN_NOTIFICATIONS_SEND_STATE_PARAM,
+    ADMIN_NOTIFICATIONS_STATE_PARAM, ADMIN_NOTIFICATIONS_UNAVAILABLE,
+    ADMIN_NOTIFICATION_CREATE_CONFLICT, ADMIN_NOTIFICATION_CREATE_DATA_PARAM,
+    ADMIN_NOTIFICATION_CREATE_FAILED, ADMIN_NOTIFICATION_CREATE_FORBIDDEN,
+    ADMIN_NOTIFICATION_CREATE_FORM, ADMIN_NOTIFICATION_CREATE_INVALID,
+    ADMIN_NOTIFICATION_CREATE_MALFORMED, ADMIN_NOTIFICATION_CREATE_PENDING,
+    ADMIN_NOTIFICATION_CREATE_SENT, ADMIN_NOTIFICATION_CREATE_STATE_PARAM,
+    ADMIN_NOTIFICATION_CREATE_UNAVAILABLE, ADMIN_NOTIFICATION_METRICS_DATA_PARAM,
     ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
@@ -93,8 +94,7 @@ use epsx_dioxus_ui::pages::admin_pages::payments::{
 use epsx_dioxus_ui::pages::admin_pages::settings::{
     ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
     ADMIN_SETTINGS_MALFORMED, ADMIN_SETTINGS_MUTATION_PARAM, ADMIN_SETTINGS_READY,
-    ADMIN_SETTINGS_STATE_PARAM,
-    ADMIN_SETTINGS_UNAVAILABLE,
+    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_access::{
     AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM, ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED,
@@ -114,14 +114,13 @@ use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
     AdminWalletDetailProjection, AdminWalletStatsSummary, ADMIN_WALLET_DETAIL_DATA_PARAM,
     ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
     ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
-    ADMIN_WALLET_LIST_DATA_PARAM, ADMIN_WALLET_LIST_EMPTY, ADMIN_WALLET_LIST_FORBIDDEN,
-    ADMIN_WALLET_LIST_MALFORMED, ADMIN_WALLET_LIST_READY, ADMIN_WALLET_LIST_STATE_PARAM,
-    ADMIN_WALLET_LIST_UNAVAILABLE,
-    ADMIN_WALLET_STATS_DATA_PARAM, ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED,
-    ADMIN_WALLET_STATS_READY, ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
     ADMIN_WALLET_DISABLE_CONFLICT, ADMIN_WALLET_DISABLE_FORBIDDEN, ADMIN_WALLET_DISABLE_FORM,
-    ADMIN_WALLET_DISABLE_MALFORMED, ADMIN_WALLET_DISABLE_STATE_PARAM,
-    ADMIN_WALLET_DISABLE_SUCCESS, ADMIN_WALLET_DISABLE_UNAVAILABLE,
+    ADMIN_WALLET_DISABLE_MALFORMED, ADMIN_WALLET_DISABLE_STATE_PARAM, ADMIN_WALLET_DISABLE_SUCCESS,
+    ADMIN_WALLET_DISABLE_UNAVAILABLE, ADMIN_WALLET_LIST_DATA_PARAM, ADMIN_WALLET_LIST_EMPTY,
+    ADMIN_WALLET_LIST_FORBIDDEN, ADMIN_WALLET_LIST_MALFORMED, ADMIN_WALLET_LIST_READY,
+    ADMIN_WALLET_LIST_STATE_PARAM, ADMIN_WALLET_LIST_UNAVAILABLE, ADMIN_WALLET_STATS_DATA_PARAM,
+    ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED, ADMIN_WALLET_STATS_READY,
+    ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
@@ -145,8 +144,8 @@ use super::news_adapter::{
     load_admin_news, load_admin_news_editor, AdminNewsEditorLoad, AdminNewsLoad, AdminNewsQuery,
 };
 use super::notification_admin_adapter::{
-    load_admin_notifications, AdminNotificationLoad, AdminNotificationQuery,
-    load_admin_notification_metrics, AdminNotificationMetricsLoad,
+    load_admin_notification_metrics, load_admin_notifications, AdminNotificationLoad,
+    AdminNotificationMetricsLoad, AdminNotificationQuery,
 };
 use super::settings_admin_adapter::{load_admin_settings, AdminSettingsLoad};
 use super::wallet_stats_adapter::{
@@ -259,7 +258,13 @@ fn record_admin_media_load(
 
 fn parse_admin_media_query(
     raw_query: &str,
-) -> Result<(AdminMediaQuery, Option<(String, Option<String>, Option<i64>, bool)>), ()> {
+) -> Result<
+    (
+        AdminMediaQuery,
+        Option<(String, Option<String>, Option<i64>, bool)>,
+    ),
+    (),
+> {
     let mut bucket = None;
     let mut mutation = None;
     let mut key = None;
@@ -279,8 +284,12 @@ fn parse_admin_media_query(
             {
                 mutation = Some(value.into_owned());
             }
-            "key" if key.is_none() && !value.is_empty() && value.len() <= 1_024
-                && value.trim() == value && !value.chars().any(char::is_control) =>
+            "key"
+                if key.is_none()
+                    && !value.is_empty()
+                    && value.len() <= 1_024
+                    && value.trim() == value
+                    && !value.chars().any(char::is_control) =>
             {
                 key = Some(value.into_owned());
             }
@@ -304,9 +313,7 @@ fn parse_admin_media_query(
     let bucket_name = bucket.unwrap_or_else(|| "news".to_string());
     let inventory_query = AdminMediaQuery::from_raw(&format!("bucket={bucket_name}"))?;
     match mutation {
-        None if key.is_none() && size.is_none() && deleted.is_none() => {
-            Ok((inventory_query, None))
-        }
+        None if key.is_none() && size.is_none() && deleted.is_none() => Ok((inventory_query, None)),
         Some(state) if state == "committed" => {
             let key = key.ok_or(())?;
             let deleted = deleted.ok_or(())?;
@@ -767,6 +774,60 @@ fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> R
         .into_response()
 }
 
+/// Consume the short-lived POST/redirect/GET notification feedback only when
+/// the query state is paired with the HttpOnly cookie issued by the form
+/// handler. Query input alone can never manufacture a success banner.
+fn consume_notification_send_flash(
+    headers: &HeaderMap,
+    query: &str,
+) -> (Option<&'static str>, bool) {
+    let cookie_prefix = format!("{}=", super::ADMIN_NOTIFICATION_FLASH_COOKIE);
+    let cookie_state = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value.split(';').find_map(|part| {
+                let part = part.trim();
+                part.strip_prefix(&cookie_prefix)
+                    .filter(|state| matches!(*state, "accepted" | "error"))
+            })
+        });
+    let cookie_present = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| {
+            value
+                .split(';')
+                .any(|part| part.trim().strip_prefix(&cookie_prefix).is_some())
+        });
+
+    let mut query_state = None;
+    let mut valid_query = true;
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key == "send" {
+            if query_state.is_some() || !matches!(value.as_ref(), "accepted" | "error") {
+                valid_query = false;
+            } else {
+                query_state = Some(if value == "accepted" {
+                    ADMIN_NOTIFICATIONS_SEND_ACCEPTED
+                } else {
+                    ADMIN_NOTIFICATIONS_SEND_ERROR
+                });
+            }
+        }
+    }
+
+    let state = valid_query.then_some((query_state, cookie_state)).and_then(
+        |(query_state, cookie_state)| match (query_state, cookie_state) {
+            (Some(query_state), Some(cookie_state)) if query_state == cookie_state => {
+                Some(query_state)
+            }
+            _ => None,
+        },
+    );
+    (state, cookie_present)
+}
+
 fn record_payment_intent_load(
     params: &mut HashMap<String, String>,
     result: Result<serde_json::Value, ()>,
@@ -895,6 +956,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // represented as an authoritative empty list.
     let mut params = HashMap::new();
     let route_path = strip_single_admin_prefix(&path).unwrap_or(path.as_str());
+    let mut notification_send_flash_clear = false;
+    if route_path == "/notifications/manage" {
+        let (state, clear_cookie) = consume_notification_send_flash(&headers, &query);
+        notification_send_flash_clear = clear_cookie;
+        if let Some(state) = state {
+            params.insert(
+                ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
+        }
+    }
     // The root dashboard has one narrow backend-owned status snapshot. The
     // loader runs only after this BFF has verified the exact admin audience;
     // signed-out requests and repeated admin prefixes cannot contact it.
@@ -1399,13 +1471,19 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     let load = load_admin_news(&state.content, &news_query, &request_context).await;
                     record_admin_news_load(&mut params, &news_query, load);
                     if let Some(state) = news_inventory_mutation_query(&query) {
-                        params.insert(ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(), state.to_string());
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                            state.to_string(),
+                        );
                     }
                 }
                 None => {
                     record_admin_news_load(&mut params, &news_query, AdminNewsLoad::Unavailable);
                     if let Some(state) = news_inventory_mutation_query(&query) {
-                        params.insert(ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(), state.to_string());
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                            state.to_string(),
+                        );
                     }
                 }
             },
@@ -1427,7 +1505,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 }
                 false => {
                     if let Some(state) = news_mutation_query(&query) {
-                        params.insert(ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(), state.to_string());
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                            state.to_string(),
+                        );
                         if state == ADMIN_NEWS_MUTATION_CONFLICT {
                             params.insert(
                                 ADMIN_NEWS_MUTATION_ERROR_PARAM.to_string(),
@@ -1454,22 +1535,14 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             if query.is_empty() {
                 let mut request_context = RequestContext::from_headers(&headers);
                 request_context.auth_token = verified_access_token.clone();
-                let load = load_admin_news_editor(
-                    &state.content,
-                    article_id,
-                    &request_context,
-                )
-                .await;
+                let load =
+                    load_admin_news_editor(&state.content, article_id, &request_context).await;
                 record_admin_news_editor_load(&mut params, article_id, load);
             } else if let Some(image_url) = news_image_url_query(&query) {
                 let mut request_context = RequestContext::from_headers(&headers);
                 request_context.auth_token = verified_access_token.clone();
-                let load = load_admin_news_editor(
-                    &state.content,
-                    article_id,
-                    &request_context,
-                )
-                .await;
+                let load =
+                    load_admin_news_editor(&state.content, article_id, &request_context).await;
                 record_admin_news_editor_load(&mut params, article_id, load);
                 params.insert(ADMIN_NEWS_IMAGE_URL_PARAM.to_string(), image_url);
                 params.insert(
@@ -1477,7 +1550,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_NEWS_IMAGE_COMMITTED.to_string(),
                 );
             } else if let Some(state) = news_mutation_query(&query) {
-                params.insert(ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(), state.to_string());
+                params.insert(
+                    ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                    state.to_string(),
+                );
                 if state == ADMIN_NEWS_MUTATION_CONFLICT {
                     params.insert(
                         ADMIN_NEWS_MUTATION_ERROR_PARAM.to_string(),
@@ -1546,6 +1622,19 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     AdminNotificationMetricsLoad::Unavailable,
                 );
             }
+        }
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load =
+                    load_admin_notification_metrics(&state.notification, &request_context).await;
+                record_admin_notification_metrics_load(&mut params, load);
+            }
+            None => record_admin_notification_metrics_load(
+                &mut params,
+                AdminNotificationMetricsLoad::Unavailable,
+            ),
         }
     }
     if route_path == "/notifications/create" && verified_access_token.is_some() {
@@ -1626,7 +1715,20 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             .collect::<Vec<_>>()
             .as_slice()
         {
-            [(key, value)] if key == "mutation" && matches!(value.as_ref(), "success" | "conflict" | "forbidden" | "invalid" | "unavailable" | "malformed") => value.to_string(),
+            [(key, value)]
+                if key == "mutation"
+                    && matches!(
+                        value.as_ref(),
+                        "success"
+                            | "conflict"
+                            | "forbidden"
+                            | "invalid"
+                            | "unavailable"
+                            | "malformed"
+                    ) =>
+            {
+                value.to_string()
+            }
             [] => String::new(),
             _ => "malformed".to_string(),
         };
@@ -1854,11 +1956,13 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         && headers
             .get(header::COOKIE)
             .and_then(|value| value.to_str().ok())
-            .is_some_and(|value| value.split(';').any(|cookie| {
-                cookie
-                    .trim_start()
-                    .starts_with(super::ADMIN_DEVELOPER_SECRET_COOKIE)
-            }))
+            .is_some_and(|value| {
+                value.split(';').any(|cookie| {
+                    cookie
+                        .trim_start()
+                        .starts_with(super::ADMIN_DEVELOPER_SECRET_COOKIE)
+                })
+            })
     {
         response.headers_mut().append(
             header::SET_COOKIE,
@@ -2002,9 +2106,7 @@ mod tests {
         pages::admin_pages::audit_log::{AdminAuditList, AdminAuditSummary},
         pages::admin_pages::media::{AdminMediaList, AdminMediaObject},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
-        pages::admin_pages::notifications::{
-            AdminNotificationList, AdminNotificationSummary,
-        },
+        pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
         pages::admin_pages::wallet_wallets::AdminWalletStatsSummary,
         pages::PageContext,
     };
@@ -2129,6 +2231,30 @@ mod tests {
         }
     }
 
+    fn admin_notification_metrics() -> AdminNotificationMetrics {
+        AdminNotificationMetrics {
+            queue_depth: 2,
+            queue_age_seconds: Some(1),
+            suppressed: 0,
+            retry_wait: 0,
+            terminal_failed: 0,
+            dead_lettered: 0,
+            provider_accepted: 1,
+            attempting: 0,
+            channel_outcomes: std::collections::BTreeMap::from([(String::from("in_app"), 2)]),
+            provider_events: 1,
+            delivery_attempts: 1,
+            replay_cursors: 1,
+            replay_cursor_age_seconds: Some(1),
+            active_streams: 1,
+            stream_connections_total: 1,
+            stream_reconnects_total: 0,
+            stream_replayed_events_total: 0,
+            stream_lag_seconds: Some(1),
+            stream_query_failures_total: 0,
+        }
+    }
+
     fn admin_notification_item() -> AdminNotificationSummary {
         AdminNotificationSummary {
             id: "0x0123456789abcdef0123456789abcdef".to_string(),
@@ -2212,6 +2338,41 @@ mod tests {
             .render(body, None, None, None)
         };
         dioxus_ssr::render_element(body)
+    }
+
+    #[test]
+    fn notification_send_flash_requires_matching_cookie_and_query() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("epsx.admin.notification_send=accepted"),
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted&page=1"),
+            (Some(ADMIN_NOTIFICATIONS_SEND_ACCEPTED), true)
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=error"),
+            (None, true)
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted&send=accepted"),
+            (None, true)
+        );
+
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("epsx.admin.notification_send=unexpected"),
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted"),
+            (None, true)
+        );
+        let empty = HeaderMap::new();
+        assert_eq!(
+            consume_notification_send_flash(&empty, "send=accepted"),
+            (None, false)
+        );
     }
 
     #[test]
@@ -2763,12 +2924,7 @@ mod tests {
             serde_json::from_str(params.get(ADMIN_NEWS_DATA_PARAM).unwrap()).unwrap();
         assert_eq!(stored["articles"][0]["slug"], "migration-status");
         assert_eq!(stored["total"], 41);
-        for forbidden in [
-            "content",
-            "author_wallet",
-            "cover_image_url",
-            "pinned_at",
-        ] {
+        for forbidden in ["content", "author_wallet", "cover_image_url", "pinned_at"] {
             assert!(
                 stored["articles"][0].get(forbidden).is_none(),
                 "{forbidden}"
@@ -2871,6 +3027,45 @@ mod tests {
         ] {
             assert!(stored["items"][0].get(forbidden).is_none(), "{forbidden}");
         }
+    }
+
+    #[test]
+    fn admin_notification_metrics_load_records_bounded_observations_or_explicit_failure() {
+        let mut ready = HashMap::from([(
+            ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
+            "stale-metrics".to_string(),
+        )]);
+        record_admin_notification_metrics_load(
+            &mut ready,
+            AdminNotificationMetricsLoad::Ready(admin_notification_metrics()),
+        );
+        assert_eq!(
+            ready
+                .get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(ready.get(ADMIN_NOTIFICATION_METRICS_DATA_PARAM).unwrap())
+                .unwrap();
+        assert_eq!(stored["queue_depth"], 2);
+        assert_eq!(stored["channel_outcomes"]["in_app"], 2);
+
+        let mut failed = HashMap::from([(
+            ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
+            "stale-metrics".to_string(),
+        )]);
+        record_admin_notification_metrics_load(
+            &mut failed,
+            AdminNotificationMetricsLoad::Malformed,
+        );
+        assert_eq!(
+            failed
+                .get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_MALFORMED)
+        );
+        assert!(!failed.contains_key(ADMIN_NOTIFICATION_METRICS_DATA_PARAM));
     }
 
     #[test]

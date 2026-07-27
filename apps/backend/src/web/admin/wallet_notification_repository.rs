@@ -2,14 +2,14 @@ use crate::prelude::TlsPool;
 // Wallet Notification Repository - Lightweight repository for wallet_notifications table
 // Eliminates duplicate database logic from handlers
 
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use std::sync::Arc;
+use uuid::Uuid;
 
-use epsx_contracts::errors::{AppError, ErrorKind};
 use super::notification_query_helper::NotificationQueryFilter;
+use epsx_contracts::errors::{AppError, ErrorKind};
 
 /// DTO for wallet notification records
 #[derive(Debug, Clone)]
@@ -32,6 +32,44 @@ pub struct WalletNotificationRecord {
     pub updated_at: DateTime<Utc>,
 }
 
+/// The immutable fields used to verify a producer event retry.  A stable
+/// event ID is only idempotent when the retry carries the same logical
+/// notification; an ID collision with a different payload must be rejected.
+#[derive(Debug, Clone, PartialEq)]
+pub struct WalletNotificationIdentity {
+    pub wallet_address: String,
+    pub notification_type: String,
+    pub title: String,
+    pub message: String,
+    pub data: Option<serde_json::Value>,
+    pub priority: String,
+    pub action_url: Option<String>,
+    pub expires_at: Option<DateTime<Utc>>,
+}
+
+impl WalletNotificationIdentity {
+    pub fn matches_payload(
+        &self,
+        wallet_address: &str,
+        notification_type: &str,
+        priority: &str,
+        title: &str,
+        message: &str,
+        data: Option<&serde_json::Value>,
+        action_url: Option<&str>,
+        expires_at: Option<DateTime<Utc>>,
+    ) -> bool {
+        self.wallet_address == wallet_address
+            && self.notification_type == notification_type
+            && self.priority == priority
+            && self.title == title
+            && self.message == message
+            && self.data.as_ref() == data
+            && self.action_url.as_deref() == action_url
+            && self.expires_at == expires_at
+    }
+}
+
 /// Repository for wallet_notifications table operations
 pub struct WalletNotificationRepository {
     pool: Arc<&'static TlsPool>,
@@ -42,6 +80,67 @@ impl WalletNotificationRepository {
         Self { pool }
     }
 
+    /// Load only the immutable fields needed to validate a stable producer
+    /// event retry.  This intentionally uses a parameterized query and does
+    /// not return recipient or message data to callers beyond this boundary.
+    pub async fn find_identity_by_id(
+        &self,
+        id: Uuid,
+    ) -> Result<Option<WalletNotificationIdentity>, AppError> {
+        #[derive(QueryableByName)]
+        struct IdentityRow {
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            recipient_wallet_address: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            notification_type: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            title: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            body: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
+            data_payload: Option<serde_json::Value>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            priority: String,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            action_url: Option<String>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<DateTime<Utc>>,
+        }
+
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
+        let rows = diesel::sql_query(
+            "SELECT recipient_wallet_address, notification_type, title, body, data_payload, priority, action_url, expires_at FROM wallet_notifications WHERE id = $1",
+        )
+        .bind::<diesel::sql_types::Uuid, _>(id)
+        .load::<IdentityRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch notification identity: {}", e),
+            )
+        })?;
+
+        Ok(rows
+            .into_iter()
+            .next()
+            .map(|row| WalletNotificationIdentity {
+                wallet_address: row.recipient_wallet_address.unwrap_or_default(),
+                notification_type: row.notification_type,
+                title: row.title,
+                message: row.body,
+                data: row.data_payload,
+                priority: row.priority,
+                action_url: row.action_url,
+                expires_at: row.expires_at,
+            }))
+    }
+
     /// Find notifications with filters and pagination (admin view)
     pub async fn find_with_filters(
         &self,
@@ -49,8 +148,12 @@ impl WalletNotificationRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<WalletNotificationRecord>, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         // Build WHERE clause manually
         let mut where_parts = vec!["status != 'deleted'".to_string()]; // Assuming 'deleted' status instead of deleted_at column if removed, checking schema... up.sql had NO deleted_at.
@@ -59,10 +162,16 @@ impl WalletNotificationRepository {
         // I will assume logic for soft delete is setting status to 'deleted'.
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!(
+                "recipient_wallet_address = '{}'",
+                wallet.replace("'", "''")
+            ));
         }
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -90,7 +199,8 @@ impl WalletNotificationRepository {
         struct NotificationRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)] // recipient_wallet_address can be null? up.sql says VARCHAR(42), nullable
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            // recipient_wallet_address can be null? up.sql says VARCHAR(42), nullable
             recipient_wallet_address: Option<String>,
             #[diesel(sql_type = diesel::sql_types::Text)]
             notification_type: String,
@@ -121,30 +231,42 @@ impl WalletNotificationRepository {
         let records = diesel::sql_query(&query_str)
             .load::<NotificationRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to fetch notifications: {}", e),
+                )
+            })?;
 
-        Ok(records.into_iter().map(|r| {
-            let read_at = if r.status == "read" { Some(r.updated_at) } else { None };
-            
-            WalletNotificationRecord {
-                id: r.id,
-                wallet_address: r.recipient_wallet_address.unwrap_or_default(),
-                notification_type: r.notification_type,
-                title: r.title,
-                message: r.body,
-                data: r.data_payload,
-                priority: r.priority,
-                timestamp: r.created_at,
-                expires_at: r.expires_at,
-                read_at,
-                clicked_at: None, // Not tracked in new schema
-                delivered_at: None, // Not tracked directly or use send_started_at?
-                action_url: r.action_url,
-                image_url: r.image_url,
-                created_at: r.created_at_alias,
-                updated_at: r.updated_at,
-            }
-        }).collect())
+        Ok(records
+            .into_iter()
+            .map(|r| {
+                let read_at = if r.status == "read" {
+                    Some(r.updated_at)
+                } else {
+                    None
+                };
+
+                WalletNotificationRecord {
+                    id: r.id,
+                    wallet_address: r.recipient_wallet_address.unwrap_or_default(),
+                    notification_type: r.notification_type,
+                    title: r.title,
+                    message: r.body,
+                    data: r.data_payload,
+                    priority: r.priority,
+                    timestamp: r.created_at,
+                    expires_at: r.expires_at,
+                    read_at,
+                    clicked_at: None,   // Not tracked in new schema
+                    delivered_at: None, // Not tracked directly or use send_started_at?
+                    action_url: r.action_url,
+                    image_url: r.image_url,
+                    created_at: r.created_at_alias,
+                    updated_at: r.updated_at,
+                }
+            })
+            .collect())
     }
 
     /// Find notifications for specific wallet (user view)
@@ -155,18 +277,28 @@ impl WalletNotificationRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<WalletNotificationRecord>, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         // Build WHERE clause manually
         let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!(
+                "(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')",
+                escaped_wallet
+            ),
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -225,30 +357,42 @@ impl WalletNotificationRepository {
         let records = diesel::sql_query(&query_str)
             .load::<NotificationRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch notifications: {}", e)))?;
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to fetch notifications: {}", e),
+                )
+            })?;
 
-        Ok(records.into_iter().map(|r| {
-            let read_at = if r.status == "read" { Some(r.updated_at) } else { None };
+        Ok(records
+            .into_iter()
+            .map(|r| {
+                let read_at = if r.status == "read" {
+                    Some(r.updated_at)
+                } else {
+                    None
+                };
 
-            WalletNotificationRecord {
-                id: r.id,
-                wallet_address: r.recipient_wallet_address.unwrap_or_default(),
-                notification_type: r.notification_type,
-                title: r.title,
-                message: r.body,
-                data: r.data_payload,
-                priority: r.priority,
-                timestamp: r.created_at,
-                expires_at: r.expires_at,
-                read_at,
-                clicked_at: None,
-                delivered_at: None,
-                action_url: r.action_url,
-                image_url: r.image_url,
-                created_at: r.created_at_alias,
-                updated_at: r.updated_at,
-            }
-        }).collect())
+                WalletNotificationRecord {
+                    id: r.id,
+                    wallet_address: r.recipient_wallet_address.unwrap_or_default(),
+                    notification_type: r.notification_type,
+                    title: r.title,
+                    message: r.body,
+                    data: r.data_payload,
+                    priority: r.priority,
+                    timestamp: r.created_at,
+                    expires_at: r.expires_at,
+                    read_at,
+                    clicked_at: None,
+                    delivered_at: None,
+                    action_url: r.action_url,
+                    image_url: r.image_url,
+                    created_at: r.created_at_alias,
+                    updated_at: r.updated_at,
+                }
+            })
+            .collect())
     }
 
     /// Count notifications with filters (admin view)
@@ -256,16 +400,26 @@ impl WalletNotificationRepository {
         &self,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let mut where_parts = vec!["status != 'deleted'".to_string()];
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!(
+                "recipient_wallet_address = '{}'",
+                wallet.replace("'", "''")
+            ));
         }
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -292,7 +446,12 @@ impl WalletNotificationRepository {
         let count = diesel::sql_query(&query_str)
             .get_result::<CountRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to count notifications: {}", e),
+                )
+            })?
             .count;
 
         Ok(count)
@@ -304,17 +463,27 @@ impl WalletNotificationRepository {
         wallet_address: &str,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
-            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!(
+                "(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')",
+                escaped_wallet
+            ),
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -341,7 +510,12 @@ impl WalletNotificationRepository {
         let count = diesel::sql_query(&query_str)
             .get_result::<CountRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to count notifications: {}", e),
+                )
+            })?
             .count;
 
         Ok(count)
@@ -352,16 +526,29 @@ impl WalletNotificationRepository {
         &self,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
-        let mut where_parts = vec!["status != 'read'".to_string(), "status != 'deleted'".to_string()];
+        let mut where_parts = vec![
+            "status != 'read'".to_string(),
+            "status != 'deleted'".to_string(),
+        ];
 
         if let Some(ref wallet) = filter.wallet_address {
-            where_parts.push(format!("recipient_wallet_address = '{}'", wallet.replace("'", "''")));
+            where_parts.push(format!(
+                "recipient_wallet_address = '{}'",
+                wallet.replace("'", "''")
+            ));
         }
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -381,7 +568,12 @@ impl WalletNotificationRepository {
         let count = diesel::sql_query(&query_str)
             .get_result::<CountRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread: {}", e)))?
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to count unread: {}", e),
+                )
+            })?
             .count;
 
         Ok(count)
@@ -393,18 +585,28 @@ impl WalletNotificationRepository {
         wallet_address: &str,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let escaped_wallet = wallet_address.to_lowercase().replace("'", "''");
         let mut where_parts = vec![
             "status != 'deleted'".to_string(),
             "status != 'read'".to_string(),
-            format!("(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')", escaped_wallet)
+            format!(
+                "(LOWER(recipient_wallet_address) = '{}' OR recipient_wallet_address = 'all')",
+                escaped_wallet
+            ),
         ];
 
         if let Some(ref notif_type) = filter.notification_type {
-            where_parts.push(format!("notification_type = '{}'", notif_type.replace("'", "''")));
+            where_parts.push(format!(
+                "notification_type = '{}'",
+                notif_type.replace("'", "''")
+            ));
         }
         if let Some(ref priority) = filter.priority {
             where_parts.push(format!("priority = '{}'", priority.replace("'", "''")));
@@ -424,7 +626,12 @@ impl WalletNotificationRepository {
         let count = diesel::sql_query(&query_str)
             .get_result::<CountRow>(&mut conn)
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread: {}", e)))?
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to count unread: {}", e),
+                )
+            })?
             .count;
 
         Ok(count)
@@ -444,8 +651,12 @@ impl WalletNotificationRepository {
         action_url: Option<String>,
         image_url: Option<String>,
     ) -> Result<(), AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let now = Utc::now();
 
@@ -476,8 +687,12 @@ impl WalletNotificationRepository {
 
     /// Update delivery attempt - Updated for new schema
     pub async fn update_delivery_attempt(&self, id: Uuid) -> Result<(), AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         // New schema uses total_attempts
         diesel::sql_query(
@@ -493,8 +708,12 @@ impl WalletNotificationRepository {
 
     /// Mark notification as read - Updated: Sets status = 'read'
     pub async fn mark_as_read(&self, id: Uuid, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let now = Utc::now();
 
@@ -517,8 +736,12 @@ impl WalletNotificationRepository {
 
     /// Mark all notifications as read for wallet
     pub async fn mark_all_as_read(&self, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let now = Utc::now();
 
@@ -540,8 +763,12 @@ impl WalletNotificationRepository {
 
     /// Soft delete notification
     pub async fn soft_delete(&self, id: Uuid, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let rows_affected = diesel::sql_query(
             r#"
@@ -561,8 +788,12 @@ impl WalletNotificationRepository {
 
     /// Soft delete all notifications for wallet
     pub async fn soft_delete_all(&self, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let rows_affected = diesel::sql_query(
             r#"
@@ -581,24 +812,35 @@ impl WalletNotificationRepository {
 
     /// Hard delete notification (admin only)
     pub async fn hard_delete(&self, id: Uuid) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
-        let rows_affected = diesel::sql_query(
-            "DELETE FROM wallet_notifications WHERE id = $1"
-        )
-        .bind::<diesel::sql_types::Uuid, _>(id)
-        .execute(&mut conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
+        let rows_affected = diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
+            .bind::<diesel::sql_types::Uuid, _>(id)
+            .execute(&mut conn)
+            .await
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to delete notification: {}", e),
+                )
+            })?;
 
         Ok(rows_affected as u64)
     }
 
     /// Get simple unread count for wallet
     pub async fn get_unread_count(&self, wallet_address: &str) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         #[derive(QueryableByName)]
         struct CountRow {
@@ -623,9 +865,56 @@ impl WalletNotificationRepository {
 
 #[cfg(test)]
 mod tests {
+    use super::WalletNotificationIdentity;
+
     #[test]
     fn test_repository_creation() {
         // This is a placeholder test to ensure module compiles
         // Real tests would require a database connection
+    }
+
+    #[test]
+    fn stable_event_identity_requires_an_exact_payload_match() {
+        let identity = WalletNotificationIdentity {
+            wallet_address: "0xabc".into(),
+            notification_type: "payment".into(),
+            title: "Paid".into(),
+            message: "Complete".into(),
+            data: Some(serde_json::json!({"reference": "p-1"})),
+            priority: "normal".into(),
+            action_url: Some("/payments".into()),
+            expires_at: None,
+        };
+        let data = serde_json::json!({"reference": "p-1"});
+        assert!(identity.matches_payload(
+            "0xabc",
+            "payment",
+            "normal",
+            "Paid",
+            "Complete",
+            Some(&data),
+            Some("/payments"),
+            None,
+        ));
+        assert!(!identity.matches_payload(
+            "0xdef",
+            "payment",
+            "normal",
+            "Paid",
+            "Complete",
+            Some(&data),
+            Some("/payments"),
+            None,
+        ));
+        assert!(!identity.matches_payload(
+            "0xabc",
+            "payment",
+            "normal",
+            "Paid",
+            "Changed",
+            Some(&data),
+            Some("/payments"),
+            None,
+        ));
     }
 }

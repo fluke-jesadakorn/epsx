@@ -22,11 +22,21 @@ pub fn get_cookie(headers: &HeaderMap, name: &str) -> Option<String> {
 }
 
 pub fn build_set_cookie(name: &str, value: &str, max_age_secs: i64) -> String {
-    let secure = if std::env::var("EPSX_COOKIE_SECURE").ok().as_deref() == Some("1") { "; Secure" } else { "" };
-    if max_age_secs <= 0 {
-        format!("{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}", name, secure)
+    let secure = if std::env::var("EPSX_COOKIE_SECURE").ok().as_deref() == Some("1") {
+        "; Secure"
     } else {
-        format!("{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}", name, value, max_age_secs, secure)
+        ""
+    };
+    if max_age_secs <= 0 {
+        format!(
+            "{}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0{}",
+            name, secure
+        )
+    } else {
+        format!(
+            "{}={}; Path=/; HttpOnly; SameSite=Lax; Max-Age={}{}",
+            name, value, max_age_secs, secure
+        )
     }
 }
 
@@ -55,12 +65,20 @@ pub fn require_user(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, Auth
 
 pub fn require_admin(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
     let user = require_user(headers, jwt)?;
-    if user.is_admin() { Ok(user) } else { Err(AuthError::Forbidden) }
+    if user.is_admin() {
+        Ok(user)
+    } else {
+        Err(AuthError::Forbidden)
+    }
 }
 
 pub fn require_editor(headers: &HeaderMap, jwt: &JwtAuth) -> Result<AuthUser, AuthError> {
     let user = require_user(headers, jwt)?;
-    if user.is_editor() { Ok(user) } else { Err(AuthError::Forbidden) }
+    if user.is_editor() {
+        Ok(user)
+    } else {
+        Err(AuthError::Forbidden)
+    }
 }
 
 pub fn jwt_auth_from_env() -> std::sync::Arc<JwtAuth> {

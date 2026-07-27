@@ -3,15 +3,16 @@
  *
  * Tests notification handlers, SSE connections, and database operations.
  * Uses Diesel for database operations instead of SQLx.
- */#[cfg(test)]
+ */
+#[cfg(test)]
 mod notification_tests {
     use crate::__test__::test_utils::*;
-    use crate::infrastructure::database::get_diesel_pool;
     use crate::infrastructure::database::diesel_connection_manager::TlsPool;
+    use crate::infrastructure::database::get_diesel_pool;
     use chrono::Utc;
-    use uuid::Uuid;
     use diesel::prelude::*;
-    use diesel_async::{RunQueryDsl, };
+    use diesel_async::RunQueryDsl;
+    use uuid::Uuid;
 
     async fn setup_test_notification(
         pool: &TlsPool,
@@ -40,12 +41,13 @@ mod notification_tests {
         Ok(id)
     }
 
-    async fn cleanup_test_notifications(
-        pool: &TlsPool,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    async fn cleanup_test_notifications(pool: &TlsPool) -> Result<(), Box<dyn std::error::Error>> {
         let mut conn = pool.get().await?;
-        diesel_async::RunQueryDsl::execute(diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"), &mut conn)
-            .await?;
+        diesel_async::RunQueryDsl::execute(
+            diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"),
+            &mut conn,
+        )
+        .await?;
         Ok(())
     }
 
@@ -68,7 +70,7 @@ mod notification_tests {
 
         let mut conn = pool.get().await?;
         let result: NotificationExists = diesel::sql_query(
-            "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists"
+            "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
         .get_result(&mut conn)
@@ -81,7 +83,7 @@ mod notification_tests {
 
         // Verify cleanup worked
         let result: NotificationExists = diesel::sql_query(
-            "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists"
+            "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
         .get_result(&mut conn)
@@ -94,7 +96,8 @@ mod notification_tests {
 
     #[tokio::test]
     #[ignore]
-    async fn test_multiple_notifications_for_same_wallet() -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_multiple_notifications_for_same_wallet() -> Result<(), Box<dyn std::error::Error>>
+    {
         let _test_db = setup_test_database().await?;
         let pool = get_diesel_pool().await?;
 
@@ -114,7 +117,7 @@ mod notification_tests {
 
         let mut conn = pool.get().await?;
         let result: CountResult = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM wallet_notifications WHERE title = 'Test Notification'"
+            "SELECT COUNT(*) as count FROM wallet_notifications WHERE title = 'Test Notification'",
         )
         .get_result(&mut conn)
         .await?;
@@ -153,7 +156,7 @@ mod notification_tests {
             SELECT DISTINCT wallet_address
             FROM wallet_notifications
             WHERE title = 'Test Notification'
-            "#
+            "#,
         )
         .load(&mut conn)
         .await?;

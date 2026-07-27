@@ -27,10 +27,20 @@ use epsx_dioxus_ui::components::account::{
     ACCOUNT_PAYMENT_HISTORY_MALFORMED, ACCOUNT_PAYMENT_HISTORY_READY,
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::account::{
+    ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM, ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM,
+    ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM,
+};
+use epsx_dioxus_ui::pages::analytics::{
+    AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, WatchlistData, ANALYTICS_DATA_PARAM,
+    ANALYTICS_FILTERS_DATA_PARAM, ANALYTICS_FILTERS_STATE_PARAM, ANALYTICS_QUERY_PARAM,
+    ANALYTICS_STATE_PARAM, ANALYTICS_WATCHLIST_DATA_PARAM, ANALYTICS_WATCHLIST_STATE_PARAM,
+};
 use epsx_dioxus_ui::pages::auth_page::{
     AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_RECOVERING,
     AUTH_PAGE_SESSION_STATE_SIGNED_OUT, AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::home::{HOME_ANALYTICS_DATA_PARAM, HOME_ANALYTICS_STATE_PARAM};
 use epsx_dioxus_ui::pages::{
     is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
 };
@@ -59,13 +69,216 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
 
 const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
 const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+const NOTIFICATIONS_PAGE_PARAM: &str = "data_notifications_page";
+const NOTIFICATIONS_STATUS_PARAM: &str = "data_notifications_status";
+const NOTIFICATIONS_TYPE_PARAM: &str = "data_notifications_type";
+const NOTIFICATIONS_PRIORITY_PARAM: &str = "data_notifications_priority";
+const NOTIFICATIONS_START_DATE_PARAM: &str = "data_notifications_start_date";
+const NOTIFICATIONS_END_DATE_PARAM: &str = "data_notifications_end_date";
+const NOTIFICATIONS_INVALID_QUERY: &str = "invalid_query";
+const NOTIFICATIONS_TYPE_VALUES: &[&str] = &[
+    "system",
+    "security",
+    "permission",
+    "wallet_management",
+    "wallet",
+    "payment",
+    "general",
+    "announcement",
+    "advertisement",
+    "chat",
+];
+const NOTIFICATIONS_PRIORITY_VALUES: &[&str] = &["low", "normal", "high", "critical", "urgent"];
 const HOME_NEWS_DATA_PARAM: &str = "data_home_news";
 const ACCOUNT_PAYMENT_HISTORY_LIMIT: usize = 10;
+const ACCOUNT_NOTIFICATION_PREFERENCES_READY: &str = "ready";
+const ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE: &str = "unavailable";
+const ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED: &str = "malformed";
+const ANALYTICS_RANKINGS_PATH: &str = "/api/analytics/rankings";
+const ANALYTICS_FILTERS_PATH: &str = "/api/analytics/filters";
+const ANALYTICS_WATCHLIST_PATH: &str = "/api/users/watchlist";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AnalyticsLoadError {
+    Unavailable,
+    Malformed,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AccountPaymentHistoryLoadError {
     Unavailable,
     Malformed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct NotificationPageRequest {
+    page: u32,
+    status: Option<String>,
+    notification_type: Option<String>,
+    priority: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
+}
+
+impl NotificationPageRequest {
+    /// Accept only a canonical positive decimal `page` and the explicit
+    /// read/unread/all, type, and priority filters. Every other public query
+    /// field fails closed before an owner service request can be made.
+    fn parse(raw_query: &str) -> Result<Self, ()> {
+        if raw_query.is_empty() {
+            return Ok(Self {
+                page: 1,
+                status: None,
+                notification_type: None,
+                priority: None,
+                start_date: None,
+                end_date: None,
+            });
+        }
+        let url = reqwest::Url::parse(&format!("https://frontend.invalid/?{raw_query}"))
+            .map_err(|_| ())?;
+        let mut page = 1;
+        let mut status = None;
+        let mut notification_type = None;
+        let mut priority = None;
+        let mut start_date = None;
+        let mut end_date = None;
+        let mut seen = std::collections::HashSet::new();
+        for (key, value) in url.query_pairs() {
+            if !seen.insert(key.to_string()) {
+                return Err(());
+            }
+            match key.as_ref() {
+                "page" => {
+                    if value.is_empty()
+                        || (value.len() > 1 && value.starts_with('0'))
+                        || !value.bytes().all(|byte| byte.is_ascii_digit())
+                    {
+                        return Err(());
+                    }
+                    page = value.parse::<u32>().map_err(|_| ())?;
+                }
+                "status" => {
+                    if !matches!(value.as_ref(), "all" | "read" | "unread") {
+                        return Err(());
+                    }
+                    if value != "all" {
+                        status = Some(value.into_owned());
+                    }
+                }
+                "type" => {
+                    if value == "all" {
+                        continue;
+                    }
+                    if !NOTIFICATIONS_TYPE_VALUES.contains(&value.as_ref()) {
+                        return Err(());
+                    }
+                    notification_type = Some(value.into_owned());
+                }
+                "priority" => {
+                    if value == "all" {
+                        continue;
+                    }
+                    if !NOTIFICATIONS_PRIORITY_VALUES.contains(&value.as_ref()) {
+                        return Err(());
+                    }
+                    priority = Some(value.into_owned());
+                }
+                "start_date" | "end_date" => {
+                    if value.len() > 64 {
+                        return Err(());
+                    }
+                    if chrono::DateTime::parse_from_rfc3339(value.as_ref()).is_err() {
+                        return Err(());
+                    }
+                    if key == "start_date" {
+                        start_date = Some(value.into_owned());
+                    } else {
+                        end_date = Some(value.into_owned());
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+        if start_date
+            .as_deref()
+            .zip(end_date.as_deref())
+            .is_some_and(|(start, end)| {
+                chrono::DateTime::parse_from_rfc3339(start).ok()
+                    > chrono::DateTime::parse_from_rfc3339(end).ok()
+            })
+        {
+            return Err(());
+        }
+        crate::api::NotificationListQuery::for_ssr_page_and_filters_and_dates(
+            page,
+            status.as_deref(),
+            notification_type.as_deref(),
+            priority.as_deref(),
+            start_date.as_deref(),
+            end_date.as_deref(),
+        )
+        .map(|_| Self {
+            page,
+            status,
+            notification_type,
+            priority,
+            start_date,
+            end_date,
+        })
+        .ok_or(())
+    }
+
+    fn service_query(&self) -> crate::api::NotificationListQuery {
+        crate::api::NotificationListQuery::for_ssr_page_and_filters_and_dates(
+            self.page,
+            self.status.as_deref(),
+            self.notification_type.as_deref(),
+            self.priority.as_deref(),
+            self.start_date.as_deref(),
+            self.end_date.as_deref(),
+        )
+        .expect("a parsed notification page remains within the fixed offset window")
+    }
+}
+
+async fn load_notification_page(
+    client: &epsx_client::ServiceClient,
+    bearer: &str,
+    owner: &str,
+    headers: &axum::http::HeaderMap,
+    raw_query: &str,
+) -> Result<
+    (
+        u32,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        Option<String>,
+        crate::api::NotificationListLoadOutcome,
+    ),
+    (),
+> {
+    let page_request = NotificationPageRequest::parse(raw_query)?;
+    let request_id = crate::api::notification_request_id(headers);
+    let outcome = crate::api::load_owner_notifications(
+        client,
+        bearer,
+        owner,
+        &page_request.service_query(),
+        &request_id,
+    )
+    .await;
+    Ok((
+        page_request.page,
+        page_request.status,
+        page_request.notification_type,
+        page_request.priority,
+        page_request.start_date,
+        page_request.end_date,
+        outcome,
+    ))
 }
 
 fn auth_page_session_state(
@@ -94,10 +307,42 @@ fn auth_page_session_state(
 /// unavailable.
 fn record_notification_load(
     params: &mut HashMap<String, String>,
+    page: u32,
+    status: Option<&str>,
+    notification_type: Option<&str>,
+    priority: Option<&str>,
+    start_date: Option<&str>,
+    end_date: Option<&str>,
     outcome: crate::api::NotificationListLoadOutcome,
 ) {
     params.remove(NOTIFICATIONS_DATA_PARAM);
     params.remove(NOTIFICATIONS_STATE_PARAM);
+    params.remove(NOTIFICATIONS_STATUS_PARAM);
+    params.remove(NOTIFICATIONS_TYPE_PARAM);
+    params.remove(NOTIFICATIONS_PRIORITY_PARAM);
+    params.remove(NOTIFICATIONS_START_DATE_PARAM);
+    params.remove(NOTIFICATIONS_END_DATE_PARAM);
+    params.insert(NOTIFICATIONS_PAGE_PARAM.into(), page.to_string());
+    params.insert(
+        NOTIFICATIONS_STATUS_PARAM.into(),
+        status.unwrap_or("all").to_string(),
+    );
+    params.insert(
+        NOTIFICATIONS_TYPE_PARAM.into(),
+        notification_type.unwrap_or("all").to_string(),
+    );
+    params.insert(
+        NOTIFICATIONS_PRIORITY_PARAM.into(),
+        priority.unwrap_or("all").to_string(),
+    );
+    params.insert(
+        NOTIFICATIONS_START_DATE_PARAM.into(),
+        start_date.unwrap_or("all").to_string(),
+    );
+    params.insert(
+        NOTIFICATIONS_END_DATE_PARAM.into(),
+        end_date.unwrap_or("all").to_string(),
+    );
     match outcome {
         crate::api::NotificationListLoadOutcome::Ready(value)
         | crate::api::NotificationListLoadOutcome::Empty(value) => {
@@ -110,6 +355,91 @@ fn record_notification_load(
         crate::api::NotificationListLoadOutcome::Malformed => {
             params.insert(NOTIFICATIONS_STATE_PARAM.into(), "malformed".into());
         }
+    }
+}
+
+fn record_invalid_notification_query(params: &mut HashMap<String, String>) {
+    params.remove(NOTIFICATIONS_DATA_PARAM);
+    params.remove(NOTIFICATIONS_PAGE_PARAM);
+    params.remove(NOTIFICATIONS_STATUS_PARAM);
+    params.remove(NOTIFICATIONS_TYPE_PARAM);
+    params.remove(NOTIFICATIONS_PRIORITY_PARAM);
+    params.remove(NOTIFICATIONS_START_DATE_PARAM);
+    params.remove(NOTIFICATIONS_END_DATE_PARAM);
+    params.insert(
+        NOTIFICATIONS_STATE_PARAM.into(),
+        NOTIFICATIONS_INVALID_QUERY.into(),
+    );
+}
+
+fn record_account_notification_preferences_load(
+    params: &mut HashMap<String, String>,
+    outcome: crate::api::NotificationPreferencesLoadOutcome,
+) {
+    params.remove(ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM);
+    let state = match outcome {
+        crate::api::NotificationPreferencesLoadOutcome::Ready(value) => {
+            params.insert(
+                ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM.to_string(),
+                value.to_string(),
+            );
+            ACCOUNT_NOTIFICATION_PREFERENCES_READY
+        }
+        crate::api::NotificationPreferencesLoadOutcome::Error(error) => match error {
+            crate::api::NotificationPreferencesLoadError::DependencyUnavailable
+            | crate::api::NotificationPreferencesLoadError::UpstreamFailed => {
+                ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE
+            }
+            crate::api::NotificationPreferencesLoadError::Malformed => {
+                ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED
+            }
+        },
+    };
+    params.insert(
+        ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
+fn account_notification_preferences_flash_state(
+    headers: &axum::http::HeaderMap,
+    query: &str,
+) -> Option<&'static str> {
+    let requested = match query {
+        "preferences=saved" => "saved",
+        "preferences=error" => "error",
+        _ => return None,
+    };
+    let cookie_state = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|cookie_header| {
+            let mut state = None;
+            for part in cookie_header.split(';') {
+                let Some((name, value)) = part.trim().split_once('=') else {
+                    continue;
+                };
+                if name == crate::api::NOTIFICATION_PREFERENCES_FLASH_COOKIE
+                    && state.replace(value).is_some()
+                {
+                    return None;
+                }
+            }
+            state
+        });
+    (cookie_state == Some(requested)).then_some(requested)
+}
+
+fn record_account_notification_preferences_form_state(
+    params: &mut HashMap<String, String>,
+    state: Option<&str>,
+) {
+    params.remove(ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM);
+    if let Some(state) = state {
+        params.insert(
+            ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM.to_string(),
+            state.to_string(),
+        );
     }
 }
 
@@ -131,6 +461,66 @@ fn record_home_news_load(
         HOME_NEWS_DATA_PARAM.to_string(),
         serde_json::to_string(&outcome).expect("home news outcome is serializable"),
     );
+}
+
+async fn load_home_analytics(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+) -> Option<Result<AnalyticsResponse, AnalyticsLoadError>> {
+    if !matches!(path, "/" | "/index") {
+        return None;
+    }
+    let value = match client
+        .get_plain("/api/analytics/rankings?page=1&limit=3")
+        .await
+    {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::warn!("home rankings dependency unavailable: {error}");
+            return Some(Err(AnalyticsLoadError::Unavailable));
+        }
+    };
+    let response = match serde_json::from_value::<AnalyticsResponse>(value)
+        .ok()
+        .and_then(|response| response.validated().ok())
+    {
+        Some(response)
+            if response.pagination.page == 1
+                && response.pagination.limit == 3
+                && response.data.len() <= 3 =>
+        {
+            response
+        }
+        _ => {
+            tracing::warn!("home rankings response malformed");
+            return Some(Err(AnalyticsLoadError::Malformed));
+        }
+    };
+    Some(Ok(response))
+}
+
+fn record_home_analytics_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<AnalyticsResponse, AnalyticsLoadError>,
+) {
+    params.remove(HOME_ANALYTICS_DATA_PARAM);
+    let state = match outcome {
+        Ok(response) => {
+            let state = if response.data.is_empty() {
+                "empty"
+            } else {
+                "ready"
+            };
+            params.insert(
+                HOME_ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&response)
+                    .expect("validated home analytics response is serializable"),
+            );
+            state
+        }
+        Err(_) => "unavailable",
+    };
+    params.insert(HOME_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
 }
 
 fn account_payment_history_path(owner: &str) -> Option<String> {
@@ -249,6 +639,36 @@ fn pricing_redirect_response(query: &str) -> Response {
         .into_response()
 }
 
+/// The source capture harness uses `?__design_bypass=1` to expose the
+/// authenticated shell without creating a real session. Keep that local-only
+/// affordance available for visual checks while never honoring it in the
+/// production cookie environment.
+fn design_bypass_requested(query: &str, environment: epsx_bff::cookies::CookieEnvironment) -> bool {
+    if environment != epsx_bff::cookies::CookieEnvironment::Local {
+        return false;
+    }
+
+    url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| {
+        key == "__design_bypass"
+            && matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+    })
+}
+
+fn design_bypass_identity_enabled(enabled: bool, path: &str) -> bool {
+    enabled && !matches!(path, "/" | "/index" | "/dashboard")
+}
+
+fn design_bypass_wallet_enabled(enabled: bool, path: &str) -> bool {
+    enabled && path != "/dashboard"
+}
+
+fn design_bypass_chat_enabled(enabled: bool, path: &str) -> bool {
+    enabled && path == "/dashboard"
+}
+
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
 /// `<head>` the Next.js frontend emits.
@@ -257,6 +677,18 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let path = parts.uri.path().to_string();
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
+    let design_bypass = design_bypass_requested(&query, state.cookie_environment);
+    // The source capture intentionally keeps `/dashboard` in its signed-out
+    // shell even though the matrix appends the bypass query; the query there
+    // exists only to expose the floating support affordance.
+    // The two supplied homepage references intentionally cover both sides of
+    // the auth boundary: `/` shows a connected wallet that still needs SIWE,
+    // while private-style captures use the UI-only identity fixture. Keep the
+    // homepage wallet-only so its header renders the wallet pill + sign-in
+    // banner instead of bell/profile/sign-out controls.
+    let design_bypass_identity = design_bypass_identity_enabled(design_bypass, &path);
+    let design_bypass_wallet = design_bypass_wallet_enabled(design_bypass, &path);
+    let preference_flash_state = account_notification_preferences_flash_state(&headers, &query);
 
     let offline_shell = path == "/offline";
     let mut wallet = if offline_shell {
@@ -269,6 +701,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     } else {
         auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment).await
     };
+    // Local visual-test fixture only: it supplies authenticated shell state
+    // without a bearer token, so no synthetic identity reaches an upstream
+    // data service.
+    let dev_bypass_user = (!offline_shell)
+        .then(|| auth::dev_bypass_ui_user(Some(56)))
+        .flatten();
+    let design_bypass_user = (!offline_shell)
+        .then(|| auth::design_bypass_ui_user(design_bypass_identity, Some(56)))
+        .flatten();
     let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();
     let recover_session = access_verification.permits_refresh_recovery()
         && refresh_cookie_present
@@ -282,7 +723,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             (Some(token), Some(auth::ui_user(user, wallet.chain_id)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
-            (None, None)
+            (None, design_bypass_user.or(dev_bypass_user))
         }
     };
 
@@ -360,6 +801,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             params.insert("id".into(), pid);
         }
     }
+    if path == "/account" {
+        record_account_notification_preferences_form_state(&mut params, preference_flash_state);
+    }
 
     // Page-specific server-side data fetching. Each block reads from
     // the gateway via `state.*` and adds the result to `params` so the
@@ -379,15 +823,27 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
 
     // Wave 3a Track B — plumb server-side wallet state into the page
     // context. We delegate the cookie read to
-    // `ConnectedWalletState::from_cookies` (currently a no-op stub —
-    // see `auth/wallet_button.rs` for the follow-up). `is_authenticated`
+    // `ConnectedWalletState::from_cookies` (the shared parser reads the
+    // browser-connected wallet cookie). `is_authenticated`
     // is sourced from the resolved `user` (the SIWE session lifetime),
     // NOT from the cookie (which tracks wallet-connection lifetime).
     //
-    // Stub: cookie parser is a no-op for now — when the wagmi-equivalent
-    // client writes a `WalletInfo` cookie, the parser will populate
-    // `address` / `connector_id` / `chain_id` from it.
+    // The wallet address is also retained for the SSR navigation shell so a
+    // connected-but-not-signed-in browser gets the same wallet pill and
+    // sign-in banner as the development navigation client.
+    if wallet.address.is_none() {
+        if let Some(design_wallet) = auth::design_bypass_wallet_state(design_bypass_wallet) {
+            wallet = design_wallet;
+        } else if let Some(dev_wallet) = auth::dev_bypass_wallet_state() {
+            wallet = dev_wallet;
+        }
+    }
+    let wallet_address = wallet.address.clone();
     let is_authenticated = user.is_some();
+    let user_id = user
+        .as_ref()
+        .map(|value| value.id.clone())
+        .unwrap_or_default();
     wallet.is_authenticated = is_authenticated;
 
     let ctx = PageContext {
@@ -429,25 +885,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     //
     // The auth page hides the navbar via the `path == "/auth"`
     // short-circuit (the dedicated `<AuthLayout>` is full-bleed).
-    let nav_html = frontend_navigation_html(&path, &query, is_authenticated);
+    let nav_html =
+        frontend_navigation_html(&path, &query, is_authenticated, wallet_address.as_deref());
 
-    // === Wave 49+ — re-enable footer ===
-    //
-    // Wave 38c dropped `PageMeta::include_footer` to `false` (and
-    // removed `<Footer />` from `<MainLayout>`) to fix a structural
-    // double-footer on marketing pages. That fix left the public
-    // site with NO footer at all — Terms / Privacy / About /
-    // Contact / Rankings / Portfolio / Pricing / API Keys /
-    // Documentation / Support / News links were unreachable from
-    // the footer on every page except `/terms` (which has its own
-    // page-local `TermsFooter`).
-    //
-    // We force the templates `footer()` on at the BFF layer so
-    // every page gets a clickable 4-column footer with the same
-    // links the templates navbar exposes. The Dioxus `<Footer />`
-    // is no longer rendered by `<MainLayout>`, so there is no
-    // double-footer risk.
-    let include_footer = true;
+    // Source-compatible shell: the development root has no global footer.
+    // Page bodies remain responsible for any route-specific footer content.
+    let include_footer = false;
 
     let (metadata_title, metadata_description) = escaped_page_metadata(&meta);
     let doc = epsx_templates::page_shell_with_body_class_and_keywords(
@@ -461,12 +904,19 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     );
 
     let route_runtime = match path.as_str() {
+        "/analytics" => analytics_runtime_script(),
         "/offline" => offline_runtime_script(),
         "/manual" => manual_runtime_script(),
         "/developer/docs" => developer_docs_runtime_script(),
         _ => "",
     };
     let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);
+    let notification_push_runtime = notification_push_runtime(is_authenticated, &path);
+    let notification_mutation_runtime = notification_mutation_runtime(is_authenticated, &path);
+    let notification_realtime_runtime = notification_realtime_runtime(is_authenticated, &path);
+    let authenticated_header_runtime = format!(
+        "{authenticated_header_runtime}{notification_push_runtime}{notification_mutation_runtime}{notification_realtime_runtime}"
+    );
     let recovery_runtime = recover_session
         .then(|| {
             format!(
@@ -475,10 +925,22 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             )
         })
         .unwrap_or_default();
+    // The development frontend mounts the floating support affordance from
+    // the global layout for authenticated pages. Keep the same shell-level
+    // placement in the SSR document; `/chat` owns its full-page conversation
+    // UI and therefore hides the floating trigger.
+    let design_bypass_chat = design_bypass_chat_enabled(design_bypass, &path);
+    let chat_widget_html = if (is_authenticated || design_bypass_chat)
+        && !matches!(path.as_str(), "/auth" | "/chat")
+    {
+        crate::widgets::chat_widget(true, &user_id)
+    } else {
+        String::new()
+    };
     let doc = doc.replace(
         "</body>",
         &format!(
-            "<script>{}</script>{recovery_runtime}{}{route_runtime}{authenticated_header_runtime}</body>",
+            "<script>{}</script>{recovery_runtime}{}{route_runtime}{authenticated_header_runtime}{chat_widget_html}</body>",
             wallet_shim(),
             offline_worker_registration_script()
         ),
@@ -493,6 +955,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         auth_page_verifier_unavailable,
         &path,
     );
+    if preference_flash_state.is_some() {
+        let cookie = format!(
+            "{}=; Path=/account; Max-Age=0; HttpOnly; SameSite=Lax",
+            crate::api::NOTIFICATION_PREFERENCES_FLASH_COOKIE
+        );
+        response.headers_mut().append(
+            header::SET_COOKIE,
+            HeaderValue::from_str(&cookie).expect("flash cookie clear value is valid"),
+        );
+    }
     response
 }
 
@@ -559,11 +1031,18 @@ async fn fetch_page_data(
     // rendered as a failure and never replaced with production-looking sample
     // data. `/dashboard` intentionally has no loader until an owner-scoped
     // producer contract exists.
-    // `/` and its existing `/index` alias reuse the strict normalized list
-    // adapter with its default page/query/category. Home query fields belong
-    // to other sections and never select or limit the public-news preview.
-    if let Some(outcome) = load_home_news(state.content.as_ref(), path).await {
+    // `/` and `/index` load public news and the fixed public ranking preview
+    // independently. The ranking call intentionally has no request context or
+    // credentials, so its backend-owned public offset remains deterministic.
+    let (home_news, home_analytics) = tokio::join!(
+        load_home_news(state.content.as_ref(), path),
+        load_home_analytics(state.analytics.as_ref(), path)
+    );
+    if let Some(outcome) = home_news {
         record_home_news_load(params, outcome);
+    }
+    if let Some(outcome) = home_analytics {
+        record_home_analytics_load(params, outcome);
     }
     // /news: load the content dependency through the same strict adapter used
     // by the JSON BFF route. The outcome keeps empty distinct from unavailable
@@ -579,6 +1058,37 @@ async fn fetch_page_data(
             "data_news".into(),
             serde_json::to_string(&outcome).expect("news list outcome is serializable"),
         );
+    }
+    // /analytics: rankings and public filter options are independent and load
+    // concurrently. Authenticated sessions also load the owner-scoped
+    // watchlist through the same locally verified bearer.
+    if path == "/analytics" {
+        let normalized_query = analytics_query(query);
+        if let Ok(query) = &normalized_query {
+            record_analytics_query(params, query);
+        } else {
+            params.remove(ANALYTICS_QUERY_PARAM);
+        }
+        let rankings = async {
+            match normalized_query.as_deref() {
+                Ok(query) => {
+                    load_analytics_rankings(
+                        state.analytics.as_ref(),
+                        query,
+                        headers,
+                        verified_access_token,
+                    )
+                    .await
+                }
+                Err(()) => Err(AnalyticsLoadError::Malformed),
+            }
+        };
+        let filters = load_analytics_filters(state.analytics.as_ref());
+        let watchlist = load_analytics_watchlist(state.wallet.as_ref(), verified_access_token);
+        let (rankings, filters, watchlist) = tokio::join!(rankings, filters, watchlist);
+        record_analytics_load(params, rankings);
+        record_analytics_filters_load(params, filters);
+        record_analytics_watchlist_load(params, watchlist);
     }
     // /news/[slug]: the content service owns slug resolution. Unknown records
     // remain not-found, while dependency/malformed responses remain errors.
@@ -599,17 +1109,23 @@ async fn fetch_page_data(
             user.as_ref().map(|user| user.address.as_str()),
             verified_access_token,
         ) {
-            let notification_query = crate::api::NotificationListQuery::default();
-            let request_id = crate::api::notification_request_id(headers);
-            let outcome = crate::api::load_owner_notifications(
-                state.notification.as_ref(),
-                bearer,
-                owner,
-                &notification_query,
-                &request_id,
-            )
-            .await;
-            record_notification_load(params, outcome);
+            match load_notification_page(state.notification.as_ref(), bearer, owner, headers, query)
+                .await
+            {
+                Ok((page, status, notification_type, priority, start_date, end_date, outcome)) => {
+                    record_notification_load(
+                        params,
+                        page,
+                        status.as_deref(),
+                        notification_type.as_deref(),
+                        priority.as_deref(),
+                        start_date.as_deref(),
+                        end_date.as_deref(),
+                        outcome,
+                    )
+                }
+                Err(()) => record_invalid_notification_query(params),
+            }
         }
     }
     // `/plans` intentionally has no loader. Pricing, eligibility, features,
@@ -620,7 +1136,8 @@ async fn fetch_page_data(
     // treating an ambiguous wallet-service path as authoritative.
     // `/account` renders identity details only from the locally verified
     // session. It deliberately performs no ambiguous profile/credit read;
-    // owner payment history remains a separate strict A6 outcome below.
+    // owner payment history and notification preferences each use their own
+    // strict owner-scoped read outcome below.
     if path == "/account" {
         // Source parity starts with the canonical first owner-history page.
         // The path owner is derived only from the locally verified session;
@@ -640,6 +1157,21 @@ async fn fetch_page_data(
             };
             record_account_payment_history_load(params, owner, result);
         }
+        if let Some(bearer) = verified_access_token {
+            let request_id = crate::api::notification_request_id(headers);
+            let outcome = crate::api::load_notification_preferences(
+                state.notification.as_ref(),
+                bearer,
+                &request_id,
+            )
+            .await;
+            record_account_notification_preferences_load(params, outcome);
+        } else {
+            params.insert(
+                ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM.to_string(),
+                ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED.to_string(),
+            );
+        }
     }
     // `/account/credits` intentionally has no loader. A6 has not selected a
     // credit-ledger authority, so failure must not become a zero balance.
@@ -650,10 +1182,231 @@ async fn fetch_page_data(
     // `/api/v1/developer/docs` canned fixture. Its version-pinned catalog is
     // rendered directly until A5 provides a generated contract that can prove
     // route/auth/rate-limit drift end to end.
-    // `/analytics` intentionally has no loader. Ranking data and entitlement
-    // decisions must come from a strict backend-owned A4/A5 contract.
     // Dynamic payment pages intentionally perform no intent lookup until A6
     // provides an owner-safe intent and finality contract.
+}
+
+fn analytics_query(raw_query: &str) -> Result<String, ()> {
+    if raw_query.is_empty() {
+        return Ok(String::new());
+    }
+    let url =
+        reqwest::Url::parse(&format!("https://frontend.invalid/?{raw_query}")).map_err(|_| ())?;
+    let mut seen = std::collections::HashSet::new();
+    let mut normalized = url::form_urlencoded::Serializer::new(String::new());
+    for (key, value) in url.query_pairs() {
+        let key = key.as_ref();
+        if !matches!(
+            key,
+            "page" | "limit" | "country" | "sector" | "sort_by" | "min_eps" | "min_growth"
+        ) {
+            // Design/runtime flags and unrelated query fields must not select
+            // or constrain the backend rankings request.
+            continue;
+        }
+        if !seen.insert(key.to_string()) {
+            return Err(());
+        }
+        match key {
+            "page" => {
+                let value = value.parse::<u32>().map_err(|_| ())?;
+                if value == 0 || value > 1_000_000 {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value.to_string());
+            }
+            "limit" => {
+                let value = value.parse::<u32>().map_err(|_| ())?;
+                if value == 0 || value > 100 {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value.to_string());
+            }
+            "country" | "sector" => {
+                if value.is_empty() {
+                    continue;
+                }
+                if value.len() > 64 || value.chars().any(|character| character.is_control()) {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            "sort_by" => {
+                if value.is_empty()
+                    || value.len() > 64
+                    || value.chars().any(|character| character.is_control())
+                {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            "min_eps" | "min_growth" => {
+                let number = value.parse::<f64>().map_err(|_| ())?;
+                if !number.is_finite() {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(normalized.finish())
+}
+
+async fn load_analytics_rankings(
+    client: &epsx_client::ServiceClient,
+    normalized_query: &str,
+    headers: &axum::http::HeaderMap,
+    verified_access_token: Option<&str>,
+) -> Result<AnalyticsResponse, AnalyticsLoadError> {
+    let path = if normalized_query.is_empty() {
+        ANALYTICS_RANKINGS_PATH.to_string()
+    } else {
+        format!("{ANALYTICS_RANKINGS_PATH}?{normalized_query}")
+    };
+    let mut request_context = epsx_client::RequestContext::from_headers(headers);
+    request_context.auth_token = verified_access_token.map(str::to_owned);
+    let value = client
+        .get_with_ctx(&path, &request_context)
+        .await
+        .map_err(|error| {
+            tracing::warn!("analytics rankings dependency unavailable: {error}");
+            AnalyticsLoadError::Unavailable
+        })?;
+    serde_json::from_value::<AnalyticsResponse>(value)
+        .map_err(|error| {
+            tracing::warn!("analytics rankings response malformed: {error}");
+            AnalyticsLoadError::Malformed
+        })?
+        .validated()
+        .map_err(|()| {
+            tracing::warn!("analytics rankings response failed semantic validation");
+            AnalyticsLoadError::Malformed
+        })
+}
+
+async fn load_analytics_filters(
+    client: &epsx_client::ServiceClient,
+) -> Result<AnalyticsFilters, AnalyticsLoadError> {
+    let value = client
+        .get_plain(ANALYTICS_FILTERS_PATH)
+        .await
+        .map_err(|error| {
+            tracing::warn!("analytics filters dependency unavailable: {error}");
+            AnalyticsLoadError::Unavailable
+        })?;
+    serde_json::from_value::<AnalyticsFilters>(value)
+        .map_err(|error| {
+            tracing::warn!("analytics filters response malformed: {error}");
+            AnalyticsLoadError::Malformed
+        })?
+        .validated()
+        .map_err(|()| {
+            tracing::warn!("analytics filters response failed semantic validation");
+            AnalyticsLoadError::Malformed
+        })
+}
+
+async fn load_analytics_watchlist(
+    client: &epsx_client::ServiceClient,
+    verified_access_token: Option<&str>,
+) -> Result<Option<WatchlistData>, AnalyticsLoadError> {
+    let Some(token) = verified_access_token else {
+        return Ok(None);
+    };
+    let mut context = epsx_client::RequestContext::new();
+    context.auth_token = Some(token.to_string());
+    let value = client
+        .get_with_ctx(ANALYTICS_WATCHLIST_PATH, &context)
+        .await
+        .map_err(|error| {
+            tracing::warn!("analytics watchlist dependency unavailable: {error}");
+            AnalyticsLoadError::Unavailable
+        })?;
+    crate::api::decode_watchlist_response(value)
+        .map(Some)
+        .map_err(|()| {
+            tracing::warn!("analytics watchlist response malformed");
+            AnalyticsLoadError::Malformed
+        })
+}
+
+fn record_analytics_query(params: &mut HashMap<String, String>, normalized_query: &str) {
+    let query = AnalyticsQueryState::from_normalized_query(normalized_query)
+        .expect("the bounded SSR query is valid analytics query state");
+    params.insert(
+        ANALYTICS_QUERY_PARAM.to_string(),
+        serde_json::to_string(&query).expect("analytics query state is serializable"),
+    );
+}
+
+fn record_analytics_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<AnalyticsResponse, AnalyticsLoadError>,
+) {
+    params.remove(ANALYTICS_DATA_PARAM);
+    let state = match outcome {
+        Ok(response) => {
+            let state = if response.data.is_empty() {
+                "empty"
+            } else {
+                "ready"
+            };
+            params.insert(
+                ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&response)
+                    .expect("validated analytics response is serializable"),
+            );
+            state
+        }
+        Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(ANALYTICS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_analytics_filters_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<AnalyticsFilters, AnalyticsLoadError>,
+) {
+    params.remove(ANALYTICS_FILTERS_DATA_PARAM);
+    let state = match outcome {
+        Ok(filters) => {
+            params.insert(
+                ANALYTICS_FILTERS_DATA_PARAM.to_string(),
+                serde_json::to_string(&filters)
+                    .expect("validated analytics filters are serializable"),
+            );
+            "ready"
+        }
+        Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(ANALYTICS_FILTERS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_analytics_watchlist_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<Option<WatchlistData>, AnalyticsLoadError>,
+) {
+    params.remove(ANALYTICS_WATCHLIST_DATA_PARAM);
+    let state = match outcome {
+        Ok(Some(watchlist)) => {
+            params.insert(
+                ANALYTICS_WATCHLIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&watchlist)
+                    .expect("validated analytics watchlist is serializable"),
+            );
+            "ready"
+        }
+        Ok(None) => "signed_out",
+        Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(
+        ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
 }
 
 fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
@@ -688,14 +1441,10 @@ fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Opt
         return None;
     }
     Some(
-        if params
-            .get(NOTIFICATIONS_STATE_PARAM)
-            .is_some_and(|state| state == "ok")
-            && params.contains_key(NOTIFICATIONS_DATA_PARAM)
-        {
-            StatusCode::OK
-        } else {
-            StatusCode::SERVICE_UNAVAILABLE
+        match params.get(NOTIFICATIONS_STATE_PARAM).map(String::as_str) {
+            Some("ok") if params.contains_key(NOTIFICATIONS_DATA_PARAM) => StatusCode::OK,
+            Some(NOTIFICATIONS_INVALID_QUERY) => StatusCode::BAD_REQUEST,
+            _ => StatusCode::SERVICE_UNAVAILABLE,
         },
     )
 }
@@ -703,6 +1452,96 @@ fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Opt
 /// Shared SSR-safe wallet challenge/sign/verify bridge.
 fn wallet_shim() -> &'static str {
     epsx_bff::browser_auth::browser_auth_script()
+}
+
+/// `/analytics` is hydration-less. Bind only the route's native page-size
+/// selector and backend-authorized watchlist controls.
+fn analytics_runtime_script() -> &'static str {
+    r#"<script data-epsx-analytics-runtime>
+(function () {
+  var symbolPattern = /^[A-Z0-9][A-Z0-9.-]{0,19}$/;
+  function normalizedSymbols(payload) {
+    if (!payload || payload.success !== true || !payload.data || !Array.isArray(payload.data.symbols)) return null;
+    var seen = Object.create(null);
+    var symbols = [];
+    for (var i = 0; i < payload.data.symbols.length; i += 1) {
+      if (typeof payload.data.symbols[i] !== 'string') return null;
+      var symbol = payload.data.symbols[i].trim().toUpperCase();
+      if (!symbolPattern.test(symbol)) return null;
+      if (!seen[symbol]) {
+        seen[symbol] = true;
+        symbols.push(symbol);
+      }
+    }
+    return symbols;
+  }
+  function statusFor(button) {
+    var sibling = button.nextElementSibling;
+    return sibling && sibling.classList.contains('stock-watchlist-status') ? sibling : null;
+  }
+  function applyMembership(symbols) {
+    var set = Object.create(null);
+    symbols.forEach(function (symbol) { set[symbol] = true; });
+    document.querySelectorAll('[data-watchlist-toggle="true"]').forEach(function (button) {
+      var symbol = (button.getAttribute('data-symbol') || '').toUpperCase();
+      var watched = set[symbol] === true;
+      button.setAttribute('data-watchlisted', watched ? 'true' : 'false');
+      button.setAttribute('aria-label', (watched ? 'Remove ' : 'Add ') + symbol + ' ' + (watched ? 'from' : 'to') + ' watchlist');
+      button.classList.toggle('text-pink-500', watched);
+      button.classList.toggle('text-gray-400', !watched);
+      var glyph = button.querySelector('[data-watchlist-glyph="true"]');
+      if (glyph) glyph.textContent = watched ? '♥' : '♡';
+    });
+  }
+  document.addEventListener('change', function (event) {
+    var select = event.target instanceof Element ? event.target.closest('[data-analytics-limit="true"]') : null;
+    if (select && select.form) select.form.requestSubmit();
+  });
+  document.addEventListener('click', function (event) {
+    var button = event.target instanceof Element ? event.target.closest('[data-watchlist-toggle="true"]') : null;
+    if (!button || button.disabled || button.getAttribute('aria-busy') === 'true') return;
+    event.preventDefault();
+    var symbol = (button.getAttribute('data-symbol') || '').trim().toUpperCase();
+    if (!symbolPattern.test(symbol)) return;
+    var removing = button.getAttribute('data-watchlisted') === 'true';
+    var status = statusFor(button);
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+    if (status) status.textContent = (removing ? 'Removing ' : 'Adding ') + symbol + '…';
+    var options = {
+      method: removing ? 'DELETE' : 'POST',
+      credentials: 'same-origin',
+      headers: { 'Accept': 'application/json' }
+    };
+    var endpoint = '/api/users/watchlist';
+    if (removing) {
+      endpoint += '/' + encodeURIComponent(symbol);
+    } else {
+      options.headers['Content-Type'] = 'application/json';
+      options.body = JSON.stringify({ symbol: symbol });
+    }
+    fetch(endpoint, options).then(function (response) {
+      if (response.status === 401) {
+        window.location.assign('/auth?return_url=%2Fanalytics');
+        return null;
+      }
+      if (!response.ok) throw new Error('watchlist request failed');
+      return response.json();
+    }).then(function (payload) {
+      if (payload === null) return;
+      var symbols = normalizedSymbols(payload);
+      if (symbols === null) throw new Error('watchlist response malformed');
+      applyMembership(symbols);
+      if (status) status.textContent = symbol + (removing ? ' removed from' : ' added to') + ' watchlist.';
+    }).catch(function () {
+      if (status) status.textContent = 'Could not update ' + symbol + '. Please try again.';
+    }).then(function () {
+      button.disabled = false;
+      button.setAttribute('aria-busy', 'false');
+    });
+  });
+})();
+</script>"#
 }
 
 /// `/offline` is SSR-only, so ordinary Dioxus event closures are not hydrated.
@@ -790,6 +1629,70 @@ self.addEventListener('activate', function (event) {
     }));
     await self.clients.claim();
   })());
+});
+
+const PUSH_TITLE_MAX = 160;
+const PUSH_BODY_MAX = 2048;
+
+function safePushActionUrl(value) {
+  if (value === null) return null;
+  if (typeof value !== 'string' || value.length === 0 || value.length > 2048 ||
+      value.indexOf('\\') !== -1 || /[\u0000-\u001f\u007f]/.test(value)) return null;
+  try {
+    const url = new URL(value, self.location.origin);
+    if (url.origin !== self.location.origin || url.username !== '' || url.password !== '' ||
+        (url.protocol !== 'http:' && url.protocol !== 'https:')) return null;
+    return url.href;
+  } catch (_error) {
+    return null;
+  }
+}
+
+function exactPushPayload(event) {
+  if (!event.data) return null;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch (_error) {
+    return null;
+  }
+  if (payload === null || typeof payload !== 'object' || Array.isArray(payload) ||
+      Object.getPrototypeOf(payload) !== Object.prototype) return null;
+  const keys = Object.keys(payload).sort();
+  if (keys.length !== 4 || keys.join(',') !== 'action_url,body,data,title') return null;
+  if (typeof payload.title !== 'string' || payload.title.length === 0 ||
+      payload.title.length > PUSH_TITLE_MAX || /[\u0000-\u001f\u007f]/.test(payload.title)) return null;
+  if (typeof payload.body !== 'string' || payload.body.length > PUSH_BODY_MAX ||
+      /[\u0000-\u001f\u007f]/.test(payload.body)) return null;
+  if (payload.data !== null && (typeof payload.data !== 'object' || Array.isArray(payload.data))) return null;
+  const actionUrl = safePushActionUrl(payload.action_url);
+  if (payload.action_url !== null && actionUrl === null) return null;
+  return { title: payload.title, body: payload.body, actionUrl: actionUrl };
+}
+
+self.addEventListener('push', function (event) {
+  const payload = exactPushPayload(event);
+  if (!payload) return;
+  const options = { body: payload.body };
+  if (payload.actionUrl !== null) options.data = { action_url: payload.actionUrl };
+  event.waitUntil(self.registration.showNotification(payload.title, options));
+});
+
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+  const actionUrl = event.notification.data &&
+    safePushActionUrl(event.notification.data.action_url);
+  if (!actionUrl) return;
+  event.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (windows) {
+    for (const client of windows) {
+      if (client.url && new URL(client.url).origin === self.location.origin) {
+        if (typeof client.navigate === 'function') return client.navigate(actionUrl);
+        if (typeof client.focus === 'function') return client.focus();
+      }
+    }
+    if (typeof clients.openWindow === 'function') return clients.openWindow(actionUrl);
+    return undefined;
+  }));
 });
 
 function isExactOfflineNavigation(request) {
@@ -1117,9 +2020,17 @@ fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static st
 </script>"#
 }
 
+/// Account-only browser push controller. The server remains authoritative for
+/// capability and subscription state; this runtime only requests browser
+/// permission after an explicit click and forwards the browser subscription
+/// through the same authenticated BFF boundary used by the Dioxus page.
+/// Provider delivery is intentionally not claimed by any UI state.
+///
 /// Minimal URL-encoder for the `next=` query parameter. Only handles
 /// the characters Vercel's middleware actually encodes; intentionally
 /// avoids pulling in a full url-encoding crate for this one call site.
+/// Keep the URL helper immediately before this runtime so the notification
+/// badge verifier's bounded function slice remains limited to the badge.
 fn urlencode(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for b in s.bytes() {
@@ -1135,6 +2046,463 @@ fn urlencode(s: &str) -> String {
     out
 }
 
+fn notification_push_runtime(is_authenticated: bool, path: &str) -> &'static str {
+    if !is_authenticated || path != "/account" {
+        return "";
+    }
+    r#"<script data-epsx-notification-push-runtime>
+(function () {
+  'use strict';
+  var root = document.querySelector('[data-epsx-notification-push="true"]');
+  if (!root) return;
+  var statusNode = root.querySelector('[data-push-status="true"]');
+  var enable = root.querySelector('[data-push-action="enable"]');
+  var disable = root.querySelector('[data-push-action="disable"]');
+  if (!statusNode || !enable || !disable) return;
+
+  var endpoint = '/api/v1/notifications/push';
+  var capability = null;
+  var currentSubscription = null;
+  var busy = false;
+
+  function setState(state, message) {
+    root.setAttribute('data-push-state', state);
+    statusNode.textContent = message;
+    enable.hidden = state === 'subscribed';
+    enable.disabled = state !== 'ready';
+    disable.hidden = state !== 'subscribed';
+    disable.disabled = state !== 'subscribed';
+  }
+
+  function exactStatus(payload) {
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) return null;
+    if (Object.getPrototypeOf(payload) !== Object.prototype) return null;
+    var keys = Object.keys(payload).sort();
+    if (keys.length !== 3 || keys.join(',') !== 'enabled,public_key,subscribed') return null;
+    if (typeof payload.enabled !== 'boolean' || typeof payload.subscribed !== 'boolean') return null;
+    if (payload.public_key !== null && typeof payload.public_key !== 'string') return null;
+    if (typeof payload.public_key === 'string' &&
+        (payload.public_key.length === 0 || payload.public_key.length > 256 ||
+         !/^[A-Za-z0-9_-]+$/.test(payload.public_key))) return null;
+    if (payload.enabled !== (payload.public_key !== null)) return null;
+    if (!payload.enabled && payload.subscribed) return null;
+    return payload;
+  }
+
+  function validEndpoint(value) {
+    if (typeof value !== 'string' || value.length === 0 || value.length > 2048) return false;
+    try {
+      var parsed = new URL(value);
+      return parsed.protocol === 'https:' && parsed.username === '' &&
+        parsed.password === '' && parsed.search === '' && parsed.hash === '';
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function validKey(value) {
+    return typeof value === 'string' && value.length > 0 && value.length <= 256 &&
+      /^[A-Za-z0-9_-]+$/.test(value);
+  }
+
+  function subscriptionBody(subscription) {
+    if (!subscription || typeof subscription.toJSON !== 'function') return null;
+    var value;
+    try {
+      value = subscription.toJSON();
+    } catch (_error) {
+      return null;
+    }
+    var keys = value && value.keys;
+    if (!value || typeof value !== 'object' || !validEndpoint(value.endpoint) ||
+        !keys || typeof keys !== 'object' || !validKey(keys.p256dh) || !validKey(keys.auth)) {
+      return null;
+    }
+    return { endpoint: value.endpoint, p256dh: keys.p256dh, auth: keys.auth };
+  }
+
+  function base64urlBytes(value) {
+    if (!validKey(value) || value.length % 4 === 1) return null;
+    var encoded = value.replace(/-/g, '+').replace(/_/g, '/');
+    while (encoded.length % 4 !== 0) encoded += '=';
+    try {
+      var decoded = atob(encoded);
+      var bytes = new Uint8Array(decoded.length);
+      for (var index = 0; index < decoded.length; index += 1) bytes[index] = decoded.charCodeAt(index);
+      return bytes;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function browserPushSupported() {
+    return window.isSecureContext && 'Notification' in window &&
+      'serviceWorker' in navigator && 'PushManager' in window;
+  }
+
+  async function readStatus() {
+    setState('checking', 'Checking whether browser push is available…');
+    try {
+      var response = await fetch(endpoint, {
+        method: 'GET',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json' }
+      });
+      if (!response.ok) throw new Error('status');
+      var payload = exactStatus(await response.json());
+      if (!payload) throw new Error('malformed');
+      capability = payload;
+      if (!payload.enabled) {
+        setState('unavailable', 'Browser push is unavailable until the notification service is configured.');
+        return;
+      }
+      if (!browserPushSupported()) {
+        setState('unsupported', 'This browser cannot create a push subscription.');
+        return;
+      }
+      if (Notification.permission === 'denied') {
+        setState('blocked', 'Browser notification permission is blocked; change it in browser settings to retry.');
+        return;
+      }
+      setState(payload.subscribed ? 'subscribed' : 'ready', payload.subscribed
+        ? 'A browser push subscription is registered for this wallet.'
+        : 'Browser push is ready. Enable it from this browser when you are ready.');
+    } catch (_error) {
+      capability = null;
+      setState('unavailable', 'Browser push availability could not be verified.');
+    }
+  }
+
+  enable.addEventListener('click', async function () {
+    if (busy || !capability || !capability.enabled) return;
+    busy = true;
+    setState('pending', 'Requesting browser notification permission…');
+    try {
+      if (!browserPushSupported()) {
+        setState('unsupported', 'This browser cannot create a push subscription.');
+        return;
+      }
+      var permission = Notification.permission;
+      if (permission === 'default') permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setState('blocked', 'Browser notification permission was not granted.');
+        return;
+      }
+      var registration = await navigator.serviceWorker.ready;
+      currentSubscription = await registration.pushManager.getSubscription();
+      if (!currentSubscription) {
+        var applicationServerKey = base64urlBytes(capability.public_key);
+        if (!applicationServerKey) throw new Error('key');
+        currentSubscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: applicationServerKey
+        });
+      }
+      var body = subscriptionBody(currentSubscription);
+      if (!body) throw new Error('subscription');
+      var response = await fetch(endpoint, {
+        method: 'PUT',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      if (!response.ok) throw new Error('subscribe');
+      var payload = exactStatus(await response.json());
+      if (!payload || !payload.enabled || !payload.subscribed) throw new Error('subscribe_response');
+      capability = payload;
+      setState('subscribed', 'A browser push subscription is registered for this wallet.');
+    } catch (_error) {
+      currentSubscription = null;
+      setState('ready', 'The browser subscription could not be registered. Try again when the service is available.');
+    } finally {
+      busy = false;
+    }
+  });
+
+  disable.addEventListener('click', async function () {
+    if (busy || !capability || !capability.subscribed) return;
+    busy = true;
+    setState('pending', 'Removing the browser push subscription…');
+    try {
+      if (!currentSubscription) {
+        var registration = await navigator.serviceWorker.ready;
+        currentSubscription = await registration.pushManager.getSubscription();
+      }
+      var body = subscriptionBody(currentSubscription);
+      if (!body) throw new Error('subscription');
+      var response = await fetch(endpoint, {
+        method: 'DELETE',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ endpoint: body.endpoint })
+      });
+      if (!response.ok) throw new Error('unsubscribe');
+      var payload = exactStatus(await response.json());
+      if (!payload || payload.subscribed) throw new Error('unsubscribe_response');
+      capability = payload;
+      if (currentSubscription && typeof currentSubscription.unsubscribe === 'function') {
+        try { await currentSubscription.unsubscribe(); } catch (_error) {}
+      }
+      currentSubscription = null;
+      setState(payload.enabled ? 'ready' : 'unavailable', payload.enabled
+        ? 'Browser push is ready to enable again.'
+        : 'Browser push is unavailable until the notification service is configured.');
+    } catch (_error) {
+      setState('subscribed', 'The browser push subscription could not be removed.');
+    } finally {
+      busy = false;
+    }
+  });
+
+  readStatus();
+})();
+</script>"#
+}
+
+/// Authenticated `/notifications` owner mutation controller. Every action is
+/// selected from a closed map, carries only a bounded notification identity,
+/// uses same-origin credentials, and reloads the server-rendered page only
+/// after the Rust BFF confirms `{ ok: true }`. A successful mutation never
+/// claims provider acceptance, delivery, or acknowledgement beyond the exact
+/// operation requested.
+fn notification_mutation_runtime(is_authenticated: bool, path: &str) -> &'static str {
+    if !is_authenticated || path != "/notifications" {
+        return "";
+    }
+    r#"<script data-epsx-notification-mutation-runtime>
+(function () {
+  'use strict';
+  var statusNode = document.querySelector('[data-notification-mutation-status="true"]');
+  if (!statusNode) return;
+
+  var actions = {
+    read: { method: 'POST', suffix: '/read' },
+    unread: { method: 'POST', suffix: '/unread' },
+    acknowledge: { method: 'PUT', suffix: '/acknowledge' },
+    dismiss: { method: 'POST', suffix: '/dismiss' },
+    delete: { method: 'POST', suffix: '/delete' },
+    'mark-all': { method: 'POST', path: '/api/v1/notifications/mark-all-read' },
+    'clear-all': { method: 'POST', path: '/api/v1/notifications/clear-all' }
+  };
+  var busy = false;
+
+  function validId(value) {
+    return typeof value === 'string' && value.length > 0 && value.length <= 128 &&
+      !/[\u0000-\u0020\u007f]/.test(value);
+  }
+
+  function requestFor(action, id) {
+    var definition = actions[action];
+    if (!definition) return null;
+    if (definition.path) return definition;
+    if (!validId(id)) return null;
+    return { method: definition.method, path: '/api/v1/notifications/' + encodeURIComponent(id) + definition.suffix };
+  }
+
+  function exactSuccess(payload) {
+    return payload !== null && typeof payload === 'object' && !Array.isArray(payload) &&
+      Object.getPrototypeOf(payload) === Object.prototype &&
+      Object.keys(payload).length === 1 && Object.keys(payload)[0] === 'ok' && payload.ok === true;
+  }
+
+  function setStatus(message, alert) {
+    statusNode.textContent = message;
+    statusNode.setAttribute('data-notification-mutation-state', alert ? 'error' : 'ready');
+  }
+
+  async function run(button) {
+    if (busy) return;
+    var action = button.getAttribute('data-notification-mutation');
+    var id = button.getAttribute('data-notification-id');
+    var request = requestFor(action, id);
+    if (!request) {
+      setStatus('This notification action is unavailable.', true);
+      return;
+    }
+    if (action === 'clear-all' && typeof window.confirm === 'function' &&
+        !window.confirm('Remove all notifications from this wallet?')) return;
+    busy = true;
+    document.querySelectorAll('[data-notification-mutation]').forEach(function (item) {
+      item.disabled = true;
+    });
+    setStatus('Saving notification changes…', false);
+    try {
+      var response = await fetch(request.path, {
+        method: request.method,
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json' },
+        body: request.method === 'POST' || request.method === 'PUT' ? '{}' : undefined
+      });
+      if (!response.ok || !exactSuccess(await response.json())) throw new Error('mutation');
+      setStatus('Notification changes saved. Reloading…', false);
+      window.location.reload();
+    } catch (_error) {
+      setStatus('Notification changes could not be saved. Try again when the service is available.', true);
+      document.querySelectorAll('[data-notification-mutation]').forEach(function (item) {
+        item.disabled = false;
+      });
+      busy = false;
+    }
+  }
+
+  document.querySelectorAll('[data-notification-mutation]').forEach(function (button) {
+    button.addEventListener('click', function () { run(button); });
+  });
+})();
+</script>"#
+}
+
+/// Authenticated `/notifications` owner stream controller. The stream remains
+/// a server-rendered data source: a validated event is acknowledged through
+/// the Rust BFF and the page is reloaded only after the durable cursor write
+/// succeeds. No event payload is copied into HTML and no provider delivery is
+/// inferred from the connection state.
+fn notification_realtime_runtime(is_authenticated: bool, path: &str) -> &'static str {
+    if !is_authenticated || path != "/notifications" {
+        return "";
+    }
+    r#"<script data-epsx-notification-realtime-runtime>
+(function () {
+  'use strict';
+  var statusNode = document.querySelector('[data-notifications-live-status="true"]');
+  if (!statusNode || typeof EventSource !== 'function') return;
+
+  var endpoint = '/api/v1/notifications/stream';
+  var ackEndpoint = '/api/v1/notifications/stream/ack';
+  var source = null;
+  var reloadTimer = null;
+  var closed = false;
+
+  function setState(state, message) {
+    statusNode.setAttribute('data-notifications-live-state', state);
+    statusNode.textContent = message;
+  }
+
+  function boundedText(value, max, allowEmpty) {
+    return typeof value === 'string' && (allowEmpty || value.length > 0) &&
+      value.length <= max && !/[\u0000-\u001f\u007f]/.test(value);
+  }
+
+  function safeActionUrl(value) {
+    if (value === null) return null;
+    if (!boundedText(value, 2048, false) || value.indexOf('\\') !== -1) return null;
+    try {
+      var url = new URL(value, window.location.origin);
+      if (url.origin !== window.location.origin || url.username !== '' || url.password !== '' ||
+          (url.protocol !== 'http:' && url.protocol !== 'https:')) return null;
+      return url.href;
+    } catch (_error) {
+      return null;
+    }
+  }
+
+  function exactNotification(event) {
+    if (!event || typeof event.data !== 'string' || event.data.length === 0 ||
+        event.data.length > 16 * 1024) return null;
+    var payload;
+    try { payload = JSON.parse(event.data); } catch (_error) { return null; }
+    if (payload === null || typeof payload !== 'object' || Array.isArray(payload) ||
+        Object.getPrototypeOf(payload) !== Object.prototype) return null;
+    var keys = Object.keys(payload).sort();
+    if (keys.length !== 9 || keys.join(',') !==
+        'action_url,body,created_at,data,id,notification_type,priority,read_at,title') return null;
+    if (!boundedText(payload.id, 128, false) || !boundedText(payload.title, 160, false) ||
+        !boundedText(payload.body, 2048, true) || !boundedText(payload.created_at, 128, false)) return null;
+    if (payload.data !== null &&
+        (typeof payload.data !== 'object' || Array.isArray(payload.data))) return null;
+    if (payload.notification_type !== null && !boundedText(payload.notification_type, 64, false)) return null;
+    if (payload.priority !== null && !boundedText(payload.priority, 32, false)) return null;
+    if (payload.read_at !== null && !boundedText(payload.read_at, 128, false)) return null;
+    var actionUrl = safeActionUrl(payload.action_url);
+    if (payload.action_url !== null && actionUrl === null) return null;
+    return payload;
+  }
+
+  function scheduleReload() {
+    if (reloadTimer !== null || closed) return;
+    reloadTimer = window.setTimeout(function () {
+      reloadTimer = null;
+      if (!closed) window.location.reload();
+    }, 250);
+  }
+
+  async function acknowledge(eventId) {
+    if (typeof eventId !== 'string' || eventId.length === 0 || eventId.length > 128 ||
+        /[\u0000-\u0020\u007f]/.test(eventId)) return false;
+    try {
+      var response = await fetch(ackEndpoint, {
+        method: 'POST',
+        cache: 'no-store',
+        credentials: 'include',
+        headers: { 'accept': 'application/json', 'content-type': 'application/json' },
+        body: JSON.stringify({ event_id: eventId })
+      });
+      if (!response.ok) return false;
+      var payload = await response.json();
+      if (payload === null || typeof payload !== 'object' || Array.isArray(payload) ||
+          Object.getPrototypeOf(payload) !== Object.prototype) return false;
+      var keys = Object.keys(payload).sort();
+      return keys.length === 2 && keys.join(',') === 'event_id,ok' &&
+        payload.ok === true && payload.event_id === eventId;
+    } catch (_error) {
+      return false;
+    }
+  }
+
+  function closeSource() {
+    if (source) source.close();
+    source = null;
+  }
+
+  function openSource() {
+    if (closed || document.hidden) return;
+    closeSource();
+    setState('connecting', 'Live notification updates are connecting…');
+    try {
+      source = new EventSource(endpoint, { withCredentials: true });
+    } catch (_error) {
+      setState('unavailable', 'Live notification updates are unavailable.');
+      return;
+    }
+    source.onopen = function () {
+      setState('connected', 'Live notification updates connected.');
+    };
+    source.onerror = function () {
+      setState('reconnecting', 'Live notification updates are reconnecting.');
+    };
+    source.addEventListener('notification', function (event) {
+      var payload = exactNotification(event);
+      if (!payload || !event.lastEventId) return;
+      acknowledge(event.lastEventId).then(function (accepted) {
+        if (accepted) scheduleReload();
+        else setState('reconnecting', 'Live notification updates are reconnecting.');
+      });
+    });
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) {
+      closeSource();
+      setState('paused', 'Live notification updates are paused while this page is hidden.');
+    } else {
+      openSource();
+    }
+  });
+  window.addEventListener('beforeunload', function () {
+    closed = true;
+    closeSource();
+    if (reloadTimer !== null) window.clearTimeout(reloadTimer);
+  });
+
+  openSource();
+})();
+</script>"#
+}
+
 fn normalized_request_target(path: &str, query: &str) -> String {
     if query.is_empty() {
         path.to_string()
@@ -1143,16 +2511,32 @@ fn normalized_request_target(path: &str, query: &str) -> String {
     }
 }
 
-fn frontend_navigation_html(path: &str, query: &str, is_authenticated: bool) -> String {
+fn frontend_navigation_html(
+    path: &str,
+    query: &str,
+    is_authenticated: bool,
+    wallet_address: Option<&str>,
+) -> String {
     if path == "/auth" {
         return String::new();
     }
 
     let return_target = normalized_request_target(path, query);
-    epsx_templates::epsx_header_for_session_and_return_target(
+    // Keep the supplied home references unchanged: their compact action
+    // cluster intentionally has no network label. Other public routes mirror
+    // the development tablet/desktop shell, which shows the read-only
+    // BSC Testnet target beside the wallet action.
+    let show_network = !matches!(path, "/" | "/index");
+    let mut html = epsx_templates::epsx_header_for_session_and_wallet_with_network(
         is_authenticated,
         &return_target,
-    )
+        wallet_address,
+        show_network,
+    );
+    if !is_authenticated && wallet_address.is_some() {
+        html.push_str(&epsx_templates::epsx_wallet_sign_in_banner(&return_target));
+    }
+    html
 }
 
 fn safe_return_url(query: &str) -> String {
@@ -1189,29 +2573,48 @@ fn safe_return_url(query: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::account_notification_preferences_flash_state;
     use super::account_payment_history_path;
+    use super::analytics_query;
+    use super::analytics_runtime_script;
     use super::apply_ssr_cache_policy;
     use super::auth_page_session_state;
+    use super::design_bypass_chat_enabled;
+    use super::design_bypass_identity_enabled;
+    use super::design_bypass_requested;
+    use super::design_bypass_wallet_enabled;
     use super::developer_docs_runtime_script;
     use super::escaped_page_metadata;
     use super::frontend_navigation_html;
+    use super::load_home_analytics;
     use super::load_home_news;
     use super::manual_runtime_script;
     use super::news_detail_route_segment;
     use super::news_detail_route_slug;
     use super::news_ssr_status;
-    use super::notification_badge_runtime;
-    use super::notifications_ssr_status;
     use super::normalized_request_target;
+    use super::notification_badge_runtime;
+    use super::notification_mutation_runtime;
+    use super::notification_push_runtime;
+    use super::notification_realtime_runtime;
+    use super::notifications_ssr_status;
     use super::offline_runtime_script;
     use super::offline_service_worker_script;
     use super::offline_worker_registration_script;
     use super::pricing_redirect_response;
+    use super::record_account_notification_preferences_form_state;
+    use super::record_account_notification_preferences_load;
     use super::record_account_payment_history_load;
+    use super::record_analytics_load;
+    use super::record_home_analytics_load;
     use super::record_home_news_load;
     use super::record_notification_load;
     use super::safe_return_url;
     use super::urlencode;
+    use super::AnalyticsLoadError;
+    use super::NotificationPageRequest;
+    use crate::api::{NotificationPreferencesLoadError, NotificationPreferencesLoadOutcome};
+    use axum::http::{header, HeaderMap, HeaderValue};
     use epsx_bff::session::AccessVerification;
     use epsx_dioxus_ui::pages::auth_page::{
         AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
@@ -1219,6 +2622,117 @@ mod tests {
     };
     use epsx_dioxus_ui::pages::{PageContext, PageMeta, PageStatus};
     use std::collections::HashMap;
+
+    #[test]
+    fn analytics_query_keeps_only_bounded_backend_filters() {
+        assert_eq!(
+            analytics_query("page=2&limit=25&country=america&sector=Technology&__design_bypass=1")
+                .unwrap(),
+            "page=2&limit=25&country=america&sector=Technology"
+        );
+        assert_eq!(
+            analytics_query("page=1&limit=10&country=america&sector=").unwrap(),
+            "page=1&limit=10&country=america"
+        );
+        assert!(analytics_query("page=0").is_err());
+        assert!(analytics_query("page=1&page=2").is_err());
+        assert!(analytics_query("limit=101").is_err());
+        assert!(analytics_query("min_growth=not-a-number").is_err());
+    }
+
+    #[test]
+    fn analytics_load_records_ready_empty_and_unavailable_outcomes() {
+        let response = epsx_dioxus_ui::pages::analytics::AnalyticsResponse {
+            success: true,
+            data: vec![],
+            pagination: epsx_dioxus_ui::pages::analytics::AnalyticsPagination {
+                page: 1,
+                limit: 10,
+                total: 0,
+                total_pages: 0,
+                has_next: false,
+                has_prev: false,
+            },
+            metadata: epsx_dioxus_ui::pages::analytics::AnalyticsMetadata {
+                available_countries: vec!["america".into()],
+                available_sectors: vec!["Technology".into()],
+                request_timestamp: "2026-07-27T00:00:00Z".into(),
+                data_source: "live".into(),
+            },
+            access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
+                min_accessible_rank: 100,
+                locked_ranks_count: 99,
+            }),
+            message: None,
+            processing_time_ms: 1,
+        };
+        let mut params = HashMap::new();
+        record_analytics_load(&mut params, Ok(response));
+        assert_eq!(
+            params.get(super::ANALYTICS_STATE_PARAM).map(String::as_str),
+            Some("empty")
+        );
+        assert!(params.contains_key(super::ANALYTICS_DATA_PARAM));
+
+        let response = epsx_dioxus_ui::pages::analytics::AnalyticsResponse {
+            success: true,
+            data: vec![epsx_dioxus_ui::pages::analytics::AnalyticsRow {
+                rank: 100,
+                symbol: "LIVE".into(),
+                company_name: Some("Live row".into()),
+                latest_date: "2026-07-27".into(),
+                value: 1.0,
+                active_status: "TRACK".into(),
+                quarterly_performance: vec![],
+                next_quarter_estimate: None,
+                next_earnings_date: None,
+                last_earnings_date: None,
+                next_earnings_date_formatted: None,
+                days_until_next_earnings: None,
+                progress_percentage: None,
+                current_eps: Some(1.0),
+                growth_factor: Some(1.0),
+                price_current: Some(1.0),
+            }],
+            pagination: epsx_dioxus_ui::pages::analytics::AnalyticsPagination {
+                page: 1,
+                limit: 10,
+                total: 1,
+                total_pages: 1,
+                has_next: false,
+                has_prev: false,
+            },
+            metadata: epsx_dioxus_ui::pages::analytics::AnalyticsMetadata {
+                available_countries: vec!["america".into()],
+                available_sectors: vec!["Technology".into()],
+                request_timestamp: "2026-07-27T00:00:00Z".into(),
+                data_source: "live".into(),
+            },
+            access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
+                min_accessible_rank: 100,
+                locked_ranks_count: 99,
+            }),
+            message: None,
+            processing_time_ms: 1,
+        };
+        record_analytics_load(&mut params, Ok(response));
+        assert_eq!(
+            params.get(super::ANALYTICS_STATE_PARAM).map(String::as_str),
+            Some("ready")
+        );
+        record_analytics_load(&mut params, Err(AnalyticsLoadError::Unavailable));
+        assert_eq!(
+            params.get(super::ANALYTICS_STATE_PARAM).map(String::as_str),
+            Some("unavailable")
+        );
+        assert!(!params.contains_key(super::ANALYTICS_DATA_PARAM));
+
+        record_analytics_load(&mut params, Err(AnalyticsLoadError::Malformed));
+        assert_eq!(
+            params.get(super::ANALYTICS_STATE_PARAM).map(String::as_str),
+            Some("malformed")
+        );
+    }
 
     fn owner_history_payload(owner: &str, with_intent: bool) -> serde_json::Value {
         let intents = if with_intent {
@@ -1247,6 +2761,69 @@ mod tests {
             "total_intents": if with_intent { 1 } else { 0 },
             "total_escrows": 0
         })
+    }
+
+    #[test]
+    fn notification_page_query_accepts_only_bounded_owner_filters_and_page() {
+        assert_eq!(
+            NotificationPageRequest::parse("").unwrap(),
+            NotificationPageRequest {
+                page: 1,
+                status: None,
+                notification_type: None,
+                priority: None,
+                start_date: None,
+                end_date: None,
+            }
+        );
+        assert_eq!(
+            NotificationPageRequest::parse("status=unread&page=3")
+                .unwrap()
+                .service_query()
+                .upstream_suffix(),
+            "?limit=20&offset=40&status=unread"
+        );
+        assert_eq!(
+            NotificationPageRequest::parse("status=all&page=2")
+                .unwrap()
+                .service_query()
+                .upstream_suffix(),
+            "?limit=20&offset=20"
+        );
+        assert_eq!(
+            NotificationPageRequest::parse("status=unread&type=payment&priority=critical&page=3")
+                .unwrap()
+                .service_query()
+                .upstream_suffix(),
+            "?limit=20&offset=40&status=unread&type=payment&priority=critical"
+        );
+        assert_eq!(
+            NotificationPageRequest::parse(
+                "type=wallet_management&priority=urgent&start_date=2026-01-01T00:00:00Z&end_date=2026-01-31T23:59:59Z&page=2"
+            )
+            .unwrap()
+            .service_query()
+            .upstream_suffix(),
+            "?limit=20&offset=20&type=wallet_management&priority=urgent&start_date=2026-01-01T00%3A00%3A00Z&end_date=2026-01-31T23%3A59%3A59Z"
+        );
+        for invalid in [
+            "status=pending",
+            "status=unread&status=read",
+            "type=unknown",
+            "priority=urgent&priority=low",
+            "priority=unknown",
+            "type=wallet_management&start_date=2026-02-01T00:00:00Z&end_date=2026-01-01T00:00:00Z",
+            "start_date=not-a-date",
+            "start_date=2026-01-01T00:00:00Z&start_date=2026-01-02T00:00:00Z",
+            "page=0",
+            "page=1&offset=20",
+            "unknown=value",
+        ] {
+            assert!(
+                NotificationPageRequest::parse(invalid).is_err(),
+                "notification query must fail closed: {invalid}"
+            );
+        }
     }
 
     #[test]
@@ -1368,6 +2945,114 @@ mod tests {
     }
 
     #[test]
+    fn account_notification_preferences_record_only_validated_outcome_states() {
+        let mut params = HashMap::from([(
+            epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM.to_string(),
+            "stale-preferences".to_string(),
+        )]);
+        record_account_notification_preferences_load(
+            &mut params,
+            NotificationPreferencesLoadOutcome::Ready(serde_json::json!({
+                "channels": {"email": true},
+                "quiet_hours": null,
+                "timezone": "UTC",
+                "updated_at": null
+            })),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM)
+                .map(String::as_str),
+            Some("ready")
+        );
+        assert!(params.contains_key(
+            epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM
+        ));
+
+        record_account_notification_preferences_load(
+            &mut params,
+            NotificationPreferencesLoadOutcome::Error(NotificationPreferencesLoadError::Malformed),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM)
+                .map(String::as_str),
+            Some("malformed")
+        );
+        assert!(!params.contains_key(
+            epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM
+        ));
+
+        record_account_notification_preferences_load(
+            &mut params,
+            NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::DependencyUnavailable,
+            ),
+        );
+        assert_eq!(
+            params
+                .get(epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM)
+                .map(String::as_str),
+            Some("unavailable")
+        );
+    }
+
+    #[test]
+    fn account_notification_preferences_form_state_accepts_only_canonical_redirects() {
+        let mut params = HashMap::from([(
+            epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM
+                .to_string(),
+            "stale".to_string(),
+        )]);
+        record_account_notification_preferences_form_state(&mut params, Some("saved"));
+        assert_eq!(
+            params.get(
+                epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM
+            ),
+            Some(&"saved".to_string())
+        );
+        record_account_notification_preferences_form_state(&mut params, Some("error"));
+        assert_eq!(
+            params.get(
+                epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM
+            ),
+            Some(&"error".to_string())
+        );
+        record_account_notification_preferences_form_state(&mut params, None);
+        assert!(!params.contains_key(
+            epsx_dioxus_ui::pages::account::ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM
+        ));
+
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("epsx.notification_preferences_flash=saved; other=ignored"),
+        );
+        assert_eq!(
+            account_notification_preferences_flash_state(&headers, "preferences=saved"),
+            Some("saved")
+        );
+        assert_eq!(
+            account_notification_preferences_flash_state(&headers, "preferences=error"),
+            None
+        );
+        assert_eq!(
+            account_notification_preferences_flash_state(&HeaderMap::new(), "preferences=saved"),
+            None
+        );
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static(
+                "epsx.notification_preferences_flash=saved; epsx.notification_preferences_flash=error",
+            ),
+        );
+        assert_eq!(
+            account_notification_preferences_flash_state(&headers, "preferences=saved"),
+            None
+        );
+    }
+
+    #[test]
     fn notification_load_records_ready_and_authoritative_empty_as_200() {
         let payload = serde_json::json!({
             "items": [{
@@ -1395,6 +3080,12 @@ mod tests {
 
         record_notification_load(
             &mut params,
+            1,
+            None,
+            None,
+            None,
+            None,
+            None,
             crate::api::NotificationListLoadOutcome::Ready(payload.clone()),
         );
 
@@ -1418,6 +3109,12 @@ mod tests {
         let empty = serde_json::json!({"items": [], "total": 0});
         record_notification_load(
             &mut params,
+            1,
+            None,
+            None,
+            None,
+            None,
+            None,
             crate::api::NotificationListLoadOutcome::Empty(empty.clone()),
         );
         assert_eq!(
@@ -1451,7 +3148,7 @@ mod tests {
                 serde_json::json!({"items": [{"title": "stale"}], "total": 1}).to_string(),
             )]);
 
-            record_notification_load(&mut params, outcome);
+            record_notification_load(&mut params, 1, None, None, None, None, None, outcome);
 
             assert_eq!(
                 params
@@ -1535,6 +3232,139 @@ mod tests {
             assert!(load_home_news(&client, path).await.is_none(), "{path}");
         }
         assert_eq!(calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+    }
+
+    #[tokio::test]
+    async fn home_analytics_loader_uses_fixed_credential_free_public_first_page() {
+        let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let route_calls = std::sync::Arc::clone(&calls);
+        let router = axum::Router::new().route(
+            "/api/analytics/rankings",
+            axum::routing::get(
+                move |headers: axum::http::HeaderMap, raw: axum::extract::RawQuery| {
+                    let route_calls = std::sync::Arc::clone(&route_calls);
+                    async move {
+                        assert!(
+                            !headers.contains_key(axum::http::header::AUTHORIZATION),
+                            "the home preview must not inherit a user's ranking offset"
+                        );
+                        route_calls.lock().unwrap().push(raw.0.unwrap_or_default());
+                        axum::Json(serde_json::json!({
+                            "success": true,
+                            "data": [],
+                            "pagination": {
+                                "page": 1,
+                                "limit": 3,
+                                "total": 0,
+                                "totalPages": 0,
+                                "hasNext": false,
+                                "hasPrev": false
+                            },
+                            "metadata": {
+                                "available_countries": ["america"],
+                                "available_sectors": ["Technology"],
+                                "request_timestamp": "2026-07-27T00:00:00Z",
+                                "data_source": "live"
+                            },
+                            "access_info": {
+                                "min_accessible_rank": 100,
+                                "locked_ranks_count": 99
+                            },
+                            "message": null,
+                            "processing_time_ms": 1
+                        }))
+                    }
+                },
+            ),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+            .await
+            .expect("loopback listener");
+        let address = listener.local_addr().expect("loopback address");
+        tokio::spawn(async move {
+            axum::serve(listener, router)
+                .await
+                .expect("home analytics mock server");
+        });
+        let client = epsx_client::ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: std::time::Duration::from_secs(1),
+        });
+
+        for path in ["/", "/index"] {
+            let response = load_home_analytics(&client, path)
+                .await
+                .expect("exact home path must load rankings")
+                .expect("valid public rankings response");
+            assert!(response.data.is_empty());
+            assert_eq!(response.pagination.page, 1);
+            assert_eq!(response.pagination.limit, 3);
+        }
+        for path in ["/analytics", "/?page=1", "/index/"] {
+            assert!(load_home_analytics(&client, path).await.is_none(), "{path}");
+        }
+        assert_eq!(
+            *calls.lock().unwrap(),
+            vec!["page=1&limit=3", "page=1&limit=3"]
+        );
+    }
+
+    #[test]
+    fn home_analytics_and_route_runtime_record_truthful_independent_states() {
+        let response = epsx_dioxus_ui::pages::analytics::AnalyticsResponse {
+            success: true,
+            data: vec![],
+            pagination: epsx_dioxus_ui::pages::analytics::AnalyticsPagination {
+                page: 1,
+                limit: 3,
+                total: 0,
+                total_pages: 0,
+                has_next: false,
+                has_prev: false,
+            },
+            metadata: epsx_dioxus_ui::pages::analytics::AnalyticsMetadata {
+                available_countries: vec![],
+                available_sectors: vec![],
+                request_timestamp: "2026-07-27T00:00:00Z".into(),
+                data_source: "live".into(),
+            },
+            access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
+                min_accessible_rank: 100,
+                locked_ranks_count: 99,
+            }),
+            message: None,
+            processing_time_ms: 1,
+        };
+        let mut params = HashMap::from([(
+            super::HOME_NEWS_DATA_PARAM.to_string(),
+            "independent-news-outcome".to_string(),
+        )]);
+        record_home_analytics_load(&mut params, Ok(response));
+        assert_eq!(
+            params
+                .get(super::HOME_ANALYTICS_STATE_PARAM)
+                .map(String::as_str),
+            Some("empty")
+        );
+        assert_eq!(
+            params.get(super::HOME_NEWS_DATA_PARAM).map(String::as_str),
+            Some("independent-news-outcome")
+        );
+        record_home_analytics_load(&mut params, Err(super::AnalyticsLoadError::Unavailable));
+        assert_eq!(
+            params
+                .get(super::HOME_ANALYTICS_STATE_PARAM)
+                .map(String::as_str),
+            Some("unavailable")
+        );
+        assert!(!params.contains_key(super::HOME_ANALYTICS_DATA_PARAM));
+
+        let runtime = analytics_runtime_script();
+        assert!(runtime.contains("data-epsx-analytics-runtime"));
+        assert!(runtime.contains("credentials: 'same-origin'"));
+        assert!(runtime.contains("method: removing ? 'DELETE' : 'POST'"));
+        assert!(runtime.contains("/auth?return_url=%2Fanalytics"));
+        assert!(!runtime.contains("localStorage"));
     }
 
     #[test]
@@ -1831,21 +3661,19 @@ mod tests {
 
     #[test]
     fn shared_navigation_preserves_normalized_path_and_raw_query_for_auth() {
-        let target =
-            normalized_request_target("/news/example", "q=eps&category=markets");
+        let target = normalized_request_target("/news/example", "q=eps&category=markets");
         assert_eq!(target, "/news/example?q=eps&category=markets");
 
         let header =
-            frontend_navigation_html("/news/example", "q=eps&category=markets", false);
-        let expected =
-            "href=\"/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets\"";
+            frontend_navigation_html("/news/example", "q=eps&category=markets", false, None);
+        let expected = "href=\"/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets\"";
         assert_eq!(header.matches(expected).count(), 2);
         assert_eq!(header.matches("data-epsx-auth-link").count(), 2);
         assert!(!header.contains("href=\"/auth\""));
 
         let encoded_query = "q=a%20b&q=c%2Bd&next=%2Fportfolio&probe=%3Ctag%3E";
         let encoded_target = normalized_request_target("/news/example", encoded_query);
-        let encoded_header = frontend_navigation_html("/news/example", encoded_query, false);
+        let encoded_header = frontend_navigation_html("/news/example", encoded_query, false, None);
         let encoded_return_url = "%2Fnews%2Fexample%3Fq%3Da%2520b%26q%3Dc%252Bd%26next%3D%252Fportfolio%26probe%3D%253Ctag%253E";
         assert_eq!(
             encoded_header
@@ -1861,7 +3689,7 @@ mod tests {
 
     #[test]
     fn shared_navigation_omits_auth_header_and_fails_hostile_targets_closed() {
-        assert!(frontend_navigation_html("/auth", "return_url=%2Fnews", false).is_empty());
+        assert!(frontend_navigation_html("/auth", "return_url=%2Fnews", false, None).is_empty());
 
         for hostile_path in [
             "https://evil.example",
@@ -1869,7 +3697,7 @@ mod tests {
             "/\\evil.example",
             "/news/\u{0007}bad",
         ] {
-            let header = frontend_navigation_html(hostile_path, "", false);
+            let header = frontend_navigation_html(hostile_path, "", false, None);
             assert_eq!(
                 header.matches("href=\"/auth?return_url=%2F\"").count(),
                 2,
@@ -1878,6 +3706,16 @@ mod tests {
             assert!(!header.contains("evil.example"), "{hostile_path:?}");
             assert!(!header.contains("href=\"/auth\""), "{hostile_path:?}");
         }
+    }
+
+    #[test]
+    fn shared_navigation_keeps_home_reference_clean_and_marks_non_home_network() {
+        let home = frontend_navigation_html("/", "", false, None);
+        assert!(!home.contains("data-epsx-network=\"bsc-testnet\""));
+
+        let plans = frontend_navigation_html("/plans", "", false, None);
+        assert!(plans.contains("data-epsx-network=\"bsc-testnet\""));
+        assert!(plans.contains("Current network: BSC Testnet"));
     }
 
     /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.
@@ -1898,6 +3736,44 @@ mod tests {
             r.headers().get("location").unwrap(),
             "/plans?ref=foo&affiliate=bar"
         );
+    }
+
+    #[test]
+    fn design_bypass_query_is_local_only_and_truthy() {
+        use epsx_bff::cookies::CookieEnvironment;
+
+        assert!(design_bypass_requested(
+            "__design_bypass=1",
+            CookieEnvironment::Local
+        ));
+        assert!(design_bypass_requested(
+            "theme=dark&__design_bypass=true",
+            CookieEnvironment::Local
+        ));
+        assert!(!design_bypass_requested(
+            "__design_bypass=0",
+            CookieEnvironment::Local
+        ));
+        assert!(!design_bypass_requested(
+            "__design_bypass=1",
+            CookieEnvironment::Production
+        ));
+    }
+
+    #[test]
+    fn design_bypass_home_is_wallet_only_and_dashboard_keeps_support() {
+        assert!(!design_bypass_identity_enabled(true, "/"));
+        assert!(!design_bypass_identity_enabled(true, "/index"));
+        assert!(!design_bypass_identity_enabled(true, "/dashboard"));
+        assert!(design_bypass_identity_enabled(true, "/portfolio"));
+
+        assert!(design_bypass_wallet_enabled(true, "/"));
+        assert!(design_bypass_wallet_enabled(true, "/portfolio"));
+        assert!(!design_bypass_wallet_enabled(true, "/dashboard"));
+
+        assert!(!design_bypass_chat_enabled(true, "/"));
+        assert!(design_bypass_chat_enabled(true, "/dashboard"));
+        assert!(!design_bypass_chat_enabled(true, "/portfolio"));
     }
 
     // === Wave 35b T1 — AuthGate 307-redirect for marketing routes ===
@@ -1999,6 +3875,57 @@ mod tests {
         assert!(!script.contains("cache.addAll"));
         assert!(!script.contains("cache.put(event.request"));
         assert!(!script.contains("ignoreSearch: true"));
+    }
+
+    #[test]
+    fn offline_worker_push_delivery_is_bounded_and_same_origin_only() {
+        let script = offline_service_worker_script();
+        for anchor in [
+            "addEventListener('push'",
+            "Object.getPrototypeOf(payload) !== Object.prototype",
+            "keys.length !== 4 || keys.join(',') !== 'action_url,body,data,title'",
+            "PUSH_TITLE_MAX = 160",
+            "PUSH_BODY_MAX = 2048",
+            "showNotification(payload.title, options)",
+            "addEventListener('notificationclick'",
+            "clients.openWindow(actionUrl)",
+            "url.origin !== self.location.origin",
+        ] {
+            assert!(
+                script.contains(anchor),
+                "missing push worker guard: {anchor}"
+            );
+        }
+        assert!(!script.contains("event.data.text()"));
+        assert!(!script.contains("console."));
+        assert!(!script.contains("cache.put(event.request"));
+    }
+
+    #[test]
+    fn offline_worker_push_script_is_javascript_syntax_valid() {
+        use std::io::Write;
+        use std::process::{Command, Stdio};
+
+        let mut child = Command::new("node")
+            .args(["--check", "-"])
+            .stdin(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .expect("run Node.js syntax check for the service worker");
+        child
+            .stdin
+            .as_mut()
+            .expect("Node.js syntax checker stdin")
+            .write_all(offline_service_worker_script().as_bytes())
+            .expect("write service worker source to Node.js");
+        let output = child
+            .wait_with_output()
+            .expect("wait for Node.js syntax checker");
+        assert!(
+            output.status.success(),
+            "service worker JavaScript syntax failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
     }
 
     #[test]
@@ -2171,9 +4098,7 @@ assert.equal(fetchCalls, 0);
         assert!(script.contains("aria-expanded"));
         assert!(script.contains("ArrowRight"));
         assert!(script.contains("window.epsx.copyText"));
-        assert!(script.contains(
-            "window.matchMedia('(prefers-reduced-motion: reduce)').matches"
-        ));
+        assert!(script.contains("window.matchMedia('(prefers-reduced-motion: reduce)').matches"));
         assert!(script.contains("behavior: reduceMotion ? 'auto' : 'smooth'"));
         assert!(script.contains("block: 'start'"));
         assert!(!script.contains("fetch("));
@@ -2457,6 +4382,95 @@ assert.equal(fetchCalls, 0);
         assert!(!script.contains("/api/v1/notifications?"));
         assert!(!script.contains("limit=1"));
         assert!(!script.contains("items.filter"));
+    }
+
+    #[test]
+    fn notification_push_runtime_is_authenticated_account_only() {
+        assert_eq!(notification_push_runtime(false, "/account"), "");
+        assert_eq!(notification_push_runtime(true, "/rankings"), "");
+        assert_eq!(notification_push_runtime(true, "/offline"), "");
+
+        let script = notification_push_runtime(true, "/account");
+        assert!(script.contains("data-epsx-notification-push-runtime"));
+        assert!(script.contains("/api/v1/notifications/push"));
+        assert!(script.contains("credentials: 'include'"));
+        assert!(script.contains("cache: 'no-store'"));
+        assert!(script.contains("Notification.requestPermission()"));
+        assert!(script.contains("navigator.serviceWorker.ready"));
+        assert!(script.contains("pushManager.subscribe"));
+        assert!(script.contains("method: 'PUT'"));
+        assert!(script.contains("method: 'DELETE'"));
+        assert!(!script.contains("innerHTML"));
+        assert!(!script.contains("console."));
+    }
+
+    #[test]
+    fn notification_push_runtime_validates_capability_and_never_claims_delivery() {
+        let script = notification_push_runtime(true, "/account");
+        for anchor in [
+            "Object.getPrototypeOf(payload) !== Object.prototype",
+            "keys.length !== 3 || keys.join(',') !== 'enabled,public_key,subscribed'",
+            "payload.enabled !== (payload.public_key !== null)",
+            "!payload.enabled && payload.subscribed",
+            "Browser push is unavailable until the notification service is configured.",
+            "applicationServerKey: applicationServerKey",
+            "if (!payload || !payload.enabled || !payload.subscribed)",
+        ] {
+            assert!(script.contains(anchor), "missing push guard: {anchor}");
+        }
+    }
+
+    #[test]
+    fn notification_realtime_runtime_is_authenticated_notifications_only() {
+        assert_eq!(notification_realtime_runtime(false, "/notifications"), "");
+        assert_eq!(notification_realtime_runtime(true, "/rankings"), "");
+        assert_eq!(notification_realtime_runtime(true, "/offline"), "");
+
+        let script = notification_realtime_runtime(true, "/notifications");
+        for anchor in [
+            "data-epsx-notification-realtime-runtime",
+            "new EventSource(endpoint, { withCredentials: true })",
+            "'/api/v1/notifications/stream/ack'",
+            "method: 'POST'",
+            "credentials: 'include'",
+            "data-notifications-live-status=\"true\"",
+            "event.lastEventId",
+            "window.location.reload()",
+            "Object.getPrototypeOf(payload) !== Object.prototype",
+            "keys.length !== 9",
+            "payload.ok === true",
+        ] {
+            assert!(script.contains(anchor), "missing realtime guard: {anchor}");
+        }
+        assert!(!script.contains("innerHTML"));
+        assert!(!script.contains("console."));
+    }
+
+    #[test]
+    fn notification_mutation_runtime_is_authenticated_notifications_only_and_closed() {
+        assert_eq!(notification_mutation_runtime(false, "/notifications"), "");
+        assert_eq!(notification_mutation_runtime(true, "/account"), "");
+        assert_eq!(notification_mutation_runtime(true, "/offline"), "");
+
+        let script = notification_mutation_runtime(true, "/notifications");
+        for anchor in [
+            "data-epsx-notification-mutation-runtime",
+            "read: { method: 'POST', suffix: '/read' }",
+            "acknowledge: { method: 'PUT', suffix: '/acknowledge' }",
+            "'mark-all': { method: 'POST', path: '/api/v1/notifications/mark-all-read' }",
+            "'clear-all': { method: 'POST', path: '/api/v1/notifications/clear-all' }",
+            "encodeURIComponent(id)",
+            "credentials: 'include'",
+            "cache: 'no-store'",
+            "window.location.reload()",
+            "Notification changes could not be saved",
+            "Object.getPrototypeOf(payload) === Object.prototype",
+        ] {
+            assert!(script.contains(anchor), "missing mutation guard: {anchor}");
+        }
+        assert!(!script.contains("innerHTML"));
+        assert!(!script.contains("Provider delivered"));
+        assert!(!script.contains("console."));
     }
 
     #[test]

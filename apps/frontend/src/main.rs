@@ -15,7 +15,7 @@
 use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
-    routing::{get, post},
+    routing::{any, delete, get, post, put},
     Json, Router,
 };
 use epsx_bff::{
@@ -32,6 +32,7 @@ use std::time::Duration;
 mod api;
 mod auth;
 mod ssr;
+mod widgets;
 
 use api::*;
 #[derive(Clone)]
@@ -46,6 +47,7 @@ pub struct AppState {
     pub verifier: Arc<JwksVerifier>,
     pub cookie_environment: CookieEnvironment,
     pub api_url: String,
+    pub notification_url: String,
     pub demo_login_enabled: bool,
 }
 
@@ -110,10 +112,19 @@ fn state_from_env() -> Result<AppState, String> {
     let api_url = std::env::var("API_URL")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "API_URL or BACKEND_URL is required".to_string())?;
+    let notification_url =
+        std::env::var("NOTIFICATION_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let content_url = std::env::var("CONTENT_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
     let issuer = std::env::var("OIDC_ISSUER")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "OIDC_ISSUER or BACKEND_URL is required".to_string())?;
     validate_auth_url(&api_url, cookie_environment, "API_URL/BACKEND_URL")?;
+    validate_auth_url(
+        &notification_url,
+        cookie_environment,
+        "NOTIFICATION_SERVICE_URL",
+    )?;
+    validate_auth_url(&content_url, cookie_environment, "CONTENT_SERVICE_URL")?;
     validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
 
     let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
@@ -139,10 +150,18 @@ fn state_from_env() -> Result<AppState, String> {
         base_url: api_url.clone(),
         timeout: Duration::from_secs(15),
     };
+    let notification_cfg = epsx_client::ClientConfig {
+        base_url: notification_url.clone(),
+        timeout: Duration::from_secs(15),
+    };
+    let content_cfg = epsx_client::ClientConfig {
+        base_url: content_url,
+        timeout: Duration::from_secs(15),
+    };
     Ok(AppState {
         identity: Arc::new(ServiceClient::new(cfg.clone())),
-        notification: Arc::new(ServiceClient::new(cfg.clone())),
-        content: Arc::new(ServiceClient::new(cfg.clone())),
+        notification: Arc::new(ServiceClient::new(notification_cfg)),
+        content: Arc::new(ServiceClient::new(content_cfg)),
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
         wallet: Arc::new(ServiceClient::new(cfg.clone())),
         payment: Arc::new(ServiceClient::new(cfg.clone())),
@@ -150,6 +169,7 @@ fn state_from_env() -> Result<AppState, String> {
         verifier,
         cookie_environment,
         api_url,
+        notification_url,
         demo_login_enabled,
     })
 }
@@ -246,27 +266,150 @@ pub fn build_app(state: AppState) -> Router {
             "/api/v1/notifications",
             get(notifications_api).head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
         )
+        // Pinned development-branch compatibility surface.  The target
+        // `/api/v1/*` routes above remain the canonical Rust contract; these
+        // aliases are deliberately kept at the BFF boundary so old shared
+        // clients can migrate without bypassing the verified owner context.
+        .route("/api/notifications", get(legacy_notifications_api))
         .route(
             "/api/v1/notifications/unread-count",
             get(notification_unread_count)
                 .head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
         )
-        .route("/api/v1/notifications/{id}/read", post(notification_read))
+        .route(
+            "/api/notifications/unread-count",
+            get(legacy_notification_unread_count),
+        )
+        .route(
+            "/api/v1/notifications/preferences",
+            get(notification_preferences_get).put(notification_preferences_put),
+        )
+        .route(
+            "/api/notifications/preferences",
+            get(legacy_notification_preferences_get)
+                .put(legacy_notification_preferences_put)
+                .post(legacy_notification_preferences_put),
+        )
+        // Development clients also used the auth-prefixed aliases. They are
+        // routed through the same verified-owner adapters, never directly to
+        // the notification service.
+        .route(
+            "/api/auth/notifications/preferences",
+            get(legacy_notification_preferences_get)
+                .put(legacy_notification_preferences_put)
+                .post(legacy_notification_preferences_put),
+        )
+        .route(
+            "/api/auth/notifications/unread-count",
+            get(legacy_notification_unread_count),
+        )
+        .route(
+            "/account/notification-preferences",
+            post(notification_preferences_form),
+        )
+        .route("/api/v1/notifications/stream", get(notification_stream))
+        .route("/api/notifications/stream", get(legacy_notification_stream))
+        .route(
+            "/api/auth/notifications/stream",
+            get(legacy_notification_stream),
+        )
+        .route(
+            "/api/v1/notifications/stream/ack",
+            post(notification_stream_ack),
+        )
+        .route(
+            "/api/v1/notifications/push",
+            get(notification_push_status)
+                .put(notification_push_subscribe)
+                .delete(notification_push_unsubscribe),
+        )
+        .route(
+            "/api/notifications/push/status",
+            get(legacy_notification_push_status),
+        )
+        .route(
+            "/api/notifications/push/subscribe",
+            post(legacy_notification_push_subscribe),
+        )
+        .route(
+            "/api/notifications/push/unsubscribe",
+            delete(legacy_notification_push_unsubscribe),
+        )
+        .route(
+            "/api/auth/notifications/push/status",
+            get(legacy_notification_push_status),
+        )
+        .route(
+            "/api/auth/notifications/push/subscribe",
+            post(legacy_notification_push_subscribe),
+        )
+        .route(
+            "/api/auth/notifications/push/unsubscribe",
+            delete(legacy_notification_push_unsubscribe),
+        )
+        .route(
+            "/api/v1/notifications/{id}/read",
+            post(notification_read).put(notification_read),
+        )
+        .route(
+            "/api/notifications/{id}/read",
+            put(legacy_notification_read),
+        )
+        .route(
+            "/api/v1/notifications/{id}/unread",
+            post(notification_unread).put(notification_unread),
+        )
+        .route(
+            "/api/notifications/{id}/unread",
+            put(legacy_notification_unread),
+        )
+        .route(
+            "/api/v1/notifications/{id}/acknowledge",
+            put(notification_acknowledge),
+        )
+        .route(
+            "/api/notifications/{id}/acknowledge",
+            put(legacy_notification_acknowledge),
+        )
+        .route("/api/v1/notifications/{id}/click", post(notification_click))
+        .route(
+            "/api/v1/notifications/{id}/dismiss",
+            post(notification_dismiss),
+        )
         .route(
             "/api/v1/notifications/{id}/delete",
             post(notification_delete),
         )
+        .route("/api/v1/notifications/{id}", delete(notification_delete))
+        .route(
+            "/api/notifications/{id}",
+            delete(legacy_notification_delete),
+        )
         .route(
             "/api/v1/notifications/mark-all-read",
-            post(notification_mark_all),
+            post(notification_mark_all).put(notification_mark_all),
+        )
+        .route(
+            "/api/notifications/mark-all-read",
+            put(legacy_notification_mark_all),
         )
         .route(
             "/api/v1/notifications/clear-all",
-            post(notification_clear_all),
+            post(notification_clear_all).delete(notification_clear_all),
+        )
+        .route(
+            "/api/notifications/clear-all",
+            delete(legacy_notification_clear_all),
         )
         .route("/api/v1/analytics/track", post(track_event))
-        // Ranking and plan compatibility producers are intentionally absent.
-        // Market entitlements and subscription pricing remain backend-owned.
+        .route(
+            "/api/users/watchlist",
+            get(watchlist_get).post(watchlist_post),
+        )
+        .route("/api/users/watchlist/{symbol}", delete(watchlist_delete))
+        // Ranking compatibility producers remain intentionally absent. SSR
+        // reads the canonical analytics service without moving rank policy
+        // into the frontend.
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         // Unowned dashboard and portfolio compatibility producers are
@@ -334,9 +477,7 @@ mod routing_tests {
         http::{header, Method, Request, StatusCode},
     };
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use epsx_bff::session::{
-        AccessTokenClaims, Jwks, JwksFetcher, RsaJwk, SessionError,
-    };
+    use epsx_bff::session::{AccessTokenClaims, Jwks, JwksFetcher, RsaJwk, SessionError};
     use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
     use rand::thread_rng;
     use rsa::{pkcs8::EncodePrivateKey, traits::PublicKeyParts, RsaPrivateKey};
@@ -353,19 +494,13 @@ mod routing_tests {
         fn fetch<'life0, 'life1, 'async_trait>(
             &'life0 self,
             _url: &'life1 str,
-        ) -> Pin<
-            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
-        >
+        ) -> Pin<Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>>
         where
             'life0: 'async_trait,
             'life1: 'async_trait,
             Self: 'async_trait,
         {
-            Box::pin(async {
-                Err(SessionError::JwksFetch(
-                    "deterministic test outage".into(),
-                ))
-            })
+            Box::pin(async { Err(SessionError::JwksFetch("deterministic test outage".into())) })
         }
     }
 
@@ -377,9 +512,7 @@ mod routing_tests {
         fn fetch<'life0, 'life1, 'async_trait>(
             &'life0 self,
             _url: &'life1 str,
-        ) -> Pin<
-            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
-        >
+        ) -> Pin<Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>>
         where
             'life0: 'async_trait,
             'life1: 'async_trait,
@@ -418,6 +551,7 @@ mod routing_tests {
             verifier: Arc::new(verifier),
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
+            notification_url: base_url.to_string(),
             demo_login_enabled: false,
         }
     }
@@ -546,18 +680,17 @@ mod routing_tests {
         assert!(!wrong_client_html.contains("data-epsx-session-recovery"));
         assert!(wrong_client_html.contains("data-auth-session-state=\"signed_out\""));
 
-        let protected = request_with_cookie(
-            Method::GET,
-            "/profile?view=compact",
-            Some(refresh_cookie),
-        )
-        .await;
+        let protected =
+            request_with_cookie(Method::GET, "/profile?view=compact", Some(refresh_cookie)).await;
         assert_eq!(protected.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(
             protected.headers()[header::LOCATION],
             "/auth?return_url=%2Fprofile%3Fview%3Dcompact"
         );
-        assert_eq!(protected.headers()[header::CACHE_CONTROL], "private, no-store");
+        assert_eq!(
+            protected.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
         assert_eq!(protected.headers()[header::VARY], "Cookie, Authorization");
         let return_location = protected.headers()[header::LOCATION]
             .to_str()
@@ -635,7 +768,10 @@ mod routing_tests {
         .await;
         assert_eq!(valid_auth.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(valid_auth.headers()[header::LOCATION], "/profile");
-        assert_eq!(valid_auth.headers()[header::CACHE_CONTROL], "private, no-store");
+        assert_eq!(
+            valid_auth.headers()[header::CACHE_CONTROL],
+            "private, no-store"
+        );
         assert_eq!(valid_auth.headers()[header::VARY], "Cookie, Authorization");
 
         let no_refresh = request(Method::GET, "/auth").await;
@@ -803,6 +939,281 @@ mod routing_tests {
                 );
             }
         }
+
+        assert_eq!(
+            request(Method::GET, "/account/notification-preferences")
+                .await
+                .status(),
+            StatusCode::METHOD_NOT_ALLOWED
+        );
+        assert_eq!(
+            request(Method::POST, "/account/notification-preferences")
+                .await
+                .status(),
+            StatusCode::FORBIDDEN,
+            "the native preferences form route must exist and reject missing Origin/Host before auth"
+        );
+    }
+
+    #[tokio::test]
+    async fn watchlist_bff_requires_local_auth_same_origin_and_forwards_verified_bearer() {
+        let seen = Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
+        let seen_get = Arc::clone(&seen);
+        let seen_post = Arc::clone(&seen);
+        let seen_delete = Arc::clone(&seen);
+        let upstream = Router::new()
+            .route(
+                "/api/users/watchlist",
+                get(move |headers: axum::http::HeaderMap| {
+                    let seen_get = Arc::clone(&seen_get);
+                    async move {
+                        seen_get.lock().unwrap().push(format!(
+                            "GET:{}",
+                            headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok())
+                                .unwrap_or("")
+                        ));
+                        Json(serde_json::json!({
+                            "success": true,
+                            "data": {"symbols": ["AAPL"]},
+                            "error": null,
+                            "meta": {"timestamp": "2026-07-27T00:00:00Z"}
+                        }))
+                    }
+                })
+                .post(
+                    move |headers: axum::http::HeaderMap, Json(body): Json<serde_json::Value>| {
+                        let seen_post = Arc::clone(&seen_post);
+                        async move {
+                            seen_post.lock().unwrap().push(format!(
+                                "POST:{}:{}",
+                                headers
+                                    .get(header::AUTHORIZATION)
+                                    .and_then(|value| value.to_str().ok())
+                                    .unwrap_or(""),
+                                body["symbol"].as_str().unwrap_or("")
+                            ));
+                            Json(serde_json::json!({
+                                "success": true,
+                                "data": {"symbols": ["AAPL", "MSFT"]},
+                                "error": null
+                            }))
+                        }
+                    },
+                ),
+            )
+            .route(
+                "/api/users/watchlist/{symbol}",
+                delete(
+                    move |headers: axum::http::HeaderMap,
+                          axum::extract::Path(symbol): axum::extract::Path<String>| {
+                        let seen_delete = Arc::clone(&seen_delete);
+                        async move {
+                            seen_delete.lock().unwrap().push(format!(
+                                "DELETE:{}:{}",
+                                headers
+                                    .get(header::AUTHORIZATION)
+                                    .and_then(|value| value.to_str().ok())
+                                    .unwrap_or(""),
+                                symbol
+                            ));
+                            Json(serde_json::json!({
+                                "success": true,
+                                "data": {"symbols": []},
+                                "error": null
+                            }))
+                        }
+                    },
+                ),
+            );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, upstream).await.unwrap();
+        });
+
+        let (mut state, token) = valid_frontend_session();
+        state.wallet = Arc::new(ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: Duration::from_secs(1),
+        }));
+        let app = build_app(state.clone());
+
+        let unauthenticated = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/users/watchlist")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unauthenticated.status(), StatusCode::UNAUTHORIZED);
+
+        let cookie = format!("epsx.frontend.access_token={token}");
+        let cross_site = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/users/watchlist")
+                    .header(header::COOKIE, &cookie)
+                    .header(header::HOST, "epsx.test")
+                    .header(header::ORIGIN, "https://evil.test")
+                    .header("sec-fetch-site", "cross-site")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"symbol":"MSFT"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(cross_site.status(), StatusCode::FORBIDDEN);
+
+        let get_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .uri("/api/users/watchlist")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(get_response.status(), StatusCode::OK);
+        let get_body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(get_response.into_body(), 16 * 1024).await.unwrap())
+                .unwrap();
+        assert_eq!(get_body["data"]["symbols"], serde_json::json!(["AAPL"]));
+
+        let post_response = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri("/api/users/watchlist")
+                    .header(header::COOKIE, &cookie)
+                    .header(header::HOST, "epsx.test")
+                    .header(header::ORIGIN, "https://epsx.test")
+                    .header("sec-fetch-site", "same-origin")
+                    .header(header::CONTENT_TYPE, "application/json")
+                    .body(Body::from(r#"{"symbol":"msft"}"#))
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(post_response.status(), StatusCode::OK);
+
+        let invalid_delete = app
+            .clone()
+            .oneshot(
+                Request::builder()
+                    .method(Method::DELETE)
+                    .uri("/api/users/watchlist/%2E%2E")
+                    .header(header::COOKIE, &cookie)
+                    .header(header::HOST, "epsx.test")
+                    .header(header::ORIGIN, "https://epsx.test")
+                    .header("sec-fetch-site", "same-origin")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert!(
+            matches!(
+                invalid_delete.status(),
+                StatusCode::BAD_REQUEST | StatusCode::NOT_FOUND
+            ),
+            "{}",
+            invalid_delete.status()
+        );
+
+        let delete_response = app
+            .oneshot(
+                Request::builder()
+                    .method(Method::DELETE)
+                    .uri("/api/users/watchlist/AAPL")
+                    .header(header::COOKIE, &cookie)
+                    .header(header::HOST, "epsx.test")
+                    .header(header::ORIGIN, "https://epsx.test")
+                    .header("sec-fetch-site", "same-origin")
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(delete_response.status(), StatusCode::OK);
+
+        let seen = seen.lock().unwrap();
+        assert!(seen.contains(&format!("GET:Bearer {token}")));
+        assert!(seen.contains(&format!("POST:Bearer {token}:MSFT")));
+        assert!(seen.contains(&format!("DELETE:Bearer {token}:AAPL")));
+        assert!(seen.iter().all(|entry| !entry.contains("evil")));
+    }
+
+    #[tokio::test]
+    async fn watchlist_bff_distinguishes_malformed_and_unavailable_upstreams() {
+        let malformed_upstream = Router::new().route(
+            "/api/users/watchlist",
+            get(|| async {
+                Json(serde_json::json!({
+                    "success": true,
+                    "data": {"symbols": "AAPL"}
+                }))
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move {
+            axum::serve(listener, malformed_upstream).await.unwrap();
+        });
+
+        let (mut state, token) = valid_frontend_session();
+        state.wallet = Arc::new(ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: Duration::from_secs(1),
+        }));
+        let malformed = build_app(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/users/watchlist")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(malformed.status(), StatusCode::BAD_GATEWAY);
+        assert!(malformed.headers()[header::CACHE_CONTROL]
+            .to_str()
+            .unwrap()
+            .contains("no-store"));
+
+        let closed_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let closed_address = closed_listener.local_addr().unwrap();
+        drop(closed_listener);
+        let (mut state, token) = valid_frontend_session();
+        state.wallet = Arc::new(ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{closed_address}"),
+            timeout: Duration::from_millis(100),
+        }));
+        let unavailable = build_app(state)
+            .oneshot(
+                Request::builder()
+                    .uri("/api/users/watchlist")
+                    .header(header::AUTHORIZATION, format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(unavailable.status(), StatusCode::SERVICE_UNAVAILABLE);
+        assert!(unavailable.headers()[header::CACHE_CONTROL]
+            .to_str()
+            .unwrap()
+            .contains("no-store"));
     }
 
     #[test]

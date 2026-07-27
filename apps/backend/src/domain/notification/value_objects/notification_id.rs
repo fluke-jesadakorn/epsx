@@ -12,9 +12,7 @@ pub struct NotificationId {
 impl NotificationId {
     /// Create a new notification ID
     pub fn new() -> Self {
-        Self {
-            id: Uuid::new_v4(),
-        }
+        Self { id: Uuid::new_v4() }
     }
 
     /// Create from existing UUID
@@ -76,8 +74,8 @@ impl TryFrom<&str> for NotificationId {
     type Error = String;
 
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        let uuid = Uuid::parse_str(value)
-            .map_err(|e| format!("Invalid notification ID format: {}", e))?;
+        let uuid =
+            Uuid::parse_str(value).map_err(|e| format!("Invalid notification ID format: {}", e))?;
         Ok(Self::from_uuid(uuid))
     }
 }
@@ -90,7 +88,7 @@ mod tests {
     fn test_new_notification_id() {
         let id1 = NotificationId::new();
         let id2 = NotificationId::new();
-        
+
         assert_ne!(id1, id2);
         assert_eq!(id1.value().get_version(), Some(uuid::Version::Random));
     }
@@ -99,7 +97,7 @@ mod tests {
     fn test_from_uuid() {
         let uuid = Uuid::new_v4();
         let id = NotificationId::from_uuid(uuid);
-        
+
         assert_eq!(id.value(), uuid);
     }
 
@@ -108,7 +106,7 @@ mod tests {
         let id = NotificationId::new();
         let id_str = id.as_str();
         let parsed_id = NotificationId::try_from(id_str).unwrap();
-        
+
         assert_eq!(id, parsed_id);
     }
 
@@ -116,7 +114,7 @@ mod tests {
     fn test_display() {
         let uuid = Uuid::new_v4();
         let id = NotificationId::from_uuid(uuid);
-        
+
         assert_eq!(format!("{}", id), uuid.to_string());
     }
 

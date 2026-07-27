@@ -1,31 +1,32 @@
-use axum::{
-    extract::State,
-    response::IntoResponse,
-    Json,
-};
+use axum::{extract::State, response::IntoResponse, Json};
 use chrono::Utc;
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
+use uuid::Uuid;
 
+use super::{AssignmentResponse, CreateAssignmentRequest};
 use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-use super::{CreateAssignmentRequest, AssignmentResponse};
 
 /// Create a new wallet-plan assignment
 /// POST /admin/permissions/assignments
 pub async fn create_assignment(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<CreateAssignmentRequest>,
 ) -> impl IntoResponse {
     // Validate wallet address format
     let wallet = req.wallet_address.to_lowercase();
     if !wallet.starts_with("0x") || wallet.len() != 42 {
-        return AdminResponse::bad_request("Invalid wallet address format (must be 42 characters starting with 0x)").into_response();
+        return AdminResponse::bad_request(
+            "Invalid wallet address format (must be 42 characters starting with 0x)",
+        )
+        .into_response();
     }
 
     // Parse plan ID
@@ -62,7 +63,10 @@ pub async fn create_assignment(
     }
 
     // Run transaction
-    let assignment_metadata = req.assignment_metadata.clone().unwrap_or(serde_json::json!({}));
+    let assignment_metadata = req
+        .assignment_metadata
+        .clone()
+        .unwrap_or(serde_json::json!({}));
     let wallet_clone = wallet.clone();
     let wallet_for_user_insert = wallet.clone();
     let assignment_source_clone = req.assignment_source.clone();
@@ -197,7 +201,10 @@ pub async fn create_assignment(
                 return AdminResponse::not_found("Permission plan").into_response();
             }
             if matches!(e, diesel::result::Error::RollbackTransaction) {
-                return AdminResponse::bad_request("Cannot mix plan groups. Wallet already has plans from a different group.").into_response();
+                return AdminResponse::bad_request(
+                    "Cannot mix plan groups. Wallet already has plans from a different group.",
+                )
+                .into_response();
             }
             tracing::error!("Transaction failed: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
@@ -225,14 +232,17 @@ pub async fn create_assignment(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "create", "plan")
-        .id(&response.id)
-        .after(serde_json::json!({
-            "wallet": &response.wallet_address,
-            "plan_id": &response.plan_id,
-            "plan_name": &response.plan_name,
-            "source": &response.assignment_source,
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("plan_assignment", "create", "plan")
+            .id(&response.id)
+            .after(serde_json::json!({
+                "wallet": &response.wallet_address,
+                "plan_id": &response.plan_id,
+                "plan_name": &response.plan_name,
+                "source": &response.assignment_source,
+            })),
+    );
 
     // Invalidate cached permissions so next request gets live DB permissions
     set_perm_invalidated(app_state.cache.as_ref(), &response.wallet_address);
@@ -241,24 +251,29 @@ pub async fn create_assignment(
     let notif_wallet = response.wallet_address.clone();
     let notif_plan = response.plan_name.clone();
     let notif_plan_id = response.plan_id.clone();
+    let notif_assignment_id = response.id.clone();
     let notif_state = app_state.clone();
     tokio::spawn(async move {
         // Wave 10 / R3: route through the NotificationPort.
         use epsx_contracts::notification_port::SendNotificationRequest;
         if let Some(port) = notif_state.notification_port.as_ref() {
             let _ = port
-                .send(SendNotificationRequest {
-                    recipient_wallet_address: notif_wallet.clone(),
-                    notification_type: "permission".to_string(),
-                    priority: "normal".to_string(),
-                    title: "Plan Updated".to_string(),
-                    message: format!("You have been assigned to the {} plan", notif_plan),
-                    data: Some(serde_json::json!({
-                        "plan_id": notif_plan_id,
-                        "plan_name": notif_plan,
-                    })),
-                    action_url: Some("/plans".to_string()),
-                })
+                .send_with_event_id_retry(
+                    &format!("permission.assignment.created:{notif_assignment_id}"),
+                    SendNotificationRequest {
+                        recipient_wallet_address: notif_wallet.clone(),
+                        notification_type: "permission".to_string(),
+                        priority: "normal".to_string(),
+                        title: "Plan Updated".to_string(),
+                        message: format!("You have been assigned to the {} plan", notif_plan),
+                        data: Some(serde_json::json!({
+                            "plan_id": notif_plan_id,
+                            "plan_name": notif_plan,
+                        })),
+                        action_url: Some("/plans".to_string()),
+                        expires_at: None,
+                    },
+                )
                 .await;
         } else {
             tracing::warn!(
@@ -269,5 +284,6 @@ pub async fn create_assignment(
         }
     });
 
-    AdminResponse::created(response, "Wallet assigned to permission plan successfully").into_response()
+    AdminResponse::created(response, "Wallet assigned to permission plan successfully")
+        .into_response()
 }

@@ -118,13 +118,9 @@ pub async fn sse_notifications_handler(
             AppError::unauthorized("Invalid or expired authentication token")
         })?;
     let wallet_address = claims.wallet_address.to_lowercase();
-    tracing::debug!("SSE Auth: Validated wallet from token: {}", wallet_address);
+    tracing::debug!("SSE Auth: validated token for notification stream");
 
-    tracing::info!(
-        "SSE connection request: wallet={}, types={:?}",
-        wallet_address,
-        query.types
-    );
+    tracing::info!("SSE connection request: types={:?}", query.types);
 
     // Fetch queued (offline) notifications first from NOTIFICATIONS database
     use crate::infrastructure::database::get_notifications_pool;
@@ -146,9 +142,8 @@ pub async fn sse_notifications_handler(
     };
 
     tracing::info!(
-        "Found {} queued notifications for wallet: {}",
-        queued_notifications.len(),
-        wallet_address
+        "Found {} queued notifications for notification stream",
+        queued_notifications.len()
     );
 
     // Subscribe to PubsubPort (if available)
@@ -171,9 +166,6 @@ pub async fn sse_notifications_handler(
     // Parse notification type filters
     let allowed_types = parse_notification_types(query.types);
 
-    // Clone for async stream - need to get notifications pool inside stream
-    let wallet_for_stream = wallet_address.clone();
-
     // Create stream from PubsubPort messages
     let redis_stream = async_stream::stream! {
         // First, send queued notifications
@@ -190,7 +182,6 @@ pub async fn sse_notifications_handler(
 
                         // Mark as delivered in background with notifications pool
                         let notif_id = notification.id.clone();
-                        let notif_title = notification.title.clone();
                         tokio::spawn(async move {
                             match crate::infrastructure::database::get_notifications_pool().await {
                                 Ok(pool) => {
@@ -200,9 +191,8 @@ pub async fn sse_notifications_handler(
                                         }
                                         Err(e) => {
                                             tracing::error!(
-                                                "Background task failed: Could not mark notification as delivered: id={}, title='{}', error={}",
+                                                "Background task failed: Could not mark notification as delivered: id={}, error={}",
                                                 notif_id,
-                                                notif_title,
                                                 e
                                             );
                                         }
@@ -241,10 +231,9 @@ pub async fn sse_notifications_handler(
             };
 
             tracing::info!(
-                "Received notification from PubsubPort: wallet={}, id={}, title={}",
-                wallet_for_stream,
+                "Received notification from PubsubPort: id={} type={:?}",
                 notification.id,
-                notification.title
+                notification.notification_type
             );
 
             if should_send_notification(&notification, &allowed_types) {
@@ -264,7 +253,7 @@ pub async fn sse_notifications_handler(
             }
             }
 
-            tracing::info!("PubsubPort stream ended for wallet: {}", wallet_for_stream);
+            tracing::info!("PubsubPort stream ended for notification connection");
         } else {
             tracing::info!("PubsubPort not available - SSE connection will only show queued notifications");
         }
