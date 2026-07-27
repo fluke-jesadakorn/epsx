@@ -590,7 +590,7 @@ for (const anchor of [
   "let _action_url = value._action_url.require()?;",
   ".unwrap_or_else(|| \"Notification\".to_string());",
   "Some(\"error\") | None => NotificationLoad::UpstreamError",
-  "let unread_label = format!(\"{unread_count} unread in loaded list\");",
+  "let unread_label = format!(\"{unread_count} unread on this page\");",
 ]) {
   if (!notificationUiRuntime.includes(anchor)) die(`/notifications missing semantic runtime anchor: ${anchor}`);
 }

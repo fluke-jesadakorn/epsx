@@ -20,7 +20,7 @@ assert_test_count() {
 }
 
 (cd "$repo_root" && cargo test --offline --locked -p epsx-admin) >"$temp_dir/admin-rust.out" 2>&1
-assert_test_count "$temp_dir/admin-rust.out" 118
+assert_test_count "$temp_dir/admin-rust.out" 124
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui wallet_wallets --lib) >"$temp_dir/wallet-ui-rust.out" 2>&1
 assert_test_count "$temp_dir/wallet-ui-rust.out" 12
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui admin_pages::dashboard::tests --lib) >"$temp_dir/dashboard-ui-rust.out" 2>&1
