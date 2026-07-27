@@ -26,6 +26,49 @@ impl ApiKeyRepository {
         Self { pool }
     }
 
+    /// Return authoritative counts without loading or classifying a bounded
+    /// page of keys. Expired keys are active records whose persisted expiry is
+    /// in the past; this matches the effective status exposed by the domain.
+    pub async fn counts(&self) -> AppResult<(i64, i64, i64, i64)> {
+        let mut conn = self
+            .pool
+            .get()
+            .await
+            .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
+        let now = Utc::now();
+        let total = api_keys::table
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
+        let active = api_keys::table
+            .filter(api_keys::status.eq("active"))
+            .filter(
+                api_keys::expires_at
+                    .is_null()
+                    .or(api_keys::expires_at.ge(now)),
+            )
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to count active API keys: {}", e)))?;
+        let revoked = api_keys::table
+            .filter(api_keys::status.eq("revoked"))
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to count revoked API keys: {}", e)))?;
+        let expired = api_keys::table
+            .filter(api_keys::status.eq("active"))
+            .filter(api_keys::expires_at.lt(now))
+            .count()
+            .get_result::<i64>(&mut conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to count expired API keys: {}", e)))?;
+
+        Ok((total, active, revoked, expired))
+    }
+
     /// Generate a new API key with secure random bytes
     fn generate_api_key() -> (String, String) {
         use rand::Rng;

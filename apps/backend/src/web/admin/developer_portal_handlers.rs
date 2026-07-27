@@ -1193,24 +1193,13 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
     let api_key_repo = ApiKeyRepository::new(core_pool);
     let module_repo = ModuleRepository::new(core_pool);
 
-    // Get API key counts
-    let (all_keys, total_keys) = match api_key_repo.list_all(Some(1000), None, None).await {
+    // Get authoritative counts from the database; do not classify a bounded
+    // page of keys as if it were the complete inventory.
+    let (total_keys, active_count, revoked_count, expired_count) = match api_key_repo.counts().await
+    {
         Ok(result) => result,
         Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
     };
-
-    let active_count = all_keys
-        .iter()
-        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Active)
-        .count() as i64;
-    let revoked_count = all_keys
-        .iter()
-        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Revoked)
-        .count() as i64;
-    let expired_count = all_keys
-        .iter()
-        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Expired)
-        .count() as i64;
 
     // Get module counts
     let modules = match module_repo.list(None, None).await {
@@ -1268,7 +1257,7 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
                     module_id: m.module_id,
                     module_name: m.module_name,
                     request_count: m.request_count,
-                    unique_api_keys: 0, // Would require additional query to calculate
+                    unique_api_keys: m.unique_api_keys,
                 })
                 .collect();
 
