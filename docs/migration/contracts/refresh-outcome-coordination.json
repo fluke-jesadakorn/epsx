@@ -165,7 +165,7 @@
     {
       "file": "apps/frontend/src/ssr.rs",
       "anchors": [
-        "epsx_templates::epsx_header_for_session(is_authenticated)"
+        "epsx_templates::epsx_header_for_session_and_return_target("
       ]
     },
     {

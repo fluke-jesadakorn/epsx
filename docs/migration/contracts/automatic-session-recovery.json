@@ -108,7 +108,7 @@
       "file": "apps/frontend/src/ssr.rs",
       "anchors": [
         "let recover_session = access_verification.permits_refresh_recovery()",
-        "&& auth::refresh_token(&headers, state.cookie_environment).is_some()",
+        "let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();",
         "&& path != \"/offline\";",
         "<script data-epsx-session-recovery>{}</script>",
         "fn private_session_redirect(location: String) -> Response",
@@ -176,7 +176,7 @@
       ]
     }
   ],
-  "evidenceDigest": "4a4f37c819fd082cf6637c5ca165d308de533bdea6423f0f196c950ac9d54aee",
+  "evidenceDigest": "1f408832c66543f1023531761ec3671604a5b8662ac42795545b695674b2fde6",
   "residualStops": [
     {
       "id": "real-browser-matrix-unproved",

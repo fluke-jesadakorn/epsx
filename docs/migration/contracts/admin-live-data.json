@@ -123,11 +123,11 @@
       "finding": "The page-owned dashboard shell independently validates the exact two-count projection, treats zero as ready, renders a semantic definition list and machine-readable observation time, distinguishes forbidden, unavailable, and malformed outcomes, keeps signed-out data private, and exposes no health, latency, uptime, alert, activity, module, row, identity, or mutation claim."
     },
     {
-      "file": "apps/admin/src/commerce_admin_adapter.rs",
+      "file": "apps/admin/src/commerce_adapter.rs",
       "anchors": [
         "pub(crate) async fn load_wallet_stats(",
         "const MAX_RESPONSE_BYTES: usize = 512 * 1024;",
-        "fn classify_error<T>(error: ClientError)",
+        "enum UpstreamError",
         "decode_admin_wallet_stats_projection",
         "pub(crate) async fn load_wallet_detail(",
         "pub(crate) async fn load_credit_stats(",
@@ -204,7 +204,7 @@
         "pub fn decode_admin_notification_projection(",
         "pub fn render_manage(ctx: &PageContext)",
         "data-admin-notifications-state",
-        "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"
+        "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"
       ],
       "finding": "The authenticated management page renders only the strict redacted projection with native pagination and retry links. It distinguishes ready, authoritative empty, forbidden, unavailable, malformed, and out-of-range recovery while emitting no identities, bodies, delivery errors, action URLs, forms, buttons, sample metrics, or mutation controls."
     },
@@ -565,7 +565,7 @@
     {
       "path": "/notifications/create", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps-old/admin-frontend/app/notifications/create/page.tsx", "anchors": ["export default function CreateNotificationPage", "<SendNotificationForm"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "fn NotificationCreateForm() -> Element", "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "fn NotificationCreateState(load: NotificationCreateLoad) -> Element", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
       "params": {"names": [], "current": "legacy form and audience parameters are ignored"},
       "data": {"reads": ["recipient validation", "templates", "schedule constraints"], "endpoints": [], "current": "verified-session explicit unavailable state; no static recipients, templates, or schedule defaults", "fallbacks": []},
       "permissions": {"read": [], "manage": ["admin:notifications:manage before any mutation"], "current": "session-only unavailable shell with no local role or capability inference; the admin BFF verifies its audience and the direct service must authorize any future operation"},
@@ -578,7 +578,7 @@
     {
       "path": "/notifications/manage", "batch": "B3-support", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps-old/admin-frontend/app/notifications/manage/page.tsx", "anchors": ["export default function ManageNotificationsPage", "<NotificationManagement />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "pub fn decode_admin_notification_projection(", "fn ready_projection_renders_escaped_read_only_inventory_without_private_fields()", "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "pub fn decode_admin_notification_projection(", "fn ready_projection_renders_escaped_read_only_inventory_without_private_fields()", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
       "params": {"names": ["page", "status", "cursor", "search"], "current": "the target accepts one page in 1..=50001, fixes limit=20 and derives offset; duplicate or malformed page fails without an upstream request, while unsupported legacy status/cursor/search fields are ignored and never forwarded"},
       "data": {"reads": ["global redacted notification delivery summaries", "delivery stats intentionally unavailable"], "endpoints": ["GET /api/v1/notification/admin/list?limit=20&offset={derived}"], "current": "verified-session SSR consumes an exact global service read and stores only id-hidden title/subject/channel/status/type/priority/timestamps; recipients, users, templates, bodies, arbitrary data, errors, read state, action URLs, metrics, filters, and mutations remain absent", "fallbacks": []},
       "permissions": {"read": ["admin:notifications:manage (current canonical backend permission)"], "manage": ["admin:notifications:manage before any mutation"], "current": "gateway and direct notification service both require the exact admin audience plus canonical manage permission for this read; the frontend infers no capability, and a future operation-specific read split remains an A11 decision"},

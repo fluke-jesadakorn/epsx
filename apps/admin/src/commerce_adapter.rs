@@ -26,7 +26,8 @@ use epsx_dioxus_ui::pages::admin_pages::{
         ADMIN_PLANS_READY, ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_STATE_PARAM,
     },
     wallet_wallets::{
-        decode_admin_wallet_detail_projection, AdminWalletDetailProjection,
+        decode_admin_wallet_detail_projection, decode_admin_wallet_stats_projection,
+        AdminWalletDetailProjection, AdminWalletStatsSummary,
         ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
         ADMIN_WALLET_DETAIL_UNAVAILABLE,
     },
@@ -36,9 +37,10 @@ use serde::Deserialize;
 use serde_json::Value;
 
 const MAX_RESPONSE_BYTES: usize = 512 * 1024;
+const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
 const WALLET_DETAIL_PREFIX: &str = "/api/v1/admin/wallets/";
 const CREDIT_STATS_PATH: &str = "/api/v1/admin/credits";
-const ACCESS_PATH: &str = "/api/v1/admin/subscription/access?limit=1000&offset=0";
+const ACCESS_PATH: &str = "/api/v1/admin/subscription/access?limit=100&offset=0";
 const PLANS_PATH: &str = "/api/v1/admin/subscription/plans?limit=100&offset=0";
 const PAYMENT_LINKS_PATH: &str = "/api/v1/admin/pay/links?limit=100&offset=0";
 const PLAN_DETAIL_PREFIX: &str = "/api/v1/admin/subscription/plans/";
@@ -70,6 +72,16 @@ struct BackendWallet {
     metadata: Value,
     version: i64,
     created_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendWalletStats {
+    total: i64,
+    active: i64,
+    disabled: i64,
+    new_30_days: i64,
+    correlation_id: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -158,6 +170,25 @@ pub(crate) fn wallet_detail_path(address: &str) -> Option<String> {
 
 pub(crate) fn plan_detail_path(plan_id: &str) -> Option<String> {
     canonical_uuid(plan_id).map(|plan_id| format!("{PLAN_DETAIL_PREFIX}{plan_id}"))
+}
+
+pub(crate) async fn load_wallet_stats(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+) -> AdminCommerceLoad<AdminWalletStatsSummary> {
+    let payload = match get_json::<BackendWalletStats>(client, WALLET_STATS_PATH, ctx).await {
+        Ok(payload) => payload,
+        Err(error) => return error.into_load(),
+    };
+    let projection = serde_json::json!({
+        "total_users": payload.total,
+        "active_users": payload.active,
+        "inactive_users": payload.disabled,
+        "new_users_30_days": payload.new_30_days,
+    });
+    decode_admin_wallet_stats_projection(projection)
+        .map(AdminCommerceLoad::Ready)
+        .unwrap_or(AdminCommerceLoad::Malformed)
 }
 
 pub(crate) async fn load_wallet_detail(

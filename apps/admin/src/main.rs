@@ -4,7 +4,7 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
-    routing::{delete, get, post},
+    routing::{any, delete, get, post},
     Json, Router,
 };
 use epsx_bff::{
@@ -24,6 +24,7 @@ mod analytics_admin_adapter;
 mod audit_log_adapter;
 mod auth;
 mod chat_admin_adapter;
+mod commerce_adapter;
 mod commerce_admin_adapter;
 mod dashboard_user_status_adapter;
 mod developer_portal_adapter;
@@ -34,6 +35,7 @@ mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;
 mod settings_adapter;
+mod settings_admin_adapter;
 mod ssr;
 mod wallet_stats_adapter;
 
@@ -850,6 +852,12 @@ fn build_app(state: AppState) -> Router {
             "/notifications/create",
             get(fallback_handler).post(submit_notification_form),
         )
+        // Route-owned admin mutations/read-throughs are forwarded to the
+        // backend service that owns the record. The BFF performs only the
+        // authenticated same-origin hop; validation, permissions, plans,
+        // idempotency, and durable mutation authority stay in the backend.
+        .route("/api/admin/{*path}", any(admin_service_proxy))
+        .route("/api/v1/admin/{*path}", any(admin_service_proxy))
         // Analytics
         .route("/api/v1/analytics/events", get(list_events))
         .route("/api/v1/analytics/metrics/{metric}", get(get_metrics))
@@ -993,6 +1001,8 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
             | ["api", "v1", "notifications", "send"]
             | ["api", "v1", "notifications", _]
             | ["api", "v1", "notifications", _, "read"]
+            | ["api", "v1", "notification", "send"]
+            | ["api", "v1", "notification", "admin", "list"]
             | ["api", "v1", "analytics", "events"]
             | ["api", "v1", "analytics", "metrics", _]
             | ["api", "v1", "analytics", "revenue"]
@@ -1003,6 +1013,51 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
             | ["api", "v1", "indexer", "transfers", _, _]
             | ["api", "v1", "wallet", "accounts"]
             | ["api", "v1", "wallet", "accounts", _]
+            | ["api", "admin", "media"]
+            | ["api", "admin", "media", _]
+            | ["api", "admin", "media", _, _]
+            | ["api", "admin", "files"]
+            | ["api", "admin", "files", _]
+            | ["api", "admin", "news"]
+            | ["api", "admin", "news", _]
+            | ["api", "admin", "news", _, _]
+            | ["api", "admin", "developer-portal", "api-keys"]
+            | ["api", "admin", "developer-portal", "api-keys", _]
+            | ["api", "admin", "developer-portal", "api-keys", _, _]
+            | ["api", "admin", "developer-portal", "modules"]
+            | ["api", "admin", "developer-portal", "modules", _]
+            | ["api", "admin", "developer-portal", "stats"]
+            | ["api", "admin", "chat", "topics"]
+            | ["api", "admin", "chat", "conversations"]
+            | ["api", "admin", "chat", "conversations", _]
+            | ["api", "admin", "chat", "conversations", _, _]
+            | ["api", "admin", "chat", "stats"]
+            | ["api", "admin", "chat", "overview"]
+            | ["api", "admin", "analytics", "dashboard"]
+            | ["api", "admin", "dashboard", "user-status"]
+            | ["api", "admin", "settings"]
+            | ["api", "admin", "settings", _]
+            | ["api", "admin", "audit-log"]
+            | ["api", "v1", "analytics", "admin", "audit-log"]
+            | ["api", "v1", "admin", "wallets", _]
+            | ["api", "v1", "admin", "wallets"]
+            | ["api", "v1", "admin", "wallets", _, "disable"]
+            | ["api", "v1", "admin", "wallets", _, "enable"]
+            | ["api", "v1", "admin", "wallets", _, "metadata"]
+            | ["api", "v1", "admin", "credits"]
+            | ["api", "v1", "admin", "credits", _]
+            | ["api", "v1", "admin", "credits", _, "grant"]
+            | ["api", "v1", "admin", "credits", _, "revoke"]
+            | ["api", "v1", "admin", "subscription", "access"]
+            | ["api", "v1", "admin", "subscription", "access", "assign"]
+            | ["api", "v1", "admin", "subscription", "access", "revoke"]
+            | ["api", "v1", "admin", "subscription", "plans"]
+            | ["api", "v1", "admin", "subscription", "plans", _]
+            | ["api", "v1", "admin", "pay", "links"]
+            | ["api", "v1", "admin", "pay", "links", _]
+            | ["api", "v1", "admin", "pay", "intents"]
+            | ["api", "v1", "admin", "pay", "intents", _, _]
+            | ["api", "v1", "admin", "pay", "escrows", _, _]
     )
 }
 
@@ -1021,18 +1076,73 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
         | ["api", "v1", "analytics", "events"]
         | ["api", "v1", "analytics", "metrics", _]
         | ["api", "v1", "analytics", "revenue"]
+        | ["api", "v1", "analytics", "admin", "audit-log"]
         | ["api", "v1", "indexer", "status", _]
         | ["api", "v1", "indexer", "block", _, _]
         | ["api", "v1", "indexer", "tx", _, _]
         | ["api", "v1", "indexer", "transfers", _, _]
         | ["api", "v1", "wallet", "accounts"]
         | ["api", "v1", "wallet", "accounts", _] => is_read,
+        ["api", "admin", "media"]
+        | ["api", "admin", "media", _]
+        | ["api", "admin", "media", _, _]
+        | ["api", "admin", "files"]
+        | ["api", "admin", "files", _]
+        | ["api", "admin", "news"]
+        | ["api", "admin", "news", _]
+        | ["api", "admin", "news", _, _]
+        | ["api", "admin", "developer-portal", "api-keys"]
+        | ["api", "admin", "developer-portal", "api-keys", _]
+        | ["api", "admin", "developer-portal", "api-keys", _, _]
+        | ["api", "admin", "developer-portal", "modules"]
+        | ["api", "admin", "developer-portal", "modules", _]
+        | ["api", "admin", "developer-portal", "stats"]
+        | ["api", "admin", "chat", "topics"]
+        | ["api", "admin", "chat", "conversations"]
+        | ["api", "admin", "chat", "conversations", _]
+        | ["api", "admin", "chat", "conversations", _, _]
+        | ["api", "admin", "chat", "stats"]
+        | ["api", "admin", "chat", "overview"]
+        | ["api", "admin", "analytics", "dashboard"]
+        | ["api", "admin", "dashboard", "user-status"]
+        | ["api", "admin", "settings"]
+        | ["api", "admin", "settings", _]
+        | ["api", "admin", "audit-log"]
+        | ["api", "v1", "admin", "wallets", _]
+        | ["api", "v1", "admin", "wallets"]
+        | ["api", "v1", "admin", "wallets", _, "disable"]
+        | ["api", "v1", "admin", "wallets", _, "enable"]
+        | ["api", "v1", "admin", "wallets", _, "metadata"]
+        | ["api", "v1", "admin", "credits"]
+        | ["api", "v1", "admin", "credits", _]
+        | ["api", "v1", "admin", "credits", _, "grant"]
+        | ["api", "v1", "admin", "credits", _, "revoke"]
+        | ["api", "v1", "admin", "subscription", "access"]
+        | ["api", "v1", "admin", "subscription", "access", "assign"]
+        | ["api", "v1", "admin", "subscription", "access", "revoke"]
+        | ["api", "v1", "admin", "subscription", "plans"]
+        | ["api", "v1", "admin", "subscription", "plans", _]
+        | ["api", "v1", "admin", "pay", "links"]
+        | ["api", "v1", "admin", "pay", "links", _] => {
+            is_read
+                || method == Method::POST
+                || method == Method::PUT
+                || method == Method::PATCH
+                || method == Method::DELETE
+        }
+        ["api", "v1", "admin", "pay", "intents"]
+        | ["api", "v1", "admin", "pay", "intents", _, _]
+        | ["api", "v1", "admin", "pay", "escrows", _, _] => {
+            is_read || method == Method::POST
+        }
         ["api", "v1", "subscriptions", _, "cancel"]
         | ["api", "v1", "pages", _, "publish"]
         | ["api", "v1", "notifications", _, "read"]
         | ["api", "v1", "notifications", "send"]
         | ["api", "v1", "notifications", "templates", _, "preview"]
         | ["api", "v1", "notifications", "templates", _, "rollback"] => method == Method::POST,
+        ["api", "v1", "notification", "send"] => method == Method::POST,
+        ["api", "v1", "notification", "admin", "list"] => is_read,
         ["api", "v1", "notifications", "templates", _, "audit"] => is_read,
         ["api", "v1", "notifications", "metrics"] => is_read,
         ["api", "v1", "analytics", "track"] => method == Method::POST,
@@ -1321,6 +1431,8 @@ mod routing_tests {
             "/api/v1/notifications/templates/id/audit",
             "/api/v1/notifications/metrics",
             "/api/v1/notifications/send",
+            "/api/v1/notification/send",
+            "/api/v1/notification/admin/list",
             "/api/v1/analytics/events",
             "/api/v1/analytics/metrics/usage",
             "/api/v1/analytics/revenue",
@@ -1331,6 +1443,21 @@ mod routing_tests {
             "/api/v1/indexer/transfers/bsc/address",
             "/api/v1/wallet/accounts",
             "/api/v1/wallet/accounts/address",
+            "/api/v1/analytics/admin/audit-log",
+            "/api/admin/media/news",
+            "/api/admin/media/news/object-key",
+            "/api/admin/files",
+            "/api/admin/files/upload",
+            "/api/admin/news",
+            "/api/admin/news/slug/publish",
+            "/api/admin/developer-portal/api-keys",
+            "/api/admin/developer-portal/api-keys/key-id/revoke",
+            "/api/admin/developer-portal/modules/module-id",
+            "/api/admin/chat/topics",
+            "/api/admin/chat/conversations",
+            "/api/admin/chat/conversations/conversation-id/messages",
+            "/api/admin/settings",
+            "/api/admin/settings/reset",
         ] {
             assert!(is_known_protected_admin_api_path(path), "{path}");
         }
@@ -1345,6 +1472,10 @@ mod routing_tests {
             "/api/v1/payments/id/cancel",
             "/api/v1/escrows",
             "/api/v1/escrows/id/release",
+            "/api/admin/media/news/object-key/extra",
+            "/api/admin/developer-portal/api-keys/key-id/revoke/extra",
+            "/api/admin/chat/conversations/conversation-id/messages/extra",
+            "/api/v1/notification/admin/list/extra",
         ] {
             assert!(!is_known_admin_api_path(path), "{path}");
         }
@@ -1508,6 +1639,69 @@ mod routing_tests {
 
 async fn api_health() -> &'static str {
     "ok"
+}
+
+/// Forward route-owned admin API calls to the service selected by the
+/// canonical path. This BFF boundary deliberately has no permission, plan,
+/// entitlement, ownership, or mutation rules: the verified bearer and request
+/// ID are forwarded, while the backend service remains authoritative.
+async fn admin_service_proxy(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let path = parts
+        .uri
+        .path_and_query()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| parts.uri.path().to_string());
+    let method = parts.method;
+    let headers = parts.headers;
+    let ctx = ctx_from(&headers);
+    let body = match method {
+        Method::POST | Method::PUT | Method::PATCH => match to_bytes(body, 2 * 1024 * 1024).await {
+            Ok(bytes) if bytes.is_empty() => serde_json::json!({}),
+            Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
+                Ok(value) => value,
+                Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+            },
+            Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+        },
+        _ => serde_json::json!({}),
+    };
+
+    let client = if path.starts_with("/api/admin/media") || path.starts_with("/api/admin/news") {
+        &state.content
+    } else if path.starts_with("/api/v1/admin/wallets")
+        || path.starts_with("/api/v1/admin/credits")
+    {
+        &state.wallet
+    } else if path.starts_with("/api/v1/admin/subscription") {
+        &state.subscription
+    } else if path.starts_with("/api/v1/admin/pay") {
+        &state.payment
+    } else if path.starts_with("/api/v1/notification") {
+        &state.notification
+    } else if path.starts_with("/api/v1/analytics/admin") {
+        &state.analytics
+    } else {
+        &state.identity
+    };
+
+    let result = match method {
+        Method::GET | Method::HEAD => client.get_with_ctx(&path, &ctx).await,
+        Method::POST => client.post_with_ctx(&path, &body, &ctx).await,
+        Method::PUT => client.put_with_ctx(&path, &body, &ctx).await,
+        Method::DELETE => client.delete_with_ctx(&path, &ctx).await,
+        _ => return StatusCode::METHOD_NOT_ALLOWED.into_response(),
+    };
+    match result {
+        Ok(value) => Json(value).into_response(),
+        Err(error) => {
+            let status = err_to_status(error);
+            (status, Json(serde_json::json!({
+                "error": "admin_service_unavailable"
+            })))
+                .into_response()
+        }
+    }
 }
 
 async fn admin_auth_redirect() -> Response {

@@ -147,7 +147,7 @@ if (expectedStops.size !== 0) fail("one or more residual STOPs are missing");
 let anchors = 0;
 if (!Array.isArray(contract.evidence) || contract.evidence.length !== 17) fail("seventeen evidence files are required");
 const evidenceDigest = createHash("sha256").update(JSON.stringify(contract.evidence)).digest("hex");
-if (evidenceDigest !== "32d43c36ea89b17d0cb32917b2efc93f7efb013e09053caff276b77e62ce7a06") fail("exact evidence file/anchor inventory drifted");
+if (evidenceDigest !== "2559e1df7f96be8bb36c9e608d8bceecc20ac31213fd0af0bb9ebaea0913a31d") fail("exact evidence file/anchor inventory drifted");
 for (const item of contract.evidence) {
   if (!item.file || item.file.startsWith("/") || item.file.split("/").includes("..")) fail(`invalid evidence path: ${item.file}`);
   const content = read(resolve(root, item.file));

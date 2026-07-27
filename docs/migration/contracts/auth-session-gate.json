@@ -116,7 +116,7 @@
     {
       "id": "bff-browser-bridge",
       "kind": "cargo-test",
-      "expectedTests": 8,
+      "expectedTests": 9,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-bff", "browser_auth::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/bff/src/browser_auth.rs", "anchor": "fn bridge_never_reads_or_stores_session_tokens()"},
@@ -142,7 +142,7 @@
     {
       "id": "frontend-session",
       "kind": "cargo-test",
-      "expectedTests": 13,
+      "expectedTests": 19,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-frontend", "api::auth_session_tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/frontend/src/api.rs", "anchor": "async fn siwe_verifies_returned_jwt_and_only_returns_safe_browser_data()"},
@@ -207,7 +207,7 @@
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-templates", "page_head_tests::header_exposes_truthful_session_action_without_policy_logic", "--no-fail-fast"],
       "evidence": [
         {"file": "shared/rust/templates/src/lib.rs", "anchor": "fn header_exposes_truthful_session_action_without_policy_logic()"},
-        {"file": "apps/frontend/src/ssr.rs", "anchor": "epsx_templates::epsx_header_for_session(is_authenticated)"}
+        {"file": "apps/frontend/src/ssr.rs", "anchor": "epsx_templates::epsx_header_for_session_and_return_target("}
       ]
     },
     {
@@ -269,7 +269,7 @@
     {
       "id": "admin-cookie-reader",
       "kind": "cargo-test",
-      "expectedTests": 3,
+      "expectedTests": 5,
       "command": ["cargo", "test", "--offline", "--locked", "-p", "epsx-admin", "auth::tests", "--no-fail-fast"],
       "evidence": [
         {"file": "apps/admin/src/auth.rs", "anchor": "fn refresh_cookie_is_never_an_access_token()"},
@@ -305,7 +305,7 @@
       "expectedTests": 0,
       "command": ["./scripts/migration/verify-route-inventory.sh"],
       "evidence": [
-        {"file": "docs/migration/contracts/routes.json", "anchor": "\"sourceRef\": \"origin/development\""}
+        {"file": "docs/migration/contracts/routes.json", "anchor": "\"sourceRef\": \"development\""}
       ]
     },
     {

@@ -31,6 +31,8 @@ pub(crate) enum AdminDeveloperPortalLoad {
     Malformed,
 }
 
+pub(crate) type AdminDeveloperLoad = AdminDeveloperPortalLoad;
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminDeveloperMutationError {
     Forbidden,
