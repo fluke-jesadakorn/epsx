@@ -101,12 +101,10 @@ use super::notification_handlers::{
     upload_notification_image,
 };
 // System settings handlers
-// use super::system_settings_handlers::{
-//   get_all_settings_handler,
-//   get_settings_by_category_handler,
-//   update_settings_handler,
-//   reset_settings_handler,
-// };
+use super::system_settings_handlers::{
+    get_all_settings_handler, get_settings_by_category_handler, reset_settings_handler,
+    update_settings_handler,
+};
 use super::batch_handlers::{
     admin_dashboard_summary_handler, admin_notification_overview_handler,
     wallet_access_summary_handler,
@@ -525,6 +523,18 @@ pub fn create_admin_routes() -> Router<AppState> {
         )
         .layer(from_fn_with_state("admin:media:manage", perm_guard));
 
+    // Settings read/manage are separate permission boundaries. The handlers
+    // apply the exact admin audience and field/version/idempotency validation
+    // before touching the monolith settings table.
+    let settings_read = Router::new()
+        .route("/settings", get(get_all_settings_handler))
+        .route("/settings/{category}", get(get_settings_by_category_handler))
+        .layer(from_fn_with_state("admin:settings:read", perm_guard));
+    let settings_write = Router::new()
+        .route("/settings", put(update_settings_handler))
+        .route("/settings/reset", post(reset_settings_handler))
+        .layer(from_fn_with_state("admin:settings:manage", perm_guard));
+
     dashboard
         .merge(dashboard_user_status)
         .merge(security)
@@ -549,6 +559,8 @@ pub fn create_admin_routes() -> Router<AppState> {
         .merge(news_write)
         .merge(media_read)
         .merge(media_write)
+        .merge(settings_read)
+        .merge(settings_write)
         // Every admin operation is an admin-audience boundary. Individual
         // subrouters still carry their read/manage permission guards; this
         // outer layer prevents API-key and non-admin JWT fallback paths from

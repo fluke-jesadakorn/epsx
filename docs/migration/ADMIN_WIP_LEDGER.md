@@ -11,7 +11,7 @@ checkout until an explicit, evidence-backed integration decision.
 | `apps/admin/Cargo.toml` | `url` dependency addition | adopted | Required by strict form decoding in `apps/admin/src/main.rs`. |
 | `apps/admin/src/auth.rs` | local/design bypass UI identity and tests | adopted | UI-only preview identity; no bearer token or upstream authorization. |
 | `apps/admin/src/main.rs` | bounded notification form, notification routes/metrics/template handlers, route allowlist, tests | adopted | Root-owned central wiring; must pass admin authorization and SSR tests before merge. |
-| `apps/admin/src/notification_admin_adapter.rs` | strict notification query/projection/load outcome adapters and tests | adopted | Route-specific BFF behavior; no private payload projection. |
+| `apps/admin/src/notification_admin_adapter.rs` | strict notification query/projection/load outcome adapters, metrics, read/delete actions, and tests | adopted | Route-specific BFF behavior; no private payload projection; IDs and filters are bounded before service calls. |
 | `apps/admin/src/session_auth.rs` | session-clear response header handling | adopted | Root-owned auth/session behavior; covered by auth-session gate. |
 | `apps/admin/src/ssr.rs` | notification loader outcome, private HTML, query dispatch, tests | adopted | Root-owned SSR wiring; no sample data and no cacheable authenticated HTML. |
 | `apps/admin/src/styles/index.css` | admin state/form styles | adopted | Presentation-only support for truthful page states. |
@@ -24,7 +24,7 @@ checkout until an explicit, evidence-backed integration decision.
 | `shared/rust/dioxus_ui/src/pages/admin_pages/auth_redirect.rs` | auth redirect presentation | adopted | Fixed same-origin route only. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs` | dashboard data-state presentation and tests | adopted | No fabricated operational records; data remains backend-owned. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs` | developer portal state presentation | adopted | No client-side key/permission logic. |
-| `shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs` | notification DTO validation, list/create state presentation and tests | adopted | Strict bounded DTOs and truthful mutation states. |
+| `shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs` | notification DTO validation, filtered list/metrics/read-delete/create state presentation and tests | adopted | Strict bounded DTOs and truthful backend-authorized mutation states. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/notifications_redirect.rs` | notifications redirect presentation | adopted | Fixed same-origin redirect only. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs` | settings state presentation | adopted | No local settings authority. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/unauthorized.rs` | denial rendering | adopted | Preserves fail-closed denial state. |
@@ -42,7 +42,7 @@ checkout until an explicit, evidence-backed integration decision.
 | `apps/backend/migrations/core/20260727100000_remove_persisted_api_key_secret` | remove legacy persisted API-key secret column | adopted | Structural, guarded migration; creation-only secrets are no longer stored and the down migration cannot recover values. |
 | `services/subscription/src/admin.rs` | bounded global access read | adopted | Supports the admin access inventory with bounded limit/offset and optional wallet filtering; mutations remain separately authorized. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/{analytics,developer_portal,settings,wallet_credits,wallet_access,wallet_plans,wallet_wallets,payments}.rs` | typed redacted commerce/developer/settings/analytics page projections | adopted | Explicit ready/empty/forbidden/unavailable/malformed states, strict decoders, no sample operational data, and no mutation affordances on read-only surfaces. |
-| `scripts/migration/test-admin-live-data.sh` | stale hard-coded test counts and wallet evidence names | adopted | Updated to the current focused counts 147/13/6/1/5/6 and the active commerce adapter evidence; full self-test runs with the shared target directory. |
+| `scripts/migration/test-admin-live-data.sh` | stale hard-coded test counts and wallet evidence names | adopted | Updated to the current focused counts 161/16/8/1/5/6 and the active commerce adapter evidence; full self-test runs with the shared target directory. |
 | `scripts/migration/verify-frontend-live-data.ts` | one evidence anchor | adopted | Matches the bounded loaded-page unread label in the adopted notification UI. |
 
 The remaining dirty-checkout changes outside this table are not part of the

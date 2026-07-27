@@ -1,8 +1,7 @@
 //! Route-scoped BFF adapter for the backend-owned admin chat projections.
 //!
-//! This module is intentionally not registered here: `main.rs`/`ssr.rs` are
-//! root-owned central wiring. The integration manifest below the final handoff
-//! records the module and loader registrations required by the root agent.
+//! Central SSR wiring in `main.rs`/`ssr.rs` registers these loaders; this module
+//! owns only typed transport, bounds, and backend projection validation.
 
 use epsx_dioxus_ui::pages::admin_pages::chat::{
     decode_admin_chat_detail, decode_admin_chat_list, AdminChatDetail, AdminChatList,
@@ -149,11 +148,8 @@ struct BackendError {
 #[serde(deny_unknown_fields)]
 struct BackendEnvelope<T> {
     success: bool,
-    #[serde(default)]
     data: Option<T>,
-    #[serde(default)]
     error: Option<BackendError>,
-    #[serde(default)]
     meta: Option<BackendMeta>,
 }
 

@@ -1,0 +1,2 @@
+-- This migration is intentionally forward-only. The operation ledger is
+-- required to preserve durable retry semantics for admin chat mutations.

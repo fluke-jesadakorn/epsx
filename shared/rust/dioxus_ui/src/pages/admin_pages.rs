@@ -90,10 +90,9 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     //
     // The other 22 admin routes still get the Wave 34 behavior
     // (AuthPageOverlay + SkeletonPage placeholder bars) below.
-    if matches!(
-        p,
-        "/access-denied" | "/unauthorized" | "/developer-portal/api-keys/create"
-    ) {
+    if matches!(p, "/access-denied" | "/unauthorized")
+        || (p == "/developer-portal/api-keys/create" && ctx.user.is_none())
+    {
         return access_denied_panel::render(ctx);
     }
 

@@ -1,9 +1,10 @@
-//! Strict read-only compatibility adapter for the legacy admin news list.
+//! Strict compatibility adapter for the legacy admin news list and lifecycle.
 //!
 //! The migration's content service exposes a public, file-backed marketing
 //! feed that is not an admin record authority. Until A10 moves the legacy
-//! `news_articles` read model, `/news` may read only the existing protected
-//! Rust endpoint and must fail closed on any transport or contract drift.
+//! `news_articles` read model, `/news` reads the existing protected Rust
+//! endpoint and must fail closed on any transport or contract drift. Lifecycle
+//! actions remain explicit BFF calls with backend-owned authorization.
 
 use epsx_client::ClientError;
 use epsx_dioxus_ui::pages::admin_pages::news::{
@@ -135,6 +136,14 @@ pub(crate) enum AdminNewsLoad {
     Malformed,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNewsEditorLoad {
+    Ready(AdminNewsEditorProjection),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
 pub(crate) async fn load_admin_news(
     client: &epsx_client::ServiceClient,
     query: &AdminNewsQuery,
@@ -183,6 +192,69 @@ pub(crate) async fn load_admin_news(
         Err(_) => return AdminNewsLoad::Malformed,
     };
     classify_admin_news_result(query, Ok(value))
+}
+
+pub(crate) async fn load_admin_news_editor(
+    client: &epsx_client::ServiceClient,
+    id: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNewsEditorLoad {
+    let Ok(id) = canonical_article_id(id) else {
+        return AdminNewsEditorLoad::Malformed;
+    };
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNewsEditorLoad::Unavailable;
+    };
+    let Ok(http_client) = mutation_client(client) else {
+        return AdminNewsEditorLoad::Unavailable;
+    };
+    let response = match http_client
+        .get(format!(
+            "{}/api/admin/news/{id}",
+            client.base_url().trim_end_matches('/')
+        ))
+        .header("x-request-id", ctx.request_id.to_string())
+        .bearer_auth(token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNewsEditorLoad::Unavailable,
+    };
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return AdminNewsEditorLoad::Forbidden;
+    }
+    if response.status() == reqwest::StatusCode::BAD_REQUEST {
+        return AdminNewsEditorLoad::Malformed;
+    }
+    if !response.status().is_success() {
+        return AdminNewsEditorLoad::Unavailable;
+    }
+    let body = match read_response_body_limited(response, MAX_ADMIN_NEWS_RESPONSE_BYTES).await {
+        Ok(body) => body,
+        Err(()) => return AdminNewsEditorLoad::Unavailable,
+    };
+    let response: MutationEnvelope<LegacyNewsArticle> = match serde_json::from_slice(&body) {
+        Ok(response) => response,
+        Err(_) => return AdminNewsEditorLoad::Malformed,
+    };
+    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref()) {
+        return AdminNewsEditorLoad::Malformed;
+    }
+    let Some(article) = response.data else {
+        return AdminNewsEditorLoad::Malformed;
+    };
+    let Some(projection) = project_editor_article(article) else {
+        return AdminNewsEditorLoad::Malformed;
+    };
+    if projection.id != id {
+        return AdminNewsEditorLoad::Malformed;
+    }
+    AdminNewsEditorLoad::Ready(projection)
 }
 
 pub(crate) async fn create_admin_news(
@@ -326,7 +398,20 @@ pub(crate) async fn upload_admin_news_image(
     {
         return Err(AdminNewsMutationError::Malformed);
     }
-    response.data.ok_or(AdminNewsMutationError::Malformed)
+    let result = response.data.ok_or(AdminNewsMutationError::Malformed)?;
+    if !valid_url(&result.url)
+        || result
+            .thumb_url
+            .as_deref()
+            .is_some_and(|url| !valid_url(url))
+        || validate_filename(&result.filename).is_err()
+        || !valid_text(&result.mime, 128, false)
+        || result.size == 0
+        || result.size > 25 * 1024 * 1024
+    {
+        return Err(AdminNewsMutationError::Malformed);
+    }
+    Ok(result)
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -783,6 +868,7 @@ fn validate_and_project_article(article: LegacyNewsArticle) -> Option<AdminNewsA
         tags: article.tags,
         published_at: article.published_at,
         created_at: article.created_at,
+        updated_at: article.updated_at,
         is_pinned: article.is_pinned,
     })
 }
@@ -1181,7 +1267,6 @@ mod tests {
             "content",
             "author_wallet",
             "cover_image_url",
-            "updated_at",
             "pinned_at",
         ] {
             assert!(item.get(omitted).is_none(), "{omitted}");

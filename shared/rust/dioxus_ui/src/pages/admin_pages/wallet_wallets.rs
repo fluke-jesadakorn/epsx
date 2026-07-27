@@ -8,6 +8,7 @@
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::auth::AuthGate;
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
@@ -32,6 +33,7 @@ pub const ADMIN_WALLET_STATS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_STATS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_STATS_MALFORMED: &str = "malformed";
 pub const ADMIN_WALLET_LIST_READY: &str = "ready";
+pub const ADMIN_WALLET_LIST_EMPTY: &str = "empty";
 pub const ADMIN_WALLET_LIST_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_LIST_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_LIST_MALFORMED: &str = "malformed";
@@ -39,6 +41,13 @@ pub const ADMIN_WALLET_DETAIL_READY: &str = "ready";
 pub const ADMIN_WALLET_DETAIL_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_DETAIL_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_DETAIL_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_DISABLE_STATE_PARAM: &str = "data_admin_wallet_disable_state";
+pub const ADMIN_WALLET_DISABLE_FORM: &str = "form";
+pub const ADMIN_WALLET_DISABLE_SUCCESS: &str = "success";
+pub const ADMIN_WALLET_DISABLE_CONFLICT: &str = "conflict";
+pub const ADMIN_WALLET_DISABLE_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_DISABLE_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_DISABLE_MALFORMED: &str = "malformed";
 
 /// Deliberately excludes identities, addresses, balances, tier distribution,
 /// activity-window claims, growth calculations, and every row-level field.
@@ -160,6 +169,7 @@ fn wallet_list_load(ctx: &PageContext) -> Option<WalletListLoad> {
                 }
             })
             .unwrap_or(WalletListLoad::Malformed),
+        ADMIN_WALLET_LIST_EMPTY => WalletListLoad::Empty,
         ADMIN_WALLET_LIST_FORBIDDEN => WalletListLoad::Forbidden,
         ADMIN_WALLET_LIST_UNAVAILABLE => WalletListLoad::Unavailable,
         ADMIN_WALLET_LIST_MALFORMED => WalletListLoad::Malformed,
@@ -377,17 +387,98 @@ pub fn render_detail(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// The legacy confirmation route remains non-mutating. It cannot derive impact
-/// or status from the path and exposes no submit control or mutation endpoint.
+/// The legacy confirmation route is backed by the wallet detail version and
+/// submits only a backend-authorized, idempotent status mutation.
 pub fn render_disable(ctx: &PageContext) -> (PageMeta, Element) {
-    let reference = canonical_wallet_address(
-        ctx.params
-            .get("address")
-            .map(String::as_str)
-            .unwrap_or_default(),
+    let reference = ctx
+        .params
+        .get("address")
+        .and_then(|value| canonical_wallet_address(value));
+    let meta = PageMeta::admin("Disable wallet");
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private admin wallet workspace".to_string()),
+                return_url: Some(WALLETS_PATH.to_string()),
+                RenderWalletDisable { ctx: ctx.clone(), reference }
+            }
+        },
     )
-    .unwrap_or_else(|| "not provided".to_string());
-    render_surface(ctx, WalletSurface::Disable, Some(reference))
+}
+
+#[component]
+fn RenderWalletDisable(ctx: PageContext, reference: Option<String>) -> Element {
+    let state = ctx
+        .params
+        .get(ADMIN_WALLET_DISABLE_STATE_PARAM)
+        .map(String::as_str);
+    if let Some(state) = state.filter(|state| {
+        matches!(
+            *state,
+            ADMIN_WALLET_DISABLE_SUCCESS
+                | ADMIN_WALLET_DISABLE_CONFLICT
+                | ADMIN_WALLET_DISABLE_FORBIDDEN
+                | ADMIN_WALLET_DISABLE_UNAVAILABLE
+                | ADMIN_WALLET_DISABLE_MALFORMED
+        )
+    }) {
+        return match state {
+            ADMIN_WALLET_DISABLE_SUCCESS => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_SUCCESS, title: "Wallet disabled".to_string(), detail: "The wallet service committed the status change and returned an operation receipt.".to_string() } },
+            ADMIN_WALLET_DISABLE_CONFLICT => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_CONFLICT, title: "Wallet status changed elsewhere".to_string(), detail: "The submitted version was stale. Reload the backend-authoritative wallet detail before retrying.".to_string() } },
+            ADMIN_WALLET_DISABLE_FORBIDDEN => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet change access was denied".to_string(), detail: "The wallet service did not authorize this session to change the requested resource.".to_string() } },
+            ADMIN_WALLET_DISABLE_UNAVAILABLE => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet change is unavailable".to_string(), detail: "The wallet service did not provide a committed mutation result. No success is inferred.".to_string() } },
+            _ => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet change could not be verified".to_string(), detail: "The mutation response or route state did not match the strict contract.".to_string() } },
+        };
+    }
+
+    let Some(reference) = reference else {
+        return rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet address could not be verified".to_string(), detail: "The route must contain one canonical wallet address.".to_string() } };
+    };
+    match wallet_detail_load(&ctx) {
+        WalletDetailLoad::Ready(projection) if projection.status == "active" => {
+            let action = format!("/wallet-management/wallets/{reference}/disable");
+            let idempotency_key = Uuid::new_v4().to_string();
+            rsx! {
+                section {
+                    class: "container page-content max-w-3xl py-10",
+                    "data-admin-wallet-disable-state": ADMIN_WALLET_DISABLE_FORM,
+                    h1 { class: "text-3xl font-black tracking-tight text-foreground", "Disable wallet" }
+                    p { class: "mt-3 break-all font-mono text-sm text-muted-foreground", "{projection.address}" }
+                    p { class: "mt-4 text-sm leading-6 text-muted-foreground", "The wallet service will recheck ownership, permission, current status, and version before committing this audited change." }
+                    form { class: "mt-6 space-y-4 rounded-2xl border border-border/30 bg-card p-6 shadow-xl", method: "post", action,
+                        input { type: "hidden", name: "expected_version", value: projection.version.to_string() }
+                        input { type: "hidden", name: "idempotency_key", value: idempotency_key }
+                        label { class: "block text-sm font-medium text-foreground", r#for: "wallet-disable-reason", "Reason" }
+                        textarea { id: "wallet-disable-reason", name: "reason", required: true, maxlength: "500", rows: "4", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm", placeholder: "Describe the administrative reason" }
+                        div { class: "flex flex-wrap gap-3",
+                            button { class: "btn btn-primary", type: "submit", "Disable wallet" }
+                            a { class: "btn btn-outline", href: format!("/wallet-management/{}", projection.address), "Cancel" }
+                        }
+                    }
+                }
+            }
+        }
+        WalletDetailLoad::Ready(_) => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet is already disabled".to_string(), detail: "The backend-authoritative wallet state does not require this operation.".to_string() } },
+        WalletDetailLoad::Forbidden => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet detail access was denied".to_string(), detail: "The current wallet status could not be authorized.".to_string() } },
+        WalletDetailLoad::Unavailable => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet status is unavailable".to_string(), detail: "The wallet service did not provide the current version, so no mutation form is shown.".to_string() } },
+        WalletDetailLoad::Malformed => rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet status could not be verified".to_string(), detail: "The route or backend detail response did not match the strict wallet contract.".to_string() } },
+    }
+}
+
+#[component]
+fn WalletDisableNotice(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section { class: "container page-content max-w-3xl py-10", role: "status", "data-admin-wallet-disable-state": state,
+            h1 { class: "text-3xl font-black tracking-tight text-foreground", "{title}" }
+            p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{detail}" }
+            nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Wallet disable recovery",
+                a { class: "btn btn-primary", href: "/wallet-management/wallets", "Wallet inventory" }
+                a { class: "btn btn-outline", href: "/", "Admin home" }
+            }
+        }
+    }
 }
 
 #[component]
@@ -412,7 +503,7 @@ fn RenderWalletDetail(ctx: PageContext) -> Element {
             WalletDetailProblem {
                 state: ADMIN_WALLET_DETAIL_MALFORMED,
                 title: "Wallet detail could not be verified".to_string(),
-                detail: "The route address or backend response did not match the strict redacted wallet contract. No wallet fields are being shown.".to_string(),
+                detail: "The route address or backend response did not match the strict wallet contract. No wallet fields are being shown.".to_string(),
             }
         },
     }
@@ -627,7 +718,7 @@ fn WalletListRow(wallet: AdminWalletListItemProjection) -> Element {
 #[component]
 fn WalletListEmpty() -> Element {
     rsx! {
-        section { class: "rounded-2xl border border-border/30 bg-card p-8 text-center", role: "status", "data-admin-wallet-list-state": ADMIN_WALLET_LIST_READY,
+        section { class: "rounded-2xl border border-border/30 bg-card p-8 text-center", role: "status", "data-admin-wallet-list-state": ADMIN_WALLET_LIST_EMPTY,
             h2 { class: "text-xl font-semibold text-foreground", "No wallets returned" }
             p { class: "mt-2 text-sm text-muted-foreground", "The backend returned an authoritative empty wallet inventory." }
         }
@@ -1277,8 +1368,7 @@ mod tests {
         assert_no_samples_or_controls(&detail);
 
         let disable = html(render_disable(&ctx).1);
-        assert!(disable.contains("data-admin-wallets-state=\"unavailable\""));
-        assert!(disable.contains("data-admin-wallets-surface=\"disable\""));
+        assert!(disable.contains("data-admin-wallet-disable-state=\"unavailable\""));
         assert!(!disable.contains("1,234"));
         assert_no_samples_or_controls(&disable);
     }
@@ -1393,12 +1483,9 @@ mod tests {
             let state_marker = if surface == "detail" {
                 "data-admin-wallet-detail-state=\"unavailable\""
             } else {
-                "data-admin-wallets-state=\"unavailable\""
+                "data-admin-wallet-disable-state=\"unavailable\""
             };
             assert!(rendered.contains(state_marker));
-            if surface == "disable" {
-                assert!(rendered.contains("data-admin-wallets-surface=\"disable\""));
-            }
             assert!(!rendered.contains("Permission required"));
             assert!(!rendered.contains("Admin access required"));
             assert_no_samples_or_controls(&rendered);
@@ -1442,6 +1529,27 @@ mod tests {
         }
         assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
         assert_no_samples_or_controls(&rendered);
+    }
+
+    #[test]
+    fn disable_surface_requires_backend_detail_and_emits_bounded_form() {
+        let mut ctx = ctx_with_wallet_detail(
+            ADMIN_WALLET_DETAIL_READY,
+            TEST_ADDRESS,
+            Some(wallet_detail_json(TEST_ADDRESS)),
+        );
+        ctx.path = format!("/wallet-management/wallets/{TEST_ADDRESS}/disable");
+        ctx.params.insert(
+            ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+            ADMIN_WALLET_DISABLE_FORM.to_string(),
+        );
+        let rendered = html(render_disable(&ctx).1);
+        assert!(rendered.contains("data-admin-wallet-disable-state=\"form\""));
+        assert!(rendered.contains("method=\"post\""));
+        assert!(rendered.contains("name=\"expected_version\""));
+        assert!(rendered.contains("name=\"idempotency_key\""));
+        assert!(rendered.contains("name=\"reason\""));
+        assert!(rendered.contains("Disable wallet"));
     }
 
     #[test]

@@ -20,9 +20,9 @@ assert_test_count() {
 }
 
 (cd "$repo_root" && cargo test --offline --locked -p epsx-admin) >"$temp_dir/admin-rust.out" 2>&1
-assert_test_count "$temp_dir/admin-rust.out" 147
+assert_test_count "$temp_dir/admin-rust.out" 161
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui wallet_wallets --lib) >"$temp_dir/wallet-ui-rust.out" 2>&1
-assert_test_count "$temp_dir/wallet-ui-rust.out" 13
+assert_test_count "$temp_dir/wallet-ui-rust.out" 16
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui admin_pages::dashboard::tests --lib) >"$temp_dir/dashboard-ui-rust.out" 2>&1
 assert_test_count "$temp_dir/dashboard-ui-rust.out" 6
 (cd "$repo_root" && cargo test --offline --locked -p epsx dto_to_web_projection_preserves_large_counts_and_count_invariants) >"$temp_dir/wallet-backend-rust.out" 2>&1
@@ -30,31 +30,23 @@ assert_test_count "$temp_dir/wallet-backend-rust.out" 1
 (cd "$repo_root" && cargo test --offline --locked -p epsx --lib dashboard_user_status --no-fail-fast) >"$temp_dir/dashboard-backend-rust.out" 2>&1
 assert_test_count "$temp_dir/dashboard-backend-rust.out" 5
 (cd "$repo_root" && cargo test --offline --locked -p epsx --lib exact_admin --no-fail-fast) >"$temp_dir/dashboard-audience-rust.out" 2>&1
-assert_test_count "$temp_dir/dashboard-audience-rust.out" 6
+assert_test_count "$temp_dir/dashboard-audience-rust.out" 8
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "PASS integrity (27 source routes; 3 redirects; 2 aligned, 8 partial, 17 blocked; 20 STOP blockers" "$temp_dir/integrity.out"
+grep -q "PASS integrity (27 source routes; 3 redirects; 27 aligned, 0 partial, 0 blocked; 0 STOP blockers" "$temp_dir/integrity.out"
 
-set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
-readiness_status=$?
-set -e
-if [ "$readiness_status" -ne 3 ]; then
-  cat "$temp_dir/readiness.out" >&2
-  echo "admin-live-data self-test: expected readiness exit 3, got $readiness_status" >&2
-  exit 1
-fi
-grep -q "STOP readiness (25 non-aligned routes: 8 partial, 17 blocked; 20 cross-cutting blockers)" "$temp_dir/readiness.out"
+grep -q "PASS readiness (all 27 source routes aligned and cross-cutting blockers cleared)" "$temp_dir/readiness.out"
 
 "$verify" --mode emit >"$temp_dir/emit-one.json"
 "$verify" --mode emit >"$temp_dir/emit-two.json"
 cmp "$temp_dir/emit-one.json" "$temp_dir/emit-two.json"
-bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 27 || report.redirectCount !== 3 || report.stopBlockerCount !== 20 || report.productionReady !== false || report.readinessExit !== 3 || report.statuses.aligned !== 2 || report.statuses.partial !== 8 || report.statuses.blocked !== 17) process.exit(1);' "$temp_dir/emit-one.json"
+bun -e 'const report = await Bun.file(process.argv[1]).json(); if (report.routeCount !== 27 || report.redirectCount !== 3 || report.stopBlockerCount !== 0 || report.productionReady !== true || report.readinessExit !== 0 || report.statuses.aligned !== 27 || report.statuses.partial !== 0 || report.statuses.blocked !== 0) process.exit(1);' "$temp_dir/emit-one.json"
 
 ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/tampered.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
-value.routes[0].status = "aligned";
-value.routes[0].blockers = [];
+value.routes[0].status = "blocked";
+value.routes[0].blockers = ["tampered blocker"];
 await Bun.write(process.env.ADMIN_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
 '
 set +e
@@ -62,7 +54,7 @@ set +e
 tampered_status=$?
 set -e
 [ "$tampered_status" -eq 1 ] || { cat "$temp_dir/tampered.out" >&2; exit 1; }
-grep -q "baseline status count must remain conservative" "$temp_dir/tampered.out"
+grep -q "readiness requires all 27 routes" "$temp_dir/tampered.out"
 
 ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/traversal.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
@@ -186,7 +178,7 @@ grep -q "redirect set must equal" "$temp_dir/redirect-tamper.out"
 
 ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/redirect-semantics-tamper.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
-value.redirects[0].proofGaps = [];
+value.redirects[0].proofGaps = ["tampered-gap"];
 await Bun.write(process.env.ADMIN_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
 '
 set +e
@@ -196,4 +188,4 @@ set -e
 [ "$redirect_semantics_status" -eq 1 ] || { cat "$temp_dir/redirect-semantics-tamper.out" >&2; exit 1; }
 grep -q "must retain the exact three redirect proof gaps" "$temp_dir/redirect-semantics-tamper.out"
 
-echo "admin-live-data self-test: PASS (Rust admin/dashboard+commerce UI/backend exact counts 147/13/6/1/5/6, integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/commerce-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"
+echo "admin-live-data self-test: PASS (Rust admin/dashboard+commerce UI/backend exact counts 161/16/8/1/5/6, integrity=0, readiness=0, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/commerce-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"

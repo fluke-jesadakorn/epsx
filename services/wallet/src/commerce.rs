@@ -15,8 +15,8 @@ use chrono::{DateTime, Utc};
 use epsx_service_auth::VerifiedPrincipal;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::Value;
-use sqlx::types::Uuid;
 use sqlx::{FromRow, Postgres, Transaction};
+use uuid::Uuid;
 
 use super::AppState;
 
@@ -29,6 +29,8 @@ const MAX_METADATA_BYTES: usize = 4096;
 #[serde(deny_unknown_fields)]
 pub struct WalletMutationRequest {
     pub expected_version: i64,
+    #[serde(default)]
+    pub reason: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -392,8 +394,13 @@ async fn mutate_wallet_status(
     let Some(key) = idempotency_key(headers) else {
         return error(headers, StatusCode::BAD_REQUEST, "missing_idempotency_key");
     };
-    if request.expected_version < 0 {
-        return error(headers, StatusCode::BAD_REQUEST, "invalid_version");
+    if request.expected_version < 0
+        || request
+            .reason
+            .as_deref()
+            .is_some_and(|reason| reason.trim().is_empty() || reason.chars().count() > MAX_REASON_CHARS || reason.chars().any(char::is_control))
+    {
+        return error(headers, StatusCode::BAD_REQUEST, "invalid_wallet_request");
     }
     let mut tx = match state.db.begin().await {
         Ok(tx) => tx,
@@ -426,7 +433,7 @@ async fn mutate_wallet_status(
         return error(headers, StatusCode::CONFLICT, "wallet_version_exhausted");
     };
     let operation_id = Uuid::new_v4();
-    let result = serde_json::json!({"address": address, "chain_id": current.0, "status": status, "version": next_version, "operation_id": operation_id});
+    let result = serde_json::json!({"address": address, "chain_id": current.0, "status": status, "version": next_version, "operation_id": operation_id, "reason": request.reason});
     if sqlx::query("INSERT INTO public.wallet_admin_state (address, chain_id, status, metadata, version, updated_at) VALUES ($1, $2, $3, '{}'::jsonb, $4, NOW()) ON CONFLICT (address, chain_id) DO UPDATE SET status = EXCLUDED.status, version = EXCLUDED.version, updated_at = NOW()")
         .bind(&address).bind(&current.0).bind(status).bind(next_version).execute(&mut *tx).await.is_err() { return error(headers, StatusCode::SERVICE_UNAVAILABLE, "wallet_write_unavailable"); }
     if sqlx::query("INSERT INTO public.wallet_admin_operations (operation_id, idempotency_key, address, chain_id, action, actor, version_before, version_after, result) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)")

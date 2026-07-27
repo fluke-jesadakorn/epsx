@@ -1,8 +1,8 @@
-//! `/media` — authenticated, read-only media object metadata inventory.
+//! `/media` — authenticated media inventory with backend-authorized actions.
 //!
 //! Only a strict backend projection is rendered. Object URLs, previews,
-//! credentials, storage-provider details, uploads, deletion, search, and every
-//! other mutation or inferred storage claim remain outside this UI boundary.
+//! credentials, storage-provider details, previews, search, and inferred
+//! storage claims remain outside this UI boundary.
 
 use chrono::DateTime;
 use dioxus::prelude::*;
@@ -255,7 +255,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
                 title: "Media".to_string(),
-                subtitle: Some("Review read-only object metadata".to_string()),
+                subtitle: Some("Review backend-authoritative object metadata".to_string()),
                 icon: Some("image".to_string()),
                 gradient: Some(PageGradient::Info),
                 centered: Some(false),
@@ -265,6 +265,9 @@ fn RenderMedia(ctx: PageContext) -> Element {
             MediaBucketNav { selected: bucket }
             if let Some(mutation) = media_mutation_load(&ctx) {
                 MediaMutationNotice { mutation }
+            }
+            if matches!(&load, MediaLoad::Ready(_) | MediaLoad::Empty) {
+                MediaMutationControls { bucket }
             }
             match load {
                 MediaLoad::Ready(projection) => rsx! {
@@ -361,6 +364,37 @@ fn MediaBucketNav(selected: MediaBucket) -> Element {
 }
 
 #[component]
+fn MediaMutationControls(bucket: MediaBucket) -> Element {
+    rsx! {
+        section { class: "mb-5 grid gap-4 rounded-2xl border border-border/30 bg-card p-5 md:grid-cols-[1fr_auto] md:items-end",
+            div {
+                h2 { class: "text-lg font-semibold text-foreground", "Media mutations" }
+                p { class: "mt-1 text-sm leading-6 text-muted-foreground",
+                    "Upload is written to the backend public bucket. Deletion is available per verified object row."
+                }
+            }
+            form {
+                method: "post",
+                action: "/media/upload",
+                enctype: "multipart/form-data",
+                class: "grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end",
+                label { class: "space-y-2 text-sm font-medium",
+                    span { "Public file" }
+                    input { class: "input w-full", r#type: "file", name: "file", required: true }
+                }
+                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.upload.{}", uuid::Uuid::new_v4()) }
+                button { class: "btn btn-primary", r#type: "submit", "Upload file" }
+            }
+            if bucket != MediaBucket::Public {
+                p { class: "text-xs text-muted-foreground sm:col-span-2",
+                    "The upload form targets Public; switch buckets after a successful upload to inspect the resulting inventory."
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
     let item_count = projection.items.len();
     rsx! {
@@ -401,7 +435,7 @@ fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
                 class: "divide-y divide-border/30",
                 aria_label: format!("{} media objects", bucket.label()),
                 for item in projection.items {
-                    MediaRow { item }
+                    MediaRow { item, bucket }
                 }
             }
         }
@@ -409,7 +443,7 @@ fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
 }
 
 #[component]
-fn MediaRow(item: AdminMediaObject) -> Element {
+fn MediaRow(item: AdminMediaObject, bucket: MediaBucket) -> Element {
     let size = readable_bytes(item.size);
     rsx! {
         li { class: "grid gap-4 p-5 md:grid-cols-12 md:items-center",
@@ -431,6 +465,12 @@ fn MediaRow(item: AdminMediaObject) -> Element {
                 } else {
                     span { class: "text-sm text-muted-foreground", "Not reported" }
                 }
+            }
+            form { method: "post", action: "/media", class: "md:col-span-12 md:flex md:justify-end",
+                input { r#type: "hidden", name: "bucket", value: bucket.slug() }
+                input { r#type: "hidden", name: "key", value: item.key.clone() }
+                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.delete.{}", uuid::Uuid::new_v4()) }
+                button { class: "btn btn-sm btn-outline", r#type: "submit", "Delete object" }
             }
         }
     }
@@ -549,19 +589,14 @@ mod tests {
         .unwrap()
     }
 
-    fn assert_forbidden_actions_absent(rendered: &str) {
+    fn assert_unsupported_actions_absent(rendered: &str) {
         for forbidden in [
             "Copy URL",
             "Open file",
             "Preview",
-            "Upload",
-            "Delete",
             "Search",
             "Grid view",
             "List view",
-            "<form",
-            "<input",
-            "<button",
             "onclick=",
             "javascript:",
         ] {
@@ -610,7 +645,10 @@ mod tests {
         assert!(rendered.contains("aria-current=\"page\""));
         assert!(rendered.contains("bounded first page of up to 100 objects"));
         assert!(rendered.contains("continuation is unavailable"));
-        assert_forbidden_actions_absent(&rendered);
+        assert!(rendered.contains("Upload file"));
+        assert!(rendered.contains("Delete object"));
+        assert!(rendered.contains("<form"));
+        assert_unsupported_actions_absent(&rendered);
         for redacted in ["https://", "presigned", "mime_type", "etag"] {
             assert!(
                 !rendered.contains(redacted),
@@ -627,7 +665,8 @@ mod tests {
         assert!(rendered.contains("data-admin-media-bucket=\"news\""));
         assert!(rendered.contains("returned no metadata records for the News bucket"));
         assert!(!rendered.contains("inventory is unavailable"));
-        assert_forbidden_actions_absent(&rendered);
+        assert!(rendered.contains("Upload file"));
+        assert_unsupported_actions_absent(&rendered);
     }
 
     #[test]
@@ -642,7 +681,9 @@ mod tests {
             assert!(rendered.contains(title));
             assert!(rendered.contains("href=\"/media?bucket=news\""));
             assert!(rendered.contains("href=\"/media\""));
-            assert_forbidden_actions_absent(&rendered);
+            assert!(!rendered.contains("<form"));
+            assert!(!rendered.contains("<button"));
+            assert_unsupported_actions_absent(&rendered);
         }
     }
 
@@ -664,7 +705,8 @@ mod tests {
             assert!(rendered.contains("data-admin-media-state=\"malformed\""));
             assert!(!rendered.contains("secret.example"));
             assert!(!rendered.contains("bad\nkey"));
-            assert_forbidden_actions_absent(&rendered);
+            assert!(!rendered.contains("<form"));
+            assert_unsupported_actions_absent(&rendered);
         }
 
         let too_many = AdminMediaList {
@@ -761,7 +803,8 @@ mod tests {
         assert!(rendered.contains("100 objects are shown"));
         assert!(rendered.contains("Additional objects may exist"));
         assert!(rendered.contains("continuation is unavailable"));
-        assert_forbidden_actions_absent(&rendered);
+        assert!(rendered.contains("Delete object"));
+        assert_unsupported_actions_absent(&rendered);
     }
 
     #[test]

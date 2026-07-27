@@ -107,7 +107,7 @@
       "file": "services/notification/src/lib.rs",
       "anchors": [
         "pub fn protect_router",
-        "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+        "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin",
         "principal.audience != ADMIN_AUDIENCE",
         "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
       ]
@@ -144,7 +144,7 @@
         "pub fn protect_router",
         "pub fn canonical_owner",
         "AccessPolicy::UnsafeFinancialMutation",
-        "A valid operator credential still cannot reach the current"
+        "admin_mutations_require_manage_but_remain_unavailable"
       ]
     },
     {
@@ -258,9 +258,9 @@
   "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
   "inventorySummary": {
     "serviceCount": 9,
-    "routeCount": 145,
-    "mutationCount": 74,
-    "highRiskMutationCount": 74,
+    "routeCount": 148,
+    "mutationCount": 76,
+    "highRiskMutationCount": 76,
     "byService": {
       "gateway": 21,
       "identity": 11,
@@ -268,7 +268,7 @@
       "pay": 26,
       "subscription": 16,
       "content": 23,
-      "notification": 15,
+      "notification": 18,
       "analytics": 8,
       "indexer": 6
     },
@@ -276,12 +276,12 @@
       "public-allowlist": 32,
       "unknown": 21,
       "authenticated-user": 3,
-      "permission-specific-admin-operator": 55,
+      "permission-specific-admin-operator": 58,
       "owner-only": 30,
       "internal-webhook": 4
     },
     "byObservedStatus": {
-      "partial": 49,
+      "partial": 52,
       "blocked": 85,
       "aligned": 11
     }
@@ -3430,6 +3430,87 @@
           "observed": {
             "status": "partial",
             "summary": "Gateway and direct service require the exact admin audience plus canonical admin:notifications:manage before a strict global redacted list query. Static DTO, query, deterministic ordering, read-only repeatable-read snapshot, cardinality, and fail-closed validation tests pass; isolated database and service integration remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.get.admin-metrics",
+          "method": "GET",
+          "path": "/api/v1/notification/admin/metrics",
+          "routeAnchor": "\"/api/v1/notification/admin/metrics\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before backend-derived delivery metrics are read; runtime database integration remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.post.admin-read",
+          "method": "POST",
+          "path": "/api/v1/notification/admin/{id}/read",
+          "routeAnchor": "\"/api/v1/notification/admin/{id}/read\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "notification id is validated by the service",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience, canonical manage permission, and a strict notification ID before the read transition; durable audit/runtime integration remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.delete.admin",
+          "method": "DELETE",
+          "path": "/api/v1/notification/admin/{id}",
+          "routeAnchor": "\"/api/v1/notification/admin/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "notification id is validated by the service",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience, canonical manage permission, and a strict notification ID before deletion; durable audit/runtime integration remains unproven."
           },
           "dependencies": [
             "A2",

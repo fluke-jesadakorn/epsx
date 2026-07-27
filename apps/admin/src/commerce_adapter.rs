@@ -1,7 +1,6 @@
 //! Route-owned BFF loaders for the admin commerce/wallet read surfaces.
 //!
-//! This module is intentionally standalone: the central SSR/router wiring is
-//! owned outside the commerce slice. Each loader sends the verified bearer and
+//! Central SSR/router wiring calls these loaders. Each loader sends the verified bearer and
 //! request ID to the service that owns the record, rejects non-canonical route
 //! identifiers before network I/O, and projects only the fields accepted by
 //! the corresponding Dioxus page.
@@ -68,6 +67,12 @@ pub(crate) enum AdminCommerceMutationLoad<T> {
 #[derive(Clone, Debug, Serialize)]
 pub(crate) struct ExpectedVersionCommand {
     pub expected_version: i64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct WalletStatusCommand {
+    pub expected_version: i64,
+    pub reason: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -197,6 +202,22 @@ struct BackendWalletList {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct BackendWalletMutation {
+    wallet: BackendWallet,
+    evidence: BackendWalletMutationEvidence,
+    correlation_id: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendWalletMutationEvidence {
+    operation_id: String,
+    version: i64,
+    observed_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BackendAccessList {
     items: Vec<BackendAccessAssignment>,
     correlation_id: String,
@@ -307,8 +328,9 @@ pub(crate) async fn load_wallet_detail(
         Ok(payload) => payload,
         Err(error) => return error.into_load(),
     };
+    let returned_address = payload.address.clone();
     let projection = serde_json::json!({
-        "address": payload.address,
+        "address": returned_address,
         "chain_id": payload.chain_id,
         "label": payload.label,
         "role": payload.role,
@@ -386,10 +408,12 @@ pub(crate) async fn load_access(
             .into_iter()
             .map(|item| {
                 serde_json::json!({
+                    "wallet_address": item.wallet_address,
                     "plan_id": item.plan_id,
                     "plan_name": item.plan_name,
                     "permission": item.permission,
                     "expires_at": item.expires_at,
+                    "version": item.version,
                 })
             })
             .collect::<Vec<_>>(),
@@ -464,11 +488,13 @@ pub(crate) async fn load_payment_links(
             .into_iter()
             .map(|item| {
                 serde_json::json!({
+                    "id": item.id,
                     "slug": item.slug,
                     "max_uses": item.max_uses,
                     "current_uses": item.current_uses,
                     "expires_at": item.expires_at,
                     "status": item.status,
+                    "version": item.version,
                 })
             })
             .collect::<Vec<_>>(),
@@ -500,6 +526,45 @@ fn redact_plan(plan: BackendPlan) -> Value {
 }
 
 async fn get_json<T: DeserializeOwned>(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+    ctx: &epsx_client::RequestContext,
+) -> Result<T, UpstreamError> {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return Err(UpstreamError::Unavailable);
+    };
+    let http_client = reqwest::Client::builder()
+        .timeout(client.config().timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| UpstreamError::Unavailable)?;
+    let response = http_client
+        .get(format!(
+            "{}{}",
+            client.base_url().trim_end_matches('/'),
+            path
+        ))
+        .header("x-request-id", ctx.request_id.to_string())
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|_| UpstreamError::Unavailable)?;
+    if !response.status().is_success() {
+        return Err(match response.status() {
+            reqwest::StatusCode::FORBIDDEN => UpstreamError::Forbidden,
+            reqwest::StatusCode::BAD_REQUEST => UpstreamError::Malformed,
+            _ => UpstreamError::Unavailable,
+        });
+    }
+    let body = read_body_limited(response).await?;
+    serde_json::from_slice(&body).map_err(|_| UpstreamError::Malformed)
+}
+
+async fn get_admin_json<T: DeserializeOwned>(
     client: &epsx_client::ServiceClient,
     path: &str,
     ctx: &epsx_client::RequestContext,
@@ -626,6 +691,102 @@ pub(crate) async fn send_admin_json<T: DeserializeOwned, B: Serialize>(
         Ok(value) => AdminCommerceMutationLoad::Ready(value),
         Err(_) => AdminCommerceMutationLoad::Malformed,
     }
+}
+
+/// Send the wallet service's raw, evidence-bearing status mutation. Wallet
+/// service admin routes intentionally return their own strict DTO rather than
+/// the monolith admin envelope used by legacy mutations.
+pub(crate) async fn send_wallet_status_mutation(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+    command: &WalletStatusCommand,
+    idempotency_key: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminCommerceMutationLoad<AdminWalletDetailProjection> {
+    if path.is_empty()
+        || !(1..=128).contains(&idempotency_key.len())
+        || !idempotency_key
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b' ')
+        || command.expected_version < 0
+        || command.reason.trim().is_empty()
+        || command.reason.chars().count() > 500
+        || command.reason.chars().any(char::is_control)
+    {
+        return AdminCommerceMutationLoad::Malformed;
+    }
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminCommerceMutationLoad::Unavailable;
+    };
+    let http_client = match reqwest::Client::builder()
+        .timeout(client.config().timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => return AdminCommerceMutationLoad::Unavailable,
+    };
+    let request = match http_client
+        .post(format!("{}{}", client.base_url().trim_end_matches('/'), path))
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .json(command)
+        .build()
+    {
+        Ok(request) => request,
+        Err(_) => return AdminCommerceMutationLoad::Unavailable,
+    };
+    let response = match http_client.execute(request).await {
+        Ok(response) => response,
+        Err(_) => return AdminCommerceMutationLoad::Unavailable,
+    };
+    let status = response.status();
+    if status == reqwest::StatusCode::FORBIDDEN {
+        return AdminCommerceMutationLoad::Forbidden;
+    }
+    if status == reqwest::StatusCode::CONFLICT {
+        return AdminCommerceMutationLoad::Conflict;
+    }
+    if !status.is_success() {
+        return AdminCommerceMutationLoad::Malformed;
+    }
+    let body = match read_body_limited(response).await {
+        Ok(body) => body,
+        Err(_) => return AdminCommerceMutationLoad::Unavailable,
+    };
+    let response: BackendWalletMutation = match serde_json::from_slice(&body) {
+        Ok(response) => response,
+        Err(_) => return AdminCommerceMutationLoad::Malformed,
+    };
+    if response.evidence.operation_id.trim().is_empty()
+        || response.evidence.version < 0
+        || response.evidence.observed_at.trim().is_empty()
+        || DateTime::parse_from_rfc3339(&response.evidence.observed_at).is_err()
+        || response.correlation_id.trim().is_empty()
+    {
+        return AdminCommerceMutationLoad::Malformed;
+    }
+    let projection = AdminWalletDetailProjection {
+        address: response.wallet.address,
+        chain_id: response.wallet.chain_id,
+        label: response.wallet.label,
+        role: response.wallet.role,
+        status: response.wallet.status,
+        version: response.wallet.version,
+    };
+    if decode_admin_wallet_detail_projection(
+        serde_json::to_value(&projection).unwrap_or(Value::Null),
+    )
+    .is_none()
+    {
+        return AdminCommerceMutationLoad::Malformed;
+    }
+    AdminCommerceMutationLoad::Ready(projection)
 }
 
 async fn read_body_limited(mut response: reqwest::Response) -> Result<Vec<u8>, UpstreamError> {
@@ -792,11 +953,13 @@ mod tests {
     fn projection_states_are_explicit_and_redaction_drops_identity_fields() {
         let projection = decode_admin_payment_link_list_projection(serde_json::json!({
             "items": [{
+                "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                 "slug": "epsx-public",
                 "max_uses": 1,
                 "current_uses": 0,
                 "expires_at": null,
-                "status": "active"
+                "status": "active",
+                "version": 0
             }],
             "total": 1,
             "limit": 100,
@@ -835,11 +998,13 @@ mod tests {
             "data_admin_plan_detail_state"
         );
         let _ = AdminPaymentLinkProjection {
+            id: projection.items[0].id.clone(),
             slug: projection.items[0].slug.clone(),
             max_uses: projection.items[0].max_uses,
             current_uses: projection.items[0].current_uses,
             expires_at: projection.items[0].expires_at.clone(),
             status: projection.items[0].status.clone(),
+            version: projection.items[0].version,
         };
     }
 }

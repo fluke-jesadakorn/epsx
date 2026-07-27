@@ -1,4 +1,4 @@
-//! Read-only admin news inventory plus fail-closed editor routes.
+//! Admin news inventory plus fail-closed editor routes.
 //!
 //! The list renders only a strict, backend-supplied projection. Content
 //! mutations and authorization decisions remain backend concerns; this leaf
@@ -7,6 +7,7 @@
 use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
@@ -47,6 +48,9 @@ pub const ADMIN_NEWS_MUTATION_CONFLICT: &str = "conflict";
 pub const ADMIN_NEWS_MUTATION_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_NEWS_MUTATION_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NEWS_MUTATION_MALFORMED: &str = "malformed";
+pub const ADMIN_NEWS_IMAGE_URL_PARAM: &str = "admin_news_image_url";
+pub const ADMIN_NEWS_IMAGE_STATE_PARAM: &str = "admin_news_image_state";
+pub const ADMIN_NEWS_IMAGE_COMMITTED: &str = "committed";
 
 /// Deliberately excludes article body, author identity, cover image, and every
 /// field that could imply mutation authority.
@@ -61,6 +65,7 @@ pub struct AdminNewsArticleSummary {
     pub tags: Vec<String>,
     pub published_at: Option<String>,
     pub created_at: String,
+    pub updated_at: String,
     pub is_pinned: bool,
 }
 
@@ -138,6 +143,7 @@ impl AdminNewsArticleSummary {
                 .as_deref()
                 .is_none_or(valid_rfc3339_timestamp)
             && valid_rfc3339_timestamp(&self.created_at)
+            && valid_rfc3339_timestamp(&self.updated_at)
     }
 }
 
@@ -281,7 +287,7 @@ fn news_load(ctx: &PageContext, filters: &NewsFilters) -> NewsLoad {
     }
 }
 
-/// `/news` — authenticated, read-only article inventory.
+/// `/news` — authenticated, backend-authoritative article inventory.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("News Management");
     (
@@ -385,6 +391,13 @@ fn render_editor_route(
     route_reference: Option<String>,
 ) -> (PageMeta, Element) {
     let load = news_editor_load(ctx, route);
+    let image_url = ctx.params.get(ADMIN_NEWS_IMAGE_URL_PARAM).cloned();
+    let image_uploaded = matches!(
+        ctx.params
+            .get(ADMIN_NEWS_IMAGE_STATE_PARAM)
+            .map(String::as_str),
+        Some(ADMIN_NEWS_IMAGE_COMMITTED)
+    );
     (
         PageMeta::admin(route.page_title()),
         rsx! {
@@ -403,12 +416,15 @@ fn render_editor_route(
                         extra_actions: None,
                         class_name: None,
                     }
+                    if image_uploaded {
+                        NewsMutationNotice { state: ADMIN_NEWS_MUTATION_COMMITTED, detail: "The backend uploaded the image. The returned URL is ready in the cover image field; save the article to persist it.".to_string() }
+                    }
                     match load {
-                        NewsEditorLoad::Form => rsx! { NewsEditor { route, projection: None, route_reference } },
-                        NewsEditorLoad::Ready(projection) => rsx! { NewsEditor { route, projection: Some(projection), route_reference } },
+                        NewsEditorLoad::Form => rsx! { NewsEditor { route, projection: None, route_reference, image_url: None } },
+                        NewsEditorLoad::Ready(projection) => rsx! { NewsEditor { route, projection: Some(projection), route_reference, image_url } },
                         NewsEditorLoad::Committed(projection) => rsx! {
                             NewsMutationNotice { state: ADMIN_NEWS_MUTATION_COMMITTED, detail: "The backend committed the article and returned it after the write.".to_string() }
-                            NewsEditor { route, projection: Some(projection), route_reference }
+                            NewsEditor { route, projection: Some(projection), route_reference, image_url }
                         },
                         NewsEditorLoad::Conflict(detail) => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_CONFLICT, detail } },
                         NewsEditorLoad::Forbidden => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_FORBIDDEN, detail: "The backend denied this content mutation. No editor data is being shown.".to_string() } },
@@ -425,6 +441,17 @@ fn render_editor_route(
 fn RenderNewsList(ctx: PageContext) -> Element {
     let filters = NewsFilters::from_ctx(&ctx);
     let load = news_load(&ctx, &filters);
+    let mutation = ctx
+        .params
+        .get(ADMIN_NEWS_MUTATION_STATE_PARAM)
+        .and_then(|value| match value.as_str() {
+            ADMIN_NEWS_MUTATION_COMMITTED => Some(ADMIN_NEWS_MUTATION_COMMITTED),
+            ADMIN_NEWS_MUTATION_CONFLICT => Some(ADMIN_NEWS_MUTATION_CONFLICT),
+            ADMIN_NEWS_MUTATION_FORBIDDEN => Some(ADMIN_NEWS_MUTATION_FORBIDDEN),
+            ADMIN_NEWS_MUTATION_UNAVAILABLE => Some(ADMIN_NEWS_MUTATION_UNAVAILABLE),
+            ADMIN_NEWS_MUTATION_MALFORMED => Some(ADMIN_NEWS_MUTATION_MALFORMED),
+            _ => None,
+        });
 
     rsx! {
         PageLayout {
@@ -437,6 +464,16 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                 centered: Some(false),
                 extra_actions: None,
                 class_name: None,
+            }
+            if let Some(state) = mutation {
+                NewsMutationNotice {
+                    state,
+                    detail: if state == ADMIN_NEWS_MUTATION_COMMITTED {
+                        "The backend committed the article deletion and the inventory was reloaded.".to_string()
+                    } else {
+                        "The backend did not commit the requested article mutation.".to_string()
+                    },
+                }
             }
             NewsStatusNavigation { active: filters.status.clone() }
             match load {
@@ -584,6 +621,15 @@ fn NewsArticleCard(article: AdminNewsArticleSummary) -> Element {
                     }
                 }
             }
+            div { class: "mt-5 flex flex-wrap gap-3 border-t border-border/20 pt-4",
+                a { class: "btn btn-sm btn-outline", href: format!("/news/{}/edit", article.id), "Edit article" }
+                form { method: "post", action: NEWS_PATH, class: "inline-flex",
+                    input { r#type: "hidden", name: "id", value: article.id }
+                    input { r#type: "hidden", name: "if_match", value: article.updated_at }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.delete.{}", Uuid::new_v4()) }
+                    button { r#type: "submit", class: "btn btn-sm btn-outline", "data-admin-news-delete": "bff", "Delete article" }
+                }
+            }
         }
     }
 }
@@ -641,6 +687,7 @@ fn NewsEditor(
     route: NewsRoute,
     projection: Option<AdminNewsEditorProjection>,
     route_reference: Option<String>,
+    image_url: Option<String>,
 ) -> Element {
     let is_create = route == NewsRoute::Create;
     let action = if is_create {
@@ -679,6 +726,7 @@ fn NewsEditor(
         .map(|item| item.tags.join(", "))
         .unwrap_or_default();
     let version = projection.as_ref().map(|item| item.updated_at.clone());
+    let idempotency_key = Uuid::new_v4().to_string();
 
     rsx! {
         section {
@@ -692,14 +740,14 @@ fn NewsEditor(
             p { class: "mb-6 text-sm leading-6 text-muted-foreground",
                 "Changes are submitted through the content BFF with an idempotency key. Existing articles also require the backend updated_at version."
             }
-            form { method: "post", action,
+            form { method: "post", action: action.clone(),
                 div { class: "space-y-5",
                     label { class: "block text-sm font-medium text-foreground", "Title",
                         input { class: "input input-bordered mt-2 w-full", name: "title", value: title, maxlength: MAX_TITLE_CHARS, required: true }
                     }
                     if !is_create {
                         label { class: "block text-sm font-medium text-foreground", "Slug",
-                            input { class: "input input-bordered mt-2 w-full", name: "slug", value: slug, maxlength: MAX_SLUG_CHARS, required: true }
+                            input { class: "input input-bordered mt-2 w-full", name: "slug", value: slug.clone(), maxlength: MAX_SLUG_CHARS, required: true }
                         }
                     }
                     label { class: "block text-sm font-medium text-foreground", "Summary",
@@ -709,7 +757,7 @@ fn NewsEditor(
                         textarea { class: "textarea textarea-bordered mt-2 min-h-64 w-full", name: "content", maxlength: MAX_CONTENT_BYTES, required: true, "{content}" }
                     }
                     label { class: "block text-sm font-medium text-foreground", "Cover image URL",
-                        input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: projection.as_ref().and_then(|item| item.cover_image_url.clone()).unwrap_or_default() }
+                        input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: image_url.clone().or_else(|| projection.as_ref().and_then(|item| item.cover_image_url.clone())).unwrap_or_default() }
                     }
                     label { class: "block text-sm font-medium text-foreground", "Tags (comma separated)",
                         input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags, maxlength: 2048 }
@@ -720,13 +768,39 @@ fn NewsEditor(
                             option { value: "published", selected: status == "published", "Published" }
                         }
                     }
-                    if let Some(version) = version {
+                    if let Some(version) = version.clone() {
                         input { r#type: "hidden", name: "if_match", value: version, "data-admin-news-version": "updated_at" }
                     }
+                    input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }
                     div { class: "flex flex-wrap gap-3 border-t border-border/30 pt-5",
                         button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "Save through content BFF" }
                         a { class: "btn btn-outline", href: NEWS_PATH, "Cancel" }
                     }
+                }
+            }
+            if !is_create {
+                if let Some(version) = version {
+                    div { class: "mt-5 flex flex-wrap gap-3 border-t border-border/30 pt-5",
+                        for operation in ["publish", "unpublish", "pin", "unpin"] {
+                            form { method: "post", action: action.clone(), class: "inline-flex",
+                                input { r#type: "hidden", name: "operation", value: operation }
+                                input { r#type: "hidden", name: "title", value: title.clone() }
+                                input { r#type: "hidden", name: "slug", value: slug.clone() }
+                                input { r#type: "hidden", name: "content", value: content.clone() }
+                                input { r#type: "hidden", name: "if_match", value: version.clone() }
+                                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.{operation}.{}", Uuid::new_v4()) }
+                                button { r#type: "submit", class: "btn btn-sm btn-outline", "data-admin-news-transition": operation, "{operation}" }
+                            }
+                        }
+                    }
+                }
+                form { method: "post", action: "/news/upload-image", enctype: "multipart/form-data", class: "mt-5 space-y-3 border-t border-border/30 pt-5",
+                    input { r#type: "hidden", name: "article_id", value: projection.as_ref().map(|item| item.id.clone()).unwrap_or_default() }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.image.{}", Uuid::new_v4()) }
+                    label { class: "block text-sm font-medium text-foreground", "Upload cover image",
+                        input { class: "file-input file-input-bordered mt-2 w-full", r#type: "file", name: "file", required: true, accept: "image/*" }
+                    }
+                    button { r#type: "submit", class: "btn btn-sm btn-outline", "Upload image" }
                 }
             }
         }
@@ -802,6 +876,7 @@ mod tests {
             tags: vec!["migration".to_string(), "rust".to_string()],
             published_at: Some("2026-07-22T10:00:00Z".to_string()),
             created_at: "2026-07-22T09:00:00Z".to_string(),
+            updated_at: "2026-07-22T10:00:00Z".to_string(),
             is_pinned: true,
         }
     }
@@ -885,7 +960,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_projection_renders_escaped_read_only_cards() {
+    fn ready_projection_renders_escaped_cards_and_lifecycle_actions() {
         let mut hostile = article();
         hostile.title = "<script>alert(1)</script>".to_string();
         hostile.summary = Some("<b>trusted?</b>".to_string());
@@ -901,8 +976,8 @@ mod tests {
         assert!(!rendered.contains("<script>alert(1)</script>"));
         assert!(rendered.contains("Pinned"));
         assert!(rendered.contains("1 authoritative records"));
-        assert!(!rendered.contains("01234567-89ab-4cde-8fab-0123456789ab"));
-        assert!(!rendered.contains("2026-07-22T09:00:00Z"));
+        assert!(rendered.contains("data-admin-news-delete=\"bff\""));
+        assert!(rendered.contains("Edit article"));
     }
 
     #[test]

@@ -1,11 +1,9 @@
-//! Truthful authenticated admin chat shells for `/chat` and `/chat/{id}`.
+//! Truthful authenticated admin chat projections for `/chat` and `/chat/{id}`.
 //!
 //! The route-specific admin BFF supplies strict, backend-owned list/detail
-//! projections. This leaf renders only those authenticated reads and keeps
-//! conversation mutations unavailable until their owning adapter is wired.
-//! It does not infer authorization from frontend roles or permissions, and it
-//! exposes no sample conversations, messages, presence, counts, filters,
-//! canned replies, assignments, status changes, or reply controls.
+//! projections. This leaf renders only those authenticated reads. Conversation
+//! mutations are bounded native forms; authorization, status
+//! transitions, ownership, and persistence remain backend-owned.
 
 use chrono::DateTime;
 use dioxus::prelude::*;
@@ -31,6 +29,7 @@ pub const ADMIN_CHAT_EMPTY: &str = "empty";
 pub const ADMIN_CHAT_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_CHAT_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_CHAT_MALFORMED: &str = "malformed";
+pub const ADMIN_CHAT_MUTATION_PARAM: &str = "mutation";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -284,14 +283,13 @@ impl ChatRoute {
     }
 }
 
-/// `/chat` — authenticated chat inbox shell with no compatibility data.
+/// `/chat` — authenticated chat inbox with backend-projected data or a truthful failure state.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     render_route(ctx, ChatRoute::Inbox, None)
 }
 
-/// `/chat/{id}` — authenticated conversation shell. The route value is a
-/// bounded, control-free, HTML-escaped diagnostic reference only. Its presence
-/// never proves that a conversation exists, belongs to a user, or is readable.
+/// `/chat/{id}` — authenticated conversation projection. The route value is
+/// canonicalized before the backend lookup and never implies authorization.
 pub fn render_conversation(ctx: &PageContext) -> (PageMeta, Element) {
     let route_reference = canonical_route_reference(ctx.params.get("id").map(String::as_str));
     render_route(ctx, ChatRoute::Conversation, route_reference)
@@ -312,6 +310,10 @@ fn render_route(
         ChatRoute::Inbox => list_load(ctx),
         ChatRoute::Conversation => detail_load(ctx),
     };
+    let mutation = match ctx.query_param(ADMIN_CHAT_MUTATION_PARAM).as_deref() {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param(ADMIN_CHAT_MUTATION_PARAM),
+        _ => None,
+    };
 
     (
         meta,
@@ -323,7 +325,7 @@ fn render_route(
                 // authenticated unavailable shell may offer a bounded retry,
                 // but the login boundary returns only to the static inbox.
                 return_url: Some(CHAT_PATH.to_string()),
-                ChatSurface { route, retry_href, load }
+                ChatSurface { route, retry_href, load, mutation }
             }
         },
     )
@@ -372,10 +374,10 @@ fn conversation_href(reference: &str) -> String {
 }
 
 #[component]
-fn ChatSurface(route: ChatRoute, retry_href: String, load: ChatLoad) -> Element {
+fn ChatSurface(route: ChatRoute, retry_href: String, load: ChatLoad, mutation: Option<String>) -> Element {
     match load {
         ChatLoad::Ready(list) => rsx! { ChatListReady { list } },
-        ChatLoad::Detail(detail) => rsx! { ChatDetailReady { detail } },
+        ChatLoad::Detail(detail) => rsx! { ChatDetailReady { detail, mutation } },
         ChatLoad::Empty => rsx! {
             ChatProblem {
                 state: ADMIN_CHAT_EMPTY,
@@ -434,7 +436,7 @@ fn ChatListReady(list: AdminChatList) -> Element {
 }
 
 #[component]
-fn ChatDetailReady(detail: AdminChatDetail) -> Element {
+fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element {
     rsx! {
         section {
             class: "container page-content max-w-5xl py-10",
@@ -443,6 +445,12 @@ fn ChatDetailReady(detail: AdminChatDetail) -> Element {
             a { class: "text-sm text-muted-foreground", href: CHAT_PATH, "← Conversation list" }
             h1 { class: "mt-4 text-3xl font-black tracking-tight text-foreground", "{detail.conversation.subject}" }
             p { class: "mt-2 text-sm text-muted-foreground", "Status: {detail.conversation.status} · Last activity: {detail.conversation.last_message_at}" }
+            if let Some(state) = mutation {
+                section { class: "mt-5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4", role: if state == "forbidden" { "alert" } else { "status" },
+                    "data-admin-chat-mutation-state": state,
+                    p { class: "text-sm text-foreground", "Chat mutation: {state}" }
+                }
+            }
             if detail.messages.is_empty() {
                 p { class: "mt-8 rounded-2xl border border-border/30 bg-card p-6 text-sm text-muted-foreground", role: "status", "No messages were returned for this conversation." }
             } else {
@@ -452,6 +460,44 @@ fn ChatDetailReady(detail: AdminChatDetail) -> Element {
                             p { class: "text-xs uppercase tracking-wide text-muted-foreground", "{message.sender_type} · {message.created_at}" }
                             p { class: "mt-3 whitespace-pre-wrap text-sm leading-6 text-foreground", "{message.content}" }
                         }
+                    }
+                }
+            }
+            div { class: "mt-8 grid gap-5 border-t border-border/30 pt-6 lg:grid-cols-2",
+                form { method: "post", action: format!("/chat/{}", detail.conversation.id), class: "space-y-3",
+                    input { r#type: "hidden", name: "operation", value: "reply" }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.reply.{}", uuid::Uuid::new_v4()) }
+                    label { class: "block text-sm font-medium text-foreground", "Reply",
+                        textarea { class: "textarea textarea-bordered mt-2 min-h-28 w-full", name: "content", maxlength: MAX_TEXT_CHARS, required: true, placeholder: "Write a backend-submitted reply" }
+                    }
+                    button { r#type: "submit", class: "btn btn-primary", "Send reply" }
+                }
+                div { class: "space-y-3",
+                    form { method: "post", action: format!("/chat/{}", detail.conversation.id), class: "flex flex-wrap items-end gap-2",
+                        input { r#type: "hidden", name: "operation", value: "status" }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.status.{}", uuid::Uuid::new_v4()) }
+                        label { class: "text-sm font-medium text-foreground", "Status",
+                            select { class: "select select-bordered ml-2", name: "status",
+                                option { value: "open", "Open" }
+                                option { value: "in_progress", "In progress" }
+                                option { value: "resolved", "Resolved" }
+                                option { value: "closed", "Closed" }
+                            }
+                        }
+                        button { r#type: "submit", class: "btn btn-outline", "Update status" }
+                    }
+                    form { method: "post", action: format!("/chat/{}", detail.conversation.id), class: "flex flex-wrap items-end gap-2",
+                        input { r#type: "hidden", name: "operation", value: "assign" }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.assign.{}", uuid::Uuid::new_v4()) }
+                        label { class: "text-sm font-medium text-foreground", "Agent wallet",
+                            input { class: "input input-bordered ml-2", name: "agent_address", maxlength: 42, placeholder: "0x..." }
+                        }
+                        button { r#type: "submit", class: "btn btn-outline", "Assign" }
+                    }
+                    form { method: "post", action: format!("/chat/{}", detail.conversation.id),
+                        input { r#type: "hidden", name: "operation", value: "read" }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.read.{}", uuid::Uuid::new_v4()) }
+                        button { r#type: "submit", class: "btn btn-ghost", "Mark messages read" }
                     }
                 }
             }

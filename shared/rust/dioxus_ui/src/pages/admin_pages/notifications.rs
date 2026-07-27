@@ -1,4 +1,4 @@
-//! Read-only admin notification inventory plus a fail-closed compose route.
+//! Backend-authorized admin notification inventory, metrics, and lifecycle UI.
 //!
 //! The management page renders only a strict backend projection. Recipient
 //! identity, message content, delivery errors, read state, action URLs, and all
@@ -8,6 +8,8 @@
 use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+use uuid::Uuid;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
@@ -28,6 +30,12 @@ const MAX_TIMESTAMP_CHARS: usize = 64;
 pub const ADMIN_NOTIFICATIONS_DATA_PARAM: &str = "data_admin_notifications";
 pub const ADMIN_NOTIFICATIONS_STATE_PARAM: &str = "data_admin_notifications_state";
 pub const ADMIN_NOTIFICATIONS_PAGE_PARAM: &str = "admin_notifications_page";
+pub const ADMIN_NOTIFICATIONS_MUTATION_PARAM: &str = "mutation";
+pub const ADMIN_NOTIFICATIONS_STATUS_PARAM: &str = "status";
+pub const ADMIN_NOTIFICATIONS_TYPE_PARAM: &str = "type";
+pub const ADMIN_NOTIFICATIONS_PRIORITY_PARAM: &str = "priority";
+pub const ADMIN_NOTIFICATION_METRICS_DATA_PARAM: &str = "data_admin_notification_metrics";
+pub const ADMIN_NOTIFICATION_METRICS_STATE_PARAM: &str = "data_admin_notification_metrics_state";
 
 pub const ADMIN_NOTIFICATIONS_READY: &str = "ready";
 pub const ADMIN_NOTIFICATIONS_EMPTY: &str = "empty";
@@ -35,8 +43,40 @@ pub const ADMIN_NOTIFICATIONS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_NOTIFICATIONS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NOTIFICATIONS_MALFORMED: &str = "malformed";
 
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminNotificationMetrics {
+    pub queue_depth: i64,
+    pub terminal_failed: i64,
+    pub provider_accepted: i64,
+    pub delivery_attempts: i64,
+    pub channel_outcomes: BTreeMap<String, i64>,
+}
+
+pub fn decode_admin_notification_metrics(
+    value: serde_json::Value,
+) -> Option<AdminNotificationMetrics> {
+    let metrics: AdminNotificationMetrics = serde_json::from_value(value).ok()?;
+    (metrics.queue_depth >= 0
+        && metrics.terminal_failed >= 0
+        && metrics.provider_accepted >= 0
+        && metrics.delivery_attempts >= 0
+        && metrics.channel_outcomes.iter().all(|(channel, count)| {
+            !channel.is_empty()
+                && channel.len() <= MAX_CHANNEL_CHARS
+                && channel.bytes().all(|byte| {
+                    byte.is_ascii_lowercase()
+                        || byte.is_ascii_digit()
+                        || matches!(byte, b'_' | b'-')
+                })
+                && *count >= 0
+        }))
+        .then_some(metrics)
+}
+
 pub const ADMIN_NOTIFICATION_CREATE_DATA_PARAM: &str = "data_admin_notification_create";
 pub const ADMIN_NOTIFICATION_CREATE_STATE_PARAM: &str = "data_admin_notification_create_state";
+pub const ADMIN_NOTIFICATION_CREATE_FORM: &str = "form";
 pub const ADMIN_NOTIFICATION_CREATE_PENDING: &str = "pending";
 pub const ADMIN_NOTIFICATION_CREATE_SENT: &str = "sent";
 pub const ADMIN_NOTIFICATION_CREATE_FAILED: &str = "failed";
@@ -135,7 +175,7 @@ impl AdminNotificationSummary {
             && valid_optional_text(self.title.as_deref(), MAX_TITLE_CHARS)
             && valid_optional_text(self.subject.as_deref(), MAX_SUBJECT_CHARS)
             && valid_channel(&self.channel)
-            && matches!(self.status.as_str(), "pending" | "sent" | "failed")
+            && matches!(self.status.as_str(), "pending" | "sent" | "failed" | "read")
             && valid_optional_text(self.notification_type.as_deref(), MAX_TYPE_CHARS)
             && self.priority.as_deref().is_none_or(|priority| {
                 matches!(priority, "low" | "normal" | "high" | "critical" | "urgent")
@@ -180,9 +220,12 @@ fn notification_status_class(status: &str) -> &'static str {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 struct NotificationPage {
     page: i64,
+    status: Option<String>,
+    notification_type: Option<String>,
+    priority: Option<String>,
 }
 
 impl NotificationPage {
@@ -193,7 +236,12 @@ impl NotificationPage {
             .and_then(|value| value.parse::<i64>().ok())
             .filter(|page| (1..=50_001).contains(page))
             .unwrap_or(1);
-        Self { page }
+        Self {
+            page,
+            status: ctx.params.get(ADMIN_NOTIFICATIONS_STATUS_PARAM).cloned(),
+            notification_type: ctx.params.get(ADMIN_NOTIFICATIONS_TYPE_PARAM).cloned(),
+            priority: ctx.params.get(ADMIN_NOTIFICATIONS_PRIORITY_PARAM).cloned(),
+        }
     }
 
     fn expected_offset(self) -> Option<i64> {
@@ -202,8 +250,21 @@ impl NotificationPage {
             .checked_mul(NOTIFICATION_PAGE_LIMIT)
     }
 
-    fn href(self, page: i64) -> String {
-        format!("{NOTIFICATIONS_PATH}?page={}", page.clamp(1, 50_001))
+    fn href(&self, page: i64) -> String {
+        let mut href = format!("{NOTIFICATIONS_PATH}?page={}", page.clamp(1, 50_001));
+        if let Some(status) = &self.status {
+            href.push_str("&status=");
+            href.push_str(&status);
+        }
+        if let Some(notification_type) = &self.notification_type {
+            href.push_str("&type=");
+            href.push_str(&notification_type);
+        }
+        if let Some(priority) = &self.priority {
+            href.push_str("&priority=");
+            href.push_str(&priority);
+        }
+        href
     }
 }
 
@@ -252,7 +313,20 @@ fn notification_load(ctx: &PageContext, page: NotificationPage) -> NotificationL
     }
 }
 
-/// `/notifications/manage` — authenticated, read-only global inventory.
+fn notification_metrics(ctx: &PageContext) -> Option<AdminNotificationMetrics> {
+    if ctx.params.get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM).map(String::as_str)
+        != Some(ADMIN_NOTIFICATIONS_READY)
+    {
+        return None;
+    }
+    ctx.params
+        .get(ADMIN_NOTIFICATION_METRICS_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+        .and_then(decode_admin_notification_metrics)
+}
+
+/// `/notifications/manage` — authenticated global inventory with
+/// backend-authorized read/delete controls.
 pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Notifications");
     (
@@ -268,11 +342,12 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// `/notifications/create` — authenticated fail-closed compose shell. No form
-/// is emitted until the service owns an authorized, idempotent mutation.
+/// `/notifications/create` — authenticated compose surface backed by the
+/// notification service's idempotent admin send contract.
 pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
     let load = notification_create_load(ctx);
     let title = match &load {
+        NotificationCreateLoad::Form => "Create notification",
         NotificationCreateLoad::Sent(_) => "Notification sent",
         NotificationCreateLoad::Pending(_) => "Notification delivery pending",
         NotificationCreateLoad::Failed(_) => "Notification delivery failed",
@@ -310,6 +385,7 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum NotificationCreateLoad {
+    Form,
     Sent(AdminNotificationCreateResult),
     Pending(AdminNotificationCreateResult),
     Failed(AdminNotificationCreateResult),
@@ -354,7 +430,8 @@ fn notification_create_load(ctx: &PageContext) -> NotificationCreateLoad {
         Some(ADMIN_NOTIFICATION_CREATE_FORBIDDEN) => NotificationCreateLoad::Forbidden,
         Some(ADMIN_NOTIFICATION_CREATE_CONFLICT) => NotificationCreateLoad::Conflict,
         Some(ADMIN_NOTIFICATION_CREATE_INVALID) => NotificationCreateLoad::Invalid,
-        Some(ADMIN_NOTIFICATION_CREATE_UNAVAILABLE) | None => NotificationCreateLoad::Unavailable,
+        Some(ADMIN_NOTIFICATION_CREATE_UNAVAILABLE) => NotificationCreateLoad::Unavailable,
+        Some(ADMIN_NOTIFICATION_CREATE_FORM) | None => NotificationCreateLoad::Form,
         Some(ADMIN_NOTIFICATION_CREATE_MALFORMED) => NotificationCreateLoad::Malformed,
         Some(_) => NotificationCreateLoad::Malformed,
     }
@@ -363,7 +440,7 @@ fn notification_create_load(ctx: &PageContext) -> NotificationCreateLoad {
 #[component]
 fn RenderNotificationList(ctx: PageContext) -> Element {
     let page = NotificationPage::from_ctx(&ctx);
-    let load = notification_load(&ctx, page);
+    let load = notification_load(&ctx, page.clone());
 
     rsx! {
         PageLayout {
@@ -376,6 +453,13 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
                 centered: Some(false),
                 extra_actions: None,
                 class_name: None,
+            }
+            NotificationFilters { page: page.clone() }
+            if let Some(metrics) = notification_metrics(&ctx) {
+                NotificationMetrics { metrics }
+            }
+            if let Some(state) = notification_mutation_state(&ctx) {
+                NotificationMutationNotice { state }
             }
             match load {
                 NotificationLoad::Ready(projection) => rsx! {
@@ -404,11 +488,92 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
                     NotificationProblem {
                         state: ADMIN_NOTIFICATIONS_MALFORMED,
                         title: "Notification data could not be verified".to_string(),
-                        detail: "The notification backend response did not match the read-only inventory contract. No records are being shown.".to_string(),
+                        detail: "The notification backend response did not match the inventory contract. No records are being shown.".to_string(),
                         retry_href: page.href(page.page),
                     }
                 },
             }
+        }
+    }
+}
+
+#[component]
+fn NotificationFilters(page: NotificationPage) -> Element {
+    rsx! {
+        form { class: "mb-6 flex flex-wrap items-end gap-3 rounded-2xl border border-border/30 bg-card p-4", method: "get", action: NOTIFICATIONS_PATH,
+            div { class: "min-w-40",
+                label { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", r#for: "notification-status-filter", "Status" }
+                select { id: "notification-status-filter", name: "status", class: "mt-1 w-full rounded-lg border border-border/40 bg-background px-3 py-2 text-sm",
+                    option { value: "", "All statuses" }
+                    option { value: "pending", "Pending" }
+                    option { value: "sent", "Sent" }
+                    option { value: "failed", "Failed" }
+                    option { value: "read", "Read" }
+                    option { value: "unread", "Unread" }
+                }
+            }
+            div { class: "min-w-40",
+                label { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", r#for: "notification-type-filter", "Type" }
+                input { id: "notification-type-filter", name: "type", maxlength: "50", pattern: "[a-z0-9_-]+", class: "mt-1 w-full rounded-lg border border-border/40 bg-background px-3 py-2 text-sm", placeholder: "Any type" }
+            }
+            div { class: "min-w-40",
+                label { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", r#for: "notification-priority-filter", "Priority" }
+                select { id: "notification-priority-filter", name: "priority", class: "mt-1 w-full rounded-lg border border-border/40 bg-background px-3 py-2 text-sm",
+                    option { value: "", "All priorities" }
+                    option { value: "low", "Low" }
+                    option { value: "normal", "Normal" }
+                    option { value: "high", "High" }
+                    option { value: "critical", "Critical" }
+                    option { value: "urgent", "Urgent" }
+                }
+            }
+            button { type: "submit", class: "btn btn-sm btn-outline", "Apply filters" }
+            a { class: "btn btn-sm btn-ghost", href: page.href(1), "Clear" }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetrics(metrics: AdminNotificationMetrics) -> Element {
+    rsx! {
+        section { class: "mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4", aria_label: "Notification metrics", "data-admin-notification-metrics": "ready",
+            NotificationMetric { label: "Queue", value: metrics.queue_depth.to_string() }
+            NotificationMetric { label: "Failed", value: metrics.terminal_failed.to_string() }
+            NotificationMetric { label: "Accepted", value: metrics.provider_accepted.to_string() }
+            NotificationMetric { label: "Delivery attempts", value: metrics.delivery_attempts.to_string() }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetric(label: &'static str, value: String) -> Element {
+    rsx! { div { class: "rounded-xl border border-border/30 bg-card p-4", dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "{label}" }, dd { class: "mt-1 text-2xl font-semibold text-foreground", "{value}" } } }
+}
+
+fn notification_mutation_state(ctx: &PageContext) -> Option<&'static str> {
+    match ctx.params.get(ADMIN_NOTIFICATIONS_MUTATION_PARAM).map(String::as_str) {
+        Some("committed") => Some("committed"),
+        Some("conflict") => Some("conflict"),
+        Some("forbidden") => Some("forbidden"),
+        Some("unavailable") => Some("unavailable"),
+        Some("malformed") => Some("malformed"),
+        _ => None,
+    }
+}
+
+#[component]
+fn NotificationMutationNotice(state: &'static str) -> Element {
+    let (title, detail, class_name) = match state {
+        "committed" => ("Notification updated", "The backend committed the notification operation.", "border-green-500/30 bg-green-500/10"),
+        "forbidden" => ("Notification operation denied", "The backend did not authorize this operation.", "border-red-500/30 bg-red-500/10"),
+        "unavailable" => ("Notification operation unavailable", "No authoritative mutation result is available.", "border-amber-500/30 bg-amber-500/10"),
+        "conflict" => ("Notification operation conflicted", "The backend reported a conflicting notification state.", "border-amber-500/30 bg-amber-500/10"),
+        _ => ("Notification operation could not be verified", "The mutation response did not match the strict contract.", "border-amber-500/30 bg-amber-500/10"),
+    };
+    rsx! {
+        section { class: "mb-6 rounded-2xl border p-4 {class_name}", role: "status", "data-admin-notifications-mutation": state,
+            h2 { class: "font-semibold text-foreground", "{title}" }
+            p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -508,6 +673,20 @@ fn NotificationCard(notification: AdminNotificationSummary) -> Element {
                 NotificationFact { label: "Sent", value: notification.sent_at.clone().unwrap_or_else(|| "Not sent".to_string()) }
                 NotificationFact { label: "Created", value: notification.created_at.clone() }
             }
+            div { class: "mt-5 flex flex-wrap gap-2 border-t border-border/20 pt-4",
+                if notification.status != "read" {
+                    form { method: "post", action: NOTIFICATIONS_PATH,
+                        input { type: "hidden", name: "action", value: "read" }
+                        input { type: "hidden", name: "id", value: notification.id.clone() }
+                        button { type: "submit", class: "btn btn-sm btn-outline", "Mark read" }
+                    }
+                }
+                form { method: "post", action: NOTIFICATIONS_PATH,
+                    input { type: "hidden", name: "action", value: "delete" }
+                    input { type: "hidden", name: "id", value: notification.id.clone() }
+                    button { type: "submit", class: "btn btn-sm btn-outline text-red-700 dark:text-red-300", "Delete" }
+                }
+            }
         }
     }
 }
@@ -556,6 +735,9 @@ fn NotificationProblem(
 #[component]
 fn NotificationCreateState(load: NotificationCreateLoad) -> Element {
     match load {
+        NotificationCreateLoad::Form => rsx! {
+            NotificationCreateForm {}
+        },
         NotificationCreateLoad::Sent(result) => rsx! {
             NotificationCreateOutcome {
                 state: ADMIN_NOTIFICATION_CREATE_SENT,
@@ -615,6 +797,35 @@ fn NotificationCreateState(load: NotificationCreateLoad) -> Element {
                 detail: "The backend response did not match the strict mutation acknowledgement contract. No delivery state is shown.".to_string(),
             }
         },
+    }
+}
+
+#[component]
+fn NotificationCreateForm() -> Element {
+    let idempotency_key = format!("admin.notification.{}", Uuid::new_v4());
+    rsx! {
+        section {
+            class: "rounded-2xl border border-border/30 bg-card p-8 shadow-xl",
+            "data-admin-notifications-state": ADMIN_NOTIFICATION_CREATE_FORM,
+            "data-admin-notifications-surface": "create",
+            p { class: "text-sm leading-6 text-muted-foreground", "The notification service validates the recipient, content, permission, and idempotency key before recording delivery." }
+            form { class: "mt-6 grid gap-5", method: "post", action: "/notifications/create",
+                input { type: "hidden", name: "idempotency_key", value: idempotency_key }
+                div {
+                    label { class: "text-sm font-medium text-foreground", r#for: "notification-recipient", "Recipient wallet" }
+                    input { id: "notification-recipient", name: "recipient_wallet_address", required: true, maxlength: "42", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 font-mono text-sm", placeholder: "0x…" }
+                }
+                div {
+                    label { class: "text-sm font-medium text-foreground", r#for: "notification-title", "Title" }
+                    input { id: "notification-title", name: "title", required: true, maxlength: "255", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm" }
+                }
+                div {
+                    label { class: "text-sm font-medium text-foreground", r#for: "notification-message", "Message" }
+                    textarea { id: "notification-message", name: "message", required: true, maxlength: "16384", rows: "6", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm" }
+                }
+                button { type: "submit", class: "btn btn-primary w-fit", "Send notification" }
+            }
+        }
     }
 }
 
@@ -781,7 +992,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_projection_renders_escaped_read_only_inventory_without_private_fields() {
+    fn ready_projection_renders_escaped_inventory_with_backend_actions_without_private_fields() {
         let mut hostile = notification();
         hostile.id = "private-notification-id".to_string();
         hostile.title = Some("<script>alert(1)</script>".to_string());
@@ -800,7 +1011,8 @@ mod tests {
         assert!(rendered.contains("in_app"));
         assert!(rendered.contains("2026-07-22T10:00:00Z"));
         assert!(rendered.contains("2026-07-22T09:00:00Z"));
-        assert!(!rendered.contains("private-notification-id"));
+        assert!(rendered.contains("private-notification-id"));
+        assert!(rendered.contains("name=\"action\" value=\"delete\""));
 
         for private in [
             "recipient_wallet_address",
@@ -948,7 +1160,8 @@ mod tests {
         assert!(page_two.contains("aria-label=\"Notification pagination\""));
         assert!(page_two.contains("href=\"/notifications/manage?page=1\""));
         assert!(page_two.contains("href=\"/notifications/manage?page=3\""));
-        assert!(!page_two.contains("<button"));
+        assert!(page_two.contains("Mark read"));
+        assert!(page_two.contains("Delete"));
 
         let unavailable = html(&ctx(ADMIN_NOTIFICATIONS_UNAVAILABLE, None, 2));
         assert!(unavailable.contains("href=\"/notifications/manage?page=2\""));
@@ -971,24 +1184,20 @@ mod tests {
     }
 
     #[test]
-    fn manage_and_create_expose_no_mutation_or_sample_surfaces() {
+    fn manage_and_create_expose_only_supported_surfaces_without_samples() {
         let manage = html(&ctx(
             ADMIN_NOTIFICATIONS_READY,
             Some(projection(vec![notification()], 1, 0)),
             1,
         ));
-        let create = dioxus_ssr::render_element(
-            render_create(&ctx(ADMIN_NOTIFICATIONS_UNAVAILABLE, None, 1)).1,
-        );
+        let create = dioxus_ssr::render_element(render_create(&create_ctx(ADMIN_NOTIFICATION_CREATE_FORM, None)).1);
         assert!(create.contains("data-admin-notifications-surface=\"create\""));
+        assert!(create.contains("data-admin-notifications-state=\"form\""));
+        assert!(create.contains("method=\"post\""));
+        assert!(create.contains("name=\"idempotency_key\""));
 
-        for rendered in [manage, create] {
+        for rendered in [manage] {
             for forbidden in [
-                "<form",
-                "<input",
-                "<textarea",
-                "<select",
-                "<button",
                 "Search notifications",
                 "Delivery analytics",
                 "Total Sent",
@@ -997,11 +1206,7 @@ mod tests {
                 "New feature: charts",
                 "Maintenance window",
                 "Send notification",
-                "Create notification",
-                "Delete",
                 "Purge",
-                "Mark read",
-                "Mark unread",
                 "Clear all",
                 "Templates",
                 "action_url",

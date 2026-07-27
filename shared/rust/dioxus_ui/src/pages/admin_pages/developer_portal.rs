@@ -1,12 +1,13 @@
-//! /developer-portal — authenticated, read-only developer inventory.
+//! /developer-portal — authenticated developer inventory and lifecycle actions.
 //!
-//! The page accepts only a strict redacted projection from PageContext.
-//! Secrets, wallet ownership, permissions, rate-limit configuration, and all
-//! mutation surfaces stay outside this UI boundary.
+//! The page accepts only a strict redacted projection from PageContext. Secrets
+//! never enter the inventory; lifecycle mutations are bounded native forms
+//! forwarded to backend-owned authorization and audit handlers.
 
 use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::auth::AuthGate;
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
@@ -66,7 +67,7 @@ pub struct AdminDeveloperModuleUsage {
     pub unique_api_keys: i64,
 }
 
-/// Exact read-only contract placed in PageContext::params by the BFF.
+/// Exact backend-owned contract placed in PageContext::params by the BFF.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminDeveloperPortalProjection {
@@ -245,6 +246,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderDeveloperPortal(ctx: PageContext) -> Element {
     let load = developer_portal_load(&ctx);
+    let mutation = developer_mutation_state(&ctx);
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
@@ -256,6 +258,9 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
                 centered: Some(false),
                 extra_actions: None,
                 class_name: None,
+            }
+            if let Some(state) = mutation {
+                DeveloperMutationNotice { state }
             }
             match load {
                 DeveloperPortalLoad::Ready(projection) => rsx! { DeveloperPortalReady { projection } },
@@ -309,7 +314,7 @@ fn DeveloperPortalReady(projection: AdminDeveloperPortalProjection) -> Element {
                         h2 { id: "developer-api-key-inventory-title", class: "text-lg font-semibold text-foreground", "API-key inventory" }
                         p { class: "mt-1 text-sm text-muted-foreground", "{key_count} redacted records in this bounded response" }
                     }
-                    p { class: "max-w-xl text-xs leading-5 text-muted-foreground", "Only identifiers, status, usage counters, and timestamps are shown. Secrets and management controls are never rendered." }
+                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_CREATE_PATH, "Create API key" }
                 }
                 if projection.api_keys.is_empty() {
                     div { class: "border-t border-border/30 p-8 text-center", role: "status",
@@ -387,6 +392,54 @@ fn DeveloperApiKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
                 p { class: "text-xs uppercase tracking-wide text-muted-foreground", "Last used" }
                 p { class: "mt-1 break-words text-sm text-foreground", "{last_used_at}" }
             }
+            if api_key.status == "active" {
+                div { class: "flex flex-wrap gap-3 md:col-span-12",
+                    form { method: "post", action: DEVELOPER_PORTAL_PATH, class: "flex flex-wrap items-end gap-2",
+                        input { r#type: "hidden", name: "operation", value: "revoke" }
+                        input { r#type: "hidden", name: "api_key_id", value: api_key.id.clone() }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.revoke.{}", Uuid::new_v4()) }
+                        label { class: "text-xs text-muted-foreground", "Revocation reason",
+                            input { class: "input input-bordered input-sm ml-2", name: "reason", maxlength: 500, required: true }
+                        }
+                        button { r#type: "submit", class: "btn btn-sm btn-outline", "Revoke key" }
+                    }
+                    form { method: "post", action: DEVELOPER_PORTAL_PATH, class: "flex flex-wrap items-end gap-2",
+                        input { r#type: "hidden", name: "operation", value: "expiration" }
+                        input { r#type: "hidden", name: "api_key_id", value: api_key.id }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.expiration.{}", Uuid::new_v4()) }
+                        label { class: "text-xs text-muted-foreground", "Expiration (RFC3339, blank clears)",
+                            input { class: "input input-bordered input-sm ml-2", name: "expires_at", maxlength: 64, value: expires_at }
+                        }
+                        button { r#type: "submit", class: "btn btn-sm btn-outline", "Update expiration" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+fn developer_mutation_state(ctx: &PageContext) -> Option<&'static str> {
+    match ctx.query_param("mutation").as_deref() {
+        Some("success") => Some("success"),
+        Some("conflict") => Some("conflict"),
+        Some("forbidden") => Some("forbidden"),
+        Some("unavailable") => Some("unavailable"),
+        Some("malformed") => Some("malformed"),
+        _ => None,
+    }
+}
+
+#[component]
+fn DeveloperMutationNotice(state: &'static str) -> Element {
+    rsx! {
+        section {
+            class: "mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5",
+            role: if state == "forbidden" { "alert" } else { "status" },
+            "data-admin-developer-mutation-state": state,
+            h2 { class: "text-lg font-semibold text-foreground", "Developer-key mutation: {state}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground",
+                if state == "success" { "The backend committed the lifecycle change and the inventory will be reloaded." } else { "The backend did not confirm this lifecycle change. No local state is inferred." }
+            }
         }
     }
 }
@@ -422,7 +475,7 @@ fn DeveloperPortalEmpty() -> Element {
             "data-admin-developer-portal-state": ADMIN_DEVELOPER_EMPTY,
             Icon { name: "code".to_string(), size: Some(30) }
             h2 { class: "mt-4 text-xl font-semibold text-foreground", "No developer records found" }
-            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground", "The backend returned an authoritative empty API-key inventory. Credential creation and management remain outside this read-only page." }
+            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground", "The backend returned an authoritative empty API-key inventory. Creation and management remain backend-authorized operations." }
             a { class: "btn btn-outline mt-5", href: DEVELOPER_PORTAL_PATH, "Refresh developer portal" }
         }
     }
@@ -519,6 +572,7 @@ fn RenderDeveloperCreateKey(ctx: PageContext) -> Element {
 
 #[component]
 fn DeveloperCreateForm() -> Element {
+    let idempotency_key = Uuid::new_v4().to_string();
     rsx! {
         section {
             class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl",
@@ -542,6 +596,7 @@ fn DeveloperCreateForm() -> Element {
                 label { class: "block text-sm font-medium text-foreground", "Expiration (RFC3339, optional)",
                     input { class: "input input-bordered mt-2 w-full", name: "expires_at", maxlength: 64 }
                 }
+                input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }
                 button { r#type: "submit", class: "btn btn-primary", "data-admin-developer-create-submit": "bff", "Create API key" }
             }
         }
@@ -686,7 +741,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_projection_renders_only_redacted_read_fields() {
+    fn ready_projection_renders_redacted_fields_and_backend_lifecycle_forms() {
         let rendered = html(&ctx(
             ADMIN_DEVELOPER_READY,
             Some(projection(vec![key()], 1)),
@@ -700,19 +755,18 @@ mod tests {
         for forbidden in [
             "full_key",
             "epsx_live_",
-            "Create API key",
-            "Revoke",
-            "Edit Expiration",
             "Authorization: Bearer",
-            "<form",
-            "<button",
-            "/developer-portal/api-keys/create",
         ] {
             assert!(
                 !rendered.contains(forbidden),
                 "secret or mutation leaked: {forbidden}"
             );
         }
+        assert!(rendered.contains("Create API key"));
+        assert!(rendered.contains("Revoke key"));
+        assert!(rendered.contains("Update expiration"));
+        assert!(rendered.contains("admin.developer.revoke."));
+        assert!(rendered.contains("admin.developer.expiration."));
     }
 
     #[test]

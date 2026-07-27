@@ -94,7 +94,7 @@ fn valid_resource_id(value: &str) -> bool {
     (1..=66).contains(&value.len())
         && value
             .bytes()
-            .all(|byte| byte.is_ascii_hexdigit() || matches!(byte, b'x' | b'-' | b'_'))
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
 }
 
 fn canonical_payer(value: &str) -> Option<String> {

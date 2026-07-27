@@ -1,4 +1,4 @@
-//! Route-specific, authenticated settings read adapter.
+//! Route-specific, authenticated settings read/mutation projection adapter.
 //!
 //! The adapter projects backend values to category/key/type metadata. Secret
 //! and configuration values never enter the Dioxus page context.

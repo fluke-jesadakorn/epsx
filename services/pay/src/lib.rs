@@ -163,7 +163,7 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
             AccessPolicy::OwnerRead
         }
         (&Method::POST, ["escrows", id, "resolve"]) if safe_dynamic_segment(id) => {
-            AccessPolicy::UnsafeFinancialMutation
+            AccessPolicy::UnsafePaymentsManage
         }
         (&Method::POST, ["intents"]) | (&Method::POST, ["links"]) => {
             AccessPolicy::UnsafeFinancialMutation
@@ -291,11 +291,20 @@ async fn authorize_request(
             {
                 return auth_error(StatusCode::FORBIDDEN);
             }
-            request.extensions_mut().insert(principal);
+            // Force operations remain intentionally unavailable even to an
+            // authorized admin; do not forward them to a downstream handler.
+            let _ = principal;
+            return StatusCode::NOT_FOUND.into_response();
         }
-        AccessPolicy::UnsafeFinancialMutation
-        | AccessPolicy::InternalIdentityUnavailable
-        | AccessPolicy::Blocked => return StatusCode::NOT_FOUND.into_response(),
+        AccessPolicy::UnsafeFinancialMutation => {
+            // Owner-facing financial mutations remain deliberately hidden until
+            // their full typed, audited, finality-aware contract is available.
+            // Do not authenticate or expose a downstream side effect here.
+            return StatusCode::NOT_FOUND.into_response();
+        }
+        AccessPolicy::InternalIdentityUnavailable | AccessPolicy::Blocked => {
+            return StatusCode::NOT_FOUND.into_response()
+        }
     }
     next.run(request).await
 }

@@ -256,8 +256,12 @@ pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderPlanList(ctx: PageContext) -> Element {
+    let mutation = match ctx.query_param("mutation").as_deref() {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        _ => None,
+    };
     match plans_load(&ctx) {
-        PlansLoad::Ready(projection) => rsx! { PlanListReady { projection } },
+        PlansLoad::Ready(projection) => rsx! { PlanListReady { projection, mutation } },
         PlansLoad::Empty => rsx! {
             PageLayout {
                 max_width: Some(PageMaxWidth::SevenXl),
@@ -288,7 +292,7 @@ fn RenderPlanList(ctx: PageContext) -> Element {
 }
 
 #[component]
-fn PlanListReady(projection: AdminPlanListProjection) -> Element {
+fn PlanListReady(projection: AdminPlanListProjection, mutation: Option<String>) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
@@ -311,6 +315,24 @@ fn PlanListReady(projection: AdminPlanListProjection) -> Element {
                     p { class: "mt-1 text-sm leading-6 text-muted-foreground",
                         "{projection.total} authoritative records in this bounded response. No plan operations are available."
                     }
+                    if let Some(state) = mutation {
+                        p { class: "mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
+                            "data-admin-wallet-plan-mutation-state": state,
+                            "Plan mutation: {state}"
+                        }
+                    }
+                }
+                form { method: "post", action: PLANS_PATH, class: "grid gap-3 border-t border-border/30 p-5 sm:grid-cols-2 lg:grid-cols-4",
+                    input { r#type: "hidden", name: "operation", value: "plan_create" }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.plan.create.{}", uuid::Uuid::new_v4()) }
+                    input { class: "input input-bordered", name: "merchant_id", maxlength: 36, placeholder: "Merchant UUID", required: true }
+                    input { class: "input input-bordered", name: "name", maxlength: 100, placeholder: "Plan name", required: true }
+                    input { class: "input input-bordered", name: "amount", maxlength: 78, placeholder: "Amount minor units", required: true }
+                    input { class: "input input-bordered", name: "currency", maxlength: 10, placeholder: "Currency", required: true }
+                    input { class: "input input-bordered", name: "chain_id", maxlength: 10, placeholder: "Chain ID", required: true }
+                    input { class: "input input-bordered", name: "interval", r#type: "number", min: 1, max: 366, placeholder: "Interval days", required: true }
+                    input { class: "input input-bordered", name: "description", maxlength: 2000, placeholder: "Description" }
+                    button { r#type: "submit", class: "btn btn-primary", "Create plan" }
                 }
                 if projection.items.is_empty() {
                     div { class: "border-t border-border/30 p-8 text-center", role: "status",
@@ -353,9 +375,13 @@ fn PlanListRow(plan: AdminPlanProjection) -> Element {
 
 #[component]
 fn RenderPlanDetail(ctx: PageContext) -> Element {
+    let mutation = match ctx.query_param("mutation").as_deref() {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        _ => None,
+    };
     match plan_detail_load(&ctx) {
         PlanDetailLoad::Ready(plan) => rsx! {
-            PlanDetailReady { plan }
+            PlanDetailReady { plan, mutation }
         },
         PlanDetailLoad::Forbidden => plan_problem_element(ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read this plan."),
         PlanDetailLoad::Unavailable => plan_problem_element(ADMIN_PLANS_UNAVAILABLE, "Wallet plan detail is unavailable", "The subscription backend could not provide an authoritative plan response. No plan data is being shown."),
@@ -364,13 +390,13 @@ fn RenderPlanDetail(ctx: PageContext) -> Element {
 }
 
 #[component]
-fn PlanDetailReady(plan: AdminPlanProjection) -> Element {
+fn PlanDetailReady(plan: AdminPlanProjection, mutation: Option<String>) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::FourXl),
             PageHeader {
                 title: "Wallet plan detail".to_string(),
-                subtitle: Some("Backend-authoritative read-only plan projection".to_string()),
+                subtitle: Some("Backend-authoritative plan projection".to_string()),
                 icon: Some("layers".to_string()),
                 gradient: Some(PageGradient::Purple),
                 centered: Some(false),
@@ -386,10 +412,29 @@ fn PlanDetailReady(plan: AdminPlanProjection) -> Element {
                 }
                 dl { class: "mt-6 grid gap-4 sm:grid-cols-2",
                     PlanField { label: "Amount", value: format!("{} {}", plan.amount, plan.currency) }
-                    PlanField { label: "Chain", value: plan.chain_id }
+                    PlanField { label: "Chain", value: plan.chain_id.clone() }
                     PlanField { label: "Interval", value: format!("{} day(s)", plan.interval) }
                     PlanField { label: "Status", value: plan_state_label(plan.active).to_string() }
                     PlanField { label: "Read version", value: plan.version.to_string() }
+                }
+                if let Some(state) = mutation {
+                    p { class: "mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
+                        "data-admin-wallet-plan-mutation-state": state,
+                        "Plan mutation: {state}"
+                    }
+                }
+                form { method: "post", action: plan_href(&plan.id), class: "mt-6 grid gap-3 border-t border-border/30 pt-5 sm:grid-cols-2",
+                    input { r#type: "hidden", name: "operation", value: "plan_update" }
+                    input { r#type: "hidden", name: "plan_id", value: plan.id.clone() }
+                    input { r#type: "hidden", name: "expected_version", value: plan.version }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.plan.update.{}", uuid::Uuid::new_v4()) }
+                    input { class: "input input-bordered", name: "merchant_id", maxlength: 36, placeholder: "Merchant UUID", required: true }
+                    input { class: "input input-bordered", name: "name", maxlength: 100, value: plan.name.clone(), required: true }
+                    input { class: "input input-bordered", name: "amount", maxlength: 78, value: plan.amount.clone(), required: true }
+                    input { class: "input input-bordered", name: "currency", maxlength: 10, value: plan.currency.clone(), required: true }
+                    input { class: "input input-bordered", name: "chain_id", maxlength: 10, value: plan.chain_id.clone(), required: true }
+                    input { class: "input input-bordered", name: "interval", r#type: "number", min: 1, max: 366, value: plan.interval, required: true }
+                    button { r#type: "submit", class: "btn btn-primary", "Save plan" }
                 }
                 nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
                     a { class: "btn btn-outline", href: PLANS_PATH,
@@ -431,7 +476,7 @@ fn plan_problem_element(state: &'static str, title: &'static str, detail: &'stat
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
                 title: "Wallet plans".to_string(),
-                subtitle: Some("Read-only backend projection".to_string()),
+                subtitle: Some("Backend-authoritative projection".to_string()),
                 icon: Some("layers".to_string()),
                 gradient: Some(PageGradient::Purple),
                 centered: Some(false),
@@ -557,7 +602,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_list_and_detail_are_read_only() {
+    fn ready_list_and_detail_expose_bounded_plan_mutations() {
         let list = dioxus_ssr::render_element(
             render(&list_context(ADMIN_PLANS_READY, Some(list_json()), true)).1,
         );
@@ -573,13 +618,12 @@ mod tests {
         assert!(list.contains("Read detail"));
         assert!(detail.contains("data-admin-wallet-plan-detail-state=\"ready\""));
         assert!(detail.contains("Backend-defined plan"));
-        for rendered in [list, detail] {
-            assert!(!rendered.contains("<form"));
-            assert!(!rendered.contains("<button"));
-            assert!(!rendered.contains("Create plan"));
-            assert!(!rendered.contains("Save plan"));
-            assert!(!rendered.contains("Delete plan"));
-        }
+        assert!(list.contains("<form"));
+        assert!(list.contains("Create plan"));
+        assert!(list.contains("idempotency_key"));
+        assert!(detail.contains("<form"));
+        assert!(detail.contains("Save plan"));
+        assert!(detail.contains("expected_version"));
     }
 
     #[test]

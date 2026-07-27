@@ -1,13 +1,12 @@
 //! `/settings` — authenticated admin settings workspace.
 //!
-//! The Rust admin does not yet consume a backend-authoritative settings read
-//! model or mutation contract. Rendering defaults, API keys, active sessions,
-//! account/security records, or editable values would therefore imply state
-//! that has not been verified or cannot be persisted. Keep the page private
-//! and fail closed until the backend supplies typed, authorized settings data.
+//! Settings values and mutation authority remain in the Rust backend. The page
+//! receives only redacted key/type metadata and submits bounded JSON through a
+//! same-origin form; it never derives defaults, permissions, or versions.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::auth::AuthGate;
 use crate::layout::admin_shell::AdminShell;
@@ -27,6 +26,7 @@ pub const ADMIN_SETTINGS_EMPTY: &str = "empty";
 pub const ADMIN_SETTINGS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_SETTINGS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_SETTINGS_MALFORMED: &str = "malformed";
+pub const ADMIN_SETTINGS_MUTATION_PARAM: &str = "settings_mutation";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -88,6 +88,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderSettings(ctx: PageContext) -> Element {
     let load = settings_load(&ctx);
+    let mutation = ctx.params.get(ADMIN_SETTINGS_MUTATION_PARAM).cloned();
     rsx! {
         AuthGate {
             user: ctx.user.clone(),
@@ -102,7 +103,7 @@ fn RenderSettings(ctx: PageContext) -> Element {
                 ],
                 div {
                     class: "container page-content admin-settings py-8",
-                    SettingsSurface { load }
+                    SettingsSurface { load, mutation }
                 }
             }
         }
@@ -154,7 +155,7 @@ fn settings_load(ctx: &PageContext) -> SettingsLoad {
 }
 
 #[component]
-fn SettingsSurface(load: SettingsLoad) -> Element {
+fn SettingsSurface(load: SettingsLoad, mutation: Option<String>) -> Element {
     match load {
         SettingsLoad::Ready(snapshot) => rsx! {
             section {
@@ -177,7 +178,26 @@ fn SettingsSurface(load: SettingsLoad) -> Element {
                         }
                     }
                 }
-                p { class: "border-t border-border/30 p-6 text-sm text-muted-foreground", "Values are owned by the backend and are not exposed or edited by this read-only projection." }
+                if let Some(state) = mutation {
+                    SettingsMutationNotice { state }
+                }
+                section { class: "border-t border-border/30 p-6", aria_label: "Settings mutations",
+                    h3 { class: "text-lg font-semibold text-foreground", "Backend-authorized update" }
+                    p { class: "mt-2 text-sm text-muted-foreground", "Submit one JSON value. The backend validates the key, permission, idempotency key, and optimistic version contract." }
+                    form { class: "mt-5 grid gap-4 md:grid-cols-2", method: "post", action: SETTINGS_PATH,
+                        label { class: "grid gap-2 text-sm", "Category", input { name: "category", required: true, maxlength: "64", pattern: "[A-Za-z0-9_-]+" } }
+                        label { class: "grid gap-2 text-sm", "Key", input { name: "key", required: true, maxlength: "128", pattern: "[A-Za-z0-9_-]+" } }
+                        label { class: "grid gap-2 text-sm md:col-span-2", "Value (JSON)", textarea { name: "value_json", required: true, maxlength: "32768", rows: "4" } }
+                        label { class: "grid gap-2 text-sm", "Expected updated at (optional)", input { name: "expected_updated_at", maxlength: "64" } }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.settings.{}", Uuid::new_v4()) }
+                        div { class: "flex items-end gap-3", button { r#type: "submit", class: "btn btn-primary", "Update setting" }, a { class: "btn btn-outline", href: SETTINGS_PATH, "Reload" } }
+                    }
+                    form { class: "mt-4", method: "post", action: "/settings/reset",
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.settings.reset.{}", Uuid::new_v4()) }
+                        button { r#type: "submit", class: "btn btn-outline", "Reset to backend defaults" }
+                    }
+                }
+                p { class: "border-t border-border/30 p-6 text-sm text-muted-foreground", "Values are owned by the backend; the form submits them for validation and persistence without exposing a client-side settings authority." }
             }
         },
         SettingsLoad::Empty => rsx! {
@@ -193,6 +213,18 @@ fn SettingsSurface(load: SettingsLoad) -> Element {
             SettingsProblem { state: ADMIN_SETTINGS_MALFORMED, title: "Settings data could not be verified".to_string(), detail: "The backend response did not match the strict settings read contract. No settings are shown.".to_string() }
         },
     }
+}
+
+#[component]
+fn SettingsMutationNotice(state: String) -> Element {
+    let (title, class_name) = match state.as_str() {
+        "success" => ("Settings update committed", "border-green-500/30 bg-green-500/10"),
+        "conflict" => ("Settings changed; reload before retrying", "border-amber-500/30 bg-amber-500/10"),
+        "forbidden" => ("Settings update was denied", "border-red-500/30 bg-red-500/10"),
+        "invalid" => ("Settings update was invalid", "border-amber-500/30 bg-amber-500/10"),
+        _ => ("Settings update is unavailable", "border-amber-500/30 bg-amber-500/10"),
+    };
+    rsx! { p { class: format!("m-6 rounded-xl border p-4 text-sm {class_name}"), role: "status", "data-admin-settings-mutation": state, "{title}" } }
 }
 
 #[component]
@@ -369,7 +401,7 @@ mod tests {
     }
 
     #[test]
-    fn ready_projection_renders_only_setting_metadata_and_no_values_or_controls() {
+    fn ready_projection_renders_metadata_and_bounded_backend_forms_without_values() {
         let snapshot = AdminSettingsSnapshot {
             categories: vec![AdminSettingsCategory {
                 category: "general".into(),
@@ -384,9 +416,11 @@ mod tests {
         assert!(rendered.contains("systemName"));
         assert!(rendered.contains("string"));
         assert!(!rendered.contains("EPSX Admin Console"));
-        assert!(!rendered.contains("<form"));
-        assert!(!rendered.contains("<input"));
-        assert!(!rendered.contains("Save"));
+        assert!(rendered.contains("method=\"post\""));
+        assert!(rendered.contains("name=\"value_json\""));
+        assert!(rendered.contains("name=\"idempotency_key\""));
+        assert!(rendered.contains("Update setting"));
+        assert!(rendered.contains("Reset to backend defaults"));
     }
 
     #[test]

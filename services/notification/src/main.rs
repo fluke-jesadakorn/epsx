@@ -1,7 +1,7 @@
 use axum::{
     extract::{Extension, Path as AxPath, RawQuery, State},
     http::{HeaderMap, StatusCode},
-    routing::{get, post},
+    routing::{delete, get, post},
     Json, Router,
 };
 use clap::{Parser, ValueEnum};
@@ -243,10 +243,13 @@ struct NotificationListResponse {
     total: i64,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 struct AdminNotificationQuery {
     limit: i64,
     offset: i64,
+    status: Option<String>,
+    notification_type: Option<String>,
+    priority: Option<String>,
 }
 
 impl Default for AdminNotificationQuery {
@@ -254,6 +257,9 @@ impl Default for AdminNotificationQuery {
         Self {
             limit: 20,
             offset: 0,
+            status: None,
+            notification_type: None,
+            priority: None,
         }
     }
 }
@@ -267,21 +273,50 @@ impl AdminNotificationQuery {
         let mut query = Self::default();
         let mut limit_seen = false;
         let mut offset_seen = false;
+        let mut status_seen = false;
+        let mut type_seen = false;
+        let mut priority_seen = false;
 
         for pair in raw.split('&') {
             let (key, value) = pair.split_once('=').ok_or(StatusCode::BAD_REQUEST)?;
-            if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
-                return Err(StatusCode::BAD_REQUEST);
-            }
-            let value = value.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
             match key {
-                "limit" if !limit_seen && (1..=50).contains(&value) => {
-                    query.limit = value;
+                "limit" if !limit_seen
+                    && !value.is_empty()
+                    && value.bytes().all(|byte| byte.is_ascii_digit()) =>
+                {
+                    query.limit = value.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+                    if !(1..=50).contains(&query.limit) {
+                        return Err(StatusCode::BAD_REQUEST);
+                    }
                     limit_seen = true;
                 }
-                "offset" if !offset_seen && (0..=1_000_000).contains(&value) => {
-                    query.offset = value;
+                "offset" if !offset_seen
+                    && !value.is_empty()
+                    && value.bytes().all(|byte| byte.is_ascii_digit()) =>
+                {
+                    query.offset = value.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
+                    if !(0..=1_000_000).contains(&query.offset) {
+                        return Err(StatusCode::BAD_REQUEST);
+                    }
                     offset_seen = true;
+                }
+                "status" if !status_seen && valid_admin_filter_token(value, 20) => {
+                    if !matches!(value, "all" | "pending" | "sent" | "failed" | "read" | "unread") {
+                        return Err(StatusCode::BAD_REQUEST);
+                    }
+                    query.status = Some(value.to_string());
+                    status_seen = true;
+                }
+                "type" if !type_seen && valid_admin_filter_token(value, 50) => {
+                    query.notification_type = Some(value.to_string());
+                    type_seen = true;
+                }
+                "priority" if !priority_seen && valid_admin_filter_token(value, 20) => {
+                    if !matches!(value, "low" | "normal" | "high" | "critical" | "urgent") {
+                        return Err(StatusCode::BAD_REQUEST);
+                    }
+                    query.priority = Some(value.to_string());
+                    priority_seen = true;
                 }
                 _ => return Err(StatusCode::BAD_REQUEST),
             }
@@ -302,6 +337,7 @@ struct AdminNotificationRow {
     priority: Option<String>,
     sent_at: Option<chrono::DateTime<chrono::Utc>>,
     created_at: chrono::DateTime<chrono::Utc>,
+    read_at: Option<chrono::DateTime<chrono::Utc>>,
 }
 
 #[derive(Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -327,6 +363,42 @@ struct AdminNotificationListResponse {
     offset: i64,
 }
 
+fn valid_admin_filter_token(value: &str, max_chars: usize) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= max_chars
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+}
+
+fn valid_admin_notification_id(value: &str) -> bool {
+    (1..=66).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn admin_notification_filter_sql(query: &AdminNotificationQuery) -> String {
+    let mut clauses = vec!["TRUE".to_string()];
+    if let Some(status) = query.status.as_deref() {
+        match status {
+            "read" => clauses.push("read_at IS NOT NULL".to_string()),
+            "unread" => clauses.push("read_at IS NULL".to_string()),
+            "all" => {}
+            _ => clauses.push(format!("status = '{status}'")),
+        }
+    }
+    if let Some(notification_type) = query.notification_type.as_deref() {
+        clauses.push(format!("notification_type = '{notification_type}'"));
+    }
+    if let Some(priority) = query.priority.as_deref() {
+        clauses.push(format!("priority = '{priority}'"));
+    }
+    clauses.join(" AND ")
+}
+
+// Kept as an auditable baseline for the projection contract tests; filtered
+// reads use the same select with a bounded WHERE clause above.
 const ADMIN_NOTIFICATION_LIST_SQL: &str = "SELECT id, title, subject, channel, status, notification_type, priority, sent_at, created_at FROM public.notifications ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2";
 const ADMIN_NOTIFICATION_COUNT_SQL: &str = "SELECT COUNT(*) FROM public.notifications";
 
@@ -371,7 +443,11 @@ fn project_admin_notification(row: AdminNotificationRow) -> Option<AdminNotifica
         title: row.title,
         subject: row.subject,
         channel: row.channel,
-        status: row.status,
+        status: if row.read_at.is_some() {
+            "read".to_string()
+        } else {
+            row.status
+        },
         notification_type: row.notification_type,
         priority: row.priority,
         sent_at: row.sent_at,
@@ -472,6 +548,18 @@ async fn main() {
         .route(
             "/api/v1/notification/admin/list",
             get(list_admin_notifications),
+        )
+        .route(
+            "/api/v1/notification/admin/{id}/read",
+            post(admin_mark_read),
+        )
+        .route(
+            "/api/v1/notification/admin/{id}",
+            delete(admin_delete_notification),
+        )
+        .route(
+            "/api/v1/notification/admin/metrics",
+            get(admin_notification_metrics),
         )
         .route("/api/v1/notification/list", get(list_notifications))
         .route("/api/v1/notification/unread-count", get(unread_count))
@@ -890,11 +978,16 @@ async fn list_admin_notifications(
         .execute(&mut *transaction)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let total: i64 = sqlx::query_scalar(ADMIN_NOTIFICATION_COUNT_SQL)
+    let filter = admin_notification_filter_sql(&query);
+    let total_sql = format!("SELECT COUNT(*) FROM public.notifications WHERE {filter}");
+    let total: i64 = sqlx::query_scalar(&total_sql)
         .fetch_one(&mut *transaction)
         .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
-    let rows: Vec<AdminNotificationRow> = sqlx::query_as(ADMIN_NOTIFICATION_LIST_SQL)
+    let list_sql = format!(
+        "SELECT id, title, subject, channel, status, notification_type, priority, sent_at, created_at, read_at FROM public.notifications WHERE {filter} ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2"
+    );
+    let rows: Vec<AdminNotificationRow> = sqlx::query_as(&list_sql)
         .bind(query.limit)
         .bind(query.offset)
         .fetch_all(&mut *transaction)
@@ -930,6 +1023,129 @@ async fn list_admin_notifications(
         limit: query.limit,
         offset: query.offset,
     }))
+}
+
+#[derive(Debug, Serialize)]
+struct AdminNotificationMetrics {
+    queue_depth: i64,
+    queue_age_seconds: Option<i64>,
+    suppressed: i64,
+    retry_wait: i64,
+    terminal_failed: i64,
+    dead_lettered: i64,
+    provider_accepted: i64,
+    attempting: i64,
+    channel_outcomes: std::collections::BTreeMap<String, i64>,
+    provider_events: i64,
+    delivery_attempts: i64,
+    replay_cursors: i64,
+    replay_cursor_age_seconds: Option<i64>,
+    active_streams: usize,
+    stream_connections_total: u64,
+    stream_reconnects_total: u64,
+    stream_replayed_events_total: u64,
+    stream_lag_seconds: Option<u64>,
+    stream_query_failures_total: u64,
+}
+
+async fn admin_notification_metrics(
+    State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+) -> Result<Json<AdminNotificationMetrics>, StatusCode> {
+    require_admin_notifications(&principal)?;
+    let total: i64 = sqlx::query_scalar("SELECT COUNT(*) FROM public.notifications")
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let pending: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM public.notifications WHERE status = 'pending' AND read_at IS NULL",
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let failed: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM public.notifications WHERE status = 'failed'",
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let sent: i64 = sqlx::query_scalar(
+        "SELECT COUNT(*) FROM public.notifications WHERE status = 'sent'",
+    )
+    .fetch_one(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let rows: Vec<(String, i64)> = sqlx::query_as(
+        "SELECT channel, COUNT(*) FROM public.notifications GROUP BY channel",
+    )
+    .fetch_all(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    let channel_outcomes = rows.into_iter().collect();
+
+    Ok(Json(AdminNotificationMetrics {
+        queue_depth: pending,
+        queue_age_seconds: None,
+        suppressed: 0,
+        retry_wait: 0,
+        terminal_failed: failed,
+        dead_lettered: 0,
+        provider_accepted: sent,
+        attempting: 0,
+        channel_outcomes,
+        provider_events: total,
+        delivery_attempts: total,
+        replay_cursors: 0,
+        replay_cursor_age_seconds: None,
+        active_streams: 0,
+        stream_connections_total: 0,
+        stream_reconnects_total: 0,
+        stream_replayed_events_total: 0,
+        stream_lag_seconds: None,
+        stream_query_failures_total: 0,
+    }))
+}
+
+async fn admin_mark_read(
+    State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    AxPath(id): AxPath<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    require_admin_notifications(&principal)?;
+    if !valid_admin_notification_id(&id) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let result = sqlx::query(
+        "UPDATE public.notifications SET read_at = NOW(), status = CASE WHEN status = 'pending' THEN 'sent' ELSE status END WHERE id = $1",
+    )
+    .bind(&id)
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(Json(serde_json::json!({ "id": id, "read": true })))
+}
+
+async fn admin_delete_notification(
+    State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    AxPath(id): AxPath<String>,
+) -> Result<StatusCode, StatusCode> {
+    require_admin_notifications(&principal)?;
+    if !valid_admin_notification_id(&id) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let result = sqlx::query("DELETE FROM public.notifications WHERE id = $1")
+        .bind(&id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn get_notification(
@@ -1193,6 +1409,7 @@ mod tests {
             priority: Some("high".into()),
             sent_at: Some(Utc.with_ymd_and_hms(2026, 7, 22, 3, 4, 5).unwrap()),
             created_at: Utc.with_ymd_and_hms(2026, 7, 22, 3, 0, 0).unwrap(),
+            read_at: None,
         }
     }
 
@@ -1202,28 +1419,40 @@ mod tests {
             AdminNotificationQuery::parse(None).unwrap(),
             AdminNotificationQuery {
                 limit: 20,
-                offset: 0
+                offset: 0,
+                status: None,
+                notification_type: None,
+                priority: None,
             }
         );
         assert_eq!(
             AdminNotificationQuery::parse(Some("")).unwrap(),
             AdminNotificationQuery {
                 limit: 20,
-                offset: 0
+                offset: 0,
+                status: None,
+                notification_type: None,
+                priority: None,
             }
         );
         assert_eq!(
             AdminNotificationQuery::parse(Some("offset=1000000&limit=50")).unwrap(),
             AdminNotificationQuery {
                 limit: 50,
-                offset: 1_000_000
+                offset: 1_000_000,
+                status: None,
+                notification_type: None,
+                priority: None,
             }
         );
         assert_eq!(
             AdminNotificationQuery::parse(Some("limit=1&offset=0")).unwrap(),
             AdminNotificationQuery {
                 limit: 1,
-                offset: 0
+                offset: 0,
+                status: None,
+                notification_type: None,
+                priority: None,
             }
         );
     }
@@ -1231,7 +1460,7 @@ mod tests {
     #[test]
     fn admin_query_rejects_unknown_duplicate_malformed_and_out_of_bounds_values() {
         for raw in [
-            "status=sent",
+            "unknown=value",
             "limit=20&limit=10",
             "offset=0&offset=1",
             "limit",

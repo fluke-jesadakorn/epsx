@@ -30,15 +30,17 @@ pub const ADMIN_ACCESS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_ACCESS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_ACCESS_MALFORMED: &str = "malformed";
 
-/// Redacted fields from AccessAssignment. Wallet identity, actor, version,
-/// and update timestamps are deliberately excluded from page state.
+/// Backend-owned fields needed to target a versioned assignment mutation.
+/// Actor and update timestamps remain excluded from page state.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AdminAccessAssignmentProjection {
+    pub wallet_address: String,
     pub plan_id: String,
     pub plan_name: String,
     pub permission: String,
     pub expires_at: Option<String>,
+    pub version: i64,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -59,11 +61,19 @@ pub fn decode_admin_access_projection(value: serde_json::Value) -> Option<AdminA
 
 impl AdminAccessAssignmentProjection {
     fn is_well_formed(&self) -> bool {
-        valid_uuid(&self.plan_id)
+        valid_wallet(&self.wallet_address)
+            && valid_uuid(&self.plan_id)
             && valid_text(&self.plan_name, MAX_PLAN_NAME_CHARS)
             && valid_permission(&self.permission)
+            && self.version >= 0
             && self.expires_at.as_deref().is_none_or(valid_timestamp)
     }
+}
+
+fn valid_wallet(value: &str) -> bool {
+    value.len() == 42
+        && value.starts_with("0x")
+        && value[2..].bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
 fn valid_text(value: &str, max_chars: usize) -> bool {
@@ -194,7 +204,7 @@ fn AccessReady(projection: AdminAccessProjection) -> Element {
                 "data-admin-wallet-access-state": ADMIN_ACCESS_READY,
                 h2 { class: "text-xl font-semibold text-foreground", "No access assignments returned" }
                 p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground",
-                    "The backend returned an authoritative empty assignment projection. No access mutation is offered."
+                    "The backend returned an authoritative empty assignment projection."
                 }
                 a { class: "btn btn-outline mt-5", href: PLANS_PATH, "Review plan definitions" }
             }
@@ -210,7 +220,16 @@ fn AccessReady(projection: AdminAccessProjection) -> Element {
             div { class: "p-5 sm:p-6",
                 h2 { id: "admin-wallet-access-title", class: "text-lg font-semibold text-foreground", "Access assignments" }
                 p { class: "mt-1 text-sm leading-6 text-muted-foreground",
-                    "These are backend-authoritative read records. Assignment actors, versions, and mutation controls are intentionally redacted."
+                    "Assignments are backend-authoritative. New assignments require the backend version and are audited there."
+                }
+                form { method: "post", action: WALLET_ACCESS_PATH, class: "mt-5 grid gap-3 rounded-xl border border-border/20 bg-background/30 p-4 md:grid-cols-5",
+                    input { r#type: "hidden", name: "operation", value: "assign" }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.access.assign.{}", uuid::Uuid::new_v4()) }
+                    input { class: "input input-bordered", name: "wallet_address", maxlength: 42, placeholder: "Wallet 0x...", required: true }
+                    input { class: "input input-bordered", name: "plan_id", maxlength: 36, placeholder: "Plan UUID", required: true }
+                    input { class: "input input-bordered", name: "permission", maxlength: 128, placeholder: "Permission", required: true }
+                    input { class: "input input-bordered", name: "expected_version", r#type: "number", min: 0, placeholder: "Version", required: true }
+                    button { r#type: "submit", class: "btn btn-primary", "Assign access" }
                 }
             }
             ul { class: "divide-y divide-border/30 border-t border-border/30", aria_label: "Wallet access assignments",
@@ -233,7 +252,7 @@ fn AccessAssignmentRow(item: AdminAccessAssignmentProjection) -> Element {
             div {
                 p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "Plan" }
                 p { class: "mt-1 break-words font-semibold text-foreground", "{item.plan_name}" }
-                p { class: "mt-1 break-all text-xs text-muted-foreground", "Plan reference {item.plan_id}" }
+                p { class: "mt-1 break-all text-xs text-muted-foreground", "Wallet {item.wallet_address} · Plan {item.plan_id}" }
             }
             div {
                 p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "Permission" }
@@ -242,6 +261,17 @@ fn AccessAssignmentRow(item: AdminAccessAssignmentProjection) -> Element {
             div { class: "sm:text-right",
                 p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "Expires" }
                 p { class: "mt-1 text-sm text-foreground", "{expiry}" }
+            }
+            div { class: "flex flex-wrap gap-2 sm:justify-end",
+                form { method: "post", action: WALLET_ACCESS_PATH,
+                    input { r#type: "hidden", name: "operation", value: "revoke" }
+                    input { r#type: "hidden", name: "wallet_address", value: item.wallet_address.clone() }
+                    input { r#type: "hidden", name: "plan_id", value: item.plan_id.clone() }
+                    input { r#type: "hidden", name: "permission", value: item.permission.clone() }
+                    input { r#type: "hidden", name: "expected_version", value: item.version }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.access.revoke.{}", uuid::Uuid::new_v4()) }
+                    button { r#type: "submit", class: "btn btn-sm btn-outline", "Revoke assignment" }
+                }
             }
         }
     }
@@ -300,10 +330,12 @@ mod tests {
     fn projection() -> serde_json::Value {
         serde_json::json!({
             "items": [{
+                "wallet_address": "0x1234567890abcdef1234567890abcdef12345678",
                 "plan_id": "00000000-0000-0000-0000-000000000001",
                 "plan_name": "Pro",
                 "permission": "admin:payments:view",
                 "expires_at": "2026-12-31T00:00:00Z",
+                "version": 2,
             }]
         })
     }
@@ -346,15 +378,13 @@ mod tests {
     }
 
     #[test]
-    fn ready_access_projection_has_no_controls() {
+    fn ready_access_projection_has_versioned_revoke_control() {
         let rendered = html(&with_state(ADMIN_ACCESS_READY, Some(projection())));
         assert!(rendered.contains("data-admin-wallet-access-state=\"ready\""));
         assert!(rendered.contains("admin:payments:view"));
-        assert!(rendered.contains("Plan reference 00000000-0000-0000-0000-000000000001"));
-        assert!(!rendered.contains("<form"));
-        assert!(!rendered.contains("<button"));
-        assert!(!rendered.contains("Assign access"));
-        assert!(!rendered.contains("Revoke access"));
+        assert!(rendered.contains("Wallet 0x1234567890abcdef1234567890abcdef12345678"));
+        assert!(rendered.contains("Revoke assignment"));
+        assert!(rendered.contains("expected_version"));
         assert!(!rendered.contains("onclick="));
     }
 

@@ -1,4 +1,4 @@
-//! Strict read-only compatibility adapter for the legacy admin media inventory.
+//! Strict compatibility adapter for the legacy admin media inventory/actions.
 //!
 //! Only the public `news` and `public` buckets may cross this boundary. Private
 //! chat/notification objects, provider URLs, upload/delete controls, and storage

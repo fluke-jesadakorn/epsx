@@ -16,7 +16,10 @@
     "uiGlob": "shared/rust/dioxus_ui/src/pages/**/*.rs",
     "uiLiteralPattern": "required_permissions: Some(vec![...])",
     "dynamicPassThroughPattern": "required_permissions: required_permissions",
-    "securityGateComponents": ["AuthGate", "AdminAuthGate"],
+    "securityGateComponents": [
+      "AuthGate",
+      "AdminAuthGate"
+    ],
     "presentationComponent": "AccessDenied",
     "serviceAuthorizationFile": "docs/migration/contracts/service-authorization.json"
   },
@@ -60,8 +63,8 @@
     },
     "guard-admin-payments": {
       "file": "apps/backend/src/web/admin/routes.rs",
-      "anchor": "from_fn_with_state(\"admin:payments:manage\", perm_guard)",
-      "purpose": "Real payment-link route-group guard."
+      "anchor": "from_fn_with_state(\"admin:payment-links:manage\", perm_guard)",
+      "purpose": "Real payment-link mutation route-group guard."
     },
     "guard-admin-payments-view": {
       "file": "services/pay/src/lib.rs",
@@ -130,57 +133,557 @@
     }
   },
   "inventory": [
-    {"sourceType":"dioxus-presentation-dynamic","file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","line":47,"permission":"<dynamic-pass-through>","surface":"frontend:access_denied","classification":"unknown","remediation":{"package":"A7","candidates":[],"requiresSplit":false,"evidence":[],"decision":"Display-only pass-through; no static policy candidate is safe."}},
-    {"sourceType":"dioxus-security-gate","file":"shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs","line":189,"permission":"admin:payments:view","surface":"admin:payments","classification":"canonical-3-segment","remediation":{"package":"A8","candidates":["admin:payments:view"],"requiresSplit":false,"evidence":["guard-admin-payments-view"],"decision":"Aligned the read-only payment-intent surface with the direct Pay-service list guard; mutation routes remain unavailable."}},
-    {"sourceType":"dioxus-presentation-literal","file":"shared/rust/dioxus_ui/src/pages/admin_pages/unauthorized.rs","line":10,"permission":"admin:*","surface":"admin:unauthorized","classification":"impossible/cross-grammar","remediation":{"package":"A8","candidates":[],"requiresSplit":false,"evidence":[],"decision":"Generic error display is not a backend resource; no route-guard candidate is safe."}},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":925,"permission":"admin:users:read","surface":"service:identity:identity.get.users","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":950,"permission":"admin:users:create","surface":"service:identity:identity.post.users","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":975,"permission":"admin:users:read","surface":"service:identity:identity.get.user","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1000,"permission":"admin:users:update","surface":"service:identity:identity.put.user","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1025,"permission":"admin:users:delete","surface":"service:identity:identity.delete.user","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1618,"permission":"admin:payments:manage","surface":"service:pay:pay.post.escrow-resolve","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1815,"permission":"admin:payments:view","surface":"service:pay:pay.get.admin-intents","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1842,"permission":"admin:payments:manage","surface":"service:pay:pay.post.admin-force-cancel","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1869,"permission":"admin:payments:manage","surface":"service:pay:pay.post.admin-force-release","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1896,"permission":"admin:payments:manage","surface":"service:pay:pay.post.admin-force-refund","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1957,"permission":"admin:plans:manage","surface":"service:subscription:subscription.post.plans","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":1983,"permission":"admin:plans:read","surface":"service:subscription:subscription.get.plans","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2010,"permission":"admin:plans:read","surface":"service:subscription:subscription.get.plan","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2205,"permission":"admin:content:manage","surface":"service:content:content.get.page-editor","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2233,"permission":"admin:content:manage","surface":"service:content:content.put.page","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2260,"permission":"admin:content:manage","surface":"service:content:content.post.pages","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2287,"permission":"admin:content:manage","surface":"service:content:content.get.pages","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2314,"permission":"admin:content:manage","surface":"service:content:content.post.page-publish","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2397,"permission":"admin:content:manage","surface":"service:content:content.post.themes","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2451,"permission":"admin:content:manage","surface":"service:content:content.put.theme","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2534,"permission":"admin:content:manage","surface":"service:content:content.post.edit-start","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2562,"permission":"admin:content:manage","surface":"service:content:content.post.edit-commit","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2589,"permission":"admin:content:manage","surface":"service:content:content.get.edit-sessions","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2843,"permission":"admin:notifications:manage","surface":"service:notification:notification.get.templates","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2869,"permission":"admin:notifications:manage","surface":"service:notification:notification.post.templates","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2895,"permission":"admin:notifications:manage","surface":"service:notification:notification.get.template","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2921,"permission":"admin:notifications:manage","surface":"service:notification:notification.delete.template","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2947,"permission":"admin:notifications:manage","surface":"service:notification:notification.post.send","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":2973,"permission":"admin:notifications:manage","surface":"service:notification:notification.get.admin-list","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3270,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.events","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3297,"permission":"admin:audit:read","surface":"service:analytics:analytics.get.admin-audit-log","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3325,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.metric","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3352,"permission":"admin:analytics:view","surface":"service:analytics:analytics.get.revenue","classification":"canonical-3-segment","remediation":null},
-    {"sourceType":"service-authorization","file":"docs/migration/contracts/service-authorization.json","line":3578,"permission":"admin:indexer:manage","surface":"service:indexer:indexer.post.sync","classification":"canonical-3-segment","remediation":null}
+    {
+      "sourceType": "dioxus-presentation-literal",
+      "file": "shared/rust/dioxus_ui/src/pages/admin_pages/unauthorized.rs",
+      "line": 12,
+      "permission": "admin:*",
+      "surface": "admin:unauthorized",
+      "classification": "impossible/cross-grammar",
+      "remediation": {
+        "package": "A8",
+        "candidates": [],
+        "requiresSplit": false,
+        "evidence": [],
+        "decision": "Generic error display is not a backend resource; no route-guard candidate is safe."
+      }
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 997,
+      "permission": "admin:users:read",
+      "surface": "service:identity:identity.get.users",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1022,
+      "permission": "admin:users:create",
+      "surface": "service:identity:identity.post.users",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1047,
+      "permission": "admin:users:read",
+      "surface": "service:identity:identity.get.user",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1072,
+      "permission": "admin:users:update",
+      "surface": "service:identity:identity.put.user",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1097,
+      "permission": "admin:users:delete",
+      "surface": "service:identity:identity.delete.user",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1373,
+      "permission": "admin:users:read",
+      "surface": "service:wallet:wallet.get.admin-wallets",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1391,
+      "permission": "admin:users:read",
+      "surface": "service:wallet:wallet.get.admin-wallets-stats",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1409,
+      "permission": "admin:users:read",
+      "surface": "service:wallet:wallet.get.admin-wallet",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1427,
+      "permission": "admin:users:update",
+      "surface": "service:wallet:wallet.patch.admin-wallet-metadata",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1445,
+      "permission": "admin:users:update",
+      "surface": "service:wallet:wallet.post.admin-wallet-disable",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1463,
+      "permission": "admin:users:update",
+      "surface": "service:wallet:wallet.post.admin-wallet-enable",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1481,
+      "permission": "admin:credits:read",
+      "surface": "service:wallet:wallet.get.admin-credits",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1499,
+      "permission": "admin:credits:read",
+      "surface": "service:wallet:wallet.get.admin-credit-account",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1517,
+      "permission": "admin:credits:manage",
+      "surface": "service:wallet:wallet.post.admin-credit-grant",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1535,
+      "permission": "admin:credits:manage",
+      "surface": "service:wallet:wallet.post.admin-credit-revoke",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 1870,
+      "permission": "admin:payments:manage",
+      "surface": "service:pay:pay.post.escrow-resolve",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2067,
+      "permission": "admin:payments:view",
+      "surface": "service:pay:pay.get.admin-intents",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2094,
+      "permission": "admin:payments:manage",
+      "surface": "service:pay:pay.post.admin-force-cancel",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2121,
+      "permission": "admin:payments:manage",
+      "surface": "service:pay:pay.post.admin-force-release",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2148,
+      "permission": "admin:payments:manage",
+      "surface": "service:pay:pay.post.admin-force-refund",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2175,
+      "permission": "admin:payment-links:view",
+      "surface": "service:pay:pay.get.admin-links",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2193,
+      "permission": "admin:payment-links:manage",
+      "surface": "service:pay:pay.post.admin-links",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2211,
+      "permission": "admin:payment-links:manage",
+      "surface": "service:pay:pay.post.admin-link-disable",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2229,
+      "permission": "admin:payments:manage",
+      "surface": "service:pay:pay.post.admin-intent-cancel",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2281,
+      "permission": "admin:plans:manage",
+      "surface": "service:subscription:subscription.post.plans",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2307,
+      "permission": "admin:plans:read",
+      "surface": "service:subscription:subscription.get.plans",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2334,
+      "permission": "admin:plans:read",
+      "surface": "service:subscription:subscription.get.plan",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2494,
+      "permission": "admin:access:read",
+      "surface": "service:subscription:subscription.get.admin-access",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2512,
+      "permission": "admin:plans:read",
+      "surface": "service:subscription:subscription.get.admin-plans",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2530,
+      "permission": "admin:plans:read",
+      "surface": "service:subscription:subscription.get.admin-plan",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2548,
+      "permission": "admin:plans:manage",
+      "surface": "service:subscription:subscription.patch.admin-plan",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2566,
+      "permission": "admin:access:manage",
+      "surface": "service:subscription:subscription.post.admin-access-assign",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2584,
+      "permission": "admin:access:manage",
+      "surface": "service:subscription:subscription.post.admin-access-revoke",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2602,
+      "permission": "admin:plans:manage",
+      "surface": "service:subscription:subscription.post.admin-plan",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2655,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.get.page-editor",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2683,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.put.page",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2710,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.post.pages",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2737,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.get.pages",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2764,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.post.page-publish",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2847,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.post.themes",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2901,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.put.theme",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 2984,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.post.edit-start",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3012,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.post.edit-commit",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3039,
+      "permission": "admin:content:manage",
+      "surface": "service:content:content.get.edit-sessions",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3293,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.get.templates",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3319,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.post.templates",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3345,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.get.template",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3371,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.delete.template",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3397,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.post.send",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3423,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.get.admin-list",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3450,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.get.admin-metrics",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3477,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.post.admin-read",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3504,
+      "permission": "admin:notifications:manage",
+      "surface": "service:notification:notification.delete.admin",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3801,
+      "permission": "admin:analytics:view",
+      "surface": "service:analytics:analytics.get.events",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3828,
+      "permission": "admin:audit:read",
+      "surface": "service:analytics:analytics.get.admin-audit-log",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3856,
+      "permission": "admin:analytics:view",
+      "surface": "service:analytics:analytics.get.metric",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 3883,
+      "permission": "admin:analytics:view",
+      "surface": "service:analytics:analytics.get.revenue",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    },
+    {
+      "sourceType": "service-authorization",
+      "file": "docs/migration/contracts/service-authorization.json",
+      "line": 4109,
+      "permission": "admin:indexer:manage",
+      "surface": "service:indexer:indexer.post.sync",
+      "classification": "canonical-3-segment",
+      "remediation": null
+    }
   ],
   "summary": {
-    "total": 37,
+    "total": 59,
     "sourceCounts": {
-      "dioxus-security-gate": 1,
+      "dioxus-security-gate": 0,
       "dioxus-presentation-literal": 1,
-      "dioxus-presentation-dynamic": 1,
-      "service-authorization": 34
+      "dioxus-presentation-dynamic": 0,
+      "service-authorization": 58
     },
     "classificationCounts": {
-      "canonical-3-segment": 35,
+      "canonical-3-segment": 58,
       "wildcard-aligned": 0,
       "legacy-2-segment": 0,
-      "unknown": 1,
+      "unknown": 0,
       "impossible/cross-grammar": 1
     }
   }

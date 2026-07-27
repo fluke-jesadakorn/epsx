@@ -1,11 +1,12 @@
 use axum::{
     extract::{Path, Query, State},
+    http::HeaderMap,
     response::sse::{Event, KeepAlive, Sse},
     response::IntoResponse,
     Extension, Json,
 };
 use diesel::dsl::count_star;
-use diesel::prelude::*;
+use diesel::{prelude::*, sql_query, sql_types::{Jsonb, Text, Uuid as DieselUuid}};
 use diesel_async::RunQueryDsl;
 use serde::Deserialize;
 use serde::Serialize;
@@ -16,6 +17,7 @@ use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
 use crate::infrastructure::repositories::ChatRepository;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::schemas::primary::chat_conversations;
 use crate::web::{
     auth::AppState,
@@ -33,6 +35,155 @@ const MAX_OFFSET: i64 = 1_000_000;
 const MAX_FILTER_CHARS: usize = 128;
 const MAX_SUBJECT_CHARS: usize = 255;
 const MAX_MESSAGE_CHARS: usize = 16_384;
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 128;
+
+#[derive(Debug)]
+enum ChatMutationClaimError {
+    Invalid,
+    Conflict,
+    Database,
+}
+
+#[derive(Debug, QueryableByName)]
+struct ExistingChatOperation {
+    #[diesel(sql_type = Text)]
+    action: String,
+    #[diesel(sql_type = DieselUuid)]
+    conversation_id: Uuid,
+    #[diesel(sql_type = Text)]
+    actor: String,
+}
+
+fn chat_idempotency_key(headers: &HeaderMap) -> Result<String, ChatMutationClaimError> {
+    let value = headers
+        .get("idempotency-key")
+        .ok_or(ChatMutationClaimError::Invalid)?
+        .to_str()
+        .map_err(|_| ChatMutationClaimError::Invalid)?
+        .trim();
+    if value.is_empty()
+        || value.chars().count() > MAX_IDEMPOTENCY_KEY_CHARS
+        || value.chars().any(char::is_control)
+    {
+        return Err(ChatMutationClaimError::Invalid);
+    }
+    Ok(value.to_string())
+}
+
+async fn claim_chat_operation(
+    app_state: &AppState,
+    headers: &HeaderMap,
+    context: &OpenIDUserContext,
+    conversation_id: Uuid,
+    action: &'static str,
+) -> Result<(Uuid, String), ChatMutationClaimError> {
+    let key = chat_idempotency_key(headers)?;
+    let operation_id = Uuid::new_v4();
+    let mut conn = app_state
+        .db_pool
+        .get()
+        .await
+        .map_err(|_| ChatMutationClaimError::Database)?;
+    let inserted = sql_query(
+        "INSERT INTO admin_chat_operations
+         (operation_id, idempotency_key, conversation_id, action, actor)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (idempotency_key) DO NOTHING",
+    )
+    .bind::<DieselUuid, _>(operation_id)
+    .bind::<Text, _>(&key)
+    .bind::<DieselUuid, _>(conversation_id)
+    .bind::<Text, _>(action)
+    .bind::<Text, _>(&context.wallet_address)
+    .execute(&mut conn)
+    .await
+    .map_err(|_| ChatMutationClaimError::Database)?;
+    if inserted == 1 {
+        return Ok((operation_id, key));
+    }
+    let existing = sql_query(
+        "SELECT action, conversation_id, actor
+         FROM admin_chat_operations WHERE idempotency_key = $1",
+    )
+    .bind::<Text, _>(&key)
+    .get_result::<ExistingChatOperation>(&mut conn)
+    .await
+    .map_err(|_| ChatMutationClaimError::Database)?;
+    if existing.action == action
+        && existing.conversation_id == conversation_id
+        && existing.actor == context.wallet_address
+    {
+        Err(ChatMutationClaimError::Conflict)
+    } else {
+        Err(ChatMutationClaimError::Conflict)
+    }
+}
+
+async fn complete_chat_operation(
+    app_state: &AppState,
+    operation_id: Uuid,
+    result: serde_json::Value,
+) -> Result<(), ChatMutationClaimError> {
+    let mut conn = app_state
+        .db_pool
+        .get()
+        .await
+        .map_err(|_| ChatMutationClaimError::Database)?;
+    diesel::sql_query(
+        "UPDATE admin_chat_operations
+         SET result = $1, completed_at = NOW() WHERE operation_id = $2",
+    )
+    .bind::<Jsonb, _>(result)
+    .bind::<DieselUuid, _>(operation_id)
+    .execute(&mut conn)
+    .await
+    .map_err(|_| ChatMutationClaimError::Database)?;
+    Ok(())
+}
+
+async fn audit_chat_mutation(
+    app_state: &AppState,
+    context: &OpenIDUserContext,
+    headers: &HeaderMap,
+    request_id: &RequestId,
+    conversation_id: Uuid,
+    action: &'static str,
+    idempotency_key: &str,
+) -> bool {
+    app_state
+        .audit
+        .log_sync(
+            &AuditCtx::from_wallet(&context.wallet_address, headers),
+            &AuditEntry::new("chat", action, "support")
+                .id(&conversation_id.to_string())
+                .meta(serde_json::json!({
+                    "request_id": request_id.0,
+                    "idempotency_key": idempotency_key,
+                })),
+        )
+        .await
+        .is_ok()
+}
+
+fn chat_claim_failure(error: ChatMutationClaimError) -> Json<UnifiedApiResponse<()>> {
+    match error {
+        ChatMutationClaimError::Invalid => Json(UnifiedApiResponse::error(
+            400,
+            "Invalid idempotency key",
+            "A bounded idempotency-key header is required",
+        )),
+        ChatMutationClaimError::Conflict => Json(UnifiedApiResponse::error(
+            409,
+            "Chat mutation already claimed",
+            "Use the original request result or a new idempotency key",
+        )),
+        ChatMutationClaimError::Database => Json(UnifiedApiResponse::error(
+            503,
+            "Chat mutation unavailable",
+            "The durable chat operation ledger is unavailable",
+        )),
+    }
+}
 
 fn default_page() -> u32 {
     DEFAULT_PAGE
@@ -405,6 +556,7 @@ pub async fn admin_send_reply(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
     Extension(request_id): Extension<RequestId>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<SendMessageRequest>,
 ) -> Result<Json<UnifiedApiResponse<AdminMessageSummary>>, Json<UnifiedApiResponse<()>>> {
@@ -430,6 +582,18 @@ pub async fn admin_send_reply(
         }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
+    let (operation_id, idempotency_key) = match claim_chat_operation(
+        &app_state,
+        &headers,
+        &ctx,
+        id,
+        "send_reply",
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Err(chat_claim_failure(error)),
+    };
 
     let sanitized_content =
         crate::infrastructure::security::sanitize_chat_content(body.content.trim());
@@ -444,12 +608,16 @@ pub async fn admin_send_reply(
     .await
     {
         Ok(msg) => {
+            let projected = match project_message(msg) {
+                Ok(value) => value,
+                Err(error) => return Err(auth_failure(error)),
+            };
             // Publish to user's channel
             if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "new_message",
                     "conversation_id": id,
-                    "message": msg,
+                    "message": projected,
                 });
                 let payload = serde_json::to_vec(&event).unwrap_or_default();
                 let channel = format!("chat:wallet:{}", conv.wallet_address);
@@ -489,9 +657,31 @@ pub async fn admin_send_reply(
                 "Agent {} replied to conversation {}",
                 ctx.wallet_address, id
             );
-            Ok(Json(UnifiedApiResponse::success(
-                project_message(msg).map_err(auth_failure)?,
-            )))
+            if !audit_chat_mutation(
+                &app_state,
+                &ctx,
+                &headers,
+                &request_id,
+                id,
+                "send_reply",
+                &idempotency_key,
+            )
+            .await
+            {
+                return Err(Json(UnifiedApiResponse::error(
+                    503,
+                    "Chat mutation pending",
+                    "The chat audit record could not be durably written",
+                )));
+            }
+            if complete_chat_operation(&app_state, operation_id, serde_json::to_value(&projected).unwrap_or_default()).await.is_err() {
+                return Err(Json(UnifiedApiResponse::error(
+                    503,
+                    "Chat mutation pending",
+                    "The chat operation result could not be durably recorded",
+                )));
+            }
+            Ok(Json(UnifiedApiResponse::success(projected)))
         }
         Err(e) => {
             error!("Admin: Failed to send reply: {}", e);
@@ -509,6 +699,7 @@ pub async fn admin_assign_agent(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
     Extension(request_id): Extension<RequestId>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<AssignAgentRequest>,
 ) -> Result<Json<UnifiedApiResponse<AdminConversationSummary>>, Json<UnifiedApiResponse<()>>> {
@@ -524,15 +715,32 @@ pub async fn admin_assign_agent(
         )));
     }
 
+    let (operation_id, idempotency_key) = match claim_chat_operation(
+        &app_state,
+        &headers,
+        &ctx,
+        id,
+        "assign_agent",
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Err(chat_claim_failure(error)),
+    };
+
     match ChatRepository::assign_agent(&app_state.db_pool, id, Some(agent)).await {
         Ok(conv) => {
+            let projected = match project_conversation(conv) {
+                Ok(value) => value,
+                Err(error) => return Err(auth_failure(error)),
+            };
             // Publish agent_assigned to relevant channels
             if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "agent_assigned",
                     "conversation_id": id,
                     "assigned_agent": agent,
-                    "conversation": conv,
+                    "conversation": projected,
                 });
                 let payload = serde_json::to_vec(&event).unwrap_or_default();
                 let _ = pubsub.publish("chat:new", &payload).await;
@@ -540,9 +748,13 @@ pub async fn admin_assign_agent(
                 let _ = pubsub.publish(&channel, &payload).await;
             }
             info!("Agent {} assigned to conversation {}", agent, id);
-            Ok(Json(UnifiedApiResponse::success(
-                project_conversation(conv).map_err(auth_failure)?,
-            )))
+            if !audit_chat_mutation(&app_state, &ctx, &headers, &request_id, id, "assign_agent", &idempotency_key).await {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat audit record could not be durably written")));
+            }
+            if complete_chat_operation(&app_state, operation_id, serde_json::to_value(&projected).unwrap_or_default()).await.is_err() {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat operation result could not be durably recorded")));
+            }
+            Ok(Json(UnifiedApiResponse::success(projected)))
         }
         Err(e) => {
             error!("Admin: Failed to assign agent: {}", e);
@@ -560,6 +772,7 @@ pub async fn admin_update_status(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
     Extension(request_id): Extension<RequestId>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateStatusRequest>,
 ) -> Result<Json<UnifiedApiResponse<AdminConversationSummary>>, Json<UnifiedApiResponse<()>>> {
@@ -587,25 +800,45 @@ pub async fn admin_update_status(
         }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
+    let (operation_id, idempotency_key) = match claim_chat_operation(
+        &app_state,
+        &headers,
+        &ctx,
+        id,
+        "update_status",
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Err(chat_claim_failure(error)),
+    };
 
     match ChatRepository::update_status(&app_state.db_pool, id, &body.status).await {
         Ok(conv) => {
+            let projected = match project_conversation(conv) {
+                Ok(value) => value,
+                Err(error) => return Err(auth_failure(error)),
+            };
             // Publish status_changed to user + admin channels
             if let Some(pubsub) = &app_state.pubsub {
                 let event = serde_json::json!({
                     "type": "status_changed",
                     "conversation_id": id,
                     "status": body.status,
-                    "conversation": conv,
+                    "conversation": projected,
                 });
                 let payload = serde_json::to_vec(&event).unwrap_or_default();
                 let channel = format!("chat:wallet:{}", existing.wallet_address);
                 let _ = pubsub.publish(&channel, &payload).await;
                 let _ = pubsub.publish("chat:new", &payload).await;
             }
-            Ok(Json(UnifiedApiResponse::success(
-                project_conversation(conv).map_err(auth_failure)?,
-            )))
+            if !audit_chat_mutation(&app_state, &ctx, &headers, &request_id, id, "update_status", &idempotency_key).await {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat audit record could not be durably written")));
+            }
+            if complete_chat_operation(&app_state, operation_id, serde_json::to_value(&projected).unwrap_or_default()).await.is_err() {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat operation result could not be durably recorded")));
+            }
+            Ok(Json(UnifiedApiResponse::success(projected)))
         }
         Err(e) => {
             error!("Admin: Failed to update status: {}", e);
@@ -623,6 +856,7 @@ pub async fn admin_mark_read(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
     Extension(request_id): Extension<RequestId>,
+    headers: HeaderMap,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
     if let Err(error) = authorize(&ctx, &request_id, CHAT_MANAGE_PERMISSION, "mark_read") {
@@ -639,6 +873,18 @@ pub async fn admin_mark_read(
         }
         Err(e) => return Err(Json(UnifiedApiResponse::error(500, "Database error", &e))),
     };
+    let (operation_id, idempotency_key) = match claim_chat_operation(
+        &app_state,
+        &headers,
+        &ctx,
+        id,
+        "mark_read",
+    )
+    .await
+    {
+        Ok(value) => value,
+        Err(error) => return Err(chat_claim_failure(error)),
+    };
 
     match ChatRepository::mark_read_by_agent(&app_state.db_pool, id).await {
         Ok(()) => {
@@ -652,6 +898,12 @@ pub async fn admin_mark_read(
                 let payload = serde_json::to_vec(&event).unwrap_or_default();
                 let channel = format!("chat:wallet:{}", conv.wallet_address);
                 let _ = pubsub.publish(&channel, &payload).await;
+            }
+            if !audit_chat_mutation(&app_state, &ctx, &headers, &request_id, id, "mark_read", &idempotency_key).await {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat audit record could not be durably written")));
+            }
+            if complete_chat_operation(&app_state, operation_id, serde_json::json!({})).await.is_err() {
+                return Err(Json(UnifiedApiResponse::error(503, "Chat mutation pending", "The chat operation result could not be durably recorded")));
             }
             Ok(Json(UnifiedApiResponse::success(())))
         }

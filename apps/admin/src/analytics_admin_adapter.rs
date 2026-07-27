@@ -1,8 +1,7 @@
 //! Route-specific BFF adapter for the backend-owned admin analytics snapshot.
 //!
-//! This module is intentionally not registered here: `main.rs`/`ssr.rs` are
-//! root-owned central wiring. The integration manifest records the loader and
-//! module registrations required by the root agent.
+//! Central SSR wiring in `main.rs`/`ssr.rs` registers this loader; this module
+//! owns only typed transport, bounds, and backend projection validation.
 
 use epsx_dioxus_ui::pages::admin_pages::analytics::{
     decode_admin_analytics_projection, AdminAnalyticsSnapshot,
@@ -239,10 +238,6 @@ mod tests {
 
         let mut telemetry = serde_json::to_value(envelope(Some(snapshot()))).unwrap();
         telemetry["data"]["system_metrics"] = json!({"health_percentage": 99.9});
-        let decoded = serde_json::from_value::<BackendEnvelope>(telemetry).unwrap();
-        assert!(matches!(
-            classify_payload(decoded),
-            AdminAnalyticsLoad::Malformed
-        ));
+        assert!(serde_json::from_value::<BackendEnvelope>(telemetry).is_err());
     }
 }

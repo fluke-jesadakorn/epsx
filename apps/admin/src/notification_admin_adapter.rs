@@ -1,11 +1,12 @@
-//! Strict read-only adapter for the backend-owned admin notification list.
+//! Strict adapter for backend-owned admin notification reads and mutations.
 //!
 //! This adapter deliberately projects only bounded delivery metadata. Message
-//! bodies, recipients, users, arbitrary data, error details, read state, and
-//! action payloads never cross the admin BFF boundary.
+//! bodies, recipients, users, arbitrary data, error details, and action payloads
+//! never cross the admin BFF boundary; lifecycle calls carry only validated IDs.
 
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
-    decode_admin_notification_create_result, AdminNotificationCreateResult, AdminNotificationList,
+    decode_admin_notification_create_result, decode_admin_notification_metrics,
+    AdminNotificationCreateResult, AdminNotificationList, AdminNotificationMetrics,
     AdminNotificationSummary,
 };
 use serde::{Deserialize, Serialize};
@@ -16,6 +17,7 @@ const MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES: usize = 256 * 1024;
 const MAX_NOTIFICATION_SEND_BODY_BYTES: usize = 32 * 1024;
 const MAX_NOTIFICATION_SEND_TEXT_CHARS: usize = 16_384;
 const MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS: usize = 56;
+const MAX_NOTIFICATION_ID_CHARS: usize = 66;
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -174,12 +176,21 @@ pub(crate) async fn send_admin_notification(
 pub(crate) struct AdminNotificationQuery {
     pub(crate) page: i64,
     pub(crate) offset: i64,
+    pub(crate) status: Option<String>,
+    pub(crate) notification_type: Option<String>,
+    pub(crate) priority: Option<String>,
 }
 
 impl AdminNotificationQuery {
     pub(crate) fn from_raw(raw_query: &str) -> Result<Self, ()> {
         let mut page = 1_i64;
         let mut page_seen = false;
+        let mut status = None;
+        let mut notification_type = None;
+        let mut priority = None;
+        let mut status_seen = false;
+        let mut type_seen = false;
+        let mut priority_seen = false;
         let mut url = reqwest::Url::parse("http://admin.invalid/")
             .expect("the fixed admin notification query base URL is valid");
         url.set_query((!raw_query.is_empty()).then_some(raw_query));
@@ -194,6 +205,24 @@ impl AdminNotificationQuery {
                 if !(1..=MAX_ADMIN_NOTIFICATION_PAGE).contains(&page) {
                     return Err(());
                 }
+            } else if key == "status" {
+                if status_seen || !valid_filter_token(&value, 20) || !matches!(value.as_ref(), "all" | "pending" | "sent" | "failed" | "read" | "unread") {
+                    return Err(());
+                }
+                status = Some(value.into_owned());
+                status_seen = true;
+            } else if key == "type" {
+                if type_seen || !valid_filter_token(&value, 50) {
+                    return Err(());
+                }
+                notification_type = Some(value.into_owned());
+                type_seen = true;
+            } else if key == "priority" {
+                if priority_seen || !valid_filter_token(&value, 20) || !matches!(value.as_ref(), "low" | "normal" | "high" | "critical" | "urgent") {
+                    return Err(());
+                }
+                priority = Some(value.into_owned());
+                priority_seen = true;
             }
         }
 
@@ -201,15 +230,209 @@ impl AdminNotificationQuery {
             .checked_sub(1)
             .and_then(|page_index| page_index.checked_mul(ADMIN_NOTIFICATION_LIMIT))
             .ok_or(())?;
-        Ok(Self { page, offset })
+        Ok(Self {
+            page,
+            offset,
+            status,
+            notification_type,
+            priority,
+        })
     }
 
     pub(crate) fn upstream_path(&self) -> String {
-        format!(
+        let mut path = format!(
             "/api/v1/notification/admin/list?limit={ADMIN_NOTIFICATION_LIMIT}&offset={}",
             self.offset
-        )
+        );
+        if let Some(status) = &self.status {
+            path.push_str("&status=");
+            path.push_str(status);
+        }
+        if let Some(notification_type) = &self.notification_type {
+            path.push_str("&type=");
+            path.push_str(notification_type);
+        }
+        if let Some(priority) = &self.priority {
+            path.push_str("&priority=");
+            path.push_str(priority);
+        }
+        path
     }
+}
+
+fn valid_filter_token(value: &str, max_chars: usize) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= max_chars
+        && value.bytes().all(|byte| {
+            byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+        })
+}
+
+pub(crate) fn valid_admin_notification_id(value: &str) -> bool {
+    (1..=MAX_NOTIFICATION_ID_CHARS).contains(&value.chars().count())
+        && value.bytes().all(|byte| {
+            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_')
+        })
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNotificationMutationResult {
+    Ready,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+async fn admin_notification_mutation(
+    client: &epsx_client::ServiceClient,
+    method: reqwest::Method,
+    path: String,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNotificationMutationResult::Unavailable;
+    };
+    let response = match client
+        .clone_for_bearer()
+        .request(method, format!("{}{}", client.base_url().trim_end_matches('/'), path))
+        .header("x-request-id", ctx.request_id.to_string())
+        .bearer_auth(token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNotificationMutationResult::Unavailable,
+    };
+    match response.status() {
+        reqwest::StatusCode::FORBIDDEN => AdminNotificationMutationResult::Forbidden,
+        status if status.is_success() => AdminNotificationMutationResult::Ready,
+        reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::NOT_FOUND => {
+            AdminNotificationMutationResult::Malformed
+        }
+        _ => AdminNotificationMutationResult::Unavailable,
+    }
+}
+
+pub(crate) async fn mark_admin_notification_read(
+    client: &epsx_client::ServiceClient,
+    id: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    if !valid_admin_notification_id(id) {
+        return AdminNotificationMutationResult::Malformed;
+    }
+    admin_notification_mutation(
+        client,
+        reqwest::Method::POST,
+        format!("/api/v1/notification/admin/{id}/read"),
+        ctx,
+    )
+    .await
+}
+
+pub(crate) async fn delete_admin_notification(
+    client: &epsx_client::ServiceClient,
+    id: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    if !valid_admin_notification_id(id) {
+        return AdminNotificationMutationResult::Malformed;
+    }
+    admin_notification_mutation(
+        client,
+        reqwest::Method::DELETE,
+        format!("/api/v1/notification/admin/{id}"),
+        ctx,
+    )
+    .await
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNotificationMetricsLoad {
+    Ready(AdminNotificationMetrics),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendAdminNotificationMetrics {
+    queue_depth: i64,
+    queue_age_seconds: Option<i64>,
+    suppressed: i64,
+    retry_wait: i64,
+    terminal_failed: i64,
+    dead_lettered: i64,
+    provider_accepted: i64,
+    attempting: i64,
+    channel_outcomes: std::collections::BTreeMap<String, i64>,
+    provider_events: i64,
+    delivery_attempts: i64,
+    replay_cursors: i64,
+    replay_cursor_age_seconds: Option<i64>,
+    active_streams: usize,
+    stream_connections_total: u64,
+    stream_reconnects_total: u64,
+    stream_replayed_events_total: u64,
+    stream_lag_seconds: Option<u64>,
+    stream_query_failures_total: u64,
+}
+
+pub(crate) async fn load_admin_notification_metrics(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMetricsLoad {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNotificationMetricsLoad::Unavailable;
+    };
+    let url = format!(
+        "{}/api/v1/notification/admin/metrics",
+        client.base_url().trim_end_matches('/')
+    );
+    let response = match client
+        .clone_for_bearer()
+        .get(url)
+        .header("x-request-id", ctx.request_id.to_string())
+        .bearer_auth(token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNotificationMetricsLoad::Unavailable,
+    };
+    if response.status() == reqwest::StatusCode::FORBIDDEN {
+        return AdminNotificationMetricsLoad::Forbidden;
+    }
+    if !response.status().is_success() {
+        return AdminNotificationMetricsLoad::Unavailable;
+    }
+    let body = match read_response_body_limited(response, MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES).await {
+        Ok(body) => body,
+        Err(()) => return AdminNotificationMetricsLoad::Unavailable,
+    };
+    let raw = match serde_json::from_slice::<BackendAdminNotificationMetrics>(&body) {
+        Ok(raw) => raw,
+        Err(_) => return AdminNotificationMetricsLoad::Malformed,
+    };
+    let value = serde_json::json!({
+        "queue_depth": raw.queue_depth,
+        "terminal_failed": raw.terminal_failed,
+        "provider_accepted": raw.provider_accepted,
+        "delivery_attempts": raw.delivery_attempts,
+        "channel_outcomes": raw.channel_outcomes,
+    });
+    decode_admin_notification_metrics(value)
+        .map(AdminNotificationMetricsLoad::Ready)
+        .unwrap_or(AdminNotificationMetricsLoad::Malformed)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -382,7 +605,7 @@ fn validate_and_project_notification(
             .as_deref()
             .is_some_and(|value| !bounded_control_free(value, 0, 255))
         || !safe_channel(&item.channel)
-        || !matches!(item.status.as_str(), "pending" | "sent" | "failed")
+        || !matches!(item.status.as_str(), "pending" | "sent" | "failed" | "read")
         || item
             .notification_type
             .as_deref()
@@ -668,13 +891,22 @@ mod tests {
     fn query_defaults_drops_unknown_fields_and_builds_exact_path() {
         assert_eq!(
             AdminNotificationQuery::from_raw("").unwrap(),
-            AdminNotificationQuery { page: 1, offset: 0 }
+            AdminNotificationQuery {
+                page: 1,
+                offset: 0,
+                status: None,
+                notification_type: None,
+                priority: None,
+            }
         );
         assert_eq!(
             AdminNotificationQuery::from_raw("tab=delivery&page=3&force=send").unwrap(),
             AdminNotificationQuery {
                 page: 3,
-                offset: 40
+                offset: 40,
+                status: None,
+                notification_type: None,
+                priority: None,
             }
         );
         assert_eq!(

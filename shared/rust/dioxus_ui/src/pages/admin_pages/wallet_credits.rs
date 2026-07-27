@@ -105,6 +105,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderWalletCredits(ctx: PageContext) -> Element {
     let load = credit_load(&ctx);
+    let mutation = match ctx.query_param("mutation").as_deref() {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable") | Some("malformed") => ctx.query_param("mutation"),
+        _ => None,
+    };
 
     rsx! {
         PageLayout {
@@ -119,7 +123,7 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
                 class_name: None,
             }
             match load {
-                CreditLoad::Ready(projection) => rsx! { CreditStatsReady { projection } },
+                CreditLoad::Ready(projection) => rsx! { CreditStatsReady { projection, mutation } },
                 CreditLoad::Forbidden => rsx! {
                     CreditProblem {
                         state: ADMIN_CREDITS_FORBIDDEN,
@@ -147,13 +151,19 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
 }
 
 #[component]
-fn CreditStatsReady(projection: AdminCreditStatsProjection) -> Element {
+fn CreditStatsReady(projection: AdminCreditStatsProjection, mutation: Option<String>) -> Element {
     rsx! {
         section {
             class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
             role: "status",
             aria_labelledby: "admin-credit-stats-title",
             "data-admin-wallet-credits-state": ADMIN_CREDITS_READY,
+            if let Some(state) = mutation {
+                p { class: "border-b border-amber-500/30 bg-amber-500/5 px-5 py-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
+                    "data-admin-wallet-credits-mutation-state": state,
+                    "Credit mutation: {state}"
+                }
+            }
             div { class: "h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ffb237]", aria_hidden: "true" }
             div { class: "p-5 sm:p-6",
                 h2 { id: "admin-credit-stats-title", class: "text-lg font-semibold text-foreground", "Credit totals" }
@@ -167,8 +177,23 @@ fn CreditStatsReady(projection: AdminCreditStatsProjection) -> Element {
                 CreditMetric { label: "Revoked today, minor units", value: format_minor(projection.revoked_today_minor) }
                 CreditMetric { label: "Active credit accounts", value: format_minor(projection.active_accounts) }
             }
-            p { class: "border-t border-border/30 px-5 py-4 text-xs leading-5 text-muted-foreground sm:px-6",
-                "This read-only projection contains no wallet ledger rows or credit operation controls."
+            form { method: "post", action: "/wallet-management/credits", class: "grid gap-3 border-t border-border/30 p-5 sm:grid-cols-2 lg:grid-cols-5",
+                input { r#type: "hidden", name: "operation", value: "credit_grant" }
+                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.credits.grant.{}", uuid::Uuid::new_v4()) }
+                input { class: "input input-bordered", name: "wallet_address", maxlength: 42, placeholder: "Wallet 0x...", required: true }
+                input { class: "input input-bordered", name: "expected_version", r#type: "number", min: 0, placeholder: "Version", required: true }
+                input { class: "input input-bordered", name: "amount_minor", r#type: "number", min: 1, placeholder: "Minor units", required: true }
+                input { class: "input input-bordered", name: "reason", maxlength: 500, placeholder: "Reason", required: true }
+                button { r#type: "submit", class: "btn btn-primary", "Grant credits" }
+            }
+            form { method: "post", action: "/wallet-management/credits", class: "grid gap-3 border-t border-border/30 p-5 sm:grid-cols-2 lg:grid-cols-5",
+                input { r#type: "hidden", name: "operation", value: "credit_revoke" }
+                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.credits.revoke.{}", uuid::Uuid::new_v4()) }
+                input { class: "input input-bordered", name: "wallet_address", maxlength: 42, placeholder: "Wallet 0x...", required: true }
+                input { class: "input input-bordered", name: "expected_version", r#type: "number", min: 0, placeholder: "Version", required: true }
+                input { class: "input input-bordered", name: "amount_minor", r#type: "number", min: 1, placeholder: "Minor units", required: true }
+                input { class: "input input-bordered", name: "reason", maxlength: 500, placeholder: "Reason", required: true }
+                button { r#type: "submit", class: "btn btn-outline", "Revoke credits" }
             }
         }
     }
@@ -294,15 +319,16 @@ mod tests {
     }
 
     #[test]
-    fn ready_projection_is_read_only_and_financial_state_is_explicit() {
+    fn ready_projection_is_authoritative_and_exposes_bounded_credit_mutations() {
         let rendered = html(&with_state(ADMIN_CREDITS_READY, Some(projection())));
         assert!(rendered.contains("data-admin-wallet-credits-state=\"ready\""));
         assert!(rendered.contains("1,200"));
         assert!(rendered.contains("Amounts are displayed exactly as backend-owned minor units"));
-        assert!(!rendered.contains("<form"));
-        assert!(!rendered.contains("<button"));
-        assert!(!rendered.contains("grant"));
-        assert!(!rendered.contains("revoke"));
+        assert!(rendered.contains("<form"));
+        assert!(rendered.contains("Grant credits"));
+        assert!(rendered.contains("Revoke credits"));
+        assert!(rendered.contains("expected_version"));
+        assert!(rendered.contains("idempotency_key"));
     }
 
     #[test]
