@@ -120,3 +120,118 @@
     --gradient-admin: linear-gradient(135deg, rgba(20,25,42,0.9), rgba(15,20,35,0.8));
   }
 }
+
+/* ============================================================
+   ADMIN AUTH ROUTE — centered wallet-selection composition
+
+   `/auth` is a standalone page in the source admin app. It does
+   not show the sidebar, shell skeleton, or the desktop split panel;
+   the lock mark, heading, wallet card, and disclaimer stay centered
+   at both mobile and tablet widths.
+   ============================================================ */
+@layer components {
+  .wave25-t3-auth-overlay {
+    background:
+      radial-gradient(55% 42% at 15% 16%, rgba(118, 69, 217, 0.08), transparent 72%),
+      radial-gradient(50% 45% at 90% 78%, rgba(31, 199, 212, 0.055), transparent 75%),
+      #0d111c;
+  }
+
+  .wave25-t3-auth-right {
+    max-width: 48rem;
+  }
+
+  .wave25-t3-auth-heading {
+    color: #f8fafc;
+  }
+
+  .wave25-t3-auth-lock {
+    flex: 0 0 auto;
+  }
+
+  .wave25-t3-auth-card {
+    width: min(100%, 44rem);
+  }
+
+  .wave25-t3-auth-card-inner {
+    position: relative;
+    background: #151a25 !important;
+    border-color: rgba(148, 163, 184, 0.12) !important;
+    border-radius: 2rem;
+    box-shadow: 0 1.5rem 3rem -1rem rgba(0, 0, 0, 0.45);
+  }
+
+  .wave25-t3-auth-card-inner::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0.75rem;
+    right: 0.75rem;
+    height: 4px;
+    background: linear-gradient(90deg, #7645d9 0%, #6f75e9 48%, #1fc7d4 100%);
+    border-radius: 2rem 2rem 0 0;
+  }
+
+  .wave25-t3-auth-card-inner .auth-step-header {
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .wave25-t3-auth-card-inner .auth-step-number {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.25rem;
+    background: rgba(118, 69, 217, 0.24);
+  }
+
+  .wave25-t3-auth-card-inner .auth-step-label {
+    font-size: 1.5rem;
+    font-weight: 600;
+  }
+
+  .wave25-t3-auth-card-inner .auth-wallets {
+    gap: 1rem;
+  }
+
+  .wave25-t3-auth-card-inner .auth-wallet-btn {
+    min-height: 5rem;
+    padding: 1.25rem 1.5rem;
+    border: 1px solid rgba(148, 163, 184, 0.18) !important;
+    border-radius: 1.5rem;
+    background: #202531;
+    font-size: 1.25rem;
+  }
+
+  .wave25-t3-auth-card-inner .auth-wallet-icon {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 2rem;
+  }
+
+  .wave25-t3-auth-card-inner .auth-wallet-name {
+    font-size: 1.5rem;
+  }
+
+  @media (max-width: 639px) {
+    .wave25-t3-auth-right {
+      padding: 3rem 1rem;
+    }
+
+    .wave25-t3-auth-heading {
+      margin-bottom: 2.5rem;
+    }
+
+    .wave25-t3-auth-card-inner {
+      padding: 2.5rem 2rem;
+    }
+
+    .wave25-t3-auth-card-inner .auth-step-label,
+    .wave25-t3-auth-card-inner .auth-wallet-name {
+      font-size: 1.25rem;
+    }
+
+    .wave25-t3-auth-card-inner .auth-wallet-btn {
+      min-height: 4.375rem !important;
+    }
+  }
+}

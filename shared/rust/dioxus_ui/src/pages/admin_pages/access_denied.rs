@@ -1,8 +1,8 @@
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::super::{PageContext, PageMeta};
 use crate::auth::AccessDenied;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let reason = ctx.query_param("reason");
@@ -11,7 +11,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let context = ctx.query_param("context");
     let permission = ctx.query_param("permission");
     let mut r = reason.unwrap_or_else(|| "Access denied".to_string());
-    if let Some(d) = detail { r.push_str(": "); r.push_str(&d); }
+    if let Some(d) = detail {
+        r.push_str(": ");
+        r.push_str(&d);
+    }
 
     // Append the additional context fields (route / context /
     // permission) to the reason text, mirroring the OLD's
@@ -35,5 +38,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     }
 
     let meta = PageMeta::admin("Access denied");
-    (meta, rsx! { AccessDenied { reason: Some(r), required_permissions: None } })
+    (
+        meta,
+        rsx! { AccessDenied { reason: Some(r), required_permissions: None } },
+    )
 }

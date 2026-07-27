@@ -17,7 +17,7 @@ const WALLET_ACCESS_PATH: &str = "/wallet-management/access";
 const ADMIN_HOME_PATH: &str = "/";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Wallet access unavailable");
+    let meta = PageMeta::admin("Wallet access");
 
     // Query and route parameters are deliberately ignored. Only a future
     // backend-owned response may establish plans, permissions, assignments,

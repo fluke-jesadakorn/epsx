@@ -3,11 +3,11 @@
   "artifact": "a8-admin-live-data",
   "contractId": "A8.0-admin-live-data-and-mutation-readiness",
   "source": {
-    "ref": "origin/development",
-    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+    "ref": "development",
+    "commit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6"
   },
   "sourceMiddleware": {
-    "file": "apps/admin-frontend/middleware.ts",
+    "file": "apps-old/admin-frontend/middleware.ts",
     "anchors": [
       "if (request.nextUrl.searchParams.has('logout'))",
       "const token = getServerAuthToken(request.cookies);",
@@ -208,7 +208,7 @@
         "pub fn decode_admin_notification_projection(",
         "pub fn render_manage(ctx: &PageContext)",
         "data-admin-notifications-state",
-        "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"
+        "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"
       ],
       "finding": "The authenticated management page renders only the strict redacted projection with native pagination and retry links. It distinguishes ready, authoritative empty, forbidden, unavailable, malformed, and out-of-range recovery while emitting no identities, bodies, delivery errors, action URLs, forms, buttons, sample metrics, or mutation controls."
     },
@@ -386,7 +386,7 @@
   "routes": [
     {
       "path": "/", "batch": "B1-command-security", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/page.tsx", "anchors": ["export default async function AdminDashboardPage", "getRecentWalletsAction"]},
+      "source": {"file": "apps-old/admin-frontend/app/page.tsx", "anchors": ["export default async function AdminDashboardPage", "getRecentWalletsAction"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs", "handler": "dashboard::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-dashboard-state\": ADMIN_DASHBOARD_USER_STATUS_READY", "fn forbidden_unavailable_and_malformed_are_truthful_explicit_states()"]},
       "params": {"names": [], "current": "no query grammar; every query string is rejected by the adapter and direct backend route"},
       "data": {"reads": ["total registered user records", "active registered user records", "database observation time"], "endpoints": ["GET /api/admin/dashboard/user-status"], "current": "verified-session SSR projects one backend snapshot containing only non-negative total and active i64 counts plus RFC3339 observation time; active cannot exceed total and zero is ready data", "fallbacks": []},
@@ -399,7 +399,7 @@
     },
     {
       "path": "/access-denied", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
-      "source": {"file": "apps/admin-frontend/app/access-denied/page.tsx", "anchors": ["function AccessDeniedPageContent", "searchParams.get('permission')"]},
+      "source": {"file": "apps-old/admin-frontend/app/access-denied/page.tsx", "anchors": ["function AccessDeniedPageContent", "searchParams.get('permission')"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "fn access_denied_model(ctx: &PageContext)", "data-admin-denial-runtime"]},
       "params": {"names": ["route", "reason", "context", "permission", "detail"], "current": "source-compatible URL-form decoding with the source's explicit second decode where applicable; control-filtered and bounded to 64-256 characters; Dioxus-escaped output; route is display plus sanitized reauthentication return target only"},
       "data": {"reads": [], "endpoints": [], "current": "static denial surface", "fallbacks": []},
@@ -412,7 +412,7 @@
     },
     {
       "path": "/analytics", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/analytics/page.tsx", "anchors": ["export default async function AnalyticsPage", "Promise.all"]},
+      "source": {"file": "apps-old/admin-frontend/app/analytics/page.tsx", "anchors": ["export default async function AnalyticsPage", "Promise.all"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs", "handler": "analytics::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-analytics-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_claims_or_controls()"]},
       "params": {"names": ["page", "limit", "country", "sector", "sort_by", "min_eps", "min_growth", "search"], "current": "the pinned market-ranking query is ignored until a backend-owned ranking contract validates every field"},
       "data": {"reads": ["EPS market-ranking cards", "ranking pagination/access metadata", "plan access", "watchlist"], "endpoints": ["GET /api/analytics/rankings", "fallback GET /api/public/analytics/rankings"], "current": "verified-session explicit unavailable state with no rankings, plan/access claims, watchlist state, freshness, or status claims", "fallbacks": []},
@@ -425,7 +425,7 @@
     },
     {
       "path": "/audit-log", "batch": "B1-command-security", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/audit-log/page.tsx", "anchors": ["export default function AuditLogPage", "fetchLogs"]},
+      "source": {"file": "apps-old/admin-frontend/app/audit-log/page.tsx", "anchors": ["export default function AuditLogPage", "fetchLogs"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/audit_log.rs", "handler": "audit_log::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_audit_projection", "\"data-audit-log-state\": ADMIN_AUDIT_READY", "fn ready_state_is_redacted_responsive_and_cursor_driven()"]},
       "params": {"names": ["category", "cursor"], "current": "one optional closed category and one bounded canonical base64url cursor are accepted; duplicates, unknown keys, malformed values, and legacy search/date/actor/resource parameters fail closed before upstream access"},
       "data": {"reads": ["redacted unified audit summaries"], "endpoints": ["GET /api/v1/analytics/admin/audit-log?category={optional}&cursor={optional}"], "current": "verified-session SSR consumes one deterministic keyset page containing category/action/resource-type/effect/timestamp summaries; record IDs are not rendered, but the current reversible continuation carries the boundary timestamp, audit UUID, and category; actor and target identity, network/device fields, before/after state, metadata, totals, details, and export payloads are absent", "fallbacks": []},
@@ -438,7 +438,7 @@
     },
     {
       "path": "/auth", "batch": "B2-auth-denial", "status": "blocked", "dependencies": ["A1", "A5"],
-      "source": {"file": "apps/admin-frontend/app/auth/page.tsx", "anchors": ["export default function AuthPage", "redirect('/')"]},
+      "source": {"file": "apps-old/admin-frontend/app/auth/page.tsx", "anchors": ["export default function AuthPage", "redirect('/')"]},
       "target": {"file": "apps/admin/src/main.rs", "handler": "admin_auth_redirect", "anchors": [".route(\"/auth\", get(admin_auth_redirect))", "async fn admin_auth_redirect() -> Response", "Redirect::temporary(\"/\")"]},
       "params": {"names": ["reason", "clear", "logout"], "current": "all query values are ignored and cannot choose or enter the fixed root redirect; source cookie-clearing query semantics remain unimplemented"},
       "data": {"reads": ["source middleware session-cookie presence"], "endpoints": [], "current": "public fixed pre-SSR redirect; no frontend permission or session claim is inferred", "fallbacks": []},
@@ -451,7 +451,7 @@
     },
     {
       "path": "/chat", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/chat/page.tsx", "anchors": ["export default async function ChatPage", "getAdminChatOverview"]},
+      "source": {"file": "apps-old/admin-frontend/app/chat/page.tsx", "anchors": ["export default async function ChatPage", "getAdminChatOverview"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-chat-state\": \"unavailable\"", "fn unavailable_surfaces_emit_no_samples_counts_filters_or_actions()"]},
       "params": {"names": ["status", "topic", "search", "cursor"], "current": "legacy status, topic, search, cursor, presence, and hydration parameters are ignored"},
       "data": {"reads": ["conversation overview", "topics", "unread counts"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred conversations, topics, presence, unread counts, assignments, or activity", "fallbacks": []},
@@ -464,7 +464,7 @@
     },
     {
       "path": "/chat/:id", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/chat/[id]/page.tsx", "anchors": ["export default async function ConversationPage", "getConversation(id)"]},
+      "source": {"file": "apps-old/admin-frontend/app/chat/[id]/page.tsx", "anchors": ["export default async function ConversationPage", "getConversation(id)"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render_conversation", "anchors": ["pub fn render_conversation(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn conversation_reference_is_bounded_control_free_escaped_and_unverified()"]},
       "params": {"names": ["id"], "current": "route reference is control-free, capped at 64 Unicode scalar values, escaped for display, encoded as one retry path segment, and labeled unverified; no canonical lookup occurs"},
       "data": {"reads": ["conversation", "messages", "topics", "assignee"], "endpoints": [], "current": "verified-session explicit unavailable state; route value never implies record existence, ownership, or authorization", "fallbacks": []},
@@ -477,7 +477,7 @@
     },
     {
       "path": "/developer-portal", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/developer-portal/page.tsx", "anchors": ["export default function DeveloperPortalRoute", "DeveloperPortalPage"]},
+      "source": {"file": "apps-old/admin-frontend/app/developer-portal/page.tsx", "anchors": ["export default function DeveloperPortalRoute", "DeveloperPortalPage"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs", "handler": "developer_portal::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-developer-portal-state\": \"unavailable\"", "fn unavailable_state_removes_samples_credentials_and_controls()"]},
       "params": {"names": ["tab", "status", "cursor"], "current": "legacy tab, status, cursor, success, and credential query values are ignored"},
       "data": {"reads": ["API keys", "usage", "modules", "plans"], "endpoints": [], "current": "verified-session explicit unavailable state with no credential inventory, usage, module, plan, quota, or documentation claims", "fallbacks": []},
@@ -490,7 +490,7 @@
     },
     {
       "path": "/developer-portal/api-keys/create", "batch": "B2-auth-denial", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx", "anchors": ["export default async function CreateApiKeyPage", "createPlansClient(apiClient)"]},
+      "source": {"file": "apps-old/admin-frontend/app/developer-portal/api-keys/create/page.tsx", "anchors": ["export default async function CreateApiKeyPage", "createPlansClient(apiClient)"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"Access Denied\""]},
       "params": {"names": ["error"], "current": "dispatcher always replaces the source creation page with denial"},
       "data": {"reads": ["plans", "verified admin session"], "endpoints": [], "current": "none; creation UI unreachable", "fallbacks": []},
@@ -503,7 +503,7 @@
     },
     {
       "path": "/media", "batch": "B4-content-media", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/media/page.tsx", "anchors": ["export default async function MediaPage", "listMediaAction"]},
+      "source": {"file": "apps-old/admin-frontend/app/media/page.tsx", "anchors": ["export default async function MediaPage", "listMediaAction"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs", "handler": "media::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_media_projection", "\"data-admin-media-state\": ADMIN_MEDIA_READY", "fn ready_inventory_is_redacted_accessible_responsive_and_uses_native_links()"]},
       "params": {"names": ["bucket", "cursor"], "current": "The only accepted raw query is empty, which defaults to news, or exactly one bucket=news|public pair; duplicate, empty, unknown, cursor, prefix, limit, chat, or notifications input is malformed before I/O, and the legacy upstream limit is fixed at 100"},
       "data": {"reads": ["news/public object key", "size", "optional last-modified timestamp"], "endpoints": ["GET /api/admin/media/{news|public}?limit=100"], "current": "strict read-only projection from the protected legacy Rust backend; URLs are discarded before PageContext and private chat/notification bucket keys, storage totals, MIME, hash, ETag, and completeness claims are absent", "fallbacks": []},
@@ -516,7 +516,7 @@
     },
     {
       "path": "/news", "batch": "B4-content-media", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/news/page.tsx", "anchors": ["export default async function NewsPage", "listNewsAction"]},
+      "source": {"file": "apps-old/admin-frontend/app/news/page.tsx", "anchors": ["export default async function NewsPage", "listNewsAction"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn decode_admin_news_projection", "fn ready_projection_renders_escaped_read_only_cards()", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
       "params": {"names": ["page", "status"], "current": "SSR accepts one bounded page and one exact all/draft/published status, rejects duplicate or malformed recognized fields, fixes limit at 20, and drops unrelated query input"},
       "data": {"reads": ["draft/published article summaries", "total", "page", "fixed limit"], "endpoints": ["GET /api/admin/news?page=:page&limit=20[&status=draft|published]"], "current": "strict read-only projection from the pinned protected Rust backend; content, author identity, cover media, updated timestamp, and pinned timestamp are discarded before rendering", "fallbacks": []},
@@ -529,7 +529,7 @@
     },
     {
       "path": "/news/create", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/news/create/page.tsx", "anchors": ["export default function CreateNewsPage", "<NewsEditor />"]},
+      "source": {"file": "apps-old/admin-frontend/app/news/create/page.tsx", "anchors": ["export default function CreateNewsPage", "<NewsEditor />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "render_unavailable_route(ctx, NewsRoute::Create, None)", "\"data-admin-news-state\": ADMIN_NEWS_UNAVAILABLE", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
       "params": {"names": [], "current": "legacy editor parameters are ignored"},
       "data": {"reads": ["editor categories/media/revision defaults"], "endpoints": [], "current": "authenticated explicit unavailable state; no static editor or defaults", "fallbacks": []},
@@ -542,7 +542,7 @@
     },
     {
       "path": "/news/:id/edit", "batch": "B4-content-media", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A10", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/news/[id]/edit/page.tsx", "anchors": ["export default async function EditNewsPage", "getNewsAction(id)"]},
+      "source": {"file": "apps-old/admin-frontend/app/news/[id]/edit/page.tsx", "anchors": ["export default async function EditNewsPage", "getNewsAction(id)"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs", "handler": "news::render_edit", "anchors": ["pub fn render_edit(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn hostile_edit_reference_is_bounded_control_free_and_escaped()", "fn create_edit_and_list_expose_no_mutation_surfaces()"]},
       "params": {"names": ["id"], "current": "route reference is control-free, capped at 64 Unicode scalar values, escaped by Dioxus, and labeled unverified; no canonical lookup occurs"},
       "data": {"reads": ["article revision"], "endpoints": [], "current": "authenticated explicit unavailable state; route value never implies record existence or ownership", "fallbacks": []},
@@ -555,7 +555,7 @@
     },
     {
       "path": "/notifications", "batch": "B3-support", "status": "partial", "dependencies": ["A1", "A5", "A11"],
-      "source": {"file": "apps/admin-frontend/app/notifications/page.tsx", "anchors": ["export default function NotificationsPage", "redirect('/notifications/manage')"]},
+      "source": {"file": "apps-old/admin-frontend/app/notifications/page.tsx", "anchors": ["export default function NotificationsPage", "redirect('/notifications/manage')"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications_redirect.rs", "handler": "notifications_redirect::render", "anchors": ["pub fn render(_ctx: &PageContext)", "window.location.replace('/notifications/manage');"]},
       "params": {"names": [], "current": "none"},
       "data": {"reads": [], "endpoints": [], "current": "intentional fixed-target JavaScript redirect document only", "fallbacks": []},
@@ -568,8 +568,8 @@
     },
     {
       "path": "/notifications/create", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/notifications/create/page.tsx", "anchors": ["export default function CreateNotificationPage", "<SendNotificationForm"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "fn NotificationCreateUnavailable() -> Element", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
+      "source": {"file": "apps-old/admin-frontend/app/notifications/create/page.tsx", "anchors": ["export default function CreateNotificationPage", "<SendNotificationForm"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_create", "anchors": ["pub fn render_create(ctx: &PageContext)", "fn NotificationCreateForm() -> Element", "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"]},
       "params": {"names": [], "current": "legacy form and audience parameters are ignored"},
       "data": {"reads": ["recipient validation", "templates", "schedule constraints"], "endpoints": [], "current": "verified-session explicit unavailable state; no static recipients, templates, or schedule defaults", "fallbacks": []},
       "permissions": {"read": [], "manage": ["admin:notifications:manage before any mutation"], "current": "session-only unavailable shell with no local role or capability inference; the admin BFF verifies its audience and the direct service must authorize any future operation"},
@@ -581,8 +581,8 @@
     },
     {
       "path": "/notifications/manage", "batch": "B3-support", "status": "partial", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/notifications/manage/page.tsx", "anchors": ["export default function ManageNotificationsPage", "<NotificationManagement />"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "pub fn decode_admin_notification_projection(", "fn ready_projection_renders_escaped_read_only_inventory_without_private_fields()", "fn manage_and_create_expose_no_mutation_or_sample_surfaces()"]},
+      "source": {"file": "apps-old/admin-frontend/app/notifications/manage/page.tsx", "anchors": ["export default function ManageNotificationsPage", "<NotificationManagement />"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs", "handler": "notifications::render_manage", "anchors": ["pub fn render_manage(ctx: &PageContext)", "pub fn decode_admin_notification_projection(", "fn ready_projection_renders_escaped_read_only_inventory_without_private_fields()", "fn manage_and_create_expose_only_the_supported_canonical_wallet_form()"]},
       "params": {"names": ["page", "status", "cursor", "search"], "current": "the target accepts one page in 1..=50001, fixes limit=20 and derives offset; duplicate or malformed page fails without an upstream request, while unsupported legacy status/cursor/search fields are ignored and never forwarded"},
       "data": {"reads": ["global redacted notification delivery summaries", "delivery stats intentionally unavailable"], "endpoints": ["GET /api/v1/notification/admin/list?limit=20&offset={derived}"], "current": "verified-session SSR consumes an exact global service read and stores only id-hidden title/subject/channel/status/type/priority/timestamps; recipients, users, templates, bodies, arbitrary data, errors, read state, action URLs, metrics, filters, and mutations remain absent", "fallbacks": []},
       "permissions": {"read": ["admin:notifications:manage (current canonical backend permission)"], "manage": ["admin:notifications:manage before any mutation"], "current": "gateway and direct notification service both require the exact admin audience plus canonical manage permission for this read; the frontend infers no capability, and a future operation-specific read split remains an A11 decision"},
@@ -594,7 +594,7 @@
     },
     {
       "path": "/payments", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/payments/page.tsx", "anchors": ["export default function AdminPaymentsPage", "useSearchParams"]},
+      "source": {"file": "apps-old/admin-frontend/app/payments/page.tsx", "anchors": ["export default function AdminPaymentsPage", "useSearchParams"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/payments.rs", "handler": "payments::render", "anchors": ["pub fn render(ctx: &PageContext)", "required_permissions: Some(vec![\"admin:payments:view\".to_string()])", "decode_admin_payment_intent_list", "PaymentLoad::Unavailable"]},
       "params": {"names": ["tab", "payer", "status", "limit", "offset"], "current": "SSR consumes a closed allowlist; tab selects one of three known surfaces, optional empty filters remain absent, and malformed or duplicate recognized values are rejected without an upstream request"},
       "data": {"reads": ["admin-wide payment intents", "subscriptions/access intentionally unavailable", "payment links intentionally unavailable"], "endpoints": ["GET /api/v1/payments", "GET /api/v1/admin/pay/intents"], "current": "typed read-only intent rows from the Pay service; access and payment-link tabs render explicit unavailable states", "fallbacks": []},
@@ -607,7 +607,7 @@
     },
     {
       "path": "/settings", "batch": "B1-command-security", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/settings/page.tsx", "anchors": ["export default function SettingsPage", "<SettingsDashboard />"]},
+      "source": {"file": "apps-old/admin-frontend/app/settings/page.tsx", "anchors": ["export default function SettingsPage", "<SettingsDashboard />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs", "handler": "settings::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-settings-state\": \"unavailable\"", "fn unavailable_state_has_no_samples_secrets_sessions_or_mutation_labels()"]},
       "params": {"names": ["tab"], "current": "legacy tab values general, notifications, security, and appearance plus local editor values are ignored"},
       "data": {"reads": ["general settings", "notification settings", "security timeout", "appearance settings"], "endpoints": ["GET /api/admin/settings"], "current": "verified-session explicit unavailable state with no configuration defaults, credentials, account records, device sessions, or editable values; the source GET and its conflicting default substitution are inventoried but not consumed", "fallbacks": []},
@@ -620,7 +620,7 @@
     },
     {
       "path": "/unauthorized", "batch": "B2-auth-denial", "status": "aligned", "dependencies": ["A1"],
-      "source": {"file": "apps/admin-frontend/app/unauthorized/page.tsx", "anchors": ["export default function UnauthorizedPage", "<AccessDeniedContent"]},
+      "source": {"file": "apps-old/admin-frontend/app/unauthorized/page.tsx", "anchors": ["export default function UnauthorizedPage", "<AccessDeniedContent"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs", "handler": "access_denied_panel::render", "anchors": ["pub fn render(ctx: &PageContext)", "ADMIN_REASON", "Access denied actions"]},
       "params": {"names": [], "current": "static denial surface"},
       "data": {"reads": [], "endpoints": [], "current": "static", "fallbacks": []},
@@ -633,7 +633,7 @@
     },
     {
       "path": "/wallet-management", "batch": "B6-wallets-plans", "status": "partial", "dependencies": ["A1", "A5"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/page.tsx", "anchors": ["export default function WalletManagementPage", "redirect('/wallet-management/wallets')"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/page.tsx", "anchors": ["export default function WalletManagementPage", "redirect('/wallet-management/wallets')"]},
       "target": {"file": "apps/admin/src/main.rs", "handler": "wallet_redirect_to_wallets", "anchors": [".route(\"/wallet-management\", get(wallet_redirect_to_wallets))", "Redirect::permanent(\"/wallet-management/wallets\")"]},
       "params": {"names": [], "current": "none"},
       "data": {"reads": [], "endpoints": [], "current": "intentional fixed-target pre-SSR permanent redirect only", "fallbacks": []},
@@ -646,7 +646,7 @@
     },
     {
       "path": "/wallet-management/:address", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/[address]/page.tsx", "anchors": ["export default function WalletDetailPage", "decodeURIComponent"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/[address]/page.tsx", "anchors": ["export default function WalletDetailPage", "decodeURIComponent"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_detail", "anchors": ["pub fn render_detail(ctx: &PageContext)", "fn bounded_route_reference(raw: &str) -> String", "\"data-admin-wallets-state\": \"unavailable\""]},
       "params": {"names": ["address"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and encoded only for a native retry link; chain/address checksum and canonicalization remain absent"},
       "data": {"reads": ["wallet", "subscription", "balance", "permissions", "activity"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "verified-session explicit unavailable state with only a bounded unverified route reference and no inferred wallet data", "fallbacks": []},
@@ -659,7 +659,7 @@
     },
     {
       "path": "/wallet-management/access", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/access/page.tsx", "anchors": ["export default function AccessPage", "<PlansView />"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/access/page.tsx", "anchors": ["export default function AccessPage", "<PlansView />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs", "handler": "wallet_access::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallet-access-state\": \"unavailable\"", "fn samples_and_grant_revoke_apply_refresh_bulk_modal_forms_are_absent()"]},
       "params": {"names": ["wallet", "plan", "permission", "cursor"], "current": "query and route parameters are ignored until a backend-owned access contract validates them"},
       "data": {"reads": ["wallet assignments", "plans", "permissions"], "endpoints": [], "current": "verified-session explicit unavailable state with no assignments, plans, permission membership, or inferred empty result", "fallbacks": []},
@@ -672,7 +672,7 @@
     },
     {
       "path": "/wallet-management/access/plans", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/access/plans/page.tsx", "anchors": ["export default function PlansPage", "<PlansView />"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/access/plans/page.tsx", "anchors": ["export default function PlansPage", "<PlansView />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render", "anchors": ["pub fn render(ctx: &PageContext)", "pub fn render_plans(ctx: &PageContext)", "\"data-admin-wallet-plans-state\": \"unavailable\""]},
       "params": {"names": [], "current": "query and legacy hydration values are ignored until a backend-owned plan contract validates them"},
       "data": {"reads": ["plan navigation/summary"], "endpoints": ["GET /api/v1/subscription/plans"], "current": "verified-session explicit unavailable list state with no plan catalog, metrics, prices, permissions, or inferred empty result", "fallbacks": []},
@@ -685,7 +685,7 @@
     },
     {
       "path": "/wallet-management/access/plans/:planId", "batch": "B6-wallets-plans", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx", "anchors": ["export default async function PlanDetailPage", "<PlanEditorPage planId={planId} />"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx", "anchors": ["export default async function PlanDetailPage", "<PlanEditorPage planId={planId} />"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs", "handler": "wallet_plans::render_editor", "anchors": ["pub fn render_editor(ctx: &PageContext)", "fn bounded_plan_reference(raw: &str) -> Option<String>", "\"data-admin-wallet-plans-reference\": \"bounded-unverified\""]},
       "params": {"names": ["planId"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and percent-encoded only for a native retry link; reserved new ID and canonical plan key remain unvalidated"},
       "data": {"reads": ["plan detail", "permissions", "subscriber count"], "endpoints": ["GET /api/v1/subscription/plans/:id"], "current": "verified-session explicit unavailable detail state with only a bounded unverified plan reference and no editor defaults", "fallbacks": []},
@@ -698,7 +698,7 @@
     },
     {
       "path": "/wallet-management/credits", "batch": "B5-commerce", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A6", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/credits/page.tsx", "anchors": ["export default function CreditsPage", "activeTab"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/credits/page.tsx", "anchors": ["export default function CreditsPage", "activeTab"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_credits.rs", "handler": "wallet_credits::render", "anchors": ["pub fn render(ctx: &PageContext)", "\"data-admin-wallet-credits-state\": \"unavailable\"", "fn assert_no_financial_fabrication_or_controls(html: &str)"]},
       "params": {"names": ["tab", "wallet", "cursor"], "current": "legacy tab, wallet, cursor, query, and hydration values are ignored"},
       "data": {"reads": ["credit balances", "ledger transactions", "wallet lookup"], "endpoints": [], "current": "verified-session explicit unavailable state with no inferred balances, zero defaults, aggregate metrics, wallet history, or ledger rows", "fallbacks": []},
@@ -711,7 +711,7 @@
     },
     {
       "path": "/wallet-management/wallets", "batch": "B6-wallets-plans", "status": "partial", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/wallets/page.tsx", "anchors": ["export default async function WalletsPage", "fetchWalletsAction"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/wallets/page.tsx", "anchors": ["export default async function WalletsPage", "fetchWalletsAction"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render", "anchors": ["pub fn render(ctx: &PageContext)", "ADMIN_WALLET_STATS_READY", "\"data-admin-wallet-inventory-state\": \"unavailable\"", "fn ready_summary_is_accessible_responsive_neutral_and_inventory_stays_unavailable()"]},
       "params": {"names": [], "current": "the summary accepts no query grammar; every non-empty query is malformed and cannot influence upstream selection or displayed counts"},
       "data": {"reads": ["total user records", "active user records", "inactive user records", "new user records in the last 30 days"], "endpoints": ["GET /api/admin/wallets/stats"], "current": "verified-session SSR projects only four non-negative i64 aggregate counts; total must equal active plus inactive, new-30-days cannot exceed total, zero is ready data, and wallet rows plus every identity or misleading compatibility field are discarded", "fallbacks": []},
@@ -724,7 +724,7 @@
     },
     {
       "path": "/wallet-management/wallets/:address/disable", "batch": "B7-mutations", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A4", "A5", "A9", "A11", "A12"],
-      "source": {"file": "apps/admin-frontend/app/wallet-management/wallets/[address]/disable/page.tsx", "anchors": ["export default function DisableWalletRoute", "decodeURIComponent"]},
+      "source": {"file": "apps-old/admin-frontend/app/wallet-management/wallets/[address]/disable/page.tsx", "anchors": ["export default function DisableWalletRoute", "decodeURIComponent"]},
       "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_wallets.rs", "handler": "wallet_wallets::render_disable", "anchors": ["pub fn render_disable(ctx: &PageContext)", "Self::Disable => \"Wallet changes are unavailable\"", "fn leaves_are_body_only_and_disable_surface_has_no_mutation_affordance()"]},
       "params": {"names": ["address"], "current": "single segment is control-filtered, bounded, escaped, explicitly unverified, and encoded only for a native retry link; checksum/canonicalization remain absent"},
       "data": {"reads": ["wallet status and impact summary"], "endpoints": ["GET /api/v1/wallet/accounts/:address"], "current": "verified-session explicit unavailable operation state with no status or impact inferred", "fallbacks": []},

@@ -1,4 +1,5 @@
 use axum::{
+    body::to_bytes,
     extract::{Path as AxPath, RawQuery, Request, State},
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
@@ -13,7 +14,8 @@ use epsx_bff::{
 };
 use epsx_client::{RequestContext, ServiceClient};
 use epsx_dioxus_ui::pages::admin_pages::payments::decode_admin_payment_intent_list;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -44,6 +46,108 @@ struct AppState {
     cookie_environment: CookieEnvironment,
     api_url: String,
     demo_login_enabled: bool,
+}
+
+const ADMIN_NOTIFICATION_FORM_MAX: usize = 20 * 1024;
+const ADMIN_NOTIFICATION_FLASH_COOKIE: &str = "epsx.admin.notification_send";
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct AdminNotificationSendForm {
+    recipient_wallet_address: String,
+    title: String,
+    message: String,
+}
+
+fn same_origin_admin_notification_form(headers: &HeaderMap) -> bool {
+    let Some(origin) = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return false;
+    };
+    let Some(host) = headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return false;
+    };
+    let origin_host = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .and_then(|value| value.split('/').next())
+        .unwrap_or("");
+    !origin_host.is_empty()
+        && origin_host == host
+        && headers
+            .get("sec-fetch-site")
+            .and_then(|value| value.to_str().ok())
+            .is_none_or(|value| matches!(value, "same-origin" | "same-site"))
+}
+
+fn valid_admin_wallet(value: &str) -> bool {
+    value.len() == 42
+        && value.starts_with("0x")
+        && value[2..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn valid_admin_form_text(value: &str, max_bytes: usize, required: bool) -> bool {
+    (!required || !value.trim().is_empty())
+        && value.len() <= max_bytes
+        && !value.chars().any(char::is_control)
+}
+
+fn parse_admin_notification_form(body: &[u8]) -> Result<AdminNotificationSendForm, ()> {
+    let mut fields = std::collections::BTreeMap::new();
+    for (key, value) in url::form_urlencoded::parse(body) {
+        if key.len() > 64
+            || value.len() > 16 * 1024
+            || fields
+                .insert(key.into_owned(), value.into_owned())
+                .is_some()
+        {
+            return Err(());
+        }
+    }
+    if fields.keys().any(|key| {
+        !matches!(
+            key.as_str(),
+            "recipient_wallet_address" | "title" | "message"
+        )
+    }) {
+        return Err(());
+    }
+    let recipient_wallet_address = fields.remove("recipient_wallet_address").ok_or(())?;
+    let title = fields.remove("title").ok_or(())?;
+    let message = fields.remove("message").ok_or(())?;
+    if !valid_admin_wallet(&recipient_wallet_address)
+        || !valid_admin_form_text(&title, 255, true)
+        || !valid_admin_form_text(&message, 16 * 1024, true)
+    {
+        return Err(());
+    }
+    Ok(AdminNotificationSendForm {
+        recipient_wallet_address: recipient_wallet_address.to_ascii_lowercase(),
+        title,
+        message,
+    })
+}
+
+fn admin_notification_form_redirect(state: &'static str) -> Response {
+    let state = matches!(state, "accepted")
+        .then_some("accepted")
+        .unwrap_or("error");
+    let mut response = Redirect::to("/notifications/manage?send=accepted").into_response();
+    if state == "error" {
+        response = Redirect::to("/notifications/manage?send=error").into_response();
+    }
+    let cookie = format!(
+        "{ADMIN_NOTIFICATION_FLASH_COOKIE}={state}; Path=/notifications; Max-Age=30; HttpOnly; SameSite=Lax"
+    );
+    response.headers_mut().append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie).expect("notification flash cookie is bounded"),
+    );
+    response
 }
 
 #[derive(Deserialize)]
@@ -401,10 +505,17 @@ fn state_from_env() -> Result<AppState, String> {
     let api_url = std::env::var("API_URL")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "API_URL or BACKEND_URL is required".to_string())?;
+    let notification_url =
+        std::env::var("NOTIFICATION_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
     let issuer = std::env::var("OIDC_ISSUER")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "OIDC_ISSUER or BACKEND_URL is required".to_string())?;
     validate_auth_url(&api_url, cookie_environment, "API_URL/BACKEND_URL")?;
+    validate_auth_url(
+        &notification_url,
+        cookie_environment,
+        "NOTIFICATION_SERVICE_URL",
+    )?;
     validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
 
     let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
@@ -428,13 +539,17 @@ fn state_from_env() -> Result<AppState, String> {
         base_url: api_url.clone(),
         timeout: Duration::from_secs(15),
     };
+    let notification_cfg = epsx_client::ClientConfig {
+        base_url: notification_url,
+        timeout: Duration::from_secs(15),
+    };
     Ok(AppState {
         identity: Arc::new(ServiceClient::new(cfg.clone())),
         wallet: Arc::new(ServiceClient::new(cfg.clone())),
         payment: Arc::new(ServiceClient::new(cfg.clone())),
         subscription: Arc::new(ServiceClient::new(cfg.clone())),
         content: Arc::new(ServiceClient::new(cfg.clone())),
-        notification: Arc::new(ServiceClient::new(cfg.clone())),
+        notification: Arc::new(ServiceClient::new(notification_cfg)),
         analytics: Arc::new(ServiceClient::new(cfg.clone())),
         indexer: Arc::new(ServiceClient::new(cfg)),
         verifier,
@@ -515,6 +630,135 @@ mod configuration_tests {
         )
         .is_err());
     }
+
+    #[test]
+    fn template_audit_projection_is_bounded_and_versioned() {
+        let payload = serde_json::from_value::<BackendTemplateAuditEnvelope>(serde_json::json!({
+            "items": [{
+                "id": "template-audit-1",
+                "template_id": "0xtemplate",
+                "action": "rollback",
+                "from_version": 2,
+                "to_version": 3,
+                "actor_subject": "admin-subject",
+                "metadata": {"restored_version": 2, "new_version": 3},
+                "created_at": "2026-07-24T00:00:00Z"
+            }]
+        }))
+        .unwrap();
+        assert!(valid_template_audit_payload(&payload));
+
+        let mut unknown_action = payload;
+        unknown_action.items[0].action = "preview".into();
+        assert!(!valid_template_audit_payload(&unknown_action));
+        let mut malformed_metadata =
+            serde_json::from_value::<BackendTemplateAuditEnvelope>(serde_json::json!({
+                "items": [{
+                    "id": "template-audit-1",
+                    "template_id": "0xtemplate",
+                    "action": "updated",
+                    "from_version": null,
+                    "to_version": 1,
+                    "actor_subject": "admin-subject",
+                    "metadata": [],
+                    "created_at": "2026-07-24T00:00:00Z"
+                }]
+            }))
+            .unwrap();
+        assert!(!valid_template_audit_payload(&malformed_metadata));
+        malformed_metadata.items[0].action = "rollback".into();
+        malformed_metadata.items[0].metadata =
+            serde_json::json!({"restored_version": 1, "new_version": 2, "secret": "nope"});
+        assert!(!valid_template_audit_payload(&malformed_metadata));
+        malformed_metadata.items[0].to_version = Some(0);
+        assert!(!valid_template_audit_payload(&malformed_metadata));
+    }
+
+    #[test]
+    fn template_list_projection_is_strict_bounded_and_typed() {
+        let payload = serde_json::from_value::<BackendTemplateList>(serde_json::json!({
+            "items": [{
+                "id": "0xtemplate",
+                "name": "welcome",
+                "channel": "in_app",
+                "subject": "Welcome",
+                "body": "Hello {{name}}",
+                "variables": {"name": {"type": "string", "required": true}},
+                "active": true,
+                "created_at": "2026-07-24T00:00:00Z",
+                "updated_at": "2026-07-24T00:00:00Z"
+            }],
+            "total": 1
+        }))
+        .unwrap();
+        assert!(valid_template_list_payload(&payload));
+
+        let mut negative = payload;
+        negative.total = -1;
+        assert!(!valid_template_list_payload(&negative));
+
+        let mut invalid = serde_json::from_value::<BackendTemplateList>(serde_json::json!({
+            "items": [{
+                "id": "0xtemplate",
+                "name": "welcome",
+                "channel": "sms",
+                "subject": null,
+                "body": "Hello",
+                "variables": {"name": {"type": "string", "unknown": true}},
+                "active": true,
+                "created_at": "2026-07-24T00:00:00Z",
+                "updated_at": "2026-07-24T00:00:00Z"
+            }],
+            "total": 1
+        }))
+        .unwrap();
+        assert!(!valid_template_list_payload(&invalid));
+        invalid.items[0].channel = "in_app".into();
+        invalid.items[0].variables = serde_json::json!({
+            "name": {"type": "string", "description": "line\ncontrol"}
+        });
+        assert!(!valid_template_list_payload(&invalid));
+
+        assert!(
+            serde_json::from_value::<BackendTemplateList>(serde_json::json!({
+                "items": [], "total": 0, "private": "nope"
+            }))
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn notification_metrics_projection_is_non_negative_and_channel_bounded() {
+        let payload = BackendNotificationMetrics {
+            queue_depth: 1,
+            queue_age_seconds: Some(2),
+            suppressed: 0,
+            retry_wait: 0,
+            terminal_failed: 0,
+            dead_lettered: 0,
+            provider_accepted: 1,
+            attempting: 0,
+            channel_outcomes: BTreeMap::from([(String::from("in_app"), 1)]),
+            provider_events: 1,
+            delivery_attempts: 1,
+            replay_cursors: 1,
+            replay_cursor_age_seconds: Some(3),
+            active_streams: 1,
+            stream_connections_total: 2,
+            stream_reconnects_total: 1,
+            stream_replayed_events_total: 1,
+            stream_lag_seconds: Some(1),
+            stream_query_failures_total: 0,
+        };
+        assert!(valid_notification_metrics(&payload));
+        let mut negative = payload;
+        negative.queue_depth = -1;
+        assert!(!valid_notification_metrics(&negative));
+        let mut unknown_channel = negative;
+        unknown_channel.queue_depth = 0;
+        unknown_channel.channel_outcomes.insert("sms".into(), 1);
+        assert!(!valid_notification_metrics(&unknown_channel));
+    }
 }
 
 fn build_app(state: AppState) -> Router {
@@ -579,7 +823,28 @@ fn build_app(state: AppState) -> Router {
             "/api/v1/notifications/templates/{id}",
             delete(delete_template),
         )
+        .route(
+            "/api/v1/notifications/templates/{id}/preview",
+            post(preview_template),
+        )
+        .route(
+            "/api/v1/notifications/templates/{id}/rollback",
+            post(rollback_template),
+        )
+        .route(
+            "/api/v1/notifications/templates/{id}/audit",
+            get(template_audit),
+        )
+        .route("/api/v1/notifications/metrics", get(notification_metrics))
         .route("/api/v1/notifications/send", post(send_notification))
+        // The source app exposes `/notifications/create` as a page and the
+        // form posts back to the same URL. Keep both methods on one route so
+        // a browser GET renders the Dioxus page instead of Axum returning a
+        // method-mismatch 405 before the SSR fallback can run.
+        .route(
+            "/notifications/create",
+            get(fallback_handler).post(submit_notification_form),
+        )
         // Analytics
         .route("/api/v1/analytics/events", get(list_events))
         .route("/api/v1/analytics/metrics/{metric}", get(get_metrics))
@@ -666,11 +931,16 @@ fn api_segments(path: &str) -> Option<Vec<&str>> {
         return None;
     }
     let segments: Vec<_> = path.trim_start_matches('/').split('/').collect();
-    segments.iter().all(|segment| !segment.is_empty()).then_some(segments)
+    segments
+        .iter()
+        .all(|segment| !segment.is_empty())
+        .then_some(segments)
 }
 
 fn is_known_public_admin_api_path(path: &str) -> bool {
-    let Some(segments) = api_segments(path) else { return false; };
+    let Some(segments) = api_segments(path) else {
+        return false;
+    };
     matches!(
         segments.as_slice(),
         ["api", "health"]
@@ -691,7 +961,9 @@ fn is_known_public_admin_api_path(path: &str) -> bool {
 /// authentication middleware uses this before verification so an unknown API
 /// miss cannot be converted into a 401 or SSR HTML response.
 fn is_known_protected_admin_api_path(path: &str) -> bool {
-    let Some(segments) = api_segments(path) else { return false; };
+    let Some(segments) = api_segments(path) else {
+        return false;
+    };
     matches!(
         segments.as_slice(),
         ["api", "v1", "users"]
@@ -710,6 +982,9 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
             | ["api", "v1", "notifications"]
             | ["api", "v1", "notifications", "templates"]
             | ["api", "v1", "notifications", "templates", _]
+            | ["api", "v1", "notifications", "templates", _, "preview"]
+            | ["api", "v1", "notifications", "templates", _, "rollback"]
+            | ["api", "v1", "notifications", "templates", _, "audit"]
             | ["api", "v1", "notifications", "send"]
             | ["api", "v1", "notifications", _]
             | ["api", "v1", "notifications", _, "read"]
@@ -727,13 +1002,13 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
 }
 
 fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
-    let Some(segments) = api_segments(path) else { return false; };
+    let Some(segments) = api_segments(path) else {
+        return false;
+    };
     let is_read = method == Method::GET || method == Method::HEAD;
     match segments.as_slice() {
         ["api", "v1", "users"] => is_read || method == Method::POST,
-        ["api", "v1", "users", _] => {
-            is_read || method == Method::PUT || method == Method::DELETE
-        }
+        ["api", "v1", "users", _] => is_read || method == Method::PUT || method == Method::DELETE,
         ["api", "v1", "payments"]
         | ["api", "v1", "subscriptions"]
         | ["api", "v1", "subscriptions", _]
@@ -751,19 +1026,20 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
         | ["api", "v1", "pages", _, "publish"]
         | ["api", "v1", "notifications", _, "read"]
         | ["api", "v1", "notifications", "send"]
-        | ["api", "v1", "analytics", "track"] => method == Method::POST,
+        | ["api", "v1", "notifications", "templates", _, "preview"]
+        | ["api", "v1", "notifications", "templates", _, "rollback"] => method == Method::POST,
+        ["api", "v1", "notifications", "templates", _, "audit"] => is_read,
+        ["api", "v1", "notifications", "metrics"] => is_read,
+        ["api", "v1", "analytics", "track"] => method == Method::POST,
         ["api", "v1", "subscription", "plans"]
         | ["api", "v1", "pages"]
         | ["api", "v1", "themes"]
-        | ["api", "v1", "notifications", "templates"] => {
-            is_read || method == Method::POST
-        }
-        ["api", "v1", "pages", _] | ["api", "v1", "themes", _] => {
-            is_read || method == Method::PUT
-        }
+        | ["api", "v1", "notifications", "templates"] => is_read || method == Method::POST,
+        ["api", "v1", "pages", _] | ["api", "v1", "themes", _] => is_read || method == Method::PUT,
         ["api", "v1", "notifications"] => is_read,
-        ["api", "v1", "notifications", "templates", _]
-        | ["api", "v1", "notifications", _] => method == Method::DELETE,
+        ["api", "v1", "notifications", "templates", _] | ["api", "v1", "notifications", _] => {
+            method == Method::DELETE
+        }
         _ => false,
     }
 }
@@ -808,19 +1084,13 @@ mod routing_tests {
         fn fetch<'life0, 'life1, 'async_trait>(
             &'life0 self,
             _url: &'life1 str,
-        ) -> Pin<
-            Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>,
-        >
+        ) -> Pin<Box<dyn Future<Output = Result<Jwks, SessionError>> + Send + 'async_trait>>
         where
             'life0: 'async_trait,
             'life1: 'async_trait,
             Self: 'async_trait,
         {
-            Box::pin(async {
-                Err(SessionError::JwksFetch(
-                    "deterministic test outage".into(),
-                ))
-            })
+            Box::pin(async { Err(SessionError::JwksFetch("deterministic test outage".into())) })
         }
     }
 
@@ -872,6 +1142,76 @@ mod routing_tests {
             .unwrap()
     }
 
+    #[test]
+    fn notification_form_parser_is_closed_bounded_and_canonicalizes_wallets() {
+        let wallet = "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+        let body =
+            format!("recipient_wallet_address={wallet}&title=Hello+admin&message=Queued+message");
+        let parsed = parse_admin_notification_form(body.as_bytes()).unwrap();
+        assert_eq!(parsed.recipient_wallet_address, wallet.to_ascii_lowercase());
+        assert_eq!(parsed.title, "Hello admin");
+        assert_eq!(parsed.message, "Queued message");
+
+        for invalid in [
+            format!("{body}&message=duplicate"),
+            format!("{body}&broadcast=true"),
+            format!("recipient_wallet_address=0x123&title=x&message=y"),
+            format!("recipient_wallet_address={wallet}&title=&message=y"),
+        ] {
+            assert!(
+                parse_admin_notification_form(invalid.as_bytes()).is_err(),
+                "{invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn notification_form_requires_same_origin_headers() {
+        let mut headers = HeaderMap::new();
+        headers.insert(header::HOST, HeaderValue::from_static("admin.test"));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://admin.test"),
+        );
+        assert!(same_origin_admin_notification_form(&headers));
+
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://evil.test"),
+        );
+        assert!(!same_origin_admin_notification_form(&headers));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://admin.test"),
+        );
+        headers.insert("sec-fetch-site", HeaderValue::from_static("cross-site"));
+        assert!(!same_origin_admin_notification_form(&headers));
+    }
+
+    #[test]
+    fn notification_form_redirect_is_cookie_paired_and_closed() {
+        let accepted = admin_notification_form_redirect("accepted");
+        assert_eq!(accepted.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            accepted.headers()[header::LOCATION],
+            "/notifications/manage?send=accepted"
+        );
+        assert!(accepted.headers()[header::SET_COOKIE]
+            .to_str()
+            .unwrap()
+            .contains("epsx.admin.notification_send=accepted"));
+
+        let invalid = admin_notification_form_redirect("unexpected");
+        assert_eq!(
+            invalid.headers()[header::LOCATION],
+            "/notifications/manage?send=error"
+        );
+        assert!(invalid.headers()[header::SET_COOKIE]
+            .to_str()
+            .unwrap()
+            .contains("epsx.admin.notification_send=error"));
+    }
+
     #[tokio::test]
     async fn admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie() {
         let response = request_with_cookie(
@@ -913,8 +1253,7 @@ mod routing_tests {
         let wrong_client_html = to_bytes(wrong_client.into_body(), 2 * 1024 * 1024)
             .await
             .unwrap();
-        assert!(!String::from_utf8_lossy(&wrong_client_html)
-            .contains("data-epsx-session-recovery"));
+        assert!(!String::from_utf8_lossy(&wrong_client_html).contains("data-epsx-session-recovery"));
 
         let rejected = request_with_cookie(
             Method::GET,
@@ -972,6 +1311,10 @@ mod routing_tests {
             "/api/v1/notifications/id/read",
             "/api/v1/notifications/templates",
             "/api/v1/notifications/templates/id",
+            "/api/v1/notifications/templates/id/preview",
+            "/api/v1/notifications/templates/id/rollback",
+            "/api/v1/notifications/templates/id/audit",
+            "/api/v1/notifications/metrics",
             "/api/v1/notifications/send",
             "/api/v1/analytics/events",
             "/api/v1/analytics/metrics/usage",
@@ -1018,14 +1361,23 @@ mod routing_tests {
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], "text/html; charset=utf-8", "{path}");
-            let body = to_bytes(response.into_body(), 2 * 1024 * 1024).await.unwrap();
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "text/html; charset=utf-8",
+                "{path}"
+            );
+            let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+                .await
+                .unwrap();
             let html = String::from_utf8_lossy(&body);
             assert!(html.contains("Page not found"), "{path}");
             assert!(!html.contains("admin-skeleton"), "{path}");
         }
 
-        assert_eq!(request(Method::HEAD, "/missing-page").await.status(), StatusCode::NOT_FOUND);
+        assert_eq!(
+            request(Method::HEAD, "/missing-page").await.status(),
+            StatusCode::NOT_FOUND
+        );
     }
 
     #[tokio::test]
@@ -1043,11 +1395,14 @@ mod routing_tests {
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");
-            assert_eq!(response.headers()[header::CONTENT_TYPE], "application/json", "{path}");
-            let body: serde_json::Value = serde_json::from_slice(
-                &to_bytes(response.into_body(), 16 * 1024).await.unwrap(),
-            )
-            .unwrap();
+            assert_eq!(
+                response.headers()[header::CONTENT_TYPE],
+                "application/json",
+                "{path}"
+            );
+            let body: serde_json::Value =
+                serde_json::from_slice(&to_bytes(response.into_body(), 16 * 1024).await.unwrap())
+                    .unwrap();
             assert_eq!(body["error"], "not_found", "{path}");
         }
 
@@ -1055,14 +1410,22 @@ mod routing_tests {
         assert_eq!(head.status(), StatusCode::NOT_FOUND);
         assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
 
-        assert_eq!(request(Method::GET, "/api/v1/users").await.status(), StatusCode::UNAUTHORIZED);
-        assert_eq!(request(Method::HEAD, "/api/v1/users").await.status(), StatusCode::UNAUTHORIZED);
+        assert_eq!(
+            request(Method::GET, "/api/v1/users").await.status(),
+            StatusCode::UNAUTHORIZED
+        );
+        assert_eq!(
+            request(Method::HEAD, "/api/v1/users").await.status(),
+            StatusCode::UNAUTHORIZED
+        );
         assert_eq!(
             request(Method::POST, "/api/v1/users/id").await.status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
         assert_eq!(
-            request(Method::GET, "/api/v1/auth/challenge").await.status(),
+            request(Method::GET, "/api/v1/auth/challenge")
+                .await
+                .status(),
             StatusCode::METHOD_NOT_ALLOWED
         );
     }
@@ -1126,6 +1489,15 @@ mod routing_tests {
             );
             assert!(!html.contains("evil.example"), "{uri}");
         }
+
+        // The notification composer is a real page whose form posts back to
+        // the same path. A GET must therefore reach SSR rather than the
+        // POST-only form handler returning 405.
+        let create = request(Method::GET, "/notifications/create").await;
+        assert_eq!(create.status(), StatusCode::OK);
+        let body = to_bytes(create.into_body(), 2 * 1024 * 1024).await.unwrap();
+        let html = String::from_utf8_lossy(&body);
+        assert!(html.contains("Sign in required"));
     }
 }
 
@@ -1537,6 +1909,23 @@ async fn list_templates(
         .notification
         .get_with_ctx("/api/v1/notification/templates", &ctx)
         .await
+        .and_then(|value| {
+            let payload = serde_json::from_value::<BackendTemplateList>(value)
+                .map_err(|_| epsx_client::ClientError::Service("malformed template list".into()))?;
+            if !valid_template_list_payload(&payload) {
+                return Err(epsx_client::ClientError::Service(
+                    "malformed template list".into(),
+                ));
+            }
+            let encoded = serde_json::to_vec(&payload)
+                .map_err(|_| epsx_client::ClientError::Service("malformed template list".into()))?;
+            if encoded.len() > 512 * 1024 {
+                return Err(epsx_client::ClientError::Service(
+                    "template list response too large".into(),
+                ));
+            }
+            Ok(serde_json::to_value(payload).expect("validated template list is serializable"))
+        })
         .map(|v| Json(v).into_response())
         .map_err(err_to_status)
 }
@@ -1570,6 +1959,294 @@ async fn delete_template(
         .map_err(err_to_status)
 }
 
+async fn preview_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Response, StatusCode> {
+    let ctx = ctx_from(&headers);
+    let path = format!("/api/v1/notification/templates/{id}/preview");
+    state
+        .notification
+        .post_with_ctx(&path, &body, &ctx)
+        .await
+        .map(|v| Json(v).into_response())
+        .map_err(err_to_status)
+}
+
+async fn rollback_template(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AxPath(id): AxPath<String>,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Response, StatusCode> {
+    let ctx = ctx_from(&headers);
+    let path = format!("/api/v1/notification/templates/{id}/rollback");
+    state
+        .notification
+        .post_with_ctx(&path, &body, &ctx)
+        .await
+        .map(|v| Json(v).into_response())
+        .map_err(err_to_status)
+}
+
+const TEMPLATE_AUDIT_MAX_ITEMS: usize = 100;
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BackendTemplateAuditEnvelope {
+    items: Vec<BackendTemplateAuditEntry>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BackendTemplateAuditEntry {
+    id: String,
+    template_id: String,
+    action: String,
+    from_version: Option<i32>,
+    to_version: Option<i32>,
+    actor_subject: String,
+    metadata: serde_json::Value,
+    created_at: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BackendTemplateList {
+    items: Vec<BackendTemplate>,
+    total: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BackendTemplate {
+    id: String,
+    name: String,
+    channel: String,
+    subject: Option<String>,
+    body: String,
+    variables: serde_json::Value,
+    active: bool,
+    created_at: String,
+    updated_at: String,
+}
+
+fn valid_template_list_text(value: &str, min_chars: usize, max_chars: usize) -> bool {
+    let count = value.chars().count();
+    (min_chars..=max_chars).contains(&count) && !value.chars().any(char::is_control)
+}
+
+fn valid_template_list_variables(value: &serde_json::Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object.len() <= 128
+        && serde_json::to_vec(value).is_ok_and(|encoded| encoded.len() <= 64 * 1024)
+        && object.iter().all(|(name, definition)| {
+            (1..=64).contains(&name.len())
+                && name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-' | b'.'))
+                && definition.as_object().is_some_and(|definition| {
+                    definition.len() <= 3
+                        && definition
+                            .get("type")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|kind| {
+                                matches!(
+                                    kind,
+                                    "string"
+                                        | "number"
+                                        | "integer"
+                                        | "boolean"
+                                        | "object"
+                                        | "array"
+                                )
+                            })
+                        && definition
+                            .get("required")
+                            .is_none_or(serde_json::Value::is_boolean)
+                        && definition
+                            .get("description")
+                            .and_then(serde_json::Value::as_str)
+                            .is_none_or(|description| valid_template_list_text(description, 0, 512))
+                        && definition
+                            .keys()
+                            .all(|key| matches!(key.as_str(), "type" | "required" | "description"))
+                })
+        })
+}
+
+fn valid_template_list_rfc3339(value: &str) -> bool {
+    value.len() <= 64
+        && !value.is_empty()
+        && !value.chars().any(char::is_control)
+        && chrono::DateTime::parse_from_rfc3339(value).is_ok()
+}
+
+fn valid_template_list_payload(payload: &BackendTemplateList) -> bool {
+    payload.total >= 0
+        && payload.items.len() <= 128
+        && usize::try_from(payload.total)
+            .ok()
+            .is_some_and(|total| total >= payload.items.len())
+        && payload.items.iter().all(|template| {
+            valid_template_list_text(&template.id, 1, 66)
+                && valid_template_list_text(&template.name, 1, 100)
+                && matches!(template.channel.as_str(), "email" | "in_app" | "push")
+                && template
+                    .subject
+                    .as_deref()
+                    .is_none_or(|subject| valid_template_list_text(subject, 0, 255))
+                && valid_template_list_text(&template.body, 1, 64 * 1024)
+                && valid_template_list_variables(&template.variables)
+                && valid_template_list_rfc3339(&template.created_at)
+                && valid_template_list_rfc3339(&template.updated_at)
+        })
+}
+
+fn valid_template_audit_text(value: &str, max_chars: usize) -> bool {
+    !value.is_empty() && value.chars().count() <= max_chars && !value.chars().any(char::is_control)
+}
+
+fn valid_template_audit_metadata(action: &str, metadata: &serde_json::Value) -> bool {
+    let Some(object) = metadata.as_object() else {
+        return false;
+    };
+    match action {
+        "created" | "updated" | "deleted" => {
+            object.len() == 1
+                && object
+                    .get("template_name")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|name| valid_template_audit_text(name, 100))
+        }
+        "rollback" => {
+            object.len() == 2
+                && object
+                    .get("restored_version")
+                    .and_then(serde_json::Value::as_i64)
+                    .is_some_and(|version| version > 0)
+                && object
+                    .get("new_version")
+                    .and_then(serde_json::Value::as_i64)
+                    .is_some_and(|version| version > 0)
+        }
+        _ => false,
+    }
+}
+
+fn valid_template_audit_payload(payload: &BackendTemplateAuditEnvelope) -> bool {
+    payload.items.len() <= TEMPLATE_AUDIT_MAX_ITEMS
+        && payload.items.iter().all(|entry| {
+            valid_template_audit_text(&entry.id, 128)
+                && valid_template_audit_text(&entry.template_id, 66)
+                && matches!(
+                    entry.action.as_str(),
+                    "created" | "updated" | "deleted" | "rollback"
+                )
+                && entry.from_version.is_none_or(|version| version > 0)
+                && entry.to_version.is_none_or(|version| version > 0)
+                && valid_template_audit_text(&entry.actor_subject, 255)
+                && valid_template_audit_metadata(&entry.action, &entry.metadata)
+                && serde_json::to_vec(&entry.metadata).is_ok_and(|bytes| bytes.len() <= 16 * 1024)
+                && chrono::DateTime::parse_from_rfc3339(&entry.created_at).is_ok()
+                && entry.created_at.len() <= 64
+        })
+}
+
+async fn template_audit(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Result<Response, StatusCode> {
+    let ctx = ctx_from(&headers);
+    let path = format!("/api/v1/notification/templates/{id}/audit");
+    state
+        .notification
+        .get_with_ctx(&path, &ctx)
+        .await
+        .and_then(|value| {
+            let payload = serde_json::from_value::<BackendTemplateAuditEnvelope>(value)?;
+            if !valid_template_audit_payload(&payload) {
+                return Err(epsx_client::ClientError::Service(
+                    "malformed template audit response".into(),
+                ));
+            }
+            Ok(serde_json::to_value(payload)?)
+        })
+        .map(|v| Json(v).into_response())
+        .map_err(err_to_status)
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct BackendNotificationMetrics {
+    queue_depth: i64,
+    queue_age_seconds: Option<i64>,
+    suppressed: i64,
+    retry_wait: i64,
+    terminal_failed: i64,
+    dead_lettered: i64,
+    provider_accepted: i64,
+    attempting: i64,
+    channel_outcomes: BTreeMap<String, i64>,
+    provider_events: i64,
+    delivery_attempts: i64,
+    replay_cursors: i64,
+    replay_cursor_age_seconds: Option<i64>,
+    active_streams: usize,
+    stream_connections_total: u64,
+    stream_reconnects_total: u64,
+    stream_replayed_events_total: u64,
+    stream_lag_seconds: Option<u64>,
+    stream_query_failures_total: u64,
+}
+
+fn valid_notification_metrics(payload: &BackendNotificationMetrics) -> bool {
+    let non_negative = |value: i64| value >= 0;
+    non_negative(payload.queue_depth)
+        && payload.queue_age_seconds.is_none_or(non_negative)
+        && non_negative(payload.suppressed)
+        && non_negative(payload.retry_wait)
+        && non_negative(payload.terminal_failed)
+        && non_negative(payload.dead_lettered)
+        && non_negative(payload.provider_accepted)
+        && non_negative(payload.attempting)
+        && non_negative(payload.provider_events)
+        && non_negative(payload.delivery_attempts)
+        && non_negative(payload.replay_cursors)
+        && payload.replay_cursor_age_seconds.is_none_or(non_negative)
+        && payload.active_streams <= 256
+        && payload.channel_outcomes.iter().all(|(channel, count)| {
+            matches!(channel.as_str(), "email" | "in_app" | "push") && *count >= 0
+        })
+}
+
+async fn notification_metrics(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+) -> Result<Response, StatusCode> {
+    let ctx = ctx_from(&headers);
+    state
+        .notification
+        .get_with_ctx("/api/v1/notification/admin/metrics", &ctx)
+        .await
+        .and_then(|value| {
+            let payload = serde_json::from_value::<BackendNotificationMetrics>(value)?;
+            if !valid_notification_metrics(&payload) {
+                return Err(epsx_client::ClientError::Service(
+                    "malformed notification metrics response".into(),
+                ));
+            }
+            Ok(serde_json::to_value(payload)?)
+        })
+        .map(|value| Json(value).into_response())
+        .map_err(err_to_status)
+}
+
 async fn send_notification(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -1578,10 +2255,80 @@ async fn send_notification(
     let ctx = ctx_from(&headers);
     state
         .notification
-        .post_with_ctx("/api/v1/notification/send", &body, &ctx)
+        .post_with_ctx_status("/api/v1/notification/send", &body, &ctx)
         .await
-        .map(|v| Json(v).into_response())
+        .map(|(status, v)| (status, Json(v)).into_response())
         .map_err(err_to_status)
+}
+
+/// Accept the small, source-compatible notification compose surface rendered
+/// by the Dioxus admin page. Authentication and authorization remain owned by
+/// the verified session and notification service; this handler only translates
+/// the bounded browser form into the service's canonical in-app request.
+async fn submit_notification_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_admin_notification_form(&parts.headers) {
+        return (
+            StatusCode::FORBIDDEN,
+            Json(serde_json::json!({
+                "error": "notification_origin_rejected"
+            })),
+        )
+            .into_response();
+    }
+
+    let Some((token, _user)) = auth::verified_access_token(
+        &parts.headers,
+        state.verifier.as_ref(),
+        state.cookie_environment,
+    )
+    .await
+    else {
+        return StatusCode::UNAUTHORIZED.into_response();
+    };
+
+    let content_type = parts
+        .headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.split(';').next().is_some_and(|value| {
+        value
+            .trim()
+            .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+    }) {
+        return StatusCode::UNSUPPORTED_MEDIA_TYPE.into_response();
+    }
+
+    let body = match to_bytes(body, ADMIN_NOTIFICATION_FORM_MAX).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let form = match parse_admin_notification_form(&body) {
+        Ok(form) => form,
+        Err(()) => return admin_notification_form_redirect("error"),
+    };
+
+    let mut request_context = RequestContext::from_headers(&parts.headers);
+    request_context.auth_token = Some(token);
+    let payload = serde_json::json!({
+        "user_id": form.recipient_wallet_address,
+        "channel": "in_app",
+        "recipient": form.recipient_wallet_address,
+        "template_id": null,
+        "subject": form.title,
+        "body": form.message,
+        "data": null,
+        "expires_at": null,
+    });
+    match state
+        .notification
+        .post_with_ctx_status("/api/v1/notification/send", &payload, &request_context)
+        .await
+    {
+        Ok((status, _)) if status.is_success() => admin_notification_form_redirect("accepted"),
+        _ => admin_notification_form_redirect("error"),
+    }
 }
 
 // ===== Analytics =====

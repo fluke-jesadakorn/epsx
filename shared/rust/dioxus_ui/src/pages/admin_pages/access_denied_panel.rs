@@ -19,6 +19,17 @@ const ADMIN_DESCRIPTION: &str =
 const ADMIN_KEYWORDS: &str = "EPSX, admin, analytics, user management, dashboard";
 const DENIAL_BODY_CLASS: &str =
     "__variable_a460b5 h-screen bg-background text-foreground overflow-hidden font-sans";
+const DENIAL_INLINE_CSS: &str = r#"
+/* The Tailwind CDN does not emit slash-opacity utilities used by the source
+ * panel. Keep those visual tokens local to the denial surface instead of
+ * changing the shared border defaults used by the rest of admin. */
+.admin-denial-runtime-root .border-border\/20 {
+  border-color: rgba(148, 163, 184, 0.20) !important;
+}
+.admin-denial-runtime-root .bg-muted\/30 {
+  background-color: rgba(148, 163, 184, 0.12) !important;
+}
+"#;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DenialModel {
@@ -229,6 +240,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
     let context_is_admin = model.context.as_deref() == Some("admin");
 
     rsx! {
+        style { "{DENIAL_INLINE_CSS}" }
         div {
             class: "fixed inset-0 z-[-1] overflow-hidden pointer-events-none",
             "aria-hidden": "true",
@@ -254,7 +266,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
             class: "admin-denial-runtime-root flex h-screen flex-col overflow-y-auto overflow-x-hidden relative z-0 bg-background",
             "data-admin-denial-runtime": "true",
             section {
-                class: "flex flex-col items-center justify-center min-h-full p-6 sm:p-8 lg:p-12",
+                class: "flex flex-col items-center justify-start min-h-full p-6 sm:p-8 lg:p-12",
                 role: "alert",
                 "aria-labelledby": "admin-denial-title",
                 div {
