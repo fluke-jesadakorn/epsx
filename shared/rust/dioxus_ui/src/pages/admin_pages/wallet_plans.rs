@@ -1,251 +1,325 @@
-//! Truthful admin wallet-plan shells for the list and detail routes.
+//! Backend-authoritative read projections for wallet plan list/detail pages.
 //!
-//! The admin BFF owns the authenticated application shell, while typed,
-//! backend-authoritative plan reads and mutations are not connected here yet.
-//! These leaf renderers therefore keep only the session boundary and an
-//! explicit unavailable state. They do not infer plan access from frontend
-//! roles, permissions, or entitlement fields, and they expose no compatibility
-//! catalog, metrics, editor state, or mutation controls.
+//! Only strict redacted plan fields reach this shared Dioxus layer. Merchant
+//! identity, creation timestamps, correlation IDs, and every plan mutation are
+//! intentionally absent.
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
+use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
 const PLANS_PATH: &str = "/wallet-management/access/plans";
-const MAX_PLAN_REFERENCE_SCALARS: usize = 64;
+const ADMIN_HOME_PATH: &str = "/";
+const MAX_PLANS: usize = 100;
+const MAX_PLAN_NAME_CHARS: usize = 100;
+const MAX_DESCRIPTION_CHARS: usize = 2_000;
+const MAX_AMOUNT_CHARS: usize = 78;
+const MAX_CURRENCY_CHARS: usize = 10;
+const MAX_CHAIN_ID_CHARS: usize = 10;
+const MAX_OFFSET: i64 = 10_000_000;
 
-#[derive(Clone, Copy, PartialEq)]
-enum PlansSurface {
-    List,
-    Detail,
+pub const ADMIN_PLANS_DATA_PARAM: &str = "data_admin_plans";
+pub const ADMIN_PLANS_STATE_PARAM: &str = "data_admin_plans_state";
+pub const ADMIN_PLAN_DETAIL_DATA_PARAM: &str = "data_admin_plan_detail";
+pub const ADMIN_PLAN_DETAIL_STATE_PARAM: &str = "data_admin_plan_detail_state";
+
+pub const ADMIN_PLANS_READY: &str = "ready";
+pub const ADMIN_PLANS_EMPTY: &str = "empty";
+pub const ADMIN_PLANS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_PLANS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_PLANS_MALFORMED: &str = "malformed";
+
+/// Redacted fields from the service AdminPlan DTO. Merchant identity and
+/// timestamps are deliberately not transported into PageContext.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPlanProjection {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub amount: String,
+    pub currency: String,
+    pub chain_id: String,
+    pub interval: i32,
+    pub active: Option<bool>,
+    pub version: i64,
 }
 
-impl PlansSurface {
-    fn meta_title(self) -> &'static str {
-        match self {
-            Self::List => "Wallet plans unavailable",
-            Self::Detail => "Wallet plan unavailable",
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPlanListProjection {
+    pub items: Vec<AdminPlanProjection>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
 
-    fn marker(self) -> &'static str {
-        match self {
-            Self::List => "list",
-            Self::Detail => "detail",
-        }
-    }
+pub fn decode_admin_plan_projection(value: serde_json::Value) -> Option<AdminPlanProjection> {
+    let projection: AdminPlanProjection = serde_json::from_value(value).ok()?;
+    projection.is_well_formed().then_some(projection)
+}
 
-    fn eyebrow(self) -> &'static str {
-        match self {
-            Self::List => "Plan workspace",
-            Self::Detail => "Plan detail workspace",
-        }
+pub fn decode_admin_plan_list_projection(
+    value: serde_json::Value,
+) -> Option<AdminPlanListProjection> {
+    let projection: AdminPlanListProjection = serde_json::from_value(value).ok()?;
+    if projection.items.len() > MAX_PLANS
+        || !(1..=100).contains(&projection.limit)
+        || !(0..=MAX_OFFSET).contains(&projection.offset)
+        || projection.total < 0
+        || projection.items.len() > usize::try_from(projection.limit).ok()?
+        || projection
+            .offset
+            .checked_add(i64::try_from(projection.items.len()).ok()?)?
+            > projection.total
+        || projection.items.iter().any(|item| !item.is_well_formed())
+    {
+        return None;
     }
+    Some(projection)
+}
 
-    fn title(self) -> &'static str {
-        match self {
-            Self::List => "Wallet plans are unavailable",
-            Self::Detail => "This wallet plan cannot be verified",
-        }
-    }
-
-    fn detail(self) -> &'static str {
-        match self {
-            Self::List => {
-                "No plan records or operational plan data are shown because a backend-authoritative plan read contract is not connected."
-            }
-            Self::Detail => {
-                "No plan record or operational plan data are shown because the backend has not verified the requested plan."
-            }
-        }
-    }
-
-    fn retry_label(self) -> &'static str {
-        match self {
-            Self::List => "Retry plan availability",
-            Self::Detail => "Retry plan detail",
-        }
+impl AdminPlanProjection {
+    fn is_well_formed(&self) -> bool {
+        valid_uuid(&self.id)
+            && valid_text(&self.name, MAX_PLAN_NAME_CHARS)
+            && self
+                .description
+                .as_deref()
+                .is_none_or(|value| valid_optional_text(value, MAX_DESCRIPTION_CHARS))
+            && valid_amount(&self.amount)
+            && valid_currency(&self.currency)
+            && valid_chain_id(&self.chain_id)
+            && (1..=366).contains(&self.interval)
+            && self.version >= 0
     }
 }
 
-/// `/wallet-management/access/plans` — the dispatcher-reachable list entry.
+fn valid_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.trim() == value
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_optional_text(value: &str, max_chars: usize) -> bool {
+    value.chars().count() <= max_chars && !value.chars().any(char::is_control)
+}
+
+fn valid_amount(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_AMOUNT_CHARS
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_currency(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_CURRENCY_CHARS
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+}
+
+fn valid_chain_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_CHAIN_ID_CHARS
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn valid_uuid(value: &str) -> bool {
+    super::wallet_access::valid_uuid(value)
+}
+
+fn canonical_plan_id(value: &str) -> Option<String> {
+    valid_uuid(value).then(|| value.to_ascii_lowercase())
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PlansLoad {
+    Ready(AdminPlanListProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn plans_load(ctx: &PageContext) -> PlansLoad {
+    match ctx.params.get(ADMIN_PLANS_STATE_PARAM).map(String::as_str) {
+        Some(ADMIN_PLANS_READY) | Some(ADMIN_PLANS_EMPTY) => {
+            let Some(raw) = ctx.params.get(ADMIN_PLANS_DATA_PARAM) else {
+                return PlansLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_plan_list_projection)
+            else {
+                return PlansLoad::Malformed;
+            };
+            match (
+                ctx.params.get(ADMIN_PLANS_STATE_PARAM).map(String::as_str),
+                projection.items.is_empty(),
+                projection.total,
+            ) {
+                (Some(ADMIN_PLANS_READY), false, _) => PlansLoad::Ready(projection),
+                (Some(ADMIN_PLANS_READY), true, total) if total > 0 => PlansLoad::Ready(projection),
+                (Some(ADMIN_PLANS_EMPTY), true, 0) => PlansLoad::Empty,
+                _ => PlansLoad::Malformed,
+            }
+        }
+        Some(ADMIN_PLANS_FORBIDDEN) => PlansLoad::Forbidden,
+        Some(ADMIN_PLANS_MALFORMED) => PlansLoad::Malformed,
+        Some(ADMIN_PLANS_UNAVAILABLE) | None => PlansLoad::Unavailable,
+        Some(_) => PlansLoad::Malformed,
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PlanDetailLoad {
+    Ready(AdminPlanProjection),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn plan_detail_load(ctx: &PageContext) -> PlanDetailLoad {
+    let Some(route_id) = ctx
+        .params
+        .get("planId")
+        .and_then(|value| canonical_plan_id(value))
+    else {
+        return PlanDetailLoad::Malformed;
+    };
+
+    match ctx
+        .params
+        .get(ADMIN_PLAN_DETAIL_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_PLANS_READY) => {
+            let Some(raw) = ctx.params.get(ADMIN_PLAN_DETAIL_DATA_PARAM) else {
+                return PlanDetailLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_plan_projection)
+            else {
+                return PlanDetailLoad::Malformed;
+            };
+            (canonical_plan_id(&projection.id) == Some(route_id))
+                .then_some(PlanDetailLoad::Ready(projection))
+                .unwrap_or(PlanDetailLoad::Malformed)
+        }
+        Some(ADMIN_PLANS_FORBIDDEN) => PlanDetailLoad::Forbidden,
+        Some(ADMIN_PLANS_MALFORMED) => PlanDetailLoad::Malformed,
+        Some(ADMIN_PLANS_UNAVAILABLE) | None => PlanDetailLoad::Unavailable,
+        Some(_) => PlanDetailLoad::Malformed,
+    }
+}
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    render_surface(ctx, PlansSurface::List, None)
-}
-
-/// Compatibility entry for callers that predate the dispatcher using
-/// [`render`]. It deliberately shares the same fail-closed implementation.
-pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
-    render(ctx)
-}
-
-/// `/wallet-management/access/plans/{planId}` — a fail-closed detail shell.
-///
-/// The route value is only a bounded, control-free diagnostic reference. It is
-/// HTML-escaped by Dioxus, explicitly labelled unverified, and percent-encoded
-/// as one path segment for its native retry link. It never proves existence,
-/// ownership, readability, or manageability of a plan.
-pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
-    let route_reference = bounded_plan_reference(
-        ctx.params
-            .get("planId")
-            .map(String::as_str)
-            .unwrap_or_default(),
-    );
-    render_surface(ctx, PlansSurface::Detail, route_reference)
-}
-
-fn render_surface(
-    ctx: &PageContext,
-    surface: PlansSurface,
-    route_reference: Option<String>,
-) -> (PageMeta, Element) {
-    let meta = PageMeta::admin(surface.meta_title());
-    let retry_href = route_reference
-        .as_deref()
-        .map(plan_detail_href)
-        .unwrap_or_else(|| PLANS_PATH.to_string());
-
-    // Query parameters and legacy hydration values are intentionally ignored.
-    // The frontend applies only a session boundary; the Rust backend remains
-    // responsible for plan authorization, reads, and mutations.
+    let meta = PageMeta::admin("Wallet plans");
     (
         meta,
         rsx! {
             AuthGate {
                 user: ctx.user.clone(),
                 feature: Some("the wallet plan workspace".to_string()),
-                // A signed-out detail response must not reflect its route value.
                 return_url: Some(PLANS_PATH.to_string()),
-                WalletPlansUnavailable { surface, route_reference, retry_href }
+                RenderPlanList { ctx: ctx.clone() }
             }
         },
     )
 }
 
-/// Remove control characters and cap the visible reference by Unicode scalar
-/// count. Returning `None` keeps an empty or control-only value out of output.
-fn bounded_plan_reference(raw: &str) -> Option<String> {
-    let cleaned = raw
-        .chars()
-        .filter(|character| !character.is_control())
-        .collect::<String>();
-    let cleaned = cleaned.trim();
-
-    if cleaned.is_empty() {
-        return None;
-    }
-
-    if cleaned.chars().count() <= MAX_PLAN_REFERENCE_SCALARS {
-        return Some(cleaned.to_string());
-    }
-
-    let mut bounded = cleaned
-        .chars()
-        .take(MAX_PLAN_REFERENCE_SCALARS.saturating_sub(1))
-        .collect::<String>();
-    bounded.push('…');
-    Some(bounded)
+pub fn render_plans(ctx: &PageContext) -> (PageMeta, Element) {
+    render(ctx)
 }
 
-/// Encode the already-bounded reference as exactly one URL path segment.
-fn plan_detail_href(reference: &str) -> String {
-    let mut encoded = String::with_capacity(reference.len());
-    for byte in reference.as_bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
-                encoded.push(char::from(*byte));
+pub fn render_editor(ctx: &PageContext) -> (PageMeta, Element) {
+    let meta = PageMeta::admin("Wallet plan detail");
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the wallet plan workspace".to_string()),
+                return_url: Some(PLANS_PATH.to_string()),
+                RenderPlanDetail { ctx: ctx.clone() }
             }
-            _ => {
-                const HEX: &[u8; 16] = b"0123456789ABCDEF";
-                encoded.push('%');
-                encoded.push(char::from(HEX[(byte >> 4) as usize]));
-                encoded.push(char::from(HEX[(byte & 0x0f) as usize]));
-            }
-        }
-    }
-    format!("{PLANS_PATH}/{encoded}")
+        },
+    )
 }
 
 #[component]
-fn WalletPlansUnavailable(
-    surface: PlansSurface,
-    route_reference: Option<String>,
-    retry_href: String,
-) -> Element {
-    let title_id = format!("admin-wallet-plans-{}-unavailable-title", surface.marker());
-
-    rsx! {
-        div {
-            class: "container page-content max-w-6xl py-10",
-            "data-admin-wallet-plans-state": "unavailable",
-            "data-admin-wallet-plans-surface": surface.marker(),
-            section {
-                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
-                role: "status",
-                aria_labelledby: title_id.clone(),
-                div { class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
-                div { class: "grid gap-8 p-8 md:grid-cols-[auto_1fr] md:p-12",
-                    div {
-                        class: "flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-[#1fc7d4]",
-                        aria_hidden: "true",
-                        Icon { name: "layers".to_string(), size: Some(30) }
+fn RenderPlanList(ctx: PageContext) -> Element {
+    match plans_load(&ctx) {
+        PlansLoad::Ready(projection) => rsx! { PlanListReady { projection } },
+        PlansLoad::Empty => rsx! {
+            PageLayout {
+                max_width: Some(PageMaxWidth::SevenXl),
+                PageHeader {
+                    title: "Wallet plans".to_string(),
+                    subtitle: Some("Review backend-authoritative plan definitions".to_string()),
+                    icon: Some("layers".to_string()),
+                    gradient: Some(PageGradient::Purple),
+                    centered: Some(false),
+                    extra_actions: None,
+                    class_name: None,
+                }
+                section {
+                    class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
+                    role: "status",
+                    "data-admin-wallet-plans-state": ADMIN_PLANS_EMPTY,
+                    h2 { class: "text-xl font-semibold text-foreground", "No wallet plans returned" }
+                    p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground",
+                        "The backend returned an authoritative empty plan projection. Plan mutations are not offered."
                     }
-                    div {
-                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-[#1fc7d4]",
-                            {surface.eyebrow()}
-                        }
-                        h1 { id: title_id, class: "mt-3 text-3xl font-black tracking-tight text-foreground",
-                            {surface.title()}
-                        }
-                        div { class: "mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5",
-                            p { class: "text-sm font-semibold leading-6 text-foreground",
-                                {surface.detail()}
-                            }
-                        }
-                        if let Some(reference) = route_reference {
-                            p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
-                                "Unverified plan reference: "
-                                code { "data-admin-wallet-plans-reference": "bounded-unverified", "{reference}" }
-                            }
-                        }
-                        p { class: "mt-5 max-w-3xl text-sm leading-6 text-muted-foreground",
-                            "The verified session keeps this workspace private. Only the Rust backend may authorize plan reads or management and return typed plan data."
-                        }
-                        div { class: "mt-8 grid gap-4 sm:grid-cols-3",
-                            BoundaryItem {
-                                icon: "database",
-                                title: "Plan data",
-                                detail: "Records remain hidden until a typed backend response is available."
-                            }
-                            BoundaryItem {
-                                icon: "shield",
-                                title: "Authorization",
-                                detail: "Frontend roles and entitlement fields never grant plan authority."
-                            }
-                            BoundaryItem {
-                                icon: "lock",
-                                title: "Operations",
-                                detail: "Plan operations remain disabled without verified backend mutations."
-                            }
-                        }
-                        nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
-                            a { class: "btn btn-primary", href: retry_href,
-                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                " {surface.retry_label()}"
-                            }
-                            if surface == PlansSurface::Detail {
-                                a { class: "btn btn-outline", href: PLANS_PATH,
-                                    Icon { name: "arrow-left".to_string(), size: Some(16) }
-                                    " Plan list"
-                                }
-                            }
-                            a { class: "btn btn-ghost", href: "/",
-                                Icon { name: "home".to_string(), size: Some(16) }
-                                " Admin home"
-                            }
+                }
+            }
+        },
+        PlansLoad::Forbidden => plan_problem_element(ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read plan definitions."),
+        PlansLoad::Unavailable => plan_problem_element(ADMIN_PLANS_UNAVAILABLE, "Wallet plans are unavailable", "The subscription backend could not provide an authoritative plan response. No plans are being shown."),
+        PlansLoad::Malformed => plan_problem_element(ADMIN_PLANS_MALFORMED, "Wallet plan data could not be verified", "The backend response did not match the strict redacted plan contract. No plans are being shown."),
+    }
+}
+
+#[component]
+fn PlanListReady(projection: AdminPlanListProjection) -> Element {
+    rsx! {
+        PageLayout {
+            max_width: Some(PageMaxWidth::SevenXl),
+            PageHeader {
+                title: "Wallet plans".to_string(),
+                subtitle: Some("Review backend-authoritative plan definitions".to_string()),
+                icon: Some("layers".to_string()),
+                gradient: Some(PageGradient::Purple),
+                centered: Some(false),
+                extra_actions: None,
+                class_name: None,
+            }
+            section {
+                class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+                aria_labelledby: "admin-wallet-plans-title",
+                "data-admin-wallet-plans-state": ADMIN_PLANS_READY,
+                div { class: "h-1 bg-gradient-to-r from-[#7645d9] via-[#1fc7d4] to-[#ed4b9e]", aria_hidden: "true" }
+                div { class: "p-5 sm:p-6",
+                    h2 { id: "admin-wallet-plans-title", class: "text-lg font-semibold text-foreground", "Plan definitions" }
+                    p { class: "mt-1 text-sm leading-6 text-muted-foreground",
+                        "{projection.total} authoritative records in this bounded response. No plan operations are available."
+                    }
+                }
+                if projection.items.is_empty() {
+                    div { class: "border-t border-border/30 p-8 text-center", role: "status",
+                        "No plans are present on this bounded page; additional continuation is unavailable."
+                    }
+                } else {
+                    ul { class: "divide-y divide-border/30 border-t border-border/30", aria_label: "Wallet plans",
+                        for plan in projection.items {
+                            PlanListRow { plan }
                         }
                     }
                 }
@@ -255,16 +329,126 @@ fn WalletPlansUnavailable(
 }
 
 #[component]
-fn BoundaryItem(icon: &'static str, title: &'static str, detail: &'static str) -> Element {
+fn PlanListRow(plan: AdminPlanProjection) -> Element {
+    let href = plan_href(&plan.id);
+    let state = plan_state_label(plan.active);
+
     rsx! {
-        div { class: "rounded-xl border border-border/20 bg-background/40 p-5",
-            div { class: "flex items-center gap-2 font-semibold text-foreground",
-                Icon { name: icon.to_string(), size: Some(18) }
-                "{title}"
+        li { class: "grid gap-4 p-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center",
+            div {
+                p { class: "font-semibold text-foreground", "{plan.name}" }
+                if let Some(description) = plan.description {
+                    p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{description}" }
+                }
+                p { class: "mt-1 text-xs text-muted-foreground", "Chain {plan.chain_id} · every {plan.interval} day(s)" }
             }
-            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
-            span { class: "mt-3 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-400",
-                "Unavailable"
+            div { class: "sm:text-right",
+                p { class: "text-sm font-semibold text-foreground", "{plan.amount} {plan.currency}" }
+                p { class: "mt-1 text-xs text-muted-foreground", "{state}" }
+            }
+            a { class: "btn btn-sm btn-outline", href, "Read detail" }
+        }
+    }
+}
+
+#[component]
+fn RenderPlanDetail(ctx: PageContext) -> Element {
+    match plan_detail_load(&ctx) {
+        PlanDetailLoad::Ready(plan) => rsx! {
+            PlanDetailReady { plan }
+        },
+        PlanDetailLoad::Forbidden => plan_problem_element(ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read this plan."),
+        PlanDetailLoad::Unavailable => plan_problem_element(ADMIN_PLANS_UNAVAILABLE, "Wallet plan detail is unavailable", "The subscription backend could not provide an authoritative plan response. No plan data is being shown."),
+        PlanDetailLoad::Malformed => plan_problem_element(ADMIN_PLANS_MALFORMED, "Wallet plan detail could not be verified", "The route identifier or backend response did not match the strict plan contract. No plan data is being shown."),
+    }
+}
+
+#[component]
+fn PlanDetailReady(plan: AdminPlanProjection) -> Element {
+    rsx! {
+        PageLayout {
+            max_width: Some(PageMaxWidth::FourXl),
+            PageHeader {
+                title: "Wallet plan detail".to_string(),
+                subtitle: Some("Backend-authoritative read-only plan projection".to_string()),
+                icon: Some("layers".to_string()),
+                gradient: Some(PageGradient::Purple),
+                centered: Some(false),
+                extra_actions: None,
+                class_name: None,
+            }
+            section {
+                class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl sm:p-8",
+                "data-admin-wallet-plan-detail-state": ADMIN_PLANS_READY,
+                h2 { class: "text-2xl font-bold text-foreground", "{plan.name}" }
+                if let Some(description) = plan.description {
+                    p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{description}" }
+                }
+                dl { class: "mt-6 grid gap-4 sm:grid-cols-2",
+                    PlanField { label: "Amount", value: format!("{} {}", plan.amount, plan.currency) }
+                    PlanField { label: "Chain", value: plan.chain_id }
+                    PlanField { label: "Interval", value: format!("{} day(s)", plan.interval) }
+                    PlanField { label: "Status", value: plan_state_label(plan.active).to_string() }
+                    PlanField { label: "Read version", value: plan.version.to_string() }
+                }
+                nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
+                    a { class: "btn btn-outline", href: PLANS_PATH,
+                        Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        " Plan list"
+                    }
+                    a { class: "btn btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PlanField(label: &'static str, value: String) -> Element {
+    rsx! {
+        div { class: "rounded-xl border border-border/20 bg-background/40 p-4",
+            dt { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "{label}" }
+            dd { class: "mt-1 break-words text-sm font-semibold text-foreground", "{value}" }
+        }
+    }
+}
+
+fn plan_state_label(active: Option<bool>) -> &'static str {
+    match active {
+        Some(true) => "Active",
+        Some(false) => "Inactive",
+        None => "Status not reported",
+    }
+}
+
+fn plan_href(id: &str) -> String {
+    format!("{PLANS_PATH}/{id}")
+}
+
+fn plan_problem_element(state: &'static str, title: &'static str, detail: &'static str) -> Element {
+    rsx! {
+        PageLayout {
+            max_width: Some(PageMaxWidth::SevenXl),
+            PageHeader {
+                title: "Wallet plans".to_string(),
+                subtitle: Some("Read-only backend projection".to_string()),
+                icon: Some("layers".to_string()),
+                gradient: Some(PageGradient::Purple),
+                centered: Some(false),
+                extra_actions: None,
+                class_name: None,
+            }
+            section {
+                class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
+                role: if state == ADMIN_PLANS_FORBIDDEN { "alert" } else { "status" },
+                aria_labelledby: "admin-wallet-plans-problem-title",
+                "data-admin-wallet-plans-state": state,
+                h2 { id: "admin-wallet-plans-problem-title", class: "text-xl font-bold text-foreground", "{title}" }
+                p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
+                    a { class: "btn btn-sm btn-outline", href: PLANS_PATH, "Retry plan read" }
+                    a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                }
             }
         }
     }
@@ -272,174 +456,166 @@ fn BoundaryItem(icon: &'static str, title: &'static str, detail: &'static str) -
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
     use super::*;
     use crate::auth::User;
+
+    const PLAN_ID: &str = "00000000-0000-0000-0000-000000000001";
 
     fn session() -> User {
         User {
             id: "plan-session".to_string(),
             address: "0x1234".to_string(),
             chain_id: "56".to_string(),
-            roles: vec![],
             permissions: vec![],
             ..Default::default()
         }
     }
 
-    fn context(path: &str, signed_in: bool) -> PageContext {
-        PageContext {
+    fn list_context(state: &str, data: Option<serde_json::Value>, signed_in: bool) -> PageContext {
+        let mut ctx = PageContext {
             user: signed_in.then(session),
-            path: path.to_string(),
+            path: PLANS_PATH.to_string(),
             ..Default::default()
-        }
-    }
-
-    fn detail_context(plan_id: &str, signed_in: bool) -> PageContext {
-        PageContext {
-            user: signed_in.then(session),
-            path: format!("{PLANS_PATH}/{plan_id}"),
-            params: HashMap::from([("planId".to_string(), plan_id.to_string())]),
-            ..Default::default()
-        }
-    }
-
-    fn html(element: Element) -> String {
-        dioxus_ssr::render_element(element)
-    }
-
-    #[test]
-    fn signed_out_entries_keep_plan_state_and_detail_reference_private() {
-        let live_list = html(render(&context(PLANS_PATH, false)).1);
-        let compatibility_list = html(render_plans(&context(PLANS_PATH, false)).1);
-        let detail = html(render_editor(&detail_context("private-plan", false)).1);
-
-        for rendered in [live_list, compatibility_list, detail] {
-            assert!(rendered.contains("Sign in required"));
-            assert!(!rendered.contains("data-admin-wallet-plans-state"));
-            assert!(!rendered.contains("Wallet plans are unavailable"));
-            assert!(!rendered.contains("private-plan"));
-            assert!(rendered.contains("return_url=%2Fwallet-management%2Faccess%2Fplans"));
-        }
-    }
-
-    #[test]
-    fn empty_role_session_reaches_every_public_unavailable_entry() {
-        let live_list = html(render(&context(PLANS_PATH, true)).1);
-        let compatibility_list = html(render_plans(&context(PLANS_PATH, true)).1);
-        let detail = html(render_editor(&detail_context("plan-42", true)).1);
-
-        for rendered in [&live_list, &compatibility_list] {
-            assert!(rendered.contains("data-admin-wallet-plans-state=\"unavailable\""));
-            assert!(rendered.contains("data-admin-wallet-plans-surface=\"list\""));
-            assert!(!rendered.contains("Permission required"));
-        }
-        assert!(detail.contains("data-admin-wallet-plans-state=\"unavailable\""));
-        assert!(detail.contains("data-admin-wallet-plans-surface=\"detail\""));
-        assert!(detail.contains("This wallet plan cannot be verified"));
-        assert!(!detail.contains("Permission required"));
-    }
-
-    #[test]
-    fn unavailable_entries_emit_no_samples_catalog_metrics_or_controls() {
-        let list = html(render(&context(PLANS_PATH, true)).1);
-        let compatibility = html(render_plans(&context(PLANS_PATH, true)).1);
-        let detail = html(render_editor(&detail_context("plan-42", true)).1);
-        let combined = format!("{list}{compatibility}{detail}");
-
-        for forbidden in [
-            "$29",
-            "$299",
-            "$999",
-            "Subscribers",
-            "Active Plans",
-            "Total wallets",
-            "plan-list-sidebar",
-            "plan-item-card",
-            "plan-editor-drawer",
-            "Permissions granted",
-            "API limitations",
-            "Promotion &amp; discounts",
-            "Create plan",
-            "New plan",
-            "Duplicate plan",
-            "Edit plan",
-            "Delete plan",
-            "Save plan",
-            "Discard",
-            "Search plans",
-            "<form",
-            "<input",
-            "<select",
-            "<textarea",
-            "<button",
-        ] {
-            assert!(!combined.contains(forbidden), "leaked plan UI: {forbidden}");
-        }
-    }
-
-    #[test]
-    fn hostile_plan_id_is_bounded_control_free_escaped_and_one_segment() {
-        let hostile = format!(
-            "\u{0}\n\t\"><script>alert(1)</script>/../?mode=edit#{}",
-            "🦀".repeat(100)
-        );
-        let bounded = bounded_plan_reference(&hostile).expect("visible reference");
-        assert!(bounded.chars().count() <= MAX_PLAN_REFERENCE_SCALARS);
-        assert!(!bounded.chars().any(char::is_control));
-
-        let mut ctx = detail_context(&hostile, true);
-        ctx.query = "price=999&subscriber=sample&action=delete".to_string();
+        };
         ctx.params
-            .insert("name".to_string(), "Injected plan".to_string());
-        let rendered = html(render_editor(&ctx).1);
+            .insert(ADMIN_PLANS_STATE_PARAM.to_string(), state.to_string());
+        if let Some(data) = data {
+            ctx.params
+                .insert(ADMIN_PLANS_DATA_PARAM.to_string(), data.to_string());
+        }
+        ctx
+    }
 
-        assert!(rendered.contains("Unverified plan reference"));
-        assert!(rendered.contains("data-admin-wallet-plans-reference=\"bounded-unverified\""));
-        assert!(!rendered.contains("<script>"));
-        assert!(rendered.contains("&#60;script&#62;"));
-        assert!(rendered.contains("%22%3E%3Cscript%3E"));
-        assert!(rendered.contains("%2F..%2F%3Fmode%3Dedit%23"));
-        for ignored in [
-            "price=999",
-            "subscriber=sample",
-            "action=delete",
-            "Injected plan",
-        ] {
+    fn detail_context(id: &str, state: &str, data: Option<serde_json::Value>) -> PageContext {
+        let mut ctx = PageContext {
+            user: Some(session()),
+            path: format!("{PLANS_PATH}/{id}"),
+            params: std::collections::HashMap::from([("planId".to_string(), id.to_string())]),
+            ..Default::default()
+        };
+        ctx.params
+            .insert(ADMIN_PLAN_DETAIL_STATE_PARAM.to_string(), state.to_string());
+        if let Some(data) = data {
+            ctx.params
+                .insert(ADMIN_PLAN_DETAIL_DATA_PARAM.to_string(), data.to_string());
+        }
+        ctx
+    }
+
+    fn plan_json(id: &str) -> serde_json::Value {
+        serde_json::json!({
+            "id": id,
+            "name": "Pro",
+            "description": "Backend-defined plan",
+            "amount": "2900",
+            "currency": "USD",
+            "chain_id": "56",
+            "interval": 30,
+            "active": true,
+            "version": 2,
+        })
+    }
+
+    fn list_json() -> serde_json::Value {
+        serde_json::json!({
+            "items": [plan_json(PLAN_ID)],
+            "total": 1,
+            "limit": 20,
+            "offset": 0,
+        })
+    }
+
+    #[test]
+    fn strict_plan_projection_redacts_merchant_and_timestamp_fields() {
+        assert!(decode_admin_plan_projection(plan_json(PLAN_ID)).is_some());
+        assert!(decode_admin_plan_projection(serde_json::json!({
+            "id": PLAN_ID,
+            "name": "Pro",
+            "description": null,
+            "amount": "2900",
+            "currency": "USD",
+            "chain_id": "56",
+            "interval": 30,
+            "active": true,
+            "version": 0,
+            "merchant_id": "private-merchant",
+            "created_at": "2026-01-01T00:00:00Z",
+        }))
+        .is_none());
+        assert!(decode_admin_plan_projection(serde_json::json!({
+            "id": "not-a-uuid",
+            "name": "Pro",
+            "description": null,
+            "amount": "2900",
+            "currency": "USD",
+            "chain_id": "56",
+            "interval": 30,
+            "active": true,
+            "version": 0,
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn ready_list_and_detail_are_read_only() {
+        let list = dioxus_ssr::render_element(
+            render(&list_context(ADMIN_PLANS_READY, Some(list_json()), true)).1,
+        );
+        let detail = dioxus_ssr::render_element(
+            render_editor(&detail_context(
+                PLAN_ID,
+                ADMIN_PLANS_READY,
+                Some(plan_json(PLAN_ID)),
+            ))
+            .1,
+        );
+        assert!(list.contains("data-admin-wallet-plans-state=\"ready\""));
+        assert!(list.contains("Read detail"));
+        assert!(detail.contains("data-admin-wallet-plan-detail-state=\"ready\""));
+        assert!(detail.contains("Backend-defined plan"));
+        for rendered in [list, detail] {
+            assert!(!rendered.contains("<form"));
+            assert!(!rendered.contains("<button"));
+            assert!(!rendered.contains("Create plan"));
+            assert!(!rendered.contains("Save plan"));
+            assert!(!rendered.contains("Delete plan"));
+        }
+    }
+
+    #[test]
+    fn invalid_or_mismatched_dynamic_plan_ids_are_malformed() {
+        let invalid = detail_context("not-a-uuid", ADMIN_PLANS_READY, Some(plan_json(PLAN_ID)));
+        let mismatch = detail_context(
+            PLAN_ID,
+            ADMIN_PLANS_READY,
+            Some(plan_json("00000000-0000-0000-0000-000000000002")),
+        );
+        for ctx in [invalid, mismatch] {
             assert!(
-                !rendered.contains(ignored),
-                "legacy value leaked: {ignored}"
+                dioxus_ssr::render_element(render_editor(&ctx).1)
+                    .contains("data-admin-wallets-state=\"malformed\"")
+                    || dioxus_ssr::render_element(render_editor(&ctx).1)
+                        .contains("data-admin-wallet-plans-state=\"malformed\"")
             );
         }
     }
 
     #[test]
-    fn recovery_is_native_exact_and_has_no_mutation_handler() {
-        let list = html(render(&context(PLANS_PATH, true)).1);
-        let detail = html(render_editor(&detail_context("plan 42/blue", true)).1);
-
-        assert!(list.contains(&format!("href=\"{PLANS_PATH}\"")));
-        assert!(list.contains("href=\"/\""));
-        assert!(detail.contains(&format!("href=\"{PLANS_PATH}/plan%2042%2Fblue\"")));
-        assert!(detail.contains(&format!("href=\"{PLANS_PATH}\"")));
-        assert!(detail.contains("href=\"/\""));
-        for rendered in [list, detail] {
-            assert!(!rendered.contains("onclick="));
-            assert!(!rendered.contains("javascript:"));
-            assert!(!rendered.contains("method=\"POST\""));
+    fn forbidden_unavailable_malformed_and_signed_out_states_hide_data() {
+        for state in [
+            ADMIN_PLANS_FORBIDDEN,
+            ADMIN_PLANS_UNAVAILABLE,
+            ADMIN_PLANS_MALFORMED,
+        ] {
+            let rendered =
+                dioxus_ssr::render_element(render(&list_context(state, Some(list_json()), true)).1);
+            assert!(rendered.contains(&format!("data-admin-wallet-plans-state=\"{state}\"")));
+            assert!(!rendered.contains("Backend-defined plan"));
         }
-    }
-
-    #[test]
-    fn bff_shell_is_not_duplicated_across_entries() {
-        let live_list = html(render(&context(PLANS_PATH, true)).1);
-        let compatibility_list = html(render_plans(&context(PLANS_PATH, true)).1);
-        let detail = html(render_editor(&detail_context("plan-42", true)).1);
-
-        for rendered in [live_list, compatibility_list, detail] {
-            assert!(!rendered.contains("admin-shell"));
-            assert!(!rendered.contains("<main"));
-        }
+        let signed_out = dioxus_ssr::render_element(
+            render(&list_context(ADMIN_PLANS_READY, Some(list_json()), false)).1,
+        );
+        assert!(signed_out.contains("Sign in required"));
+        assert!(!signed_out.contains("Backend-defined plan"));
     }
 }
