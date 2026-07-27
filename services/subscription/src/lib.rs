@@ -13,6 +13,8 @@ use thiserror::Error;
 
 pub const PLANS_READ_PERMISSION: &str = "admin:plans:read";
 pub const PLANS_MANAGE_PERMISSION: &str = "admin:plans:manage";
+pub const ACCESS_READ_PERMISSION: &str = "admin:access:read";
+pub const ACCESS_MANAGE_PERMISSION: &str = "admin:access:manage";
 
 const SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
 WITH expected_columns (
@@ -229,6 +231,7 @@ pub fn protect_router(router: Router, verifier: Arc<dyn AccessTokenVerifier>) ->
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AccessPolicy {
     Public,
+    AdminPermission(&'static str),
     PlansRead,
     PlansManage,
     OwnerIdentityUnavailable,
@@ -242,6 +245,29 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     }
     if path.contains('%') || path.contains('\\') {
         return AccessPolicy::Blocked;
+    }
+    if path == "/api/v1/admin/subscription/plans" || path.starts_with("/api/v1/admin/subscription/")
+    {
+        let tail = path
+            .strip_prefix("/api/v1/admin/subscription/")
+            .unwrap_or_default();
+        let segments: Vec<_> = tail.split('/').collect();
+        if segments.iter().any(|segment| segment.is_empty()) {
+            return AccessPolicy::Blocked;
+        }
+        return match (method, segments.as_slice()) {
+            (&Method::GET, ["plans"] | ["plans", _]) => {
+                AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
+            }
+            (&Method::POST, ["plans"]) | (&Method::PATCH, ["plans", _]) => {
+                AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION)
+            }
+            (&Method::GET, ["access"]) => AccessPolicy::AdminPermission(ACCESS_READ_PERMISSION),
+            (&Method::POST, ["access", "assign" | "revoke"]) => {
+                AccessPolicy::AdminPermission(ACCESS_MANAGE_PERMISSION)
+            }
+            _ => AccessPolicy::Blocked,
+        };
     }
     let Some(tail) = path.strip_prefix("/api/v1/subscription/") else {
         return AccessPolicy::Blocked;
@@ -278,6 +304,22 @@ async fn authorize_request(
     match classify(request.method(), request.uri().path()) {
         AccessPolicy::Public => {
             request.headers_mut().remove(header::AUTHORIZATION);
+        }
+        AccessPolicy::AdminPermission(required) => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != ADMIN_AUDIENCE
+                || !principal
+                    .permissions
+                    .iter()
+                    .any(|permission| permission == required)
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
         }
         AccessPolicy::PlansRead => {
             let principal =
@@ -511,6 +553,18 @@ mod tests {
         assert_eq!(downstream.authorization_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.spoofed_identity_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn admin_resource_prefix_is_a_strict_path_boundary() {
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/subscription/plans"),
+            AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
+        ));
+        assert_eq!(
+            classify(&Method::GET, "/api/v1/admin/subscription/plansfoo"),
+            AccessPolicy::Blocked
+        );
     }
 
     #[tokio::test]

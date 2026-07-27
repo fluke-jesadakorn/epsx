@@ -10,6 +10,7 @@
 //! - [`pay_admin`]   — admin force-operations (4 endpoints, slice-3 new)
 //! - [`pay_webhooks`]— on-chain event handler (1 endpoint, slice-3 new)
 
+pub mod admin_commerce;
 pub mod escrows;
 pub mod intents;
 pub mod pay_admin;

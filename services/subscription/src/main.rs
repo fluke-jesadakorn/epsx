@@ -11,6 +11,8 @@ use sqlx::FromRow;
 use std::net::SocketAddr;
 use uuid::Uuid;
 
+mod admin;
+
 #[derive(Parser)]
 #[command(name = "epsx-subscription", about = "EPSX Subscription Service")]
 struct Args {
@@ -124,6 +126,26 @@ async fn main() {
         .route("/api/v1/subscription/subscriptions/{id}", get(get_subscription))
         .route("/api/v1/subscription/subscriptions/{id}/cancel", post(cancel_subscription))
         .route("/api/v1/subscription/vault/{chain_id}", get(get_vault_config))
+        .route(
+            "/api/v1/admin/subscription/plans",
+            get(admin::list_plans).post(admin::create_plan),
+        )
+        .route(
+            "/api/v1/admin/subscription/plans/{id}",
+            get(admin::get_plan).patch(admin::update_plan),
+        )
+        .route(
+            "/api/v1/admin/subscription/access",
+            get(admin::get_access),
+        )
+        .route(
+            "/api/v1/admin/subscription/access/assign",
+            post(admin::assign_access),
+        )
+        .route(
+            "/api/v1/admin/subscription/access/revoke",
+            post(admin::revoke_access),
+        )
         .with_state(state);
     let app = protect_router(app, verifier);
 
