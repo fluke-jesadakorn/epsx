@@ -20,9 +20,9 @@ assert_test_count() {
 }
 
 (cd "$repo_root" && cargo test --offline --locked -p epsx-admin) >"$temp_dir/admin-rust.out" 2>&1
-assert_test_count "$temp_dir/admin-rust.out" 124
+assert_test_count "$temp_dir/admin-rust.out" 139
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui wallet_wallets --lib) >"$temp_dir/wallet-ui-rust.out" 2>&1
-assert_test_count "$temp_dir/wallet-ui-rust.out" 12
+assert_test_count "$temp_dir/wallet-ui-rust.out" 13
 (cd "$repo_root" && cargo test --offline --locked -p epsx-dioxus-ui admin_pages::dashboard::tests --lib) >"$temp_dir/dashboard-ui-rust.out" 2>&1
 assert_test_count "$temp_dir/dashboard-ui-rust.out" 6
 (cd "$repo_root" && cargo test --offline --locked -p epsx dto_to_web_projection_preserves_large_counts_and_count_invariants) >"$temp_dir/wallet-backend-rust.out" 2>&1
@@ -30,7 +30,7 @@ assert_test_count "$temp_dir/wallet-backend-rust.out" 1
 (cd "$repo_root" && cargo test --offline --locked -p epsx --lib dashboard_user_status --no-fail-fast) >"$temp_dir/dashboard-backend-rust.out" 2>&1
 assert_test_count "$temp_dir/dashboard-backend-rust.out" 5
 (cd "$repo_root" && cargo test --offline --locked -p epsx --lib exact_admin --no-fail-fast) >"$temp_dir/dashboard-audience-rust.out" 2>&1
-assert_test_count "$temp_dir/dashboard-audience-rust.out" 2
+assert_test_count "$temp_dir/dashboard-audience-rust.out" 4
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
 grep -q "PASS integrity (27 source routes; 3 redirects; 2 aligned, 8 partial, 17 blocked; 20 STOP blockers" "$temp_dir/integrity.out"
@@ -88,19 +88,19 @@ set -e
 [ "$target_status" -eq 1 ] || { cat "$temp_dir/stale-target.out" >&2; exit 1; }
 grep -q "missing target anchor" "$temp_dir/stale-target.out"
 
-ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/stale-wallet-adapter.json" bun -e '
+ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/stale-commerce-adapter.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
-const evidence = value.targetEvidence.find((item) => item.file === "apps/admin/src/wallet_stats_adapter.rs");
+const evidence = value.targetEvidence.find((item) => item.file === "apps/admin/src/commerce_admin_adapter.rs");
 if (!evidence) process.exit(2);
-evidence.anchors[0] = "tampered wallet adapter route anchor";
+evidence.anchors[0] = "tampered commerce adapter route anchor";
 await Bun.write(process.env.ADMIN_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
 '
 set +e
-"$verify" --mode integrity --fixture "$temp_dir/stale-wallet-adapter.json" >"$temp_dir/stale-wallet-adapter.out" 2>&1
-wallet_adapter_status=$?
+"$verify" --mode integrity --fixture "$temp_dir/stale-commerce-adapter.json" >"$temp_dir/stale-commerce-adapter.out" 2>&1
+commerce_adapter_status=$?
 set -e
-[ "$wallet_adapter_status" -eq 1 ] || { cat "$temp_dir/stale-wallet-adapter.out" >&2; exit 1; }
-grep -q "missing target anchor" "$temp_dir/stale-wallet-adapter.out"
+[ "$commerce_adapter_status" -eq 1 ] || { cat "$temp_dir/stale-commerce-adapter.out" >&2; exit 1; }
+grep -q "missing target anchor" "$temp_dir/stale-commerce-adapter.out"
 
 ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/stale-dashboard-adapter.json" bun -e '
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
@@ -148,7 +148,7 @@ ADMIN_CONTRACT_IN="$contract" ADMIN_CONTRACT_OUT="$temp_dir/stale-wallet-ssr.jso
 const value = await Bun.file(process.env.ADMIN_CONTRACT_IN).json();
 const evidence = value.targetEvidence.find((item) => item.file === "apps/admin/src/ssr.rs");
 if (!evidence) process.exit(2);
-const index = evidence.anchors.indexOf("load_admin_wallet_stats(");
+const index = evidence.anchors.indexOf("load_wallet_stats(");
 if (index < 0) process.exit(2);
 evidence.anchors[index] = "tampered wallet SSR loader anchor";
 await Bun.write(process.env.ADMIN_CONTRACT_OUT, `${JSON.stringify(value, null, 2)}\n`);
@@ -196,4 +196,4 @@ set -e
 [ "$redirect_semantics_status" -eq 1 ] || { cat "$temp_dir/redirect-semantics-tamper.out" >&2; exit 1; }
 grep -q "must retain the exact three redirect proof gaps" "$temp_dir/redirect-semantics-tamper.out"
 
-echo "admin-live-data self-test: PASS (Rust admin/dashboard+wallet UI/backend exact counts, integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/wallet-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"
+echo "admin-live-data self-test: PASS (Rust admin/dashboard+commerce UI/backend exact counts 139/13/6/1/5/4, integrity=0, readiness-stop=3, deterministic emit, tamper/path/stale-target/dashboard-adapter/dashboard-audience/dashboard-route/commerce-adapter/wallet-SSR/stale-source/redirect-set/redirect-semantics=1)"
