@@ -136,8 +136,8 @@
       "claim": "Ranking entitlement resolution remains in the identity crate and consumes the owner-neutral shared repository contract."
     },
     {
-      "id": "runtime-always-free-byte-identical",
-      "claim": "Identity main and identity_service remain byte-identical to the target base and retain always-Free runtime wiring."
+      "id": "runtime-fail-closed-unwired",
+      "claim": "Identity runtime fails closed until an authenticated entitlement adapter is wired; it does not construct, authorize or invoke the extracted store."
     },
     {
       "id": "no-schema-or-migration-change",
@@ -149,7 +149,7 @@
     }
   ],
   "sqlEvidence": {
-    "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
+    "file": "shared/rust/epsx-ranking-store/src/lib.rs",
     "constant": "RANKING_ENTITLEMENT_SNAPSHOT_SQL",
     "sha256": "18d04cc6456e545d1a39c22ab85983ac4de4a26922882e2128721ffa2f418574",
     "bindParameters": ["$1"],
@@ -223,7 +223,12 @@
     {
       "id": "impl-core-snapshot-adapter",
       "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
-      "sha256": "f8a05e0e7262604afb2f096b58a7bf1a029bbb81db3b2b9f1b82566dc0b0696d"
+      "sha256": "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"
+    },
+    {
+      "id": "impl-ranking-store-library",
+      "file": "shared/rust/epsx-ranking-store/src/lib.rs",
+      "sha256": "8c2228460a82e54972d0200991ee4bea73d27bcc1380fb67925e4323b93c5ee1"
     },
     {
       "id": "impl-core-repository-export",
@@ -248,12 +253,12 @@
     {
       "id": "impl-unwired-runtime-main",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"
+      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
     },
     {
-      "id": "impl-always-free-runtime-service",
+      "id": "impl-fail-closed-runtime-service",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
     }
   ],
   "residualStops": [
@@ -290,8 +295,8 @@
       "claim": "Synthetic row fixtures and static SQL inspection do not reconcile target results with populated source authority data."
     },
     {
-      "id": "identity-runtime-still-always-free",
-      "claim": "Identity runtime remains byte-identical and always-Free; it does not construct, authorize or invoke the adapter."
+      "id": "identity-runtime-fails-closed-unwired",
+      "claim": "Identity runtime rejects ranking authority requests until the authenticated entitlement adapter is wired; no store activation or production ranking authority is claimed."
     },
     {
       "id": "identity-workload-auth-tls-absent",

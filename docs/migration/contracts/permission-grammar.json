@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "artifact": "permission-grammar-audit",
   "sourceBaseline": {
-    "ref": "origin/development",
-    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+    "ref": "development",
+    "commit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6"
   },
   "readinessStopExit": 3,
   "authorityBoundary": {
@@ -151,7 +151,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 997,
+      "line": 1056,
       "permission": "admin:users:read",
       "surface": "service:identity:identity.get.users",
       "classification": "canonical-3-segment",
@@ -160,7 +160,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1022,
+      "line": 1081,
       "permission": "admin:users:create",
       "surface": "service:identity:identity.post.users",
       "classification": "canonical-3-segment",
@@ -169,7 +169,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1047,
+      "line": 1106,
       "permission": "admin:users:read",
       "surface": "service:identity:identity.get.user",
       "classification": "canonical-3-segment",
@@ -178,7 +178,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1072,
+      "line": 1131,
       "permission": "admin:users:update",
       "surface": "service:identity:identity.put.user",
       "classification": "canonical-3-segment",
@@ -187,7 +187,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1097,
+      "line": 1156,
       "permission": "admin:users:delete",
       "surface": "service:identity:identity.delete.user",
       "classification": "canonical-3-segment",
@@ -196,7 +196,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1373,
+      "line": 1432,
       "permission": "admin:users:read",
       "surface": "service:wallet:wallet.get.admin-wallets",
       "classification": "canonical-3-segment",
@@ -205,7 +205,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1391,
+      "line": 1460,
       "permission": "admin:users:read",
       "surface": "service:wallet:wallet.get.admin-wallets-stats",
       "classification": "canonical-3-segment",
@@ -214,7 +214,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1409,
+      "line": 1487,
       "permission": "admin:users:read",
       "surface": "service:wallet:wallet.get.admin-wallet",
       "classification": "canonical-3-segment",
@@ -223,7 +223,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1427,
+      "line": 1515,
       "permission": "admin:users:update",
       "surface": "service:wallet:wallet.patch.admin-wallet-metadata",
       "classification": "canonical-3-segment",
@@ -232,7 +232,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1445,
+      "line": 1543,
       "permission": "admin:users:update",
       "surface": "service:wallet:wallet.post.admin-wallet-disable",
       "classification": "canonical-3-segment",
@@ -241,7 +241,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1463,
+      "line": 1571,
       "permission": "admin:users:update",
       "surface": "service:wallet:wallet.post.admin-wallet-enable",
       "classification": "canonical-3-segment",
@@ -250,7 +250,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1481,
+      "line": 1599,
       "permission": "admin:credits:read",
       "surface": "service:wallet:wallet.get.admin-credits",
       "classification": "canonical-3-segment",
@@ -259,7 +259,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1499,
+      "line": 1627,
       "permission": "admin:credits:read",
       "surface": "service:wallet:wallet.get.admin-credit-account",
       "classification": "canonical-3-segment",
@@ -268,7 +268,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1517,
+      "line": 1655,
       "permission": "admin:credits:manage",
       "surface": "service:wallet:wallet.post.admin-credit-grant",
       "classification": "canonical-3-segment",
@@ -277,7 +277,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1535,
+      "line": 1684,
       "permission": "admin:credits:manage",
       "surface": "service:wallet:wallet.post.admin-credit-revoke",
       "classification": "canonical-3-segment",
@@ -286,7 +286,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 1870,
+      "line": 2030,
       "permission": "admin:payments:manage",
       "surface": "service:pay:pay.post.escrow-resolve",
       "classification": "canonical-3-segment",
@@ -295,7 +295,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2067,
+      "line": 2227,
       "permission": "admin:payments:view",
       "surface": "service:pay:pay.get.admin-intents",
       "classification": "canonical-3-segment",
@@ -304,7 +304,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2094,
+      "line": 2254,
       "permission": "admin:payments:manage",
       "surface": "service:pay:pay.post.admin-force-cancel",
       "classification": "canonical-3-segment",
@@ -313,7 +313,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2121,
+      "line": 2281,
       "permission": "admin:payments:manage",
       "surface": "service:pay:pay.post.admin-force-release",
       "classification": "canonical-3-segment",
@@ -322,7 +322,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2148,
+      "line": 2308,
       "permission": "admin:payments:manage",
       "surface": "service:pay:pay.post.admin-force-refund",
       "classification": "canonical-3-segment",
@@ -331,7 +331,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2175,
+      "line": 2335,
       "permission": "admin:payment-links:view",
       "surface": "service:pay:pay.get.admin-links",
       "classification": "canonical-3-segment",
@@ -340,7 +340,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2193,
+      "line": 2364,
       "permission": "admin:payment-links:manage",
       "surface": "service:pay:pay.post.admin-links",
       "classification": "canonical-3-segment",
@@ -349,7 +349,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2211,
+      "line": 2393,
       "permission": "admin:payment-links:manage",
       "surface": "service:pay:pay.post.admin-link-disable",
       "classification": "canonical-3-segment",
@@ -358,7 +358,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2229,
+      "line": 2422,
       "permission": "admin:payments:manage",
       "surface": "service:pay:pay.post.admin-intent-cancel",
       "classification": "canonical-3-segment",
@@ -367,7 +367,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2281,
+      "line": 2485,
       "permission": "admin:plans:manage",
       "surface": "service:subscription:subscription.post.plans",
       "classification": "canonical-3-segment",
@@ -376,7 +376,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2307,
+      "line": 2511,
       "permission": "admin:plans:read",
       "surface": "service:subscription:subscription.get.plans",
       "classification": "canonical-3-segment",
@@ -385,7 +385,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2334,
+      "line": 2538,
       "permission": "admin:plans:read",
       "surface": "service:subscription:subscription.get.plan",
       "classification": "canonical-3-segment",
@@ -394,7 +394,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2494,
+      "line": 2698,
       "permission": "admin:access:read",
       "surface": "service:subscription:subscription.get.admin-access",
       "classification": "canonical-3-segment",
@@ -403,7 +403,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2512,
+      "line": 2726,
       "permission": "admin:plans:read",
       "surface": "service:subscription:subscription.get.admin-plans",
       "classification": "canonical-3-segment",
@@ -412,7 +412,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2530,
+      "line": 2754,
       "permission": "admin:plans:read",
       "surface": "service:subscription:subscription.get.admin-plan",
       "classification": "canonical-3-segment",
@@ -421,7 +421,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2548,
+      "line": 2782,
       "permission": "admin:plans:manage",
       "surface": "service:subscription:subscription.patch.admin-plan",
       "classification": "canonical-3-segment",
@@ -430,7 +430,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2566,
+      "line": 2811,
       "permission": "admin:access:manage",
       "surface": "service:subscription:subscription.post.admin-access-assign",
       "classification": "canonical-3-segment",
@@ -439,7 +439,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2584,
+      "line": 2840,
       "permission": "admin:access:manage",
       "surface": "service:subscription:subscription.post.admin-access-revoke",
       "classification": "canonical-3-segment",
@@ -448,7 +448,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2602,
+      "line": 2869,
       "permission": "admin:plans:manage",
       "surface": "service:subscription:subscription.post.admin-plan",
       "classification": "canonical-3-segment",
@@ -457,7 +457,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2655,
+      "line": 2933,
       "permission": "admin:content:manage",
       "surface": "service:content:content.get.page-editor",
       "classification": "canonical-3-segment",
@@ -466,7 +466,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2683,
+      "line": 2961,
       "permission": "admin:content:manage",
       "surface": "service:content:content.put.page",
       "classification": "canonical-3-segment",
@@ -475,7 +475,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2710,
+      "line": 2988,
       "permission": "admin:content:manage",
       "surface": "service:content:content.post.pages",
       "classification": "canonical-3-segment",
@@ -484,7 +484,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2737,
+      "line": 3015,
       "permission": "admin:content:manage",
       "surface": "service:content:content.get.pages",
       "classification": "canonical-3-segment",
@@ -493,7 +493,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2764,
+      "line": 3042,
       "permission": "admin:content:manage",
       "surface": "service:content:content.post.page-publish",
       "classification": "canonical-3-segment",
@@ -502,7 +502,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2847,
+      "line": 3125,
       "permission": "admin:content:manage",
       "surface": "service:content:content.post.themes",
       "classification": "canonical-3-segment",
@@ -511,7 +511,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2901,
+      "line": 3179,
       "permission": "admin:content:manage",
       "surface": "service:content:content.put.theme",
       "classification": "canonical-3-segment",
@@ -520,7 +520,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 2984,
+      "line": 3262,
       "permission": "admin:content:manage",
       "surface": "service:content:content.post.edit-start",
       "classification": "canonical-3-segment",
@@ -529,7 +529,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3012,
+      "line": 3290,
       "permission": "admin:content:manage",
       "surface": "service:content:content.post.edit-commit",
       "classification": "canonical-3-segment",
@@ -538,7 +538,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3039,
+      "line": 3317,
       "permission": "admin:content:manage",
       "surface": "service:content:content.get.edit-sessions",
       "classification": "canonical-3-segment",
@@ -547,7 +547,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3293,
+      "line": 3571,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.get.templates",
       "classification": "canonical-3-segment",
@@ -556,7 +556,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3319,
+      "line": 3597,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.post.templates",
       "classification": "canonical-3-segment",
@@ -565,7 +565,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3345,
+      "line": 3623,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.get.template",
       "classification": "canonical-3-segment",
@@ -574,7 +574,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3371,
+      "line": 3649,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.delete.template",
       "classification": "canonical-3-segment",
@@ -583,7 +583,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3397,
+      "line": 3675,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.post.send",
       "classification": "canonical-3-segment",
@@ -592,7 +592,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3423,
+      "line": 3701,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.get.admin-list",
       "classification": "canonical-3-segment",
@@ -601,7 +601,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3450,
+      "line": 3728,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.get.admin-metrics",
       "classification": "canonical-3-segment",
@@ -610,7 +610,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3477,
+      "line": 3755,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.post.admin-read",
       "classification": "canonical-3-segment",
@@ -619,7 +619,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3504,
+      "line": 3782,
       "permission": "admin:notifications:manage",
       "surface": "service:notification:notification.delete.admin",
       "classification": "canonical-3-segment",
@@ -628,7 +628,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3801,
+      "line": 4079,
       "permission": "admin:analytics:view",
       "surface": "service:analytics:analytics.get.events",
       "classification": "canonical-3-segment",
@@ -637,7 +637,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3828,
+      "line": 4106,
       "permission": "admin:audit:read",
       "surface": "service:analytics:analytics.get.admin-audit-log",
       "classification": "canonical-3-segment",
@@ -646,7 +646,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3856,
+      "line": 4134,
       "permission": "admin:analytics:view",
       "surface": "service:analytics:analytics.get.metric",
       "classification": "canonical-3-segment",
@@ -655,7 +655,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 3883,
+      "line": 4161,
       "permission": "admin:analytics:view",
       "surface": "service:analytics:analytics.get.revenue",
       "classification": "canonical-3-segment",
@@ -664,7 +664,7 @@
     {
       "sourceType": "service-authorization",
       "file": "docs/migration/contracts/service-authorization.json",
-      "line": 4109,
+      "line": 4387,
       "permission": "admin:indexer:manage",
       "surface": "service:indexer:indexer.post.sync",
       "classification": "canonical-3-segment",

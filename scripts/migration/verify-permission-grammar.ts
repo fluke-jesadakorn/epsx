@@ -346,8 +346,8 @@ function validateFixture(
   if (fixture.readinessStopExit !== READINESS_STOP_EXIT) {
     errors.push(`readinessStopExit must reserve ${READINESS_STOP_EXIT}`);
   }
-  if (fixture.sourceBaseline?.ref !== "origin/development" || !/^[0-9a-f]{40}$/.test(fixture.sourceBaseline?.commit ?? "")) {
-    errors.push("sourceBaseline must pin origin/development to a 40-character commit");
+  if (fixture.sourceBaseline?.ref !== "development" || !/^[0-9a-f]{40}$/.test(fixture.sourceBaseline?.commit ?? "")) {
+    errors.push("sourceBaseline must pin development to a 40-character commit");
   }
   if (
     fixture.authorityBoundary?.policyAuthority !== "rust-backend-only" ||
@@ -369,16 +369,16 @@ function validateFixture(
   }
 
   if (checkRef) {
-    const result = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "origin/development"], {
+    const result = Bun.spawnSync(["git", "-C", repoRoot, "rev-parse", "development"], {
       stdout: "pipe",
       stderr: "pipe",
     });
     if (result.exitCode !== 0) {
-      errors.push("unable to resolve origin/development for sourceBaseline verification");
+      errors.push("unable to resolve development for sourceBaseline verification");
     } else {
       const resolvedRef = new TextDecoder().decode(result.stdout).trim();
       if (resolvedRef !== fixture.sourceBaseline.commit) {
-        errors.push(`origin/development moved: fixture=${fixture.sourceBaseline.commit} actual=${resolvedRef}`);
+        errors.push(`development moved: fixture=${fixture.sourceBaseline.commit} actual=${resolvedRef}`);
       }
     }
   }

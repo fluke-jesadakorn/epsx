@@ -99,8 +99,8 @@
     "compatibilityQueryBytes": 20887,
     "compatibilityQuerySha256": "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e",
     "qualifiedRelationOccurrences": {
-      "public.templates": 8,
-      "public.notifications": 11
+      "public.templates": 7,
+      "public.notifications": 26
     },
     "timestampBind": "Some(chrono::Utc::now())",
     "templateLoadResult": "Result<(), TemplateLoadError>",

@@ -36,6 +36,7 @@
   "runtimeBoundary": {
     "rustRoot": "services/wallet",
     "rustInventory": [
+      "services/wallet/src/commerce.rs",
       "services/wallet/src/lib.rs",
       "services/wallet/src/main.rs"
     ],
@@ -134,6 +135,18 @@
           "CREATE TABLE IF NOT EXISTS public.nonces (",
           "CREATE TABLE IF NOT EXISTS public.signed_transactions ("
         ]
+      },
+      {
+        "version": "20260727000000",
+        "path": "services/wallet/migrations/20260727000000_create_admin_wallet_commerce.sql",
+        "bytes": 2759,
+        "sha256": "5d43af24819064b7269bef399ae9f95263e88a75b1ff368a033f46feb53b0a53"
+      },
+      {
+        "version": "20260727000001",
+        "path": "services/wallet/migrations/20260727000001_add_credit_operation_results.sql",
+        "bytes": 503,
+        "sha256": "dce097cb7c0f846513e5faf7a920ab5056ba0b694056c1f7b99d53c77a2562de"
       }
     ]
   },

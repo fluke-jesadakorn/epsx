@@ -211,7 +211,7 @@ if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fa
 
 const expectedImplementation = [
   ["impl-fail-closed-grpc-client", "apps/analytics/src/grpc_client.rs", "bafac48faf1e9d03d1990ba57f922a01a350ff7763bed7ede2e70917a2c7a559"],
-  ["impl-lazy-runtime-wiring", "apps/analytics/src/main.rs", "76daa6108d37f2c09b76109437e271f3393f9917cef631ccaed198c17858fda4"],
+  ["impl-lazy-runtime-wiring", "apps/analytics/src/main.rs", "4ba28a2829a0d213754159e4102d4e3e6ceec6accaef31e6746e958492b592fa"],
   ["impl-fail-closed-ranking-handler", "apps/backend/src/web/analytics/eps/cache.rs", "282b0be9a63d8e25cfd84970e90da03ea6db1f3a0582f0cf2659c67eaf7b57c6"],
 ];
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== expectedImplementation.length) fail("three implementation records are required");

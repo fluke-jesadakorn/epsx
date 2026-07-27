@@ -625,27 +625,21 @@ async fn create_template(
     State(state): State<AppState>,
     Json(req): Json<CreateTemplateRequest>,
 ) -> Result<Json<Template>, StatusCode> {
-    let id = format!("0x{}", Uuid::new_v4().simple());
-    sqlx::query(
+    let candidate_id = format!("0x{}", Uuid::new_v4().simple());
+    let template: Template = sqlx::query_as::<_, Template>(
         "INSERT INTO public.templates (id, name, channel, subject, body, variables, active) VALUES ($1, $2, $3, $4, $5, $6, true)
-         ON CONFLICT (name) DO UPDATE SET body = EXCLUDED.body, subject = EXCLUDED.subject, variables = EXCLUDED.variables, updated_at = NOW()"
+         ON CONFLICT (name) DO UPDATE SET body = EXCLUDED.body, subject = EXCLUDED.subject, variables = EXCLUDED.variables, updated_at = NOW()
+         RETURNING id, name, channel, subject, body, variables, active, created_at, updated_at"
     )
-    .bind(&id).bind(&req.name).bind(&req.channel).bind(&req.subject).bind(&req.body).bind(req.variables.clone())
-    .execute(&state.db).await
+    .bind(&candidate_id).bind(&req.name).bind(&req.channel).bind(&req.subject).bind(&req.body).bind(req.variables.clone())
+    .fetch_one(&state.db).await
     .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let _ = state
         .templates
         .write()
         .await
-        .register_template_string(&req.name, req.body.clone());
-
-    let template: Template = sqlx::query_as::<_, Template>(
-        "SELECT id, name, channel, subject, body, variables, active, created_at, updated_at FROM public.templates WHERE id = $1"
-    )
-    .bind(&id)
-    .fetch_one(&state.db).await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .register_template_string(&template.name, template.body.clone());
     Ok(Json(template))
 }
 
@@ -843,7 +837,7 @@ async fn send_in_app(
     _data: Option<&serde_json::Value>,
 ) -> (String, Option<String>, bool) {
     // In-app notifications are stored in DB and retrieved via WebSocket/SSE
-    // For now, just return sent status
+    // Durable row is the in-app fanout source; delivery is available through owner-scoped reads.
     ("sent".to_string(), None, true)
 }
 
@@ -882,6 +876,7 @@ async fn send_email(
         );
     }
 
+    let html_body = escape_html(body);
     let email = Message::builder()
         .from(from_parsed.unwrap())
         .to(to_parsed.unwrap())
@@ -896,7 +891,7 @@ async fn send_email(
                 .singlepart(
                     SinglePart::builder()
                         .header(header::ContentType::TEXT_HTML)
-                        .body(format!("<html><body>{}</body></html>", body)),
+                        .body(format!("<html><body>{html_body}</body></html>")),
                 ),
         );
 
@@ -915,6 +910,15 @@ async fn send_email(
             false,
         ),
     }
+}
+
+fn escape_html(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
 }
 
 async fn list_notifications(

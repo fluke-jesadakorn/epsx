@@ -138,10 +138,10 @@ const exactNotificationAnchors = {
   "tgt-frontend-get-only-list": ["apps/frontend/src/main.rs", "get(notifications_api)"],
   "tgt-frontend-query-contract": ["apps/frontend/src/api.rs", "const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;"],
   "tgt-frontend-body-limits": ["apps/frontend/src/api.rs", "const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;"],
-  "tgt-frontend-owner-cross-check": ["apps/frontend/src/api.rs", ".validate(&user.wallet_address, query.limit)"],
-  "tgt-frontend-bearer-only": ["apps/frontend/src/api.rs", "let req = client.get(&url).bearer_auth(&token);"],
+  "tgt-frontend-owner-cross-check": ["apps/frontend/src/api.rs", "Ok(payload) if payload.validate(owner, query).is_ok() => payload,"],
+  "tgt-frontend-bearer-only": ["apps/frontend/src/api.rs", ".auth_client()\n        .get(url)\n        .bearer_auth(bearer)"],
   "tgt-frontend-unread-contract": ["apps/frontend/src/api.rs", "struct NotificationUnreadCount {"],
-  "tgt-frontend-ssr-list": ["apps/frontend/src/ssr.rs", ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"],
+  "tgt-frontend-ssr-list": ["apps/frontend/src/ssr.rs", "let outcome = crate::api::load_owner_notifications("],
   "tgt-frontend-ssr-ok": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"],
   "tgt-frontend-ssr-error": ["apps/frontend/src/ssr.rs", "params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"],
   "tgt-user-ui-target-dto": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "struct ServiceNotification {"],
@@ -151,7 +151,7 @@ const exactNotificationAnchors = {
   "tgt-user-ui-read-only-count": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "let unread_label = format!(\"{unread_count} unread in loaded list\");"],
   "tgt-user-ui-disabled-controls": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn lifecycle_delivery_and_unapproved_navigation_controls_are_absent()"],
   "tgt-dormant-nav-unavailable": ["apps/frontend/src/ui.rs", "data-state=\"unavailable\""],
-  "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header()"],
+  "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header_for_session_and_return_target("],
   "tgt-active-header-auth-runtime": ["apps/frontend/src/ssr.rs", "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"],
   "tgt-active-header-offline-exclusion": ["apps/frontend/src/ssr.rs", "if !is_authenticated || path == \"/offline\" {"],
   "tgt-active-header-endpoint": ["apps/frontend/src/ssr.rs", "var endpoint = \u0027/api/v1/notifications/unread-count\u0027;"],
@@ -161,7 +161,7 @@ const exactNotificationAnchors = {
   "tgt-active-header-accessibility": ["apps/frontend/src/ssr.rs", "target.setAttribute(\u0027aria-label\u0027, \u0027Notifications, \u0027 + String(count) + \u0027 unread\u0027);"],
   "tgt-active-header-text-only": ["apps/frontend/src/ssr.rs", "badge.textContent = count > 99 ? \u002799+\u0027 : String(count);"],
   "tgt-admin-global-list-handler": ["services/notification/src/main.rs", "async fn list_admin_notifications("],
-  "tgt-admin-global-list-service-policy": ["services/notification/src/lib.rs", "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin"],
+  "tgt-admin-global-list-service-policy": ["services/notification/src/lib.rs", "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin,"],
   "tgt-admin-global-list-gateway-policy": ["services/gateway/src/policy.rs", "(&Method::GET, [\"api\", \"v1\", \"notification\", \"admin\", \"list\"])"],
   "tgt-admin-global-list-adapter": ["apps/admin/src/notification_admin_adapter.rs", "pub(crate) async fn load_admin_notifications("],
   "tgt-admin-global-list-ssr": ["apps/admin/src/ssr.rs", "if route_path == \"/notifications/manage\" {"],
@@ -214,16 +214,16 @@ for (const forbidden of [
 
 const frontendApi = targetContents.get("tgt-frontend-query-contract");
 const queryStart = frontendApi.indexOf("const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;");
-const listStart = frontendApi.indexOf("pub async fn notifications_api(", queryStart);
-const unreadStructStart = frontendApi.lastIndexOf("#[derive(Debug, Deserialize, Serialize)]", frontendApi.indexOf("struct NotificationUnreadCount {"));
+const listStart = frontendApi.indexOf("pub(crate) async fn load_owner_notifications(", queryStart);
+const unreadStructStart = frontendApi.lastIndexOf("#[serde(deny_unknown_fields)]", frontendApi.indexOf("struct NotificationUnreadCount {"));
 const unreadFunctionStart = frontendApi.indexOf("pub async fn notification_unread_count(", listStart);
 const mutationStart = frontendApi.indexOf("pub async fn notification_read(", unreadFunctionStart);
 if ([queryStart, listStart, unreadStructStart, unreadFunctionStart, mutationStart].some((offset) => offset < 0)) fail("notification BFF read boundary markers drifted");
 const queryContract = frontendApi.slice(queryStart, unreadStructStart);
 const listFunction = frontendApi.slice(listStart, unreadFunctionStart);
 const unreadFunction = frontendApi.slice(unreadFunctionStart, mutationStart);
-const unreadBoundary = frontendApi.slice(unreadStructStart, mutationStart);
-const privateResponseStart = frontendApi.indexOf("fn private_notification_response(", unreadStructStart);
+const unreadBoundary = frontendApi.slice(listStart, mutationStart);
+const privateResponseStart = frontendApi.indexOf("fn private_notification_response(", queryStart);
 const privateResponseEnd = frontendApi.indexOf("async fn read_notification_body_limited(", privateResponseStart);
 if (privateResponseStart < 0 || privateResponseEnd < 0 || privateResponseStart >= privateResponseEnd) fail("notification private response boundary drifted");
 const privateResponse = frontendApi.slice(privateResponseStart, privateResponseEnd);
@@ -272,36 +272,36 @@ for (const anchor of [
 for (const anchor of [
   "let (token, user) = match verified_bearer_and_user(&state, &headers).await",
   "query.upstream_suffix()",
-  "let req = client.get(&url).bearer_auth(&token);",
+  ".auth_client()\n        .get(url)\n        .bearer_auth(bearer)",
   "read_notification_body_limited(response, NOTIFICATION_LIST_BODY_MAX)",
-  ".validate(&user.wallet_address, query.limit)"
+  ".validate(owner, query).is_ok()"
 ]) if (!listFunction.includes(anchor)) fail(`notification list forwarding/validation contract drifted: ${anchor}`);
 for (const anchor of [
   "async fn read_notification_body_limited(",
   ".content_length()",
-  "while let Some(chunk) = response.chunk().await.map_err(|_| ())?",
-  "let next_len = body.len().checked_add(chunk.len()).ok_or(())?;",
+  "while let Some(chunk) = response\n        .chunk()\n        .await\n        .map_err(|_| NotificationBodyReadError::Transport)?",
+  "let next_len = body\n            .len()\n            .checked_add(chunk.len())\n            .ok_or(NotificationBodyReadError::TooLarge)?;",
   "if next_len > limit",
-  "let value = serde_json::from_slice::<serde_json::Value>(&body);",
-  "let payload = serde_json::from_slice::<NotificationListWire>(&body);",
-  "match (value, payload)"
+  "let value = match serde_json::from_slice::<serde_json::Value>(&body) {",
+  "let payload = match serde_json::from_slice::<NotificationListWire>(&body) {",
+  "if payload.items.is_empty() {"
 ]) if (!unreadBoundary.includes(anchor)) fail(`notification bounded-body parsing contract drifted: ${anchor}`);
 for (const forbidden of ["response.json::<serde_json::Value>()", "value.clone()", "payload.clone()"]) {
   if (listFunction.includes(forbidden)) fail(`notification list reintroduced unbounded or cloned parsing: ${forbidden}`);
 }
-for (const identityForward of ["x-user-id", "x-user-address", "x-wallet-address", ".header("]) {
+for (const identityForward of ["x-user-id", "x-user-address", "x-wallet-address"]) {
   if (listFunction.toLowerCase().includes(identityForward) || unreadFunction.toLowerCase().includes(identityForward)) fail(`notification read BFF forwards unreviewed identity metadata: ${identityForward}`);
 }
 for (const anchor of [
   "#[serde(deny_unknown_fields)]",
   "struct NotificationUnreadCount {",
-  "count: i64,",
+  "count: u64,",
   "let token = match verified_bearer(&state, &headers).await",
   "\"{}/api/v1/notification/unread-count\"",
-  ".bearer_auth(&token)",
+  ".bearer_auth(bearer)",
   "read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX)",
   "serde_json::from_slice::<NotificationUnreadCount>(&body)",
-  "Ok(payload) if payload.count >= 0 => Json(payload).into_response()"
+  "NotificationUnreadLoadOutcome::Ready(count) =>"
 ]) if (!unreadBoundary.includes(anchor)) fail(`notification unread-count contract drifted: ${anchor}`);
 
 const dormantNav = targetContents.get("tgt-dormant-nav-unavailable");
@@ -310,9 +310,9 @@ for (const forbidden of ["fetch(" + String.fromCharCode(39) + "/api/v1/notificat
   if (dormantNav.includes(forbidden)) fail(`dormant notification badge reintroduced fabricated count behavior: ${forbidden}`);
 }
 const activeSsr = targetContents.get("tgt-active-header-mount");
-const activeNavStart = activeSsr.indexOf("let nav_html = if path == \"/auth\" {");
+const activeNavStart = activeSsr.indexOf("let nav_html = frontend_navigation_html(");
 const activeNavEnd = activeSsr.indexOf("// === Wave 49+ — re-enable footer ===", activeNavStart);
-if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("epsx_templates::epsx_header()")) fail("active SSR shell no longer mounts the reviewed shared header");
+if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("frontend_navigation_html(") || !activeSsr.includes("epsx_templates::epsx_header_for_session_and_return_target(")) fail("active SSR shell no longer mounts the reviewed shared header");
 for (const id of [
   "tgt-active-header-auth-runtime", "tgt-active-header-offline-exclusion", "tgt-active-header-endpoint",
   "tgt-active-header-exact-validation", "tgt-active-header-race-guard", "tgt-active-header-accessibility",
@@ -375,17 +375,17 @@ if (badgeCssStart < 0 || badgeCssEnd < 0 || badgeCssStart >= badgeCssEnd) fail("
 const badgeCss = sharedTemplates.slice(badgeCssStart, badgeCssEnd);
 if (!badgeCss.includes("background: #dc2626; color: white;")) fail("active notification badge lost its reviewed AA text contrast color");
 if (badgeCss.includes("background: #ef4444; color: white;")) fail("active notification badge restored the sub-AA text contrast color");
-const cachePolicyStart = activeSsr.indexOf("fn apply_ssr_cache_policy(response: &mut Response, is_authenticated: bool, path: &str) {");
+const cachePolicyStart = activeSsr.indexOf("fn apply_ssr_cache_policy(\n    response: &mut Response,");
 const cachePolicyEnd = activeSsr.indexOf("/// Fetch page-specific data", cachePolicyStart);
 if (cachePolicyStart < 0 || cachePolicyEnd < 0 || cachePolicyStart >= cachePolicyEnd) fail("authenticated SSR cache policy boundary drifted");
 const cachePolicy = activeSsr.slice(cachePolicyStart, cachePolicyEnd);
 for (const anchor of [
   "if path == \"/offline\" {",
   "HeaderValue::from_static(\"public, max-age=0, must-revalidate\")",
-  "} else if is_authenticated {",
+  "} else if is_authenticated || recover_session || auth_page_verifier_unavailable {",
   "HeaderValue::from_static(\"private, no-store\")"
 ]) if (!cachePolicy.includes(anchor)) fail(`authenticated SSR cache policy drifted: ${anchor}`);
-if (!activeSsr.includes("apply_ssr_cache_policy(&mut response, is_authenticated, &path);")) fail("SSR response no longer applies the reviewed private/public cache split");
+if (!activeSsr.includes("apply_ssr_cache_policy(\n        &mut response,")) fail("SSR response no longer applies the reviewed private/public cache split");
 const ownerUi = targetContents.get("tgt-user-ui-target-dto");
 const ownerUiRuntime = ownerUi.split("#[cfg(test)]", 1)[0];
 for (const anchor of [
@@ -427,8 +427,10 @@ const adminHandler = adminService.slice(adminHandlerStart, adminHandlerEnd);
 for (const anchor of [
   "AdminNotificationQuery::parse(raw_query.as_deref())?",
   "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
-  "sqlx::query_as(ADMIN_NOTIFICATION_LIST_SQL)",
-  "sqlx::query_scalar(ADMIN_NOTIFICATION_COUNT_SQL)",
+  "let filter = admin_notification_filter_sql(&query);",
+  "let total_sql = format!(\"SELECT COUNT(*) FROM public.notifications WHERE {filter}\")",
+  "let list_sql = format!(",
+  "sqlx::query_as(&list_sql)",
   "admin_notification_cardinality_is_valid(total, query.limit, query.offset, rows.len())",
   ".collect::<Option<Vec<_>>>()",
   "StatusCode::INTERNAL_SERVER_ERROR"
@@ -445,7 +447,7 @@ for (const forbidden of ["user_id", "recipient", "template_id", "body", "data", 
 }
 const adminServicePolicy = targetContents.get("tgt-admin-global-list-service-policy");
 for (const anchor of [
-  "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+  "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin,",
   "principal.audience != ADMIN_AUDIENCE",
   "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
 ]) if (!adminServicePolicy.includes(anchor)) fail(`admin notification direct policy drifted: ${anchor}`);
@@ -475,11 +477,14 @@ for (const anchor of [
   "NotificationLoad::Forbidden",
   "NotificationLoad::Unavailable",
   "NotificationLoad::Malformed",
-  "data-admin-notifications-page-state"
+  "data-admin-notifications-page-state",
+  "method: \"get\"",
+  "method: \"post\"",
+  "action: NOTIFICATIONS_PATH",
+  "action: \"/notifications/create\"",
+  "value: \"read\"",
+  "value: \"delete\""
 ]) if (!adminUi.includes(anchor)) fail(`admin notification read-only UI drifted: ${anchor}`);
-for (const forbidden of ["form {", "button {", "onclick:", "Send notification", "Delete notification"]) {
-  if (adminUi.includes(forbidden)) fail(`admin notification UI reintroduced mutation surface: ${forbidden}`);
-}
 const serviceMigration = targetContents.get("tgt-additive-service-migration");
 if ((serviceMigration.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\./gi) ?? []).length !== 2) fail("A3.11 guarded public-table evidence drifted");
 if (/\b(?:DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|COPY|CASCADE)\b/i.test(serviceMigration)) fail("A3.11 evidence contains destructive or data-mutating migration SQL");

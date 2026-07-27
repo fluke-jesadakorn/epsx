@@ -129,8 +129,8 @@
       "claim": "Malformed relevant snapshot data returns an error and is never represented as an empty snapshot or successful Free Plan decision."
     },
     {
-      "id": "runtime-always-free-remains-unwired",
-      "claim": "The pure resolver is not wired into the identity gRPC runtime, which deliberately retains the always-Free service for this slice."
+      "id": "runtime-fail-closed-remains-unwired",
+      "claim": "The pure resolver is not wired into the identity gRPC runtime; the active binary fails closed with ServiceUnavailable until authoritative entitlement wiring exists."
     },
     {
       "id": "no-scheduling-or-grace-invention",
@@ -191,22 +191,22 @@
     {
       "id": "impl-pure-ranking-entitlement-resolver",
       "file": "shared/rust/epsx-identity-service/src/ranking_entitlement.rs",
-      "sha256": "3c42711783a14f6ff6d7ebeb813a03fa556aa466e3f15b08895ae59faef68bb8"
+      "sha256": "b6cdeb6486296550b936d243c29efbe3cdf1e896e7ecd47218df79129a102507"
     },
     {
       "id": "impl-resolver-library-export",
       "file": "shared/rust/epsx-identity-service/src/lib.rs",
-      "sha256": "4853eddb05a16f39968d2b812ddbb61ba872d5c407be51bd65524d8a78a6d208"
+      "sha256": "b98920a2d30c0ba1e9c6fd43f10ff27420863fd2f484f26fa1bce053e39781ea"
     },
     {
       "id": "impl-unwired-runtime-main",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"
+      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
     },
     {
-      "id": "impl-always-free-runtime-service",
+      "id": "impl-fail-closed-runtime-service",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
     }
   ],
   "residualStops": [
@@ -223,8 +223,8 @@
       "claim": "Schema compatibility, version-ledger adoption, populated upgrade and source reconciliation remain unproved."
     },
     {
-      "id": "identity-runtime-still-always-free",
-      "claim": "The identity gRPC runtime still returns the Free Plan offset for every successful request and does not invoke this resolver."
+      "id": "identity-runtime-fails-closed-unwired",
+      "claim": "The identity gRPC runtime returns Unavailable until the authoritative entitlement adapter is wired; this resolver remains unactivated."
     },
     {
       "id": "scheduling-grace-policy-unresolved",
@@ -263,7 +263,7 @@
     "E01 freeze source semantics and the immutable post-A2.6 target base",
     "E02 implement the pure fixed-observed-at snapshot resolver",
     "E03 replay the deterministic fixture ledger through exact hermetic tests",
-    "E04 preserve always-Free runtime wiring and every non-production boundary",
+    "E04 preserve fail-closed runtime wiring and every non-production boundary",
     "E05 add a reviewed core-owned atomic snapshot adapter and schema proof",
     "E06 reconcile scheduling, grace, direct grants, token claims and PlanFeatures authority",
     "E07 wire authenticated identity RPC plus durable revision and replay semantics",

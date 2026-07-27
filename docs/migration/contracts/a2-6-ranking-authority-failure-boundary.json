@@ -126,7 +126,7 @@
     {
       "id": "impl-lazy-runtime-wiring",
       "file": "apps/analytics/src/main.rs",
-      "sha256": "76daa6108d37f2c09b76109437e271f3393f9917cef631ccaed198c17858fda4"
+      "sha256": "4ba28a2829a0d213754159e4102d4e3e6ceec6accaef31e6746e958492b592fa"
     },
     {
       "id": "impl-fail-closed-ranking-handler",

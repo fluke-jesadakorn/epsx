@@ -14,7 +14,9 @@
     "owner-only": "Valid canonical access token plus server-side comparison between the token subject/wallet and stored or derived ownership.",
     "permission-specific-admin-operator": "Valid canonical access token plus the exact granular backend permission; admin role/name alone is insufficient.",
     "internal-webhook": "External user credentials are insufficient; require signed webhook material or authenticated service/operator identity.",
-    "unknown": "Policy is unresolved or wildcard-mixed; target behavior is fail closed until split and classified."
+    "unknown": "Policy is unresolved or wildcard-mixed; target behavior is fail closed until split and classified.",
+    "router-dispatch-only": "Transport wildcard only; the gateway exact method/path policy is the authorization decision and unclassified shapes remain denied.",
+    "blocked-by-default": "Explicitly disabled compatibility or development route; all cases deny until a separately reviewed owner contract exists."
   },
   "identityContract": {
     "issuer": "apps/backend canonical identity",
@@ -72,6 +74,22 @@
       "crossOwner": "deny",
       "ordinaryUser": "deny",
       "granularAdmin": "conditional"
+    },
+    "router-only": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
+    },
+    "blocked-by-default": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
     }
   },
   "canonicalEvidence": [
@@ -274,7 +292,8 @@
     },
     "byClassification": {
       "public-allowlist": 32,
-      "unknown": 21,
+      "router-dispatch-only": 20,
+      "blocked-by-default": 1,
       "authenticated-user": 3,
       "permission-specific-admin-operator": 58,
       "owner-only": 30,
@@ -298,72 +317,112 @@
           "method": "ANY",
           "path": "/api/v1/admin/wallets/{*path}",
           "routeAnchor": ".route(\"/api/v1/admin/wallets/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "admin-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
-          "observed": { "status": "blocked", "summary": "The gateway wildcard is reachable only through the exact method/path policy; unclassified wallet admin shapes fail closed." },
-          "dependencies": ["A2", "A3", "A4"],
-          "canonicalEvidence": ["gateway-access-policy", "gateway-fail-closed-target"]
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact method/path policy; unclassified wallet admin shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
         },
         {
           "id": "gateway.any.admin-credits-proxy",
           "method": "ANY",
           "path": "/api/v1/admin/credits/{*path}",
           "routeAnchor": ".route(\"/api/v1/admin/credits/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "admin-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
-          "observed": { "status": "blocked", "summary": "The gateway wildcard is reachable only through the exact credit permission policy; unclassified shapes fail closed." },
-          "dependencies": ["A2", "A4", "A6"],
-          "canonicalEvidence": ["gateway-access-policy", "gateway-fail-closed-target"]
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact credit permission policy; unclassified shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
         },
         {
           "id": "gateway.any.admin-pay-proxy",
           "method": "ANY",
           "path": "/api/v1/admin/pay/{*path}",
           "routeAnchor": ".route(\"/api/v1/admin/pay/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "admin-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
-          "observed": { "status": "blocked", "summary": "The gateway wildcard is reachable only through the exact payment permission policy; financial shapes outside the allowlist fail closed." },
-          "dependencies": ["A2", "A4", "A6"],
-          "canonicalEvidence": ["gateway-access-policy", "pay-direct-service-auth"]
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact payment permission policy; financial shapes outside the allowlist fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "pay-direct-service-auth"
+          ]
         },
         {
           "id": "gateway.any.admin-subscription-proxy",
           "method": "ANY",
           "path": "/api/v1/admin/subscription/{*path}",
           "routeAnchor": "\"/api/v1/admin/subscription/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "admin-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
-          "observed": { "status": "blocked", "summary": "The gateway wildcard is reachable only through the exact subscription permission policy; unclassified shapes fail closed." },
-          "dependencies": ["A2", "A4", "A9"],
-          "canonicalEvidence": ["gateway-access-policy", "gateway-fail-closed-target"]
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact subscription permission policy; unclassified shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
         },
         {
           "id": "gateway.get.health",
@@ -396,15 +455,15 @@
           "method": "ANY",
           "path": "/api/v1/identity/{*path}",
           "routeAnchor": ".route(\"/api/v1/identity/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -422,15 +481,15 @@
           "method": "ANY",
           "path": "/api/v1/wallet/{*path}",
           "routeAnchor": ".route(\"/api/v1/wallet/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -447,15 +506,15 @@
           "method": "ANY",
           "path": "/api/v1/payment/{*path}",
           "routeAnchor": ".route(\"/api/v1/payment/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -475,15 +534,15 @@
           "method": "ANY",
           "path": "/api/v1/pay/{*path}",
           "routeAnchor": ".route(\"/api/v1/pay/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The canonical Pay prefix is mounted through an ANY proxy, but the gateway's exact method/path policy denies every unclassified shape before upstream I/O; direct-service ownership and financial mutation readiness remain separate gates."
@@ -503,15 +562,15 @@
           "method": "ANY",
           "path": "/api/v1/subscription/{*path}",
           "routeAnchor": ".route(\"/api/v1/subscription/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -529,15 +588,15 @@
           "method": "ANY",
           "path": "/api/v1/content/{*path}",
           "routeAnchor": ".route(\"/api/v1/content/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -555,15 +614,15 @@
           "method": "ANY",
           "path": "/api/v1/news",
           "routeAnchor": ".route(\"/api/v1/news\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -583,15 +642,15 @@
           "method": "ANY",
           "path": "/api/v1/news/{*path}",
           "routeAnchor": ".route(\"/api/v1/news/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -610,15 +669,15 @@
           "method": "ANY",
           "path": "/api/v1/portfolio/{*path}",
           "routeAnchor": ".route(\"/api/v1/portfolio/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -637,15 +696,15 @@
           "method": "ANY",
           "path": "/api/v1/plans",
           "routeAnchor": ".route(\"/api/v1/plans\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -665,15 +724,15 @@
           "method": "ANY",
           "path": "/api/v1/plans/{*path}",
           "routeAnchor": ".route(\"/api/v1/plans/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -693,15 +752,15 @@
           "method": "ANY",
           "path": "/api/v1/rankings",
           "routeAnchor": ".route(\"/api/v1/rankings\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -720,15 +779,15 @@
           "method": "ANY",
           "path": "/api/v1/rankings/{*path}",
           "routeAnchor": ".route(\"/api/v1/rankings/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -747,15 +806,15 @@
           "method": "ANY",
           "path": "/api/v1/notification/{*path}",
           "routeAnchor": ".route(\"/api/v1/notification/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -773,15 +832,15 @@
           "method": "ANY",
           "path": "/api/v1/analytics/{*path}",
           "routeAnchor": ".route(\"/api/v1/analytics/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -799,15 +858,15 @@
           "method": "ANY",
           "path": "/api/v1/indexer/{*path}",
           "routeAnchor": ".route(\"/api/v1/indexer/{*path}\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "mixed-wildcard-proxy",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "router-only",
           "observed": {
             "status": "blocked",
             "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
@@ -965,15 +1024,15 @@
           "method": "POST",
           "path": "/api/v1/identity/auth/demo",
           "routeAnchor": ".route(\"/api/v1/identity/auth/demo\"",
-          "classification": "unknown",
-          "identitySource": "undecided-fail-closed",
+          "classification": "blocked-by-default",
+          "identitySource": "identity-explicit-fail-closed",
           "requiredPermission": null,
           "permissionStatus": "not-applicable",
           "ownershipKey": null,
           "operationKind": "domain-mutation",
           "mutation": true,
           "risk": "high",
-          "caseProfile": "unknown",
+          "caseProfile": "blocked-by-default",
           "observed": {
             "status": "blocked",
             "summary": "The exact POST shape returns 404 before authentication, body extraction, token issuance, bootstrap mutation, or handler dispatch; development-only login remains structurally disabled."
@@ -1377,9 +1436,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin wallet inventory is typed and bounded but isolated database and browser evidence remain pending." },
-          "dependencies": ["A2", "A3", "A4"],
-          "canonicalEvidence": ["wallet-service-auth-boundary", "wallet-owner-predicates"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin wallet inventory is typed and bounded but isolated database and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
         },
         {
           "id": "wallet.get.admin-wallets-stats",
@@ -1395,9 +1464,18 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "The direct wallet stats route is permission protected; isolated database and browser evidence remain pending." },
-          "dependencies": ["A2", "A3", "A4"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct wallet stats route is permission protected; isolated database and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.get.admin-wallet",
@@ -1413,9 +1491,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "The route validates the canonical address at the service boundary; authenticated non-leaking detail proof remains pending." },
-          "dependencies": ["A2", "A3", "A4"],
-          "canonicalEvidence": ["wallet-service-auth-boundary", "wallet-owner-predicates"]
+          "observed": {
+            "status": "blocked",
+            "summary": "The route validates the canonical address at the service boundary; authenticated non-leaking detail proof remains pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
         },
         {
           "id": "wallet.patch.admin-wallet-metadata",
@@ -1431,9 +1519,19 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Metadata writes require idempotency, optimistic version, audit, and read-after-write evidence before production use." },
-          "dependencies": ["A2", "A3", "A4", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Metadata writes require idempotency, optimistic version, audit, and read-after-write evidence before production use."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.post.admin-wallet-disable",
@@ -1449,9 +1547,19 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Disable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending." },
-          "dependencies": ["A2", "A3", "A4", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Disable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.post.admin-wallet-enable",
@@ -1467,9 +1575,19 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Enable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending." },
-          "dependencies": ["A2", "A3", "A4", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Enable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.get.admin-credits",
@@ -1485,9 +1603,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Credits inventory is read-only at this route; ledger and browser evidence remain pending." },
-          "dependencies": ["A2", "A4", "A6", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Credits inventory is read-only at this route; ledger and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.get.admin-credit-account",
@@ -1503,9 +1631,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Credit account reads are bound to the canonical wallet key; isolated ledger evidence remains pending." },
-          "dependencies": ["A2", "A3", "A4", "A6"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit account reads are bound to the canonical wallet key; isolated ledger evidence remains pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.post.admin-credit-grant",
@@ -1521,9 +1659,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Credit grant remains blocked until durable ledger, idempotency, notification, and recovery evidence pass." },
-          "dependencies": ["A2", "A3", "A4", "A6", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit grant remains blocked until durable ledger, idempotency, notification, and recovery evidence pass."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         },
         {
           "id": "wallet.post.admin-credit-revoke",
@@ -1539,9 +1688,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Credit revoke remains blocked until durable ledger, idempotency, notification, and recovery evidence pass." },
-          "dependencies": ["A2", "A3", "A4", "A6", "A12"],
-          "canonicalEvidence": ["wallet-service-auth-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit revoke remains blocked until durable ledger, idempotency, notification, and recovery evidence pass."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
         }
       ]
     },
@@ -2179,9 +2339,20 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin payment-link inventory is bounded and correlated; isolated database and browser read evidence remain pending." },
-          "dependencies": ["A2", "A4", "A6", "A12"],
-          "canonicalEvidence": ["backend-payment-permissions", "pay-direct-service-auth"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin payment-link inventory is bounded and correlated; isolated database and browser read evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
         },
         {
           "id": "pay.post.admin-links",
@@ -2197,9 +2368,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Payment-link creation requires durable idempotency, intent ownership, audit, and read-after-write evidence before use." },
-          "dependencies": ["A2", "A4", "A6", "A12"],
-          "canonicalEvidence": ["backend-payment-permissions", "pay-direct-service-auth"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Payment-link creation requires durable idempotency, intent ownership, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
         },
         {
           "id": "pay.post.admin-link-disable",
@@ -2215,9 +2397,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Disabling a payment link is versioned and correlated but remains gated on durable financial recovery evidence." },
-          "dependencies": ["A2", "A4", "A6", "A12"],
-          "canonicalEvidence": ["backend-payment-permissions", "pay-direct-service-auth"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Disabling a payment link is versioned and correlated but remains gated on durable financial recovery evidence."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
         },
         {
           "id": "pay.post.admin-intent-cancel",
@@ -2233,9 +2426,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin intent cancellation is versioned and correlated but remains gated on A6 finality and durable recovery proof." },
-          "dependencies": ["A2", "A4", "A6", "A12"],
-          "canonicalEvidence": ["backend-payment-permissions", "pay-direct-service-auth"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin intent cancellation is versioned and correlated but remains gated on A6 finality and durable recovery proof."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
         }
       ]
     },
@@ -2498,9 +2702,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin subscription access reads are permission protected; trusted wallet-to-user ownership and isolated database evidence remain pending." },
-          "dependencies": ["A2", "A4", "A9"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin subscription access reads are permission protected; trusted wallet-to-user ownership and isolated database evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.get.admin-plans",
@@ -2516,9 +2730,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin plan reads are permission protected; canonical plan authority, validation, and isolated database evidence remain pending." },
-          "dependencies": ["A2", "A4", "A9"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan reads are permission protected; canonical plan authority, validation, and isolated database evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.get.admin-plan",
@@ -2534,9 +2758,19 @@
           "mutation": false,
           "risk": "none",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin plan detail is permission protected; canonical plan authority and non-leaking not-found behavior remain pending." },
-          "dependencies": ["A2", "A4", "A9"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan detail is permission protected; canonical plan authority and non-leaking not-found behavior remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.patch.admin-plan",
@@ -2552,9 +2786,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin plan updates require versioning, idempotency, validation, audit, and read-after-write evidence before use." },
-          "dependencies": ["A2", "A4", "A9", "A12"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan updates require versioning, idempotency, validation, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.post.admin-access-assign",
@@ -2570,9 +2815,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Access assignment requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use." },
-          "dependencies": ["A2", "A4", "A9", "A12"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Access assignment requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.post.admin-access-revoke",
@@ -2588,9 +2844,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Access revocation requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use." },
-          "dependencies": ["A2", "A4", "A9", "A12"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Access revocation requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         },
         {
           "id": "subscription.post.admin-plan",
@@ -2606,9 +2873,20 @@
           "mutation": true,
           "risk": "high",
           "caseProfile": "granular-admin",
-          "observed": { "status": "blocked", "summary": "Admin plan creation requires durable validation, versioning, idempotency, audit, and canonical plan authority before use." },
-          "dependencies": ["A2", "A4", "A9", "A12"],
-          "canonicalEvidence": ["backend-plan-permissions", "service-internal-boundary"]
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan creation requires durable validation, versioning, idempotency, audit, and canonical plan authority before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
         }
       ]
     },

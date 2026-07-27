@@ -101,6 +101,23 @@ pub async fn on_chain_webhook(
         StatusCode::BAD_REQUEST
     })?;
 
+    // Reject unsupported event types before recording the idempotency key.
+    // Otherwise an invalid delivery could permanently poison its event ID and
+    // prevent a corrected delivery from ever being processed.
+    let new_status = match event.event_type.as_str() {
+        "deposit_confirmed" => "escrowed",
+        "released" => "released",
+        "refunded" => "refunded",
+        "disputed" => "disputed",
+        _ => return Err(StatusCode::BAD_REQUEST),
+    };
+
+    let mut tx = state
+        .db
+        .begin()
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+
     // 3. Idempotency check — INSERT … ON CONFLICT DO NOTHING so
     //    duplicate deliveries are no-ops. If the row was new we
     //    continue with the status update; if it collided we ack
@@ -120,27 +137,19 @@ pub async fn on_chain_webhook(
         "tx_hash": event.tx_hash,
         "block_number": event.block_number,
     }))
-    .fetch_optional(&state.db)
+    .fetch_optional(&mut *tx)
     .await
     .map_err(|e| {
         tracing::error!("webhook idempotency insert: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    let new_status = match event.event_type.as_str() {
-        "deposit_confirmed" => "escrowed",
-        "released" => "released",
-        "refunded" => "refunded",
-        "disputed" => "disputed",
-        _ => return Err(StatusCode::BAD_REQUEST),
-    };
-
     if inserted.is_none() {
         // Duplicate delivery — already processed. Return current status.
         let current: String =
-            sqlx::query_scalar("SELECT status FROM public.pay_intents WHERE id = $1")
+                sqlx::query_scalar("SELECT status FROM public.pay_intents WHERE id = $1")
                 .bind(&event.intent_id)
-                .fetch_optional(&state.db)
+                .fetch_optional(&mut *tx)
                 .await
                 .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
                 .unwrap_or_else(|| new_status.to_string());
@@ -153,26 +162,38 @@ pub async fn on_chain_webhook(
     }
 
     // Apply the status change to the matching intent.
-    sqlx::query("UPDATE public.pay_intents SET status = $1, updated_at = NOW() WHERE id = $2")
+    let intent_update = sqlx::query(
+        "UPDATE public.pay_intents SET status = $1, updated_at = NOW() WHERE id = $2",
+    )
         .bind(new_status)
         .bind(&event.intent_id)
-        .execute(&state.db)
+        .execute(&mut *tx)
         .await
         .map_err(|e| {
             tracing::error!("webhook status update: {}", e);
             StatusCode::INTERNAL_SERVER_ERROR
         })?;
+    if intent_update.rows_affected() != 1 {
+        return Err(StatusCode::NOT_FOUND);
+    }
 
     // If the event references an escrow, update it too.
     if let Some(escrow_id) = event.escrow_id.as_ref() {
-        sqlx::query("UPDATE public.escrows SET status = $1, tx_hash = COALESCE($2, tx_hash), updated_at = NOW() WHERE id = $3")
+        let escrow_update = sqlx::query("UPDATE public.escrows SET status = $1, tx_hash = COALESCE(NULLIF($2, ''), tx_hash), updated_at = NOW() WHERE id = $3")
             .bind(new_status)
             .bind(event.tx_hash.as_deref().unwrap_or(""))
             .bind(escrow_id)
-            .execute(&state.db)
+            .execute(&mut *tx)
             .await
-            .ok();
+            .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        if escrow_update.rows_affected() != 1 {
+            return Err(StatusCode::NOT_FOUND);
+        }
     }
+
+    tx.commit()
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
 
     tracing::info!(
         "webhook applied: event_id={}, intent_id={}, type={}, status={}",

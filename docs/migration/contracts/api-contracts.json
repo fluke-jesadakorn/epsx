@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "purpose": "fixture-integrity-only",
   "baseline": {
-    "sourceRef": "origin/development",
-    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "sourceRef": "development",
+    "sourceCommit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6",
     "targetRef": "migration/dioxus-microservices",
     "targetCommitBeforeHarness": "f86d204b"
   },

@@ -168,6 +168,13 @@ SELECT
     AND (SELECT compatible FROM primary_key_compatibility)
     AND (SELECT compatible FROM primary_key_index_compatibility)
     AND (SELECT compatible FROM foreign_key_compatibility)
+    AND (
+        SELECT COUNT(*) = 3
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'subscription_plan_state'
+          AND column_name IN ('plan_id', 'version', 'updated_at')
+    )
 "#;
 
 #[derive(Debug, Error)]

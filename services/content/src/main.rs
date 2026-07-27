@@ -990,10 +990,7 @@ async fn news_post(
             };
             (title, render_markdown(md))
         }
-        None => (
-            slug.replace('-', " "),
-            format!("<p>Article for <code>{slug}</code> coming soon.</p>"),
-        ),
+        None => return Err(StatusCode::NOT_FOUND),
     };
 
     Ok(Json(serde_json::json!({
@@ -1004,38 +1001,22 @@ async fn news_post(
     })))
 }
 
-async fn plans_list(State(state): State<AppState>) -> Json<serde_json::Value> {
-    Json(
-        read_content_json(&state.content_path, "marketing/plans.json").unwrap_or_else(|| {
-            serde_json::json!({
-                "personal": [], "api": [], "custom": []
-            })
-        }),
-    )
+async fn plans_list() -> StatusCode {
+    // Plan eligibility, pricing, and entitlements are backend-owned. Until a
+    // typed projection is available, never serve a content-file catalog.
+    StatusCode::NOT_IMPLEMENTED
 }
 
-async fn rankings_list() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "companies": [
-            { "rank": 100, "ticker": "GHC",  "price": "$5.40",  "growth": "+4650.00%", "growth_pct": 4650.00, "next_action_days": 158, "next_action_pct": 5.0,    "tradingview_url": "https://www.tradingview.com/symbols/GHC" },
-            { "rank": 101, "ticker": "6535", "price": "$462.00","growth": "+4622.84%", "growth_pct": 4622.84, "next_action_days": 1,   "next_action_pct": 98.89,  "tradingview_url": "https://www.tradingview.com/symbols/6535" },
-            { "rank": 102, "ticker": "4657", "price": "$427.00","growth": "+4612.47%", "growth_pct": 4612.47, "next_action_days": 65,  "next_action_pct": 27.78,  "tradingview_url": "https://www.tradingview.com/symbols/4657" }
-        ],
-        "as_of": "2026-06-09T00:00:00Z",
-        "total": 100
-    }))
+async fn rankings_list() -> StatusCode {
+    // Ranking authority and offsets belong to the Rust backend/analytics
+    // authority. A content service must not manufacture market rows.
+    StatusCode::NOT_IMPLEMENTED
 }
 
-async fn portfolio_get(AxPath(addr): AxPath<String>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "address": addr,
-        "total_value_usd": 0.0,
-        "watchlist": [],
-        "subscriptions": [],
-        "transactions": [],
-        "auth_required": true,
-        "message": "Sign in to view your portfolio"
-    }))
+async fn portfolio_get() -> StatusCode {
+    // Portfolio balances, subscriptions, and transactions are owner-scoped
+    // financial state; this public content service has no authority for them.
+    StatusCode::NOT_IMPLEMENTED
 }
 
 #[cfg(test)]

@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-a3-6-analytics-schema.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "analytics runtime DDL 1→0, one 260-byte migration pinned, six legacy columns verified" "$temp_dir/integrity.out"
+grep -q "analytics runtime DDL 1→0, baseline plus additive subject migration pinned, seven-column compatibility boundary verified" "$temp_dir/integrity.out"
 grep -q "no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran" "$temp_dir/integrity.out"
 
 set +e
@@ -30,8 +30,8 @@ bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
 if (report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -1) process.exit(1);
-if (report.runtimeRust.qualifiedEventsRelation !== "public.events" || report.runtimeRust.qualifiedEventsSqlOccurrences !== 7) process.exit(1);
-if (report.migrationRoot.migrations !== 1 || report.migrationRoot.pinnedBytes !== 260 || report.migrationRoot.runner !== null) process.exit(1);
+if (report.runtimeRust.qualifiedEventsRelation !== "public.events" || report.runtimeRust.qualifiedEventsSqlOccurrences !== 5) process.exit(1);
+if (report.migrationRoot.migrations !== 2 || report.migrationRoot.pinnedBytes !== 675 || report.migrationRoot.runner !== null) process.exit(1);
 if (report.requiredColumns.length !== 6 || report.blockers.length !== 6) process.exit(1);
 ' "$temp_dir/report-one.json"
 

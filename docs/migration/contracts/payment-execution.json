@@ -214,9 +214,9 @@
       "anchor": "Market entitlements and subscription pricing remain backend-owned."
     },
     {
-      "id": "tgt-canned-subscriptions",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""
+      "id": "tgt-subscription-compatibility-producers-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Unowned wallet/session and subscription compatibility producers are"
     },
     {
       "id": "tgt-payment-producer-absent",
@@ -286,7 +286,7 @@
     {
       "id": "tgt-pay-admin-force",
       "file": "services/pay/src/handlers/pay_admin.rs",
-      "anchor": "Force-cancel ignores the `status = 'pending'` guard"
+      "anchor": "WHERE id=$1 AND status='pending'"
     },
     {
       "id": "tgt-admin-empty-confirm",
@@ -519,7 +519,7 @@
         "response": "source plan-access/preview/switch envelopes",
         "successStatuses": [200]
       },
-      "targetObserved": ["frontend exposes unrelated canned subscription routes", "canonical backend routes exist"],
+      "targetObserved": ["frontend subscription compatibility producers are absent", "canonical backend routes exist"],
       "ownerKey": "verified-jwt-wallet",
       "status": "blocked",
       "blockerIds": ["B01", "B12", "B14", "B15"]
@@ -672,7 +672,7 @@
     {
       "id": "frontend-fail-closed-plans-payment-canned-subscriptions",
       "reason": "The top-level plan/payment compatibility producers are removed and their public UIs fail closed, but hard-coded `/api/v1/subscription/*` records, including plan rows, remain non-durable financial state.",
-      "evidenceIds": ["tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-canned-subscriptions"]
+      "evidenceIds": ["tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-subscription-compatibility-producers-absent"]
     },
     {
       "id": "frontend-payment-unavailable",
@@ -728,9 +728,9 @@
       "severity": "stop",
       "status": "blocked",
       "category": "frontend-contract",
-      "summary": "Rust frontend lacks source-compatible payment APIs; top-level plan/payment compatibility producers are removed, but canned `/api/v1/subscription/*` responses remain.",
-      "evidenceIds": ["src-submit", "src-public-plans", "tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-canned-subscriptions"],
-      "resolution": "Implement compatibility handlers backed by the declared write authority; remove canned financial responses."
+      "summary": "Rust frontend lacks source-compatible payment APIs; top-level plan/payment compatibility producers and the unowned subscription compatibility routes are removed.",
+      "evidenceIds": ["src-submit", "src-public-plans", "tgt-plans-producer-absent", "tgt-payment-producer-absent", "tgt-subscription-compatibility-producers-absent"],
+      "resolution": "Implement compatibility handlers only after the declared backend write authority and typed contracts are available."
     },
     {
       "id": "B02",

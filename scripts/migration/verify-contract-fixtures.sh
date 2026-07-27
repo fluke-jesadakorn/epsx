@@ -29,7 +29,7 @@ try {
 
 if (fixture.schemaVersion !== 1) fail("schemaVersion must be 1");
 if (fixture.purpose !== "fixture-integrity-only") fail("purpose must be fixture-integrity-only");
-if (!fixture.baseline || fixture.baseline.sourceRef !== "origin/development") fail("origin/development baseline is required");
+if (!fixture.baseline || fixture.baseline.sourceRef !== "development") fail("development baseline is required");
 if (!Array.isArray(fixture.contracts) || fixture.contracts.length === 0) fail("contracts must be a non-empty array");
 if (!Array.isArray(fixture.mandatoryIds) || !Array.isArray(fixture.knownP0Ids)) fail("mandatoryIds and knownP0Ids are required");
 

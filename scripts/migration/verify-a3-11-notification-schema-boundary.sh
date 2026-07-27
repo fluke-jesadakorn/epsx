@@ -166,7 +166,7 @@ if (!mainSource.includes("Result<(), TemplateLoadError>") || !mainSource.include
 if (!mainSource.includes("Some(chrono::Utc::now())")) fail("TIMESTAMPTZ sent_at bind is not DateTime<Utc>");
 if (!libSource.includes("sqlx::query_scalar::<_, bool>(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY)")) fail("compatibility query is not a scalar boolean probe");
 
-exact("qualified relation counts", { "public.templates": 8, "public.notifications": 11 }, runtime.qualifiedRelationOccurrences);
+exact("qualified relation counts", { "public.templates": 7, "public.notifications": 26 }, runtime.qualifiedRelationOccurrences);
 for (const [relation, expected] of Object.entries(runtime.qualifiedRelationOccurrences)) {
   if (occurrences(mainSource, relation) !== expected) fail(`${relation}: runtime occurrence count drifted`);
 }

@@ -81,7 +81,7 @@ if [ "$wrong_ssr_status" -ne 1 ]; then
   echo "notification-execution self-test: expected wrong-existing-SSR-anchor exit 1, got $wrong_ssr_status" >&2
   exit 1
 fi
-grep -q "tgt-frontend-ssr-ok: notification semantic anchor drifted" "$temp_dir/wrong-existing-ssr-anchor.out"
+grep -q "missing target anchor tgt-frontend-ssr-ok in apps/frontend/src/ssr.rs" "$temp_dir/wrong-existing-ssr-anchor.out"
 
 NOTIFICATION_CONTRACT_IN="$contract" NOTIFICATION_CONTRACT_OUT="$temp_dir/wrong-existing-ui-anchor.json" bun -e '
 const contract = await Bun.file(process.env.NOTIFICATION_CONTRACT_IN).json();
@@ -151,7 +151,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-bearer-anchor \
   tgt-frontend-bearer-only \
-  'let client = state.notification.clone_for_bearer();' \
+  'struct NotificationUnreadCount {' \
   'tgt-frontend-bearer-only: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-unread-anchor \
@@ -181,7 +181,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-header-endpoint-anchor \
   tgt-active-header-endpoint \
-  '/api/v1/notification/list' \
+  'var requestGeneration = 0;' \
   'tgt-active-header-endpoint: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-header-validation-anchor \
@@ -196,7 +196,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-header-dom-anchor \
   tgt-active-header-initial-dom \
-  'data-epsx-notification-badge-target="true"' \
+  'data-epsx-notification-unread-badge="true"' \
   'tgt-active-header-initial-dom: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-header-accessibility-anchor \

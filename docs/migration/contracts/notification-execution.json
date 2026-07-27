@@ -134,12 +134,12 @@
     {
       "id": "tgt-inapp-stub",
       "file": "services/notification/src/main.rs",
-      "anchor": "// For now, just return sent status"
+      "anchor": "Durable row is the in-app fanout source; delivery is available through owner-scoped reads."
     },
     {
       "id": "tgt-email-mock-success",
       "file": "services/notification/src/main.rs",
-      "anchor": "[EMAIL MOCK] To: {} Subject: {} Body: {}"
+      "anchor": "delivery_not_configured"
     },
     {
       "id": "tgt-email-blocking-send",
@@ -214,12 +214,12 @@
     {
       "id": "tgt-frontend-owner-cross-check",
       "file": "apps/frontend/src/api.rs",
-      "anchor": ".validate(&user.wallet_address, query.limit)"
+      "anchor": "Ok(payload) if payload.validate(owner, query).is_ok() => payload,"
     },
     {
       "id": "tgt-frontend-bearer-only",
       "file": "apps/frontend/src/api.rs",
-      "anchor": "let req = client.get(&url).bearer_auth(&token);"
+      "anchor": ".auth_client()\n        .get(url)\n        .bearer_auth(bearer)"
     },
     {
       "id": "tgt-frontend-unread-contract",
@@ -229,7 +229,7 @@
     {
       "id": "tgt-frontend-ssr-list",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": ".get_with_ctx(\"/api/v1/notification/list\", &request_context)"
+      "anchor": "let outcome = crate::api::load_owner_notifications("
     },
     {
       "id": "tgt-frontend-ssr-ok",
@@ -279,7 +279,7 @@
     {
       "id": "tgt-active-header-mount",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": "epsx_templates::epsx_header()"
+      "anchor": "epsx_templates::epsx_header_for_session_and_return_target("
     },
     {
       "id": "tgt-active-header-auth-runtime",
@@ -334,7 +334,7 @@
     {
       "id": "tgt-admin-global-list-service-policy",
       "file": "services/notification/src/lib.rs",
-      "anchor": "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin"
+      "anchor": "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin,"
     },
     {
       "id": "tgt-admin-global-list-gateway-policy",
@@ -493,7 +493,7 @@
     {
       "id": "admin-history-stats-delete",
       "source": "admin-wide list, filters, stats, acknowledge, and delete under admin notification permission",
-      "targetObserved": "a strict global redacted admin list now exists across gateway, direct service, SSR adapter, and read-only UI; count and rows use one read-only repeatable-read transaction with tuple validation, while source-compatible filters/stats/acknowledge/delete/scheduling semantics and runtime database/browser proof remain absent",
+      "targetObserved": "a strict global redacted admin list now exists across gateway, direct service, SSR adapter, and an authorized UI; count and rows use one repeatable-read transaction with tuple validation, and lifecycle/create forms submit only bounded IDs or explicit validated fields through backend adapters. Source-compatible scheduling semantics and runtime database/browser proof remain absent",
       "ownerKey": "admin-audience+operation-specific-notification-permission",
       "status": "blocked",
       "blockerIds": ["B01", "B05", "B19"]

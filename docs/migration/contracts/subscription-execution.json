@@ -223,14 +223,14 @@
       "anchor": ".map(|v| (StatusCode::CREATED, Json(v)).into_response())"
     },
     {
-      "id": "tgt-frontend-canned-plans",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""
+      "id": "tgt-frontend-compatibility-producers-absent",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "Unowned wallet/session and subscription compatibility producers are"
     },
     {
-      "id": "tgt-frontend-canned-subscribe",
-      "file": "apps/frontend/src/api.rs",
-      "anchor": "pub async fn api_subscription_subscribe("
+      "id": "tgt-frontend-backend-authority",
+      "file": "apps/frontend/src/main.rs",
+      "anchor": "The backend owns wallet sessions, plan"
     },
     {
       "id": "tgt-frontend-plan-loader-absent",
@@ -250,22 +250,22 @@
     {
       "id": "tgt-ui-plans-safe-recovery",
       "file": "shared/rust/dioxus_ui/src/pages/plans.rs",
-      "anchor": "fn recovery_uses_native_safe_navigation()"
+      "anchor": "fn unavailable_catalog_offers_only_meaningful_safe_navigation()"
     },
     {
       "id": "tgt-admin-ui-sample-plans",
       "file": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_plans.rs",
-      "anchor": "PlanListSidebar { plans: sample_plans(), user: ctx.user.clone(), return_url: ctx.path.clone() }"
+      "anchor": "pub fn decode_admin_plan_projection("
     },
     {
-      "id": "tgt-ranking-free-stub",
-      "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "anchor": "FreePlanRankingOffsetService: returning free-plan offset (wave 13a stub;"
+      "id": "tgt-ranking-authority-fail-closed",
+      "file": "shared/rust/epsx-identity-service/src/main.rs",
+      "anchor": "Arc::new(UnavailableRankingOffsetService)"
     },
     {
-      "id": "tgt-analytics-free-stub",
+      "id": "tgt-analytics-ranking-authority-client",
       "file": "apps/analytics/src/main.rs",
-      "anchor": "FreePlanRankingOffsetService"
+      "anchor": "GrpcWalletRankingOffsetQuery::new(grpc_endpoint)"
     },
     {
       "id": "tgt-pay-intent-route",
@@ -688,7 +688,7 @@
       "status": "blocked",
       "summary": "Public plan DTOs and live rendering do not match the pinned client contract.",
       "resolution": "Expose the canonical active PublicPlan projection through a versioned compatibility route and bind the page to it.",
-      "evidenceIds": ["src-public-plan-client", "tgt-frontend-canned-plans", "tgt-ui-plans-unavailable"]
+      "evidenceIds": ["src-public-plan-client", "tgt-frontend-compatibility-producers-absent", "tgt-ui-plans-unavailable"]
     },
     {
       "id": "B02",
@@ -740,9 +740,9 @@
       "category": "plan-authority",
       "severity": "stop",
       "status": "blocked",
-      "summary": "The backend, subscription service, canned subscription BFF, content files, and admin sample UI can each describe different plans; the public page now fails closed rather than presenting one of them.",
+      "summary": "The backend, subscription service, content files, and admin sample UI can each describe different plans; frontend compatibility producers are absent and the public page fails closed rather than presenting an unowned catalog.",
       "resolution": "Keep plan/permission/ranking business authority in Rust backend and make every other store a versioned projection.",
-      "evidenceIds": ["src-public-plan-client", "tgt-a3-7-additive-migration", "tgt-frontend-canned-plans", "tgt-admin-ui-sample-plans"]
+      "evidenceIds": ["src-public-plan-client", "tgt-a3-7-additive-migration", "tgt-frontend-compatibility-producers-absent", "tgt-admin-ui-sample-plans"]
     },
     {
       "id": "B08",
@@ -787,16 +787,16 @@
       "status": "blocked",
       "summary": "Subscription transitions do not durably grant or revoke permission entitlements.",
       "resolution": "Emit transactional lifecycle events and apply idempotent cause-linked entitlement grants/revokes with reconciliation.",
-      "evidenceIds": ["src-canned-manual-activation", "tgt-identity-no-entitlement-route", "tgt-ranking-free-stub"]
+      "evidenceIds": ["src-canned-manual-activation", "tgt-identity-no-entitlement-route", "tgt-ranking-authority-fail-closed"]
     },
     {
       "id": "B13",
       "category": "ranking-offset",
       "severity": "stop",
       "status": "blocked",
-      "summary": "Identity and analytics report free-plan ranking access regardless of paid lifecycle state.",
+      "summary": "Identity fail-closes ranking access until an authoritative entitlement projection is wired; analytics queries the identity authority rather than manufacturing a plan offset.",
       "resolution": "Serve ranking offset from the authoritative entitlement projection and distinguish unavailable from free/no-plan.",
-      "evidenceIds": ["src-owner-plan-read", "tgt-ranking-free-stub", "tgt-analytics-free-stub"]
+      "evidenceIds": ["src-owner-plan-read", "tgt-ranking-authority-fail-closed", "tgt-analytics-ranking-authority-client"]
     },
     {
       "id": "B14",

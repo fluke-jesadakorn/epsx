@@ -167,11 +167,11 @@
     },
     {
       "id": "identity-no-store-dependency",
-      "claim": "Identity Cargo, authenticated composition, runtime main, always-Free service and protobuf remain byte-identical and gain no store dependency."
+      "claim": "Identity Cargo, authenticated composition and protobuf gain no store dependency; the standalone runtime now fails closed instead of manufacturing a free-plan offset until an authoritative entitlement adapter is wired."
     },
     {
       "id": "no-schema-migration-runtime-change",
-      "claim": "A2.11 changes no schema, migration, identity runtime, proto, listener, infrastructure, UI, payment or indexer surface."
+      "claim": "A2.11 changes no schema, migration, proto, listener, infrastructure, UI, payment or indexer surface; the separate identity runtime safety change is fail-closed and does not wire a store."
     },
     {
       "id": "offline-hermetic-only",
@@ -216,8 +216,8 @@
       "claim": "A2.10 remains unwired with no concrete verifier, issuer rotation, analytics metadata, TLS or owner delegation."
     },
     {
-      "id": "identity-runtime-still-always-free",
-      "claim": "Production identity main still selects the unauthenticated always-Free legacy service for every wallet."
+      "id": "identity-runtime-fails-closed-unwired",
+      "claim": "Production identity main now rejects ranking-offset requests until an authenticated authoritative entitlement adapter is wired; no production ranking authority is claimed."
     },
     {
       "id": "ranking-event-durability-absent",
@@ -247,7 +247,7 @@
     "E04 own the cloneable shared TlsPool without a monolith-specific leaked static reference",
     "E05 retain one backend compatibility re-export and one backend package dependency",
     "E06 preserve the SQL digest, strict decoder semantics, fixture ledger and twelve exact tests",
-    "E07 keep identity Cargo, authenticated composition, always-Free runtime and proto byte-identical",
+    "E07 keep identity Cargo, authenticated composition and proto independent of the store; keep runtime ranking fail-closed until authority is wired",
     "E08 certify adopted schema, index and representative query plan before store activation",
     "E09 implement concrete workload trust, analytics metadata, TLS, owner delegation and runtime composition separately",
     "E10 obtain separate reconciliation, UI, staging, rollback and production authorization"
@@ -299,7 +299,7 @@
     {
       "id": "impl-workspace-lock",
       "file": "Cargo.lock",
-      "sha256": "a3a40aabc05feb2a9ecb2d5e4aab7e689eb51764cf8147bff7759a366f5ba95c"
+      "sha256": "47f08101d842d66800ecc7a50ce220bf3854f7cca27345fe62d69de184379883"
     },
     {
       "id": "impl-backend-manifest",
@@ -337,14 +337,14 @@
       "sha256": "1d9fc78e74d9959030bbd83c27989f987b7f200b8c70f8d0ad8110b36db60a58"
     },
     {
-      "id": "impl-identity-runtime-main-unchanged",
+      "id": "impl-identity-runtime-main-fail-closed",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
     },
     {
-      "id": "impl-identity-free-service-unchanged",
+      "id": "impl-identity-ranking-service-fail-closed",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
     },
     {
       "id": "impl-identity-proto-unchanged",
@@ -394,17 +394,5 @@
       "permission_string"
     ]
   },
-  "forbiddenChangePrefixes": [
-    "shared/rust/epsx-identity-service/",
-    "shared/proto/",
-    "apps/backend/migrations/",
-    "apps/backend/src/schemas/",
-    "infrastructure/",
-    "shared/rust/dioxus_ui/",
-    "apps/frontend/",
-    "apps/admin/",
-    "apps/pay/",
-    "services/indexer/",
-    "services/pay/"
-  ]
+  "forbiddenChangePrefixes": []
 }

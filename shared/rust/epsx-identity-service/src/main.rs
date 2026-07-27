@@ -2,8 +2,8 @@
 //!
 //! The binary exposes `GetWalletRankingOffset` over tonic on
 //! `BIND_ADDR` (default `0.0.0.0:50051`). The current adapter delegates
-//! to `FreePlanRankingOffsetService`, preserving the always-Free success
-//! response while the tier-aware identity implementation is migrated.
+//! to a fail-closed ranking authority while the verified, database-backed
+//! entitlement implementation is migrated.
 //!
 //! Event publishing helpers remain available in library test builds for
 //! historical coverage, but the production binary does not construct them.
@@ -19,7 +19,7 @@ use tracing_subscriber::EnvFilter;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use epsx_identity_service::generated::identity_server::IdentityServer;
 use epsx_identity_service::identity_service::{
-    map_app_error_to_status, FreePlanRankingOffsetService,
+    map_app_error_to_status, UnavailableRankingOffsetService,
 };
 
 // ============================================================================
@@ -28,7 +28,7 @@ use epsx_identity_service::identity_service::{
 //
 // The tonic-build-generated `IdentityServer` is a
 // `tonic::server::Server`-trait shim. We wrap the port impl
-// (`FreePlanRankingOffsetService`) in a small adapter that
+// (`UnavailableRankingOffsetService`) in a small adapter that
 // implements the generated trait, mapping the gRPC request
 // (`GetWalletRankingOffsetRequest`) → the port's
 // `get_wallet_ranking_offset(wallet: &str)` call, then mapping
@@ -44,7 +44,7 @@ use epsx_identity_service::identity_service::{
 /// The tonic `Identity` service impl. Wraps any
 /// `WalletRankingOffsetQuery` port impl and serves it over
 /// gRPC. The current concrete impl is
-/// `FreePlanRankingOffsetService` (the stub).
+/// `UnavailableRankingOffsetService` until the authoritative adapter is wired.
 pub struct GrpcIdentityService {
     inner: Arc<dyn WalletRankingOffsetQuery>,
 }
@@ -52,7 +52,7 @@ pub struct GrpcIdentityService {
 impl GrpcIdentityService {
     /// Construct a gRPC service backed by an arbitrary
     /// `WalletRankingOffsetQuery` port impl. Day 1 passes
-    /// `FreePlanRankingOffsetService`; future waves pass a
+    /// `UnavailableRankingOffsetService`; future waves pass a
     /// `TierAwareRankingOffsetService` that reads from
     /// `wallet_plan_assignments`.
     pub fn new(inner: Arc<dyn WalletRankingOffsetQuery>) -> Self {
@@ -113,10 +113,10 @@ async fn main() -> anyhow::Result<()> {
     print_startup_banner(grpc_addr);
 
     // ---- DI ----
-    // Day 1: a single Arc<dyn WalletRankingOffsetQuery> backed
-    // by the stub. Future waves can swap to a tier-aware impl
-    // without changing the gRPC server scaffolding.
-    let port_impl: Arc<dyn WalletRankingOffsetQuery> = Arc::new(FreePlanRankingOffsetService);
+    // Keep the standalone authority fail-closed until a verified,
+    // database-backed tier-aware implementation is wired.
+    let port_impl: Arc<dyn WalletRankingOffsetQuery> =
+        Arc::new(UnavailableRankingOffsetService);
     let grpc_service = GrpcIdentityService::new(port_impl);
 
     info!(%grpc_addr, "epsx-identity-service: tonic gRPC server listening");
@@ -136,45 +136,32 @@ fn print_startup_banner(grpc_addr: SocketAddr) {
     info!("  gRPC methods (1):");
     info!("    rpc GetWalletRankingOffset(GetWalletRankingOffsetRequest)");
     info!("        returns GetWalletRankingOffsetResponse");
-    info!("  Day-1 behavior: always returns the free-plan offset");
-    info!("  (matching the wave-12 in-process FreePlanWalletRankingOffsetQuery stub).");
+    info!("  ranking behavior: unavailable until entitlement authority is wired");
     info!("============================================================");
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use epsx_contracts::value_objects::ranking_offset::RankingOffset;
     use epsx_identity_service::generated::identity_server::Identity;
-    use epsx_identity_service::generated::{
-        GetWalletRankingOffsetRequest, GetWalletRankingOffsetResponse,
-    };
+    use epsx_identity_service::generated::GetWalletRankingOffsetRequest;
     use prost::Message;
 
     fn service() -> GrpcIdentityService {
-        GrpcIdentityService::new(Arc::new(FreePlanRankingOffsetService))
+        GrpcIdentityService::new(Arc::new(UnavailableRankingOffsetService))
     }
 
     #[tokio::test]
-    async fn a2_9_in_process_grpc_service_returns_unchanged_free_offset() {
-        for wallet in [
-            "0x0000000000000000000000000000000000000000",
-            "0xdeadbeef",
-            "vitalik.eth",
-            "",
-        ] {
-            let response = Identity::get_wallet_ranking_offset(
-                &service(),
-                tonic::Request::new(GetWalletRankingOffsetRequest {
-                    wallet: wallet.to_owned(),
-                }),
-            )
-            .await
-            .expect("the always-Free service must not fail")
-            .into_inner();
-
-            assert_eq!(response.offset, RankingOffset::free_plan().value());
-        }
+    async fn ranking_authority_is_fail_closed_until_wired() {
+        let error = Identity::get_wallet_ranking_offset(
+            &service(),
+            tonic::Request::new(GetWalletRankingOffsetRequest {
+                wallet: "0xdeadbeef".to_owned(),
+            }),
+        )
+        .await
+        .expect_err("unwired ranking authority must not manufacture an offset");
+        assert_eq!(error.code(), tonic::Code::Unavailable);
     }
 
     #[tokio::test]
@@ -187,17 +174,10 @@ mod tests {
         let decoded_request = GetWalletRankingOffsetRequest::decode(request_bytes.as_slice())
             .expect("request wire payload must decode");
 
-        let response =
-            Identity::get_wallet_ranking_offset(&service(), tonic::Request::new(decoded_request))
-                .await
-                .expect("the always-Free service must not fail")
-                .into_inner();
-        let response_bytes = response.encode_to_vec();
-
-        assert_eq!(response_bytes, [0x08, 0x64], "offset remains int32 field 1");
-        let decoded_response = GetWalletRankingOffsetResponse::decode(response_bytes.as_slice())
-            .expect("response wire payload must decode");
-        assert_eq!(decoded_response.offset, RankingOffset::free_plan().value());
+        let error = Identity::get_wallet_ranking_offset(&service(), tonic::Request::new(decoded_request))
+            .await
+            .expect_err("unwired authority must reject the request");
+        assert_eq!(error.code(), tonic::Code::Unavailable);
     }
 
     #[test]

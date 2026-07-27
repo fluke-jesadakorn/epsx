@@ -174,22 +174,22 @@
     {
       "id": "target-news-fallback",
       "file": "services/content/src/main.rs",
-      "anchor": "Article for <code>{slug}</code> coming soon."
+      "anchor": "return Err(StatusCode::NOT_FOUND)"
     },
     {
       "id": "target-plans-file-read",
       "file": "services/content/src/main.rs",
-      "anchor": "marketing/plans.json"
+      "anchor": "Plan eligibility, pricing, and entitlements are backend-owned."
     },
     {
       "id": "target-ranking-static",
       "file": "services/content/src/main.rs",
-      "anchor": "\"ticker\": \"GHC\""
+      "anchor": "Ranking authority and offsets belong to the Rust backend/analytics"
     },
     {
       "id": "target-portfolio-placeholder",
       "file": "services/content/src/main.rs",
-      "anchor": "\"auth_required\": true"
+      "anchor": "Portfolio balances, subscriptions, and transactions are owner-scoped"
     },
     {
       "id": "target-auth-boundary",

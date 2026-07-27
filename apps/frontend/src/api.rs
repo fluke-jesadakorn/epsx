@@ -329,55 +329,6 @@ mod oauth_tests {
     }
 }
 
-pub async fn get_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
-    let path = format!("/api/v1/content/pages/{}", slug);
-    match state.content.get_plain(&path).await {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
-pub async fn save_page(
-    State(state): State<AppState>,
-    AxPath(slug): AxPath<String>,
-    Json(body): Json<super::SavePageBody>,
-) -> Response {
-    let path = format!("/api/v1/content/pages/{}", slug);
-    let payload = serde_json::json!({
-        "title": body.title,
-        "blocks_json": body.blocks.map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string()),
-        "seo_json": body.seo.map(|v| v.to_string()).unwrap_or_else(|| "{}".to_string()),
-    });
-    match state.content.put_plain(&path, &payload).await {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
-pub async fn publish_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
-    let path = format!("/api/v1/content/pages/{}/publish", slug);
-    match state
-        .content
-        .post_plain(&path, &serde_json::json!({}))
-        .await
-    {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
 pub async fn siwe_login(
     State(state): State<AppState>,
     Json(body): Json<super::SiweLoginBody>,
@@ -1477,8 +1428,13 @@ pub async fn notification_clear_all(
 
 pub async fn track_event(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<AnalyticsTrackBody>,
 ) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
     let url = format!(
         "{}/api/v1/analytics/track",
         state.api_url.trim_end_matches('/')
@@ -1487,6 +1443,7 @@ pub async fn track_event(
         .analytics
         .clone_for_bearer()
         .post(&url)
+        .bearer_auth(&token)
         .json(&serde_json::json!({
             "event_name": body.event_name,
             "properties": body.properties,
@@ -1496,114 +1453,14 @@ pub async fn track_event(
         .send()
         .await
     {
-        Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
-        Err(_) => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
-}
-
-#[derive(serde::Serialize)]
-pub struct ChainInfo {
-    pub id: String,
-    pub name: String,
-    pub chain_id: u64,
-    pub rpc_url: String,
-    pub currency: String,
-    pub explorer: String,
-}
-
-pub async fn api_wallet_chains() -> Json<Vec<ChainInfo>> {
-    Json(vec![
-        ChainInfo {
-            id: "bsc".into(),
-            name: "BSC Mainnet".into(),
-            chain_id: 56,
-            rpc_url: "https://bsc-dataseed1.binance.org".into(),
-            currency: "BNB".into(),
-            explorer: "https://bscscan.com".into(),
-        },
-        ChainInfo {
-            id: "bsc_testnet".into(),
-            name: "BSC Testnet".into(),
-            chain_id: 97,
-            rpc_url: "https://data-seed-prebsc-1-s1.binance.org:8545".into(),
-            currency: "tBNB".into(),
-            explorer: "https://testnet.bscscan.com".into(),
-        },
-    ])
-}
-
-#[derive(serde::Deserialize)]
-pub struct WalletConnectBody {
-    pub address: Option<String>,
-    pub chain_id: Option<String>,
-}
-
-pub async fn api_wallet_connect(Json(body): Json<WalletConnectBody>) -> Json<serde_json::Value> {
-    let session_id = format!("0x{:064x}", uuid::Uuid::new_v4().as_u128());
-    Json(serde_json::json!({
-        "session_id": session_id,
-        "address": body.address,
-        "chain_id": body.chain_id.unwrap_or_else(|| "56".into()),
-        "expires_at": chrono::Utc::now().timestamp() + 86400
-    }))
-}
-
-pub async fn api_subscription_plans(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "plans": [
-            { "id": "sub_1", "merchant_id": "0xM1", "name": "Pro Monthly", "amount": "9", "currency": "USDT", "chain_id": 56, "interval": 2592000, "active": true },
-            { "id": "sub_2", "merchant_id": "0xM1", "name": "Pro Yearly", "amount": "79", "currency": "USDT", "chain_id": 56, "interval": 31536000, "active": true }
-        ]
-    }))
-}
-
-pub async fn api_subscription_merchant(
-    _state: State<AppState>,
-    AxPath(addr): AxPath<String>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "merchant": addr,
-        "plans": [
-            { "id": "sub_1", "name": "Pro Monthly", "amount": "9", "currency": "USDT" }
-        ]
-    }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct SubscribeBody {
-    pub plan_id: String,
-    pub tx_hash: String,
-}
-
-pub async fn api_subscription_subscribe(
-    Json(body): Json<SubscribeBody>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "ok": true,
-        "plan_id": body.plan_id,
-        "tx_hash": body.tx_hash
-    }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct CreatePlanBody {
-    pub name: String,
-    pub amount: String,
-    pub currency: Option<String>,
-    pub interval: Option<i64>,
-}
-
-pub async fn api_subscription_create_plan(
-    Json(body): Json<CreatePlanBody>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "id": uuid::Uuid::new_v4().to_string(),
-        "name": body.name,
-        "amount": body.amount,
-        "currency": body.currency.unwrap_or_else(|| "USDT".to_string()),
-        "interval": body.interval.unwrap_or(2592000),
-        "active": true
-    }))
 }
 
 pub(crate) fn valid_news_slug(slug: &str) -> bool {

@@ -46,7 +46,7 @@ if (report.productionReady !== false || report.readinessExit !== 3) process.exit
 if (report.evidencePinning.authority !== "contract-plus-independent-verifier-constants" || report.evidencePinning.catalogIdentifiers !== 11 || report.evidencePinning.exactDownBody !== true) process.exit(1);
 if (report.source.developmentCommit !== "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db" || report.source.servicePresent !== false) process.exit(1);
 if (report.runtime.ddlBefore !== 4 || report.runtime.ddlAfter !== 0 || report.runtime.seedCallsBefore !== 2 || report.runtime.seedCallsAfter !== 0) process.exit(1);
-if (Object.values(report.runtime.qualifiedRelations).reduce((sum, count) => sum + count, 0) !== 19) process.exit(1);
+if (Object.values(report.runtime.qualifiedRelations).reduce((sum, count) => sum + count, 0) !== 33) process.exit(1);
 if (report.migration.migrations !== 1 || report.migration.historyStatus !== "blocked-preexisting-unsafe-history" || report.migration.runnerPrintSchemaMissing.join(",") !== "templates") process.exit(1);
 if (report.schema.columns !== 26 || report.schema.notNull !== 14 || report.schema.primaryKeys !== 2 || report.schema.uniqueKeys !== 1) process.exit(1);
 if (report.schema.foreignKeys !== 0 || report.schema.checks !== 0 || report.schema.indexes !== 5 || report.blockers.length !== 7) process.exit(1);

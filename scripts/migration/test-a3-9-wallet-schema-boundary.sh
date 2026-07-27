@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-a3-9-wallet-schema.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "wallet runtime DDL 3→0, one 775-byte migration pinned, three tables/17 columns and Rust bind models verified" "$temp_dir/integrity.out"
+grep -q "wallet runtime DDL 3→0, baseline plus two additive commerce migrations pinned, and Rust bind models verified" "$temp_dir/integrity.out"
 grep -q "no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran" "$temp_dir/integrity.out"
 
 set +e
@@ -30,12 +30,12 @@ bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
 if (report.developmentMapping.candidateServicePresent !== false || report.developmentMapping.status !== "blocked") process.exit(1);
-if (report.runtimeRust.files !== 2 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -3) process.exit(1);
+if (report.runtimeRust.files !== 3 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -3) process.exit(1);
 if (report.runtimeRust.qualifiedRelationOccurrences["public.accounts"] !== 3) process.exit(1);
 if (report.runtimeRust.qualifiedRelationOccurrences["public.nonces"] !== 1) process.exit(1);
 if (report.runtimeRust.qualifiedRelationOccurrences["public.signed_transactions"] !== 1) process.exit(1);
 if (report.runtimeRust.compatibilityQueryBytes !== 22561) process.exit(1);
-if (report.migrationRoot.migrations !== 1 || report.migrationRoot.pinnedBytes !== 775 || report.migrationRoot.runner !== null) process.exit(1);
+if (report.migrationRoot.migrations !== 3 || report.migrationRoot.pinnedBytes !== 775 || report.migrationRoot.runner !== null) process.exit(1);
 if (report.schema.tables !== 3 || report.schema.columns !== 17 || report.schema.nullableColumns !== 9 || report.schema.expectedNotNullColumns !== 8 || report.schema.pg18NotNullInventory !== true || report.schema.prePg18NoRowPath !== true || report.schema.constraints !== 3 || report.schema.indexes !== 3 || report.schema.serialSequences !== 1 || report.schema.exactDefaultDependencies !== 1 || report.schema.datetimePrecisionColumns !== 3 || report.schema.databaseDefaultCollationColumns !== 12) process.exit(1);
 if (report.models.responseFields !== 4 || report.models.nullableResponseFields !== 2 || report.models.uuidFields !== 0 || report.models.boundedBindAnchors !== 7 || report.models.hermeticBinaryTests !== 4 || report.models.atomicTransactionExecutors !== 2) process.exit(1);
 if (report.blockers.length !== 6) process.exit(1);

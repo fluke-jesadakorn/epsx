@@ -389,16 +389,18 @@ for (const id of [
   "core-owned-adapter", "one-read-only-statement", "database-observed-at-microseconds",
   "raw-unfiltered-left-join-facts", "sentinel-empty-snapshot", "strict-pure-row-decoder",
   "shared-repository-contract", "resolver-remains-identity-owned",
-  "runtime-always-free-byte-identical", "offline-static-only",
+  "offline-static-only",
 ]) if (!adapterInvariantIds.has(id)) fail(`A2.8 invariant is missing: ${id}`);
+if (!adapterInvariantIds.has("runtime-fail-closed-unwired") && !adapterInvariantIds.has("runtime-always-free-byte-identical") && !adapterInvariantIds.has("runtime-always-free-remains-unwired")) fail("A2.8 runtime authority boundary invariant is missing");
 const adapterResidualIds = new Set((adapterBoundary.residualStops || []).map((item) => item.id));
 for (const id of [
   "database-execution-absent", "schema-adoption-uncertified",
   "lower-wallet-functional-index-absent", "query-plan-and-bound-absent",
   "mvcc-concurrency-unproved", "reconciliation-unproved",
-  "identity-runtime-still-always-free", "identity-workload-auth-tls-absent",
+  "identity-workload-auth-tls-absent",
   "ui-bff-readiness-unproved", "route-owner-cutover-unproved",
 ]) if (!adapterResidualIds.has(id)) fail(`A2.8 residual STOP is missing: ${id}`);
+if (!adapterResidualIds.has("identity-runtime-fails-closed-unwired") && !adapterResidualIds.has("identity-runtime-still-always-free")) fail("A2.8 runtime authority STOP is missing");
 
 const containmentBoundaryEvidence = contract.targetEvidence.find((item) => item.id === "tgt-identity-a2-9-event-containment-contract");
 if (!containmentBoundaryEvidence || containmentBoundaryEvidence.domain !== "identityRankingOffset" || containmentBoundaryEvidence.file !== "docs/migration/contracts/a2-9-identity-event-containment.json" || containmentBoundaryEvidence.anchor !== "\"contractId\": \"A2.9-identity-event-containment\"") fail("A2.9 identity-event-containment evidence is missing or drifted");
@@ -412,10 +414,11 @@ for (const id of [
   "production-grpc-only", "no-production-50052-configuration",
   "emit-route-unmounted", "stream-route-unmounted",
   "historical-event-modules-test-only", "grpc-wire-unchanged",
-  "always-free-behavior-unchanged", "no-durable-replacement-invented",
+  "no-durable-replacement-invented",
   "no-cargo-lock-proto-change", "no-database-or-migration-change",
   "no-kubernetes-or-deployment-change", "offline-static-only",
 ]) if (!containmentInvariantIds.has(id)) fail(`A2.9 invariant is missing: ${id}`);
+if (!containmentInvariantIds.has("runtime-fail-closed-unwired") && !containmentInvariantIds.has("always-free-behavior-unchanged")) fail("A2.9 runtime authority invariant is missing");
 const containmentResidualIds = new Set((containmentBoundary.residualStops || []).map((item) => item.id));
 for (const id of [
   "paid-ranking-authority-unwired", "schema-and-adoption-unproved",
@@ -440,10 +443,11 @@ for (const id of [
   "canonical-evm-wallet-once", "query-once-after-authorization",
   "sanitized-exact-status-matrix", "metadata-not-protobuf-credential",
   "no-concrete-credential-adapter", "no-listener-network-or-tls",
-  "runtime-always-free-unchanged", "analytics-client-metadata-absent",
+  "analytics-client-metadata-absent",
   "store-and-schema-unactivated", "event-infra-ui-payment-indexer-unchanged",
   "offline-hermetic-only",
 ]) if (!authenticatedRpcInvariantIds.has(id)) fail(`A2.10 invariant is missing: ${id}`);
+if (!authenticatedRpcInvariantIds.has("runtime-fail-closed-unwired") && !authenticatedRpcInvariantIds.has("runtime-always-free-unchanged")) fail("A2.10 runtime authority invariant is missing");
 if (!Array.isArray(authenticatedRpcBoundary.hermeticTests) || authenticatedRpcBoundary.hermeticTests.length !== 11 || new Set(authenticatedRpcBoundary.hermeticTests).size !== 11) fail("A2.10 must retain eleven unique exact hermetic tests");
 if (!Array.isArray(authenticatedRpcBoundary.statusContract) || authenticatedRpcBoundary.statusContract.length !== 7) fail("A2.10 must retain seven exact status mappings");
 const authenticatedRpcResidualIds = new Set((authenticatedRpcBoundary.residualStops || []).map((item) => item.id));
@@ -451,9 +455,10 @@ for (const id of [
   "concrete-credential-verifier-and-issuer-trust-absent",
   "credential-issuance-storage-rotation-absent", "analytics-authorization-metadata-absent",
   "identity-workload-tls-absent", "store-schema-and-query-plan-unactivated",
-  "runtime-still-always-free-legacy-shim", "owner-delegation-binding-absent",
+  "owner-delegation-binding-absent",
   "runtime-deployment-and-live-proof-absent", "production-actions-unauthorized",
 ]) if (!authenticatedRpcResidualIds.has(id)) fail(`A2.10 residual STOP is missing: ${id}`);
+if (!authenticatedRpcResidualIds.has("runtime-fail-closed-until-authority-wired") && !authenticatedRpcResidualIds.has("runtime-still-always-free-legacy-shim")) fail("A2.10 runtime authority STOP is missing");
 
 const rankingStoreEvidence = contract.targetEvidence.find((item) => item.id === "tgt-identity-a2-11-ranking-store-extraction-contract");
 if (!rankingStoreEvidence || rankingStoreEvidence.domain !== "identityRankingOffset" || rankingStoreEvidence.file !== "docs/migration/contracts/a2-11-ranking-store-extraction.json" || rankingStoreEvidence.anchor !== "\"contractId\": \"A2.11-ranking-store-extraction\"") fail("A2.11 ranking-store-extraction evidence is missing or drifted");
@@ -475,7 +480,7 @@ for (const id of [
   "schema-adoption-uncertified", "generated-schema-filter-gap", "lower-wallet-functional-index-absent",
   "database-execution-absent", "query-plan-and-bound-absent", "mvcc-concurrency-unproved",
   "reconciliation-unproved", "identity-store-wiring-absent", "a2-10-concrete-auth-absent",
-  "identity-runtime-still-always-free", "ranking-event-durability-absent", "ui-bff-readiness-unproved",
+  "identity-runtime-fails-closed-unwired", "ranking-event-durability-absent", "ui-bff-readiness-unproved",
   "runtime-deployment-proof-absent", "forbidden-domain-changes-absent", "production-actions-unauthorized",
 ]) if (!rankingStoreResidualIds.has(id)) fail(`A2.11 residual STOP is missing: ${id}`);
 const staleIdentityConfigEvidence = contract.targetEvidence.find((item) => item.id === "tgt-k8s-identity-sse-config-stale");
@@ -541,15 +546,15 @@ const rankingEventDeliveryBlocker = contract.blockers.find((blocker) => blocker.
 const deploymentBlocker = contract.blockers.find((blocker) => blocker.id === "B23");
 if (!marketAuthorizationBlocker || !marketAuthorizationBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !marketAuthorizationBlocker.evidenceIds.includes("tgt-identity-a2-10-authenticated-ranking-rpc-contract") || !marketAuthorizationBlocker.summary.includes("authority errors stop before provider work") || !marketAuthorizationBlocker.summary.includes("exported but unwired") || !marketAuthorizationBlocker.summary.includes("analytics metadata") || !marketAuthorizationBlocker.summary.includes("owner delegation")) fail("B03 must retain A2.6 fail-closed evidence plus A2.10 unwired workload-auth and analytics-metadata/owner-delegation STOPs");
 const reconciliationBlocker = contract.blockers.find((blocker) => blocker.id === "B21");
-if (!rankingEntitlementBlocker || !rankingEntitlementBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-free-stub") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-8-core-snapshot-adapter-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-9-event-containment-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-10-authenticated-ranking-rpc-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-11-ranking-store-extraction-contract") || !rankingEntitlementBlocker.summary.includes("identity success still returns the free-plan offset") || !rankingEntitlementBlocker.summary.includes("SQL is unexecuted against a certified schema") || !rankingEntitlementBlocker.summary.includes("composition and store are unwired") || !rankingEntitlementBlocker.summary.includes("concrete credential trust") || !rankingEntitlementBlocker.summary.includes("owner delegation")) fail("B07 must retain A2.6/A2.7/A2.8/A2.9/A2.10/A2.11 evidence and the always-Free/unexecuted/unwired credential-and-owner STOPs");
+if (!rankingEntitlementBlocker || !rankingEntitlementBlocker.evidenceIds.includes("tgt-market-a2-6-authority-failure-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-free-stub") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-8-core-snapshot-adapter-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-9-event-containment-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-10-authenticated-ranking-rpc-contract") || !rankingEntitlementBlocker.evidenceIds.includes("tgt-identity-a2-11-ranking-store-extraction-contract") || !rankingEntitlementBlocker.summary.includes("identity requests fail closed") || !rankingEntitlementBlocker.summary.includes("SQL is unexecuted against a certified schema") || !rankingEntitlementBlocker.summary.includes("composition and store are unwired") || !rankingEntitlementBlocker.summary.includes("concrete credential trust") || !rankingEntitlementBlocker.summary.includes("owner delegation")) fail("B07 must retain A2.6/A2.7/A2.8/A2.9/A2.10/A2.11 evidence and the fail-closed/unexecuted/unwired credential-and-owner STOPs");
 if (!rankingEventAuthBlocker || !rankingEventAuthBlocker.evidenceIds.includes("tgt-identity-a2-9-event-containment-contract") || !rankingEventAuthBlocker.summary.includes("no authenticated authoritative publisher identity") || rankingEventAuthBlocker.status !== "blocked") fail("B08 must retain A2.9 containment while authenticated publisher authority remains blocked");
 if (!rankingEventDeliveryBlocker || !rankingEventDeliveryBlocker.evidenceIds.includes("tgt-identity-a2-9-event-containment-contract") || !rankingEventDeliveryBlocker.summary.includes("no ranking-event delivery runtime") || !rankingEventDeliveryBlocker.summary.includes("no durable revision") || rankingEventDeliveryBlocker.status !== "blocked") fail("B09 must retain A2.9 containment while durable delivery remains blocked");
 if (!reconciliationBlocker || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-7-entitlement-snapshot-contract") || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-8-core-snapshot-adapter-contract") || !reconciliationBlocker.evidenceIds.includes("tgt-identity-a2-11-ranking-store-extraction-contract") || !reconciliationBlocker.summary.includes("static SQL/decoder fixture") || !reconciliationBlocker.summary.includes("mechanical store extraction") || !reconciliationBlocker.summary.includes("not reconciliation")) fail("B21 must keep A2.7/A2.8 fixtures and A2.11 extraction distinct from reconciliation");
 if (!deploymentBlocker || !deploymentBlocker.evidenceIds.includes("tgt-k8s-identity-sse-config-stale") || !deploymentBlocker.evidenceIds.includes("tgt-identity-a2-9-event-containment-contract") || !deploymentBlocker.summary.includes("still advertises the A2.9-removed 50052 SSE surface") || deploymentBlocker.status !== "blocked") fail("B23 must retain stale 50052 deployment configuration as a STOP");
 const identityQuerySurface = contract.surfaceContracts.find((surface) => surface.id === "identity-ranking-offset-query");
-if (!identityQuerySurface || !identityQuerySurface.targetObserved.includes("A2.10 exports an unwired fail-closed workload-authenticated RPC composition") || !identityQuerySurface.targetObserved.includes("A2.11 extracts the adapter into a library-only ranking-store package") || !identityQuerySurface.targetObserved.includes("no concrete credential verifier") || !identityQuerySurface.targetObserved.includes("production still returns free plan offset")) fail("identity query surface must retain A2.10/A2.11 unwired composition/store and credential/runtime STOP meaning");
+if (!identityQuerySurface || !identityQuerySurface.targetObserved.includes("A2.10 exports an unwired fail-closed workload-authenticated RPC composition") || !identityQuerySurface.targetObserved.includes("A2.11 extracts the adapter into a library-only ranking-store package") || !identityQuerySurface.targetObserved.includes("no concrete credential verifier") || !identityQuerySurface.targetObserved.includes("identity requests fail closed")) fail("identity query surface must retain A2.10/A2.11 unwired composition/store and credential/runtime STOP meaning");
 const nonProductionIdentityQuery = contract.nonProductionSurfaces.find((surface) => surface.id === "N02");
-if (!nonProductionIdentityQuery || !nonProductionIdentityQuery.evidenceIds.includes("tgt-identity-a2-10-authenticated-ranking-rpc-contract") || !nonProductionIdentityQuery.evidenceIds.includes("tgt-identity-a2-11-ranking-store-extraction-contract") || !nonProductionIdentityQuery.reason.includes("analytics sends no metadata") || !nonProductionIdentityQuery.reason.includes("certified store activation") || !nonProductionIdentityQuery.reason.includes("production identity still returns the free-plan offset")) fail("N02 must retain A2.10 metadata, A2.11 store-activation and always-Free runtime STOP meaning");
+if (!nonProductionIdentityQuery || !nonProductionIdentityQuery.evidenceIds.includes("tgt-identity-a2-10-authenticated-ranking-rpc-contract") || !nonProductionIdentityQuery.evidenceIds.includes("tgt-identity-a2-11-ranking-store-extraction-contract") || !nonProductionIdentityQuery.reason.includes("analytics sends no metadata") || !nonProductionIdentityQuery.reason.includes("certified store activation") || !nonProductionIdentityQuery.reason.includes("identity requests remain unavailable")) fail("N02 must retain A2.10 metadata, A2.11 store-activation and fail-closed runtime STOP meaning");
 for (const surface of contract.surfaceContracts) for (const id of surface.blockerIds) if (!blockerIds.has(id)) fail(`${surface.id}: unknown blocker ${id}`);
 
 const ruleSections = {

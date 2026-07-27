@@ -332,7 +332,7 @@ ${rows.join("\n")}
 if (contract.schemaVersion !== 1 || contract.artifact !== "a7-frontend-live-data") {
   die("unexpected schemaVersion or artifact");
 }
-if (contract.source?.ref !== "origin/development") die("source ref must be origin/development");
+if (contract.source?.ref !== "development") die("source ref must be development");
 if (!/^[0-9a-f]{40}$/.test(contract.source?.commit ?? "")) die("source commit must be a full SHA-1");
 const resolvedSource = git("rev-parse", contract.source.ref);
 if (resolvedSource !== contract.source.commit) {
@@ -590,7 +590,7 @@ for (const anchor of [
   "let _action_url = value._action_url.require()?;",
   ".unwrap_or_else(|| \"Notification\".to_string());",
   "Some(\"error\") | None => NotificationLoad::UpstreamError",
-  "let unread_label = format!(\"{unread_count} unread on this page\");",
+  "let unread_label = format!(\"{unread_count} unread in loaded list\");",
 ]) {
   if (!notificationUiRuntime.includes(anchor)) die(`/notifications missing semantic runtime anchor: ${anchor}`);
 }

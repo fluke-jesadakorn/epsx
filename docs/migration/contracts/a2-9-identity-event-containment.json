@@ -74,8 +74,8 @@
       "claim": "The identity proto, generated RPC shape and default gRPC port 50051 are unchanged from the target base."
     },
     {
-      "id": "always-free-behavior-unchanged",
-      "claim": "The runtime still injects FreePlanRankingOffsetService and the service still returns RankingOffset::free_plan()."
+      "id": "runtime-fail-closed-unwired",
+      "claim": "The runtime now injects UnavailableRankingOffsetService and rejects ranking-offset requests until the authoritative entitlement adapter is wired."
     },
     {
       "id": "no-durable-replacement-invented",
@@ -102,12 +102,12 @@
     {
       "id": "impl-production-grpc-only-main",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
     },
     {
       "id": "impl-test-only-module-boundary",
       "file": "shared/rust/epsx-identity-service/src/lib.rs",
-      "sha256": "88ed3f1f3eeb2a9527f5c81828b9194beb8da4ef9ae8b128cb857a225844ddcf"
+      "sha256": "b98920a2d30c0ba1e9c6fd43f10ff27420863fd2f484f26fa1bce053e39781ea"
     }
   ],
   "testOnlyModuleEvidence": [
@@ -129,9 +129,9 @@
   ],
   "unchangedEvidence": [
     {
-      "id": "unchanged-always-free-service",
+      "id": "unchanged-fail-closed-service",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
     },
     {
       "id": "unchanged-identity-cargo",
@@ -141,7 +141,7 @@
     {
       "id": "unchanged-workspace-lock",
       "file": "Cargo.lock",
-      "sha256": "ac9b2fd8b3e723a4fa1e708dc519eba50c4b068bbeea0a80e299566c7abfdcfe"
+      "sha256": "47f08101d842d66800ecc7a50ce220bf3854f7cca27345fe62d69de184379883"
     },
     {
       "id": "unchanged-identity-proto",
@@ -170,14 +170,14 @@
     }
   ],
   "hermeticTests": [
-    "a2_9_in_process_grpc_service_returns_unchanged_free_offset",
+    "ranking_authority_is_fail_closed_until_wired",
     "a2_9_proto_wire_round_trip_remains_field_compatible",
     "a2_9_production_main_contains_only_grpc_listener_surface"
   ],
   "residualStops": [
     {
       "id": "paid-ranking-authority-unwired",
-      "claim": "Identity success still returns the Free Plan offset because the A2.7 resolver and A2.8 core adapter remain unwired."
+      "claim": "Identity success is intentionally unavailable because the A2.7 resolver and A2.8 core adapter remain unwired; no synthetic offset is manufactured."
     },
     {
       "id": "schema-and-adoption-unproved",
@@ -224,7 +224,7 @@
     "E01 freeze the exact post-A2.8 target base and removed HTTP/SSE exposure",
     "E02 remove only the production 50052 parsing listener and route mounts",
     "E03 place historical emit bus and SSE modules behind cfg(test)",
-    "E04 preserve the gRPC proto default 50051 and always-Free runtime behavior exactly",
+    "E04 preserve the gRPC proto default 50051 and keep ranking authority fail-closed until wired",
     "E05 prove static production containment plus three exact hermetic regressions offline",
     "E06 certify adopted ranking schema index query plan and populated reconciliation separately",
     "E07 wire authoritative paid ranking resolution behind authenticated workload identity and TLS",

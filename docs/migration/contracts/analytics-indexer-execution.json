@@ -193,16 +193,16 @@
       "anchor": "\"scannerFindingAfter\": 0"
     },
     {
-      "id": "tgt-event-attribution-null",
+      "id": "tgt-event-verified-subject-attribution",
       "domain": "eventAnalytics",
       "file": "services/analytics/src/lib.rs",
-      "anchor": "let user_uuid: Option<uuid::Uuid> = None;"
+      "anchor": "request.user_id = Some(principal.wallet_address);"
     },
     {
-      "id": "tgt-event-revenue-approximation",
+      "id": "tgt-event-revenue-fail-closed",
       "domain": "eventAnalytics",
       "file": "services/analytics/src/lib.rs",
-      "anchor": "Aggregated from event log; integrate payment service for exact USD totals"
+      "anchor": "Revenue and subscription counts are financial decisions owned by"
     },
     {
       "id": "tgt-event-direct-auth",
@@ -367,10 +367,10 @@
       "anchor": "Ranking data and entitlement"
     },
     {
-      "id": "tgt-frontend-track-swallow",
+      "id": "tgt-frontend-track-upstream-status",
       "domain": "eventAnalytics",
       "file": "apps/frontend/src/api.rs",
-      "anchor": "Err(_) => Json(serde_json::json!({\"ok\": true})).into_response(),"
+      "anchor": "Ok(r) if r.status().is_success() => Json(serde_json::json!({\"ok\": true})).into_response(),"
     }
   ],
   "surfaceContracts": [
@@ -386,7 +386,7 @@
       "id": "market-auth-rankings",
       "domain": "marketAnalytics",
       "sourceContract": "GET /api/analytics/rankings with server-resolved plan offset",
-      "targetObserved": "strict optional bearer handling propagates a verified wallet, authority failures stop before provider work, and the canonical handler caps authenticated provider work at 100 rows, but the identity runtime still returns the free offset",
+      "targetObserved": "strict optional bearer handling propagates a verified wallet, authority failures stop before provider work, and the canonical handler caps authenticated provider work at 100 rows, while the identity runtime fails closed until entitlement authority is wired",
       "status": "blocked",
       "blockerIds": ["B01", "B02", "B03", "B04", "B07", "B09", "B23"]
     },
@@ -474,7 +474,7 @@
       "id": "identity-ranking-offset-query",
       "domain": "identityRankingOffset",
       "sourceContract": "wallet plan assignments resolve the minimum active-plan ranking offset in the backend",
-      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, A2.9 removes the production identity event listener, A2.10 exports an unwired fail-closed workload-authenticated RPC composition, and A2.11 extracts the adapter into a library-only ranking-store package; no concrete credential verifier, analytics metadata, TLS, owner delegation, certified store activation or runtime wiring exists and production still returns free plan offset",
+      "targetObserved": "A2.7 hermetically resolves fixed-time raw entitlement snapshots, A2.8 adds an unwired core-owned adapter, A2.9 removes the production identity event listener, A2.10 exports an unwired fail-closed workload-authenticated RPC composition, and A2.11 extracts the adapter into a library-only ranking-store package; no concrete credential verifier, analytics metadata, TLS, owner delegation, certified store activation or runtime wiring exists, so identity requests fail closed",
       "status": "blocked",
       "blockerIds": ["B07", "B21", "B23"]
     },
@@ -563,7 +563,7 @@
       "category": "ranking-entitlement",
       "severity": "stop",
       "status": "blocked",
-      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, A2.9 removes the unsafe identity event listener, A2.10 adds an exported fail-closed authenticated RPC composition, and A2.11 extracts the adapter behind a library-only package boundary; identity success still returns the free-plan offset because the composition and store are unwired, SQL is unexecuted against a certified schema, and concrete credential trust, analytics metadata, TLS, owner delegation, reconciliation and runtime activation are absent.",
+      "summary": "A2.6 removes the market client's silent authenticated free-plan fallback, A2.7 proves the pure resolver, A2.8 adds a static core-owned snapshot adapter, A2.9 removes the unsafe identity event listener, A2.10 adds an exported fail-closed authenticated RPC composition, and A2.11 extracts the adapter behind a library-only package boundary; identity requests fail closed because the composition and store are unwired, SQL is unexecuted against a certified schema, and concrete credential trust, analytics metadata, TLS, owner delegation, reconciliation and runtime activation are absent.",
       "resolution": "Keep the pure resolver, fail-closed market boundary, extracted static store and A2.10 auth-before-wallet/query ordering; certify credential trust and rotation, inject analytics metadata, define owner delegation and TLS, certify the adopted schema and query plan, reconcile source lifecycle and alternate entitlement semantics, then prove free, paid, expiry, overlap, downgrade, outage and recovery parity before runtime activation.",
       "evidenceIds": ["src-ranking-offset-authority", "src-plan-access-bootstrap", "tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-7-entitlement-snapshot-contract", "tgt-identity-a2-8-core-snapshot-adapter-contract", "tgt-identity-a2-9-event-containment-contract", "tgt-identity-a2-10-authenticated-ranking-rpc-contract", "tgt-identity-a2-11-ranking-store-extraction-contract"]
     },
@@ -601,7 +601,7 @@
       "status": "blocked",
       "summary": "Authenticated event ingestion deliberately discards the canonical subject and cannot provide truthful per-user metrics.",
       "resolution": "Define a wallet-compatible subject column and derive attribution exclusively from the verified principal or explicitly classify events anonymous.",
-      "evidenceIds": ["tgt-event-attribution-null", "tgt-event-direct-auth"]
+      "evidenceIds": ["tgt-event-verified-subject-attribution", "tgt-event-direct-auth"]
     },
     {
       "id": "B12",
@@ -610,7 +610,7 @@
       "status": "blocked",
       "summary": "Event names, property schemas, producer idempotency, time semantics and aggregation definitions are open-ended.",
       "resolution": "Version an allowlisted event catalog with schemas, event IDs, occurred/received timestamps, producer identity and deduplication.",
-      "evidenceIds": ["tgt-event-routes", "tgt-event-schema-boundary", "tgt-frontend-track-swallow"]
+      "evidenceIds": ["tgt-event-routes", "tgt-event-schema-boundary", "tgt-frontend-track-upstream-status"]
     },
     {
       "id": "B13",
@@ -619,7 +619,7 @@
       "status": "blocked",
       "summary": "Revenue is inferred from event counts rather than finalized payment/subscription values.",
       "resolution": "Build a reconciled read model from authoritative finalized payment and active subscription records with currency/period definitions.",
-      "evidenceIds": ["src-admin-revenue-authority", "tgt-event-revenue-approximation"]
+      "evidenceIds": ["src-admin-revenue-authority", "tgt-event-revenue-fail-closed"]
     },
     {
       "id": "B14",
@@ -628,7 +628,7 @@
       "status": "blocked",
       "summary": "Analytics property privacy classification, redaction, retention, deletion and export policies are not enforced.",
       "resolution": "Classify fields, reject secrets/PII, bound payloads, document retention and implement subject deletion/export audit flows.",
-      "evidenceIds": ["tgt-event-schema-boundary", "tgt-event-attribution-null"]
+      "evidenceIds": ["tgt-event-schema-boundary", "tgt-event-verified-subject-attribution"]
     },
     {
       "id": "B15",
@@ -894,7 +894,7 @@
     },
     {
       "id": "N02",
-      "reason": "Market authority errors now fail closed, A2.10 exports an unwired workload-auth composition, and A2.11 extracts a library-only store, but analytics sends no metadata, no concrete verifier/TLS/owner delegation or certified store activation exists, and production identity still returns the free-plan offset for every wallet without a live authoritative projection.",
+      "reason": "Market authority errors now fail closed, A2.10 exports an unwired workload-auth composition, and A2.11 extracts a library-only store, but analytics sends no metadata, no concrete verifier/TLS/owner delegation or certified store activation exists, and identity requests remain unavailable without a live authoritative projection.",
       "evidenceIds": ["tgt-market-a2-6-authority-failure-contract", "tgt-identity-free-stub", "tgt-identity-a2-10-authenticated-ranking-rpc-contract", "tgt-identity-a2-11-ranking-store-extraction-contract"]
     },
     {
@@ -910,12 +910,12 @@
     {
       "id": "N05",
       "reason": "Event subject attribution is discarded.",
-      "evidenceIds": ["tgt-event-attribution-null"]
+      "evidenceIds": ["tgt-event-verified-subject-attribution"]
     },
     {
       "id": "N06",
       "reason": "Revenue is a subscription-created event count, not financial truth.",
-      "evidenceIds": ["tgt-event-revenue-approximation"]
+      "evidenceIds": ["tgt-event-revenue-fail-closed"]
     },
     {
       "id": "N07",
@@ -940,7 +940,7 @@
     {
       "id": "N11",
       "reason": "Frontend ranking loading is deliberately absent, while event tracking still swallows upstream failure.",
-      "evidenceIds": ["tgt-frontend-rankings-loader-absent", "tgt-frontend-track-swallow"]
+      "evidenceIds": ["tgt-frontend-rankings-loader-absent", "tgt-frontend-track-upstream-status"]
     },
     {
       "id": "N12",

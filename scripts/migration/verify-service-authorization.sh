@@ -47,6 +47,8 @@ EXPECTED_CLASSIFICATIONS = {
     "owner-only",
     "permission-specific-admin-operator",
     "internal-webhook",
+    "router-dispatch-only",
+    "blocked-by-default",
     "unknown",
 }
 EXPECTED_CASES = {
@@ -101,8 +103,8 @@ EXPECTED_IDENTITY_ROUTES = {
         "monolith-rs256-jwks", None, "blocked",
     ),
     "identity.post.auth-demo": (
-        "POST", "/api/v1/identity/auth/demo", "unknown",
-        "undecided-fail-closed", None, "blocked",
+        "POST", "/api/v1/identity/auth/demo", "blocked-by-default",
+        "identity-explicit-fail-closed", None, "blocked",
     ),
     "identity.get.users": (
         "GET", "/api/v1/identity/users", "permission-specific-admin-operator",

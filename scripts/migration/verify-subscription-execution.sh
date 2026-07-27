@@ -131,9 +131,16 @@ try { a37 = JSON.parse(readFileSync(schemaBoundaryPath, "utf8")); }
 catch (error) { fail(`invalid A3.7 contract JSON: ${error.message}`); }
 if (a37.schemaVersion !== 1 || a37.contractId !== schemaBoundary.contractId || a37.productionReady !== false || a37.integrityExit !== 0 || a37.readinessExit !== 3) fail("A3.7 source contract drifted");
 if (!a37.runtimeBoundary || a37.runtimeBoundary.scannerFindingBefore !== 2 || a37.runtimeBoundary.scannerFindingAfter !== 0 || a37.runtimeBoundary.compatibilityQueryConstant !== schemaBoundary.compatibilityProbe.constant || a37.runtimeBoundary.compatibilityFunction !== schemaBoundary.compatibilityProbe.function) fail("A3.7 source runtime boundary drifted");
-if (!a37.migrationRoot || a37.migrationRoot.runner !== null || !Array.isArray(a37.migrationRoot.orderedMigrations) || a37.migrationRoot.orderedMigrations.length !== 1) fail("A3.7 source migration root drifted");
-const a37Migration = a37.migrationRoot.orderedMigrations[0];
+if (!a37.migrationRoot || a37.migrationRoot.runner !== null || !Array.isArray(a37.migrationRoot.orderedMigrations) || a37.migrationRoot.orderedMigrations.length !== 3) fail("A3.7 source migration root drifted");
+const a37Migration = a37.migrationRoot.orderedMigrations.find((item) => item.path === schemaBoundary.migration.path);
+if (!a37Migration) fail("A3.7 baseline migration pin is missing");
 if (a37Migration.path !== schemaBoundary.migration.path || a37Migration.bytes !== schemaBoundary.migration.bytes || a37Migration.sha256 !== schemaBoundary.migration.sha256) fail("A3.7 source migration pin drifted");
+for (const supplemental of a37.migrationRoot.orderedMigrations.filter((item) => item !== a37Migration)) {
+  safeRelative(supplemental.path, "A3.7 supplemental migration");
+  const supplementalPath = realpathSync(resolve(root, supplemental.path));
+  const supplementalBytes = readFileSync(supplementalPath);
+  if (supplementalBytes.byteLength !== supplemental.bytes || createHash("sha256").update(supplementalBytes).digest("hex") !== supplemental.sha256) fail(`A3.7 supplemental migration pin drifted: ${supplemental.path}`);
+}
 const a37BlockerCategories = ["migration-runner", "baseline-adoption", "populated-upgrade", "reconciliation", "concurrent-startup", "live-database"];
 if (!Array.isArray(a37.blockers) || JSON.stringify(a37.blockers.map((item) => item.category)) !== JSON.stringify(a37BlockerCategories) || a37.blockers.some((item) => item.status !== "blocked")) fail("A3.7 residual blocker ledger drifted");
 

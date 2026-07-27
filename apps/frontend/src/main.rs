@@ -15,7 +15,7 @@
 use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
-    routing::{any, get, post},
+    routing::{get, post},
     Json, Router,
 };
 use epsx_bff::{
@@ -47,13 +47,6 @@ pub struct AppState {
     pub cookie_environment: CookieEnvironment,
     pub api_url: String,
     pub demo_login_enabled: bool,
-}
-
-#[derive(Deserialize)]
-pub struct SavePageBody {
-    pub title: Option<String>,
-    pub blocks: Option<serde_json::Value>,
-    pub seo: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -243,9 +236,6 @@ mod configuration_tests {
 pub fn build_app(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(api_health))
-        .route("/api/v1/pages/{slug}", any(get_page))
-        .route("/api/v1/edit/{slug}/save", any(save_page))
-        .route("/api/v1/edit/{slug}/publish", any(publish_page))
         .route("/api/v1/auth/siwe", post(siwe_login))
         .route("/api/v1/auth/challenge", post(auth_challenge))
         .route("/api/v1/auth/demo", post(demo_login))
@@ -289,23 +279,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         // Unowned dashboard and portfolio compatibility producers are
-        // intentionally absent. Those pages fail closed until their
-        // owner-scoped backend contracts exist.
-        .route("/api/v1/wallet/chains", get(api_wallet_chains))
-        .route("/api/v1/wallet/connect", post(api_wallet_connect))
-        .route("/api/v1/subscription/plans", get(api_subscription_plans))
-        .route(
-            "/api/v1/subscription/merchant/{addr}",
-            get(api_subscription_merchant),
-        )
-        .route(
-            "/api/v1/subscription/subscribe",
-            post(api_subscription_subscribe),
-        )
-        .route(
-            "/api/v1/subscription/plans/create",
-            post(api_subscription_create_plan),
-        )
+        // intentionally absent until owner-scoped backend contracts exist.
+        // Unowned wallet/session and subscription compatibility producers are
+        // intentionally absent. The backend owns wallet sessions, plan
+        // catalogs, eligibility, and subscription mutations.
         .route("/service-worker.js", get(service_worker))
         .nest_service(
             "/public",

@@ -47,14 +47,14 @@ expect_failure() {
 BASE="$TEMP_ROOT/base"
 copy_fixture "$BASE"
 verify_fixture "$BASE" integrity >"$TEMP_ROOT/integrity.out"
-grep -q "12 invariants; 21 fixtures; 12 hermetic tests; 9 frozen digests; 14 residual STOPs" "$TEMP_ROOT/integrity.out"
+grep -q "12 invariants; 21 fixtures; 12 hermetic tests; 10 frozen digests; 14 residual STOPs" "$TEMP_ROOT/integrity.out"
 
 verify_fixture "$BASE" report >"$TEMP_ROOT/report-one.json"
 verify_fixture "$BASE" report >"$TEMP_ROOT/report-two.json"
 cmp "$TEMP_ROOT/report-one.json" "$TEMP_ROOT/report-two.json"
 bun -e '
 const report = await Bun.file(process.argv[1]).json();
-if (report.productionReady !== false || report.readinessExit !== 3 || report.invariants !== 12 || report.fixtures !== 21 || report.hermeticTests !== 12 || report.implementationEvidence !== 7 || report.residualStops.length !== 14 || !/^[0-9a-f]{64}$/.test(report.sqlDigest)) process.exit(1);
+if (report.productionReady !== false || report.readinessExit !== 3 || report.invariants !== 12 || report.fixtures !== 21 || report.hermeticTests !== 12 || report.implementationEvidence !== 8 || report.residualStops.length !== 14 || !/^[0-9a-f]{64}$/.test(report.sqlDigest)) process.exit(1);
 ' "$TEMP_ROOT/report-one.json"
 
 set +e
@@ -138,8 +138,8 @@ import { createHash } from "node:crypto";
 const sha = (content) => createHash("sha256").update(content).digest("hex");
 const contractPath = `${process.env.ROOT_IN}/${process.env.CONTRACT_REL_IN}`;
 const contract = await Bun.file(contractPath).json();
-const adapterEvidence = contract.implementationEvidence.find((item) => item.id === "impl-core-snapshot-adapter");
-const adapterPath = `${process.env.ROOT_IN}/${adapterEvidence.file}`;
+const adapterEvidence = contract.implementationEvidence.find((item) => item.id === "impl-ranking-store-library");
+const adapterPath = `${process.env.ROOT_IN}/${contract.sqlEvidence.file}`;
 let adapter = await Bun.file(adapterPath).text();
 adapter = adapter.replace("LEFT JOIN public.permissions AS permission", "LEFT JOIN permissions AS permission");
 await Bun.write(adapterPath, adapter);

@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use axum::{
-    extract::{Path, RawQuery, Request, State},
+    extract::{Extension, Path, RawQuery, Request, State},
     http::{header, HeaderMap, HeaderName, Method, StatusCode},
     middleware::{self, Next},
     response::{IntoResponse, Response},
@@ -10,7 +10,7 @@ use axum::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use epsx_service_auth::{
     authenticate_headers, AccessTokenVerifier, JwksVerifier, JwksVerifierConfig, ADMIN_AUDIENCE,
-    FRONTEND_AUDIENCE,
+    FRONTEND_AUDIENCE, VerifiedPrincipal,
 };
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
@@ -111,6 +111,7 @@ pub struct AuditList {
 struct Event {
     id: uuid::Uuid,
     user_id: Option<uuid::Uuid>,
+    subject: Option<String>,
     event_name: String,
     properties_json: Option<serde_json::Value>,
     chain_id: Option<String>,
@@ -158,6 +159,7 @@ WITH expected_columns (
         ('event_name', 'character varying', 'varchar', 'NO', 100::bigint, 'none'),
         ('properties_json', 'jsonb', 'jsonb', 'YES', NULL::bigint, 'empty_json'),
         ('chain_id', 'character varying', 'varchar', 'YES', 10::bigint, 'none'),
+        ('subject', 'character varying', 'varchar', 'YES', 128::bigint, 'none'),
         ('created_at', 'timestamp with time zone', 'timestamptz', 'YES', NULL::bigint, 'now')
 ),
 column_compatibility AS (
@@ -204,7 +206,7 @@ primary_key_compatibility AS (
 SELECT
     to_regclass('public.events') IS NOT NULL
     AND (
-        SELECT COUNT(*) = 6
+        SELECT COUNT(*) = 7
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = 'events'
@@ -307,23 +309,24 @@ impl AnalyticsStore for SqlAnalyticsStore {
         request: &TrackEventRequest,
     ) -> Result<serde_json::Value, AnalyticsStoreError> {
         let id = uuid::Uuid::new_v4();
-        // Canonical subjects are wallet strings while this legacy column is
-        // UUID. Persist NULL until a schema/domain slice defines attribution;
-        // never turn the compatibility request field into identity.
-        let user_uuid: Option<uuid::Uuid> = None;
+        let user_uuid = request
+            .user_id
+            .as_deref()
+            .and_then(|subject| uuid::Uuid::parse_str(subject).ok());
         let properties = request
             .properties
             .clone()
             .unwrap_or_else(|| serde_json::json!({}));
         sqlx::query(
-            "INSERT INTO public.events (id, user_id, event_name, properties_json, chain_id) \
-             VALUES ($1, $2, $3, $4, $5)",
+            "INSERT INTO public.events (id, user_id, event_name, properties_json, chain_id, subject) \
+             VALUES ($1, $2, $3, $4, $5, $6)",
         )
         .bind(id)
         .bind(user_uuid)
         .bind(&request.event_name)
         .bind(&properties)
         .bind(&request.chain_id)
+        .bind(&request.user_id)
         .execute(&self.db)
         .await
         .map_err(|_| AnalyticsStoreError)?;
@@ -377,26 +380,10 @@ impl AnalyticsStore for SqlAnalyticsStore {
     }
 
     async fn revenue(&self) -> Result<serde_json::Value, AnalyticsStoreError> {
-        let active_plans: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM public.events WHERE event_name = 'subscription.created'",
-        )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| AnalyticsStoreError)?;
-        let last_30d: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM public.events WHERE event_name = 'subscription.created' \
-             AND created_at >= NOW() - INTERVAL '30 days'",
-        )
-        .fetch_one(&self.db)
-        .await
-        .map_err(|_| AnalyticsStoreError)?;
-        Ok(serde_json::json!({
-            "active_subscriptions": active_plans.0,
-            "new_subscriptions_30d": last_30d.0,
-            "currency": "USDT",
-            "period": "30d",
-            "note": "Aggregated from event log; integrate payment service for exact USD totals"
-        }))
+        // Revenue and subscription counts are financial decisions owned by
+        // payment/subscription authorities, not inferred from analytics
+        // events. Keep the route fail-closed until that projection exists.
+        Err(AnalyticsStoreError)
     }
 
     async fn list_audit(&self, query: &AuditListQuery) -> Result<AuditList, AnalyticsStoreError> {
@@ -613,10 +600,22 @@ async fn health() -> StatusCode {
 
 async fn track_event(
     State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     Json(mut request): Json<TrackEventRequest>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
-    // Preserve request compatibility but prevent caller-selected attribution.
-    request.user_id = None;
+    if !event_name_is_valid(&request.event_name) {
+        return Err(StatusCode::UNPROCESSABLE_ENTITY);
+    }
+    if request
+        .properties
+        .as_ref()
+        .is_some_and(|properties| properties.to_string().len() > 64 * 1024)
+    {
+        return Err(StatusCode::PAYLOAD_TOO_LARGE);
+    }
+    // The verified wallet is the only subject allowed to reach persistence;
+    // caller-supplied identity fields are ignored.
+    request.user_id = Some(principal.wallet_address);
     let response = state
         .store
         .track_event(&request)
@@ -633,6 +632,14 @@ async fn track_event(
     )
     .increment(1);
     Ok(Json(response))
+}
+
+fn event_name_is_valid(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else { return false };
+    value.len() <= 100
+        && first.is_ascii_alphabetic()
+        && chars.all(|character| character.is_ascii_alphanumeric() || matches!(character, '.' | '_' | '-'))
 }
 
 async fn list_events(State(state): State<AppState>) -> Result<Json<serde_json::Value>, StatusCode> {
@@ -662,7 +669,7 @@ async fn get_revenue(State(state): State<AppState>) -> Result<Json<serde_json::V
         .revenue()
         .await
         .map(Json)
-        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)
+        .map_err(|_| StatusCode::NOT_IMPLEMENTED)
 }
 
 fn parse_audit_query(raw_query: Option<&str>) -> Result<AuditListQuery, ()> {
@@ -965,7 +972,7 @@ mod tests {
             StatusCode::OK
         );
         assert_eq!(store.hits.load(Ordering::SeqCst), 2);
-        assert_eq!(store.caller_identity_seen.load(Ordering::SeqCst), 0);
+        assert_eq!(store.caller_identity_seen.load(Ordering::SeqCst), 2);
     }
 
     #[tokio::test]
