@@ -32,8 +32,8 @@ checkout until an explicit, evidence-backed integration decision.
 | `shared/rust/dioxus_ui/src/pages/admin_pages/wallet_redirect.rs` | wallet redirect presentation | adopted | Fixed same-origin redirect only. |
 | `apps/admin/build.rs` | formatting-only newline/line-wrap changes | deferred | No behavioral value; avoid unrelated generated churn. |
 | `apps/admin/public/dist/tailwind.css` | generated stylesheet replacement | deferred | Regenerate only after source CSS and route UI validation. |
-| `scripts/migration/test-admin-live-data.sh` | stale hard-coded test count | deferred | Reconcile after focused tests establish the authoritative count. |
-| `scripts/migration/verify-frontend-live-data.ts` | one evidence anchor | deferred | Reconcile with the final contract and current source refs. |
+| `scripts/migration/test-admin-live-data.sh` | stale hard-coded test count | adopted | Reviewed WIP establishes the focused admin count at 124; the full self-test remains to be rerun after integration. |
+| `scripts/migration/verify-frontend-live-data.ts` | one evidence anchor | adopted | Matches the bounded loaded-page unread label in the adopted notification UI. |
 
 The remaining dirty-checkout changes outside this table are not part of the
 admin migration baseline and remain untouched.
