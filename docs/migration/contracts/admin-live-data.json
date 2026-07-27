@@ -465,7 +465,7 @@
     {
       "path": "/chat/:id", "batch": "B3-support", "status": "blocked", "dependencies": ["A1", "A2", "A3", "A5", "A11", "A12"],
       "source": {"file": "apps-old/admin-frontend/app/chat/[id]/page.tsx", "anchors": ["export default async function ConversationPage", "getConversation(id)"]},
-      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render_conversation", "anchors": ["pub fn render_conversation(ctx: &PageContext)", "bounded_route_reference(ctx.params.get(\"id\")", "fn conversation_reference_is_bounded_control_free_escaped_and_unverified()"]},
+      "target": {"file": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs", "handler": "chat::render_conversation", "anchors": ["pub fn render_conversation(ctx: &PageContext)", "canonical_route_reference(ctx.params.get(\"id\")", "fn conversation_reference_is_bounded_control_free_escaped_and_unverified()"]},
       "params": {"names": ["id"], "current": "route reference is control-free, capped at 64 Unicode scalar values, escaped for display, encoded as one retry path segment, and labeled unverified; no canonical lookup occurs"},
       "data": {"reads": ["conversation", "messages", "topics", "assignee"], "endpoints": [], "current": "verified-session explicit unavailable state; route value never implies record existence, ownership, or authorization", "fallbacks": []},
       "permissions": {"read": ["backend chat resource authorization required"], "manage": ["admin:chat:manage before any mutation"], "current": "session-only unavailable shell behind admin BFF audience verification; no record or chat capability is inferred by the frontend"},

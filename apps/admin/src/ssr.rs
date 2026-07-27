@@ -23,6 +23,11 @@ use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
     ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::chat::{
+    ADMIN_CHAT_DETAIL_DATA_PARAM, ADMIN_CHAT_DETAIL_STATE_PARAM, ADMIN_CHAT_EMPTY,
+    ADMIN_CHAT_FORBIDDEN, ADMIN_CHAT_LIST_DATA_PARAM, ADMIN_CHAT_LIST_STATE_PARAM,
+    ADMIN_CHAT_MALFORMED, ADMIN_CHAT_READY, ADMIN_CHAT_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::dashboard::{
     AdminDashboardUserStatus, ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
     ADMIN_DASHBOARD_USER_STATUS_MALFORMED, ADMIN_DASHBOARD_USER_STATUS_PARAM,
@@ -63,6 +68,9 @@ use std::collections::HashMap;
 
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
+use super::chat_admin_adapter::{
+    load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
+};
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
 };
@@ -99,6 +107,50 @@ fn record_admin_dashboard_user_status_load(
         ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM.to_string(),
         state.to_string(),
     );
+}
+
+fn record_admin_chat_list_load(params: &mut HashMap<String, String>, load: AdminChatListLoad) {
+    params.remove(ADMIN_CHAT_LIST_DATA_PARAM);
+    let state = match load {
+        AdminChatListLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_CHAT_LIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-chat list projection is serializable"),
+            );
+            ADMIN_CHAT_READY
+        }
+        AdminChatListLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_CHAT_LIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-chat list projection is serializable"),
+            );
+            ADMIN_CHAT_EMPTY
+        }
+        AdminChatListLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatListLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
+        AdminChatListLoad::Malformed => ADMIN_CHAT_MALFORMED,
+    };
+    params.insert(ADMIN_CHAT_LIST_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_chat_detail_load(params: &mut HashMap<String, String>, load: AdminChatDetailLoad) {
+    params.remove(ADMIN_CHAT_DETAIL_DATA_PARAM);
+    let state = match load {
+        AdminChatDetailLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_CHAT_DETAIL_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-chat detail projection is serializable"),
+            );
+            ADMIN_CHAT_READY
+        }
+        AdminChatDetailLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatDetailLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
+        AdminChatDetailLoad::Malformed => ADMIN_CHAT_MALFORMED,
+    };
+    params.insert(ADMIN_CHAT_DETAIL_STATE_PARAM.to_string(), state.to_string());
 }
 
 fn record_admin_media_load(
@@ -434,10 +486,7 @@ fn is_dashboard_user_status_route(route_path: &str) -> bool {
 /// The responsive capture harness uses `?__design_bypass=1` for authenticated
 /// admin states. Honor it only for local-cookie requests and only as a
 /// UI-only fixture; it never creates a bearer token or changes backend policy.
-fn design_bypass_requested(
-    query: &str,
-    environment: epsx_bff::cookies::CookieEnvironment,
-) -> bool {
+fn design_bypass_requested(query: &str, environment: epsx_bff::cookies::CookieEnvironment) -> bool {
     if environment != epsx_bff::cookies::CookieEnvironment::Local {
         return false;
     }
@@ -519,6 +568,45 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     AdminDashboardUserStatusLoad::Malformed,
                 ),
             }
+        }
+    }
+    // Chat reads use the extracted backend projection. The list query is
+    // closed and URL-persistent; dynamic conversation identifiers are parsed
+    // and canonicalized by the adapter before any upstream request.
+    if route_path == "/chat" {
+        match AdminChatQuery::from_raw(&query) {
+            Ok(chat_query) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_admin_chat(&state.identity, &chat_query, &request_context).await;
+                    record_admin_chat_list_load(&mut params, load);
+                }
+                None => record_admin_chat_list_load(&mut params, AdminChatListLoad::Unavailable),
+            },
+            Err(()) => record_admin_chat_list_load(&mut params, AdminChatListLoad::Malformed),
+        }
+    } else if let Some(conversation_id) = route_path
+        .strip_prefix("/chat/")
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_admin_chat_detail(&state.identity, conversation_id, &request_context)
+                            .await;
+                    record_admin_chat_detail_load(&mut params, load);
+                }
+                None => {
+                    record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Unavailable)
+                }
+            }
+        } else {
+            record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Malformed);
         }
     }
     // Wallet inventory starts with one narrow aggregate read. The adapter
