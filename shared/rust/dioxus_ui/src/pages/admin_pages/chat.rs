@@ -157,7 +157,7 @@ fn valid_message(item: &AdminChatMessageSummary) -> bool {
 }
 
 fn valid_uuid(value: &str) -> bool {
-    uuid::Uuid::parse_str(value).is_ok()
+    canonical_uuid(value).is_some()
 }
 
 fn bounded_text(value: &str, max_chars: usize) -> bool {
@@ -333,7 +333,22 @@ fn render_route(
 /// count. Dioxus escapes the remaining display text at the HTML boundary.
 fn canonical_route_reference(raw: Option<&str>) -> Option<String> {
     let raw = raw?.trim();
-    uuid::Uuid::parse_str(raw).ok().map(|id| id.to_string())
+    canonical_uuid(raw)
+}
+
+fn canonical_uuid(value: &str) -> Option<String> {
+    if value.len() != 36
+        || !value.bytes().enumerate().all(|(index, byte)| {
+            if matches!(index, 8 | 13 | 18 | 23) {
+                byte == b'-'
+            } else {
+                byte.is_ascii_hexdigit()
+            }
+        })
+    {
+        return None;
+    }
+    Some(value.to_ascii_lowercase())
 }
 
 /// Encode the already-bounded reference as one URL path segment. The display
