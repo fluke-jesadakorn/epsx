@@ -524,10 +524,26 @@ async fn read_response_body_limited(
 
 fn decode_envelope<T: DeserializeOwned>(value: Value) -> Option<T> {
     let envelope: Envelope<T> = serde_json::from_value(value).ok()?;
-    if !envelope.success || envelope.error.is_some() || envelope.meta.is_none() {
+    if !envelope.success
+        || envelope.error.is_some()
+        || !envelope.meta.as_ref().is_some_and(valid_response_meta)
+    {
         return None;
     }
     envelope.data
+}
+
+fn valid_response_meta(meta: &ResponseMeta) -> bool {
+    meta.timestamp.len() <= 64
+        && chrono::DateTime::parse_from_rfc3339(&meta.timestamp).is_ok()
+        && meta
+            .request_id
+            .as_deref()
+            .is_none_or(|id| uuid::Uuid::parse_str(id).is_ok())
+        && meta.version.as_deref() == Some("v1")
+        && meta.message.is_none()
+        && meta.pagination.is_none()
+        && meta.permissions.is_none()
 }
 
 fn classify_developer_payload(keys: Value, stats: Value) -> AdminDeveloperPortalLoad {
@@ -682,6 +698,24 @@ mod tests {
                 "unique_api_keys": 1
             }]
         })
+    }
+
+    #[test]
+    fn read_and_mutation_decoders_require_the_backend_envelope() {
+        let wrapped = envelope(serde_json::json!({
+            "api_keys": [valid_key()],
+            "total": 1
+        }));
+        assert!(decode_envelope::<ApiKeyList>(wrapped).is_some());
+        assert!(decode_envelope::<ApiKeyList>(serde_json::json!({
+            "api_keys": [valid_key()],
+            "total": 1
+        }))
+        .is_none());
+
+        let mut invalid_meta = envelope(stats());
+        invalid_meta["meta"]["version"] = serde_json::json!("v2");
+        assert!(decode_envelope::<DeveloperStats>(invalid_meta).is_none());
     }
 
     fn context() -> epsx_client::RequestContext {

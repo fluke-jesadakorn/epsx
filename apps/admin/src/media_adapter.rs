@@ -4,7 +4,9 @@
 //! chat/notification objects, provider URLs, upload/delete controls, and storage
 //! errors are deliberately excluded from the SSR projection.
 
-use epsx_dioxus_ui::pages::admin_pages::media::{AdminMediaList, AdminMediaObject};
+use epsx_dioxus_ui::pages::admin_pages::media::{
+    decode_admin_media_mutation, AdminMediaList, AdminMediaMutationProjection, AdminMediaObject,
+};
 use serde::Deserialize;
 use std::collections::HashSet;
 
@@ -14,6 +16,39 @@ const MAX_MEDIA_KEY_BYTES: usize = 1_024;
 const MAX_MEDIA_URL_CHARS: usize = 4_096;
 const MAX_TIMESTAMP_CHARS: usize = 64;
 pub(crate) const MAX_ADMIN_MEDIA_RESPONSE_BYTES: usize = 256 * 1024;
+const MAX_UPLOAD_BYTES: usize = 25 * 1024 * 1024;
+const MAX_FILENAME_CHARS: usize = 255;
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 128;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminMediaMutationError {
+    Invalid,
+    Forbidden,
+    Conflict,
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MutationEnvelope {
+    success: bool,
+    data: Option<LegacyMediaMutation>,
+    error: Option<serde_json::Value>,
+    meta: Option<LegacyResponseMeta>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyMediaMutation {
+    bucket: String,
+    key: String,
+    url: Option<String>,
+    thumb_url: Option<String>,
+    mime: Option<String>,
+    size: Option<u64>,
+    deleted: bool,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdminMediaQuery {
@@ -115,6 +150,193 @@ pub(crate) async fn load_admin_media(
         Err(_) => return AdminMediaLoad::Malformed,
     };
     classify_payload(payload)
+}
+
+pub(crate) async fn upload_admin_public_file(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    filename: &str,
+    bytes: Vec<u8>,
+    idempotency_key: &str,
+) -> Result<AdminMediaMutationProjection, AdminMediaMutationError> {
+    validate_filename(filename)?;
+    validate_idempotency_key(idempotency_key)?;
+    if bytes.is_empty() || bytes.len() > MAX_UPLOAD_BYTES {
+        return Err(AdminMediaMutationError::Invalid);
+    }
+    let token = bearer(ctx)?;
+    let http_client = mutation_client(client)?;
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(bytes).file_name(filename.to_string()),
+    );
+    let response = http_client
+        .post(format!(
+            "{}/api/admin/files/upload",
+            client.base_url().trim_end_matches('/')
+        ))
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|_| AdminMediaMutationError::Unavailable)?;
+    decode_mutation_response(response, "public").await
+}
+
+pub(crate) async fn delete_admin_media(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    bucket: &str,
+    key: &str,
+    idempotency_key: &str,
+) -> Result<AdminMediaMutationProjection, AdminMediaMutationError> {
+    validate_bucket_name(bucket)?;
+    validate_object_key(key)?;
+    validate_idempotency_key(idempotency_key)?;
+    let token = bearer(ctx)?;
+    let http_client = mutation_client(client)?;
+    let url = media_mutation_url(client, bucket, key)?;
+    let response = http_client
+        .delete(url)
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .send()
+        .await
+        .map_err(|_| AdminMediaMutationError::Unavailable)?;
+    decode_mutation_response(response, bucket).await
+}
+
+fn bearer(ctx: &epsx_client::RequestContext) -> Result<&str, AdminMediaMutationError> {
+    ctx.auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+        .ok_or(AdminMediaMutationError::Unavailable)
+}
+
+fn mutation_client(
+    client: &epsx_client::ServiceClient,
+) -> Result<reqwest::Client, AdminMediaMutationError> {
+    reqwest::Client::builder()
+        .timeout(client.config().timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| AdminMediaMutationError::Unavailable)
+}
+
+async fn decode_mutation_response(
+    response: reqwest::Response,
+    expected_bucket: &str,
+) -> Result<AdminMediaMutationProjection, AdminMediaMutationError> {
+    let status = response.status();
+    let body = read_response_body_limited(response, MAX_ADMIN_MEDIA_RESPONSE_BYTES)
+        .await
+        .map_err(|_| AdminMediaMutationError::Unavailable)?;
+    match status {
+        reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {}
+        reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::UNPROCESSABLE_ENTITY => {
+            return Err(AdminMediaMutationError::Invalid)
+        }
+        reqwest::StatusCode::FORBIDDEN => return Err(AdminMediaMutationError::Forbidden),
+        reqwest::StatusCode::CONFLICT => return Err(AdminMediaMutationError::Conflict),
+        _ => return Err(AdminMediaMutationError::Unavailable),
+    }
+    let envelope: MutationEnvelope =
+        serde_json::from_slice(&body).map_err(|_| AdminMediaMutationError::Malformed)?;
+    if !envelope.success
+        || envelope.error.is_some()
+        || !default_meta_is_valid(envelope.meta.as_ref())
+    {
+        return Err(AdminMediaMutationError::Malformed);
+    }
+    let mutation = envelope.data.ok_or(AdminMediaMutationError::Malformed)?;
+    if mutation.bucket != expected_bucket {
+        return Err(AdminMediaMutationError::Malformed);
+    }
+    let size = mutation
+        .size
+        .map(i64::try_from)
+        .transpose()
+        .map_err(|_| AdminMediaMutationError::Malformed)?;
+    let projection = AdminMediaMutationProjection {
+        bucket: mutation.bucket,
+        key: mutation.key,
+        size,
+        deleted: mutation.deleted,
+    };
+    decode_admin_media_mutation(
+        serde_json::to_value(projection).map_err(|_| AdminMediaMutationError::Malformed)?,
+    )
+    .ok_or(AdminMediaMutationError::Malformed)
+}
+
+fn media_mutation_url(
+    client: &epsx_client::ServiceClient,
+    bucket: &str,
+    key: &str,
+) -> Result<String, AdminMediaMutationError> {
+    let mut url = reqwest::Url::parse(&format!(
+        "{}/api/admin/media/",
+        client.base_url().trim_end_matches('/')
+    ))
+    .map_err(|_| AdminMediaMutationError::Malformed)?;
+    url.path_segments_mut()
+        .map_err(|_| AdminMediaMutationError::Malformed)?
+        .push(bucket)
+        .push(key);
+    Ok(url.to_string())
+}
+
+fn validate_bucket_name(bucket: &str) -> Result<(), AdminMediaMutationError> {
+    if matches!(bucket, "news" | "public") {
+        Ok(())
+    } else {
+        Err(AdminMediaMutationError::Invalid)
+    }
+}
+
+fn validate_filename(filename: &str) -> Result<(), AdminMediaMutationError> {
+    if filename.is_empty()
+        || filename.chars().count() > MAX_FILENAME_CHARS
+        || filename.trim() != filename
+        || filename.chars().any(char::is_control)
+        || filename.contains('/')
+        || filename.contains('\\')
+        || matches!(filename, "." | "..")
+    {
+        Err(AdminMediaMutationError::Invalid)
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_object_key(key: &str) -> Result<(), AdminMediaMutationError> {
+    if key.is_empty()
+        || key.chars().count() > MAX_MEDIA_KEY_CHARS
+        || key.len() > MAX_MEDIA_KEY_BYTES
+        || key.trim() != key
+        || key.chars().any(char::is_control)
+        || key.contains('\\')
+        || key.split('/').any(|segment| matches!(segment, "." | ".."))
+    {
+        Err(AdminMediaMutationError::Invalid)
+    } else {
+        Ok(())
+    }
+}
+
+fn validate_idempotency_key(key: &str) -> Result<(), AdminMediaMutationError> {
+    if key.is_empty()
+        || key.chars().count() > MAX_IDEMPOTENCY_KEY_CHARS
+        || key.trim() != key
+        || key.chars().any(char::is_control)
+    {
+        Err(AdminMediaMutationError::Invalid)
+    } else {
+        Ok(())
+    }
 }
 
 async fn read_response_body_limited(
@@ -220,7 +442,10 @@ fn default_meta_is_valid(meta: Option<&LegacyResponseMeta>) -> bool {
     };
     bounded_control_free(&meta.timestamp, 1, MAX_TIMESTAMP_CHARS)
         && chrono::DateTime::parse_from_rfc3339(&meta.timestamp).is_ok()
-        && meta.request_id.is_none()
+        && meta
+            .request_id
+            .as_deref()
+            .is_none_or(|id| uuid::Uuid::parse_str(id).is_ok())
         && meta.version.as_deref() == Some("v1")
         && meta.message.is_none()
         && meta.pagination.is_none()
@@ -350,6 +575,36 @@ mod tests {
         ] {
             assert!(AdminMediaQuery::from_raw(raw).is_err(), "accepted {raw}");
         }
+    }
+
+    #[test]
+    fn mutation_inputs_and_envelopes_are_bounded_and_typed() {
+        assert!(validate_bucket_name("news").is_ok());
+        assert!(validate_bucket_name("private").is_err());
+        assert!(validate_object_key("images/launch.webp").is_ok());
+        assert!(validate_object_key("../secret").is_err());
+        assert!(validate_object_key("images\\secret").is_err());
+        assert!(validate_filename("launch.webp").is_ok());
+        assert!(validate_filename("../secret").is_err());
+        assert!(validate_idempotency_key("media-upload-1").is_ok());
+        assert!(validate_idempotency_key(" media-upload-1").is_err());
+
+        let projection = decode_admin_media_mutation(serde_json::json!({
+            "bucket": "public",
+            "key": "launch.webp",
+            "size": 42,
+            "deleted": false
+        }))
+        .unwrap();
+        assert_eq!(projection.bucket, "public");
+        assert!(decode_admin_media_mutation(serde_json::json!({
+            "bucket": "public",
+            "key": "launch.webp",
+            "size": 42,
+            "deleted": false,
+            "url": "https://secret.example/object"
+        }))
+        .is_none());
     }
 
     #[test]

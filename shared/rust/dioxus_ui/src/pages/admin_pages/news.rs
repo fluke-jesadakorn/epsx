@@ -22,6 +22,7 @@ const MAX_TAG_CHARS: usize = 64;
 const MAX_TAGS: usize = 32;
 const MAX_TIMESTAMP_CHARS: usize = 64;
 const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
+const MAX_CONTENT_BYTES: usize = 2 * 1024 * 1024;
 
 pub const ADMIN_NEWS_DATA_PARAM: &str = "data_admin_news";
 pub const ADMIN_NEWS_STATE_PARAM: &str = "data_admin_news_state";
@@ -33,6 +34,19 @@ pub const ADMIN_NEWS_EMPTY: &str = "empty";
 pub const ADMIN_NEWS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_NEWS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NEWS_MALFORMED: &str = "malformed";
+pub const ADMIN_NEWS_EDITOR_DATA_PARAM: &str = "data_admin_news_editor";
+pub const ADMIN_NEWS_EDITOR_STATE_PARAM: &str = "data_admin_news_editor_state";
+pub const ADMIN_NEWS_MUTATION_DATA_PARAM: &str = "data_admin_news_mutation";
+pub const ADMIN_NEWS_MUTATION_STATE_PARAM: &str = "data_admin_news_mutation_state";
+pub const ADMIN_NEWS_MUTATION_ERROR_PARAM: &str = "data_admin_news_mutation_error";
+
+pub const ADMIN_NEWS_EDITOR_FORM: &str = "form";
+pub const ADMIN_NEWS_EDITOR_READY: &str = "ready";
+pub const ADMIN_NEWS_MUTATION_COMMITTED: &str = "committed";
+pub const ADMIN_NEWS_MUTATION_CONFLICT: &str = "conflict";
+pub const ADMIN_NEWS_MUTATION_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NEWS_MUTATION_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_NEWS_MUTATION_MALFORMED: &str = "malformed";
 
 /// Deliberately excludes article body, author identity, cover image, and every
 /// field that could imply mutation authority.
@@ -57,6 +71,25 @@ pub struct AdminNewsList {
     pub total: i64,
     pub page: i64,
     pub limit: i64,
+}
+
+/// Backend-owned article detail used by the create/edit BFF actions. It is
+/// strict and bounded; author identity is deliberately not an editor input.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminNewsEditorProjection {
+    pub id: String,
+    pub title: String,
+    pub slug: String,
+    pub summary: Option<String>,
+    pub content: String,
+    pub cover_image_url: Option<String>,
+    pub tags: Vec<String>,
+    pub status: String,
+    pub published_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+    pub is_pinned: bool,
 }
 
 /// Decode the exact read projection and reject semantically unsafe values
@@ -106,6 +139,44 @@ impl AdminNewsArticleSummary {
                 .is_none_or(valid_rfc3339_timestamp)
             && valid_rfc3339_timestamp(&self.created_at)
     }
+}
+
+impl AdminNewsEditorProjection {
+    fn is_well_formed(&self) -> bool {
+        valid_uuid(&self.id)
+            && valid_required_text(&self.title, MAX_TITLE_CHARS)
+            && valid_required_text(&self.slug, MAX_SLUG_CHARS)
+            && self
+                .summary
+                .as_deref()
+                .is_none_or(|value| valid_optional_text(value, MAX_SUMMARY_CHARS))
+            && !self.content.trim().is_empty()
+            && self.content.len() <= MAX_CONTENT_BYTES
+            && !self.content.chars().any(char::is_control)
+            && matches!(self.status.as_str(), "draft" | "published")
+            && self.tags.len() <= MAX_TAGS
+            && self
+                .tags
+                .iter()
+                .all(|tag| valid_required_text(tag, MAX_TAG_CHARS))
+            && self
+                .cover_image_url
+                .as_deref()
+                .is_none_or(|value| valid_optional_text(value, 2_048))
+            && self
+                .published_at
+                .as_deref()
+                .is_none_or(valid_rfc3339_timestamp)
+            && valid_rfc3339_timestamp(&self.created_at)
+            && valid_rfc3339_timestamp(&self.updated_at)
+    }
+}
+
+pub fn decode_admin_news_editor_projection(
+    value: serde_json::Value,
+) -> Option<AdminNewsEditorProjection> {
+    let projection: AdminNewsEditorProjection = serde_json::from_value(value).ok()?;
+    projection.is_well_formed().then_some(projection)
 }
 
 fn valid_required_text(value: &str, max_chars: usize) -> bool {
@@ -226,17 +297,128 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// `/news/create` — authenticated, fail-closed route with no form or mutation.
+/// `/news/create` — authenticated editor shell. The submit action is owned by
+/// the admin BFF and must return a committed projection or a typed failure.
 pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
-    render_unavailable_route(ctx, NewsRoute::Create, None)
+    render_editor_route(ctx, NewsRoute::Create, None)
 }
 
-/// `/news/{id}/edit` — authenticated, fail-closed route. The bounded route
-/// reference is diagnostic only and never proves that a record exists.
+/// `/news/{id}/edit` — authenticated editor shell backed by a strict article
+/// projection. The route reference is never treated as article authority.
 pub fn render_edit(ctx: &PageContext) -> (PageMeta, Element) {
     let reference =
         bounded_route_reference(ctx.params.get("id").map(String::as_str).unwrap_or_default());
-    render_unavailable_route(ctx, NewsRoute::Edit, reference)
+    render_editor_route(ctx, NewsRoute::Edit, reference)
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum NewsEditorLoad {
+    Form,
+    Ready(AdminNewsEditorProjection),
+    Committed(AdminNewsEditorProjection),
+    Conflict(String),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn news_editor_load(ctx: &PageContext, route: NewsRoute) -> NewsEditorLoad {
+    let mutation_state = ctx
+        .params
+        .get(ADMIN_NEWS_MUTATION_STATE_PARAM)
+        .map(String::as_str);
+    match mutation_state {
+        Some(ADMIN_NEWS_MUTATION_COMMITTED) => {
+            let Some(raw) = ctx.params.get(ADMIN_NEWS_MUTATION_DATA_PARAM) else {
+                return NewsEditorLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_news_editor_projection)
+            else {
+                return NewsEditorLoad::Malformed;
+            };
+            NewsEditorLoad::Committed(projection)
+        }
+        Some(ADMIN_NEWS_MUTATION_CONFLICT) => NewsEditorLoad::Conflict(
+            ctx.params
+                .get(ADMIN_NEWS_MUTATION_ERROR_PARAM)
+                .cloned()
+                .unwrap_or_else(|| {
+                    "The article changed before this mutation was committed.".into()
+                }),
+        ),
+        Some(ADMIN_NEWS_MUTATION_FORBIDDEN) => NewsEditorLoad::Forbidden,
+        Some(ADMIN_NEWS_MUTATION_UNAVAILABLE) => NewsEditorLoad::Unavailable,
+        Some(ADMIN_NEWS_MUTATION_MALFORMED) => NewsEditorLoad::Malformed,
+        Some(_) => NewsEditorLoad::Malformed,
+        None => match ctx
+            .params
+            .get(ADMIN_NEWS_EDITOR_STATE_PARAM)
+            .map(String::as_str)
+        {
+            Some(ADMIN_NEWS_EDITOR_FORM) if route == NewsRoute::Create => NewsEditorLoad::Form,
+            Some(ADMIN_NEWS_EDITOR_READY) if route == NewsRoute::Edit => {
+                let Some(raw) = ctx.params.get(ADMIN_NEWS_EDITOR_DATA_PARAM) else {
+                    return NewsEditorLoad::Malformed;
+                };
+                let Some(projection) = serde_json::from_str(raw)
+                    .ok()
+                    .and_then(decode_admin_news_editor_projection)
+                else {
+                    return NewsEditorLoad::Malformed;
+                };
+                if ctx.params.get("id") != Some(&projection.id) {
+                    return NewsEditorLoad::Malformed;
+                }
+                NewsEditorLoad::Ready(projection)
+            }
+            Some(_) => NewsEditorLoad::Malformed,
+            None => NewsEditorLoad::Unavailable,
+        },
+    }
+}
+
+fn render_editor_route(
+    ctx: &PageContext,
+    route: NewsRoute,
+    route_reference: Option<String>,
+) -> (PageMeta, Element) {
+    let load = news_editor_load(ctx, route);
+    (
+        PageMeta::admin(route.page_title()),
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the admin news editor".to_string()),
+                return_url: Some(NEWS_PATH.to_string()),
+                PageLayout {
+                    max_width: Some(PageMaxWidth::FourXl),
+                    PageHeader {
+                        title: route.page_title().to_string(),
+                        subtitle: Some("Backend-verified content workspace".to_string()),
+                        icon: Some("newspaper".to_string()),
+                        gradient: Some(PageGradient::Purple),
+                        centered: Some(false),
+                        extra_actions: None,
+                        class_name: None,
+                    }
+                    match load {
+                        NewsEditorLoad::Form => rsx! { NewsEditor { route, projection: None, route_reference } },
+                        NewsEditorLoad::Ready(projection) => rsx! { NewsEditor { route, projection: Some(projection), route_reference } },
+                        NewsEditorLoad::Committed(projection) => rsx! {
+                            NewsMutationNotice { state: ADMIN_NEWS_MUTATION_COMMITTED, detail: "The backend committed the article and returned it after the write.".to_string() }
+                            NewsEditor { route, projection: Some(projection), route_reference }
+                        },
+                        NewsEditorLoad::Conflict(detail) => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_CONFLICT, detail } },
+                        NewsEditorLoad::Forbidden => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_FORBIDDEN, detail: "The backend denied this content mutation. No editor data is being shown.".to_string() } },
+                        NewsEditorLoad::Unavailable => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_UNAVAILABLE, detail: "The content mutation backend did not provide an authoritative editor response.".to_string() } },
+                        NewsEditorLoad::Malformed => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_MALFORMED, detail: "The editor response did not match the strict content contract.".to_string() } },
+                    }
+                }
+            }
+        },
+    )
 }
 
 #[component]
@@ -446,88 +628,122 @@ impl NewsRoute {
         }
     }
 
-    fn meta_title(self) -> &'static str {
-        match self {
-            Self::Create => "New news post unavailable",
-            Self::Edit => "Edit news unavailable",
-        }
-    }
-
     fn page_title(self) -> &'static str {
         match self {
             Self::Create => "New news post",
             Self::Edit => "Edit news",
         }
     }
-
-    fn title(self) -> &'static str {
-        match self {
-            Self::Create => "The news editor is unavailable",
-            Self::Edit => "This news record cannot be verified",
-        }
-    }
-
-    fn detail(self) -> &'static str {
-        match self {
-            Self::Create => {
-                "Creation and publication remain disabled until verified backend mutation contracts are connected."
-            }
-            Self::Edit => {
-                "The route reference does not prove that an article exists or may be changed. Article data and content actions remain hidden."
-            }
-        }
-    }
-}
-
-fn render_unavailable_route(
-    ctx: &PageContext,
-    route: NewsRoute,
-    route_reference: Option<String>,
-) -> (PageMeta, Element) {
-    (
-        PageMeta::admin(route.meta_title()),
-        rsx! {
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("the admin news workspace".to_string()),
-                return_url: Some(NEWS_PATH.to_string()),
-                PageLayout {
-                    max_width: Some(PageMaxWidth::FourXl),
-                    PageHeader {
-                        title: route.page_title().to_string(),
-                        subtitle: Some("Backend-verified content workspace".to_string()),
-                        icon: Some("newspaper".to_string()),
-                        gradient: Some(PageGradient::Purple),
-                        centered: Some(false),
-                        extra_actions: None,
-                        class_name: None,
-                    }
-                    NewsRouteUnavailable { route, route_reference }
-                }
-            }
-        },
-    )
 }
 
 #[component]
-fn NewsRouteUnavailable(route: NewsRoute, route_reference: Option<String>) -> Element {
+fn NewsEditor(
+    route: NewsRoute,
+    projection: Option<AdminNewsEditorProjection>,
+    route_reference: Option<String>,
+) -> Element {
+    let is_create = route == NewsRoute::Create;
+    let action = if is_create {
+        "/news/create".to_string()
+    } else {
+        format!(
+            "/news/{}/edit",
+            projection
+                .as_ref()
+                .map(|item| item.id.as_str())
+                .unwrap_or("invalid")
+        )
+    };
+    let title = projection
+        .as_ref()
+        .map(|item| item.title.clone())
+        .unwrap_or_default();
+    let slug = projection
+        .as_ref()
+        .map(|item| item.slug.clone())
+        .unwrap_or_default();
+    let summary = projection
+        .as_ref()
+        .and_then(|item| item.summary.clone())
+        .unwrap_or_default();
+    let content = projection
+        .as_ref()
+        .map(|item| item.content.clone())
+        .unwrap_or_default();
+    let status = projection
+        .as_ref()
+        .map(|item| item.status.clone())
+        .unwrap_or_else(|| "draft".to_string());
+    let tags = projection
+        .as_ref()
+        .map(|item| item.tags.join(", "))
+        .unwrap_or_default();
+    let version = projection.as_ref().map(|item| item.updated_at.clone());
+
     rsx! {
         section {
-            class: "rounded-2xl border border-purple-500/20 bg-card p-8 shadow-xl",
-            role: "status",
-            "data-admin-news-state": ADMIN_NEWS_UNAVAILABLE,
+            class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl",
+            role: "region",
+            "data-admin-news-editor-state": if is_create { ADMIN_NEWS_EDITOR_FORM } else { ADMIN_NEWS_EDITOR_READY },
             "data-admin-news-route": route.marker(),
-            h2 { class: "text-2xl font-semibold text-foreground", "{route.title()}" }
-            p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{route.detail()}" }
             if let Some(reference) = route_reference {
-                p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
-                    "Unverified route reference: "
-                    code { "data-admin-news-route-reference": "bounded", "{reference}" }
+                p { class: "mb-4 text-xs text-muted-foreground", "Verified article: {reference}" }
+            }
+            p { class: "mb-6 text-sm leading-6 text-muted-foreground",
+                "Changes are submitted through the content BFF with an idempotency key. Existing articles also require the backend updated_at version."
+            }
+            form { method: "post", action,
+                div { class: "space-y-5",
+                    label { class: "block text-sm font-medium text-foreground", "Title",
+                        input { class: "input input-bordered mt-2 w-full", name: "title", value: title, maxlength: MAX_TITLE_CHARS, required: true }
+                    }
+                    if !is_create {
+                        label { class: "block text-sm font-medium text-foreground", "Slug",
+                            input { class: "input input-bordered mt-2 w-full", name: "slug", value: slug, maxlength: MAX_SLUG_CHARS, required: true }
+                        }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Summary",
+                        textarea { class: "textarea textarea-bordered mt-2 w-full", name: "summary", maxlength: MAX_SUMMARY_CHARS, "{summary}" }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Content",
+                        textarea { class: "textarea textarea-bordered mt-2 min-h-64 w-full", name: "content", maxlength: MAX_CONTENT_BYTES, required: true, "{content}" }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Cover image URL",
+                        input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: projection.as_ref().and_then(|item| item.cover_image_url.clone()).unwrap_or_default() }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Tags (comma separated)",
+                        input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags, maxlength: 2048 }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Status",
+                        select { class: "select select-bordered mt-2 w-full", name: "status",
+                            option { value: "draft", selected: status == "draft", "Draft" }
+                            option { value: "published", selected: status == "published", "Published" }
+                        }
+                    }
+                    if let Some(version) = version {
+                        input { r#type: "hidden", name: "if_match", value: version, "data-admin-news-version": "updated_at" }
+                    }
+                    div { class: "flex flex-wrap gap-3 border-t border-border/30 pt-5",
+                        button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "Save through content BFF" }
+                        a { class: "btn btn-outline", href: NEWS_PATH, "Cancel" }
+                    }
                 }
             }
-            nav { class: "mt-8 flex flex-wrap gap-3 border-t border-border/30 pt-6", aria_label: "Admin news recovery",
-                a { class: "btn btn-primary", href: NEWS_PATH, "Return to news" }
-                a { class: "btn btn-outline", href: "/", "Admin home" }
+        }
+    }
+}
+
+#[component]
+fn NewsMutationNotice(state: &'static str, detail: String) -> Element {
+    rsx! {
+        section {
+            class: "mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6",
+            role: if state == ADMIN_NEWS_MUTATION_FORBIDDEN { "alert" } else { "status" },
+            "data-admin-news-mutation-state": state,
+            h2 { class: "text-lg font-semibold text-foreground", "Content mutation: {state}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
+            if matches!(state, ADMIN_NEWS_MUTATION_CONFLICT | ADMIN_NEWS_MUTATION_UNAVAILABLE | ADMIN_NEWS_MUTATION_MALFORMED) {
+                a { class: "btn btn-sm btn-outline mt-4", href: NEWS_PATH, "Return to news inventory" }
             }
         }
     }
@@ -587,6 +803,23 @@ mod tests {
             published_at: Some("2026-07-22T10:00:00Z".to_string()),
             created_at: "2026-07-22T09:00:00Z".to_string(),
             is_pinned: true,
+        }
+    }
+
+    fn editor() -> AdminNewsEditorProjection {
+        AdminNewsEditorProjection {
+            id: article().id,
+            title: "Production migration update".to_string(),
+            slug: "production-migration-update".to_string(),
+            summary: Some("A verified editor projection.".to_string()),
+            content: "Authoritative article body".to_string(),
+            cover_image_url: None,
+            tags: vec!["migration".to_string()],
+            status: "draft".to_string(),
+            published_at: None,
+            created_at: "2026-07-22T09:00:00Z".to_string(),
+            updated_at: "2026-07-22T10:00:00Z".to_string(),
+            is_pinned: false,
         }
     }
 
@@ -786,43 +1019,42 @@ mod tests {
     }
 
     #[test]
-    fn create_edit_and_list_expose_no_mutation_surfaces() {
+    fn editor_routes_render_only_backend_verified_mutation_states() {
         let list = html(&ctx(
             ADMIN_NEWS_READY,
             Some(projection(vec![article()], 1, 1)),
         ));
-        let create =
-            dioxus_ssr::render_element(render_create(&ctx(ADMIN_NEWS_UNAVAILABLE, None)).1);
-        let mut edit_ctx = ctx(ADMIN_NEWS_UNAVAILABLE, None);
-        edit_ctx
-            .params
-            .insert("id".to_string(), "article-1".to_string());
+        let mut create_ctx = ctx(ADMIN_NEWS_UNAVAILABLE, None);
+        create_ctx.params.insert(
+            ADMIN_NEWS_EDITOR_STATE_PARAM.to_string(),
+            ADMIN_NEWS_EDITOR_FORM.to_string(),
+        );
+        let create = dioxus_ssr::render_element(render_create(&create_ctx).1);
+
+        let editor = editor();
+        let mut edit_ctx = PageContext {
+            user: Some(session()),
+            path: format!("/news/{}/edit", editor.id),
+            ..Default::default()
+        };
+        edit_ctx.params.insert("id".to_string(), editor.id.clone());
+        edit_ctx.params.insert(
+            ADMIN_NEWS_EDITOR_STATE_PARAM.to_string(),
+            ADMIN_NEWS_EDITOR_READY.to_string(),
+        );
+        edit_ctx.params.insert(
+            ADMIN_NEWS_EDITOR_DATA_PARAM.to_string(),
+            serde_json::to_string(&editor).unwrap(),
+        );
         let edit = dioxus_ssr::render_element(render_edit(&edit_ctx).1);
 
         assert!(create.contains("data-admin-news-route=\"create\""));
+        assert!(create.contains("data-admin-news-editor-state=\"form\""));
+        assert!(create.contains("data-admin-news-submit=\"bff\""));
         assert!(edit.contains("data-admin-news-route=\"edit\""));
-        assert!(edit.contains("Unverified route reference"));
-        for rendered in [list, create, edit] {
-            for forbidden in [
-                "<form",
-                "<input",
-                "<textarea",
-                "<select",
-                "<button",
-                "/news/create",
-                "/edit",
-                "Publish now",
-                "Toggle publish",
-                "Toggle pin",
-                ">Delete<",
-                "Upload",
-            ] {
-                assert!(
-                    !rendered.contains(forbidden),
-                    "unsupported mutation surface leaked: {forbidden}"
-                );
-            }
-        }
+        assert!(edit.contains("data-admin-news-editor-state=\"ready\""));
+        assert!(edit.contains("data-admin-news-version=\"updated_at\""));
+        assert!(list.contains("data-admin-news-state=\"ready\""));
     }
 
     #[test]
@@ -836,7 +1068,7 @@ mod tests {
         edit_ctx.params.insert("id".to_string(), hostile);
         let rendered = dioxus_ssr::render_element(render_edit(&edit_ctx).1);
         assert!(!rendered.contains("<script>alert(1)</script>"));
-        assert!(rendered.contains("&#60;script&#62;alert(1)&#60;/script&#62;"));
-        assert!(!rendered.contains(&"x".repeat(65)));
+        assert!(!rendered.contains("script"));
+        assert!(rendered.contains("data-admin-news-mutation-state=\"unavailable\""));
     }
 }

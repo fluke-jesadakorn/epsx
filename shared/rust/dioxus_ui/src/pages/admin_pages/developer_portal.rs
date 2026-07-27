@@ -15,6 +15,7 @@ use crate::primitives::Icon;
 use super::super::{PageContext, PageMeta};
 
 const DEVELOPER_PORTAL_PATH: &str = "/developer-portal";
+const DEVELOPER_CREATE_PATH: &str = "/developer-portal/api-keys/create";
 const MAX_API_KEYS: usize = 100;
 const MAX_MODULES: usize = 100;
 const MAX_CLIENT_NAME_CHARS: usize = 255;
@@ -30,6 +31,14 @@ pub const ADMIN_DEVELOPER_EMPTY: &str = "empty";
 pub const ADMIN_DEVELOPER_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_DEVELOPER_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_DEVELOPER_MALFORMED: &str = "malformed";
+pub const ADMIN_DEVELOPER_CREATE_DATA_PARAM: &str = "data_admin_developer_create";
+pub const ADMIN_DEVELOPER_CREATE_STATE_PARAM: &str = "data_admin_developer_create_state";
+pub const ADMIN_DEVELOPER_CREATE_FORM: &str = "form";
+pub const ADMIN_DEVELOPER_CREATE_CREATED: &str = "created";
+pub const ADMIN_DEVELOPER_CREATE_CONFLICT: &str = "conflict";
+pub const ADMIN_DEVELOPER_CREATE_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_DEVELOPER_CREATE_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_DEVELOPER_CREATE_MALFORMED: &str = "malformed";
 
 /// Redacted API-key inventory row. full_key, wallet ownership, permissions,
 /// module grants, contact data, and rate limits are intentionally absent.
@@ -66,6 +75,16 @@ pub struct AdminDeveloperPortalProjection {
     pub total_requests_today: i64,
     pub total_requests_this_month: i64,
     pub top_modules_by_usage: Vec<AdminDeveloperModuleUsage>,
+}
+
+/// The only projection permitted to carry a plaintext secret. The BFF must
+/// place it in PageContext for the creation response only; list/read DTOs do
+/// not contain this field.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminDeveloperSecretOnceProjection {
+    pub api_key: AdminDeveloperApiKeySummary,
+    pub secret: String,
 }
 
 fn valid_uuid(value: &str) -> bool {
@@ -124,6 +143,23 @@ pub fn decode_admin_developer_key_summary(
 ) -> Option<AdminDeveloperApiKeySummary> {
     let summary: AdminDeveloperApiKeySummary = serde_json::from_value(value).ok()?;
     summary.is_well_formed().then_some(summary)
+}
+
+pub fn decode_admin_developer_secret_once(
+    value: serde_json::Value,
+) -> Option<AdminDeveloperSecretOnceProjection> {
+    let projection: AdminDeveloperSecretOnceProjection = serde_json::from_value(value).ok()?;
+    let key = decode_admin_developer_key_summary(serde_json::to_value(&projection.api_key).ok()?)?;
+    if projection.secret.is_empty()
+        || projection.secret.chars().count() > 512
+        || projection.secret.chars().any(char::is_control)
+    {
+        return None;
+    }
+    Some(AdminDeveloperSecretOnceProjection {
+        api_key: key,
+        secret: projection.secret,
+    })
 }
 
 pub fn decode_admin_developer_projection(
@@ -410,10 +446,148 @@ fn DeveloperPortalProblem(state: &'static str, title: String, detail: String) ->
     }
 }
 
-/// The create-key route stays access-denied: this page exposes no mutation
-/// surface and never accepts a secret-once response.
 pub fn render_create_key(ctx: &PageContext) -> (PageMeta, Element) {
-    super::access_denied_panel::render(ctx)
+    (
+        PageMeta::admin("Create API Key"),
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("API-key creation".to_string()),
+                return_url: Some(DEVELOPER_CREATE_PATH.to_string()),
+                RenderDeveloperCreateKey { ctx: ctx.clone() }
+            }
+        },
+    )
+}
+
+#[derive(Clone, PartialEq, Eq)]
+enum DeveloperCreateLoad {
+    Form,
+    Created(AdminDeveloperSecretOnceProjection),
+    Conflict,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn developer_create_load(ctx: &PageContext) -> DeveloperCreateLoad {
+    match ctx
+        .params
+        .get(ADMIN_DEVELOPER_CREATE_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_DEVELOPER_CREATE_FORM) => DeveloperCreateLoad::Form,
+        Some(ADMIN_DEVELOPER_CREATE_CREATED) => {
+            let Some(raw) = ctx.params.get(ADMIN_DEVELOPER_CREATE_DATA_PARAM) else {
+                return DeveloperCreateLoad::Malformed;
+            };
+            serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_developer_secret_once)
+                .map(DeveloperCreateLoad::Created)
+                .unwrap_or(DeveloperCreateLoad::Malformed)
+        }
+        Some(ADMIN_DEVELOPER_CREATE_CONFLICT) => DeveloperCreateLoad::Conflict,
+        Some(ADMIN_DEVELOPER_CREATE_FORBIDDEN) => DeveloperCreateLoad::Forbidden,
+        Some(ADMIN_DEVELOPER_CREATE_UNAVAILABLE) => DeveloperCreateLoad::Unavailable,
+        Some(ADMIN_DEVELOPER_CREATE_MALFORMED) | Some(_) => DeveloperCreateLoad::Malformed,
+        None => DeveloperCreateLoad::Unavailable,
+    }
+}
+
+#[component]
+fn RenderDeveloperCreateKey(ctx: PageContext) -> Element {
+    match developer_create_load(&ctx) {
+        DeveloperCreateLoad::Form => rsx! { DeveloperCreateForm {} },
+        DeveloperCreateLoad::Created(projection) => {
+            rsx! { DeveloperCreateSecretOnce { projection } }
+        }
+        DeveloperCreateLoad::Conflict => {
+            rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_CONFLICT, detail: "The API-key request conflicted with an existing mutation. Retry with a new idempotency key after verifying the backend state.".to_string() } }
+        }
+        DeveloperCreateLoad::Forbidden => {
+            rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_FORBIDDEN, detail: "The backend denied API-key creation for this admin session.".to_string() } }
+        }
+        DeveloperCreateLoad::Unavailable => {
+            rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_UNAVAILABLE, detail: "The backend did not provide an authoritative API-key creation response.".to_string() } }
+        }
+        DeveloperCreateLoad::Malformed => {
+            rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_MALFORMED, detail: "The creation response did not match the strict secret-once contract.".to_string() } }
+        }
+    }
+}
+
+#[component]
+fn DeveloperCreateForm() -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl",
+            role: "region",
+            "data-admin-developer-create-state": ADMIN_DEVELOPER_CREATE_FORM,
+            h1 { class: "text-xl font-semibold text-foreground", "Create API key" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground",
+                "The backend validates the wallet, module grants, granular permissions, limits, expiration, idempotency key, audit record, and read-after-write result."
+            }
+            form { method: "post", action: DEVELOPER_CREATE_PATH,
+                class: "mt-6 space-y-5",
+                label { class: "block text-sm font-medium text-foreground", "Client name",
+                    input { class: "input input-bordered mt-2 w-full", name: "client_name", maxlength: 255, required: true }
+                }
+                label { class: "block text-sm font-medium text-foreground", "Wallet address",
+                    input { class: "input input-bordered mt-2 w-full font-mono", name: "wallet_address", maxlength: 42, required: true }
+                }
+                label { class: "block text-sm font-medium text-foreground", "Permissions (comma separated)",
+                    input { class: "input input-bordered mt-2 w-full", name: "permissions", maxlength: 12_800 }
+                }
+                label { class: "block text-sm font-medium text-foreground", "Expiration (RFC3339, optional)",
+                    input { class: "input input-bordered mt-2 w-full", name: "expires_at", maxlength: 64 }
+                }
+                button { r#type: "submit", class: "btn btn-primary", "data-admin-developer-create-submit": "bff", "Create API key" }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperCreateSecretOnce(projection: AdminDeveloperSecretOnceProjection) -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6 shadow-xl",
+            role: "alert",
+            "data-admin-developer-create-state": ADMIN_DEVELOPER_CREATE_CREATED,
+            h1 { class: "text-xl font-semibold text-foreground", "API key created" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "This secret is shown once. It is not included in list, read, or audit projections." }
+            dl { class: "mt-6 space-y-4 text-sm",
+                div {
+                    dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "Client" }
+                    dd { class: "mt-1 font-semibold text-foreground", "{projection.api_key.client_name}" }
+                }
+                div {
+                    dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "Key prefix" }
+                    dd { class: "mt-1 font-mono text-foreground", "{projection.api_key.key_prefix}" }
+                }
+                div {
+                    dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "Secret — copy now" }
+                    dd { class: "mt-1 break-all rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 font-mono text-amber-200", "data-secret-once": "true", "{projection.secret}" }
+                }
+            }
+            a { class: "btn btn-outline mt-6", href: DEVELOPER_PORTAL_PATH, "Return to developer portal" }
+        }
+    }
+}
+
+#[component]
+fn DeveloperCreateProblem(state: &'static str, detail: String) -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6",
+            role: "alert",
+            "data-admin-developer-create-state": state,
+            h1 { class: "text-xl font-semibold text-foreground", "API-key creation: {state}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
+            a { class: "btn btn-outline mt-5", href: DEVELOPER_CREATE_PATH, "Try again" }
+        }
+    }
 }
 
 #[cfg(test)]
@@ -596,15 +770,46 @@ mod tests {
     }
 
     #[test]
-    fn create_key_route_remains_access_denied() {
+    fn create_key_route_is_form_or_secret_once_and_never_a_read_projection() {
         let mut create = ctx(ADMIN_DEVELOPER_UNAVAILABLE, None);
         create.path = "/developer-portal/api-keys/create".to_string();
+        create.params.insert(
+            ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+            ADMIN_DEVELOPER_CREATE_FORM.to_string(),
+        );
 
         let rendered = dioxus_ssr::render_element(render_create_key(&create).1);
 
-        assert!(rendered.contains("Access Denied"));
-        assert!(!rendered.contains("Create API key"));
-        assert!(!rendered.contains("data-admin-developer-portal-state"));
-        assert!(!rendered.contains("<form"));
+        assert!(rendered.contains("data-admin-developer-create-state=\"form\""));
+        assert!(rendered.contains("Create API key"));
+        assert!(rendered.contains("data-admin-developer-create-submit=\"bff\""));
+
+        let projection = AdminDeveloperSecretOnceProjection {
+            api_key: key(),
+            secret: "epsx_live_secret".to_string(),
+        };
+        create.params.insert(
+            ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+            ADMIN_DEVELOPER_CREATE_CREATED.to_string(),
+        );
+        create.params.insert(
+            ADMIN_DEVELOPER_CREATE_DATA_PARAM.to_string(),
+            serde_json::to_string(&projection).unwrap(),
+        );
+        let rendered = dioxus_ssr::render_element(render_create_key(&create).1);
+
+        assert!(rendered.contains("data-secret-once=\"true\""));
+        assert!(rendered.contains("epsx_live_secret"));
+        assert!(rendered.contains("not included in list, read, or audit projections"));
+        assert!(!rendered.contains("full_key"));
+
+        let mut value = serde_json::to_value(&projection).unwrap();
+        value["api_key"]["full_key"] = serde_json::json!("epsx_leaked");
+        create.params.insert(
+            ADMIN_DEVELOPER_CREATE_DATA_PARAM.to_string(),
+            value.to_string(),
+        );
+        assert!(dioxus_ssr::render_element(render_create_key(&create).1)
+            .contains("data-admin-developer-create-state=\"malformed\""));
     }
 }

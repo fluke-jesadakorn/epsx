@@ -29,6 +29,14 @@ pub const ADMIN_MEDIA_EMPTY: &str = "empty";
 pub const ADMIN_MEDIA_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_MEDIA_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_MEDIA_MALFORMED: &str = "malformed";
+pub const ADMIN_MEDIA_MUTATION_DATA_PARAM: &str = "data_admin_media_mutation";
+pub const ADMIN_MEDIA_MUTATION_STATE_PARAM: &str = "data_admin_media_mutation_state";
+pub const ADMIN_MEDIA_MUTATION_ERROR_PARAM: &str = "data_admin_media_mutation_error";
+pub const ADMIN_MEDIA_MUTATION_COMMITTED: &str = "committed";
+pub const ADMIN_MEDIA_MUTATION_CONFLICT: &str = "conflict";
+pub const ADMIN_MEDIA_MUTATION_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_MEDIA_MUTATION_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_MEDIA_MUTATION_MALFORMED: &str = "malformed";
 
 /// Deliberately excludes object URLs, media type guesses, provider metadata,
 /// hashes, previews, and every field that could imply mutation access.
@@ -44,6 +52,15 @@ pub struct AdminMediaObject {
 #[serde(deny_unknown_fields)]
 pub struct AdminMediaList {
     pub items: Vec<AdminMediaObject>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminMediaMutationProjection {
+    pub bucket: String,
+    pub key: String,
+    pub size: Option<i64>,
+    pub deleted: bool,
 }
 
 /// Decode the exact read projection and reject semantically unsafe values
@@ -67,6 +84,20 @@ pub fn decode_admin_media_projection(value: serde_json::Value) -> Option<AdminMe
         previous_key = Some(item.key.as_str());
     }
 
+    Some(projection)
+}
+
+pub fn decode_admin_media_mutation(
+    value: serde_json::Value,
+) -> Option<AdminMediaMutationProjection> {
+    let projection: AdminMediaMutationProjection = serde_json::from_value(value).ok()?;
+    if !matches!(projection.bucket.as_str(), "news" | "public")
+        || !bounded_control_free(&projection.key, MAX_OBJECT_KEY_CHARS)
+        || projection.key.len() > MAX_OBJECT_KEY_BYTES
+        || projection.size.is_some_and(|size| size < 0)
+    {
+        return None;
+    }
     Some(projection)
 }
 
@@ -160,6 +191,44 @@ fn media_load(ctx: &PageContext, bucket_valid: bool) -> MediaLoad {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum MediaMutationLoad {
+    Committed(AdminMediaMutationProjection),
+    Conflict(String),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn media_mutation_load(ctx: &PageContext) -> Option<MediaMutationLoad> {
+    match ctx
+        .params
+        .get(ADMIN_MEDIA_MUTATION_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_MEDIA_MUTATION_COMMITTED) => {
+            let raw = ctx.params.get(ADMIN_MEDIA_MUTATION_DATA_PARAM)?;
+            serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_media_mutation)
+                .map(MediaMutationLoad::Committed)
+                .or(Some(MediaMutationLoad::Malformed))
+        }
+        Some(ADMIN_MEDIA_MUTATION_CONFLICT) => Some(MediaMutationLoad::Conflict(
+            ctx.params
+                .get(ADMIN_MEDIA_MUTATION_ERROR_PARAM)
+                .cloned()
+                .unwrap_or_else(|| {
+                    "The media object changed before the mutation completed.".into()
+                }),
+        )),
+        Some(ADMIN_MEDIA_MUTATION_FORBIDDEN) => Some(MediaMutationLoad::Forbidden),
+        Some(ADMIN_MEDIA_MUTATION_UNAVAILABLE) => Some(MediaMutationLoad::Unavailable),
+        Some(ADMIN_MEDIA_MUTATION_MALFORMED) | Some(_) => Some(MediaMutationLoad::Malformed),
+        None => None,
+    }
+}
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Media");
     (
@@ -194,6 +263,9 @@ fn RenderMedia(ctx: PageContext) -> Element {
                 class_name: None,
             }
             MediaBucketNav { selected: bucket }
+            if let Some(mutation) = media_mutation_load(&ctx) {
+                MediaMutationNotice { mutation }
+            }
             match load {
                 MediaLoad::Ready(projection) => rsx! {
                     MediaReady { projection, bucket }
@@ -226,6 +298,46 @@ fn RenderMedia(ctx: PageContext) -> Element {
                     }
                 },
             }
+        }
+    }
+}
+
+#[component]
+fn MediaMutationNotice(mutation: MediaMutationLoad) -> Element {
+    match mutation {
+        MediaMutationLoad::Committed(projection) => rsx! {
+            section {
+                class: "mb-5 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-6",
+                role: "status",
+                "data-admin-media-mutation-state": ADMIN_MEDIA_MUTATION_COMMITTED,
+                h2 { class: "text-lg font-semibold text-foreground", if projection.deleted { "Media object deleted" } else { "Media object uploaded" } }
+                p { class: "mt-2 break-all text-sm text-muted-foreground", "{projection.bucket}/{projection.key}" }
+            }
+        },
+        MediaMutationLoad::Conflict(detail) => {
+            rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_CONFLICT, detail } }
+        }
+        MediaMutationLoad::Forbidden => {
+            rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_FORBIDDEN, detail: "The backend denied this media mutation. No storage state is being inferred.".to_string() } }
+        }
+        MediaMutationLoad::Unavailable => {
+            rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_UNAVAILABLE, detail: "The storage backend did not provide an authoritative mutation result.".to_string() } }
+        }
+        MediaMutationLoad::Malformed => {
+            rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_MALFORMED, detail: "The storage mutation response did not match the strict media contract.".to_string() } }
+        }
+    }
+}
+
+#[component]
+fn MediaMutationProblem(state: &'static str, detail: String) -> Element {
+    rsx! {
+        section {
+            class: "mb-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-6",
+            role: "alert",
+            "data-admin-media-mutation-state": state,
+            h2 { class: "text-lg font-semibold text-foreground", "Media mutation: {state}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -650,5 +762,51 @@ mod tests {
         assert!(rendered.contains("Additional objects may exist"));
         assert!(rendered.contains("continuation is unavailable"));
         assert_forbidden_actions_absent(&rendered);
+    }
+
+    #[test]
+    fn mutation_projection_is_strict_and_problem_states_are_truthful() {
+        let valid = serde_json::json!({
+            "bucket": "news",
+            "key": "images/launch.webp",
+            "size": 42,
+            "deleted": false
+        });
+        assert!(decode_admin_media_mutation(valid.clone()).is_some());
+
+        let mut unknown = valid.clone();
+        unknown["url"] = serde_json::json!("https://objects.example/secret");
+        assert!(decode_admin_media_mutation(unknown).is_none());
+        let mut private_bucket = valid.clone();
+        private_bucket["bucket"] = serde_json::json!("chat");
+        assert!(decode_admin_media_mutation(private_bucket).is_none());
+        let mut negative_size = valid;
+        negative_size["size"] = serde_json::json!(-1);
+        assert!(decode_admin_media_mutation(negative_size).is_none());
+
+        let mut conflict = with_state(ADMIN_MEDIA_EMPTY, Some(r#"{"items":[]}"#));
+        conflict.params.insert(
+            ADMIN_MEDIA_MUTATION_STATE_PARAM.to_string(),
+            ADMIN_MEDIA_MUTATION_CONFLICT.to_string(),
+        );
+        conflict.params.insert(
+            ADMIN_MEDIA_MUTATION_ERROR_PARAM.to_string(),
+            "version conflict".to_string(),
+        );
+        let rendered = html(&conflict);
+        assert!(rendered.contains("data-admin-media-mutation-state=\"conflict\""));
+        assert!(rendered.contains("version conflict"));
+
+        let malformed = with_state(ADMIN_MEDIA_EMPTY, Some(r#"{"items":[]}"#));
+        let mut malformed = malformed;
+        malformed.params.insert(
+            ADMIN_MEDIA_MUTATION_STATE_PARAM.to_string(),
+            ADMIN_MEDIA_MUTATION_COMMITTED.to_string(),
+        );
+        malformed.params.insert(
+            ADMIN_MEDIA_MUTATION_DATA_PARAM.to_string(),
+            r#"{"bucket":"news","key":"bad","size":-1,"deleted":false}"#.to_string(),
+        );
+        assert!(html(&malformed).contains("data-admin-media-mutation-state=\"malformed\""));
     }
 }

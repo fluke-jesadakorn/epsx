@@ -6,8 +6,13 @@
 //! Rust endpoint and must fail closed on any transport or contract drift.
 
 use epsx_client::ClientError;
-use epsx_dioxus_ui::pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList};
-use serde::Deserialize;
+use epsx_dioxus_ui::pages::admin_pages::news::{
+    decode_admin_news_editor_projection, AdminNewsArticleSummary, AdminNewsEditorProjection,
+    AdminNewsList,
+};
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
+use uuid::Uuid;
 
 const ADMIN_NEWS_LIMIT: i64 = 20;
 const MAX_ADMIN_NEWS_PAGE: i64 = 10_000_000;
@@ -20,6 +25,46 @@ const MAX_CONTENT_BYTES: usize = 2 * 1024 * 1024;
 const MAX_AUTHOR_CHARS: usize = 128;
 const MAX_COVER_URL_CHARS: usize = 2_048;
 const MAX_ADMIN_NEWS_RESPONSE_BYTES: usize = 8 * 1024 * 1024;
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 128;
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNewsMutationError {
+    Invalid,
+    Forbidden,
+    Conflict,
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct AdminNewsCreateInput {
+    pub(crate) title: String,
+    pub(crate) content: String,
+    pub(crate) summary: Option<String>,
+    pub(crate) cover_image_url: Option<String>,
+    pub(crate) tags: Vec<String>,
+    pub(crate) status: Option<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub(crate) struct AdminNewsUpdateInput {
+    pub(crate) title: Option<String>,
+    pub(crate) slug: Option<String>,
+    pub(crate) content: Option<String>,
+    pub(crate) summary: Option<String>,
+    pub(crate) cover_image_url: Option<String>,
+    pub(crate) tags: Option<Vec<String>>,
+    pub(crate) status: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct MutationEnvelope<T> {
+    success: bool,
+    data: Option<T>,
+    error: Option<Value>,
+    meta: Option<LegacyResponseMeta>,
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdminNewsQuery {
@@ -95,7 +140,14 @@ pub(crate) async fn load_admin_news(
     query: &AdminNewsQuery,
     ctx: &epsx_client::RequestContext,
 ) -> AdminNewsLoad {
-    let Some(token) = ctx.auth_token.as_ref() else {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNewsLoad::Unavailable;
+    };
+    let Ok(http_client) = mutation_client(client) else {
         return AdminNewsLoad::Unavailable;
     };
     let url = format!(
@@ -103,8 +155,7 @@ pub(crate) async fn load_admin_news(
         client.base_url().trim_end_matches('/'),
         query.upstream_path()
     );
-    let response = match client
-        .clone_for_bearer()
+    let response = match http_client
         .get(url)
         .header("x-request-id", ctx.request_id.to_string())
         .bearer_auth(token)
@@ -132,6 +183,419 @@ pub(crate) async fn load_admin_news(
         Err(_) => return AdminNewsLoad::Malformed,
     };
     classify_admin_news_result(query, Ok(value))
+}
+
+pub(crate) async fn create_admin_news(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    input: AdminNewsCreateInput,
+    idempotency_key: &str,
+) -> Result<AdminNewsEditorProjection, AdminNewsMutationError> {
+    validate_idempotency_key(idempotency_key)?;
+    validate_create_input(&input)?;
+    let value = send_json_mutation(
+        client,
+        ctx,
+        reqwest::Method::POST,
+        "/api/admin/news",
+        serde_json::to_value(input).map_err(|_| AdminNewsMutationError::Malformed)?,
+        None,
+        idempotency_key,
+    )
+    .await?;
+    decode_article_response(value)
+}
+
+pub(crate) async fn update_admin_news(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    id: &str,
+    input: AdminNewsUpdateInput,
+    expected_updated_at: &str,
+    idempotency_key: &str,
+) -> Result<AdminNewsEditorProjection, AdminNewsMutationError> {
+    let id = canonical_article_id(id)?;
+    validate_idempotency_key(idempotency_key)?;
+    validate_version(expected_updated_at)?;
+    validate_update_input(&input)?;
+    let value = send_json_mutation(
+        client,
+        ctx,
+        reqwest::Method::PUT,
+        &format!("/api/admin/news/{id}"),
+        serde_json::to_value(input).map_err(|_| AdminNewsMutationError::Malformed)?,
+        Some(expected_updated_at),
+        idempotency_key,
+    )
+    .await?;
+    decode_article_response(value)
+}
+
+pub(crate) async fn delete_admin_news(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    id: &str,
+    expected_updated_at: &str,
+    idempotency_key: &str,
+) -> Result<AdminNewsDeleteResult, AdminNewsMutationError> {
+    let id = canonical_article_id(id)?;
+    validate_idempotency_key(idempotency_key)?;
+    validate_version(expected_updated_at)?;
+    let value = send_json_mutation(
+        client,
+        ctx,
+        reqwest::Method::DELETE,
+        &format!("/api/admin/news/{id}"),
+        Value::Null,
+        Some(expected_updated_at),
+        idempotency_key,
+    )
+    .await?;
+    let response: MutationEnvelope<AdminNewsDeleteResult> =
+        serde_json::from_value(value).map_err(|_| AdminNewsMutationError::Malformed)?;
+    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref())
+    {
+        return Err(AdminNewsMutationError::Malformed);
+    }
+    let result = response.data.ok_or(AdminNewsMutationError::Malformed)?;
+    if result.id != id || !result.deleted {
+        return Err(AdminNewsMutationError::Malformed);
+    }
+    Ok(result)
+}
+
+pub(crate) async fn transition_admin_news(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    id: &str,
+    action: AdminNewsTransition,
+    expected_updated_at: &str,
+    idempotency_key: &str,
+) -> Result<AdminNewsEditorProjection, AdminNewsMutationError> {
+    let id = canonical_article_id(id)?;
+    validate_idempotency_key(idempotency_key)?;
+    validate_version(expected_updated_at)?;
+    let path = format!("/api/admin/news/{id}/{}", action.as_str());
+    let value = send_json_mutation(
+        client,
+        ctx,
+        reqwest::Method::PUT,
+        &path,
+        Value::Null,
+        Some(expected_updated_at),
+        idempotency_key,
+    )
+    .await?;
+    decode_article_response(value)
+}
+
+pub(crate) async fn upload_admin_news_image(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    filename: &str,
+    bytes: Vec<u8>,
+    idempotency_key: &str,
+) -> Result<AdminNewsImageResult, AdminNewsMutationError> {
+    validate_filename(filename)?;
+    validate_idempotency_key(idempotency_key)?;
+    if bytes.is_empty() || bytes.len() > 25 * 1024 * 1024 {
+        return Err(AdminNewsMutationError::Invalid);
+    }
+    let token = bearer(ctx)?;
+    let http_client = mutation_client(client)?;
+    let form = reqwest::multipart::Form::new().part(
+        "file",
+        reqwest::multipart::Part::bytes(bytes).file_name(filename.to_string()),
+    );
+    let response = http_client
+        .post(format!(
+            "{}/api/admin/news/upload-image",
+            client.base_url().trim_end_matches('/')
+        ))
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .multipart(form)
+        .send()
+        .await
+        .map_err(|_| AdminNewsMutationError::Unavailable)?;
+    let value = read_mutation_value(response).await?;
+    let response: MutationEnvelope<AdminNewsImageResult> =
+        serde_json::from_value(value).map_err(|_| AdminNewsMutationError::Malformed)?;
+    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref())
+    {
+        return Err(AdminNewsMutationError::Malformed);
+    }
+    response.data.ok_or(AdminNewsMutationError::Malformed)
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNewsTransition {
+    Publish,
+    Unpublish,
+    Pin,
+    Unpin,
+}
+
+impl AdminNewsTransition {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::Publish => "publish",
+            Self::Unpublish => "unpublish",
+            Self::Pin => "pin",
+            Self::Unpin => "unpin",
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdminNewsDeleteResult {
+    pub(crate) id: String,
+    pub(crate) deleted: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdminNewsImageResult {
+    pub(crate) url: String,
+    pub(crate) thumb_url: Option<String>,
+    pub(crate) filename: String,
+    pub(crate) mime: String,
+    pub(crate) size: u64,
+}
+
+fn decode_article_response(
+    value: Value,
+) -> Result<AdminNewsEditorProjection, AdminNewsMutationError> {
+    let response: MutationEnvelope<LegacyNewsArticle> =
+        serde_json::from_value(value).map_err(|_| AdminNewsMutationError::Malformed)?;
+    if !response.success || response.error.is_some() || !valid_response_meta(response.meta.as_ref())
+    {
+        return Err(AdminNewsMutationError::Malformed);
+    }
+    let article = response.data.ok_or(AdminNewsMutationError::Malformed)?;
+    let projection = project_editor_article(article).ok_or(AdminNewsMutationError::Malformed)?;
+    decode_admin_news_editor_projection(
+        serde_json::to_value(projection).map_err(|_| AdminNewsMutationError::Malformed)?,
+    )
+    .ok_or(AdminNewsMutationError::Malformed)
+}
+
+async fn send_json_mutation(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+    method: reqwest::Method,
+    path: &str,
+    body: Value,
+    if_match: Option<&str>,
+    idempotency_key: &str,
+) -> Result<Value, AdminNewsMutationError> {
+    let token = bearer(ctx)?;
+    let http_client = mutation_client(client)?;
+    let mut request = http_client
+        .request(
+            method,
+            format!("{}{}", client.base_url().trim_end_matches('/'), path),
+        )
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .json(&body);
+    if let Some(if_match) = if_match {
+        request = request.header("if-match", if_match);
+    }
+    read_mutation_value(
+        request
+            .send()
+            .await
+            .map_err(|_| AdminNewsMutationError::Unavailable)?,
+    )
+    .await
+}
+
+async fn read_mutation_value(response: reqwest::Response) -> Result<Value, AdminNewsMutationError> {
+    let status = response.status();
+    let body = read_response_body_limited(response, MAX_ADMIN_NEWS_RESPONSE_BYTES)
+        .await
+        .map_err(|_| AdminNewsMutationError::Unavailable)?;
+    match status {
+        reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {}
+        reqwest::StatusCode::BAD_REQUEST
+        | reqwest::StatusCode::PRECONDITION_REQUIRED
+        | reqwest::StatusCode::UNPROCESSABLE_ENTITY => return Err(AdminNewsMutationError::Invalid),
+        reqwest::StatusCode::FORBIDDEN => return Err(AdminNewsMutationError::Forbidden),
+        reqwest::StatusCode::CONFLICT => return Err(AdminNewsMutationError::Conflict),
+        _ => return Err(AdminNewsMutationError::Unavailable),
+    }
+    serde_json::from_slice(&body).map_err(|_| AdminNewsMutationError::Malformed)
+}
+
+fn bearer(ctx: &epsx_client::RequestContext) -> Result<&str, AdminNewsMutationError> {
+    ctx.auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+        .ok_or(AdminNewsMutationError::Unavailable)
+}
+
+fn mutation_client(
+    client: &epsx_client::ServiceClient,
+) -> Result<reqwest::Client, AdminNewsMutationError> {
+    reqwest::Client::builder()
+        .timeout(client.config().timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| AdminNewsMutationError::Unavailable)
+}
+
+fn validate_create_input(input: &AdminNewsCreateInput) -> Result<(), AdminNewsMutationError> {
+    if !valid_text(&input.title, 255, false)
+        || input.content.trim().is_empty()
+        || input.content.len() > MAX_CONTENT_BYTES
+        || input.content.chars().any(char::is_control)
+        || input
+            .summary
+            .as_deref()
+            .is_some_and(|value| !valid_text(value, 2_000, true))
+        || input
+            .cover_image_url
+            .as_deref()
+            .is_some_and(|value| !valid_url(value))
+        || !valid_tags(&input.tags)
+        || input
+            .status
+            .as_deref()
+            .is_some_and(|status| !matches!(status, "draft" | "published"))
+    {
+        return Err(AdminNewsMutationError::Invalid);
+    }
+    Ok(())
+}
+
+fn validate_update_input(input: &AdminNewsUpdateInput) -> Result<(), AdminNewsMutationError> {
+    if input.title.is_none()
+        && input.slug.is_none()
+        && input.content.is_none()
+        && input.summary.is_none()
+        && input.cover_image_url.is_none()
+        && input.tags.is_none()
+        && input.status.is_none()
+    {
+        return Err(AdminNewsMutationError::Invalid);
+    }
+    if input
+        .title
+        .as_deref()
+        .is_some_and(|value| !valid_text(value, 255, false))
+        || input
+            .slug
+            .as_deref()
+            .is_some_and(|value| !valid_slug(value))
+        || input.content.as_deref().is_some_and(|value| {
+            value.trim().is_empty()
+                || value.len() > MAX_CONTENT_BYTES
+                || value.chars().any(char::is_control)
+        })
+        || input
+            .summary
+            .as_deref()
+            .is_some_and(|value| !valid_text(value, 2_000, true))
+        || input
+            .cover_image_url
+            .as_deref()
+            .is_some_and(|value| !valid_url(value))
+        || input.tags.as_deref().is_some_and(|tags| !valid_tags(tags))
+        || input
+            .status
+            .as_deref()
+            .is_some_and(|status| !matches!(status, "draft" | "published"))
+    {
+        return Err(AdminNewsMutationError::Invalid);
+    }
+    Ok(())
+}
+
+fn project_editor_article(article: LegacyNewsArticle) -> Option<AdminNewsEditorProjection> {
+    validate_and_project_article(article.clone())?;
+    Some(AdminNewsEditorProjection {
+        id: article.id,
+        title: article.title,
+        slug: article.slug,
+        summary: article.summary,
+        content: article.content,
+        cover_image_url: article.cover_image_url,
+        tags: article.tags,
+        status: article.status,
+        published_at: article.published_at,
+        created_at: article.created_at,
+        updated_at: article.updated_at,
+        is_pinned: article.is_pinned,
+    })
+}
+
+fn canonical_article_id(value: &str) -> Result<String, AdminNewsMutationError> {
+    Uuid::parse_str(value)
+        .map(|id| id.to_string())
+        .map_err(|_| AdminNewsMutationError::Invalid)
+}
+
+fn validate_version(value: &str) -> Result<(), AdminNewsMutationError> {
+    if valid_text(value, 64, false) && valid_rfc3339(value) {
+        Ok(())
+    } else {
+        Err(AdminNewsMutationError::Invalid)
+    }
+}
+
+fn validate_idempotency_key(value: &str) -> Result<(), AdminNewsMutationError> {
+    if valid_text(value, MAX_IDEMPOTENCY_KEY_CHARS, false) {
+        Ok(())
+    } else {
+        Err(AdminNewsMutationError::Invalid)
+    }
+}
+
+fn validate_filename(value: &str) -> Result<(), AdminNewsMutationError> {
+    if value.is_empty()
+        || value.chars().count() > 255
+        || value.trim() != value
+        || value.chars().any(char::is_control)
+        || value.contains('/')
+        || value.contains('\\')
+        || matches!(value, "." | "..")
+    {
+        Err(AdminNewsMutationError::Invalid)
+    } else {
+        Ok(())
+    }
+}
+
+fn valid_text(value: &str, max_chars: usize, allow_empty: bool) -> bool {
+    (allow_empty || !value.trim().is_empty())
+        && value.chars().count() <= max_chars
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_slug(value: &str) -> bool {
+    valid_text(value, 255, false)
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
+        && !value.starts_with('-')
+        && !value.ends_with('-')
+        && !value.contains("--")
+}
+
+fn valid_url(value: &str) -> bool {
+    valid_text(value, 2_048, false)
+        && reqwest::Url::parse(value)
+            .ok()
+            .is_some_and(|url| matches!(url.scheme(), "http" | "https") && url.host_str().is_some())
+}
+
+fn valid_tags(tags: &[String]) -> bool {
+    tags.len() <= 32 && tags.iter().all(|tag| valid_text(tag, 64, false))
 }
 
 async fn read_response_body_limited(
@@ -182,8 +646,18 @@ struct LegacyEnvelope {
     success: bool,
     data: Option<LegacyNewsList>,
     error: Option<serde_json::Value>,
-    #[allow(dead_code)]
-    meta: Option<serde_json::Value>,
+    meta: Option<LegacyResponseMeta>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyResponseMeta {
+    timestamp: String,
+    request_id: Option<String>,
+    version: Option<String>,
+    message: Option<String>,
+    pagination: Option<Value>,
+    permissions: Option<Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -195,7 +669,7 @@ struct LegacyNewsList {
     limit: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct LegacyNewsArticle {
     id: String,
@@ -219,7 +693,8 @@ fn decode_legacy_admin_news(
     value: serde_json::Value,
 ) -> Option<AdminNewsList> {
     let envelope: LegacyEnvelope = serde_json::from_value(value).ok()?;
-    if !envelope.success || envelope.error.is_some() {
+    if !envelope.success || envelope.error.is_some() || !valid_response_meta(envelope.meta.as_ref())
+    {
         return None;
     }
     let data = envelope.data?;
@@ -247,6 +722,21 @@ fn decode_legacy_admin_news(
         page: data.page,
         limit: data.limit,
     })
+}
+
+fn valid_response_meta(meta: Option<&LegacyResponseMeta>) -> bool {
+    let Some(meta) = meta else {
+        return false;
+    };
+    valid_rfc3339(&meta.timestamp)
+        && meta
+            .request_id
+            .as_deref()
+            .is_none_or(|id| Uuid::parse_str(id).is_ok())
+        && meta.version.as_deref() == Some("v1")
+        && meta.message.is_none()
+        && meta.pagination.is_none()
+        && meta.permissions.is_none()
 }
 
 fn validate_and_project_article(article: LegacyNewsArticle) -> Option<AdminNewsArticleSummary> {
@@ -453,7 +943,7 @@ mod tests {
                 "limit": 20
             },
             "error": null,
-            "meta": {"timestamp": "2026-07-22T03:04:05Z", "request_id": "discarded"}
+            "meta": {"timestamp": "2026-07-22T03:04:05Z", "request_id": "d9dbcc48-7f46-46cb-9b87-7cda68cb3af2", "version": "v1"}
         })
     }
 
@@ -520,6 +1010,43 @@ mod tests {
             query().upstream_path(),
             "/api/admin/news?page=2&limit=20&status=published"
         );
+    }
+
+    #[test]
+    fn mutation_inputs_require_versions_and_unwrap_only_the_typed_envelope() {
+        let input = AdminNewsCreateInput {
+            title: "Migration status".to_string(),
+            content: "A bounded article body".to_string(),
+            summary: None,
+            cover_image_url: None,
+            tags: vec!["migration".to_string()],
+            status: Some("draft".to_string()),
+        };
+        assert!(validate_create_input(&input).is_ok());
+        assert!(validate_idempotency_key("news-create-1").is_ok());
+        assert!(validate_version("2026-07-22T03:04:05Z").is_ok());
+        assert!(validate_version("not-a-version").is_err());
+
+        let value = serde_json::json!({
+            "success": true,
+            "data": article(),
+            "error": null,
+            "meta": {
+                "timestamp": "2026-07-22T03:04:05Z",
+                "request_id": "d9dbcc48-7f46-46cb-9b87-7cda68cb3af2",
+                "version": "v1"
+            }
+        });
+        let projection = decode_article_response(value).unwrap();
+        assert_eq!(projection.id, "2f68f1aa-08d7-4b40-a25f-b35e7fd0ed31");
+        assert!(decode_article_response(article()).is_err());
+
+        let mut missing_meta = serde_json::json!({
+            "success": true,
+            "data": article(),
+            "error": null
+        });
+        assert!(decode_article_response(missing_meta.take()).is_err());
     }
 
     #[tokio::test]

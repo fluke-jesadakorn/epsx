@@ -4,17 +4,16 @@
 
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{
-    ApiKey, ApiKeyStatus, ModuleAccess, RateLimits, CreateApiKeyRequest, 
-    RevokeApiKeyRequest, ApiKeyCreatedResponse, AccessLevel,
-    PlanInfo,
+    AccessLevel, ApiKey, ApiKeyCreatedResponse, ApiKeyStatus, CreateApiKeyRequest, ModuleAccess,
+    PlanInfo, RateLimits, RevokeApiKeyRequest,
 };
 use crate::prelude::*;
-use crate::schemas::primary::{api_key_permissions, api_keys, api_key_module_access, api_modules};
+use crate::schemas::primary::{api_key_module_access, api_key_permissions, api_keys, api_modules};
 
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
@@ -51,20 +50,26 @@ impl ApiKeyRepository {
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to count active API keys: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to count active API keys: {}", e))
+            })?;
         let revoked = api_keys::table
             .filter(api_keys::status.eq("revoked"))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to count revoked API keys: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to count revoked API keys: {}", e))
+            })?;
         let expired = api_keys::table
             .filter(api_keys::status.eq("active"))
             .filter(api_keys::expires_at.lt(now))
             .count()
             .get_result::<i64>(&mut conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to count expired API keys: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to count expired API keys: {}", e))
+            })?;
 
         Ok((total, active, revoked, expired))
     }
@@ -81,7 +86,7 @@ impl ApiKeyRepository {
 
     /// Hash an API key for storage
     fn hash_api_key(key: &str) -> String {
-        use sha2::{Sha256, Digest};
+        use sha2::{Digest, Sha256};
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         hex::encode(hasher.finalize())
@@ -89,7 +94,10 @@ impl ApiKeyRepository {
 
     /// Create a new API key
     pub async fn create(&self, request: CreateApiKeyRequest) -> AppResult<ApiKeyCreatedResponse> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let (full_key, prefix) = Self::generate_api_key();
@@ -130,13 +138,18 @@ impl ApiKeyRepository {
                     api_key_module_access::api_key_id.eq(&id),
                     api_key_module_access::module_id.eq(&module_access.module_id),
                     api_key_module_access::access_level.eq(&module_access.access_level),
-                    api_key_module_access::custom_quotas.eq(module_access.custom_quotas.clone().unwrap_or(serde_json::json!({}))),
+                    api_key_module_access::custom_quotas.eq(module_access
+                        .custom_quotas
+                        .clone()
+                        .unwrap_or(serde_json::json!({}))),
                     api_key_module_access::granted_at.eq(&now),
                     api_key_module_access::granted_by.eq(&request.created_by),
                 ))
                 .execute(&mut conn)
                 .await
-                .map_err(|e| AppError::database_error(format!("Failed to add module access: {}", e)))?;
+                .map_err(|e| {
+                    AppError::database_error(format!("Failed to add module access: {}", e))
+                })?;
         }
 
         // Insert permission plan assignments (new plan-based system)
@@ -152,24 +165,33 @@ impl ApiKeyRepository {
                 ))
                 .execute(&mut conn)
                 .await
-                .map_err(|e| AppError::database_error(format!("Failed to add permission plan: {}", e)))?;
+                .map_err(|e| {
+                    AppError::database_error(format!("Failed to add permission plan: {}", e))
+                })?;
         }
 
-        info!("Created API key {} for wallet {} with {} plans", id, request.wallet_address, request.plan_ids.len());
+        info!(
+            "Created API key {} for wallet {} with {} plans",
+            id,
+            request.wallet_address,
+            request.plan_ids.len()
+        );
 
         // Fetch the created key with modules
-        let api_key = self.get_by_id(id).await?
+        let api_key = self
+            .get_by_id(id)
+            .await?
             .ok_or_else(|| AppError::not_found("API key not found after creation"))?;
 
-        Ok(ApiKeyCreatedResponse {
-            api_key,
-            full_key,
-        })
+        Ok(ApiKeyCreatedResponse { api_key, full_key })
     }
 
     /// Get an API key by ID
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiKey>> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         // Core API key data (16 fields - Diesel's default tuple limit)
@@ -236,7 +258,9 @@ impl ApiKeyRepository {
             .first(&mut conn)
             .await
             .optional()
-            .map_err(|e| AppError::database_error(format!("Failed to fetch API key metadata: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch API key metadata: {}", e))
+            })?;
 
         if let (Some(core), Some(meta)) = (core_row, meta_row) {
             // Fetch module access (legacy)
@@ -252,9 +276,10 @@ impl ApiKeyRepository {
                 client_description: core.client_description,
                 client_contact_email: core.client_contact_email,
                 wallet_address: core.wallet_address,
-                status: ApiKeyStatus::from(core.status.as_str()),
+                status: Self::effective_status(&core.status, core.expires_at),
                 total_requests: core.total_requests,
-                ip_restrictions: core.ip_restrictions
+                ip_restrictions: core
+                    .ip_restrictions
                     .unwrap_or_default()
                     .into_iter()
                     .flatten()
@@ -278,6 +303,28 @@ impl ApiKeyRepository {
         } else {
             Ok(None)
         }
+    }
+
+    fn effective_status(status: &str, expires_at: Option<chrono::DateTime<Utc>>) -> ApiKeyStatus {
+        if status.eq_ignore_ascii_case("active")
+            && expires_at.is_some_and(|expires_at| expires_at < Utc::now())
+        {
+            ApiKeyStatus::Expired
+        } else {
+            ApiKeyStatus::from(status)
+        }
+    }
+
+    async fn load_authoritative_ids(&self, ids: Vec<Uuid>) -> AppResult<Vec<ApiKey>> {
+        let mut keys = Vec::with_capacity(ids.len());
+        for id in ids {
+            let key = self
+                .get_by_id(id)
+                .await?
+                .ok_or_else(|| AppError::database_error("API key disappeared during list read"))?;
+            keys.push(key);
+        }
+        Ok(keys)
     }
 
     /// Get module access for an API key
@@ -307,15 +354,20 @@ impl ApiKeyRepository {
             ))
             .load::<ModuleAccessRow>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch module access: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch module access: {}", e))
+            })?;
 
-        Ok(rows.into_iter().map(|row| ModuleAccess {
-            module_id: row.module_id,
-            module_name: row.module_name,
-            access_level: AccessLevel::from(row.access_level.as_str()),
-            custom_rate_limit: row.custom_rate_limit,
-            custom_quotas: row.custom_quotas,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| ModuleAccess {
+                module_id: row.module_id,
+                module_name: row.module_name,
+                access_level: AccessLevel::from(row.access_level.as_str()),
+                custom_rate_limit: row.custom_rate_limit,
+                custom_quotas: row.custom_quotas,
+            })
+            .collect())
     }
 
     /// Get permission plans for an API key
@@ -324,8 +376,8 @@ impl ApiKeyRepository {
         conn: &mut diesel_async::AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<PlanInfo>> {
-        use crate::schemas::primary::plans;
         use crate::schemas::primary::api_key_permissions;
+        use crate::schemas::primary::plans;
 
         // 1. Get plan IDs from permissions table
         let plan_ids: Vec<Uuid> = api_key_permissions::table
@@ -334,7 +386,9 @@ impl ApiKeyRepository {
             .select(api_key_permissions::plan_id)
             .load::<Uuid>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch permission IDs: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch permission IDs: {}", e))
+            })?;
 
         if plan_ids.is_empty() {
             return Ok(Vec::new());
@@ -363,13 +417,16 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to fetch plans: {}", e)))?;
 
-        Ok(rows.into_iter().map(|row| PlanInfo {
-            id: row.id,
-            name: row.name,
-            slug: row.slug,
-            description: Some(row.description),
-            plan_type: row.plan_type,
-        }).collect())
+        Ok(rows
+            .into_iter()
+            .map(|row| PlanInfo {
+                id: row.id,
+                name: row.name,
+                slug: row.slug,
+                description: Some(row.description),
+                plan_type: row.plan_type,
+            })
+            .collect())
     }
 
     /// Get module access for multiple API keys
@@ -405,9 +462,12 @@ impl ApiKeyRepository {
             ))
             .load::<ModuleAccessRow>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch bulk module access: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch bulk module access: {}", e))
+            })?;
 
-        let mut map: std::collections::HashMap<Uuid, Vec<ModuleAccess>> = std::collections::HashMap::new();
+        let mut map: std::collections::HashMap<Uuid, Vec<ModuleAccess>> =
+            std::collections::HashMap::new();
         for row in rows {
             map.entry(row.api_key_id).or_default().push(ModuleAccess {
                 module_id: row.module_id,
@@ -426,8 +486,8 @@ impl ApiKeyRepository {
         conn: &mut diesel_async::AsyncPgConnection,
         api_key_ids: &[Uuid],
     ) -> AppResult<std::collections::HashMap<Uuid, Vec<PlanInfo>>> {
-        use crate::schemas::primary::plans;
         use crate::schemas::primary::api_key_permissions;
+        use crate::schemas::primary::plans;
 
         if api_key_ids.is_empty() {
             return Ok(std::collections::HashMap::new());
@@ -443,10 +503,15 @@ impl ApiKeyRepository {
         let assignments = api_key_permissions::table
             .filter(api_key_permissions::api_key_id.eq_any(api_key_ids))
             .filter(api_key_permissions::is_active.eq(true))
-            .select((api_key_permissions::api_key_id, api_key_permissions::plan_id))
+            .select((
+                api_key_permissions::api_key_id,
+                api_key_permissions::plan_id,
+            ))
             .load::<PlanAssignmentRow>(conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch bulk permission IDs: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch bulk permission IDs: {}", e))
+            })?;
 
         if assignments.is_empty() {
             return Ok(std::collections::HashMap::new());
@@ -477,21 +542,29 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to fetch plans: {}", e)))?;
 
-        let mut plans_map: std::collections::HashMap<Uuid, PlanInfo> = std::collections::HashMap::new();
+        let mut plans_map: std::collections::HashMap<Uuid, PlanInfo> =
+            std::collections::HashMap::new();
         for row in plan_rows {
-            plans_map.insert(row.id, PlanInfo {
-                id: row.id,
-                name: row.name,
-                slug: row.slug,
-                description: Some(row.description),
-                plan_type: row.plan_type,
-            });
+            plans_map.insert(
+                row.id,
+                PlanInfo {
+                    id: row.id,
+                    name: row.name,
+                    slug: row.slug,
+                    description: Some(row.description),
+                    plan_type: row.plan_type,
+                },
+            );
         }
 
-        let mut result_map: std::collections::HashMap<Uuid, Vec<PlanInfo>> = std::collections::HashMap::new();
+        let mut result_map: std::collections::HashMap<Uuid, Vec<PlanInfo>> =
+            std::collections::HashMap::new();
         for assignment in assignments {
             if let Some(plan_info) = plans_map.get(&assignment.plan_id) {
-                result_map.entry(assignment.api_key_id).or_default().push(plan_info.clone());
+                result_map
+                    .entry(assignment.api_key_id)
+                    .or_default()
+                    .push(plan_info.clone());
             }
         }
 
@@ -506,7 +579,7 @@ impl ApiKeyRepository {
         api_key_id: Uuid,
     ) -> AppResult<Vec<String>> {
         use diesel_async::RunQueryDsl;
-        
+
         #[derive(diesel::QueryableByName)]
         struct PermissionsRow {
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Array<diesel::sql_types::Nullable<diesel::sql_types::Text>>>)]
@@ -514,13 +587,12 @@ impl ApiKeyRepository {
         }
 
         let result = diesel::sql_query("SELECT selected_permissions FROM api_keys WHERE id = $1")
-        .bind::<diesel::sql_types::Uuid, _>(&api_key_id)
-        .get_result::<PermissionsRow>(conn)
-        .await
-        .map_err(|e| AppError::database_error(format!(
-            "Failed to fetch selected permissions: {}",
-            e
-        )))?;
+            .bind::<diesel::sql_types::Uuid, _>(&api_key_id)
+            .get_result::<PermissionsRow>(conn)
+            .await
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch selected permissions: {}", e))
+            })?;
 
         Ok(result
             .selected_permissions
@@ -537,115 +609,72 @@ impl ApiKeyRepository {
         offset: Option<i64>,
         status_filter: Option<&str>,
     ) -> AppResult<(Vec<ApiKey>, i64)> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
-
-        // Build query
-        let mut query = api_keys::table.into_boxed();
-
-        if let Some(status) = status_filter {
-            query = query.filter(api_keys::status.eq(status));
+        let mut count_query = api_keys::table.into_boxed();
+        match status_filter {
+            None => {}
+            Some("active") => {
+                count_query = count_query.filter(
+                    api_keys::status.eq("active").and(
+                        api_keys::expires_at
+                            .is_null()
+                            .or(api_keys::expires_at.ge(Utc::now())),
+                    ),
+                );
+            }
+            Some("revoked") => count_query = count_query.filter(api_keys::status.eq("revoked")),
+            Some("expired") => {
+                count_query = count_query.filter(
+                    api_keys::status
+                        .eq("active")
+                        .and(api_keys::expires_at.lt(Utc::now())),
+                )
+            }
+            Some(_) => return Err(AppError::validation_error("Unsupported API key status")),
         }
 
-        // Get total count
-        let total: i64 = api_keys::table
+        let total: i64 = count_query
             .count()
             .get_result(&mut conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
 
-        // Apply pagination
-        let query = query
+        let mut query = api_keys::table.into_boxed();
+        match status_filter {
+            None => {}
+            Some("active") => {
+                query = query.filter(
+                    api_keys::status.eq("active").and(
+                        api_keys::expires_at
+                            .is_null()
+                            .or(api_keys::expires_at.ge(Utc::now())),
+                    ),
+                );
+            }
+            Some("revoked") => query = query.filter(api_keys::status.eq("revoked")),
+            Some("expired") => {
+                query = query.filter(
+                    api_keys::status
+                        .eq("active")
+                        .and(api_keys::expires_at.lt(Utc::now())),
+                )
+            }
+            Some(_) => unreachable!("status filter was validated for the count query"),
+        }
+        let ids: Vec<Uuid> = query
             .order(api_keys::created_at.desc())
             .limit(limit.unwrap_or(50))
-            .offset(offset.unwrap_or(0));
-
-        // API key row with 16 fields max (Diesel's default tuple limit)
-        #[derive(Queryable)]
-        struct ApiKeyListRow {
-            id: Uuid,
-            key_prefix: String,
-            client_name: String,
-            client_description: Option<String>,
-            client_contact_email: Option<String>,
-            wallet_address: String,
-            status: String,
-            total_requests: i64,
-            ip_restrictions: Option<Vec<Option<String>>>,
-            rate_limit_per_minute: i32,
-            rate_limit_per_day: i32,
-            expires_at: Option<chrono::DateTime<Utc>>,
-            last_used_at: Option<chrono::DateTime<Utc>>,
-            created_at: chrono::DateTime<Utc>,
-            created_by: String,
-        }
-
-        let rows: Vec<ApiKeyListRow> = query
-            .select((
-                api_keys::id,
-                api_keys::key_prefix,
-                api_keys::client_name,
-                api_keys::client_description,
-                api_keys::client_contact_email,
-                api_keys::wallet_address,
-                api_keys::status,
-                api_keys::total_requests,
-                api_keys::ip_restrictions,
-                api_keys::rate_limit_per_minute,
-                api_keys::rate_limit_per_day,
-                api_keys::expires_at,
-                api_keys::last_used_at,
-                api_keys::created_at,
-                api_keys::created_by,
-            ))
+            .offset(offset.unwrap_or(0))
+            .select(api_keys::id)
             .load(&mut conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
-
-        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
-        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
-        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
-
-        let mut keys = Vec::with_capacity(rows.len());
-        for row in rows {
-            let modules = modules_map.remove(&row.id).unwrap_or_default();
-            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
-            keys.push(ApiKey {
-                id: row.id,
-                key_prefix: row.key_prefix,
-                full_key: None,
-                client_name: row.client_name,
-                client_description: row.client_description,
-                client_contact_email: row.client_contact_email,
-                wallet_address: row.wallet_address,
-                status: ApiKeyStatus::from(row.status.as_str()),
-                total_requests: row.total_requests,
-                ip_restrictions: row.ip_restrictions
-                    .unwrap_or_default()
-                    .into_iter()
-                    .flatten()
-                    .collect(),
-                rate_limits: RateLimits {
-                    per_minute: row.rate_limit_per_minute,
-                    per_day: row.rate_limit_per_day,
-                },
-                allowed_modules: modules,
-                permission_plans,
-                // For list operations, we don't fetch selected_permissions to avoid N+1 queries
-                // Use get_by_id if you need the full permissions list
-                selected_permissions: vec![],
-                expires_at: row.expires_at,
-                last_used_at: row.last_used_at,
-                revoked_at: None, // Not fetched in list for performance
-                revoked_by: None,
-                revocation_reason: None,
-                created_at: row.created_at,
-                created_by: row.created_by,
-                updated_at: row.created_at, // Use created_at as fallback
-            });
-        }
-
-        Ok((keys, total))
+        drop(conn);
+        Ok((self.load_authoritative_ids(ids).await?, total))
     }
 
     /// List API keys for a specific wallet address
@@ -656,122 +685,83 @@ impl ApiKeyRepository {
         offset: Option<i64>,
         status_filter: Option<&str>,
     ) -> AppResult<(Vec<ApiKey>, i64)> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
-
-        // Build query with wallet filter
-        let mut query = api_keys::table.into_boxed();
-        query = query.filter(api_keys::wallet_address.ilike(wallet_address));
-
-        if let Some(status) = status_filter {
-            query = query.filter(api_keys::status.eq(status));
+        let mut count_query = api_keys::table.into_boxed();
+        count_query = count_query.filter(api_keys::wallet_address.ilike(wallet_address));
+        match status_filter {
+            None => {}
+            Some("active") => {
+                count_query = count_query.filter(
+                    api_keys::status.eq("active").and(
+                        api_keys::expires_at
+                            .is_null()
+                            .or(api_keys::expires_at.ge(Utc::now())),
+                    ),
+                );
+            }
+            Some("revoked") => count_query = count_query.filter(api_keys::status.eq("revoked")),
+            Some("expired") => {
+                count_query = count_query.filter(
+                    api_keys::status
+                        .eq("active")
+                        .and(api_keys::expires_at.lt(Utc::now())),
+                )
+            }
+            Some(_) => return Err(AppError::validation_error("Unsupported API key status")),
         }
 
-        // Get total count for this wallet
-        let total: i64 = api_keys::table
-            .filter(api_keys::wallet_address.ilike(wallet_address))
+        let total: i64 = count_query
             .count()
             .get_result(&mut conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
 
-        // Apply pagination
-        let query = query
+        let mut query = api_keys::table.into_boxed();
+        query = query.filter(api_keys::wallet_address.ilike(wallet_address));
+        match status_filter {
+            None => {}
+            Some("active") => {
+                query = query.filter(
+                    api_keys::status.eq("active").and(
+                        api_keys::expires_at
+                            .is_null()
+                            .or(api_keys::expires_at.ge(Utc::now())),
+                    ),
+                );
+            }
+            Some("revoked") => query = query.filter(api_keys::status.eq("revoked")),
+            Some("expired") => {
+                query = query.filter(
+                    api_keys::status
+                        .eq("active")
+                        .and(api_keys::expires_at.lt(Utc::now())),
+                )
+            }
+            Some(_) => unreachable!("status filter was validated for the count query"),
+        }
+        let ids: Vec<Uuid> = query
             .order(api_keys::created_at.desc())
             .limit(limit.unwrap_or(50))
-            .offset(offset.unwrap_or(0));
-
-        // API key row with 16 fields max (Diesel's default tuple limit)
-        #[derive(Queryable)]
-        struct ApiKeyListRow {
-            id: Uuid,
-            key_prefix: String,
-            client_name: String,
-            client_description: Option<String>,
-            client_contact_email: Option<String>,
-            wallet_address: String,
-            status: String,
-            total_requests: i64,
-            ip_restrictions: Option<Vec<Option<String>>>,
-            rate_limit_per_minute: i32,
-            rate_limit_per_day: i32,
-            expires_at: Option<chrono::DateTime<Utc>>,
-            last_used_at: Option<chrono::DateTime<Utc>>,
-            created_at: chrono::DateTime<Utc>,
-            created_by: String,
-            selected_permissions: Vec<Option<String>>,
-        }
-
-        let rows: Vec<ApiKeyListRow> = query
-            .select((
-                api_keys::id,
-                api_keys::key_prefix,
-                api_keys::client_name,
-                api_keys::client_description,
-                api_keys::client_contact_email,
-                api_keys::wallet_address,
-                api_keys::status,
-                api_keys::total_requests,
-                api_keys::ip_restrictions,
-                api_keys::rate_limit_per_minute,
-                api_keys::rate_limit_per_day,
-                api_keys::expires_at,
-                api_keys::last_used_at,
-                api_keys::created_at,
-                api_keys::created_by,
-                api_keys::selected_permissions,
-            ))
+            .offset(offset.unwrap_or(0))
+            .select(api_keys::id)
             .load(&mut conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
 
-        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
-        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
-        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
-
-        let mut keys = Vec::with_capacity(rows.len());
-        for row in rows {
-            let modules = modules_map.remove(&row.id).unwrap_or_default();
-            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
-            keys.push(ApiKey {
-                id: row.id,
-                key_prefix: row.key_prefix,
-                full_key: None,
-                client_name: row.client_name,
-                client_description: row.client_description,
-                client_contact_email: row.client_contact_email,
-                wallet_address: row.wallet_address,
-                status: ApiKeyStatus::from(row.status.as_str()),
-                total_requests: row.total_requests,
-                ip_restrictions: row.ip_restrictions
-                    .unwrap_or_default()
-                    .into_iter()
-                    .flatten()
-                    .collect(),
-                rate_limits: RateLimits {
-                    per_minute: row.rate_limit_per_minute,
-                    per_day: row.rate_limit_per_day,
-                },
-                allowed_modules: modules,
-                permission_plans,
-                selected_permissions: row.selected_permissions.into_iter().flatten().collect(),
-                expires_at: row.expires_at,
-                last_used_at: row.last_used_at,
-                revoked_at: None,
-                revoked_by: None,
-                revocation_reason: None,
-                created_at: row.created_at,
-                created_by: row.created_by,
-                updated_at: row.created_at,
-            });
-        }
-
-        Ok((keys, total))
+        drop(conn);
+        Ok((self.load_authoritative_ids(ids).await?, total))
     }
 
     /// Revoke an API key
     pub async fn revoke(&self, id: Uuid, request: RevokeApiKeyRequest) -> AppResult<ApiKey> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let now = Utc::now();
@@ -789,17 +779,24 @@ impl ApiKeyRepository {
             .await
             .map_err(|e| AppError::database_error(format!("Failed to revoke API key: {}", e)))?;
 
-        info!("Revoked API key {} by {}: {}", id, request.revoked_by, request.reason);
+        info!(
+            "Revoked API key {} by {}: {}",
+            id, request.revoked_by, request.reason
+        );
 
-        self.get_by_id(id).await?
+        self.get_by_id(id)
+            .await?
             .ok_or_else(|| AppError::not_found("API key not found"))
     }
 
     /// Validate an API key by its raw value
     pub async fn validate_key(&self, raw_key: &str) -> AppResult<Option<ApiKey>> {
         let key_hash = Self::hash_api_key(raw_key);
-        
-        let mut conn = self.pool.get().await
+
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let id: Option<Uuid> = api_keys::table
@@ -835,7 +832,10 @@ impl ApiKeyRepository {
         id: Uuid,
         expires_at: Option<chrono::DateTime<Utc>>,
     ) -> AppResult<ApiKey> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         let now = Utc::now();
@@ -852,7 +852,8 @@ impl ApiKeyRepository {
 
         info!("Updated API key {} expiration to {:?}", id, expires_at);
 
-        self.get_by_id(id).await?
+        self.get_by_id(id)
+            .await?
             .ok_or_else(|| AppError::not_found("API key not found"))
     }
 
@@ -864,45 +865,28 @@ impl ApiKeyRepository {
         limit: Option<i64>,
         offset: Option<i64>,
     ) -> AppResult<(Vec<ApiKey>, i64)> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
-
-        // API key row with 16 fields max (Diesel's default tuple limit)
-        #[derive(Queryable)]
-        struct ApiKeyListRow {
-            id: Uuid,
-            key_prefix: String,
-            client_name: String,
-            client_description: Option<String>,
-            client_contact_email: Option<String>,
-            wallet_address: String,
-            status: String,
-            total_requests: i64,
-            ip_restrictions: Option<Vec<Option<String>>>,
-            rate_limit_per_minute: i32,
-            rate_limit_per_day: i32,
-            expires_at: Option<chrono::DateTime<Utc>>,
-            last_used_at: Option<chrono::DateTime<Utc>>,
-            created_at: chrono::DateTime<Utc>,
-            created_by: String,
-        }
-
         let now = Utc::now();
         let expiry_threshold = now + chrono::Duration::days(days);
 
-        // Count total
-        let total: i64 = api_keys::table
+        let count_query = api_keys::table
             .filter(api_keys::expires_at.is_not_null())
             .filter(api_keys::expires_at.le(&expiry_threshold))
-            .filter(api_keys::expires_at.gt(&now)) // Not yet expired
-            .filter(api_keys::status.eq("active"))
+            .filter(api_keys::expires_at.gt(&now))
+            .filter(api_keys::status.eq("active"));
+        let total: i64 = count_query
             .count()
             .get_result(&mut conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to count expiring keys: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to count expiring keys: {}", e))
+            })?;
 
-        // Fetch keys ordered by expiration date (soonest first)
-        let rows: Vec<ApiKeyListRow> = api_keys::table
+        let ids: Vec<Uuid> = api_keys::table
             .filter(api_keys::expires_at.is_not_null())
             .filter(api_keys::expires_at.le(&expiry_threshold))
             .filter(api_keys::expires_at.gt(&now))
@@ -910,71 +894,46 @@ impl ApiKeyRepository {
             .order(api_keys::expires_at.asc())
             .limit(limit.unwrap_or(50))
             .offset(offset.unwrap_or(0))
-            .select((
-                api_keys::id,
-                api_keys::key_prefix,
-                api_keys::client_name,
-                api_keys::client_description,
-                api_keys::client_contact_email,
-                api_keys::wallet_address,
-                api_keys::status,
-                api_keys::total_requests,
-                api_keys::ip_restrictions,
-                api_keys::rate_limit_per_minute,
-                api_keys::rate_limit_per_day,
-                api_keys::expires_at,
-                api_keys::last_used_at,
-                api_keys::created_at,
-                api_keys::created_by,
-            ))
+            .select(api_keys::id)
             .load(&mut conn)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to list expiring keys: {}", e)))?;
-
-        // Build full ApiKey objects with modules and plans
-        let api_key_ids: Vec<Uuid> = rows.iter().map(|r| r.id).collect();
-        let mut modules_map = self.get_module_access_for_keys(&mut conn, &api_key_ids).await?;
-        let mut permission_plans_map = self.get_permission_plans_for_keys(&mut conn, &api_key_ids).await?;
-
-        let mut api_keys_result = Vec::with_capacity(rows.len());
-        for row in rows {
-            let modules = modules_map.remove(&row.id).unwrap_or_default();
-            let permission_plans = permission_plans_map.remove(&row.id).unwrap_or_default();
-            
-            api_keys_result.push(ApiKey {
-                id: row.id,
-                key_prefix: row.key_prefix,
-                full_key: None,
-                client_name: row.client_name,
-                client_description: row.client_description,
-                client_contact_email: row.client_contact_email,
-                wallet_address: row.wallet_address,
-                status: ApiKeyStatus::from(row.status.as_str()),
-                total_requests: row.total_requests,
-                ip_restrictions: row.ip_restrictions
-                    .unwrap_or_default()
-                    .into_iter()
-                    .flatten()
-                    .collect(),
-                rate_limits: RateLimits {
-                    per_minute: row.rate_limit_per_minute,
-                    per_day: row.rate_limit_per_day,
-                },
-                allowed_modules: modules,
-                permission_plans,
-                selected_permissions: vec![],
-                expires_at: row.expires_at,
-                last_used_at: row.last_used_at,
-                revoked_at: None,
-                revoked_by: None,
-                revocation_reason: None,
-                created_at: row.created_at,
-                created_by: row.created_by,
-                updated_at: row.created_at,
-            });
-        }
-
-        info!("Found {} expiring API keys within {} days", api_keys_result.len(), days);
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to list expiring keys: {}", e))
+            })?;
+        drop(conn);
+        let api_keys_result = self.load_authoritative_ids(ids).await?;
+        info!(
+            "Found {} expiring API keys within {} days",
+            api_keys_result.len(),
+            days
+        );
         Ok((api_keys_result, total))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn effective_status_exposes_persisted_expiration_without_fabrication() {
+        assert_eq!(
+            ApiKeyRepository::effective_status("active", None),
+            ApiKeyStatus::Active
+        );
+        assert_eq!(
+            ApiKeyRepository::effective_status(
+                "active",
+                Some(Utc::now() - chrono::Duration::seconds(1))
+            ),
+            ApiKeyStatus::Expired
+        );
+        assert_eq!(
+            ApiKeyRepository::effective_status(
+                "revoked",
+                Some(Utc::now() - chrono::Duration::seconds(1))
+            ),
+            ApiKeyStatus::Revoked
+        );
     }
 }
