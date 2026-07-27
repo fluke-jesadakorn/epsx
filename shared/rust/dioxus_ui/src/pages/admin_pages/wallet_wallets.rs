@@ -319,7 +319,7 @@ fn RenderWalletDetail(ctx: PageContext) -> Element {
             WalletDetailProblem {
                 state: ADMIN_WALLET_DETAIL_MALFORMED,
                 title: "Wallet detail could not be verified".to_string(),
-                detail: "The route address or backend response did not match the strict wallet read contract. No wallet fields are being shown.".to_string(),
+                detail: "The route address or backend response did not match the strict redacted wallet contract. No wallet fields are being shown.".to_string(),
             }
         },
     }
