@@ -76,7 +76,7 @@ const git = (...args) => {
 const sha256 = (value) => createHash("sha256").update(value).digest("hex");
 const occurrences = (text, needle) => text.split(needle).length - 1;
 const canonicalPins = {
-  compatibilityQuery: { bytes: 20887, sha256: "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e" },
+  compatibilityQuery: { bytes: 23624, sha256: "0486b3ad1a89414b62a87f40487f695cbb99c43e09a72ccd47e222642c204a3c" },
   upMigration: { bytes: 1128, sha256: "788fa9500df1759d7b224c739f90f4756c2397f28a42aca1ec9af197f27290f7" },
   downMigration: { bytes: 191, sha256: "5f47cf6f1c82416ac8c60bd3e691c78b4d58f4ee78bae3f778869206350b76cc", exactBodyRequired: true },
 };
@@ -158,6 +158,10 @@ const libPath = safeRelative(runtime.rustInventory[0], "notification lib");
 const mainPath = safeRelative(runtime.rustInventory[1], "notification main");
 const libSource = readFileSync(libPath, "utf8");
 const mainSource = readFileSync(mainPath, "utf8");
+// Test-only SQL fixtures live in the binary `cfg(test)` module. Keep the
+// runtime relation inventory scoped to production code so adding a local
+// database-backed test cannot make the startup schema contract drift.
+const productionMainSource = mainSource.split("\n#[cfg(test)]\nmod tests {", 1)[0];
 const currentRust = `${libSource}\n${mainSource}`;
 if ((currentRust.match(ddlPattern) ?? []).length !== 0) fail("runtime Rust still contains DDL");
 for (const forbidden of ["seed_default_templates", "seed_sample_notifications", ".await.ok()", "naive_utc()"] ) if (currentRust.includes(forbidden)) fail(`runtime forbidden anchor remains: ${forbidden}`);
@@ -166,22 +170,22 @@ if (!mainSource.includes("Result<(), TemplateLoadError>") || !mainSource.include
 if (!mainSource.includes("Some(chrono::Utc::now())")) fail("TIMESTAMPTZ sent_at bind is not DateTime<Utc>");
 if (!libSource.includes("sqlx::query_scalar::<_, bool>(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY)")) fail("compatibility query is not a scalar boolean probe");
 
-exact("qualified relation counts", { "public.templates": 7, "public.notifications": 26 }, runtime.qualifiedRelationOccurrences);
+exact("qualified relation counts", { "public.templates": 14, "public.notifications": 36 }, runtime.qualifiedRelationOccurrences);
 for (const [relation, expected] of Object.entries(runtime.qualifiedRelationOccurrences)) {
-  if (occurrences(mainSource, relation) !== expected) fail(`${relation}: runtime occurrence count drifted`);
+  if (occurrences(productionMainSource, relation) !== expected) fail(`${relation}: runtime occurrence count drifted`);
 }
-if (/\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:templates|notifications)\b/i.test(mainSource) || /\bDELETE\s+FROM\s+(?:templates|notifications)\b/i.test(mainSource)) fail("unqualified notification runtime relation found");
+if (/\b(?:FROM|JOIN|INTO|UPDATE)\s+(?:templates|notifications)\b/i.test(productionMainSource) || /\bDELETE\s+FROM\s+(?:templates|notifications)\b/i.test(productionMainSource)) fail("unqualified notification runtime relation found");
 exact("main startup sequence", [
   "sqlx::PgPool::connect(&args.database_url)",
   "verify_schema_compatibility(&db)",
   "load_templates_to_hb(&db, &mut hb)",
-  "SmtpTransport::relay(&args.smtp_host)",
+  "let smtp = build_smtp_transport(",
   "tokio::net::TcpListener::bind(addr)",
   "axum::serve(listener, app)",
 ], runtime.mainSequence);
 let last = -1;
 for (const anchor of runtime.mainSequence) {
-  const at = mainSource.indexOf(anchor);
+  const at = productionMainSource.indexOf(anchor);
   if (at <= last) fail(`startup sequence drifted at ${anchor}`);
   last = at;
 }
@@ -282,11 +286,24 @@ for (let tableIndex = 0; tableIndex < expectedTables.length; tableIndex++) {
 }
 
 const semantics = contract.constraintSemantics;
-if (semantics.columnTotal !== 26 || semantics.notNullTotal !== 14 || semantics.relationConstraintTotalWithoutPg18NotNull !== 3 || semantics.pg18NotNullInventory !== "zero-or-exact-fourteen") fail("schema totals drifted");
+if (semantics.columnTotal !== 26 || semantics.notNullTotal !== 14 || semantics.relationConstraintTotalWithoutPg18NotNull !== 14 || semantics.pg18NotNullInventory !== "zero-or-exact-fourteen") fail("schema totals drifted");
 exact("primary keys", ["templates.id", "notifications.id"], semantics.primaryKeys);
 exact("unique keys", ["templates.name"], semantics.uniqueKeys);
-exact("foreign keys", [], semantics.foreignKeys);
-exact("check constraints", [], semantics.checkConstraints);
+exact("foreign keys", [
+  "notification_channel_jobs.notification_id->notifications",
+  "notification_channel_jobs.source_event_id->notification_outbox",
+  "notification_dead_letters.job_id->notification_channel_jobs",
+  "notification_delivery_attempts.job_id->notification_channel_jobs",
+  "notification_engagement.notification_id->notifications",
+  "notification_provider_events.job_id->notification_channel_jobs",
+  "notification_template_audit.template_id->templates",
+  "notification_template_versions.template_id->templates",
+], semantics.foreignKeys);
+exact("check constraints", [
+  "templates_channel_check",
+  "templates_variables_object_check",
+  "notifications_channel_check",
+], semantics.checkConstraints);
 exact("key constraint policy", { local: true, inheritCount: 0, noInherit: true, pg18Period: false, validated: true, enforcedWhenExposed: true, deferrable: false, initiallyDeferred: false }, semantics.keyConstraintPolicy);
 const expectedIndexes = [
   { name: "templates_pkey", table: "templates", unique: true, primary: true, keys: ["id ASC"], opclasses: ["text_ops"], collation: "column-exact" },
@@ -297,7 +314,7 @@ const expectedIndexes = [
 ];
 exact("index inventory", expectedIndexes, semantics.indexes);
 exact("index policy", { exactTotal: 5, accessMethod: "btree", valid: true, ready: true, live: true, immediate: true, partialAccepted: false, expressionAccepted: false, includedColumnsAccepted: false, standaloneUniqueAccepted: false, unexpectedIndexAccepted: false }, semantics.indexPolicy);
-exact("foreign key boundary", { inventoryDirection: "inbound-and-outbound", exactTotal: 0, unexpectedInboundAccepted: false, unexpectedOutboundAccepted: false }, semantics.foreignKeyBoundary);
+exact("foreign key boundary", { inventoryDirection: "inbound-and-outbound", exactTotal: 8, unexpectedInboundAccepted: false, unexpectedOutboundAccepted: false }, semantics.foreignKeyBoundary);
 exact("relation policy", { ordinary: true, permanent: true, partitioned: false, inheritanceAccepted: false, rowLevelSecurity: false, forceRowLevelSecurity: false, policiesAccepted: false, replicaIdentity: "default" }, semantics.relationPolicy);
 
 if (!Array.isArray(contract.residualBlockers) || contract.residualBlockers.length !== 7) fail("exactly seven residual blockers are required");
@@ -331,8 +348,8 @@ if [ "$mode" = "integrity" ]; then
   echo "a3-11 notification schema: PASS — two guarded public tables, 26 exact columns, 14 NOT NULL columns, three exact keys, and five exact indexes pinned"
   echo "a3-11 notification schema: PASS — PostgreSQL 18 keys require connoinherit=true and reject WITHOUT OVERLAPS period semantics"
   echo "a3-11 notification schema: PASS — query/up/down evidence is independently hard-pinned; exact catalog identifiers and down delimiters are locked"
-  echo "a3-11 notification schema: PASS — complete inbound/outbound FK and CHECK inventories are empty; inheritance, RLS, partial/expression/included indexes fail closed"
-  echo "a3-11 notification schema: PASS — 19 runtime relations are public-qualified; TIMESTAMPTZ uses DateTime<Utc>; migration and source provenance digests are immutable"
+  echo "a3-11 notification schema: PASS — eight reviewed lifecycle FKs and three reviewed CHECK constraints are pinned; unexpected relation constraints, inheritance, RLS, partial/expression/included indexes fail closed"
+  echo "a3-11 notification schema: PASS — 50 runtime relations are public-qualified; TIMESTAMPTZ uses DateTime<Utc>; migration and source provenance digests are immutable"
   echo "a3-11 notification schema: LIMIT — seven blockers remain; no database, migration execution, upgrade, reconciliation, rollback, network, deployment, or production readiness was proven"
   exit 0
 fi

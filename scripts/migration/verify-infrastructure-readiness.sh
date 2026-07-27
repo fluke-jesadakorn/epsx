@@ -190,6 +190,13 @@ const expectedServices = [...expected.services].sort((a, b) => a.name.localeComp
 same(actualServices, expectedServices, "rendered services");
 const nodePorts = actualServices.flatMap((service) => service.nodePorts.map((nodePort) => ({ service: service.name, nodePort }))).sort((a, b) => a.nodePort - b.nodePort);
 if (new Set(nodePorts.map((item) => item.nodePort)).size !== nodePorts.length) fail("prod render contains duplicate NodePorts");
+const stagingPayPatch = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/staging/patches/pay-services-nodeport.yaml"), "utf8");
+const stagingPayNodePorts = [...stagingPayPatch.matchAll(/^\s*nodePort: (\d+)$/gm)].map((match) => Number(match[1]));
+const declaredNodePortPairs = contract.environmentNodePortPairs;
+if (!declaredNodePortPairs || !Array.isArray(declaredNodePortPairs.prod) || !Array.isArray(declaredNodePortPairs.staging) || !Array.isArray(declaredNodePortPairs.dev)) fail("environment NodePort pairs are required");
+same([...nodePorts.filter((item) => item.service === "epsx-pay-svc" || item.service === "epsx-pay-bff").map((item) => item.nodePort)].sort((a, b) => a - b), [...declaredNodePortPairs.prod].sort((a, b) => a - b), "prod pay NodePort pair");
+same([...stagingPayNodePorts].sort((a, b) => a - b), [...declaredNodePortPairs.staging].sort((a, b) => a - b), "staging pay NodePort pair");
+if (declaredNodePortPairs.prod.some((port) => declaredNodePortPairs.staging.includes(port)) || declaredNodePortPairs.prod.some((port) => declaredNodePortPairs.dev.includes(port)) || declaredNodePortPairs.staging.some((port) => declaredNodePortPairs.dev.includes(port))) fail("environment pay NodePort pairs must be disjoint");
 
 const actualDeployments = resources.filter((item) => item.kind === "Deployment").map((item) => ({
   name: item.name,
@@ -262,7 +269,7 @@ if (contract.imageResolution.filter((record) => record.status === "missing-prod-
 if (!Array.isArray(contract.ingressMap) || contract.ingressMap.length !== 5) fail("five ingress records are required");
 const payIngress = contract.ingressMap.find((item) => item.hostname === "pay.epsx.io");
 if (!payIngress) fail("missing pay ingress record");
-if (payIngress.cloudflareOrigin !== "localhost:4747" || payIngress.nodePort !== 30082 || payIngress.intendedNodePort !== 30083 || payIngress.status !== "blocked-bff-bypass") fail("pay ingress stop mapping drifted");
+if (payIngress.cloudflareOrigin !== "localhost:4752" || payIngress.nodePort !== 30085 || payIngress.intendedNodePort !== 30085 || payIngress.service !== "epsx-pay-bff" || payIngress.status !== "bff-path-static-unproven") fail("pay ingress stop mapping drifted");
 if (!Array.isArray(contract.candidateServices) || contract.candidateServices.length !== 9 || contract.candidateServices.some((item) => item.status !== "blocked")) fail("candidate service inventory drifted");
 if (contract.candidateServices.filter((item) => item.productionBase.startsWith("absent")).length !== 8) fail("exactly eight candidate services must remain recorded as absent");
 

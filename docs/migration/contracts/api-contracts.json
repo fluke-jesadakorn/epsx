@@ -286,7 +286,7 @@
       "evidence": [
         {"file": "services/pay/src/lib.rs", "anchor": "admin_mutations_require_manage_but_remain_unavailable"},
         {"file": "services/pay/src/main.rs", "anchor": "/api/v1/admin/pay/intents/{id}/force-cancel"},
-        {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4747"}
+        {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4752"}
       ]
     },
     {

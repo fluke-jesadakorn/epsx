@@ -448,16 +448,26 @@
     }
   ],
   "staticScan": {
-    "migrationSql": {"trackedFiles": 191, "findings": 512, "sha256": "231780f8b1c2ada4391c171fdfb92a717bd98a40dfc81c109c55854cab584338"},
-    "runtimeRustDdl": {"trackedFiles": 1163, "findings": 9, "sha256": "b1a76db8d3cc8e21cb10fa56b76375ae87caa7411c91661ccdcedaeaee8db55f"},
-    "sourceDiff": {"changedPaths": 10, "sha256": "1062219e3aa35f70ceb3ede3f78525b3f3ceee6761f149361a0a423d96be7e6c"},
+    "migrationSql": {"trackedFiles": 205, "findings": 512, "sha256": "231780f8b1c2ada4391c171fdfb92a717bd98a40dfc81c109c55854cab584338"},
+    "runtimeRustDdl": {"trackedFiles": 1168, "findings": 19, "sha256": "9d8e0ad58165b486441e760ca75341c6c442891ff84805da1a9d17c6afee5590"},
+    "sourceDiff": {"changedPaths": 24, "sha256": "b718556103cb727d4c25954915e64087e5d74076046659b35092d7e1cb357cda"},
     "reviewedExceptions": [
       {"id": "exception.runtime-test-sql-injection", "scope": "runtimeRustDdl", "file": "apps/backend/__test__/web3/web3_security_tests.rs", "anchor": "DROP TABLE wallet_permissions", "reason": "Test-only malicious input literal; it is not executed as schema DDL."},
       {"id": "exception.runtime-wave11-smoke-schema", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave11_smoke.rs", "anchor": "CREATE SCHEMA IF NOT EXISTS payments", "reason": "Test assertion fixture for migration text, not runtime application DDL."},
       {"id": "exception.runtime-wave11-smoke-table", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave11_smoke.rs", "anchor": "CREATE TABLE IF NOT EXISTS payments.plans", "reason": "Test assertion fixture for migration text, not runtime application DDL."},
       {"id": "exception.runtime-wave12-smoke-detect-present", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "content.contains(\"CREATE SCHEMA\")", "reason": "Test assertion searches migration contents; it does not execute schema DDL."},
       {"id": "exception.runtime-wave12-smoke-detect-legacy", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "l.contains(\"CREATE SCHEMA\")", "reason": "Test assertion searches migration contents; it does not execute schema DDL."},
-      {"id": "exception.runtime-wave12-smoke-message", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "legacy `CREATE SCHEMA analytics`", "reason": "Test failure-message literal describing forbidden SQL; it does not execute schema DDL."}
+      {"id": "exception.runtime-wave12-smoke-message", "scope": "runtimeRustDdl", "file": "apps/backend/tests/wave12_smoke.rs", "anchor": "legacy `CREATE SCHEMA analytics`", "reason": "Test failure-message literal describing forbidden SQL; it does not execute schema DDL."},
+      {"id": "exception.xtask-expiration-table-audit", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "up.contains(\"CREATE TABLE IF NOT EXISTS public.notification_expirations\")", "reason": "Offline migration-audit assertion checks required additive SQL text and never executes schema DDL."},
+      {"id": "exception.xtask-expiration-index-audit", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "up.contains(\"CREATE INDEX IF NOT EXISTS notification_expirations_due_idx\")", "reason": "Offline migration-audit assertion checks required additive index text and never executes schema DDL."},
+      {"id": "exception.xtask-lifecycle-table-audit", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "up.contains(&format!(\"CREATE TABLE IF NOT EXISTS public.{table}\"))", "reason": "Offline lifecycle-ledger audit compares migration source strings and performs no database operation."},
+      {"id": "exception.xtask-extension-table-audit", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "extensions.contains(&format!(\"CREATE TABLE IF NOT EXISTS public.{table}\"))", "reason": "Offline lifecycle-ledger audit compares extension migration text and performs no database operation."},
+      {"id": "exception.xtask-template-audit-table", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "audit.contains(\"CREATE TABLE IF NOT EXISTS public.notification_template_audit\")", "reason": "Offline template-ledger audit verifies additive migration source text without executing schema DDL."},
+      {"id": "exception.xtask-destructive-marker-drop-table", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "\"DROP TABLE\",", "reason": "Scanner marker literal is required to detect destructive migration SQL and is never executed."},
+      {"id": "exception.xtask-destructive-marker-drop-schema", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "\"DROP SCHEMA\",", "reason": "Scanner marker literal is required to detect destructive migration SQL and is never executed."},
+      {"id": "exception.xtask-destructive-marker-drop-database", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "\"DROP DATABASE\",", "reason": "Scanner marker literal is required to detect destructive migration SQL and is never executed."},
+      {"id": "exception.xtask-destructive-test-drop-table", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "contains_destructive_sql(\"drop table users cascade\")", "reason": "Unit-test input proves case-insensitive destructive-DDL detection and is never sent to a database."},
+      {"id": "exception.xtask-additive-test-alter-table", "scope": "runtimeRustDdl", "file": "xtask/src/main.rs", "anchor": "\"ALTER TABLE users ADD COLUMN active BOOLEAN\"", "reason": "Unit-test input distinguishes additive migration SQL from destructive SQL and is never executed."}
     ]
   }
 }

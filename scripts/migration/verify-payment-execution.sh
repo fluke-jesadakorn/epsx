@@ -156,7 +156,7 @@ for (const item of contract.prototypeSource.evidence) {
 }
 
 const expectedTargetPins = {
-  "tgt-plans-producer-absent": ["apps/frontend/src/main.rs", "Market entitlements and subscription pricing remain backend-owned."],
+  "tgt-plans-producer-absent": ["apps/frontend/src/main.rs", "catalogs, eligibility, and subscription mutations."],
   "tgt-subscription-compatibility-producers-absent": ["apps/frontend/src/main.rs", "Unowned wallet/session and subscription compatibility producers are"],
   "tgt-payment-producer-absent": ["apps/frontend/src/main.rs", "\"/api/v1/payment/not-an-authorized-intent\""],
   "tgt-payment-ui-unavailable": ["shared/rust/dioxus_ui/src/pages/payment.rs", "Checkout is not available right now"],
@@ -180,8 +180,8 @@ const expectedTargetPins = {
   "tgt-canonical-owner": ["apps/backend/src/web/payments/submit_tx_handler.rs", "let wallet_address = user_context.wallet_address.clone();"],
   "tgt-canonical-finality": ["apps/backend/src/infrastructure/blockchain/tx_monitor_service.rs", "min_confirmations: if is_mainnet { 15 } else { 3 },"],
   "tgt-canonical-replay-index": ["apps/backend/migrations/payments/20260220100000_add_unique_tx_hash_and_expiry/up.sql", "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_unique_tx_hash"],
-  "tgt-pay-host-service": ["infrastructure/kubernetes/overlays/prod/patches/pay-services-nodeport.yaml", "nodePort: 30082"],
-  "tgt-pay-host-tunnel": ["infrastructure/cloudflare/cloudflared-config.prod.yml", "service: http://localhost:4747"],
+  "tgt-pay-host-service": ["infrastructure/kubernetes/overlays/prod/patches/pay-services-nodeport.yaml", "nodePort: 30084"],
+  "tgt-pay-host-tunnel": ["infrastructure/cloudflare/cloudflared-config.prod.yml", "service: http://localhost:4752"],
   "tgt-escrow-placeholder": ["infrastructure/kubernetes/base/pay/deployment.yaml", "{ name: ESCROW_CONTRACT, value: \"0\" }"],
   "tgt-canonical-schema": ["apps/backend/migrations/payments/00000000000001_consolidated_baseline_v4/up.sql", "CREATE TABLE payments ("],
   "tgt-pay-migration": ["services/pay/migrations/20260722060000_create_pay_store.sql", "CREATE TABLE IF NOT EXISTS public.pay_intents ("],
@@ -337,8 +337,8 @@ const expectedDdlCorrection = {
   payFindings: { before: 10, after: 0 },
   findings: [
     { id: "finding.002", file: "apps/backend/src/bin/blockchain_monitor.rs", line: 84, ddlKind: "CREATE DATABASE", meaning: "lexical-match-not-schema-ddl", anchor: ".expect(\"Failed to create database pool\");", evidenceId: "tgt-ddl-finding-002" },
-    { id: "finding.003", file: "apps/backend/src/bin/migrate.rs", line: 74, ddlKind: "CREATE DATABASE", meaning: "runtime-database-bootstrap", anchor: "&format!(\"CREATE DATABASE \\\"{}\\\"\", db_name)", evidenceId: "tgt-ddl-finding-003" },
-    { id: "finding.004", file: "apps/backend/src/main.rs", line: 38, ddlKind: "CREATE DATABASE", meaning: "lexical-match-not-schema-ddl", anchor: ".map_err(|e| format!(\"Failed to create database pool: {}\", e))?;", evidenceId: "tgt-ddl-finding-004" },
+    { id: "finding.003", file: "apps/backend/src/bin/migrate.rs", line: 80, ddlKind: "CREATE DATABASE", meaning: "runtime-database-bootstrap", anchor: "diesel::dsl::sql::<diesel::sql_types::Integer>(&format!(\"CREATE DATABASE \\\"{}\\\"\", db_name))", evidenceId: "tgt-ddl-finding-003" },
+    { id: "finding.004", file: "apps/backend/src/main.rs", line: 33, ddlKind: "CREATE DATABASE", meaning: "lexical-match-not-schema-ddl", anchor: ".map_err(|e| format!(\"Failed to create database pool: {}\", e))?;", evidenceId: "tgt-ddl-finding-004" },
   ],
 };
 exact("remaining runtime DDL correction", expectedDdlCorrection, contract.remainingRuntimeDdlCorrection);

@@ -9,9 +9,49 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-notification-execution.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "14 source records, 58 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
+grep -q "14 source records, 88 target anchors, 12 surfaces, and 22 stop blockers" "$temp_dir/integrity.out"
 grep -q "A2.3c auth and A3.11 schema boundary remain partial" "$temp_dir/integrity.out"
-grep -q "no database, upgrade, reconciliation, Redis, SMTP, push, network, deployment" "$temp_dir/integrity.out"
+grep -q "this static gate performs no database access, and no production adoption, source reconciliation, Redis, SMTP, push, network, deployment" "$temp_dir/integrity.out"
+cargo xtask notification-compatibility-audit --strict >"$temp_dir/compatibility.out" 2>&1
+grep -q "method_path_registrations=verified" "$temp_dir/compatibility.out"
+cargo xtask notification-producer-audit --strict >"$temp_dir/producer.out" 2>&1
+grep -q "legacy_shim_calls=0 verified" "$temp_dir/producer.out"
+
+compatibility_smoke="$script_dir/test-notification-compatibility-local.sh"
+[ -x "$compatibility_smoke" ]
+grep -q 'NOTIFICATION_COMPATIBILITY_OWNER_TOKEN' "$compatibility_smoke"
+grep -q 'foreign owner mutation returned HTTP' "$compatibility_smoke"
+grep -q -- '--allow-local' "$compatibility_smoke"
+
+account_page="$repo_root/shared/rust/dioxus_ui/src/pages/account.rs"
+frontend_ssr="$repo_root/apps/frontend/src/ssr.rs"
+frontend_api="$repo_root/apps/frontend/src/api.rs"
+frontend_router="$repo_root/apps/frontend/src/main.rs"
+browser_auth_smoke="$script_dir/test-notification-browser-authenticated-local.sh"
+browser_responsive_smoke="$script_dir/test-notification-browser-responsive-local.sh"
+browser_admin_smoke="$script_dir/test-notification-browser-admin-authenticated-local.sh"
+browser_mutation_smoke="$script_dir/test-notification-browser-mutations-local.sh"
+grep -q 'data-epsx-notification-push' "$account_page"
+grep -q 'fn notification_push_runtime' "$frontend_ssr"
+grep -q 'fn notification_realtime_runtime' "$frontend_ssr"
+grep -q 'data-notifications-live-status' "$frontend_ssr"
+grep -q "addEventListener('push'" "$frontend_ssr"
+grep -q 'exactPushPayload' "$frontend_ssr"
+grep -q 'pub async fn notification_stream_ack' "$frontend_api"
+grep -q 'notification/stream/ack' "$frontend_api"
+grep -q 'notification_stream_ack' "$frontend_router"
+[ -x "$browser_auth_smoke" ]
+grep -q 'Browser push is unavailable until the notification service is configured.' "$browser_auth_smoke"
+[ -x "$browser_responsive_smoke" ]
+grep -q 'set viewport 390 844' "$browser_responsive_smoke"
+grep -q 'data-notifications-live-status' "$browser_responsive_smoke"
+[ -x "$browser_admin_smoke" ]
+grep -q 'NOTIFICATION_ADMIN_BROWSER_AUTH_TOKEN' "$browser_admin_smoke"
+grep -q 'Delivery inventory|No notifications found' "$browser_admin_smoke"
+grep -q 'data-admin-notifications-state' "$browser_admin_smoke"
+[ -x "$browser_mutation_smoke" ]
+grep -q 'NOTIFICATION_BROWSER_MUTATION_OWNER_TOKEN' "$browser_mutation_smoke"
+grep -q 'authenticated Dioxus admin enqueue' "$browser_mutation_smoke"
 
 set +e
 "$verify" --mode readiness >"$temp_dir/readiness.out" 2>&1
@@ -30,7 +70,7 @@ cmp "$temp_dir/report-one.json" "$temp_dir/report-two.json"
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.readinessExit !== 3 || report.productionReady !== false) process.exit(1);
-if (report.source.evidence !== 14 || report.targetEvidence !== 58 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
+if (report.source.evidence !== 14 || report.targetEvidence !== 88 || report.surfaces.length !== 12 || report.blockers.length !== 22) process.exit(1);
 if (report.directAuthPrerequisite !== "partial" || report.batches.join(",") !== "N1,N2,N3,N4,N5,N6,N7,N8") process.exit(1);
 if (report.schemaBoundary.status !== "partial-static" || report.schemaBoundary.runtimeDdlFindings !== 0 || report.schemaBoundary.startupSeedCalls !== 0) process.exit(1);
 ' "$temp_dir/report-one.json"
@@ -81,7 +121,7 @@ if [ "$wrong_ssr_status" -ne 1 ]; then
   echo "notification-execution self-test: expected wrong-existing-SSR-anchor exit 1, got $wrong_ssr_status" >&2
   exit 1
 fi
-grep -q "missing target anchor tgt-frontend-ssr-ok in apps/frontend/src/ssr.rs" "$temp_dir/wrong-existing-ssr-anchor.out"
+grep -q "missing target anchor tgt-frontend-ssr-ok" "$temp_dir/wrong-existing-ssr-anchor.out"
 
 NOTIFICATION_CONTRACT_IN="$contract" NOTIFICATION_CONTRACT_OUT="$temp_dir/wrong-existing-ui-anchor.json" bun -e '
 const contract = await Bun.file(process.env.NOTIFICATION_CONTRACT_IN).json();
@@ -151,7 +191,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-bearer-anchor \
   tgt-frontend-bearer-only \
-  'struct NotificationUnreadCount {' \
+  '.get(url)' \
   'tgt-frontend-bearer-only: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-unread-anchor \
@@ -181,7 +221,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-header-endpoint-anchor \
   tgt-active-header-endpoint \
-  'var requestGeneration = 0;' \
+  '/api/v1/notifications/unread-count' \
   'tgt-active-header-endpoint: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-header-validation-anchor \
@@ -280,4 +320,7 @@ assert_refused_env REDIS_URL redis://local.invalid/0 "$temp_dir/redis-env.out"
 assert_refused_env SMTP_HOST smtp.invalid "$temp_dir/smtp-env.out"
 assert_refused_env HTTPS_PROXY http://proxy.invalid "$temp_dir/network-env.out"
 
-echo "notification-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/A3.11/wrong-existing-SSR+UI+HEAD+query+size+owner+bearer+unread+dormant-nav+header-mount+auth+offline+endpoint+validation+race+DOM+a11y+text-only/residual-blocker/stale/traversal tamper=1, prod/db/redis/smtp/network env refusal=1)"
+"$repo_root/scripts/migration/test-notification-privacy.sh" >"$temp_dir/privacy.out"
+grep -q "notification-privacy: PASS" "$temp_dir/privacy.out"
+
+echo "notification-execution self-test: PASS (integrity=0, readiness-stop=3, deterministic=stable, source/A3.11/wrong-existing-SSR+UI+HEAD+query+size+owner+bearer+unread+dormant-nav+header-mount+auth+offline+endpoint+validation+race+DOM+a11y+text-only/residual-blocker/stale/traversal tamper=1, privacy-policy=0, prod/db/redis/smtp/network env refusal=1)"

@@ -1,0 +1,174 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.7",
+  "productionReady": false,
+  "executionPolicy": {
+    "databaseAccess": "explicit-operator-approval-required",
+    "networkAccess": "forbidden-for-dry-run",
+    "writes": "dry-run-only-until-cutover-approved",
+    "maxInputRecords": 100000,
+    "checkpointKey": "source_event_id"
+  },
+  "reconciliationChecks": [
+    "legacy_wallet_notification_field_mapping",
+    "canonical_wallet_checksum",
+    "source_event_id_duplicates",
+    "notification_status_distribution",
+    "broadcast_and_orphan_rows",
+    "preference_template_provider_identity_drift"
+  ],
+  "offlineCommands": {
+    "backfill": "cargo xtask notification-backfill --dry-run --input <jsonl>",
+    "legacyBackfill": "cargo xtask notification-backfill --dry-run --legacy --input <legacy-wallet-notifications-jsonl>",
+    "reconcile": "cargo xtask notification-reconcile --dry-run --source <source-jsonl> --target <target-jsonl>",
+    "writes": 0,
+    "network": 0,
+    "database": 0
+  },
+  "deterministicFixtures": {
+    "backfill": "docs/migration/fixtures/notification-backfill.jsonl",
+    "legacyBackfill": "docs/migration/fixtures/notification-backfill-legacy.jsonl",
+    "source": "docs/migration/fixtures/notification-reconcile-source.jsonl",
+    "target": "docs/migration/fixtures/notification-reconcile-target.jsonl",
+    "records": 3,
+    "legacyRecords": 3,
+    "legacyStatusMapping": {
+      "created": "pending",
+      "queued": "pending",
+      "scheduled": "pending",
+      "sent": "sent",
+      "delivered": "sent",
+      "read": "sent",
+      "failed": "failed",
+      "suppressed": "suppressed",
+      "cancelled": "cancelled",
+      "expired": "expired",
+      "deleted": "deleted"
+    },
+    "legacyProjectionFields": [
+      "recipient_wallet_address -> canonical user_id and recipient",
+      "title/body -> bounded notification content",
+      "notification_type/priority -> target classification",
+      "channels -> bounded channel metadata",
+      "action_url/data_payload -> bounded target action/data",
+      "expires_at/created_at -> RFC3339 lifecycle timestamps"
+    ],
+    "checkpointAfterFirst": 2,
+    "expectedStatusDistribution": { "pending": 1, "sent": 1, "suppressed": 1 },
+    "expectedWalletChecksum": "c07f8760e2c1053389d95533d6a4bfc660825ce99e6244cf397574acd735603e"
+  },
+  "readinessSignals": [
+    "database",
+    "notification_lifecycle_schema",
+    "plan_targeting_configuration",
+    "vapid_configuration_and_rotation_lineage",
+    "queue_depth_and_age",
+    "redis_reachability_probe",
+    "preference_suppression",
+    "channel_outcomes",
+    "retry_and_dead_letter_counts",
+    "sse_connections_lag_and_replay",
+    "admin_authorized_queue_metrics_snapshot"
+  ],
+  "offlineReadinessEvaluator": {
+    "command": "cargo xtask notification-readiness --dry-run --input <metrics-json>",
+    "contract": "docs/migration/contracts/notification-readiness.json",
+    "healthyFixture": "docs/migration/fixtures/notification-metrics-healthy.json",
+    "unhealthyFixture": "docs/migration/fixtures/notification-metrics-unhealthy.json",
+    "writes": 0,
+    "network": 0,
+    "database": 0
+  },
+  "localRuntimeAudit": {
+    "command": "scripts/migration/test-notification-runtime-local.sh --allow-local",
+    "proves": [
+      "service_startup_and_database_lifecycle_readiness",
+      "optional_redis_ping_reachability",
+      "expired_job_terminalization",
+      "in_app_provider_acceptance",
+      "unauthenticated_publisher_rejection"
+    ],
+    "scope": "disposable local PostgreSQL/Redis and local service only",
+    "productionReady": false
+  },
+  "localTemplateStartupAudit": {
+    "command": "scripts/migration/test-notification-template-startup-local.sh --allow-local",
+    "proves": [
+      "unsafe_active_template_rejected_before_service_readiness",
+      "startup_template_validation_failure_is_nonzero"
+    ],
+    "scope": "disposable local PostgreSQL and local service process only",
+    "productionReady": false
+  },
+  "localTemplateRollbackAudit": {
+    "command": "scripts/migration/test-notification-template-rollback-local.sh --allow-local",
+    "proves": [
+      "template_version_create_update_rollback",
+      "rollback_body_replay",
+      "rollback_audit_metadata_read"
+    ],
+    "scope": "disposable local PostgreSQL and Rust template handlers only",
+    "productionReady": false
+  },
+  "localDeliveryAudit": {
+    "command": "scripts/migration/test-notification-delivery-local.sh --allow-local",
+    "proves": [
+      "durable_retry_attempt",
+      "dead_letter_transition",
+      "authorized_redrive_transition",
+      "expired_lease_reclamation",
+      "provider_callback_reconciliation",
+      "provider_callback_replay_deduplication",
+      "terminal_state_reorder_protection"
+    ],
+    "scope": "disposable local PostgreSQL, DeliveryWorker, and notification callback handler tests only",
+    "productionReady": false
+  },
+  "localPublisherAudit": {
+    "command": "scripts/migration/test-notification-publisher-local.sh --allow-local",
+    "proves": [
+      "concrete_wallet_publisher_replay_deduplication",
+      "same_event_payload_conflict",
+      "read_only_plan_membership_fanout",
+      "single_durable_broadcast_row"
+    ],
+    "scope": "disposable local PostgreSQL/core membership database and Rust admission handler only",
+    "productionReady": false
+  },
+  "localPreferencesAudit": {
+    "command": "scripts/migration/test-notification-preferences-local.sh --allow-local",
+    "proves": [
+      "known_timezone_validation",
+      "quiet_hour_release_calculation",
+      "owner_bound_push_subscribe_revoke",
+      "disabled_channel_suppression_without_channel_job",
+      "owner_erasure_dependency_cleanup",
+      "broadcast_row_preserved_during_owner_delete"
+    ],
+    "scope": "disposable local PostgreSQL and Rust preference/send handlers only",
+    "productionReady": false
+  },
+  "privacyPolicyAudit": {
+    "command": "scripts/migration/test-notification-privacy.sh",
+    "proves": [
+      "per_channel_retention_windows",
+      "active_legal_hold_blocks_purge",
+      "owner_and_broadcast_erasure_semantics",
+      "redacted_erasure_audit_boundary"
+    ],
+    "scope": "checked-in no-write policy contract only",
+    "productionReady": false
+  },
+  "metricsEndpoint": {
+    "path": "GET /api/v1/notification/admin/metrics",
+    "authority": "admin:notifications:manage",
+    "writes": 0,
+    "network": 0,
+    "database": "read-only aggregate query; includes durable suppressed-notification count"
+  },
+  "rollback": {
+    "singleWriter": false,
+    "duplicateSafeRecords": ["notification_inbox", "notification_request_idempotency", "notification_provider_events"],
+    "productionCutover": "not-authorized"
+  }
+}

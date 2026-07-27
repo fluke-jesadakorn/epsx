@@ -128,10 +128,12 @@ EOF
 }
 
 # wave49(slice-1): pay.epsx.io port-bridge. Routes
-#   4747 (host) → 30082 (colima NodePort) → epsx-pay-svc:8103
-#   4748 (host) → 30083 (colima NodePort) → epsx-pay-bff:3002
+#   4747 (host) → 30082 (colima NodePort) → epsx-pay-svc:8103 (staging)
+#   4748 (host) → 30083 (colima NodePort) → epsx-pay-bff:3002 (staging)
+#   4751 (host) → 30084 (colima NodePort) → epsx-pay-svc:8103 (prod)
+#   4752 (host) → 30085 (colima NodePort) → epsx-pay-bff:3002 (prod)
 # The Cloudflare Tunnel ingress for pay.epsx.io points at
-# http://localhost:4747.
+# http://localhost:4752.
 write_pay_port_bridge_plist() {
   local label="com.epsx.pay-port-bridge"
   local plist_path="$LAUNCHD_DIR/$label.plist"
@@ -147,7 +149,7 @@ write_pay_port_bridge_plist() {
     <array>
         <string>/bin/bash</string>
         <string>-lc</string>
-        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; wait</string>
+        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4751,fork,reuseaddr TCP:127.0.0.1:30084 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4752,fork,reuseaddr TCP:127.0.0.1:30085 &amp; wait</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -222,7 +224,7 @@ LaunchDaemons:
   com.epsx.backend.staging  -> 127.0.0.1:28080 -> staging-api.epsx.io
   com.epsx.backend.prod     -> 127.0.0.1:38080 -> api.epsx.io
   com.epsx.port-bridge      -> 8080/4810/9180 -> 18080/28080/38080
-  com.epsx.pay-port-bridge  -> 4747/4748 -> 30082/30083 -> pay.epsx.io
+  com.epsx.pay-port-bridge  -> 4747/4748 (staging), 4751/4752 (prod) -> unique pay NodePorts
   com.cloudflare.cloudflared -> /etc/cloudflared/config.yml
 
 Logs:
@@ -236,6 +238,6 @@ Health checks:
   curl http://127.0.0.1:18080/health
   curl http://127.0.0.1:28080/health
   curl http://127.0.0.1:38080/health
-  curl http://127.0.0.1:30082/health      # pay-svc
-  curl http://127.0.0.1:30083/api/health  # pay-bff
+  curl http://127.0.0.1:30084/health      # prod pay-svc
+  curl http://127.0.0.1:30085/api/health  # prod pay-bff
 EOF

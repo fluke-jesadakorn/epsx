@@ -18,6 +18,7 @@ namespace: epsx-dev
 
 resources:
   - ../../base
+  - ../../base/notification
 
 images:
   - name: epsx-backend
@@ -66,8 +67,14 @@ images:
     newTag: wave49-dev
   - name: epsx-pay-bff
     newTag: wave49-dev
+  - name: epsx-notification
+    newTag: dev
 
 patches:
+  - path: patches/namespace-label.yaml
+    target:
+      kind: Namespace
+      name: epsx-prod
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
   - path: patches/services-nodeport.yaml
@@ -78,3 +85,4 @@ patches:
   - path: patches/pay-services-nodeport.yaml
   - path: patches/pay-replicas.yaml
   - path: patches/pay-resources.yaml
+  - path: patches/notification-environment.yaml

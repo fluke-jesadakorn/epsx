@@ -10,35 +10,34 @@ The production overlay renders 15 resources: one namespace, seven Services, and 
 
 ```text
 pay.epsx.io
-  -> Cloudflare localhost:4747
-  -> socat 4747 -> NodePort 30082
-  -> epsx-pay-svc:8103
-
-intended browser BFF (not on that path)
-  -> NodePort 30083
+  -> Cloudflare localhost:4752
+  -> socat 4752 -> NodePort 30085
   -> epsx-pay-bff:3002
+
+internal pay service (not public)
+  -> ClusterIP `epsx-pay-svc:8103`
 ```
 
 | Deployment | Rendered image | Replica | Readiness | Important gap |
 |---|---|---:|---|---|
-| `epsx-admin` | `epsx-admin:dev` | 1 | HTTP `/api/health` | dev tag, no digest, shallow |
+| `epsx-admin` | `epsx-admin-frontend:prod` | 1 | HTTP `/api/health` | mutable tag, no digest, shallow |
 | `epsx-analytics` | `epsx-analytics:wave12` | 1 | HTTP `/health` | mutable tag; identity dependencies not gated |
 | `epsx-backend` | `epsx-backend:prod` (init and app) | 1 | HTTP `/health` | mutable tag; dependency depth unproven |
-| `epsx-frontend` | `epsx-frontend:dev` | 1 | HTTP `/api/health` | dev tag, no digest, shallow |
+| `epsx-frontend` | `epsx-frontend:prod` | 1 | HTTP `/api/health` | mutable tag, no digest, shallow |
 | `epsx-identity` | `epsx-identity:dev` | 1 | TCP `50051` | SSE `50052` is not checked; deployed stub is not candidate HTTP identity |
-| `epsx-pay-bff` | `epsx-pay-bff:prod` | 1 | HTTP `/api/health` | mutable tag; public ingress bypasses it |
-| `epsx-pay-svc` | `epsx-pay-svc:prod` | 1 | HTTP `/health` | raw NodePort, literal DB credentials, zero escrow, no webhook env |
+| `epsx-pay-bff` | `epsx-pay-bff:wave49` | 1 | HTTP `/api/health` | mutable tag; authenticated live ingress remains unproven |
+| `epsx-pay-svc` | `epsx-pay-svc:wave49` | 1 | HTTP `/health` | raw NodePort, literal DB credentials, zero escrow, no webhook env |
 
-All eight image occurrences use `IfNotPresent`; none uses an immutable digest. Six prod image-transform keys use registry-prefixed names that do not match the base image names, while identity has no prod transform. This leaves three `:dev` images and prevents the declared wave/prod replacements from being a reliable image-resolution contract.
+All eight image occurrences use `IfNotPresent`; none uses an immutable digest. The six declared prod image-transform keys now exactly match the base image names and apply four visible replacements, while identity has no prod transform and remains the single `:dev` occurrence. This closes only the static key-resolution defect; mutable tags and image provenance remain blockers.
 
 ## Exposure, state, and dependency findings
 
-- Prod NodePorts are `30000` frontend, `30001` admin, `30080` backend, `30081` analytics, `30082` pay service, and `30083` pay BFF. Identity remains ClusterIP on `50051/50052`.
-- Prod and staging both allocate pay NodePorts `30082/30083`; NodePorts are cluster-global, so the checked-in pair cannot coexist on one cluster without a collision.
-- The prod Cloudflare artifact contains API, pay, and MinIO entries but no checked-in `epsx.io`, `admin.epsx.io`, or analytics ingress mapping. Other Cloudflare files describe different local topologies, so one reviewed ingress authority is not established.
+- Prod NodePorts are `30000` frontend, `30001` admin, `30080` backend, `30081` analytics, `30084` pay service, and `30085` pay BFF. Identity remains ClusterIP on `50051/50052`.
+- Prod and staging now declare distinct pay NodePort pairs (`30084/30085` vs `30082/30083`); the checked-in bridge maps prod through `4751/4752` and staging through `4747/4748`. Runtime cluster allocation and bridge reachability remain unproven.
+- The prod Cloudflare artifact now maps pay through the BFF bridge (`4752 -> 30085`); it still contains no checked-in `epsx.io`, `admin.epsx.io`, or analytics ingress mapping. Other Cloudflare files describe different local topologies, so one reviewed ingress authority is not established.
 - Backend/frontend/admin use rendered Secret references. Pay instead embeds a PostgreSQL URL containing credentials, renders `ESCROW_CONTRACT=0`, has no Secret reference, and has no webhook configuration. Rendered Secret resources are absent; existence and key compatibility are not proven by this artifact audit.
 - The production base does not deploy candidate gateway, HTTP identity, wallet, subscription, content, notification, event-tracking analytics, or indexer services. The rendered analytics and identity deployments are different implementations documented in the production plan.
-- Each Deployment has liveness and readiness, but both probe shallow process endpoints or one TCP port. No Deployment has a startup probe, and the manifests do not gate database, Redis, chain RPC, identity, webhook, or downstream readiness.
+- Each production Deployment has liveness and readiness, but the probes remain shallow process endpoints or one TCP port and none has a startup probe. A dev/staging-only notification manifest has a bounded startup probe, but it is intentionally absent from the production render. The production manifests do not yet gate database, Redis, chain RPC, identity, webhook, or downstream readiness.
 - Every Deployment is one replica. No checked-in strategy, disruption budget, topology spread, shadow route, traffic split, SLO abort threshold, immutable previous revision, or rehearsed rollback artifact closes the release loop.
 
 ## Required execution order
