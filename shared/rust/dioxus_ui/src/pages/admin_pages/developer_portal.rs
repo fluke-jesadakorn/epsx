@@ -119,6 +119,13 @@ impl AdminDeveloperModuleUsage {
 
 /// Decode and validate the exact redacted projection before any backend value
 /// reaches HTML. Unknown fields reject the payload, including full_key.
+pub fn decode_admin_developer_key_summary(
+    value: serde_json::Value,
+) -> Option<AdminDeveloperApiKeySummary> {
+    let summary: AdminDeveloperApiKeySummary = serde_json::from_value(value).ok()?;
+    summary.is_well_formed().then_some(summary)
+}
+
 pub fn decode_admin_developer_projection(
     value: serde_json::Value,
 ) -> Option<AdminDeveloperPortalProjection> {

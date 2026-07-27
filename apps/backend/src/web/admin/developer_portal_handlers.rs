@@ -1238,7 +1238,30 @@ pub async fn update_module_handler(
 // ============================================================================
 
 /// GET /api/admin/developer-portal/stats
-pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoResponse {
+pub async fn get_stats_handler(
+    State(state): State<AppState>,
+    Extension(context): Extension<crate::web::middleware::OpenIDUserContext>,
+    headers: HeaderMap,
+) -> Response {
+    let request_id = match correlation_id(&headers) {
+        Ok(id) => id,
+        Err(reason) => {
+            return error_response::<DeveloperPortalStats>(
+                "generated",
+                StatusCode::BAD_REQUEST,
+                "Invalid request ID",
+                reason,
+                "invalid_request_id",
+                json!({}),
+            )
+        }
+    };
+    if let Err(response) =
+        authorize::<DeveloperPortalStats>(&context, "admin:developer:read", &request_id)
+    {
+        return response;
+    }
+
     let core_pool = *state.db_pool;
     let api_key_repo = ApiKeyRepository::new(core_pool);
     let module_repo = ModuleRepository::new(core_pool);
@@ -1248,13 +1271,33 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
     let (total_keys, active_count, revoked_count, expired_count) = match api_key_repo.counts().await
     {
         Ok(result) => result,
-        Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
+        Err(error) => {
+            error!(request_id = %request_id, "developer key counts unavailable: {error}");
+            return error_response::<DeveloperPortalStats>(
+                &request_id,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Developer portal unavailable",
+                "The key repository did not return authoritative counts",
+                "repository_read_failed",
+                json!({}),
+            );
+        }
     };
 
     // Get module counts
     let modules = match module_repo.list(None, None).await {
         Ok(result) => result,
-        Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
+        Err(error) => {
+            error!(request_id = %request_id, "developer module list unavailable: {error}");
+            return error_response::<DeveloperPortalStats>(
+                &request_id,
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Developer portal unavailable",
+                "The module repository did not return authoritative counts",
+                "repository_read_failed",
+                json!({}),
+            );
+        }
     };
 
     let active_modules = modules
@@ -1272,33 +1315,42 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
                 let today = match usage_service.get_requests_today().await {
                     Ok(value) => value,
                     Err(error) => {
-                        error!("Failed to get today's developer usage: {}", error);
-                        return UnifiedApiResponse::error(
-                            503,
+                        error!(request_id = %request_id, "Failed to get today's developer usage: {error}");
+                        return error_response::<DeveloperPortalStats>(
+                            &request_id,
+                            StatusCode::SERVICE_UNAVAILABLE,
                             "Developer portal unavailable",
                             "Usage analytics are temporarily unavailable",
+                            "usage_unavailable",
+                            json!({}),
                         );
                     }
                 };
                 let month = match usage_service.get_requests_this_month().await {
                     Ok(value) => value,
                     Err(error) => {
-                        error!("Failed to get this month's developer usage: {}", error);
-                        return UnifiedApiResponse::error(
-                            503,
+                        error!(request_id = %request_id, "Failed to get this month's developer usage: {error}");
+                        return error_response::<DeveloperPortalStats>(
+                            &request_id,
+                            StatusCode::SERVICE_UNAVAILABLE,
                             "Developer portal unavailable",
                             "Usage analytics are temporarily unavailable",
+                            "usage_unavailable",
+                            json!({}),
                         );
                     }
                 };
                 let top_modules = match usage_service.get_top_modules_by_usage(5).await {
                     Ok(value) => value,
                     Err(error) => {
-                        error!("Failed to get top developer modules: {}", error);
-                        return UnifiedApiResponse::error(
-                            503,
+                        error!(request_id = %request_id, "Failed to get top developer modules: {error}");
+                        return error_response::<DeveloperPortalStats>(
+                            &request_id,
+                            StatusCode::SERVICE_UNAVAILABLE,
                             "Developer portal unavailable",
                             "Usage analytics are temporarily unavailable",
+                            "usage_unavailable",
+                            json!({}),
                         );
                     }
                 }
@@ -1313,12 +1365,15 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
 
                 (today, month, top_modules)
             }
-            Err(e) => {
-                error!("Failed to get analytics pool: {}", e);
-                return UnifiedApiResponse::error(
-                    503,
+            Err(error) => {
+                error!(request_id = %request_id, "Failed to get analytics pool: {error}");
+                return error_response::<DeveloperPortalStats>(
+                    &request_id,
+                    StatusCode::SERVICE_UNAVAILABLE,
                     "Developer portal unavailable",
                     "Usage analytics are temporarily unavailable",
+                    "usage_unavailable",
+                    json!({}),
                 );
             }
         };
@@ -1335,5 +1390,34 @@ pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoRespon
         top_modules_by_usage,
     };
 
-    UnifiedApiResponse::success(stats)
+    response_with_id(UnifiedApiResponse::success(stats), &request_id, None)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn stats_boundary_requires_exact_admin_audience_and_read_permission() {
+        let mut context = crate::web::middleware::OpenIDUserContext {
+            sub: "admin".to_string(),
+            wallet_address: "0xadmin".to_string(),
+            permissions: vec!["admin:developer:read".to_string()],
+            token_audiences: Some(vec!["epsx-admin".to_string(), "epsx-frontend".to_string()]),
+            auth_method: "jwt".to_string(),
+            jti: "jti".to_string(),
+            exp: i64::MAX,
+            iat: 0,
+            auth_time: 0,
+        };
+        assert!(
+            authorize::<DeveloperPortalStats>(&context, "admin:developer:read", "request").is_err()
+        );
+
+        context.token_audiences = Some(vec!["epsx-admin".to_string()]);
+        context.permissions.clear();
+        assert!(
+            authorize::<DeveloperPortalStats>(&context, "admin:developer:read", "request").is_err()
+        );
+    }
 }
