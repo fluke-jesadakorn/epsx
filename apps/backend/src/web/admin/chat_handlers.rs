@@ -4,7 +4,11 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
+use diesel::dsl::count_star;
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use serde::Deserialize;
+use serde::Serialize;
 
 use std::time::Duration;
 use tracing::{error, info};
@@ -12,7 +16,30 @@ use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
 use crate::infrastructure::repositories::ChatRepository;
-use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
+use crate::schemas::primary::chat_conversations;
+use crate::web::{
+    auth::AppState,
+    middleware::{OpenIDUserContext, RequestId},
+    responses::{PaginationMeta, UnifiedApiResponse},
+};
+
+const ADMIN_AUDIENCE: &str = "epsx-admin";
+const CHAT_READ_PERMISSION: &str = "admin:chat:read";
+const CHAT_MANAGE_PERMISSION: &str = "admin:chat:manage";
+const DEFAULT_PAGE: u32 = 1;
+const DEFAULT_LIMIT: u32 = 20;
+const MAX_LIMIT: u32 = 50;
+const MAX_OFFSET: i64 = 1_000_000;
+const MAX_FILTER_CHARS: usize = 128;
+const MAX_SUBJECT_CHARS: usize = 255;
+const MAX_MESSAGE_CHARS: usize = 16_384;
+
+fn default_page() -> u32 {
+    DEFAULT_PAGE
+}
+fn default_limit() -> u32 {
+    DEFAULT_LIMIT
+}
 
 // ============================================================================
 // QUERY PARAMS
@@ -23,6 +50,207 @@ pub struct AdminConversationQuery {
     pub status: Option<String>,
     pub topic_id: Option<Uuid>,
     pub agent: Option<String>,
+    #[serde(default = "default_page")]
+    pub page: u32,
+    #[serde(default = "default_limit")]
+    pub limit: u32,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminConversationSummary {
+    pub id: Uuid,
+    pub topic_id: Uuid,
+    pub wallet_address: String,
+    pub subject: String,
+    pub status: String,
+    pub assigned_agent: Option<String>,
+    pub last_message_at: chrono::DateTime<chrono::Utc>,
+    pub unread_user: i32,
+    pub unread_agent: i32,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminMessageSummary {
+    pub id: Uuid,
+    pub conversation_id: Uuid,
+    pub sender_type: String,
+    pub sender_address: Option<String>,
+    pub content: String,
+    pub is_read: bool,
+    pub created_at: chrono::DateTime<chrono::Utc>,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminConversationPage {
+    pub items: Vec<AdminConversationSummary>,
+    pub total: i64,
+    pub page: u32,
+    pub limit: u32,
+    pub has_next: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminTopicSummary {
+    pub id: Uuid,
+    pub name: String,
+    pub label: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminChatOverview {
+    pub stats: ChatStatsResponse,
+    pub conversations: Vec<AdminConversationSummary>,
+    pub topics: Vec<AdminTopicSummary>,
+}
+
+fn authorize(
+    context: &OpenIDUserContext,
+    request_id: &RequestId,
+    permission: &'static str,
+    operation: &'static str,
+) -> Result<(), epsx_contracts::errors::AppError> {
+    let request_id = Some(request_id.0.clone());
+    if !matches!(
+        context.token_audiences.as_deref(),
+        Some([audience]) if audience == ADMIN_AUDIENCE
+    ) {
+        return Err(epsx_contracts::errors::AppError::with_full_context(
+            epsx_contracts::errors::ErrorKind::AuthenticationError,
+            "A valid admin audience is required",
+            Some(context.wallet_address.clone()),
+            request_id,
+            operation,
+            "admin-chat",
+        ));
+    }
+    if !epsx_contracts::permissions::has_permission(&context.permissions, permission) {
+        return Err(epsx_contracts::errors::AppError::with_full_context(
+            epsx_contracts::errors::ErrorKind::AuthorizationError,
+            "The required chat permission is missing",
+            Some(context.wallet_address.clone()),
+            request_id,
+            operation,
+            "admin-chat",
+        ));
+    }
+    Ok(())
+}
+
+fn auth_failure(error: epsx_contracts::errors::AppError) -> Json<UnifiedApiResponse<()>> {
+    Json(UnifiedApiResponse::error(
+        error.http_status(),
+        "Chat request rejected",
+        &format!("correlation_id={}", error.correlation_id),
+    ))
+}
+
+fn validate_query(query: &AdminConversationQuery) -> Result<(), epsx_contracts::errors::AppError> {
+    if !(1..=MAX_LIMIT).contains(&query.limit) || query.page == 0 {
+        return Err(epsx_contracts::errors::AppError::bad_request(
+            "chat page must be positive and limit must be between 1 and 50",
+        ));
+    }
+    if query
+        .status
+        .as_deref()
+        .is_some_and(|status| !matches!(status, "open" | "in_progress" | "resolved" | "closed"))
+        || query
+            .agent
+            .as_deref()
+            .is_some_and(|agent| !bounded_text(agent, MAX_FILTER_CHARS))
+    {
+        return Err(epsx_contracts::errors::AppError::bad_request(
+            "invalid chat filter",
+        ));
+    }
+    let _ = query
+        .page
+        .checked_sub(1)
+        .and_then(|page| page.checked_mul(query.limit))
+        .and_then(|offset| i64::try_from(offset).ok())
+        .filter(|offset| *offset <= MAX_OFFSET)
+        .ok_or_else(|| {
+            epsx_contracts::errors::AppError::bad_request("chat page is out of bounds")
+        })?;
+    Ok(())
+}
+
+fn offset(query: &AdminConversationQuery) -> i64 {
+    i64::from(query.page - 1) * i64::from(query.limit)
+}
+
+fn bounded_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn project_conversation(
+    conversation: ChatConversationDb,
+) -> Result<AdminConversationSummary, epsx_contracts::errors::AppError> {
+    if !bounded_text(&conversation.wallet_address, 128)
+        || !bounded_text(&conversation.subject, MAX_SUBJECT_CHARS)
+        || !matches!(
+            conversation.status.as_str(),
+            "open" | "in_progress" | "resolved" | "closed"
+        )
+        || conversation.unread_user < 0
+        || conversation.unread_agent < 0
+        || conversation
+            .assigned_agent
+            .as_deref()
+            .is_some_and(|agent| !bounded_text(agent, 128))
+    {
+        return Err(epsx_contracts::errors::AppError::internal_error(
+            "chat conversation data failed projection validation",
+        ));
+    }
+    Ok(AdminConversationSummary {
+        id: conversation.id,
+        topic_id: conversation.topic_id,
+        wallet_address: conversation.wallet_address,
+        subject: conversation.subject,
+        status: conversation.status,
+        assigned_agent: conversation.assigned_agent,
+        last_message_at: conversation.last_message_at,
+        unread_user: conversation.unread_user,
+        unread_agent: conversation.unread_agent,
+        created_at: conversation.created_at,
+        updated_at: conversation.updated_at,
+    })
+}
+
+fn project_message(
+    message: ChatMessageDb,
+) -> Result<AdminMessageSummary, epsx_contracts::errors::AppError> {
+    if !bounded_text(&message.sender_type, 32)
+        || message
+            .sender_address
+            .as_deref()
+            .is_some_and(|sender| !bounded_text(sender, 128))
+        || !bounded_text(&message.content, MAX_MESSAGE_CHARS)
+    {
+        return Err(epsx_contracts::errors::AppError::internal_error(
+            "chat message data failed projection validation",
+        ));
+    }
+    Ok(AdminMessageSummary {
+        id: message.id,
+        conversation_id: message.conversation_id,
+        sender_type: message.sender_type,
+        sender_address: message.sender_address,
+        content: message.content,
+        is_read: message.is_read,
+        created_at: message.created_at,
+    })
 }
 
 #[derive(Debug, Deserialize)]
@@ -38,43 +266,85 @@ pub struct AdminChatSSEQuery {
 pub async fn admin_list_conversations(
     State(app_state): State<AppState>,
     Query(query): Query<AdminConversationQuery>,
-) -> Result<Json<UnifiedApiResponse<Vec<ChatConversationDb>>>, Json<UnifiedApiResponse<()>>> {
-    match ChatRepository::list_all_conversations(
-        &app_state.db_pool,
-        query.status.as_deref(),
-        query.topic_id,
-        query.agent.as_deref(),
-    )
-    .await
-    {
-        Ok(convs) => Ok(Json(UnifiedApiResponse::success(convs))),
-        Err(e) => {
-            error!("Admin: Failed to list conversations: {}", e);
-            Err(Json(UnifiedApiResponse::error(
-                500,
-                "Failed to load conversations",
-                &e,
-            )))
-        }
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<AdminConversationPage>>, epsx_contracts::errors::AppError> {
+    authorize(
+        &context,
+        &request_id,
+        CHAT_READ_PERMISSION,
+        "list_conversations",
+    )?;
+    validate_query(&query)?;
+    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+        epsx_contracts::errors::AppError::database_error("chat database unavailable")
+    })?;
+
+    let mut filtered = chat_conversations::table.into_boxed();
+    if let Some(status) = query.status.as_deref() {
+        filtered = filtered.filter(chat_conversations::status.eq(status));
     }
+    if let Some(topic_id) = query.topic_id {
+        filtered = filtered.filter(chat_conversations::topic_id.eq(topic_id));
+    }
+    if let Some(agent) = query.agent.as_deref() {
+        filtered = filtered.filter(chat_conversations::assigned_agent.eq(agent));
+    }
+
+    let total = filtered
+        .clone()
+        .select(count_star())
+        .first::<i64>(&mut conn)
+        .await
+        .map_err(|_| epsx_contracts::errors::AppError::database_error("chat count unavailable"))?;
+    let rows = filtered
+        .order(chat_conversations::last_message_at.desc())
+        .limit(i64::from(query.limit))
+        .offset(offset(&query))
+        .load::<ChatConversationDb>(&mut conn)
+        .await
+        .map_err(|_| {
+            epsx_contracts::errors::AppError::database_error("chat conversations unavailable")
+        })?;
+    let items = rows
+        .into_iter()
+        .map(project_conversation)
+        .collect::<Result<Vec<_>, _>>()?;
+    let has_next = offset(&query)
+        .checked_add(i64::try_from(items.len()).unwrap_or(i64::MAX))
+        .is_some_and(|end| end < total);
+    Ok(Json(UnifiedApiResponse::success(AdminConversationPage {
+        items,
+        total,
+        page: query.page,
+        limit: query.limit,
+        has_next,
+    })))
 }
 
 /// Get conversation detail (admin can see any)
 pub async fn admin_get_conversation(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<AdminConversationSummary>>, epsx_contracts::errors::AppError> {
+    authorize(
+        &context,
+        &request_id,
+        CHAT_READ_PERMISSION,
+        "get_conversation",
+    )?;
     match ChatRepository::get_conversation(&app_state.db_pool, id).await {
-        Ok(Some(conv)) => Ok(Json(UnifiedApiResponse::success(conv))),
-        Ok(None) => Err(Json(UnifiedApiResponse::error(
-            404,
-            "Not found",
-            "Conversation not found",
-        ))),
-        Err(e) => {
-            error!("Admin: Failed to get conversation: {}", e);
-            Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
-        }
+        Ok(Some(conv)) => Ok(Json(UnifiedApiResponse::success(project_conversation(
+            conv,
+        )?))),
+        Ok(None) => Err(epsx_contracts::errors::AppError::not_found(
+            "conversation not found",
+        )),
+        Err(_) => Err(epsx_contracts::errors::AppError::database_error(
+            "conversation unavailable",
+        )),
     }
 }
 
@@ -82,17 +352,19 @@ pub async fn admin_get_conversation(
 pub async fn admin_list_messages(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<UnifiedApiResponse<Vec<ChatMessageDb>>>, Json<UnifiedApiResponse<()>>> {
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<Vec<AdminMessageSummary>>>, epsx_contracts::errors::AppError> {
+    authorize(&context, &request_id, CHAT_READ_PERMISSION, "list_messages")?;
     match ChatRepository::list_messages(&app_state.db_pool, id).await {
-        Ok(msgs) => Ok(Json(UnifiedApiResponse::success(msgs))),
-        Err(e) => {
-            error!("Admin: Failed to list messages: {}", e);
-            Err(Json(UnifiedApiResponse::error(
-                500,
-                "Failed to load messages",
-                &e,
-            )))
-        }
+        Ok(msgs) => Ok(Json(UnifiedApiResponse::success(
+            msgs.into_iter()
+                .map(project_message)
+                .collect::<Result<Vec<_>, _>>()?,
+        ))),
+        Err(_) => Err(epsx_contracts::errors::AppError::database_error(
+            "chat messages unavailable",
+        )),
     }
 }
 
@@ -100,10 +372,14 @@ pub async fn admin_list_messages(
 pub async fn admin_send_reply(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
     Path(id): Path<Uuid>,
     Json(body): Json<SendMessageRequest>,
-) -> Result<Json<UnifiedApiResponse<ChatMessageDb>>, Json<UnifiedApiResponse<()>>> {
-    if body.content.trim().is_empty() {
+) -> Result<Json<UnifiedApiResponse<AdminMessageSummary>>, Json<UnifiedApiResponse<()>>> {
+    if let Err(error) = authorize(&ctx, &request_id, CHAT_MANAGE_PERMISSION, "send_reply") {
+        return Err(auth_failure(error));
+    }
+    if !bounded_text(&body.content, MAX_MESSAGE_CHARS) {
         return Err(Json(UnifiedApiResponse::error(
             400,
             "Invalid request",
@@ -181,7 +457,9 @@ pub async fn admin_send_reply(
                 "Agent {} replied to conversation {}",
                 ctx.wallet_address, id
             );
-            Ok(Json(UnifiedApiResponse::success(msg)))
+            Ok(Json(UnifiedApiResponse::success(
+                project_message(msg).map_err(auth_failure)?,
+            )))
         }
         Err(e) => {
             error!("Admin: Failed to send reply: {}", e);
@@ -198,10 +476,21 @@ pub async fn admin_send_reply(
 pub async fn admin_assign_agent(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
     Path(id): Path<Uuid>,
     Json(body): Json<AssignAgentRequest>,
-) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<Json<UnifiedApiResponse<AdminConversationSummary>>, Json<UnifiedApiResponse<()>>> {
+    if let Err(error) = authorize(&ctx, &request_id, CHAT_MANAGE_PERMISSION, "assign_agent") {
+        return Err(auth_failure(error));
+    }
     let agent = body.agent_address.as_deref().unwrap_or(&ctx.wallet_address);
+    if !bounded_text(agent, 128) {
+        return Err(Json(UnifiedApiResponse::error(
+            400,
+            "Invalid agent",
+            "agent address is bounded and required",
+        )));
+    }
 
     match ChatRepository::assign_agent(&app_state.db_pool, id, Some(agent)).await {
         Ok(conv) => {
@@ -219,7 +508,9 @@ pub async fn admin_assign_agent(
                 let _ = pubsub.publish(&channel, &payload).await;
             }
             info!("Agent {} assigned to conversation {}", agent, id);
-            Ok(Json(UnifiedApiResponse::success(conv)))
+            Ok(Json(UnifiedApiResponse::success(
+                project_conversation(conv).map_err(auth_failure)?,
+            )))
         }
         Err(e) => {
             error!("Admin: Failed to assign agent: {}", e);
@@ -235,9 +526,14 @@ pub async fn admin_assign_agent(
 /// Update conversation status
 pub async fn admin_update_status(
     State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateStatusRequest>,
-) -> Result<Json<UnifiedApiResponse<ChatConversationDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<Json<UnifiedApiResponse<AdminConversationSummary>>, Json<UnifiedApiResponse<()>>> {
+    if let Err(error) = authorize(&ctx, &request_id, CHAT_MANAGE_PERMISSION, "update_status") {
+        return Err(auth_failure(error));
+    }
     let valid = ["open", "in_progress", "resolved", "closed"];
     if !valid.contains(&body.status.as_str()) {
         return Err(Json(UnifiedApiResponse::error(
@@ -275,7 +571,9 @@ pub async fn admin_update_status(
                 let _ = pubsub.publish(&channel, &payload).await;
                 let _ = pubsub.publish("chat:new", &payload).await;
             }
-            Ok(Json(UnifiedApiResponse::success(conv)))
+            Ok(Json(UnifiedApiResponse::success(
+                project_conversation(conv).map_err(auth_failure)?,
+            )))
         }
         Err(e) => {
             error!("Admin: Failed to update status: {}", e);
@@ -291,8 +589,13 @@ pub async fn admin_update_status(
 /// Mark messages as read by agent
 pub async fn admin_mark_read(
     State(app_state): State<AppState>,
+    Extension(ctx): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
     Path(id): Path<Uuid>,
 ) -> Result<Json<UnifiedApiResponse<()>>, Json<UnifiedApiResponse<()>>> {
+    if let Err(error) = authorize(&ctx, &request_id, CHAT_MANAGE_PERMISSION, "mark_read") {
+        return Err(auth_failure(error));
+    }
     let conv = match ChatRepository::get_conversation(&app_state.db_pool, id).await {
         Ok(Some(c)) => c,
         Ok(None) => {
@@ -334,34 +637,58 @@ pub async fn admin_mark_read(
 /// Get chat stats
 pub async fn admin_get_stats(
     State(app_state): State<AppState>,
-) -> Result<Json<UnifiedApiResponse<ChatStatsResponse>>, Json<UnifiedApiResponse<()>>> {
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<ChatStatsResponse>>, epsx_contracts::errors::AppError> {
+    authorize(
+        &context,
+        &request_id,
+        CHAT_READ_PERMISSION,
+        "get_chat_stats",
+    )?;
     match ChatRepository::get_stats(&app_state.db_pool).await {
         Ok(stats) => Ok(Json(UnifiedApiResponse::success(stats))),
-        Err(e) => {
-            error!("Admin: Failed to get stats: {}", e);
-            Err(Json(UnifiedApiResponse::error(
-                500,
-                "Failed to get stats",
-                &e,
-            )))
-        }
+        Err(_) => Err(epsx_contracts::errors::AppError::database_error(
+            "chat stats unavailable",
+        )),
     }
 }
 
 /// List topics (admin)
 pub async fn admin_list_topics(
     State(app_state): State<AppState>,
-) -> Result<Json<UnifiedApiResponse<Vec<ChatTopicDb>>>, Json<UnifiedApiResponse<()>>> {
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<Vec<AdminTopicSummary>>>, epsx_contracts::errors::AppError> {
+    authorize(
+        &context,
+        &request_id,
+        CHAT_READ_PERMISSION,
+        "list_chat_topics",
+    )?;
     match ChatRepository::list_topics(&app_state.db_pool).await {
-        Ok(topics) => Ok(Json(UnifiedApiResponse::success(topics))),
-        Err(e) => {
-            error!("Admin: Failed to list topics: {}", e);
-            Err(Json(UnifiedApiResponse::error(
-                500,
-                "Failed to load topics",
-                &e,
-            )))
+        Ok(topics) => {
+            let topics = topics
+                .into_iter()
+                .map(|topic| {
+                    if !bounded_text(&topic.name, 128) || !bounded_text(&topic.label, 128) {
+                        return Err(epsx_contracts::errors::AppError::internal_error(
+                            "chat topic data failed projection validation",
+                        ));
+                    }
+                    Ok(AdminTopicSummary {
+                        id: topic.id,
+                        name: topic.name,
+                        label: topic.label,
+                        is_active: topic.is_active,
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(Json(UnifiedApiResponse::success(topics)))
         }
+        Err(_) => Err(epsx_contracts::errors::AppError::database_error(
+            "chat topics unavailable",
+        )),
     }
 }
 
@@ -369,7 +696,15 @@ pub async fn admin_list_topics(
 /// GET /admin/chat/overview
 pub async fn admin_chat_overview_handler(
     State(app_state): State<AppState>,
-) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
+    Extension(context): Extension<OpenIDUserContext>,
+    Extension(request_id): Extension<RequestId>,
+) -> Result<Json<UnifiedApiResponse<AdminChatOverview>>, epsx_contracts::errors::AppError> {
+    authorize(
+        &context,
+        &request_id,
+        CHAT_READ_PERMISSION,
+        "get_chat_overview",
+    )?;
     info!("Admin: Getting chat overview");
 
     let (stats, conversations, topics) = tokio::join!(
@@ -378,13 +713,38 @@ pub async fn admin_chat_overview_handler(
         ChatRepository::list_topics(&app_state.db_pool),
     );
 
-    let response = serde_json::json!({
-        "stats": stats.map(|s| serde_json::to_value(s).unwrap_or_else(|_| serde_json::json!({}))).unwrap_or_else(|_| serde_json::json!({})),
-        "conversations": conversations.unwrap_or_default(),
-        "topics": topics.unwrap_or_default(),
-    });
+    let stats = stats
+        .map_err(|_| epsx_contracts::errors::AppError::database_error("chat stats unavailable"))?;
+    let conversations = conversations
+        .map_err(|_| {
+            epsx_contracts::errors::AppError::database_error("chat conversations unavailable")
+        })?
+        .into_iter()
+        .map(project_conversation)
+        .collect::<Result<Vec<_>, _>>()?;
+    let topics = topics
+        .map_err(|_| epsx_contracts::errors::AppError::database_error("chat topics unavailable"))?
+        .into_iter()
+        .map(|topic| {
+            if !bounded_text(&topic.name, 128) || !bounded_text(&topic.label, 128) {
+                return Err(epsx_contracts::errors::AppError::internal_error(
+                    "chat topic data failed projection validation",
+                ));
+            }
+            Ok(AdminTopicSummary {
+                id: topic.id,
+                name: topic.name,
+                label: topic.label,
+                is_active: topic.is_active,
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(Json(UnifiedApiResponse::success(response)))
+    Ok(Json(UnifiedApiResponse::success(AdminChatOverview {
+        stats,
+        conversations,
+        topics,
+    })))
 }
 
 /// SSE stream for admin - listens to new conversations + assigned conversations
