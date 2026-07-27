@@ -8,7 +8,7 @@ use axum::{
     Json, Router,
 };
 use epsx_bff::{
-    cookies::CookieEnvironment,
+    cookies::{append_clear_session_cookies, CookieClient, CookieEnvironment},
     middleware::security_headers,
     session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH},
 };
@@ -340,6 +340,85 @@ fn err_to_status(e: epsx_client::ClientError) -> StatusCode {
     }
 }
 
+fn admin_proxy_error_code(status: StatusCode) -> &'static str {
+    match status {
+        StatusCode::BAD_REQUEST => "invalid_request",
+        StatusCode::UNAUTHORIZED => "authentication_required",
+        StatusCode::FORBIDDEN => "forbidden",
+        StatusCode::NOT_FOUND => "not_found",
+        StatusCode::CONFLICT => "conflict",
+        StatusCode::UNPROCESSABLE_ENTITY => "validation_failed",
+        StatusCode::TOO_MANY_REQUESTS => "rate_limited",
+        StatusCode::METHOD_NOT_ALLOWED => "method_not_allowed",
+        StatusCode::PAYLOAD_TOO_LARGE => "payload_too_large",
+        StatusCode::BAD_GATEWAY
+        | StatusCode::SERVICE_UNAVAILABLE
+        | StatusCode::GATEWAY_TIMEOUT => "service_unavailable",
+        _ => "admin_service_unavailable",
+    }
+}
+
+fn admin_proxy_error_is_retryable(status: StatusCode) -> bool {
+    matches!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS
+            | StatusCode::BAD_GATEWAY
+            | StatusCode::SERVICE_UNAVAILABLE
+            | StatusCode::GATEWAY_TIMEOUT
+    )
+}
+
+fn admin_proxy_error(status: StatusCode, ctx: &RequestContext) -> Response {
+    let request_id = ctx.request_id.to_string();
+    let mut response = (
+        status,
+        Json(serde_json::json!({
+            "success": false,
+            "error": admin_proxy_error_code(status),
+            "retryable": admin_proxy_error_is_retryable(status),
+            "request_id": request_id,
+        })),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&ctx.request_id.to_string())
+            .expect("UUID request IDs are valid HTTP header values"),
+    );
+    response
+}
+
+fn admin_proxy_json(value: serde_json::Value, ctx: &RequestContext) -> Response {
+    let mut response = Json(value).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&ctx.request_id.to_string())
+            .expect("UUID request IDs are valid HTTP header values"),
+    );
+    response
+}
+
+fn query_has_key(raw_query: Option<&str>, expected: &str) -> bool {
+    raw_query.is_some_and(|raw| {
+        url::form_urlencoded::parse(raw.as_bytes()).any(|(key, _)| key == expected)
+    })
+}
+
+fn query_has_value(raw_query: Option<&str>, key: &str, expected: &str) -> bool {
+    raw_query.is_some_and(|raw| {
+        url::form_urlencoded::parse(raw.as_bytes())
+            .any(|(candidate, value)| candidate == key && value == expected)
+    })
+}
+
 #[cfg(test)]
 mod upstream_error_mapping_tests {
     use super::*;
@@ -403,6 +482,28 @@ mod upstream_error_mapping_tests {
             ))),
             StatusCode::BAD_GATEWAY
         );
+    }
+
+    #[test]
+    fn admin_proxy_errors_use_closed_codes_and_retryability() {
+        assert_eq!(admin_proxy_error_code(StatusCode::BAD_REQUEST), "invalid_request");
+        assert_eq!(admin_proxy_error_code(StatusCode::CONFLICT), "conflict");
+        assert_eq!(
+            admin_proxy_error_code(StatusCode::SERVICE_UNAVAILABLE),
+            "service_unavailable"
+        );
+        assert!(!admin_proxy_error_is_retryable(StatusCode::FORBIDDEN));
+        assert!(admin_proxy_error_is_retryable(StatusCode::TOO_MANY_REQUESTS));
+        assert!(admin_proxy_error_is_retryable(StatusCode::GATEWAY_TIMEOUT));
+    }
+
+    #[test]
+    fn auth_query_flags_match_source_cookie_clear_contract() {
+        assert!(query_has_key(Some("logout=1"), "logout"));
+        assert!(query_has_key(Some("clear"), "clear"));
+        assert!(query_has_value(Some("reason=no-session"), "reason", "no-session"));
+        assert!(!query_has_key(Some("next=logout"), "logout"));
+        assert!(!query_has_value(Some("reason=backend_error"), "reason", "no-session"));
     }
 }
 
@@ -899,6 +1000,12 @@ async fn require_verified_admin_session(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    // Match the legacy middleware's logout semantics before any protected
+    // route can resolve or forward a bearer. The redirect target is derived
+    // only from the current request path, never from a caller-controlled URL.
+    if !is_api_path(path) && query_has_key(request.uri().query(), "logout") {
+        return clear_session_redirect(&state, path);
+    }
     if is_api_path(path) && !is_known_admin_api_path(path) {
         return api_not_found_response();
     }
@@ -1517,6 +1624,29 @@ mod routing_tests {
     }
 
     #[tokio::test]
+    async fn auth_and_logout_redirects_clear_only_canonical_session_cookies() {
+        for (uri, location) in [
+            ("/auth?reason=no-session", "/"),
+            ("/auth?clear=1", "/"),
+            ("/settings?logout=1", "/settings"),
+        ] {
+            let response = request(Method::GET, uri).await;
+            assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT, "{uri}");
+            assert_eq!(response.headers()[header::LOCATION], location, "{uri}");
+            assert_eq!(
+                response.headers().get_all(header::SET_COOKIE).iter().count(),
+                5,
+                "{uri}"
+            );
+            assert_eq!(
+                response.headers()[header::CACHE_CONTROL],
+                "private, no-store",
+                "{uri}"
+            );
+        }
+    }
+
+    #[tokio::test]
     async fn unknown_api_is_json_before_auth_and_known_route_remains_protected() {
         for path in [
             "/api",
@@ -1660,9 +1790,9 @@ async fn admin_service_proxy(State(state): State<AppState>, request: Request) ->
             Ok(bytes) if bytes.is_empty() => serde_json::json!({}),
             Ok(bytes) => match serde_json::from_slice::<serde_json::Value>(&bytes) {
                 Ok(value) => value,
-                Err(_) => return StatusCode::BAD_REQUEST.into_response(),
+                Err(_) => return admin_proxy_error(StatusCode::BAD_REQUEST, &ctx),
             },
-            Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+            Err(_) => return admin_proxy_error(StatusCode::PAYLOAD_TOO_LARGE, &ctx),
         },
         _ => serde_json::json!({}),
     };
@@ -1690,22 +1820,59 @@ async fn admin_service_proxy(State(state): State<AppState>, request: Request) ->
         Method::POST => client.post_with_ctx(&path, &body, &ctx).await,
         Method::PUT => client.put_with_ctx(&path, &body, &ctx).await,
         Method::DELETE => client.delete_with_ctx(&path, &ctx).await,
-        _ => return StatusCode::METHOD_NOT_ALLOWED.into_response(),
+        _ => return admin_proxy_error(StatusCode::METHOD_NOT_ALLOWED, &ctx),
     };
     match result {
-        Ok(value) => Json(value).into_response(),
-        Err(error) => {
-            let status = err_to_status(error);
-            (status, Json(serde_json::json!({
-                "error": "admin_service_unavailable"
-            })))
-                .into_response()
-        }
+        Ok(value) => admin_proxy_json(value, &ctx),
+        Err(error) => admin_proxy_error(err_to_status(error), &ctx),
     }
 }
 
-async fn admin_auth_redirect() -> Response {
+async fn admin_auth_redirect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    // The source middleware clears expired-session cookies for the explicit
+    // no-session/clear auth entry points, then redirects to the fixed root.
+    // The BFF performs the same cookie operation before redirecting; it does
+    // not decode or authorize anything in the browser.
+    if query_has_value(raw_query.as_deref(), "reason", "no-session")
+        || query_has_key(raw_query.as_deref(), "clear")
+    {
+        return clear_session_redirect(&state, "/");
+    }
+
+    // `/auth` is a fixed public entry point. The source page redirects both
+    // signed-out and signed-in requests to the root gate; authenticated users
+    // are not allowed to choose a return target through this route.
+    let _has_access_cookie = auth::access_token(&headers, state.cookie_environment).is_some();
     Redirect::temporary("/").into_response()
+}
+
+fn clear_session_redirect(state: &AppState, location: &str) -> Response {
+    let mut response = Redirect::temporary(location).into_response();
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Admin,
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "session_cookie_error"
+            })),
+        )
+            .into_response();
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
 }
 
 // Wave 43 T1 A3 — mirror prod's Vercel middleware:
