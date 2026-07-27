@@ -7,3 +7,5 @@
 
 pub mod account;
 pub mod admin;
+pub mod auth_access_banner;
+pub mod stock_data_card;

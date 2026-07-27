@@ -106,10 +106,7 @@ pub fn LoadingSpinner(
 /// `Loading...` label. Use at the top of an admin page when the
 /// page body is gated on a backend call.
 #[component]
-pub fn PageLoadingSpinner(
-    label: Option<String>,
-    class_name: Option<String>,
-) -> Element {
+pub fn PageLoadingSpinner(label: Option<String>, class_name: Option<String>) -> Element {
     let label = label.unwrap_or_else(|| "Loading...".to_string());
     let mut cls = "min-h-[400px] flex flex-col items-center justify-center gap-4".to_string();
     if let Some(c) = class_name {
@@ -157,10 +154,7 @@ pub fn ButtonLoadingSpinner(class_name: Option<String>) -> Element {
 /// Section-level loading state. Centered spinner with a gradient
 /// glow underneath and a default `Loading...` label.
 #[component]
-pub fn SectionLoading(
-    label: Option<String>,
-    class_name: Option<String>,
-) -> Element {
+pub fn SectionLoading(label: Option<String>, class_name: Option<String>) -> Element {
     let label = label.unwrap_or_else(|| "Loading...".to_string());
     let mut cls = "flex flex-col items-center justify-center py-12 gap-3".to_string();
     if let Some(c) = class_name {
@@ -264,7 +258,10 @@ mod tests {
             html.contains("Loading..."),
             "PageLoadingSpinner default label should be `Loading...`. Got: {html}"
         );
-        assert!(html.contains("animate-spin"), "PageLoadingSpinner should animate. Got: {html}");
+        assert!(
+            html.contains("animate-spin"),
+            "PageLoadingSpinner should animate. Got: {html}"
+        );
     }
 
     /// `PageLoadingSpinner` with a custom label.
@@ -288,8 +285,14 @@ mod tests {
     fn test_button_loading_spinner_is_bare_svg() {
         let el = rsx! { ButtonLoadingSpinner {} };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("<svg"), "ButtonLoadingSpinner should render an SVG");
-        assert!(html.contains("animate-spin"), "ButtonLoadingSpinner should animate");
+        assert!(
+            html.contains("<svg"),
+            "ButtonLoadingSpinner should render an SVG"
+        );
+        assert!(
+            html.contains("animate-spin"),
+            "ButtonLoadingSpinner should animate"
+        );
         assert!(
             !html.contains("role=\"status\""),
             "ButtonLoadingSpinner should NOT have role=status (lives inside a button). Got: {html}"
@@ -320,6 +323,9 @@ mod tests {
             html.contains("inline-flex"),
             "InlineLoading should use inline-flex. Got: {html}"
         );
-        assert!(html.contains("Loading..."), "InlineLoading label. Got: {html}");
+        assert!(
+            html.contains("Loading..."),
+            "InlineLoading label. Got: {html}"
+        );
     }
 }

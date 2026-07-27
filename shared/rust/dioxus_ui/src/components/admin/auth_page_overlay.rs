@@ -117,7 +117,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
         // dark / `#ffffff` for light) so the dev and prod both
         // pull from the same theme-aware CSS var.
         div {
-            class: "wave25-t3-auth-overlay fixed inset-0 z-50 flex min-h-screen w-full overflow-hidden bg-background",
+            class: "wave25-t3-auth-overlay fixed inset-0 z-50 flex min-h-screen w-full items-center justify-center overflow-y-auto bg-background",
             "data-wave25-t3-marker": "auth-page-overlay",
             style: "{OVERLAY_CONTAINER_STYLE}",
             // ── 3 blur orbs background (pointer-events: none
@@ -154,7 +154,12 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
             // matches prod's responsive layout (the left side
             // is hidden on small screens, shown on lg+).
             div {
-                class: "wave25-t3-auth-left relative z-10 hidden w-3/5 flex-col justify-center overflow-hidden p-20 xl:p-24 lg:flex",
+                // The source auth route is a focused wallet-selection page at
+                // both mobile and tablet widths. Keep the richer split-layout
+                // copy in the SSR tree for accessibility/tests, but never let
+                // it change the authenticated-page composition at these
+                // breakpoints.
+                class: "wave25-t3-auth-left relative z-10 hidden w-3/5 flex-col justify-center overflow-hidden p-20 xl:p-24",
                 style: "{OVERLAY_CHILDREN_STYLE}",
                 // EPSX logo row
                 div {
@@ -232,7 +237,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                     FeatureItem {
                         title: "Analytics",
                         subtitle: "Advanced analytics & reporting",
-                        icon_path: "M3 3v18h18M7 12l3-3 4 4 5-5".to_string(),
+                        icon_path: "M3 3v18h18M7 16v-4M12 16V8M17 16V4".to_string(),
                     }
                 }
             }
@@ -240,10 +245,46 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
             // `relative z-10 flex w-full ... lg:w-2/5 ...` with
             // the auth modal-inner card inside.
             div {
-                class: "wave25-t3-auth-right relative z-10 flex w-full items-center justify-center p-4 sm:p-6 lg:w-2/5 lg:border-l lg:border-border/20 lg:bg-white/[0.02] lg:backdrop-blur-3xl",
+                class: "wave25-t3-auth-right relative z-10 flex w-full max-w-4xl flex-col items-center justify-center px-4 py-12 sm:px-8 sm:py-16",
                 style: "{OVERLAY_CHILDREN_STYLE}",
+                // Mobile/tablet source composition: gradient lock mark and
+                // heading sit above the wallet card rather than inside it.
                 div {
-                    class: "w-full max-w-md",
+                    class: "wave25-t3-auth-heading mb-8 flex flex-col items-center text-center sm:mb-10",
+                    div {
+                        class: "mb-6 flex items-center justify-center gap-3",
+                        div {
+                            class: "wave25-t3-auth-lock flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-[#7645d9] via-[#6f75e9] to-[#1fc7d4] shadow-[0_0_30px_-8px_rgba(118,69,217,0.9)] ring-2 ring-white/20 sm:h-16 sm:w-16",
+                            svg {
+                                xmlns: "http://www.w3.org/2000/svg",
+                                width: "30",
+                                height: "30",
+                                view_box: "0 0 24 24",
+                                fill: "none",
+                                stroke: "#ffffff",
+                                stroke_width: "2",
+                                stroke_linecap: "round",
+                                stroke_linejoin: "round",
+                                rect { x: "3", y: "11", width: "18", height: "11", rx: "2", ry: "2" }
+                                path { d: "M7 11V7a5 5 0 0 1 10 0v4" }
+                            }
+                        }
+                        span {
+                            class: "text-2xl font-black italic tracking-tighter text-foreground sm:text-3xl",
+                            "EPSX"
+                        }
+                    }
+                    h1 {
+                        class: "mb-2 text-3xl font-bold tracking-tight text-foreground sm:text-4xl",
+                        "Admin Access"
+                    }
+                    p {
+                        class: "text-base text-muted-foreground sm:text-lg",
+                        "Verify your admin permissions"
+                    }
+                }
+                div {
+                    class: "wave25-t3-auth-card w-full",
                     // Auth modal card. Reuses the existing
                     // `.auth-modal-inner` CSS class from
                     // shared/rust/templates/src/lib.rs (the
@@ -253,7 +294,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                     // top gradient bar is via
                     // `.auth-modal-inner::before`.
                     div {
-                        class: "auth-modal-inner relative overflow-hidden rounded-3xl border border-border/20 bg-card p-8 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop-blur-3xl animate-zoom-in lg:p-10",
+                            class: "auth-modal-inner wave25-t3-auth-card-inner relative overflow-hidden rounded-3xl border border-border/20 bg-card p-8 shadow-[0_24px_48px_-12px_rgba(0,0,0,0.5)] backdrop-blur-3xl animate-zoom-in sm:p-10",
                         style: "{MODAL_CARD_STYLE}",
                         // Top gradient accent bar (purple → cyan)
                         // — implemented via the existing
@@ -262,7 +303,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                         // re-implement here.
                         // Admin Access icon (h-20 w-20 shield)
                         div {
-                            class: "mb-8 hidden text-center lg:block",
+                            class: "wave25-t3-desktop-card-heading mb-8 hidden text-center",
                             div {
                                 class: "mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-[2rem] bg-purple-500/10 ring-1 ring-purple-500/20 shadow-[0_0_40px_-10px_rgba(118,69,217,0.3)] transition-transform hover:scale-105",
                                 svg {
@@ -471,33 +512,65 @@ mod tests {
     fn test_overlay_renders_wallet_buttons() {
         let el = rsx! { AuthPageOverlay { return_url: "/developer-portal".to_string() } };
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "auth overlay should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "auth overlay should render non-empty HTML"
+        );
         for label in &["Safe", "WalletConnect", "Base Account"] {
             assert!(
                 html.contains(label),
                 "auth overlay should contain wallet label `{label}`. Got: {html}"
             );
         }
-        assert!(html.contains("Select Wallet"), "auth overlay should contain 'Select Wallet' label");
-        assert!(html.contains("wave25-t3-auth-overlay"), "auth overlay should expose the wave25-t3 marker class");
+        assert!(
+            html.contains("Select Wallet"),
+            "auth overlay should contain 'Select Wallet' label"
+        );
+        assert!(
+            html.contains("wave25-t3-auth-overlay"),
+            "auth overlay should expose the wave25-t3 marker class"
+        );
         // The "Admin Control Panel" + EPSX branding on the left
         // half should also be present (the prod auth page is a
         // split layout, not just the modal). The heading is
         // rendered as separate text nodes ("Admin " + gradient
         // "Control" + br + "Panel") so we check each piece.
-        assert!(html.contains("EPSX"), "auth overlay left half should show EPSX branding");
-        assert!(html.contains("Admin"), "auth overlay left half should show 'Admin' word");
-        assert!(html.contains("Control"), "auth overlay left half should show 'Control' word");
-        assert!(html.contains("Panel"), "auth overlay left half should show 'Panel' word");
-        for title in &["Secure Access", "User Management", "Permissions", "Analytics"] {
+        assert!(
+            html.contains("EPSX"),
+            "auth overlay left half should show EPSX branding"
+        );
+        assert!(
+            html.contains("Admin"),
+            "auth overlay left half should show 'Admin' word"
+        );
+        assert!(
+            html.contains("Control"),
+            "auth overlay left half should show 'Control' word"
+        );
+        assert!(
+            html.contains("Panel"),
+            "auth overlay left half should show 'Panel' word"
+        );
+        for title in &[
+            "Secure Access",
+            "User Management",
+            "Permissions",
+            "Analytics",
+        ] {
             assert!(
                 html.contains(title),
                 "auth overlay should contain feature title `{title}`. Got: {html}"
             );
         }
         // 3 blur orbs + dark backdrop should be in the markup
-        assert!(html.contains("blur-[120px]"), "auth overlay should render the 2 large blur orbs");
-        assert!(html.contains("animate-pulse"), "auth overlay should animate the orbs");
+        assert!(
+            html.contains("blur-[120px]"),
+            "auth overlay should render the 2 large blur orbs"
+        );
+        assert!(
+            html.contains("animate-pulse"),
+            "auth overlay should animate the orbs"
+        );
     }
 
     /// The `return_url` is propagated to each wallet button as a
@@ -508,8 +581,13 @@ mod tests {
     fn test_overlay_propagates_return_url() {
         let el = rsx! { AuthPageOverlay { return_url: "/news/sample-id/edit".to_string() } };
         let html = dioxus_ssr::render_element(el);
-        let n = html.matches("data-return-url=\"/news/sample-id/edit\"").count();
-        assert_eq!(n, 3, "auth overlay should embed return_url on all 3 wallet buttons, got {n}. Got: {html}");
+        let n = html
+            .matches("data-return-url=\"/news/sample-id/edit\"")
+            .count();
+        assert_eq!(
+            n, 3,
+            "auth overlay should embed return_url on all 3 wallet buttons, got {n}. Got: {html}"
+        );
     }
 
     /// The skeleton page renders the placeholder bars that match
@@ -521,7 +599,13 @@ mod tests {
         // The prod skeleton has 16+ `h-N w-N bg-muted rounded`
         // placeholder bars; the dev skeleton mirrors that.
         let n = html.matches("bg-muted").count();
-        assert!(n >= 20, "skeleton page should render ≥20 bg-muted placeholder bars (got {n})");
-        assert!(html.contains("wave25-t3-skeleton-page"), "skeleton should expose the wave25-t3 marker class");
+        assert!(
+            n >= 20,
+            "skeleton page should render ≥20 bg-muted placeholder bars (got {n})"
+        );
+        assert!(
+            html.contains("wave25-t3-skeleton-page"),
+            "skeleton should expose the wave25-t3 marker class"
+        );
     }
 }

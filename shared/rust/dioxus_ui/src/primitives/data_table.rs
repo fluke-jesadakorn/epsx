@@ -45,9 +45,17 @@
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum Align { Left, Center, Right }
+pub enum Align {
+    Left,
+    Center,
+    Right,
+}
 
-impl Default for Align { fn default() -> Self { Align::Left } }
+impl Default for Align {
+    fn default() -> Self {
+        Align::Left
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Column {
@@ -61,7 +69,14 @@ pub struct Column {
 
 impl Default for Column {
     fn default() -> Self {
-        Self { key: String::new(), label: String::new(), sortable: false, align: Align::Left, width: None, class_name: None }
+        Self {
+            key: String::new(),
+            label: String::new(),
+            sortable: false,
+            align: Align::Left,
+            width: None,
+            class_name: None,
+        }
     }
 }
 
@@ -72,7 +87,10 @@ pub struct Row {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum SortDir { Asc, Desc }
+pub enum SortDir {
+    Asc,
+    Desc,
+}
 
 #[component]
 pub fn DataTable(
@@ -89,20 +107,26 @@ pub fn DataTable(
     /// Optional custom cell renders. Each entry is `(column_key, render_fn)`.
     /// When a column's key has a render, the cell shows `render_fn(row)` instead
     /// of the raw string.
-    #[props(default = None)] cell_renders: Option<Vec<(String, Callback<Row, Element>)>>,
+    #[props(default = None)]
+    cell_renders: Option<Vec<(String, Callback<Row, Element>)>>,
     /// When true, render a leading checkbox column and a "select all" header.
-    #[props(default = false)] selectable: bool,
+    #[props(default = false)]
+    selectable: bool,
     /// Controlled selection: list of selected row ids. When `None`, the
     /// table manages selection internally.
-    #[props(default = None)] selected: Option<Vec<String>>,
+    #[props(default = None)]
+    selected: Option<Vec<String>>,
     /// Fired whenever the selection changes. The handler receives the new
     /// complete list of selected row ids.
-    #[props(default = None)] on_select_change: Option<EventHandler<Vec<String>>>,
+    #[props(default = None)]
+    on_select_change: Option<EventHandler<Vec<String>>>,
     /// Slot for bulk-action UI (e.g. "Delete selected"). Rendered above the
     /// table whenever the selection is non-empty.
-    #[props(default = None)] bulk_actions: Option<Element>,
+    #[props(default = None)]
+    bulk_actions: Option<Element>,
     /// Optional table caption — emitted as `<caption>` for accessibility.
-    #[props(default = None)] caption: Option<String>,
+    #[props(default = None)]
+    caption: Option<String>,
 ) -> Element {
     let mut sort_key = use_signal(|| initial_sort.as_ref().map(|x| x.0.clone()));
     let mut sort_dir = use_signal(|| initial_sort.as_ref().map(|x| x.1).unwrap_or(SortDir::Asc));
@@ -122,11 +146,16 @@ pub fn DataTable(
     }
 
     let filter_str = filter.read().clone();
-    let mut visible: Vec<&Row> = rows.iter().filter(|r| {
-        if filter_str.is_empty() { return true; }
-        let q = filter_str.to_lowercase();
-        r.cells.iter().any(|c| c.to_lowercase().contains(&q))
-    }).collect();
+    let mut visible: Vec<&Row> = rows
+        .iter()
+        .filter(|r| {
+            if filter_str.is_empty() {
+                return true;
+            }
+            let q = filter_str.to_lowercase();
+            r.cells.iter().any(|c| c.to_lowercase().contains(&q))
+        })
+        .collect();
 
     let sort_key_val = sort_key.read().clone();
     let sort_dir_val = *sort_dir.read();
@@ -138,7 +167,11 @@ pub fn DataTable(
                 let av = a.cells.get(i).map(|s| s.as_str()).unwrap_or("");
                 let bv = b.cells.get(i).map(|s| s.as_str()).unwrap_or("");
                 let ord = av.cmp(bv);
-                if d == SortDir::Desc { ord.reverse() } else { ord }
+                if d == SortDir::Desc {
+                    ord.reverse()
+                } else {
+                    ord
+                }
             });
         }
     }
@@ -149,7 +182,11 @@ pub fn DataTable(
     let cur_page = (*page.read()).min(total_pages.saturating_sub(1));
     let start = cur_page * page_size;
     let end = (start + page_size).min(total);
-    let page_rows: Vec<&Row> = if total == 0 { Vec::new() } else { visible[start..end].to_vec() };
+    let page_rows: Vec<&Row> = if total == 0 {
+        Vec::new()
+    } else {
+        visible[start..end].to_vec()
+    };
 
     let align_cls = |a: Align| match a {
         Align::Left => "text-left",
@@ -178,7 +215,9 @@ pub fn DataTable(
             next.retain(|id| !page_ids.contains(id));
         } else {
             for id in &page_ids {
-                if !next.contains(id) { next.push(id.clone()); }
+                if !next.contains(id) {
+                    next.push(id.clone());
+                }
             }
         }
         if let Some(h) = &on_select_change_handler {

@@ -106,7 +106,14 @@ mod tests {
             "Footer must render <footer class=\"site-footer\">. Got: {html}"
         );
         // 4 columns by class name.
-        for col in &["footer-col", "footer-grid", "footer-brand", "footer-heading", "footer-list", "footer-bottom"] {
+        for col in &[
+            "footer-col",
+            "footer-grid",
+            "footer-brand",
+            "footer-heading",
+            "footer-list",
+            "footer-bottom",
+        ] {
             assert!(
                 html.contains(col),
                 "Footer must contain the `{col}` class. Got: {html}"
@@ -114,7 +121,10 @@ mod tests {
         }
         // 3 column headings.
         for h in &["Platform", "Developers", "Company"] {
-            assert!(html.contains(h), "Footer must include heading `{h}`. Got: {html}");
+            assert!(
+                html.contains(h),
+                "Footer must include heading `{h}`. Got: {html}"
+            );
         }
         // Bottom strip.
         assert!(

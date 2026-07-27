@@ -25,8 +25,8 @@
 //! Each component gets a colocated `#[cfg(test)] mod tests` block
 //! with smoke render + key prop handling.
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Status helper
@@ -41,7 +41,9 @@ use crate::primitives::icon::Icon;
 pub fn payment_status_class(status: &str) -> &'static str {
     match status.to_lowercase().as_str() {
         "succeeded" | "completed" => "bg-success/10 text-success border border-success/20",
-        "failed" | "cancelled" | "expired" => "bg-destructive/10 text-destructive border border-destructive/20",
+        "failed" | "cancelled" | "expired" => {
+            "bg-destructive/10 text-destructive border border-destructive/20"
+        }
         "pending" | "processing" => "bg-warning/10 text-warning border border-warning/20",
         _ => "bg-muted text-muted-foreground border border-border/50",
     }
@@ -311,11 +313,7 @@ pub fn PaymentMobileCard(payment: PaymentRow) -> Element {
 // Prev / Next page controls. Renders nothing when `total <= 1`.
 
 #[component]
-pub fn PaymentPaginationBar(
-    current: u32,
-    total: u32,
-    on_change: EventHandler<u32>,
-) -> Element {
+pub fn PaymentPaginationBar(current: u32, total: u32, on_change: EventHandler<u32>) -> Element {
     if total <= 1 {
         return rsx! { Fragment {} };
     }
@@ -395,12 +393,30 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Total Revenue"), "PaymentStatsGrid must render Total Revenue. Got: {html}");
-        assert!(html.contains("Successful"), "PaymentStatsGrid must render Successful. Got: {html}");
-        assert!(html.contains("Pending"), "PaymentStatsGrid must render Pending. Got: {html}");
-        assert!(html.contains("Today"), "PaymentStatsGrid must render Today. Got: {html}");
-        assert!(html.contains("45231.00"), "PaymentStatsGrid must render total amount. Got: {html}");
-        assert!(html.contains("text-[#1fc7d4]"), "PaymentStatsGrid must use cyan accent. Got: {html}");
+        assert!(
+            html.contains("Total Revenue"),
+            "PaymentStatsGrid must render Total Revenue. Got: {html}"
+        );
+        assert!(
+            html.contains("Successful"),
+            "PaymentStatsGrid must render Successful. Got: {html}"
+        );
+        assert!(
+            html.contains("Pending"),
+            "PaymentStatsGrid must render Pending. Got: {html}"
+        );
+        assert!(
+            html.contains("Today"),
+            "PaymentStatsGrid must render Today. Got: {html}"
+        );
+        assert!(
+            html.contains("45231.00"),
+            "PaymentStatsGrid must render total amount. Got: {html}"
+        );
+        assert!(
+            html.contains("text-[#1fc7d4]"),
+            "PaymentStatsGrid must use cyan accent. Got: {html}"
+        );
     }
 
     /// `PaymentFilterSection` renders the 4 filter labels + Reset.
@@ -413,10 +429,19 @@ mod tests {
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
         for label in &["Search", "Status", "Method", "Plan", "Reset"] {
-            assert!(html.contains(label), "PaymentFilterSection must render `{label}`. Got: {html}");
+            assert!(
+                html.contains(label),
+                "PaymentFilterSection must render `{label}`. Got: {html}"
+            );
         }
-        assert!(html.contains("All Status"), "PaymentFilterSection must render status options. Got: {html}");
-        assert!(html.contains("All Methods"), "PaymentFilterSection must render method options. Got: {html}");
+        assert!(
+            html.contains("All Status"),
+            "PaymentFilterSection must render status options. Got: {html}"
+        );
+        assert!(
+            html.contains("All Methods"),
+            "PaymentFilterSection must render method options. Got: {html}"
+        );
     }
 
     /// `PaymentTableRow` renders all 7 column cells.
@@ -428,12 +453,30 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("pi_abc123"), "PaymentTableRow must render payment_reference. Got: {html}");
-        assert!(html.contains("Pro"), "PaymentTableRow must render plan_name. Got: {html}");
-        assert!(html.contains("29.00 USDT"), "PaymentTableRow must render formatted amount. Got: {html}");
-        assert!(html.contains("succeeded"), "PaymentTableRow must render status. Got: {html}");
-        assert!(html.contains("bg-success/10"), "PaymentTableRow must apply success status class. Got: {html}");
-        assert!(html.contains("Explorer"), "PaymentTableRow must render Explorer link. Got: {html}");
+        assert!(
+            html.contains("pi_abc123"),
+            "PaymentTableRow must render payment_reference. Got: {html}"
+        );
+        assert!(
+            html.contains("Pro"),
+            "PaymentTableRow must render plan_name. Got: {html}"
+        );
+        assert!(
+            html.contains("29.00 USDT"),
+            "PaymentTableRow must render formatted amount. Got: {html}"
+        );
+        assert!(
+            html.contains("succeeded"),
+            "PaymentTableRow must render status. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-success/10"),
+            "PaymentTableRow must apply success status class. Got: {html}"
+        );
+        assert!(
+            html.contains("Explorer"),
+            "PaymentTableRow must render Explorer link. Got: {html}"
+        );
     }
 
     /// `PaymentTableRow` with failed status applies destructive class.
@@ -447,7 +490,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-destructive/10"), "PaymentTableRow failed must use destructive class. Got: {html}");
+        assert!(
+            html.contains("bg-destructive/10"),
+            "PaymentTableRow failed must use destructive class. Got: {html}"
+        );
     }
 
     /// `PaymentTableRow` with no transaction_hash shows "—".
@@ -461,8 +507,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("\u{2014}"), "PaymentTableRow must render dash when no hash. Got: {html}");
-        assert!(!html.contains("Explorer"), "PaymentTableRow must not render Explorer link. Got: {html}");
+        assert!(
+            html.contains("\u{2014}"),
+            "PaymentTableRow must render dash when no hash. Got: {html}"
+        );
+        assert!(
+            !html.contains("Explorer"),
+            "PaymentTableRow must not render Explorer link. Got: {html}"
+        );
     }
 
     /// `PaymentMobileCard` renders the mobile-friendly card layout.
@@ -474,9 +526,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payments-management-mobile-card"), "PaymentMobileCard must render section class. Got: {html}");
-        assert!(html.contains("Amount"), "PaymentMobileCard must render Amount label. Got: {html}");
-        assert!(html.contains("Plan"), "PaymentMobileCard must render Plan label. Got: {html}");
+        assert!(
+            html.contains("payments-management-mobile-card"),
+            "PaymentMobileCard must render section class. Got: {html}"
+        );
+        assert!(
+            html.contains("Amount"),
+            "PaymentMobileCard must render Amount label. Got: {html}"
+        );
+        assert!(
+            html.contains("Plan"),
+            "PaymentMobileCard must render Plan label. Got: {html}"
+        );
     }
 
     /// `PaymentPaginationBar` renders nothing when total <= 1.
@@ -488,7 +549,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(!html.contains("payments-management-pagination"), "PaymentPaginationBar must hide when total <= 1. Got: {html}");
+        assert!(
+            !html.contains("payments-management-pagination"),
+            "PaymentPaginationBar must hide when total <= 1. Got: {html}"
+        );
     }
 
     /// `PaymentPaginationBar` renders Prev / Next when total > 1.
@@ -500,22 +564,55 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Previous"), "PaymentPaginationBar must render Previous. Got: {html}");
-        assert!(html.contains("Next"), "PaymentPaginationBar must render Next. Got: {html}");
-        assert!(html.contains("Page "), "PaymentPaginationBar must render page indicator. Got: {html}");
+        assert!(
+            html.contains("Previous"),
+            "PaymentPaginationBar must render Previous. Got: {html}"
+        );
+        assert!(
+            html.contains("Next"),
+            "PaymentPaginationBar must render Next. Got: {html}"
+        );
+        assert!(
+            html.contains("Page "),
+            "PaymentPaginationBar must render page indicator. Got: {html}"
+        );
     }
 
     /// `payment_status_class` returns the expected class per status.
     #[test]
     fn payment_status_class_matches_source() {
-        assert_eq!(payment_status_class("succeeded"), "bg-success/10 text-success border border-success/20");
-        assert_eq!(payment_status_class("completed"), "bg-success/10 text-success border border-success/20");
-        assert_eq!(payment_status_class("failed"), "bg-destructive/10 text-destructive border border-destructive/20");
-        assert_eq!(payment_status_class("expired"), "bg-destructive/10 text-destructive border border-destructive/20");
-        assert_eq!(payment_status_class("pending"), "bg-warning/10 text-warning border border-warning/20");
-        assert_eq!(payment_status_class("processing"), "bg-warning/10 text-warning border border-warning/20");
-        assert_eq!(payment_status_class("unknown"), "bg-muted text-muted-foreground border border-border/50");
-        assert_eq!(payment_status_class("SUCCEEDED"), "bg-success/10 text-success border border-success/20");
+        assert_eq!(
+            payment_status_class("succeeded"),
+            "bg-success/10 text-success border border-success/20"
+        );
+        assert_eq!(
+            payment_status_class("completed"),
+            "bg-success/10 text-success border border-success/20"
+        );
+        assert_eq!(
+            payment_status_class("failed"),
+            "bg-destructive/10 text-destructive border border-destructive/20"
+        );
+        assert_eq!(
+            payment_status_class("expired"),
+            "bg-destructive/10 text-destructive border border-destructive/20"
+        );
+        assert_eq!(
+            payment_status_class("pending"),
+            "bg-warning/10 text-warning border border-warning/20"
+        );
+        assert_eq!(
+            payment_status_class("processing"),
+            "bg-warning/10 text-warning border border-warning/20"
+        );
+        assert_eq!(
+            payment_status_class("unknown"),
+            "bg-muted text-muted-foreground border border-border/50"
+        );
+        assert_eq!(
+            payment_status_class("SUCCEEDED"),
+            "bg-success/10 text-success border border-success/20"
+        );
     }
 
     /// `format_payment_currency` formats USDT with suffix, others

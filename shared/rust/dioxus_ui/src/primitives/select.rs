@@ -7,7 +7,10 @@ use dioxus::prelude::*;
 
 /// One option in a select / multi-select.
 #[derive(Clone, Debug, PartialEq)]
-pub struct SelectOption { pub value: String, pub label: String }
+pub struct SelectOption {
+    pub value: String,
+    pub label: String,
+}
 
 /// Single-value select. Native `<select>` for now (server-renderable);
 /// a richer popover-driven implementation can be layered on later.
@@ -25,7 +28,10 @@ pub fn Select(
     #[props(default = None)] id: Option<String>,
     onchange: Option<EventHandler<FormEvent>>,
 ) -> Element {
-    let id_str = id.clone().unwrap_or_else(|| match &name { Some(n) => format!("field-{}", n), None => "field-select".to_string() });
+    let id_str = id.clone().unwrap_or_else(|| match &name {
+        Some(n) => format!("field-{}", n),
+        None => "field-select".to_string(),
+    });
     let aria_invalid = if error.is_some() { "true" } else { "false" }.to_string();
     rsx! {
         div { class: "form-field",
@@ -77,7 +83,8 @@ pub fn MultiSelect(
     #[props(default = false)] required: bool,
     #[props(default = false)] disabled: bool,
     /// Maximum number of selections allowed. None = unlimited.
-    #[props(default = None)] max: Option<usize>,
+    #[props(default = None)]
+    max: Option<usize>,
     onchange: Option<EventHandler<Vec<String>>>,
 ) -> Element {
     // Use a Signal so the closures can read the latest value without moving

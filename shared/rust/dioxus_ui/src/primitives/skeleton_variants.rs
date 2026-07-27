@@ -14,7 +14,6 @@
 /// - `SkeletonText` (line variant) — already exists in
 ///   `misc.rs::SkeletonText`; this is a wrapper that defaults to
 ///   a single line.
-
 use dioxus::prelude::*;
 
 /// Circular skeleton placeholder.
@@ -57,9 +56,7 @@ pub fn SkeletonButton(
 /// Card-shaped skeleton placeholder. Renders a header bar, a
 /// body area with 3 lines, and a footer bar.
 #[component]
-pub fn SkeletonCard(
-    #[props(default = None)] class: Option<String>,
-) -> Element {
+pub fn SkeletonCard(#[props(default = None)] class: Option<String>) -> Element {
     let mut cls = "skeleton-card flex flex-col gap-3 rounded-lg border bg-card p-4".to_string();
     if let Some(c) = class {
         cls.push(' ');

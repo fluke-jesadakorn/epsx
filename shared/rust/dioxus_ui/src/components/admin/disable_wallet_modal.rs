@@ -180,7 +180,9 @@ pub fn DisableWalletModal(
     if !is_open {
         return rsx! { Fragment {} };
     }
-    let mut cls = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm".to_string();
+    let mut cls =
+        "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            .to_string();
     if let Some(extra) = class_name {
         if !extra.is_empty() {
             cls.push(' ');
@@ -188,7 +190,11 @@ pub fn DisableWalletModal(
         }
     }
     let addr_short = if wallet_address.len() > 16 {
-        format!("{}...{}", &wallet_address[..10], &wallet_address[wallet_address.len() - 6..])
+        format!(
+            "{}...{}",
+            &wallet_address[..10],
+            &wallet_address[wallet_address.len() - 6..]
+        )
     } else {
         wallet_address.clone()
     };
@@ -358,15 +364,13 @@ mod tests {
     fn test_disable_wallet_modal_renders_warning_header() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -395,15 +399,13 @@ mod tests {
     fn test_disable_wallet_modal_closed_returns_empty() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(false),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(false),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -420,15 +422,13 @@ mod tests {
     fn test_disable_wallet_modal_renders_5_duration_options() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -449,15 +449,13 @@ mod tests {
     fn test_disable_wallet_modal_renders_4_platforms() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -474,15 +472,13 @@ mod tests {
     fn test_disable_wallet_modal_renders_3_behavior_flags() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -507,26 +503,30 @@ mod tests {
     fn test_disable_wallet_modal_renders_5_reason_categories() {
         fn render() -> Element {
             rsx! {
-            DisableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                DisableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: DisableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Suspicious Activity"), "Suspicious. Got: {html}");
+        assert!(
+            html.contains("Suspicious Activity"),
+            "Suspicious. Got: {html}"
+        );
         assert!(
             html.contains("Terms of Service Violation"),
             "ToS. Got: {html}"
         );
-        assert!(html.contains("Pending Verification"), "Pending. Got: {html}");
+        assert!(
+            html.contains("Pending Verification"),
+            "Pending. Got: {html}"
+        );
         assert!(html.contains("User Request"), "User. Got: {html}");
         assert!(html.contains("Other"), "Other. Got: {html}");
     }

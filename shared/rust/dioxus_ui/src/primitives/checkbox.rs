@@ -18,9 +18,11 @@ pub fn Checkbox(
     #[props(default = None)] name: Option<String>,
     #[props(default = None)] id: Option<String>,
     /// When `Some(true)`, render as the indeterminate state.
-    #[props(default = None)] indeterminate: Option<bool>,
+    #[props(default = None)]
+    indeterminate: Option<bool>,
     /// Optional override class names.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     onchange: Option<EventHandler<FormEvent>>,
 ) -> Element {
     let indeterminate = indeterminate.unwrap_or(false);
@@ -32,7 +34,10 @@ pub fn Checkbox(
         "unchecked"
     };
     let mut cls = "checkbox-wrapper".to_string();
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         label { class: "{cls}",
             input {

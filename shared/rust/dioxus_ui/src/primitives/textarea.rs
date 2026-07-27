@@ -176,7 +176,10 @@ mod tests {
 
     #[test]
     fn default_variant_class() {
-        assert_eq!(TextareaVariant::Default.as_class(), "border-input bg-background");
+        assert_eq!(
+            TextareaVariant::Default.as_class(),
+            "border-input bg-background"
+        );
     }
 
     #[test]
@@ -187,7 +190,9 @@ mod tests {
 
     #[test]
     fn pancake_variant_class() {
-        assert!(TextareaVariant::Pancake.as_class().contains("bg-gradient-to-r"));
+        assert!(TextareaVariant::Pancake
+            .as_class()
+            .contains("bg-gradient-to-r"));
         assert!(TextareaVariant::Pancake.as_class().contains("rounded-xl"));
     }
 
@@ -206,8 +211,12 @@ mod tests {
 
     #[test]
     fn outlined_variant_class() {
-        assert!(TextareaVariant::Outlined.as_class().contains("border-primary"));
-        assert!(TextareaVariant::Outlined.as_class().contains("bg-transparent"));
+        assert!(TextareaVariant::Outlined
+            .as_class()
+            .contains("border-primary"));
+        assert!(TextareaVariant::Outlined
+            .as_class()
+            .contains("bg-transparent"));
     }
 
     #[test]
@@ -240,7 +249,9 @@ mod tests {
 
     #[test]
     fn state_error_class_has_destructive() {
-        assert!(TextareaState::Error.as_class().contains("border-destructive"));
+        assert!(TextareaState::Error
+            .as_class()
+            .contains("border-destructive"));
     }
 
     #[test]
@@ -266,6 +277,10 @@ mod tests {
         ];
         let classes: Vec<&str> = variants.iter().map(|v| v.as_class()).collect();
         let unique: std::collections::HashSet<&str> = classes.iter().copied().collect();
-        assert_eq!(unique.len(), variants.len(), "variants must have distinct class strings");
+        assert_eq!(
+            unique.len(),
+            variants.len(),
+            "variants must have distinct class strings"
+        );
     }
 }

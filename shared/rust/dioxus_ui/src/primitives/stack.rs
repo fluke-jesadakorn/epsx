@@ -13,7 +13,6 @@
 ///   of each other).
 /// - `Spacer` — a flex spacer that grows to fill available space.
 /// - `Divider` — a horizontal or vertical line.
-
 use dioxus::prelude::*;
 
 /// Vertical stack. Renders a flex column with a configurable gap.
@@ -54,10 +53,7 @@ pub fn HStack(
 /// children. Children should set their own `position: absolute`
 /// via the `class` prop.
 #[component]
-pub fn ZStack(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn ZStack(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "zstack relative".to_string();
     if let Some(c) = class {
         cls.push(' ');

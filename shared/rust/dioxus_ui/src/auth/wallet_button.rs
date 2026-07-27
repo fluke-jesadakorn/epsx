@@ -22,8 +22,8 @@
 //! signatures are preserved (with new params added as
 //! `#[props(default = ...)]`).
 
-use crate::primitives::icon::Icon;
 use super::user::User;
+use crate::primitives::icon::Icon;
 
 use dioxus::prelude::*;
 
@@ -51,11 +51,36 @@ pub struct WalletProvider {
 /// exactly — when adding a new connector, append an entry here AND
 /// in the TS source.
 pub const WALLET_PROVIDERS: &[WalletProvider] = &[
-    WalletProvider { id: "metaMask",     name: "MetaMask",      icon: "\u{1F98A}", color: "bg-orange-500" },
-    WalletProvider { id: "walletConnect",name: "WalletConnect", icon: "\u{1F517}", color: "bg-blue-500" },
-    WalletProvider { id: "injected",    name: "Browser Wallet",icon: "\u{1F310}", color: "bg-purple-500" },
-    WalletProvider { id: "coinbase",    name: "Coinbase",      icon: "\u{1F535}", color: "bg-blue-600" },
-    WalletProvider { id: "rainbow",     name: "Rainbow",       icon: "\u{1F308}", color: "bg-gradient-to-r from-pink-500 to-violet-500" },
+    WalletProvider {
+        id: "metaMask",
+        name: "MetaMask",
+        icon: "\u{1F98A}",
+        color: "bg-orange-500",
+    },
+    WalletProvider {
+        id: "walletConnect",
+        name: "WalletConnect",
+        icon: "\u{1F517}",
+        color: "bg-blue-500",
+    },
+    WalletProvider {
+        id: "injected",
+        name: "Browser Wallet",
+        icon: "\u{1F310}",
+        color: "bg-purple-500",
+    },
+    WalletProvider {
+        id: "coinbase",
+        name: "Coinbase",
+        icon: "\u{1F535}",
+        color: "bg-blue-600",
+    },
+    WalletProvider {
+        id: "rainbow",
+        name: "Rainbow",
+        icon: "\u{1F308}",
+        color: "bg-gradient-to-r from-pink-500 to-violet-500",
+    },
 ];
 
 /// Look up a provider by connector id. Falls back to `injected`
@@ -66,7 +91,12 @@ pub fn wallet_provider_for(id: &str) -> &'static WalletProvider {
     WALLET_PROVIDERS
         .iter()
         .find(|p| p.id.eq_ignore_ascii_case(&needle))
-        .unwrap_or_else(|| WALLET_PROVIDERS.iter().find(|p| p.id == "injected").expect("injected always present"))
+        .unwrap_or_else(|| {
+            WALLET_PROVIDERS
+                .iter()
+                .find(|p| p.id == "injected")
+                .expect("injected always present")
+        })
 }
 
 // === ConnectButton ===
@@ -82,7 +112,9 @@ pub enum ConnectButtonSize {
 }
 
 impl Default for ConnectButtonSize {
-    fn default() -> Self { Self::Default }
+    fn default() -> Self {
+        Self::Default
+    }
 }
 
 /// The "Connect Wallet" CTA. Renders an orange→purple gradient pill
@@ -116,17 +148,23 @@ impl Default for ConnectButtonSize {
 #[component]
 pub fn ConnectButton(
     /// Click handler. When set, the element becomes a button.
-    #[props(default = None)] on_click: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_click: Option<EventHandler<MouseEvent>>,
     /// Href for the link fallback. Defaults to `/auth`.
-    #[props(default = None)] href: Option<String>,
+    #[props(default = None)]
+    href: Option<String>,
     /// Size variant. Defaults to `Default`.
-    #[props(default = None)] size: Option<ConnectButtonSize>,
+    #[props(default = None)]
+    size: Option<ConnectButtonSize>,
     /// Optional label override. Defaults to "Connect Wallet".
-    #[props(default = None)] label: Option<String>,
+    #[props(default = None)]
+    label: Option<String>,
     /// Disable the button. Defaults to `false`.
-    #[props(default = false)] disabled: bool,
+    #[props(default = false)]
+    disabled: bool,
     /// Extra class names appended to the rendered element.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     /// SSR-friendly raw JS click handler. When set, the button is
     /// rendered via `dangerous_inner_html` with a literal
     /// `onclick="{js}"` attribute so the click fires on the very
@@ -134,21 +172,21 @@ pub fn ConnectButton(
     /// `on_click_js: Some("epsx.connectWallet()".to_string())`.
     /// Takes precedence over `on_click` (when both are set, only the
     /// raw-HTML handler is emitted; the Dioxus closure is skipped).
-    #[props(default = None)] on_click_js: Option<String>,
+    #[props(default = None)]
+    on_click_js: Option<String>,
     /// When `Some(true)`, emit `data-connect-wallet` on the button.
     /// The page-shell `wallet_shim()` script attaches a click listener
     /// (on `DOMContentLoaded`) that calls `window.epsx.connectWallet()`.
     /// Equivalent to `on_click_js = Some("window.epsx.connectWallet()")`
     /// but defers to script attach instead of inline handler — useful
     /// when the script might be loaded async.
-    #[props(default = None)] data_connect_wallet: Option<bool>,
+    #[props(default = None)]
+    data_connect_wallet: Option<bool>,
 ) -> Element {
     let size_val = size.unwrap_or_default();
-    let label_val = label.unwrap_or_else(|| {
-        match size_val {
-            ConnectButtonSize::Compact => "Connect".to_string(),
-            _ => "Connect Wallet".to_string(),
-        }
+    let label_val = label.unwrap_or_else(|| match size_val {
+        ConnectButtonSize::Compact => "Connect".to_string(),
+        _ => "Connect Wallet".to_string(),
     });
     let href_val = href.unwrap_or_else(|| "/auth".to_string());
     let extra_cls = class_name.unwrap_or_default();
@@ -172,11 +210,27 @@ pub fn ConnectButton(
             .as_deref()
             .map(|s| format!(r#" onclick="{}""#, html_attr_escape(s)))
             .unwrap_or_default();
-        let data_attr = if want_data { r#" data-connect-wallet="true""# } else { "" };
-        let disabled_attr = if disabled { r#" disabled="disabled""# } else { "" };
+        let data_attr = if want_data {
+            r#" data-connect-wallet="true""#
+        } else {
+            ""
+        };
+        let chevron_svg = if size_val == ConnectButtonSize::Full {
+            format!(
+                r#"<span class="connect-btn-chevron">{}</span>"#,
+                epsx_templates::lucide("chevron-down", "20", "")
+            )
+        } else {
+            String::new()
+        };
+        let disabled_attr = if disabled {
+            r#" disabled="disabled""#
+        } else {
+            ""
+        };
         let icon_svg = epsx_templates::lucide("wallet", &icon_size.to_string(), "");
         let html = format!(
-            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{onclick_attr}{data_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span></button>"#,
+            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{onclick_attr}{data_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
         );
         return rsx! {
             span { class: "connect-btn-wrap inline-flex",
@@ -195,6 +249,9 @@ pub fn ConnectButton(
                 onclick: move |e| h.call(e),
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
+                if size_val == ConnectButtonSize::Full {
+                    span { class: "connect-btn-chevron", Icon { name: "chevron-down".to_string(), size: Some(20) } }
+                }
             }
         } else {
             a {
@@ -203,6 +260,9 @@ pub fn ConnectButton(
                 "aria-label": "Connect wallet",
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
+                if size_val == ConnectButtonSize::Full {
+                    span { class: "connect-btn-chevron", Icon { name: "chevron-down".to_string(), size: Some(20) } }
+                }
             }
         }
     }
@@ -308,7 +368,10 @@ impl ConnectedWalletState {
     /// `user.is_some()` after calling this helper — the SSR layer in
     /// `apps/frontend/src/ssr.rs` does this in one place.
     pub fn from_cookies(headers: &axum::http::HeaderMap) -> Self {
-        let cookie_header = match headers.get(axum::http::header::COOKIE).and_then(|h| h.to_str().ok()) {
+        let cookie_header = match headers
+            .get(axum::http::header::COOKIE)
+            .and_then(|h| h.to_str().ok())
+        {
             Some(s) => s,
             None => return Self::default(),
         };
@@ -446,28 +509,38 @@ pub fn ConnectedWalletDropdown(
     /// Optional nav links rendered between the actions and the
     /// disconnect button. Use this for "Account Settings" /
     /// "Developer Portal" entries.
-    #[props(default = None)] nav_links: Option<Vec<WalletNavLink>>,
+    #[props(default = None)]
+    nav_links: Option<Vec<WalletNavLink>>,
     /// Click handler for the "Copy" action.
-    #[props(default = None)] on_copy: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_copy: Option<EventHandler<MouseEvent>>,
     /// Click handler for the "View on Explorer" action.
-    #[props(default = None)] on_explorer: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_explorer: Option<EventHandler<MouseEvent>>,
     /// Click handler for the "Sign In with Wallet" action.
-    #[props(default = None)] on_sign_in: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_sign_in: Option<EventHandler<MouseEvent>>,
     /// Click handler for the "Retry Authentication" action.
-    #[props(default = None)] on_retry: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_retry: Option<EventHandler<MouseEvent>>,
     /// Click handler for the "Disconnect" action.
-    #[props(default = None)] on_disconnect: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_disconnect: Option<EventHandler<MouseEvent>>,
     /// Extra class names for the outer wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     /// Whether the copy was just performed (shows "Copied!" instead
     /// of "Copy"). Defaults to `false`.
-    #[props(default = false)] copied: bool,
+    #[props(default = false)]
+    copied: bool,
     /// Show the nav links section. Defaults to `true` when at
     /// least one nav link is provided.
-    #[props(default = true)] show_nav_links: bool,
+    #[props(default = true)]
+    show_nav_links: bool,
     /// Show the role/tier/permissions meta grid (admin variant).
     /// Defaults to `false`.
-    #[props(default = false)] show_meta: bool,
+    #[props(default = false)]
+    show_meta: bool,
 ) -> Element {
     let address = match &state.address {
         Some(a) if !a.is_empty() => a.clone(),
@@ -857,14 +930,20 @@ mod tests {
     #[test]
     fn parse_cookie_finds_value_with_equals_in_other_cookie() {
         // Confirms we don't read into the next pair after `=`.
-        assert_eq!(parse_cookie("a=b; epsx_wallet=xyz; c=d", "epsx_wallet"), Some("xyz"));
+        assert_eq!(
+            parse_cookie("a=b; epsx_wallet=xyz; c=d", "epsx_wallet"),
+            Some("xyz")
+        );
     }
 
     #[test]
     fn parse_cookie_handles_whitespace_after_separator() {
         // Some clients emit `epsx_wallet = ...` — RFC 6265 §5.2 is
         // lenient on whitespace within the pair.
-        assert_eq!(parse_cookie("epsx_wallet = hello; other=foo", "epsx_wallet"), Some("hello"));
+        assert_eq!(
+            parse_cookie("epsx_wallet = hello; other=foo", "epsx_wallet"),
+            Some("hello")
+        );
     }
 
     #[test]

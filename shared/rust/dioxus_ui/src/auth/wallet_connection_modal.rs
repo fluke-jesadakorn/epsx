@@ -16,13 +16,16 @@ pub fn WalletConnectionModal(
     /// Optional clickable children. When `Some`, the entire
     /// wrapper becomes a clickable div; when `None`, a default
     /// "Connect Wallet" button is rendered.
-    #[props(default = None)] children: Option<Element>,
+    #[props(default = None)]
+    children: Option<Element>,
     /// Fired when the user clicks anywhere on the wrapper. The TS
     /// source wires this to `openSignInModal()` from
     /// `useSharedAuth()`.
-    #[props(default = None)] on_click: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_click: Option<EventHandler<MouseEvent>>,
     /// Class names appended to the wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
     if let Some(c) = children {
@@ -83,6 +86,5 @@ mod tests {
         // `className` (optional). The Dioxus port adds an
         // `on_click` callback so the parent can wire the
         // openSignInModal from useSharedAuth.
-        
     }
 }

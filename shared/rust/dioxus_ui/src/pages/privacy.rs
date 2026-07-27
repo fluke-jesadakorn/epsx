@@ -22,10 +22,10 @@
 
 use crate::primitives::*;
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 /// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
 /// that the CDN doesn't generate. We inject these into the page so
@@ -43,32 +43,35 @@ const PRIVACY_INLINE_CSS: &str = r#"
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Privacy policy");
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            // Inject inline CSS for Tailwind v2 CDN arbitrary-value
-            // classes that the CDN doesn't generate. Scoped to this
-            // page only.
-            style { "{PRIVACY_INLINE_CSS}" }
-            div { class: "privacy-page-prod min-h-screen",
-                div { class: "max-w-4xl mx-auto p-6",
-                    // Hero — gradient h1 + Last updated text
-                    div { class: "text-center mb-12",
-                        h1 { class: "privacy-prod-title text-4xl font-bold mb-4",
-                            "Privacy Policy"
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
+                // Inject inline CSS for Tailwind v2 CDN arbitrary-value
+                // classes that the CDN doesn't generate. Scoped to this
+                // page only.
+                style { "{PRIVACY_INLINE_CSS}" }
+                div { class: "privacy-page-prod min-h-screen",
+                    div { class: "max-w-4xl mx-auto p-6",
+                        // Hero — gradient h1 + Last updated text
+                        div { class: "text-center mb-12",
+                            h1 { class: "privacy-prod-title text-4xl font-bold mb-4",
+                                "Privacy Policy"
+                            }
+                            p { class: "privacy-prod-last-updated",
+                                "Last updated: "
+                                "{LAST_UPDATED}"
+                            }
                         }
-                        p { class: "privacy-prod-last-updated",
-                            "Last updated: "
-                            "{LAST_UPDATED}"
+                        // Card body — purple-bordered dark card with 7 sections
+                        div { class: "privacy-prod-card p-8 border shadow-xl",
+                            PrivacyProse {}
                         }
-                    }
-                    // Card body — purple-bordered dark card with 7 sections
-                    div { class: "privacy-prod-card p-8 border shadow-xl",
-                        PrivacyProse {}
                     }
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 /// Seven numbered sections rendered with a correct h1 → h2 document
@@ -169,9 +172,10 @@ fn PrivacyProse() -> Element {
 /// render); the static "today" string in the previous port was
 /// acceptable, but a real date keeps the test-green pixel diff
 /// higher (the prod renders the actual current date too).
-/// Wave 48 T6 — Plan 12: updated to "6/18/2026" to match prod's
-/// current rendered date.
-const LAST_UPDATED: &str = "6/18/2026";
+/// Keep the SSR copy aligned with the source's `new Date().toLocaleDateString()`
+/// for the current development snapshot. Update this alongside the pinned
+/// Terms date when the reference capture is refreshed.
+const LAST_UPDATED: &str = "7/26/2026";
 
 // === wave25-t2-fe-port-pages privacy tests ===
 // Wave 5 smoke + section-count tests + new T2 prod-style markers.
@@ -192,7 +196,10 @@ mod tests {
         let ctx = empty_ctx();
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.trim().is_empty(), "privacy page should render non-empty HTML");
+        assert!(
+            !html.trim().is_empty(),
+            "privacy page should render non-empty HTML"
+        );
     }
 
     /// Wave 25 T2 — privacy page mirrors the prod Next.js page:
@@ -223,6 +230,10 @@ mod tests {
                 "privacy page should contain prod marker `{marker}`. Got: {html}"
             );
         }
+        assert!(
+            html.contains("Last updated: 7/26/2026"),
+            "privacy date should match the current source reference snapshot"
+        );
     }
 
     #[test]

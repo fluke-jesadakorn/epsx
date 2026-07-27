@@ -141,7 +141,10 @@ pub fn AlertDialogTitle(class_name: Option<String>, children: Element) -> Elemen
     } else {
         format!("text-lg font-semibold {extra}")
     };
-    let id = format!("alertdialog-title-{}", ALERT_DIALOG_NEXT_ID.fetch_add(1, Ordering::SeqCst));
+    let id = format!(
+        "alertdialog-title-{}",
+        ALERT_DIALOG_NEXT_ID.fetch_add(1, Ordering::SeqCst)
+    );
     rsx! { h2 { class: "{cls}", id: "{id}", {children} } }
 }
 
@@ -155,7 +158,10 @@ pub fn AlertDialogDescription(class_name: Option<String>, children: Element) -> 
     } else {
         format!("text-sm text-muted-foreground {extra}")
     };
-    let id = format!("alertdialog-desc-{}", ALERT_DIALOG_NEXT_ID.fetch_add(1, Ordering::SeqCst));
+    let id = format!(
+        "alertdialog-desc-{}",
+        ALERT_DIALOG_NEXT_ID.fetch_add(1, Ordering::SeqCst)
+    );
     rsx! { p { class: "{cls}", id: "{id}", {children} } }
 }
 

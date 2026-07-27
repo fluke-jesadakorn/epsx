@@ -8,11 +8,20 @@ pub fn Skeleton(
     class_name: Option<String>,
 ) -> Element {
     let mut style = String::new();
-    if let Some(w) = width { style.push_str(&format!("width:{};", w)); }
-    if let Some(h) = height { style.push_str(&format!("height:{};", h)); }
+    if let Some(w) = width {
+        style.push_str(&format!("width:{};", w));
+    }
+    if let Some(h) = height {
+        style.push_str(&format!("height:{};", h));
+    }
     let mut cls = "skeleton".to_string();
-    if rounded.unwrap_or(false) { cls.push_str(" rounded-full"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if rounded.unwrap_or(false) {
+        cls.push_str(" rounded-full");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! { div { class: "{cls}", style: "{style}" } }
 }
 
@@ -35,7 +44,10 @@ pub fn SkeletonGroup(count: Option<usize>, gap: Option<String>) -> Element {
 pub fn SkeletonCircle(size: Option<String>, class_name: Option<String>) -> Element {
     let s = size.unwrap_or_else(|| "2.5rem".to_string());
     let mut cls = "skeleton rounded-full".to_string();
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! { div { class: "{cls}", style: "width:{s};height:{s};" } }
 }
 
@@ -50,7 +62,12 @@ pub fn SkeletonBlock(
     class_name: Option<String>,
 ) -> Element {
     let mut cls = "skeleton".to_string();
-    if rounded.unwrap_or(false) { cls.push_str(" rounded-md"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if rounded.unwrap_or(false) {
+        cls.push_str(" rounded-md");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! { div { class: "{cls}", style: "width:{width};height:{height};" } }
 }

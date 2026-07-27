@@ -3,7 +3,12 @@ use crate::primitives::icon::Icon;
 use dioxus::prelude::*;
 
 #[component]
-pub fn PageHeader(title: String, description: Option<String>, icon: Option<String>, children: Element) -> Element {
+pub fn PageHeader(
+    title: String,
+    description: Option<String>,
+    icon: Option<String>,
+    children: Element,
+) -> Element {
     rsx! {
         header { class: "page-header",
             div { class: "page-header-inner",

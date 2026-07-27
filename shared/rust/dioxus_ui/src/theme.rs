@@ -72,36 +72,17 @@ pub const EPSX_CSS_VARS: &str = r#"
 const THEME_STORAGE_KEY: &str = "epsx-theme";
 
 /// Inline pre-paint script — runs before any Dioxus hydration. Reads the
-/// persisted theme from `localStorage` (or `prefers-color-scheme`) and
-/// applies the `dark` class to `<html>`. This is the FOUC-prevention
-/// pattern `apps-old/frontend/components/theme-toggle.tsx` uses.
+/// persisted theme from cookies/localStorage and applies the `dark` class to
+/// `<html>`. The source shell defaults to dark when no preference exists.
 const THEME_BOOT_SCRIPT: &str = r#"
 (function() {
     try {
-        var stored = localStorage.getItem('epsx-theme');
-        var mode = stored;
-        if (!mode) {
-            // Wave 24 T4' — keep the OS `prefers-color-scheme`
-            // default. The previous T4'-draft defaulted to 'dark'
-            // (to match prod), but that exposed a structural
-            // home-page divergence between prod (Next.js + Tailwind
-            // v4 with proper `dark:` variant processing) and the
-            // dev BFF (Tailwind v2.2.19 CDN which has no
-            // `dark:` variant support). Result: dark-mode dev
-            // rendered text in light colors (because `dark:text-*`
-            // classes were no-ops) while prod rendered in dark
-            // colors, producing a 6% pixel diff on `/` that didn't
-            // exist in light-mode dev vs dark-mode prod (where
-            // background was the only mismatch). The
-            // `templates/src/lib.rs` FOUC script still defaults to
-            // 'dark' on its own — and that's now a 2-script
-            // disagreement that gets resolved by the second script
-            // to win. We align both scripts to the **OS preference**
-            // (with `dark` as the explicit fallback) to keep the
-            // wave23 baseline of 99.94% on `/` and 100% on `/about`.
-            var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-            mode = prefersDark ? 'dark' : 'light';
-        }
+        var cookieTheme = document.cookie.split(';').map(function(part) {
+            return part.trim().split('=');
+        }).find(function(pair) { return pair[0] === 'theme'; });
+        var mode = (cookieTheme && cookieTheme[1]) ||
+            localStorage.getItem('epsx-theme') || localStorage.getItem('theme') || 'dark';
+        if (mode !== 'dark' && mode !== 'light') mode = 'dark';
         var root = document.documentElement;
         if (mode === 'dark') {
             root.classList.add('dark');
@@ -120,8 +101,8 @@ const THEME_BOOT_SCRIPT: &str = r#"
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ThemeMode {
     #[default]
-    Light,
     Dark,
+    Light,
 }
 
 impl ThemeMode {
@@ -163,7 +144,7 @@ pub fn ThemeRoot(children: Element) -> Element {
     }
 }
 
-/// SSR-local theme signal. The default is `Light`. Hydration-less documents
+/// SSR-local theme signal. The default is `Dark`. Hydration-less documents
 /// do not synchronize it after render; client-side theme state is owned by
 /// the marked controls and `epsx_templates::global_js`.
 pub fn use_theme() -> Signal<ThemeMode> {
@@ -199,18 +180,26 @@ pub fn UnifiedThemeToggle() -> Element {
     // literal `onclick="epsx.toggleTheme()"` attribute (the Dioxus
     // `onclick:` macro attribute gets stripped at SSR time). Render
     // via `dangerous_inner_html` on a wrapping `<span>`.
-    let sun_svg  = epsx_templates::lucide("sun",  "18", "").to_string();
+    let sun_svg = epsx_templates::lucide("sun", "18", "").to_string();
     let moon_svg = epsx_templates::lucide("moon", "18", "").to_string();
-    let sun_display  = if *mode.read() == ThemeMode::Light { "none" } else { "" };
-    let moon_display = if *mode.read() == ThemeMode::Dark  { "none" } else { "" };
+    let sun_display = if *mode.read() == ThemeMode::Light {
+        "none"
+    } else {
+        ""
+    };
+    let moon_display = if *mode.read() == ThemeMode::Dark {
+        "none"
+    } else {
+        ""
+    };
     let safe_label = epsx_templates::html_attr_escape_pub(label);
     let html = format!(
         r#"<button type="button" class="theme-toggle btn btn-icon btn-ghost" data-epsx-theme-toggle aria-label="{label}" title="{label}" onclick="epsx.toggleTheme()"><span class="theme-toggle-icon theme-toggle-sun" data-epsx-theme-icon="sun" style="display:{sun_disp};width:1.125rem;height:1.125rem;">{sun}</span><span class="theme-toggle-icon theme-toggle-moon" data-epsx-theme-icon="moon" style="display:{moon_disp};width:1.125rem;height:1.125rem;">{moon}</span></button>"#,
-        label     = safe_label,
-        sun_disp  = sun_display,
+        label = safe_label,
+        sun_disp = sun_display,
         moon_disp = moon_display,
-        sun       = sun_svg,
-        moon      = moon_svg,
+        sun = sun_svg,
+        moon = moon_svg,
     );
 
     rsx! {
@@ -291,14 +280,29 @@ mod tests {
     #[test]
     fn global_js_exports_theme_namespace() {
         let js = epsx_templates::global_js();
-        assert!(js.contains("function toggleTheme()"), "global_js must define function toggleTheme");
-        assert!(js.contains("function setTheme(t)"), "global_js must define function setTheme");
-        assert!(js.contains("function currentTheme()"), "global_js must define function currentTheme");
+        assert!(
+            js.contains("function toggleTheme()"),
+            "global_js must define function toggleTheme"
+        );
+        assert!(
+            js.contains("function setTheme(t)"),
+            "global_js must define function setTheme"
+        );
+        assert!(
+            js.contains("function currentTheme()"),
+            "global_js must define function currentTheme"
+        );
         // The return statement must include toggleTheme + setTheme
         // in the public object so callers can access them via
         // `window.epsx.toggleTheme()`.
-        assert!(js.contains("toggleTheme,"), "global_js return must include toggleTheme");
-        assert!(js.contains("setTheme,"), "global_js return must include setTheme");
+        assert!(
+            js.contains("toggleTheme,"),
+            "global_js return must include toggleTheme"
+        );
+        assert!(
+            js.contains("setTheme,"),
+            "global_js return must include setTheme"
+        );
     }
 
     /// Wave 23 T4 v2 — the `setTheme` function in `global_js` must

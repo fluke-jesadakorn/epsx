@@ -61,11 +61,11 @@
 //! `required_permissions` list and `feature` description.
 
 use crate::auth::User;
-use crate::layout::breadcrumbs::{BreadcrumbItem, Breadcrumbs, Crumb};
+use crate::layout::breadcrumbs::BreadcrumbItem;
 use crate::layout::footer::AdminFooter;
-use crate::layout::sidebar::{AdminSidebar, SidebarItem};
+use crate::layout::header::Header;
+use crate::layout::sidebar::{default_nav_items, AdminSidebar, SidebarItem};
 use crate::pages::PageContext;
-use crate::primitives::icon::Icon;
 
 use dioxus::prelude::*;
 
@@ -75,21 +75,11 @@ use dioxus::prelude::*;
 /// `sidebar_items` (e.g. for an embedded surface with a narrower
 /// nav).
 fn default_admin_shell_items() -> Vec<SidebarItem> {
-    vec![
-        SidebarItem { id: "dashboard".into(), label: "Dashboard".into(), href: "/".into(), icon: "layout-dashboard".into(), badge: None, active_paths: vec!["/".into()], ..Default::default() },
-        SidebarItem { id: "analytics".into(), label: "Analytics".into(), href: "/analytics".into(), icon: "chart-line".into(), badge: None, active_paths: vec!["/analytics".into()], ..Default::default() },
-        SidebarItem { id: "audit-log".into(), label: "Audit Log".into(), href: "/audit-log".into(), icon: "history".into(), badge: None, active_paths: vec!["/audit-log".into()], ..Default::default() },
-        SidebarItem { id: "wallets".into(), label: "Wallets".into(), href: "/wallet-management/wallets".into(), icon: "wallet".into(), badge: None, active_paths: vec!["/wallet-management".into()], ..Default::default() },
-        SidebarItem { id: "credits".into(), label: "Credits".into(), href: "/wallet-management/credits".into(), icon: "credit-card".into(), badge: None, active_paths: vec!["/wallet-management/credits".into()], ..Default::default() },
-        SidebarItem { id: "access".into(), label: "Access".into(), href: "/wallet-management/access".into(), icon: "key".into(), badge: None, active_paths: vec!["/wallet-management/access".into()], ..Default::default() },
-        SidebarItem { id: "payments".into(), label: "Payments".into(), href: "/payments".into(), icon: "credit-card".into(), badge: None, active_paths: vec!["/payments".into()], ..Default::default() },
-        SidebarItem { id: "chat".into(), label: "Chat".into(), href: "/chat".into(), icon: "message-circle".into(), badge: None, active_paths: vec!["/chat".into()], ..Default::default() },
-        SidebarItem { id: "notifications".into(), label: "Notifications".into(), href: "/notifications/manage".into(), icon: "bell".into(), badge: None, active_paths: vec!["/notifications".into()], ..Default::default() },
-        SidebarItem { id: "news".into(), label: "News".into(), href: "/news".into(), icon: "newspaper".into(), badge: None, active_paths: vec!["/news".into()], ..Default::default() },
-        SidebarItem { id: "media".into(), label: "Media".into(), href: "/media".into(), icon: "file-text".into(), badge: None, active_paths: vec!["/media".into()], ..Default::default() },
-        SidebarItem { id: "developer".into(), label: "Developer".into(), href: "/developer-portal".into(), icon: "code".into(), badge: None, active_paths: vec!["/developer-portal".into()], ..Default::default() },
-        SidebarItem { id: "settings".into(), label: "Settings".into(), href: "/settings".into(), icon: "settings".into(), badge: None, active_paths: vec!["/settings".into()], ..Default::default() },
-    ]
+    // Keep every AdminShell consumer on the same nested tree as the source
+    // `components/layout/sidebar.tsx`. The legacy flat list made analytics,
+    // settings, and the command center render a visibly different shell from
+    // newer admin pages.
+    default_nav_items()
 }
 
 /// The Wave 6B shared admin shell. Renders the full-height sidebar +
@@ -118,25 +108,16 @@ pub fn AdminShell(
     let is_authenticated = ctx.user.as_ref().map(|u| u.is_authed()).unwrap_or(false);
     let items = sidebar_items.unwrap_or_else(default_admin_shell_items);
 
-    // Convert the (label, href) tuples to the `Crumb` shape the
-    // plural `<Breadcrumbs>` component expects. The terminal crumb
-    // gets `href: None` so it renders as a plain `<span>` (not a link).
-    let crumbs: Vec<Crumb> = {
-        let len = breadcrumbs.len();
-        breadcrumbs.into_iter().enumerate().map(|(i, (label, href))| {
-            if i + 1 == len {
-                Crumb { label, href: None }
-            } else {
-                Crumb { label, href: Some(href) }
-            }
-        }).collect()
-    };
+    // The source derives breadcrumbs from the current pathname. Keep the
+    // legacy prop in the public API for compatibility; the route is the
+    // authoritative value rendered by the shared Header below.
+    let _legacy_breadcrumbs = breadcrumbs;
 
     rsx! {
         div { class: "admin-shell admin-shell-page",
             // Sidebar — full height, hidden on mobile (matches the
             // existing `DashboardShell` from `shell.rs`).
-            div { class: "admin-shell-sidebar hidden md:block",
+            div { class: "admin-shell-sidebar hidden md:block", style: "height: 100vh; min-height: 100vh;",
                 AdminSidebar {
                     current_path: ctx.path.clone(),
                     is_authenticated,
@@ -148,7 +129,7 @@ pub fn AdminShell(
             //   <div class="flex flex-1 flex-col h-full overflow-hidden">
             //     <Header ... />
             //     <div class="flex-1 flex flex-col min-h-0 overflow-hidden">
-            //       <main class="flex-1 overflow-y-auto overflow-x-hidden p-0">
+            //       <div class="flex-1 overflow-y-auto overflow-x-hidden p-0">
             //         {children}
             //       </main>
             //       <footer class="border-t border-border/40 bg-card px-4 py-3">
@@ -156,31 +137,35 @@ pub fn AdminShell(
             //       </footer>
             //     </div>
             //   </div>
-            div { class: "flex flex-1 flex-col h-full overflow-hidden",
-                // Breadcrumb + page-title header.
-                header { class: "admin-shell-header",
-                    div { class: "admin-shell-header-left flex items-center gap-3",
-                        if !crumbs.is_empty() {
-                            Breadcrumbs { items: crumbs }
-                        }
-                        h1 { class: "admin-shell-page-title", "{page_title}" }
-                    }
-                    div { class: "admin-shell-header-right",
-                        if let Some(u) = &ctx.user {
-                            span { class: "admin-user-badge", "{u.short_address()}" }
-                            button {
-                                class: "btn btn-ghost admin-session-logout",
-                                r#type: "button",
-                                "data-epsx-logout": "true",
-                                "aria-label": "Sign out",
-                                Icon { name: "log-out".to_string(), size: Some(16) }
-                                span { class: "hidden sm:inline", "Sign out" }
-                            }
-                        }
-                    }
+            div { class: "flex flex-1 flex-col h-full overflow-hidden", style: "height: 100vh; min-height: 100vh;",
+                // Reuse the same source-parity header as the BFF-level
+                // MainLayout: route breadcrumb, notification bell, theme
+                // toggle, wallet control, and the shared logout hook.
+                Header {
+                    user: ctx.user.clone(),
+                    initial_notifications: None,
+                    initial_unread_count: None,
+                    current_path: Some(ctx.path.clone()),
+                    is_production: Some(false),
+                    breadcrumb: None,
+                    notification_bell: None,
+                    theme_toggle: None,
+                    chain_selector: None,
+                    on_bell_click: None,
+                    on_theme_toggle: None,
+                    class_name: Some("admin-shell-header".to_string()),
+                    id: None,
                 }
+                // Source pages place their visible title in the page body;
+                // retain the legacy prop as an accessible shell marker for
+                // callers and tests that still pass it to AdminShell.
+                span { class: "sr-only", "data-admin-shell-page-title": "{page_title}", "{page_title}" }
                 // Main content — the page's children render here.
-                main { class: "admin-shell-main", {children} }
+                // The shared page document already renders the single
+                // `#epsx-main-content` landmark. This inner element is only
+                // the admin scroll region and must remain a div to avoid
+                // nested `<main>` landmarks on authenticated routes.
+                div { class: "admin-shell-main", {children} }
                 // Footer — the prod-EXACT 2-line admin footer
                 // ("EPSX Admin Dashboard" / "Version 2.0"). Lives
                 // inside the right-side flex column so the sidebar
@@ -251,7 +236,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(body);
-        assert!(!html.trim().is_empty(), "AdminShell should render non-empty HTML. Got: {html}");
+        assert!(
+            !html.trim().is_empty(),
+            "AdminShell should render non-empty HTML. Got: {html}"
+        );
         // Both breadcrumb labels must be present in the rendered HTML.
         // The terminal crumb renders as a `<span>` (no link), the prior
         // crumb renders as an `<a href>`. Both contain the label text.
@@ -312,15 +300,19 @@ mod tests {
             html.contains("Version 2.0"),
             "AdminShell footer must show 'Version 2.0'. Got: {html}"
         );
-        // Footer must be AFTER `<main>` (the right-side flex
-        // column layout: header → main → footer). The simplest
-        // way to assert ordering is to find the byte offset of
-        // `<main` and the first `<footer` and assert main < footer.
-        let main_off = html.find("<main").expect("AdminShell must render <main>");
-        let footer_off = html.find("<footer").expect("AdminShell must render <footer>");
+        // Footer must be AFTER the admin scroll region (the right-side
+        // flex column layout: header → content → footer). The document
+        // shell owns the semantic `<main>` landmark; this component's
+        // content region is intentionally a div.
+        let content_off = html
+            .find("class=\"admin-shell-main\"")
+            .expect("AdminShell must render its content region");
+        let footer_off = html
+            .find("<footer")
+            .expect("AdminShell must render <footer>");
         assert!(
-            main_off < footer_off,
-            "AdminShell footer must come AFTER <main>. main_off={main_off} footer_off={footer_off}. Got: {html}"
+            content_off < footer_off,
+            "AdminShell footer must come AFTER the content region. content_off={content_off} footer_off={footer_off}. Got: {html}"
         );
     }
 

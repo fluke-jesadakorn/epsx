@@ -119,7 +119,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Active"), "should render the Active label. Got: {html}");
+        assert!(
+            html.contains("Active"),
+            "should render the Active label. Got: {html}"
+        );
         assert!(
             html.contains("bg-green-100"),
             "Active should use the green pill background. Got: {html}"
@@ -139,7 +142,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Disabled"), "should render the Disabled label. Got: {html}");
+        assert!(
+            html.contains("Disabled"),
+            "should render the Disabled label. Got: {html}"
+        );
         assert!(
             html.contains("bg-amber-100"),
             "Disabled should use the amber pill background. Got: {html}"

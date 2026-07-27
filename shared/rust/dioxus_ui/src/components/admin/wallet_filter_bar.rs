@@ -66,7 +66,8 @@ pub fn WalletFilterBar(
     class_name: Option<String>,
 ) -> Element {
     let mut cls =
-        "flex flex-col sm:flex-row gap-3 bg-card p-4 rounded-2xl border border-border/20 shadow-lg".to_string();
+        "flex flex-col sm:flex-row gap-3 bg-card p-4 rounded-2xl border border-border/20 shadow-lg"
+            .to_string();
     if let Some(extra) = class_name {
         if !extra.is_empty() {
             cls.push(' ');
@@ -206,13 +207,11 @@ mod tests {
     fn test_wallet_filter_bar_renders_search_input() {
         fn render() -> Element {
             rsx! {
-            WalletFilterBar {
-                filters: sample_filters(),
-                on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                WalletFilterBar {
+                    filters: sample_filters(),
+                    on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -229,21 +228,28 @@ mod tests {
     fn test_wallet_filter_bar_renders_4_controls() {
         fn render() -> Element {
             rsx! {
-            WalletFilterBar {
-                filters: sample_filters(),
-                on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                WalletFilterBar {
+                    filters: sample_filters(),
+                    on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("All Status"), "Status options render. Got: {html}");
-        assert!(html.contains("All Platforms"), "Platform options render. Got: {html}");
-        assert!(html.contains("Date Created"), "Sort-by options render. Got: {html}");
+        assert!(
+            html.contains("All Status"),
+            "Status options render. Got: {html}"
+        );
+        assert!(
+            html.contains("All Platforms"),
+            "Platform options render. Got: {html}"
+        );
+        assert!(
+            html.contains("Date Created"),
+            "Sort-by options render. Got: {html}"
+        );
         assert!(
             html.contains("Ascending"),
             "Sort-order tooltip should reflect asc state. Got: {html}"
@@ -255,13 +261,11 @@ mod tests {
     fn test_wallet_filter_bar_renders_current_search_value() {
         fn render() -> Element {
             rsx! {
-            WalletFilterBar {
-                filters: sample_filters(),
-                on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                WalletFilterBar {
+                    filters: sample_filters(),
+                    on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -280,11 +284,11 @@ mod tests {
             let mut f = sample_filters();
             f.sort_order = "desc".to_string();
             rsx! {
-            WalletFilterBar {
-                filters: f,
-                on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                WalletFilterBar {
+                    filters: f,
+                    on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                }
             }
-        }
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -301,14 +305,12 @@ mod tests {
     fn test_wallet_filter_bar_propagates_class_name() {
         fn render() -> Element {
             rsx! {
-            WalletFilterBar {
-                filters: sample_filters(),
-                on_filter_change: EventHandler::new(|_: WalletFilters| {}),
-                class_name: Some("mt-4".to_string()),
+                WalletFilterBar {
+                    filters: sample_filters(),
+                    on_filter_change: EventHandler::new(|_: WalletFilters| {}),
+                    class_name: Some("mt-4".to_string()),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);

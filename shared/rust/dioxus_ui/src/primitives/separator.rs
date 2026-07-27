@@ -11,8 +11,13 @@ pub fn Separator(
 ) -> Element {
     let o = orientation.unwrap_or_else(|| "horizontal".to_string());
     let mut cls = "separator".to_string();
-    if o == "vertical" { cls.push_str(" separator-vertical"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if o == "vertical" {
+        cls.push_str(" separator-vertical");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     if let Some(lbl) = &label {
         if o == "horizontal" {

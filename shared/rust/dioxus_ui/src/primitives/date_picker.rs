@@ -78,14 +78,16 @@ pub fn DateTimePicker(
     label: Option<String>,
     /// Combined datetime value in `YYYY-MM-DDTHH:MM` format. When set, the
     /// date and time fields are pre-filled.
-    #[props(default = None)] value: Option<String>,
+    #[props(default = None)]
+    value: Option<String>,
     #[props(default = None)] min: Option<String>,
     #[props(default = None)] max: Option<String>,
     #[props(default = None)] help: Option<String>,
     #[props(default = None)] error: Option<String>,
     #[props(default = false)] required: bool,
     /// If set, emit a hidden input with this name and a `YYYY-MM-DDTHH:MM` value.
-    #[props(default = None)] combined_name: Option<String>,
+    #[props(default = None)]
+    combined_name: Option<String>,
 ) -> Element {
     let id_base = format!("field-{}", name);
     // Try to split the combined value into date + time parts.
@@ -93,7 +95,13 @@ pub fn DateTimePicker(
         Some(v) if v.len() >= 16 && v.contains('T') => {
             let parts: Vec<&str> = v.splitn(2, 'T').collect();
             let date = parts.first().copied().unwrap_or("").to_string();
-            let time = parts.get(1).copied().unwrap_or("").get(..5).unwrap_or("").to_string();
+            let time = parts
+                .get(1)
+                .copied()
+                .unwrap_or("")
+                .get(..5)
+                .unwrap_or("")
+                .to_string();
             (Some(date), Some(time))
         }
         Some(v) if v.len() >= 10 => (Some(v[..10].to_string()), None),

@@ -18,9 +18,11 @@ pub struct PlanComparisonRow {
 #[component]
 pub fn PlanComparisonCard(
     /// Plan names (table column headers).
-    #[props(default = Vec::new())] plan_names: Vec<String>,
+    #[props(default = Vec::new())]
+    plan_names: Vec<String>,
     /// Feature rows.
-    #[props(default = Vec::new())] rows: Vec<PlanComparisonRow>,
+    #[props(default = Vec::new())]
+    rows: Vec<PlanComparisonRow>,
 ) -> Element {
     rsx! {
         div { class: "plan-comparison-card card card-glass",
@@ -66,7 +68,5 @@ mod tests {
     }
 
     #[test]
-    fn plan_comparison_card_smoke() {
-        
-    }
+    fn plan_comparison_card_smoke() {}
 }

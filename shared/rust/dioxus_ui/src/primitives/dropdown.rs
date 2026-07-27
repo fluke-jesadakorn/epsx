@@ -93,8 +93,12 @@ pub fn DropdownItem(
     children: Element,
 ) -> Element {
     let mut cls = "dropdown-item".to_string();
-    if danger.unwrap_or(false) { cls.push_str(" dropdown-item-danger"); }
-    if inset.unwrap_or(false) { cls.push_str(" dropdown-item-inset"); }
+    if danger.unwrap_or(false) {
+        cls.push_str(" dropdown-item-danger");
+    }
+    if inset.unwrap_or(false) {
+        cls.push_str(" dropdown-item-inset");
+    }
     if let Some(h) = href {
         rsx! { a { class: "{cls}", href: "{h}", role: "menuitem",
             if let Some(i) = icon {
@@ -124,7 +128,9 @@ pub fn DropdownCheckboxItem(
     children: Element,
 ) -> Element {
     let mut cls = "dropdown-item dropdown-checkbox-item".to_string();
-    if checked { cls.push_str(" dropdown-item-checked"); }
+    if checked {
+        cls.push_str(" dropdown-item-checked");
+    }
     rsx! { div {
         class: "{cls}", role: "menuitemcheckbox",
         "aria-checked": "{checked}",
@@ -143,4 +149,6 @@ pub fn DropdownCheckboxItem(
 
 /// Visual separator inside a dropdown menu.
 #[component]
-pub fn DropdownSeparator() -> Element { rsx! { div { class: "dropdown-separator" } } }
+pub fn DropdownSeparator() -> Element {
+    rsx! { div { class: "dropdown-separator" } }
+}

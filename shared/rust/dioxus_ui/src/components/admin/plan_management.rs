@@ -222,13 +222,28 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-management-stats"), "PlanManagementStatsGrid must render container class. Got: {html}");
+        assert!(
+            html.contains("plan-management-stats"),
+            "PlanManagementStatsGrid must render container class. Got: {html}"
+        );
         for label in &["Total", "Active", "Enterprise", "Price"] {
-            assert!(html.contains(label), "PlanManagementStatsGrid must render `{label}` label. Got: {html}");
+            assert!(
+                html.contains(label),
+                "PlanManagementStatsGrid must render `{label}` label. Got: {html}"
+            );
         }
-        assert!(html.contains("12"), "PlanManagementStatsGrid must render total count. Got: {html}");
-        assert!(html.contains("9"), "PlanManagementStatsGrid must render active count. Got: {html}");
-        assert!(html.contains("$49.99"), "PlanManagementStatsGrid must render avg price. Got: {html}");
+        assert!(
+            html.contains("12"),
+            "PlanManagementStatsGrid must render total count. Got: {html}"
+        );
+        assert!(
+            html.contains("9"),
+            "PlanManagementStatsGrid must render active count. Got: {html}"
+        );
+        assert!(
+            html.contains("$49.99"),
+            "PlanManagementStatsGrid must render avg price. Got: {html}"
+        );
     }
 
     /// `PlanManagementLoadingState` renders animated skeleton.
@@ -240,15 +255,27 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-management-loading"), "PlanManagementLoadingState must render container class. Got: {html}");
-        assert!(html.contains("animate-pulse"), "PlanManagementLoadingState must animate. Got: {html}");
+        assert!(
+            html.contains("plan-management-loading"),
+            "PlanManagementLoadingState must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("animate-pulse"),
+            "PlanManagementLoadingState must animate. Got: {html}"
+        );
         // 3 tile skeletons
         for i in 0..3 {
-            assert!(html.contains(&format!("plan-tile-{i}")), "PlanManagementLoadingState must render plan-tile-{i}. Got: {html}");
+            assert!(
+                html.contains(&format!("plan-tile-{i}")),
+                "PlanManagementLoadingState must render plan-tile-{i}. Got: {html}"
+            );
         }
         // 4 stat skeletons
         for i in 0..4 {
-            assert!(html.contains(&format!("plan-stat-{i}")), "PlanManagementLoadingState must render plan-stat-{i}. Got: {html}");
+            assert!(
+                html.contains(&format!("plan-stat-{i}")),
+                "PlanManagementLoadingState must render plan-stat-{i}. Got: {html}"
+            );
         }
     }
 
@@ -261,11 +288,26 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-management-plan-card"), "PlanManagementPlanCard must render container class. Got: {html}");
-        assert!(html.contains("Pro"), "PlanManagementPlanCard must render plan name. Got: {html}");
-        assert!(html.contains("$29.00"), "PlanManagementPlanCard must render price. Got: {html}");
-        assert!(html.contains("412 subscribers"), "PlanManagementPlanCard must render subscriber count. Got: {html}");
-        assert!(html.contains("Active"), "PlanManagementPlanCard active plan must show Active badge. Got: {html}");
+        assert!(
+            html.contains("plan-management-plan-card"),
+            "PlanManagementPlanCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Pro"),
+            "PlanManagementPlanCard must render plan name. Got: {html}"
+        );
+        assert!(
+            html.contains("$29.00"),
+            "PlanManagementPlanCard must render price. Got: {html}"
+        );
+        assert!(
+            html.contains("412 subscribers"),
+            "PlanManagementPlanCard must render subscriber count. Got: {html}"
+        );
+        assert!(
+            html.contains("Active"),
+            "PlanManagementPlanCard active plan must show Active badge. Got: {html}"
+        );
     }
 
     /// `PlanManagementPlanCard` for inactive plan shows Inactive badge.
@@ -279,7 +321,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Inactive"), "PlanManagementPlanCard inactive plan must show Inactive badge. Got: {html}");
+        assert!(
+            html.contains("Inactive"),
+            "PlanManagementPlanCard inactive plan must show Inactive badge. Got: {html}"
+        );
     }
 
     /// `PlanManagementPlanCard` for enterprise plan uses purple border.
@@ -293,6 +338,9 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("border-[#7645d9]/30"), "PlanManagementPlanCard enterprise must use purple border. Got: {html}");
+        assert!(
+            html.contains("border-[#7645d9]/30"),
+            "PlanManagementPlanCard enterprise must use purple border. Got: {html}"
+        );
     }
 }

@@ -135,12 +135,8 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_pricing_client_signature() {
-        
-    }
+    fn dynamic_pricing_client_signature() {}
 
     #[test]
-    fn pricing_card_signature() {
-        
-    }
+    fn pricing_card_signature() {}
 }

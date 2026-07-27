@@ -43,7 +43,5 @@ mod tests {
     }
 
     #[test]
-    fn chat_status_badge_smoke() {
-        
-    }
+    fn chat_status_badge_smoke() {}
 }

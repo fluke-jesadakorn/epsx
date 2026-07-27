@@ -3,7 +3,14 @@ use super::icon::Icon;
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CardKind { Default, Glass, Insight, Flat, Primary, Stats }
+pub enum CardKind {
+    Default,
+    Glass,
+    Insight,
+    Flat,
+    Primary,
+    Stats,
+}
 
 impl CardKind {
     pub fn classes(&self) -> &'static str {
@@ -34,8 +41,13 @@ pub fn Card(
     let kind = kind.unwrap_or(CardKind::Glass);
     let hover = hover.unwrap_or(false);
     let mut cls = kind.classes().to_string();
-    if hover { cls.push_str(" hover-scale"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if hover {
+        cls.push_str(" hover-scale");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     rsx! {
         div {
@@ -68,15 +80,25 @@ pub fn Card(
 }
 
 #[component]
-pub fn CardHeader(children: Element) -> Element { rsx! { div { class: "card-header", {children} } } }
+pub fn CardHeader(children: Element) -> Element {
+    rsx! { div { class: "card-header", {children} } }
+}
 #[component]
-pub fn CardBody(children: Element) -> Element { rsx! { div { class: "card-body", {children} } } }
+pub fn CardBody(children: Element) -> Element {
+    rsx! { div { class: "card-body", {children} } }
+}
 #[component]
-pub fn CardFooter(children: Element) -> Element { rsx! { div { class: "card-footer", {children} } } }
+pub fn CardFooter(children: Element) -> Element {
+    rsx! { div { class: "card-footer", {children} } }
+}
 #[component]
-pub fn CardTitle(children: Element) -> Element { rsx! { h3 { class: "card-title", {children} } } }
+pub fn CardTitle(children: Element) -> Element {
+    rsx! { h3 { class: "card-title", {children} } }
+}
 #[component]
-pub fn CardDescription(children: Element) -> Element { rsx! { p { class: "card-description", {children} } } }
+pub fn CardDescription(children: Element) -> Element {
+    rsx! { p { class: "card-description", {children} } }
+}
 
 /// Horizontal divider rendered inside a card body. Useful for separating
 /// sections of content without an extra margin. Mirrors the visual
@@ -84,7 +106,10 @@ pub fn CardDescription(children: Element) -> Element { rsx! { p { class: "card-d
 #[component]
 pub fn CardDivider(class_name: Option<String>) -> Element {
     let mut cls = "border-t border-border my-4".to_string();
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! { div { class: "{cls}", role: "separator", "aria-orientation": "horizontal" } }
 }
 
@@ -109,10 +134,19 @@ pub fn CardLink(
     let kind = kind.unwrap_or(CardKind::Glass);
     let hover = hover.unwrap_or(false);
     let mut cls = kind.classes().to_string();
-    if hover { cls.push_str(" hover-scale"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if hover {
+        cls.push_str(" hover-scale");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     let rel = rel.unwrap_or_else(|| {
-        if target.as_deref() == Some("_blank") { "noopener noreferrer".to_string() } else { String::new() }
+        if target.as_deref() == Some("_blank") {
+            "noopener noreferrer".to_string()
+        } else {
+            String::new()
+        }
     });
     let target_attr = target.unwrap_or_default();
 

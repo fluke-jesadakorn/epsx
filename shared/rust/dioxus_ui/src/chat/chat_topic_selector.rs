@@ -19,9 +19,11 @@ pub struct ChatTopic {
 pub fn ChatTopicSelector(
     #[props(default = Vec::new())] topics: Vec<ChatTopic>,
     /// Currently selected topic id.
-    #[props(default = None)] selected: Option<String>,
+    #[props(default = None)]
+    selected: Option<String>,
     /// Fired when the user clicks a topic pill.
-    #[props(default = None)] on_select: Option<EventHandler<String>>,
+    #[props(default = None)]
+    on_select: Option<EventHandler<String>>,
 ) -> Element {
     rsx! {
         div { class: "chat-topic-selector flex items-center gap-2 overflow-x-auto py-2",
@@ -61,7 +63,5 @@ mod tests {
     }
 
     #[test]
-    fn chat_topic_selector_smoke() {
-        
-    }
+    fn chat_topic_selector_smoke() {}
 }

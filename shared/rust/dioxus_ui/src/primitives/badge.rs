@@ -3,7 +3,21 @@ use super::icon::Icon;
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum BadgeKind { Default, Primary, Success, Warning, Danger, Info, Brand, Cool, Warm, Purple, Outline, Secondary, Destructive }
+pub enum BadgeKind {
+    Default,
+    Primary,
+    Success,
+    Warning,
+    Danger,
+    Info,
+    Brand,
+    Cool,
+    Warm,
+    Purple,
+    Outline,
+    Secondary,
+    Destructive,
+}
 
 impl BadgeKind {
     pub fn classes(&self) -> &'static str {
@@ -45,9 +59,16 @@ pub fn Badge(
     let dot = dot.unwrap_or(false);
     let truncate = truncate.unwrap_or(false);
     let mut cls = kind.classes().to_string();
-    if pill { cls.push_str(" rounded-full"); }
-    if truncate { cls.push_str(" truncate max-w-[12rem]"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if pill {
+        cls.push_str(" rounded-full");
+    }
+    if truncate {
+        cls.push_str(" truncate max-w-[12rem]");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     let dot_cls = match kind {
         BadgeKind::Success => "bg-emerald-400",

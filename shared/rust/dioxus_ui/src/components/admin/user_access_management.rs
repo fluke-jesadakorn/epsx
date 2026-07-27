@@ -235,14 +235,39 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        for col in &["Wallet", "Plan", "Status", "Days Left", "Expires", "Actions"] {
-            assert!(html.contains(col), "UserAccessDesktopTable must render `{col}` header. Got: {html}");
+        for col in &[
+            "Wallet",
+            "Plan",
+            "Status",
+            "Days Left",
+            "Expires",
+            "Actions",
+        ] {
+            assert!(
+                html.contains(col),
+                "UserAccessDesktopTable must render `{col}` header. Got: {html}"
+            );
         }
-        assert!(html.contains("0x12345678\u{2026}5678"), "UserAccessDesktopTable must render truncated wallet. Got: {html}");
-        assert!(html.contains("Pro"), "UserAccessDesktopTable must render plan_name. Got: {html}");
-        assert!(html.contains("active"), "UserAccessDesktopTable must render status. Got: {html}");
-        assert!(html.contains("23 days"), "UserAccessDesktopTable must render days_remaining. Got: {html}");
-        assert!(html.contains("bg-success/10"), "UserAccessDesktopTable active status must use success class. Got: {html}");
+        assert!(
+            html.contains("0x12345678\u{2026}5678"),
+            "UserAccessDesktopTable must render truncated wallet. Got: {html}"
+        );
+        assert!(
+            html.contains("Pro"),
+            "UserAccessDesktopTable must render plan_name. Got: {html}"
+        );
+        assert!(
+            html.contains("active"),
+            "UserAccessDesktopTable must render status. Got: {html}"
+        );
+        assert!(
+            html.contains("23 days"),
+            "UserAccessDesktopTable must render days_remaining. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-success/10"),
+            "UserAccessDesktopTable active status must use success class. Got: {html}"
+        );
     }
 
     /// `UserAccessDesktopTable` with no users renders empty body.
@@ -254,8 +279,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("user-access-management-table"), "UserAccessDesktopTable must render container. Got: {html}");
-        assert!(!html.contains("user-access-management-row"), "UserAccessDesktopTable empty body must omit rows. Got: {html}");
+        assert!(
+            html.contains("user-access-management-table"),
+            "UserAccessDesktopTable must render container. Got: {html}"
+        );
+        assert!(
+            !html.contains("user-access-management-row"),
+            "UserAccessDesktopTable empty body must omit rows. Got: {html}"
+        );
     }
 
     /// `UserAccessDesktopTable` with `expiring_soon` uses warning class.
@@ -269,7 +300,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-warning/10"), "UserAccessDesktopTable expiring_soon must use warning class. Got: {html}");
+        assert!(
+            html.contains("bg-warning/10"),
+            "UserAccessDesktopTable expiring_soon must use warning class. Got: {html}"
+        );
     }
 
     /// `UserAccessMobileCards` renders the mobile card layout.
@@ -281,10 +315,22 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("user-access-management-mobile"), "UserAccessMobileCards must render container. Got: {html}");
-        assert!(html.contains("Days Left"), "UserAccessMobileCards must render Days Left label. Got: {html}");
-        assert!(html.contains("Expires:"), "UserAccessMobileCards must render Expires label. Got: {html}");
-        assert!(html.contains("23 days"), "UserAccessMobileCards must render days_remaining. Got: {html}");
+        assert!(
+            html.contains("user-access-management-mobile"),
+            "UserAccessMobileCards must render container. Got: {html}"
+        );
+        assert!(
+            html.contains("Days Left"),
+            "UserAccessMobileCards must render Days Left label. Got: {html}"
+        );
+        assert!(
+            html.contains("Expires:"),
+            "UserAccessMobileCards must render Expires label. Got: {html}"
+        );
+        assert!(
+            html.contains("23 days"),
+            "UserAccessMobileCards must render days_remaining. Got: {html}"
+        );
     }
 
     /// `UserAccessMobileCards` shows "No Plan" when status is "no_plan".
@@ -299,7 +345,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("No Plan"), "UserAccessMobileCards must render No Plan label. Got: {html}");
+        assert!(
+            html.contains("No Plan"),
+            "UserAccessMobileCards must render No Plan label. Got: {html}"
+        );
     }
 
     /// `UserAccessMobileCards` shows "Never" when plan_expires_at is None.
@@ -313,7 +362,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Never"), "UserAccessMobileCards must render Never when no expiry. Got: {html}");
+        assert!(
+            html.contains("Never"),
+            "UserAccessMobileCards must render Never when no expiry. Got: {html}"
+        );
     }
 
     /// `UserAccessPaginationBar` renders Prev / Next + page indicator.
@@ -325,17 +377,38 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Previous"), "UserAccessPaginationBar must render Previous. Got: {html}");
-        assert!(html.contains("Next"), "UserAccessPaginationBar must render Next. Got: {html}");
-        assert!(html.contains("Page 2"), "UserAccessPaginationBar must render Page indicator. Got: {html}");
+        assert!(
+            html.contains("Previous"),
+            "UserAccessPaginationBar must render Previous. Got: {html}"
+        );
+        assert!(
+            html.contains("Next"),
+            "UserAccessPaginationBar must render Next. Got: {html}"
+        );
+        assert!(
+            html.contains("Page 2"),
+            "UserAccessPaginationBar must render Page indicator. Got: {html}"
+        );
     }
 
     /// `user_access_status_class` returns the expected class per status.
     #[test]
     fn user_access_status_class_matches_source() {
-        assert_eq!(user_access_status_class("active"), "bg-success/10 text-success border border-success/20");
-        assert_eq!(user_access_status_class("expiring_soon"), "bg-warning/10 text-warning border border-warning/20");
-        assert_eq!(user_access_status_class("expired"), "bg-destructive/10 text-destructive border border-destructive/20");
-        assert_eq!(user_access_status_class("unknown"), "bg-muted text-muted-foreground border border-border/50");
+        assert_eq!(
+            user_access_status_class("active"),
+            "bg-success/10 text-success border border-success/20"
+        );
+        assert_eq!(
+            user_access_status_class("expiring_soon"),
+            "bg-warning/10 text-warning border border-warning/20"
+        );
+        assert_eq!(
+            user_access_status_class("expired"),
+            "bg-destructive/10 text-destructive border border-destructive/20"
+        );
+        assert_eq!(
+            user_access_status_class("unknown"),
+            "bg-muted text-muted-foreground border border-border/50"
+        );
     }
 }

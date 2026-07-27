@@ -30,7 +30,6 @@ mod tests {
         // Smoke test: the wrapper is a transparent pass-through, so
         // we just verify the component name resolves and the
         // signature accepts an `Element` slot.
-        
     }
 
     #[test]
@@ -44,6 +43,5 @@ mod tests {
         // This test just documents the contract — we can't render
         // Dioxus components in unit tests, but the wrapper signature
         // itself is what enforces "no auth check".
-        
     }
 }

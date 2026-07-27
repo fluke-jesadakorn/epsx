@@ -10,7 +10,6 @@
 ///   actions.
 /// - `Banner` — a full-width page-level banner (e.g. a
 ///   system-wide announcement) with a colored background.
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;
@@ -141,7 +140,11 @@ mod tests {
         ];
         let classes: Vec<&str> = tones.iter().map(|t| t.border_class()).collect();
         let unique: std::collections::HashSet<&str> = classes.iter().copied().collect();
-        assert_eq!(unique.len(), tones.len(), "tone border classes must be distinct");
+        assert_eq!(
+            unique.len(),
+            tones.len(),
+            "tone border classes must be distinct"
+        );
     }
 
     #[test]
@@ -155,7 +158,11 @@ mod tests {
         ];
         let classes: Vec<&str> = tones.iter().map(|t| t.bg_class()).collect();
         let unique: std::collections::HashSet<&str> = classes.iter().copied().collect();
-        assert_eq!(unique.len(), tones.len(), "tone bg classes must be distinct");
+        assert_eq!(
+            unique.len(),
+            tones.len(),
+            "tone bg classes must be distinct"
+        );
     }
 
     #[test]

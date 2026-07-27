@@ -9,8 +9,8 @@
 
 use crate::chat::chat_conversation_list::{ChatConversationList, ConversationSummary};
 use crate::chat::chat_header::{ChatHeader, ChatHeaderData};
-use crate::chat::chat_message_list::ChatMessageList;
 use crate::chat::chat_input::ChatInput;
+use crate::chat::chat_message_list::ChatMessageList;
 
 use dioxus::prelude::*;
 
@@ -20,7 +20,8 @@ pub fn ChatInbox(
     /// Header data for the active conversation.
     active_header: ChatHeaderData,
     /// Messages in the active conversation.
-    #[props(default = Vec::new())] active_messages: Vec<crate::chat::message_bubble::Message>,
+    #[props(default = Vec::new())]
+    active_messages: Vec<crate::chat::message_bubble::Message>,
 ) -> Element {
     rsx! {
         div { class: "chat-inbox grid grid-cols-1 md:grid-cols-3 gap-4",
@@ -41,7 +42,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_inbox_smoke() {
-        
-    }
+    fn chat_inbox_smoke() {}
 }

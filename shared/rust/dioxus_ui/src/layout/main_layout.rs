@@ -255,7 +255,10 @@ mod tests {
         use crate::pages::PageMeta;
         // Marketing — was the source of the double-footer bug.
         let m = PageMeta::marketing("Home");
-        assert!(!m.include_footer, "PageMeta::marketing must not include footer");
+        assert!(
+            !m.include_footer,
+            "PageMeta::marketing must not include footer"
+        );
         // App — was the source of the spurious single-footer.
         let a = PageMeta::app("Dashboard");
         assert!(!a.include_footer, "PageMeta::app must not include footer");
@@ -264,6 +267,9 @@ mod tests {
         let d = PageMeta::admin("Command Center");
         assert!(!d.include_footer, "PageMeta::admin must not include footer");
         let d_bc = PageMeta::admin_with_body_class("Access Denied", "h-screen");
-        assert!(!d_bc.include_footer, "PageMeta::admin_with_body_class must not include footer");
+        assert!(
+            !d_bc.include_footer,
+            "PageMeta::admin_with_body_class must not include footer"
+        );
     }
 }

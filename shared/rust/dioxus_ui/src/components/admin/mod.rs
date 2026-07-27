@@ -90,7 +90,19 @@ pub mod auth_page_overlay;
 // - All other components use their natural source names
 //   (`WalletStatusBadge`, `WalletLabelBadge`, `WalletCard`, etc.).
 pub mod disable_wallet_modal;
+pub mod news_editor;
+pub mod news_management;
+pub mod page_layout;
+pub mod payment_links_management;
+pub mod payment_links_ui;
+pub mod payments_management;
+pub mod permission_transfer_list;
+pub mod plan_analytics_dashboard;
+pub mod plan_management;
+pub mod policy_builder;
 pub mod reenable_wallet_modal;
+pub mod status_pages;
+pub mod user_access_management;
 pub mod wallet_card;
 pub mod wallet_detail_header;
 pub mod wallet_filter_bar;
@@ -102,18 +114,6 @@ pub mod wallet_stats_bar;
 pub mod wallet_status_badge;
 pub mod wallet_table;
 pub mod wallet_table_row;
-pub mod page_layout;
-pub mod status_pages;
-pub mod payments_management;
-pub mod user_access_management;
-pub mod payment_links_ui;
-pub mod payment_links_management;
-pub mod news_management;
-pub mod news_editor;
-pub mod plan_management;
-pub mod plan_analytics_dashboard;
-pub mod policy_builder;
-pub mod permission_transfer_list;
 
 // Re-exports of the NEW admin-specific components for caller
 // convenience: `use crate::components::admin::PancakeButton` works
@@ -125,8 +125,7 @@ pub use analytics_card::{
 pub use form_components::FormFieldWrapper;
 pub use label::Label;
 pub use loading_spinner::{
-    ButtonLoadingSpinner, InlineLoading, LoadingSpinner, PageLoadingSpinner,
-    SectionLoading,
+    ButtonLoadingSpinner, InlineLoading, LoadingSpinner, PageLoadingSpinner, SectionLoading,
 };
 pub use pancake_button::{PancakeButton, PancakeFAB, PancakeIconButton};
 pub use pancake_card::{PancakeCard, PancakeFeatureCard, PancakeStatsCard};
@@ -140,10 +139,14 @@ pub use toast::{Toast, ToastDescription, ToastTitle, ToastViewport};
 // Wave 38a T1 — admin wallet domain re-exports.
 // + Wave 38b T2 — admin domain component re-exports.
 pub use disable_wallet_modal::{
-    DisableDuration, DisablePlatform, DisableReasonCategory, DisableWalletData,
-    DisableWalletModal,
+    DisableDuration, DisablePlatform, DisableReasonCategory, DisableWalletData, DisableWalletModal,
+};
+pub use page_layout::{
+    PageAuthRequired, PageEmpty, PageError, PageGradient, PageHeader, PageLayout, PageMaxWidth,
+    PageSkeleton, PageTabItem, PageTabs,
 };
 pub use reenable_wallet_modal::{ReenableDisableInfo, ReenableWalletData, ReenableWalletModal};
+pub use status_pages::{AccessDeniedContent, ErrorContent, NotFoundContent};
 pub use wallet_card::{WalletCard, WalletCardData};
 pub use wallet_detail_header::WalletDetailHeader;
 pub use wallet_filter_bar::{WalletFilterBar, WalletFilters};
@@ -152,17 +155,12 @@ pub use wallet_label_badge::{WalletLabelBadge, WalletLabelSize};
 pub use wallet_management_tabs::WalletManagementTabs;
 pub use wallet_section::WalletSection;
 pub use wallet_stats_bar::{
-    AdminWalletStatsBar, PlatformDistributionPanel, WalletPlatformDistribution,
-    WalletStatsChanges, WalletStatsData,
+    AdminWalletStatsBar, PlatformDistributionPanel, WalletPlatformDistribution, WalletStatsChanges,
+    WalletStatsData,
 };
 pub use wallet_status_badge::{WalletStatusBadge, WalletStatusKind};
 pub use wallet_table::WalletTable;
 pub use wallet_table_row::{AdminWalletTableRow, WalletRowData, WalletRowStatus};
-pub use page_layout::{
-    PageAuthRequired, PageEmpty, PageError, PageGradient, PageHeader, PageLayout,
-    PageMaxWidth, PageSkeleton, PageTabItem, PageTabs,
-};
-pub use status_pages::{AccessDeniedContent, ErrorContent, NotFoundContent};
 
 // =====================================================================
 // Re-exports of existing primitives (admin-namespaced aliases)
@@ -180,17 +178,16 @@ pub use crate::primitives::admin_metric_card::{AdminMetricCard, MetricTrend};
 pub use crate::primitives::admin_table::AdminTable;
 pub use crate::primitives::alert::{Alert, AlertAction, AlertDescription, AlertKind, AlertTitle};
 pub use crate::primitives::alert_dialog::{
-    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-    AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-    AlertDialogTrigger,
+    AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+    AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 };
 pub use crate::primitives::avatar::Avatar;
 pub use crate::primitives::badge::{Badge, BadgeKind};
 pub use crate::primitives::breadcrumb::BreadcrumbNav;
 pub use crate::primitives::button::{Button, ButtonKind, ButtonSize};
 pub use crate::primitives::card::{
-    Card, CardBody, CardDescription, CardDivider, CardFooter, CardHeader, CardKind,
-    CardLink, CardTitle,
+    Card, CardBody, CardDescription, CardDivider, CardFooter, CardHeader, CardKind, CardLink,
+    CardTitle,
 };
 pub use crate::primitives::charts::{ChartArea, ChartBar, ChartDonut, ChartLine, ChartStackedBar};
 pub use crate::primitives::checkbox::Checkbox;
@@ -202,10 +199,11 @@ pub use crate::primitives::dialog::{
 pub use crate::primitives::dropdown::{
     Dropdown, DropdownCheckboxItem, DropdownItem, DropdownLabel, DropdownSeparator,
 };
-pub use crate::primitives::dropdown_menu::{Content as DropdownMenuContent, DropdownMenuTrigger, Group as DropdownMenuGroup};
+pub use crate::primitives::dropdown_menu::{
+    Content as DropdownMenuContent, DropdownMenuTrigger, Group as DropdownMenuGroup,
+};
 pub use crate::primitives::form::{
-    Field, Form, FormActions, FormField, FormRow, FormSection, InputGroup, RadioGroup,
-    SelectField,
+    Field, Form, FormActions, FormField, FormRow, FormSection, InputGroup, RadioGroup, SelectField,
 };
 pub use crate::primitives::icon::{Icon, IconButton};
 pub use crate::primitives::input::{Input, InputKind};
@@ -217,13 +215,13 @@ pub use crate::primitives::permission_badge::{
 };
 pub use crate::primitives::progress::Progress;
 pub use crate::primitives::safe_theme_script::{
-    SafeThemeScript, SafeThemeScriptWithNonce, theme_utils,
+    theme_utils, SafeThemeScript, SafeThemeScriptWithNonce,
 };
 pub use crate::primitives::select::{MultiSelect, Select, SelectOption};
 pub use crate::primitives::separator::Separator;
 pub use crate::primitives::sheet::{
-    Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader,
-    SheetSide, SheetTitle, SheetTrigger,
+    Sheet, SheetClose, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetSide,
+    SheetTitle, SheetTrigger,
 };
 pub use crate::primitives::skeleton::{Skeleton, SkeletonBlock, SkeletonCircle, SkeletonGroup};
 pub use crate::primitives::stat_card::StatCard;

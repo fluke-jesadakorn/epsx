@@ -31,7 +31,8 @@ pub fn ProgressCircle(
     let radius = (size as f32 - stroke_width as f32) / 2.0;
     let circumference = 2.0 * std::f32::consts::PI * radius;
     let offset = circumference * (1.0 - v / 100.0);
-    let mut cls = "progress-circle relative inline-flex items-center justify-center text-primary".to_string();
+    let mut cls =
+        "progress-circle relative inline-flex items-center justify-center text-primary".to_string();
     if let Some(c) = class {
         cls.push(' ');
         cls.push_str(&c);

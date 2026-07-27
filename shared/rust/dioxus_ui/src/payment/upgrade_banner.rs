@@ -24,20 +24,22 @@ pub fn UpgradeBanner(
     /// Plan name to upgrade to.
     plan_name: String,
     /// Urgency level — drives the color scheme.
-    #[props(default = UpgradeUrgency::Medium)] urgency: UpgradeUrgency,
+    #[props(default = UpgradeUrgency::Medium)]
+    urgency: UpgradeUrgency,
     /// Optional message override.
-    #[props(default = None)] message: Option<String>,
+    #[props(default = None)]
+    message: Option<String>,
     /// CTA href. Defaults to "/plans".
-    #[props(default = "/plans".to_string())] href: String,
+    #[props(default = "/plans".to_string())]
+    href: String,
 ) -> Element {
     let (gradient, icon) = match urgency {
         UpgradeUrgency::Low => ("from-slate-600 to-slate-700", "info"),
         UpgradeUrgency::Medium => ("from-orange-500 to-purple-600", "trending-up"),
         UpgradeUrgency::High => ("from-red-500 to-pink-600", "alert-triangle"),
     };
-    let msg = message.unwrap_or_else(|| {
-        format!("Upgrade to {} to unlock more features.", plan_name)
-    });
+    let msg =
+        message.unwrap_or_else(|| format!("Upgrade to {} to unlock more features.", plan_name));
     rsx! {
         div {
             class: format!("upgrade-banner upgrade-banner-urgency-{:?} relative rounded-2xl p-6 bg-gradient-to-r {gradient} text-white shadow-xl overflow-hidden", urgency),
@@ -72,7 +74,5 @@ mod tests {
     }
 
     #[test]
-    fn upgrade_banner_smoke() {
-        
-    }
+    fn upgrade_banner_smoke() {}
 }

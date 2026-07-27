@@ -15,10 +15,10 @@
 //! Section markers (for the design-doc test suite):
 //!   - `portfolio-address-page` — the wrapper div.
 
-use dioxus::prelude::*;
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
+use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Portfolio");
@@ -30,7 +30,10 @@ fn RenderPortfolioAddress(ctx: PageContext) -> Element {
     // The address param is set by the dispatcher. Strip any leading
     // `/` so the meta refresh URL is clean.
     let raw_address = ctx.params.get("address").cloned().unwrap_or_default();
-    let address = raw_address.trim_start_matches('/').trim_end_matches('/').to_string();
+    let address = raw_address
+        .trim_start_matches('/')
+        .trim_end_matches('/')
+        .to_string();
     // Per the OLD prod behaviour, the per-address path is a 307 to
     // `/portfolio`. We use a meta-refresh so the redirect works
     // pre-hydration (the OLD does the same; see apps-old/frontend
@@ -94,7 +97,11 @@ mod tests {
     fn test_render_smoke() {
         let (_meta, el) = render(&ctx_with_address("0xdeadbeef"));
         let html = dioxus_ssr::render_element(el);
-        assert!(!html.is_empty(), "portfolio address page must render. Got: {}", html);
+        assert!(
+            !html.is_empty(),
+            "portfolio address page must render. Got: {}",
+            html
+        );
     }
 
     #[test]

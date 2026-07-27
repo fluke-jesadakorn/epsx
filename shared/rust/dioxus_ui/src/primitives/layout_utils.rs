@@ -7,7 +7,6 @@
 ///   horizontal padding.
 /// - `Center` — flex container that centers its children both
 ///   horizontally and vertically.
-
 use dioxus::prelude::*;
 
 /// Preserves an aspect ratio. Renders a `<div>` with a CSS
@@ -60,10 +59,7 @@ pub fn Container(
 /// horizontally and vertically. Useful for full-screen "loading"
 /// states or single-element pages.
 #[component]
-pub fn Center(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn Center(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "center flex items-center justify-center".to_string();
     if let Some(c) = class {
         cls.push(' ');

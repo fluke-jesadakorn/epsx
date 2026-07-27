@@ -82,8 +82,12 @@ pub fn Header(
     });
     let show_chain = !is_production.unwrap_or(false) && chain_selector.is_some();
     let header_class = {
-        let mut c = String::from("sticky top-0 z-40 border-b border-border/40 bg-card admin-header");
-        if let Some(extra) = class_name { c.push(' '); c.push_str(&extra); }
+        let mut c =
+            String::from("sticky top-0 z-40 border-b border-border/40 bg-card admin-header");
+        if let Some(extra) = class_name {
+            c.push(' ');
+            c.push_str(&extra);
+        }
         c
     };
 
@@ -158,7 +162,11 @@ fn DefaultBell(unread: u32, on_bell_click: Option<EventHandler<MouseEvent>>) -> 
     } else {
         "Notifications".to_string()
     };
-    let badge_text = if unread > 99 { "99+".to_string() } else { unread.to_string() };
+    let badge_text = if unread > 99 {
+        "99+".to_string()
+    } else {
+        unread.to_string()
+    };
     rsx! {
         button {
             class: "btn btn-ghost btn-icon relative admin-header-bell",

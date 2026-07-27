@@ -54,10 +54,7 @@ pub fn SectionHeader(
 /// Section body — the main content. Renders a `<div>` with the
 /// section's content flow.
 #[component]
-pub fn SectionBody(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn SectionBody(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "section-body flex flex-col gap-4".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -70,11 +67,9 @@ pub fn SectionBody(
 
 /// Section footer — typically a row of action buttons.
 #[component]
-pub fn SectionFooter(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
-    let mut cls = "section-footer flex items-center justify-end gap-2 pt-4 border-t border-border".to_string();
+pub fn SectionFooter(#[props(default = None)] class: Option<String>, children: Element) -> Element {
+    let mut cls = "section-footer flex items-center justify-end gap-2 pt-4 border-t border-border"
+        .to_string();
     if let Some(c) = class {
         cls.push(' ');
         cls.push_str(&c);

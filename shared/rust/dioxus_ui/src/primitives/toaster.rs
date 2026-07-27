@@ -23,8 +23,12 @@ use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ToasterPosition {
-    TopLeft, TopCenter, TopRight,
-    BottomLeft, BottomCenter, BottomRight,
+    TopLeft,
+    TopCenter,
+    TopRight,
+    BottomLeft,
+    BottomCenter,
+    BottomRight,
 }
 
 impl ToasterPosition {
@@ -90,10 +94,7 @@ mod tests {
 
     #[test]
     fn class_strings_contain_toast_container_prefix() {
-        for p in [
-            ToasterPosition::TopLeft,
-            ToasterPosition::BottomRight,
-        ] {
+        for p in [ToasterPosition::TopLeft, ToasterPosition::BottomRight] {
             assert!(p.class().starts_with("toast-container"));
         }
     }

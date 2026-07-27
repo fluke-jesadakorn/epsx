@@ -212,13 +212,31 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("IDENTITY"), "Identity slot should render. Got: {html}");
-        assert!(html.contains("STATS"), "Stats slot should render. Got: {html}");
-        assert!(html.contains("ACTIONS"), "Actions slot should render. Got: {html}");
+        assert!(
+            html.contains("IDENTITY"),
+            "Identity slot should render. Got: {html}"
+        );
+        assert!(
+            html.contains("STATS"),
+            "Stats slot should render. Got: {html}"
+        );
+        assert!(
+            html.contains("ACTIONS"),
+            "Actions slot should render. Got: {html}"
+        );
         // Slot containers.
-        assert!(html.contains("wallet-card-identity"), "Should have identity container. Got: {html}");
-        assert!(html.contains("wallet-card-stats"), "Should have stats container. Got: {html}");
-        assert!(html.contains("wallet-card-actions"), "Should have actions container. Got: {html}");
+        assert!(
+            html.contains("wallet-card-identity"),
+            "Should have identity container. Got: {html}"
+        );
+        assert!(
+            html.contains("wallet-card-stats"),
+            "Should have stats container. Got: {html}"
+        );
+        assert!(
+            html.contains("wallet-card-actions"),
+            "Should have actions container. Got: {html}"
+        );
     }
 
     /// The wallet address is exposed via `data-wallet-address`.

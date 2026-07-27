@@ -19,7 +19,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn dashboard_module_re_exports_resolve() {
-        
-    }
+    fn dashboard_module_re_exports_resolve() {}
 }

@@ -9,7 +9,6 @@
 /// - `StatRow` — a horizontal row of `MetricPill`s.
 /// - `StatGroup` — a labeled group of `StatRow`s with an
 ///   optional header.
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;

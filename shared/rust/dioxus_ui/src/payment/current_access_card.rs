@@ -76,7 +76,5 @@ mod tests {
     }
 
     #[test]
-    fn current_access_card_smoke() {
-        
-    }
+    fn current_access_card_smoke() {}
 }

@@ -42,37 +42,9 @@ pub const ADMIN_NOTIFICATIONS_EMPTY: &str = "empty";
 pub const ADMIN_NOTIFICATIONS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_NOTIFICATIONS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NOTIFICATIONS_MALFORMED: &str = "malformed";
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct AdminNotificationMetrics {
-    pub queue_depth: i64,
-    pub terminal_failed: i64,
-    pub provider_accepted: i64,
-    pub delivery_attempts: i64,
-    pub channel_outcomes: BTreeMap<String, i64>,
-}
-
-pub fn decode_admin_notification_metrics(
-    value: serde_json::Value,
-) -> Option<AdminNotificationMetrics> {
-    let metrics: AdminNotificationMetrics = serde_json::from_value(value).ok()?;
-    (metrics.queue_depth >= 0
-        && metrics.terminal_failed >= 0
-        && metrics.provider_accepted >= 0
-        && metrics.delivery_attempts >= 0
-        && metrics.channel_outcomes.iter().all(|(channel, count)| {
-            !channel.is_empty()
-                && channel.len() <= MAX_CHANNEL_CHARS
-                && channel.bytes().all(|byte| {
-                    byte.is_ascii_lowercase()
-                        || byte.is_ascii_digit()
-                        || matches!(byte, b'_' | b'-')
-                })
-                && *count >= 0
-        }))
-        .then_some(metrics)
-}
+pub const ADMIN_NOTIFICATIONS_SEND_STATE_PARAM: &str = "data_admin_notifications_send_state";
+pub const ADMIN_NOTIFICATIONS_SEND_ACCEPTED: &str = "accepted";
+pub const ADMIN_NOTIFICATIONS_SEND_ERROR: &str = "error";
 
 pub const ADMIN_NOTIFICATION_CREATE_DATA_PARAM: &str = "data_admin_notification_create";
 pub const ADMIN_NOTIFICATION_CREATE_STATE_PARAM: &str = "data_admin_notification_create_state";
@@ -143,6 +115,66 @@ pub struct AdminNotificationList {
     pub offset: i64,
 }
 
+/// Redacted operational counters safe for the admin workspace. These are
+/// bounded observations, not delivery receipts for any individual message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminNotificationMetrics {
+    pub queue_depth: i64,
+    pub queue_age_seconds: Option<i64>,
+    pub suppressed: i64,
+    pub retry_wait: i64,
+    pub terminal_failed: i64,
+    pub dead_lettered: i64,
+    pub provider_accepted: i64,
+    pub attempting: i64,
+    pub channel_outcomes: BTreeMap<String, i64>,
+    pub provider_events: i64,
+    pub delivery_attempts: i64,
+    pub replay_cursors: i64,
+    pub replay_cursor_age_seconds: Option<i64>,
+    pub active_streams: i64,
+    pub stream_connections_total: i64,
+    pub stream_reconnects_total: i64,
+    pub stream_replayed_events_total: i64,
+    pub stream_lag_seconds: Option<i64>,
+    pub stream_query_failures_total: i64,
+}
+
+pub fn decode_admin_notification_metrics(
+    value: serde_json::Value,
+) -> Option<AdminNotificationMetrics> {
+    let metrics: AdminNotificationMetrics = serde_json::from_value(value).ok()?;
+    let non_negative = |value: i64| (0..=10_000_000).contains(&value);
+    if !non_negative(metrics.queue_depth)
+        || !metrics.queue_age_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.suppressed)
+        || !non_negative(metrics.retry_wait)
+        || !non_negative(metrics.terminal_failed)
+        || !non_negative(metrics.dead_lettered)
+        || !non_negative(metrics.provider_accepted)
+        || !non_negative(metrics.attempting)
+        || !non_negative(metrics.provider_events)
+        || !non_negative(metrics.delivery_attempts)
+        || !non_negative(metrics.replay_cursors)
+        || !metrics.replay_cursor_age_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.active_streams)
+        || metrics.active_streams > 256
+        || !non_negative(metrics.stream_connections_total)
+        || !non_negative(metrics.stream_reconnects_total)
+        || !non_negative(metrics.stream_replayed_events_total)
+        || !metrics.stream_lag_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.stream_query_failures_total)
+        || metrics.channel_outcomes.len() > 3
+        || metrics.channel_outcomes.iter().any(|(channel, count)| {
+            !matches!(channel.as_str(), "email" | "in_app" | "push") || !non_negative(*count)
+        })
+    {
+        return None;
+    }
+    Some(metrics)
+}
+
 /// Decode the exact read projection and reject semantically impossible values
 /// before any backend field reaches HTML.
 pub fn decode_admin_notification_projection(
@@ -175,7 +207,10 @@ impl AdminNotificationSummary {
             && valid_optional_text(self.title.as_deref(), MAX_TITLE_CHARS)
             && valid_optional_text(self.subject.as_deref(), MAX_SUBJECT_CHARS)
             && valid_channel(&self.channel)
-            && matches!(self.status.as_str(), "pending" | "sent" | "failed" | "read")
+            && matches!(
+                self.status.as_str(),
+                "pending" | "sent" | "failed" | "read" | "suppressed" | "expired"
+            )
             && valid_optional_text(self.notification_type.as_deref(), MAX_TYPE_CHARS)
             && self.priority.as_deref().is_none_or(|priority| {
                 matches!(priority, "low" | "normal" | "high" | "critical" | "urgent")
@@ -216,6 +251,7 @@ fn notification_status_class(status: &str) -> &'static str {
     match status {
         "sent" => "border-green-500/30 bg-green-500/10 text-green-800 dark:text-green-300",
         "failed" => "border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300",
+        "suppressed" => "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300",
         _ => "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300",
     }
 }
@@ -314,7 +350,10 @@ fn notification_load(ctx: &PageContext, page: NotificationPage) -> NotificationL
 }
 
 fn notification_metrics(ctx: &PageContext) -> Option<AdminNotificationMetrics> {
-    if ctx.params.get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM).map(String::as_str)
+    if ctx
+        .params
+        .get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM)
+        .map(String::as_str)
         != Some(ADMIN_NOTIFICATIONS_READY)
     {
         return None;
@@ -368,8 +407,8 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
                 PageLayout {
                     max_width: Some(PageMaxWidth::FourXl),
                     PageHeader {
-                        title: "New notification".to_string(),
-                        subtitle: Some("Backend-authorized delivery workspace".to_string()),
+                        title: "Command Center".to_string(),
+                        subtitle: Some("Global broadcast protocol and network alert management".to_string()),
                         icon: Some("bell".to_string()),
                         gradient: Some(PageGradient::Info),
                         centered: Some(false),
@@ -456,10 +495,13 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
             }
             NotificationFilters { page: page.clone() }
             if let Some(metrics) = notification_metrics(&ctx) {
-                NotificationMetrics { metrics }
+                NotificationMetricsPanel { snapshot: metrics }
             }
             if let Some(state) = notification_mutation_state(&ctx) {
                 NotificationMutationNotice { state }
+            }
+            if let Some(state) = ctx.params.get(ADMIN_NOTIFICATIONS_SEND_STATE_PARAM) {
+                NotificationSendFeedback { state: state.clone() }
             }
             match load {
                 NotificationLoad::Ready(projection) => rsx! {
@@ -533,25 +575,12 @@ fn NotificationFilters(page: NotificationPage) -> Element {
     }
 }
 
-#[component]
-fn NotificationMetrics(metrics: AdminNotificationMetrics) -> Element {
-    rsx! {
-        section { class: "mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4", aria_label: "Notification metrics", "data-admin-notification-metrics": "ready",
-            NotificationMetric { label: "Queue", value: metrics.queue_depth.to_string() }
-            NotificationMetric { label: "Failed", value: metrics.terminal_failed.to_string() }
-            NotificationMetric { label: "Accepted", value: metrics.provider_accepted.to_string() }
-            NotificationMetric { label: "Delivery attempts", value: metrics.delivery_attempts.to_string() }
-        }
-    }
-}
-
-#[component]
-fn NotificationMetric(label: &'static str, value: String) -> Element {
-    rsx! { div { class: "rounded-xl border border-border/30 bg-card p-4", dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "{label}" }, dd { class: "mt-1 text-2xl font-semibold text-foreground", "{value}" } } }
-}
-
 fn notification_mutation_state(ctx: &PageContext) -> Option<&'static str> {
-    match ctx.params.get(ADMIN_NOTIFICATIONS_MUTATION_PARAM).map(String::as_str) {
+    match ctx
+        .params
+        .get(ADMIN_NOTIFICATIONS_MUTATION_PARAM)
+        .map(String::as_str)
+    {
         Some("committed") => Some("committed"),
         Some("conflict") => Some("conflict"),
         Some("forbidden") => Some("forbidden"),
@@ -564,11 +593,31 @@ fn notification_mutation_state(ctx: &PageContext) -> Option<&'static str> {
 #[component]
 fn NotificationMutationNotice(state: &'static str) -> Element {
     let (title, detail, class_name) = match state {
-        "committed" => ("Notification updated", "The backend committed the notification operation.", "border-green-500/30 bg-green-500/10"),
-        "forbidden" => ("Notification operation denied", "The backend did not authorize this operation.", "border-red-500/30 bg-red-500/10"),
-        "unavailable" => ("Notification operation unavailable", "No authoritative mutation result is available.", "border-amber-500/30 bg-amber-500/10"),
-        "conflict" => ("Notification operation conflicted", "The backend reported a conflicting notification state.", "border-amber-500/30 bg-amber-500/10"),
-        _ => ("Notification operation could not be verified", "The mutation response did not match the strict contract.", "border-amber-500/30 bg-amber-500/10"),
+        "committed" => (
+            "Notification updated",
+            "The backend committed the notification operation.",
+            "border-green-500/30 bg-green-500/10",
+        ),
+        "forbidden" => (
+            "Notification operation denied",
+            "The backend did not authorize this operation.",
+            "border-red-500/30 bg-red-500/10",
+        ),
+        "unavailable" => (
+            "Notification operation unavailable",
+            "No authoritative mutation result is available.",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
+        "conflict" => (
+            "Notification operation conflicted",
+            "The backend reported a conflicting notification state.",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
+        _ => (
+            "Notification operation could not be verified",
+            "The mutation response did not match the strict contract.",
+            "border-amber-500/30 bg-amber-500/10",
+        ),
     };
     rsx! {
         section { class: "mb-6 rounded-2xl border p-4 {class_name}", role: "status", "data-admin-notifications-mutation": state,
@@ -885,6 +934,62 @@ fn NotificationCreateProblem(state: &'static str, title: String, detail: String)
     }
 }
 
+#[component]
+fn NotificationSendFeedback(state: String) -> Element {
+    let (class_name, title, detail) = match state.as_str() {
+        ADMIN_NOTIFICATIONS_SEND_ACCEPTED => (
+            "border-green-500/30 bg-green-500/10 text-green-900 dark:text-green-200",
+            "Notification queued",
+            "The backend accepted the canonical-wallet notification request. Delivery remains asynchronous.",
+        ),
+        ADMIN_NOTIFICATIONS_SEND_ERROR => (
+            "border-red-500/30 bg-red-500/10 text-red-900 dark:text-red-200",
+            "Notification was not queued",
+            "The backend rejected or could not complete the request. No delivery success is being claimed.",
+        ),
+        _ => return rsx! {},
+    };
+    rsx! {
+        section { class: "mb-6 rounded-xl border p-4 {class_name}", role: "status", "data-admin-notifications-send-state": state,
+            h2 { class: "font-semibold", "{title}" }
+            p { class: "mt-1 text-sm", "{detail}" }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetricsPanel(snapshot: AdminNotificationMetrics) -> Element {
+    rsx! {
+        section {
+            class: "mb-6 rounded-2xl border border-border/30 bg-card p-6 shadow-lg",
+            role: "status",
+            "data-admin-notification-metrics": ADMIN_NOTIFICATIONS_READY,
+            h2 { class: "text-lg font-semibold text-foreground", "Operational queue snapshot" }
+            p { class: "mt-1 text-xs text-muted-foreground", "Backend counters are observations only; they do not claim delivery of an individual notification." }
+            div { class: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
+                NotificationMetricValue { label: "Queued", value: snapshot.queue_depth }
+                NotificationMetricValue { label: "Retry wait", value: snapshot.retry_wait }
+                NotificationMetricValue { label: "Attempting", value: snapshot.attempting }
+                NotificationMetricValue { label: "Provider accepted", value: snapshot.provider_accepted }
+                NotificationMetricValue { label: "Terminal failed", value: snapshot.terminal_failed }
+                NotificationMetricValue { label: "Dead lettered", value: snapshot.dead_lettered }
+                NotificationMetricValue { label: "Suppressed", value: snapshot.suppressed }
+                NotificationMetricValue { label: "Active streams", value: snapshot.active_streams }
+            }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetricValue(label: &'static str, value: i64) -> Element {
+    rsx! {
+        div { class: "rounded-xl border border-border/30 bg-muted/20 p-3",
+            p { class: "text-xs text-muted-foreground", "{label}" }
+            p { class: "mt-1 text-xl font-semibold tabular-nums text-foreground", "{value}" }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
@@ -931,6 +1036,30 @@ mod tests {
             total,
             limit: NOTIFICATION_PAGE_LIMIT,
             offset,
+        }
+    }
+
+    fn metrics() -> AdminNotificationMetrics {
+        AdminNotificationMetrics {
+            queue_depth: 4,
+            queue_age_seconds: Some(2),
+            suppressed: 1,
+            retry_wait: 1,
+            terminal_failed: 0,
+            dead_lettered: 0,
+            provider_accepted: 3,
+            attempting: 1,
+            channel_outcomes: BTreeMap::from([(String::from("in_app"), 4)]),
+            provider_events: 3,
+            delivery_attempts: 4,
+            replay_cursors: 2,
+            replay_cursor_age_seconds: Some(1),
+            active_streams: 1,
+            stream_connections_total: 2,
+            stream_reconnects_total: 1,
+            stream_replayed_events_total: 1,
+            stream_lag_seconds: Some(1),
+            stream_query_failures_total: 0,
         }
     }
 
@@ -1050,6 +1179,43 @@ mod tests {
         assert!(unavailable.contains("Notification records are unavailable"));
         assert!(malformed.contains("data-admin-notifications-state=\"malformed\""));
         assert!(malformed.contains("Notification data could not be verified"));
+    }
+
+    #[test]
+    fn metrics_projection_is_strict_bounded_and_truthful() {
+        let valid = serde_json::to_value(metrics()).unwrap();
+        assert!(decode_admin_notification_metrics(valid.clone()).is_some());
+
+        let mut unknown = valid.clone();
+        unknown["recipient"] = serde_json::json!("private");
+        assert!(decode_admin_notification_metrics(unknown).is_none());
+
+        let mut negative = valid.clone();
+        negative["queue_depth"] = serde_json::json!(-1);
+        assert!(decode_admin_notification_metrics(negative).is_none());
+
+        let mut too_many_streams = valid.clone();
+        too_many_streams["active_streams"] = serde_json::json!(257);
+        assert!(decode_admin_notification_metrics(too_many_streams).is_none());
+
+        let mut unknown_channel = valid.clone();
+        unknown_channel["channel_outcomes"] = serde_json::json!({"sms": 1});
+        assert!(decode_admin_notification_metrics(unknown_channel).is_none());
+
+        let mut page = ctx(ADMIN_NOTIFICATIONS_EMPTY, Some(projection(vec![], 0, 0)), 1);
+        page.params.insert(
+            ADMIN_NOTIFICATION_METRICS_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_READY.to_string(),
+        );
+        page.params.insert(
+            ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
+            serde_json::to_string(&metrics()).unwrap(),
+        );
+        let rendered = html(&page);
+        assert!(rendered.contains("Operational queue snapshot"));
+        assert!(rendered.contains("Provider accepted"));
+        assert!(rendered.contains("Backend counters are observations only"));
+        assert!(!rendered.contains("recipient"));
     }
 
     #[test]
@@ -1178,6 +1344,10 @@ mod tests {
             "border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300"
         );
         assert_eq!(
+            notification_status_class("suppressed"),
+            "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+        );
+        assert_eq!(
             notification_status_class("pending"),
             "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300"
         );
@@ -1190,7 +1360,9 @@ mod tests {
             Some(projection(vec![notification()], 1, 0)),
             1,
         ));
-        let create = dioxus_ssr::render_element(render_create(&create_ctx(ADMIN_NOTIFICATION_CREATE_FORM, None)).1);
+        let create = dioxus_ssr::render_element(
+            render_create(&create_ctx(ADMIN_NOTIFICATION_CREATE_FORM, None)).1,
+        );
         assert!(create.contains("data-admin-notifications-surface=\"create\""));
         assert!(create.contains("data-admin-notifications-state=\"form\""));
         assert!(create.contains("method=\"post\""));
@@ -1208,8 +1380,6 @@ mod tests {
                 "Send notification",
                 "Purge",
                 "Clear all",
-                "Templates",
-                "action_url",
             ] {
                 assert!(
                     !rendered.contains(forbidden),
@@ -1217,6 +1387,49 @@ mod tests {
                 );
             }
         }
+        for supported in [
+            "Recipient wallet",
+            "name=\"recipient_wallet_address\"",
+            "name=\"title\"",
+            "name=\"message\"",
+            "Send notification",
+        ] {
+            assert!(create.contains(supported), "{supported}");
+        }
+        for unsupported in ["Global Broadcast", "Action URL", "Asset URL"] {
+            assert!(!create.contains(unsupported), "{unsupported}");
+        }
+    }
+
+    #[test]
+    fn send_feedback_is_closed_and_never_claims_provider_delivery() {
+        let mut accepted = ctx(
+            ADMIN_NOTIFICATIONS_READY,
+            Some(projection(vec![notification()], 1, 0)),
+            1,
+        );
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_SEND_ACCEPTED.to_string(),
+        );
+        let accepted_html = html(&accepted);
+        assert!(accepted_html.contains("data-admin-notifications-send-state=\"accepted\""));
+        assert!(accepted_html.contains("Delivery remains asynchronous"));
+        assert!(!accepted_html.contains("delivered successfully"));
+
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_SEND_ERROR.to_string(),
+        );
+        let error_html = html(&accepted);
+        assert!(error_html.contains("data-admin-notifications-send-state=\"error\""));
+        assert!(error_html.contains("No delivery success is being claimed"));
+
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            "forged".to_string(),
+        );
+        assert!(!html(&accepted).contains("data-admin-notifications-send-state"));
     }
 
     fn create_ctx(state: &str, result: Option<AdminNotificationCreateResult>) -> PageContext {

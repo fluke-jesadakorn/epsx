@@ -332,10 +332,22 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("policy-builder-header"), "PolicyBuilderHeader must render container class. Got: {html}");
-        assert!(html.contains("Show Templates"), "PolicyBuilderHeader must render Show Templates. Got: {html}");
-        assert!(html.contains("Test"), "PolicyBuilderHeader must render Test button. Got: {html}");
-        assert!(html.contains("Save Policy"), "PolicyBuilderHeader must render Save Policy button. Got: {html}");
+        assert!(
+            html.contains("policy-builder-header"),
+            "PolicyBuilderHeader must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Show Templates"),
+            "PolicyBuilderHeader must render Show Templates. Got: {html}"
+        );
+        assert!(
+            html.contains("Test"),
+            "PolicyBuilderHeader must render Test button. Got: {html}"
+        );
+        assert!(
+            html.contains("Save Policy"),
+            "PolicyBuilderHeader must render Save Policy button. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderHeader` shows "Hide Templates" when toggled.
@@ -354,7 +366,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Hide Templates"), "PolicyBuilderHeader with show_templates=true must render Hide Templates. Got: {html}");
+        assert!(
+            html.contains("Hide Templates"),
+            "PolicyBuilderHeader with show_templates=true must render Hide Templates. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderHeader` shows "Saving..." when saving=true.
@@ -373,7 +388,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Saving..."), "PolicyBuilderHeader saving must show Saving... text. Got: {html}");
+        assert!(
+            html.contains("Saving..."),
+            "PolicyBuilderHeader saving must show Saving... text. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderConfigurationCard` renders all 4 fields.
@@ -390,11 +408,26 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("policy-builder-configuration-card"), "PolicyBuilderConfigurationCard must render container class. Got: {html}");
-        assert!(html.contains("Block high-value txn"), "PolicyBuilderConfigurationCard must render name. Got: {html}");
-        assert!(html.contains("Block transactions over 10k USDT"), "PolicyBuilderConfigurationCard must render description. Got: {html}");
-        assert!(html.contains("Priority"), "PolicyBuilderConfigurationCard must render Priority label. Got: {html}");
-        assert!(html.contains("Scope"), "PolicyBuilderConfigurationCard must render Scope label. Got: {html}");
+        assert!(
+            html.contains("policy-builder-configuration-card"),
+            "PolicyBuilderConfigurationCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Block high-value txn"),
+            "PolicyBuilderConfigurationCard must render name. Got: {html}"
+        );
+        assert!(
+            html.contains("Block transactions over 10k USDT"),
+            "PolicyBuilderConfigurationCard must render description. Got: {html}"
+        );
+        assert!(
+            html.contains("Priority"),
+            "PolicyBuilderConfigurationCard must render Priority label. Got: {html}"
+        );
+        assert!(
+            html.contains("Scope"),
+            "PolicyBuilderConfigurationCard must render Scope label. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderTargetActionsCard` with empty actions shows empty state.
@@ -412,8 +445,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("policy-builder-target-actions-card"), "PolicyBuilderTargetActionsCard must render container class. Got: {html}");
-        assert!(html.contains("No target actions configured"), "PolicyBuilderTargetActionsCard empty must show empty state. Got: {html}");
+        assert!(
+            html.contains("policy-builder-target-actions-card"),
+            "PolicyBuilderTargetActionsCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No target actions configured"),
+            "PolicyBuilderTargetActionsCard empty must show empty state. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderTargetActionsCard` with actions shows them.
@@ -435,8 +474,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("block_transaction"), "PolicyBuilderTargetActionsCard must render action type. Got: {html}");
-        assert!(html.contains("wallet:0xABC"), "PolicyBuilderTargetActionsCard must render target. Got: {html}");
+        assert!(
+            html.contains("block_transaction"),
+            "PolicyBuilderTargetActionsCard must render action type. Got: {html}"
+        );
+        assert!(
+            html.contains("wallet:0xABC"),
+            "PolicyBuilderTargetActionsCard must render target. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderConditionsCard` empty shows "No conditions" message.
@@ -454,8 +499,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("policy-builder-conditions-card"), "PolicyBuilderConditionsCard must render container class. Got: {html}");
-        assert!(html.contains("No conditions configured"), "PolicyBuilderConditionsCard empty must show empty state. Got: {html}");
+        assert!(
+            html.contains("policy-builder-conditions-card"),
+            "PolicyBuilderConditionsCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No conditions configured"),
+            "PolicyBuilderConditionsCard empty must show empty state. Got: {html}"
+        );
     }
 
     /// `PolicyBuilderActionsResponsesCard` empty shows empty state.
@@ -472,7 +523,13 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("policy-builder-actions-responses-card"), "PolicyBuilderActionsResponsesCard must render container class. Got: {html}");
-        assert!(html.contains("No actions configured"), "PolicyBuilderActionsResponsesCard empty must show empty state. Got: {html}");
+        assert!(
+            html.contains("policy-builder-actions-responses-card"),
+            "PolicyBuilderActionsResponsesCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No actions configured"),
+            "PolicyBuilderActionsResponsesCard empty must show empty state. Got: {html}"
+        );
     }
 }

@@ -318,19 +318,17 @@ mod tests {
     fn test_admin_wallet_table_row_renders_address() {
         fn render() -> Element {
             rsx! {
-            AdminWalletTableRow {
-                wallet: sample_row(),
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: sample_row(),
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -347,19 +345,17 @@ mod tests {
     fn test_admin_wallet_table_row_renders_label_badge_when_present() {
         fn render() -> Element {
             rsx! {
-            AdminWalletTableRow {
-                wallet: sample_row(),
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: sample_row(),
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -378,17 +374,17 @@ mod tests {
             let mut row = sample_row();
             row.label = None;
             rsx! {
-            AdminWalletTableRow {
-                wallet: row,
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: row,
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -405,19 +401,17 @@ mod tests {
     fn test_admin_wallet_table_row_renders_status_active() {
         fn render() -> Element {
             rsx! {
-            AdminWalletTableRow {
-                wallet: sample_row(),
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: sample_row(),
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -440,17 +434,17 @@ mod tests {
             let mut row = sample_row();
             row.status = "disabled".to_string();
             rsx! {
-            AdminWalletTableRow {
-                wallet: row,
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: row,
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -471,19 +465,17 @@ mod tests {
     fn test_admin_wallet_table_row_renders_plan_badge() {
         fn render() -> Element {
             rsx! {
-            AdminWalletTableRow {
-                wallet: sample_row(),
-                is_selected: false,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: sample_row(),
+                    is_selected: false,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -504,17 +496,17 @@ mod tests {
     fn test_admin_wallet_table_row_checkbox_state() {
         fn render() -> Element {
             rsx! {
-            AdminWalletTableRow {
-                wallet: sample_row(),
-                is_selected: true,
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                AdminWalletTableRow {
+                    wallet: sample_row(),
+                    is_selected: true,
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
         }
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
         vdom.rebuild_in_place();

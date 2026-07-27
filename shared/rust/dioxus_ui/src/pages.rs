@@ -1,70 +1,70 @@
 //! Page components — one rsx! function per Next.js route.
 
-use dioxus::prelude::*;
-use crate::auth::User;
 use crate::auth::wallet_button::ConnectedWalletState;
+use crate::auth::User;
 use crate::i18n::t;
+use dioxus::prelude::*;
 
-pub mod home;
-pub mod auth_page;
-pub mod dashboard;
-pub mod profile;
-pub mod account;
-pub mod analytics;
-pub mod chat;
-pub mod contact;
 pub mod about;
+pub mod access_denied;
+pub mod account;
+pub mod account_credits;
+pub mod admin_pages;
+pub mod analytics;
+pub mod auth_page;
+pub mod chat;
+pub mod chat_conversation;
+pub mod chat_history;
+pub mod contact;
+pub mod dashboard;
+pub mod developer;
+pub mod error_page;
+pub mod home;
+pub mod manual;
 pub mod news;
+pub mod news_detail;
+pub mod not_found;
 pub mod notifications;
+pub mod offline;
 pub mod payment;
 pub mod permissions;
 pub mod plans;
 pub mod portfolio;
 pub mod portfolio_address;
-pub mod developer;
-pub mod manual;
-pub mod news_detail;
-pub mod chat_conversation;
-pub mod access_denied;
-pub mod not_found;
-pub mod error_page;
-pub mod offline;
 pub mod privacy;
+pub mod profile;
 pub mod terms;
-pub mod account_credits;
-pub mod chat_history;
-pub mod admin_pages;
 
-pub use home::render as Home;
-pub use auth_page::render as AuthPage;
-pub use dashboard::render as Dashboard;
-pub use profile::render as Profile;
+pub use about::render as About;
+pub use access_denied::render as AccessDeniedPage;
 pub use account::render as Account;
+pub use account_credits::render as AccountCredits;
+pub use admin_pages::*;
 pub use analytics::render as Analytics;
+pub use auth_page::render as AuthPage;
 pub use chat::render as ChatInbox;
 pub use chat_conversation::render as ChatConversation;
 pub use chat_history::render as ChatHistory;
 pub use contact::render as Contact;
-pub use about::render as About;
+pub use dashboard::render as Dashboard;
+pub use developer::render_docs as DeveloperDocs;
+pub use developer::render_overview as Developer;
+pub use developer::render_usage as DeveloperUsage;
+pub use error_page::render as ErrorPage;
+pub use home::render as Home;
+pub use manual::render as Manual;
 pub use news::render as NewsList;
 pub use news_detail::render as NewsDetail;
+pub use not_found::render as NotFound;
 pub use notifications::render as Notifications;
+pub use offline::render as Offline;
 pub use payment::render as Payment;
 pub use permissions::render as Permissions;
 pub use plans::render as Plans;
 pub use portfolio::render as Portfolio;
-pub use developer::render_overview as Developer;
-pub use developer::render_usage as DeveloperUsage;
-pub use developer::render_docs as DeveloperDocs;
-pub use manual::render as Manual;
-pub use access_denied::render as AccessDeniedPage;
-pub use not_found::render as NotFound;
-pub use error_page::render as ErrorPage;
-pub use offline::render as Offline;
 pub use privacy::render as Privacy;
+pub use profile::render as Profile;
 pub use terms::render as Terms;
-pub use account_credits::render as AccountCredits;
-pub use admin_pages::*;
 
 /// Common page context passed to every page rsx! function.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -85,7 +85,9 @@ pub struct PageContext {
 }
 
 impl PageContext {
-    pub fn param(&self, key: &str) -> Option<&String> { self.params.get(key) }
+    pub fn param(&self, key: &str) -> Option<&String> {
+        self.params.get(key)
+    }
     pub fn query_param(&self, key: &str) -> Option<String> {
         let key_eq = format!("{}=", key);
         for pair in self.query.split('&') {
@@ -95,7 +97,9 @@ impl PageContext {
         }
         None
     }
-    pub fn is_authed(&self) -> bool { self.user.is_some() }
+    pub fn is_authed(&self) -> bool {
+        self.user.is_some()
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -271,8 +275,7 @@ fn two_segments<'a>(path: &'a str, prefix: &str) -> Option<(&'a str, &'a str)> {
     let mut parts = rest.splitn(3, '/');
     let first = parts.next()?;
     let second = parts.next()?;
-    (parts.next().is_none() && !first.is_empty() && !second.is_empty())
-        .then_some((first, second))
+    (parts.next().is_none() && !first.is_empty() && !second.is_empty()).then_some((first, second))
 }
 
 pub fn is_known_frontend_route(path: &str) -> bool {
@@ -311,7 +314,9 @@ pub fn is_known_frontend_route(path: &str) -> bool {
 
 pub fn render_page(ctx: &PageContext, is_admin: bool) -> (PageMeta, Element) {
     let p = ctx.path.as_str();
-    if is_admin { return admin_pages::dispatch(ctx); }
+    if is_admin {
+        return admin_pages::dispatch(ctx);
+    }
     if !is_known_frontend_route(p) {
         return not_found::render(ctx);
     }
@@ -416,7 +421,10 @@ mod dispatch_tests {
             "/news/article-1",
             "/payment/intent/payment-1",
         ] {
-            let ctx = PageContext { path: path.into(), ..Default::default() };
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
             assert_eq!(render_page(&ctx, false).0.status, PageStatus::Ok, "{path}");
         }
 
@@ -432,8 +440,15 @@ mod dispatch_tests {
             "/payment/intent/",
             "/payment/intent/id/extra",
         ] {
-            let ctx = PageContext { path: path.into(), ..Default::default() };
-            assert_eq!(render_page(&ctx, false).0.status, PageStatus::NotFound, "{path}");
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
+            assert_eq!(
+                render_page(&ctx, false).0.status,
+                PageStatus::NotFound,
+                "{path}"
+            );
         }
     }
 }

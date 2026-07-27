@@ -24,26 +24,35 @@ use dioxus::prelude::*;
 pub fn WalletConnectAuth(
     /// Whether the wallet is currently connected. In SSR this
     /// defaults to `false` (no wagmi provider).
-    #[props(default = false)] wallet_connected: bool,
+    #[props(default = false)]
+    wallet_connected: bool,
     /// Optional wallet address. When `wallet_connected=true` AND
     /// `address.is_some()`, the "Sign Message" button is shown.
-    #[props(default = None)] address: Option<String>,
+    #[props(default = None)]
+    address: Option<String>,
     /// Current auth step. `"idle"` (default), `"challenge"`,
     /// `"signing"`, or `"verifying"`. When not idle, a loading
     /// button is shown.
-    #[props(default = "idle".to_string())] auth_step: String,
+    #[props(default = "idle".to_string())]
+    auth_step: String,
     /// Optional error message to display.
-    #[props(default = None)] error: Option<String>,
+    #[props(default = None)]
+    error: Option<String>,
     /// Fired when the user clicks the "Sign Message" button.
-    #[props(default = None)] on_sign_in: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_sign_in: Option<EventHandler<MouseEvent>>,
     /// Fired when the user clicks the disconnect / reset button.
-    #[props(default = None)] on_reset: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_reset: Option<EventHandler<MouseEvent>>,
     /// Fired when the user clicks the "Connect Wallet" button.
-    #[props(default = None)] on_connect: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_connect: Option<EventHandler<MouseEvent>>,
     /// Compact mode — hides the "Connected: 0x1234...abcd" subline.
-    #[props(default = false)] compact: bool,
+    #[props(default = false)]
+    compact: bool,
     /// Class names appended to the wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
     let is_busy = auth_step != "idle";
@@ -57,7 +66,13 @@ pub fn WalletConnectAuth(
         format!(
             "{}...{}",
             &a.chars().take(6).collect::<String>(),
-            &a.chars().rev().take(4).collect::<String>().chars().rev().collect::<String>()
+            &a.chars()
+                .rev()
+                .take(4)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect::<String>()
         )
     });
 
@@ -137,7 +152,6 @@ mod tests {
         // compact, className. The Dioxus port is more granular
         // (parent can render the error inline) but the visual
         // output is identical.
-        
     }
 
     #[test]

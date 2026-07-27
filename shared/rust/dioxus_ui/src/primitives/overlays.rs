@@ -133,9 +133,7 @@ pub fn Accordion(
     #[props(default = None)] open_keys: Option<Vec<String>>,
     #[props(default = None)] on_change: Option<EventHandler<Vec<String>>>,
 ) -> Element {
-    let mut internal = use_signal(|| {
-        initial_open.clone().map(|k| vec![k]).unwrap_or_default()
-    });
+    let mut internal = use_signal(|| initial_open.clone().map(|k| vec![k]).unwrap_or_default());
     let allow_mult = allow_multiple;
     // Clone the controlled state (if any) and the callback handler so
     // the inner closures can `move` them. `Option<Vec<String>>` is not
@@ -290,7 +288,11 @@ pub fn CommandPalette(
         let new_filtered: Vec<Command> = if q.is_empty() {
             commands.clone()
         } else {
-            commands.iter().filter(|c| c.label.to_lowercase().contains(&q)).cloned().collect()
+            commands
+                .iter()
+                .filter(|c| c.label.to_lowercase().contains(&q))
+                .cloned()
+                .collect()
         };
         if new_filtered != *filtered_signal.read() {
             filtered_signal.set(new_filtered);
@@ -303,13 +305,23 @@ pub fn CommandPalette(
     let on_key_down = move |e: Event<KeyboardData>| match e.key() {
         Key::ArrowDown => {
             let len = filtered_signal.read().len();
-            let next = if len == 0 { 0 } else { (*focus_idx.read() + 1) % len };
+            let next = if len == 0 {
+                0
+            } else {
+                (*focus_idx.read() + 1) % len
+            };
             focus_idx.set(next);
         }
         Key::ArrowUp => {
             let len = filtered_signal.read().len();
-            let next = if len == 0 { 0 } else {
-                if *focus_idx.read() == 0 { len - 1 } else { *focus_idx.read() - 1 }
+            let next = if len == 0 {
+                0
+            } else {
+                if *focus_idx.read() == 0 {
+                    len - 1
+                } else {
+                    *focus_idx.read() - 1
+                }
             };
             focus_idx.set(next);
         }

@@ -205,32 +205,54 @@ fn render_markdown(src: &str) -> String {
     for line in src.lines() {
         let line = line.trim_end();
         if line.is_empty() {
-            if in_list { html.push_str("</ul>"); in_list = false; }
+            if in_list {
+                html.push_str("</ul>");
+                in_list = false;
+            }
             continue;
         }
         if let Some(rest) = line.strip_prefix("### ") {
-            if in_list { html.push_str("</ul>"); in_list = false; }
+            if in_list {
+                html.push_str("</ul>");
+                in_list = false;
+            }
             html.push_str(&format!("<h3>{}</h3>", escape(rest)));
         } else if let Some(rest) = line.strip_prefix("## ") {
-            if in_list { html.push_str("</ul>"); in_list = false; }
+            if in_list {
+                html.push_str("</ul>");
+                in_list = false;
+            }
             html.push_str(&format!("<h2>{}</h2>", escape(rest)));
         } else if let Some(rest) = line.strip_prefix("# ") {
-            if in_list { html.push_str("</ul>"); in_list = false; }
+            if in_list {
+                html.push_str("</ul>");
+                in_list = false;
+            }
             html.push_str(&format!("<h1>{}</h1>", escape(rest)));
         } else if let Some(rest) = line.strip_prefix("- ") {
-            if !in_list { html.push_str("<ul>"); in_list = true; }
+            if !in_list {
+                html.push_str("<ul>");
+                in_list = true;
+            }
             html.push_str(&format!("<li>{}</li>", inline(rest)));
         } else {
-            if in_list { html.push_str("</ul>"); in_list = false; }
+            if in_list {
+                html.push_str("</ul>");
+                in_list = false;
+            }
             html.push_str(&format!("<p>{}</p>", inline(line)));
         }
     }
-    if in_list { html.push_str("</ul>"); }
+    if in_list {
+        html.push_str("</ul>");
+    }
     html
 }
 
 fn escape(s: &str) -> String {
-    s.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
 }
 
 fn inline(s: &str) -> String {
@@ -248,7 +270,7 @@ fn bold_pass(s: &mut String) -> String {
     let mut i = 0;
     let bytes = s.as_bytes();
     while i < bytes.len() - 1 {
-        if bytes[i] == b'*' && bytes[i+1] == b'*' {
+        if bytes[i] == b'*' && bytes[i + 1] == b'*' {
             out.push_str(if in_bold { "</strong>" } else { "<strong>" });
             in_bold = !in_bold;
             i += 2;
@@ -257,7 +279,10 @@ fn bold_pass(s: &mut String) -> String {
             i += 1;
         }
     }
-    while i < bytes.len() { out.push(s[i..].chars().next().unwrap()); i += 1; }
+    while i < bytes.len() {
+        out.push(s[i..].chars().next().unwrap());
+        i += 1;
+    }
     out
 }
 
@@ -302,14 +327,18 @@ fn link_pass(s: &str) -> String {
     while i < bytes.len() {
         if bytes[i] == b'[' {
             // find ] and (url)
-            if let Some(close) = s[i+1..].find(']') {
-                let label = &s[i+1..i+1+close];
-                if let Some(open_paren) = s[i+1+close+1..].find('(') {
+            if let Some(close) = s[i + 1..].find(']') {
+                let label = &s[i + 1..i + 1 + close];
+                if let Some(open_paren) = s[i + 1 + close + 1..].find('(') {
                     let after_paren = i + 1 + close + 1 + open_paren;
                     if after_paren < bytes.len() && bytes[after_paren] == b'(' {
-                        if let Some(close_paren) = s[after_paren+1..].find(')') {
-                            let url = &s[after_paren+1..after_paren+1+close_paren];
-                            out.push_str(&format!("<a href=\"{}\" target=\"_blank\" rel=\"noopener\">{}</a>", escape(url), escape(label)));
+                        if let Some(close_paren) = s[after_paren + 1..].find(')') {
+                            let url = &s[after_paren + 1..after_paren + 1 + close_paren];
+                            out.push_str(&format!(
+                                "<a href=\"{}\" target=\"_blank\" rel=\"noopener\">{}</a>",
+                                escape(url),
+                                escape(label)
+                            ));
                             i = after_paren + 1 + close_paren + 1;
                             continue;
                         }

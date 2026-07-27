@@ -179,12 +179,10 @@ mod tests {
     fn test_wallet_header_renders_address() {
         fn render() -> Element {
             rsx! {
-            WalletHeader {
-                wallet: sample_header(),
+                WalletHeader {
+                    wallet: sample_header(),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -205,12 +203,10 @@ mod tests {
     fn test_wallet_header_renders_status_badge() {
         fn render() -> Element {
             rsx! {
-            WalletHeader {
-                wallet: sample_header(),
+                WalletHeader {
+                    wallet: sample_header(),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -237,10 +233,10 @@ mod tests {
             header.disable_disabled_at = Some("2026-06-15".to_string());
             header.disable_expires_at = Some("2026-06-22".to_string());
             rsx! {
-            WalletHeader {
-                wallet: header,
+                WalletHeader {
+                    wallet: header,
+                }
             }
-        }
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -273,12 +269,10 @@ mod tests {
     fn test_wallet_header_no_disable_callout_for_active() {
         fn render() -> Element {
             rsx! {
-            WalletHeader {
-                wallet: sample_header(),
+                WalletHeader {
+                    wallet: sample_header(),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -295,12 +289,10 @@ mod tests {
     fn test_wallet_header_renders_last_auth() {
         fn render() -> Element {
             rsx! {
-            WalletHeader {
-                wallet: sample_header(),
+                WalletHeader {
+                    wallet: sample_header(),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -317,13 +309,11 @@ mod tests {
     fn test_wallet_header_propagates_class_name() {
         fn render() -> Element {
             rsx! {
-            WalletHeader {
-                wallet: sample_header(),
-                class_name: Some("mt-6".to_string()),
+                WalletHeader {
+                    wallet: sample_header(),
+                    class_name: Some("mt-6".to_string()),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
