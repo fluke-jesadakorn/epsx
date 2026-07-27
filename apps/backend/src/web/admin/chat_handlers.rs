@@ -152,6 +152,29 @@ fn auth_failure(error: epsx_contracts::errors::AppError) -> Json<UnifiedApiRespo
     ))
 }
 
+fn admin_chat_stream_is_authorized(audiences: &[String], permissions: &[String]) -> bool {
+    matches!(audiences, [audience] if audience == ADMIN_AUDIENCE)
+        && epsx_contracts::permissions::has_permission(permissions, CHAT_READ_PERMISSION)
+}
+
+fn stream_auth_error(
+    request: &axum::extract::Request,
+    kind: epsx_contracts::errors::ErrorKind,
+    message: &'static str,
+) -> epsx_contracts::errors::AppError {
+    epsx_contracts::errors::AppError::with_full_context(
+        kind,
+        message,
+        None,
+        request
+            .extensions()
+            .get::<RequestId>()
+            .map(|request_id| request_id.0.clone()),
+        "admin.chat.stream",
+        "admin-chat",
+    )
+}
+
 fn validate_query(query: &AdminConversationQuery) -> Result<(), epsx_contracts::errors::AppError> {
     if !(1..=MAX_LIMIT).contains(&query.limit) || query.page == 0 {
         return Err(epsx_contracts::errors::AppError::bad_request(
@@ -766,7 +789,8 @@ pub async fn admin_chat_stream(
         request.headers(),
     )
     .ok_or_else(|| {
-        epsx_contracts::errors::AppError::new(
+        stream_auth_error(
+            &request,
             epsx_contracts::errors::ErrorKind::AuthenticationError,
             "Authentication required for admin chat stream",
         )
@@ -776,7 +800,9 @@ pub async fn admin_chat_stream(
         .domain_container
         .get_token_service()
         .ok_or_else(|| {
-            epsx_contracts::errors::AppError::internal_server_error(
+            stream_auth_error(
+                &request,
+                epsx_contracts::errors::ErrorKind::InternalServerError,
                 "Authentication service unavailable",
             )
         })?;
@@ -785,7 +811,8 @@ pub async fn admin_chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            epsx_contracts::errors::AppError::new(
+            stream_auth_error(
+                &request,
                 epsx_contracts::errors::ErrorKind::AuthenticationError,
                 "Invalid or expired authentication token",
             )
@@ -797,10 +824,11 @@ pub async fn admin_chat_stream(
         .filter(|s| *s != "openid" && *s != "profile")
         .map(|s| s.to_string())
         .collect();
-    if !epsx_contracts::permissions::is_admin(&permissions) {
-        return Err(epsx_contracts::errors::AppError::new(
+    if !admin_chat_stream_is_authorized(&claims.aud, &permissions) {
+        return Err(stream_auth_error(
+            &request,
             epsx_contracts::errors::ErrorKind::AuthorizationError,
-            "Admin access required",
+            "The required chat read permission is missing",
         ));
     }
     let wallet_address = claims.wallet_address.to_lowercase();
@@ -844,4 +872,33 @@ pub async fn admin_chat_stream(
     };
 
     Ok(Sse::new(stream).keep_alive(KeepAlive::new().interval(Duration::from_secs(15))))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn values(values: &[&str]) -> Vec<String> {
+        values.iter().map(|value| (*value).to_string()).collect()
+    }
+
+    #[test]
+    fn chat_stream_requires_exact_admin_audience_and_read_permission() {
+        assert!(admin_chat_stream_is_authorized(
+            &values(&[ADMIN_AUDIENCE]),
+            &values(&[CHAT_READ_PERMISSION]),
+        ));
+        assert!(!admin_chat_stream_is_authorized(
+            &values(&[ADMIN_AUDIENCE]),
+            &values(&[CHAT_MANAGE_PERMISSION]),
+        ));
+        assert!(!admin_chat_stream_is_authorized(
+            &values(&["epsx-admin", "epsx-frontend"]),
+            &values(&[CHAT_READ_PERMISSION]),
+        ));
+        assert!(!admin_chat_stream_is_authorized(
+            &values(&["epsx-frontend"]),
+            &values(&["admin:*:*"]),
+        ));
+    }
 }

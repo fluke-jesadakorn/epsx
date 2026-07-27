@@ -84,19 +84,23 @@ impl AdminChatQuery {
     }
 
     pub(crate) fn upstream_path(&self) -> String {
-        let mut pairs = Vec::with_capacity(5);
-        if let Some(status) = &self.status {
-            pairs.push(format!("status={status}"));
+        let mut url = Url::parse(&format!("http://admin.invalid{CHAT_LIST_PATH}"))
+            .expect("the fixed admin chat URL is valid");
+        {
+            let mut pairs = url.query_pairs_mut();
+            if let Some(status) = &self.status {
+                pairs.append_pair("status", status);
+            }
+            if let Some(topic_id) = &self.topic_id {
+                pairs.append_pair("topic_id", topic_id);
+            }
+            if let Some(agent) = &self.agent {
+                pairs.append_pair("agent", agent);
+            }
+            pairs.append_pair("page", &self.page.to_string());
+            pairs.append_pair("limit", &self.limit.to_string());
         }
-        if let Some(topic_id) = &self.topic_id {
-            pairs.push(format!("topic_id={topic_id}"));
-        }
-        if let Some(agent) = &self.agent {
-            pairs.push(format!("agent={agent}"));
-        }
-        pairs.push(format!("page={}", self.page));
-        pairs.push(format!("limit={}", self.limit));
-        format!("{CHAT_LIST_PATH}?{}", pairs.join("&"))
+        url.path().to_string() + "?" + url.query().expect("chat query is always present")
     }
 }
 
@@ -119,11 +123,38 @@ pub(crate) enum AdminChatDetailLoad {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+struct BackendMeta {
+    timestamp: String,
+    #[serde(default)]
+    request_id: Option<String>,
+    #[serde(default)]
+    version: Option<String>,
+    #[serde(default)]
+    message: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendError {
+    code: u16,
+    message: String,
+    reason: String,
+    #[serde(default)]
+    error_type: Option<String>,
+    #[serde(default)]
+    details: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct BackendEnvelope<T> {
     success: bool,
+    #[serde(default)]
     data: Option<T>,
-    error: Option<serde_json::Value>,
-    meta: Option<serde_json::Value>,
+    #[serde(default)]
+    error: Option<BackendError>,
+    #[serde(default)]
+    meta: Option<BackendMeta>,
 }
 
 #[derive(Debug)]
@@ -236,8 +267,18 @@ async fn get_json<T: DeserializeOwned>(
         error,
         meta,
     } = envelope;
-    let _ = (error, meta);
-    if !success {
+    if !success
+        || error.is_some()
+        || meta.as_ref().is_some_and(|meta| {
+            meta.timestamp.is_empty()
+                || meta.timestamp.chars().count() > 256
+                || meta.timestamp.chars().any(char::is_control)
+                || meta
+                    .request_id
+                    .as_deref()
+                    .is_some_and(|value| value.is_empty() || value.chars().count() > 256)
+        })
+    {
         return Err(FetchError::Malformed);
     }
     data.ok_or(FetchError::Malformed)
@@ -297,6 +338,13 @@ mod tests {
         assert_eq!(query.page, 2);
         assert_eq!(query.limit, 20);
         assert!(query.upstream_path().contains("page=2"));
+        let escaped = AdminChatQuery {
+            agent: Some("agent&unexpected=false".to_string()),
+            ..AdminChatQuery::default()
+        };
+        assert!(escaped
+            .upstream_path()
+            .contains("agent=agent%26unexpected%3Dfalse"));
         for raw in [
             "page=0",
             "limit=51",
@@ -307,5 +355,25 @@ mod tests {
         ] {
             assert!(AdminChatQuery::from_raw(raw).is_err(), "accepted {raw}");
         }
+    }
+
+    #[test]
+    fn backend_envelope_is_strict_and_requires_success_data() {
+        let valid = serde_json::json!({
+            "success": true,
+            "data": {
+                "items": [], "total": 0, "page": 1, "limit": 20, "has_next": false
+            },
+            "meta": {"timestamp": "2026-07-27T00:00:00Z"}
+        });
+        let decoded = serde_json::from_value::<BackendEnvelope<AdminChatList>>(valid).unwrap();
+        assert!(decoded.success && decoded.data.is_some());
+
+        let unknown = serde_json::json!({
+            "success": true,
+            "data": {"items": [], "total": 0, "page": 1, "limit": 20, "has_next": false},
+            "meta": {"timestamp": "2026-07-27T00:00:00Z", "telemetry": true}
+        });
+        assert!(serde_json::from_value::<BackendEnvelope<AdminChatList>>(unknown).is_err());
     }
 }

@@ -1,11 +1,11 @@
 //! Truthful authenticated admin chat shells for `/chat` and `/chat/{id}`.
 //!
-//! The Rust admin BFF verifies the session audience, but it does not yet expose
-//! typed chat reads or mutations. These routes therefore preserve a private,
-//! production-shaped workspace while rendering an explicit unavailable state.
-//! They do not infer authorization from frontend roles or permissions, and they
-//! expose no sample conversations, messages, presence, counts, filters, canned
-//! replies, assignments, status changes, or reply controls.
+//! The route-specific admin BFF supplies strict, backend-owned list/detail
+//! projections. This leaf renders only those authenticated reads and keeps
+//! conversation mutations unavailable until their owning adapter is wired.
+//! It does not infer authorization from frontend roles or permissions, and it
+//! exposes no sample conversations, messages, presence, counts, filters,
+//! canned replies, assignments, status changes, or reply controls.
 
 use chrono::DateTime;
 use dioxus::prelude::*;
@@ -246,8 +246,8 @@ enum ChatRoute {
 impl ChatRoute {
     fn meta_title(self) -> &'static str {
         match self {
-            Self::Inbox => "Support chat unavailable",
-            Self::Conversation => "Conversation unavailable",
+            Self::Inbox => "Support conversations",
+            Self::Conversation => "Support conversation",
         }
     }
 
@@ -275,7 +275,7 @@ impl ChatRoute {
     fn detail(self) -> &'static str {
         match self {
             Self::Inbox => {
-                "No conversations, participants, messages, presence, unread counts, topics, statuses, assignments, or activity timestamps are shown because a backend-authoritative chat read contract is not connected."
+                "No conversations, participants, messages, presence, unread counts, topics, statuses, assignments, or activity timestamps are shown because the backend did not provide an authoritative chat read response."
             }
             Self::Conversation => {
                 "No participant, message, presence, assignment, status, ownership, or activity data is shown because the backend has not verified the requested conversation."
