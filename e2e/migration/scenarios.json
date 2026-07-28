@@ -1,0 +1,195 @@
+{
+  "schemaVersion": 1,
+  "baselineLock": "e2e/migration/baseline.lock.json",
+  "routeContract": "docs/migration/contracts/routes.json",
+  "artifactPolicy": {
+    "commitContactSheets": true,
+    "hashAlgorithm": "sha256",
+    "fullArtifacts": [
+      "screenshots",
+      "diffs",
+      "dom",
+      "accessibility",
+      "network",
+      "traces",
+      "video",
+      "browser-logs",
+      "server-logs",
+      "reset-proofs"
+    ]
+  },
+  "matrices": {
+    "pr0-smoke": [
+      {
+        "id": "desktop-light",
+        "viewport": { "width": 1440, "height": 900 },
+        "colorScheme": "light"
+      },
+      {
+        "id": "mobile-dark",
+        "viewport": { "width": 390, "height": 844 },
+        "colorScheme": "dark"
+      }
+    ],
+    "full": [
+      {
+        "id": "desktop-light",
+        "viewport": { "width": 1440, "height": 900 },
+        "colorScheme": "light"
+      },
+      {
+        "id": "desktop-dark",
+        "viewport": { "width": 1440, "height": 900 },
+        "colorScheme": "dark"
+      },
+      {
+        "id": "mobile-light",
+        "viewport": { "width": 390, "height": 844 },
+        "colorScheme": "light"
+      },
+      {
+        "id": "mobile-dark",
+        "viewport": { "width": 390, "height": 844 },
+        "colorScheme": "dark"
+      }
+    ]
+  },
+  "groups": [
+    {
+      "id": 0,
+      "slug": "harness-baseline",
+      "title": "E2E harness and immutable Next.js baseline",
+      "matrix": "pr0-smoke",
+      "repeat": 2,
+      "comparisonGate": "capture-only",
+      "scenarios": [
+        {
+          "id": "pr0.public.home",
+          "surface": "frontend",
+          "path": "/",
+          "expectedSourcePath": "/",
+          "expectedTargetPath": "/",
+          "title": "Public home reproducibility smoke"
+        },
+        {
+          "id": "pr0.public.about",
+          "surface": "frontend",
+          "path": "/about",
+          "title": "Public about reproducibility smoke"
+        },
+        {
+          "id": "pr0.public.contact",
+          "surface": "frontend",
+          "path": "/contact",
+          "title": "Public contact reproducibility smoke"
+        }
+      ]
+    },
+    {
+      "id": 1,
+      "slug": "shared-shell-public",
+      "title": "Shared shell and public experience",
+      "routes": {
+        "frontend": [
+          "/",
+          "/about",
+          "/contact",
+          "/privacy",
+          "/terms",
+          "/offline",
+          "/access-denied",
+          "/__migration-not-found__"
+        ],
+        "admin": ["/access-denied", "/unauthorized"]
+      }
+    },
+    {
+      "id": 2,
+      "slug": "auth-account-permissions",
+      "title": "Authentication, sessions, account, and permissions",
+      "routes": {
+        "frontend": ["/auth", "/account", "/profile", "/permissions"],
+        "admin": ["/auth", "/settings"]
+      }
+    },
+    {
+      "id": 3,
+      "slug": "wallet-credits-access",
+      "title": "Wallet, credits, and access management",
+      "routes": {
+        "frontend": ["/account/credits"],
+        "admin": [
+          "/audit-log",
+          "/wallet-management",
+          "/wallet-management/:address",
+          "/wallet-management/access",
+          "/wallet-management/access/plans",
+          "/wallet-management/access/plans/:planId",
+          "/wallet-management/credits",
+          "/wallet-management/wallets",
+          "/wallet-management/wallets/:address/disable"
+        ]
+      }
+    },
+    {
+      "id": 4,
+      "slug": "analytics-portfolio-ranking",
+      "title": "Analytics, portfolio, and ranking",
+      "routes": {
+        "frontend": ["/", "/analytics", "/portfolio", "/dashboard"],
+        "admin": ["/", "/analytics"]
+      }
+    },
+    {
+      "id": 5,
+      "slug": "content-news-media-manual",
+      "title": "Content, news, media, and manual",
+      "routes": {
+        "frontend": ["/news", "/news/:slug", "/manual"],
+        "admin": ["/media", "/news", "/news/create", "/news/:id/edit"]
+      }
+    },
+    {
+      "id": 6,
+      "slug": "notifications-chat",
+      "title": "Notifications and chat",
+      "routes": {
+        "frontend": ["/notifications", "/chat", "/chat/:id", "/chat/history"],
+        "admin": [
+          "/notifications",
+          "/notifications/create",
+          "/notifications/manage",
+          "/chat",
+          "/chat/:id"
+        ]
+      }
+    },
+    {
+      "id": 7,
+      "slug": "developer-apis-metering",
+      "title": "Developer APIs and metering",
+      "routes": {
+        "frontend": ["/developer", "/developer/docs", "/developer/usage"],
+        "admin": ["/developer-portal", "/developer-portal/api-keys/create"]
+      }
+    },
+    {
+      "id": 8,
+      "slug": "plans-subscriptions-payments",
+      "title": "Plans, subscriptions, payments, and entitlements",
+      "routes": {
+        "frontend": ["/plans", "/payment", "/payment/:type/:id"],
+        "admin": ["/payments"]
+      }
+    },
+    {
+      "id": 9,
+      "slug": "full-migration-regression",
+      "title": "Full migration regression",
+      "includeAllContractRoutes": true,
+      "matrix": "full",
+      "browsers": ["chromium", "firefox", "webkit"],
+      "requiredBypasses": 0
+    }
+  ]
+}
