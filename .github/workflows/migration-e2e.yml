@@ -1,0 +1,71 @@
+name: Migration E2E evidence
+
+on:
+  pull_request:
+    branches:
+      - migration/dioxus-microservices
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migration-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  pr0-harness-smoke:
+    name: Immutable baseline and rollback smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Check out target
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch immutable source ref
+        run: git fetch origin development:refs/remotes/origin/development
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy,rustfmt
+
+      - name: Cache Rust build
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install target dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Validate migration manifest
+        run: bun run e2e:migration:doctor
+
+      - name: Type-check migration harness
+        run: bun run type-check:e2e:migration
+
+      - name: Run PR 0 evidence gate
+        run: bun run test:e2e:migration:pr0
+
+      - name: Verify artifact hashes
+        run: bun run e2e:migration:verify-artifacts
+
+      - name: Upload full migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-e2e-pr0-${{ github.sha }}
+          path: |
+            e2e/migration/artifacts/
+            docs/e2e/pr0/evidence/
+          if-no-files-found: error
+          retention-days: 14
