@@ -50,6 +50,7 @@ function capturePassed(capture: CaptureResult): boolean {
   return (
     capture.status !== null &&
     capture.status < 500 &&
+    capture.bodyTextLength > 50 &&
     capture.consoleErrors.length === 0 &&
     capture.pageErrors.length === 0 &&
     capture.failedRequests.length === 0
@@ -164,7 +165,10 @@ export async function generateReport(
   );
   await writeJson(artifactManifestPath, fullManifest);
 
-  const allPassed = rows.every(evidenceRowPassed);
+  const finalReset = await readJson<ResetProof>(
+    resolve(config.artifactRoot, 'reset-final.json')
+  );
+  const allPassed = rows.every(evidenceRowPassed) && finalReset.passed;
 
   let markdown = '# PR 0 — E2E harness and immutable baseline evidence\n\n';
   markdown += `Result: **${allPassed ? 'PASS' : 'FAIL'}**\n\n`;
@@ -204,6 +208,9 @@ export async function generateReport(
   markdown += '## Runtime rollback gate\n\n';
   markdown +=
     'Every repeat restored a guarded `epsx_e2e_*` PostgreSQL database from its template, deleted only the `epsx:e2e:*` Redis namespace, reverted Anvil chain 31337 to its recorded snapshot, reset fixture requests/mutations, and cleared its isolated browser context. PostgreSQL checksums and row counts, transient queue/outbox emptiness, Redis hashes, Anvil account/block state, and fixture counters matched the baseline after reset.\n\n';
+  markdown += `Final process-stopped rollback: **${
+    finalReset.passed ? 'PASS' : 'FAIL'
+  }**. The source and target applications were stopped before the final reset and smoke, preventing background polling from repopulating fixture or durable state. The full artifact manifest includes \`reset-final.json\` with every baseline comparison.\n\n`;
   markdown += '## Full artifacts\n\n';
   markdown +=
     'The CI artifact contains full-resolution PNGs, video, traces, HAR/network data, DOM, accessibility snapshots, browser/server logs, Playwright HTML, and reset proofs. [`artifact-manifest.json`](./artifact-manifest.json) records the SHA-256 and byte length of every file in that artifact.\n\n';

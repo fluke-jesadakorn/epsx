@@ -176,6 +176,39 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
     });
 }
 
+async function waitForStableMeaningfulBody(page: Page): Promise<void> {
+  await page
+    .waitForFunction(
+      ({ minimumLength, stableForMs }) => {
+        const bodyTextLength = document.body.innerText.trim().length;
+        const stateContainer = globalThis as typeof globalThis & {
+          __epsxE2eBodyTextState?: {
+            length: number;
+            observedAt: number;
+          };
+        };
+        const previous = stateContainer.__epsxE2eBodyTextState;
+        if (previous?.length !== bodyTextLength) {
+          stateContainer.__epsxE2eBodyTextState = {
+            length: bodyTextLength,
+            observedAt: Date.now(),
+          };
+          return false;
+        }
+        return (
+          bodyTextLength > minimumLength &&
+          Date.now() - previous.observedAt >= stableForMs
+        );
+      },
+      { minimumLength: 50, stableForMs: 500 },
+      { polling: 100, timeout: 15_000 }
+    )
+    // A timeout is captured as evidence and rejected by the scenario's
+    // bodyTextLength assertion. Continuing here preserves the DOM, screenshot,
+    // trace, network log, and reset proof for that failure.
+    .catch(() => undefined);
+}
+
 // Capture deliberately keeps the context lifecycle and every artifact in one
 // fail-closed boundary so a partial capture cannot be reported as complete.
 // eslint-disable-next-line max-lines-per-function
@@ -327,6 +360,11 @@ export async function captureSide(
       }
       window.scrollTo(0, 0);
     });
+    // Next.js Fast Refresh can transiently clear innerText after
+    // domcontentloaded/networkidle while the accessibility tree and pixels are
+    // already being rebuilt. Require a quiet, meaningful interval before
+    // sampling so slower CI runners capture the same stable state as local runs.
+    await waitForStableMeaningfulBody(page);
 
     const finalUrl = page.url();
     const title = await page.title();

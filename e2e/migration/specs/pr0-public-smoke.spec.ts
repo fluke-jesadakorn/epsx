@@ -77,85 +77,92 @@ for (const scenario of group.scenarios) {
           'pre',
           resolve(repeatRoot, 'reset-pre.json')
         );
-        const source = await captureSide({
-          browser,
-          side: 'source',
-          scenario,
-          matrixId: matrix.id,
-          repeat,
-          baseUrl: baseUrl('source', scenario.surface),
-          artifactDirectory: repeatRoot,
-          viewport: matrix.viewport,
-          colorScheme: matrix.colorScheme,
-        });
-        const target = await captureSide({
-          browser,
-          side: 'target',
-          scenario,
-          matrixId: matrix.id,
-          repeat,
-          baseUrl: baseUrl('target', scenario.surface),
-          artifactDirectory: repeatRoot,
-          viewport: matrix.viewport,
-          colorScheme: matrix.colorScheme,
-        });
-        captures.source.push(source);
-        captures.target.push(target);
+        try {
+          const source = await captureSide({
+            browser,
+            side: 'source',
+            scenario,
+            matrixId: matrix.id,
+            repeat,
+            baseUrl: baseUrl('source', scenario.surface),
+            artifactDirectory: repeatRoot,
+            viewport: matrix.viewport,
+            colorScheme: matrix.colorScheme,
+          });
+          const target = await captureSide({
+            browser,
+            side: 'target',
+            scenario,
+            matrixId: matrix.id,
+            repeat,
+            baseUrl: baseUrl('target', scenario.surface),
+            artifactDirectory: repeatRoot,
+            viewport: matrix.viewport,
+            colorScheme: matrix.colorScheme,
+          });
+          captures.source.push(source);
+          captures.target.push(target);
 
-        for (const capture of [source, target]) {
-          expect(
-            capture.status,
-            `${capture.side} document must return a status`
-          ).not.toBeNull();
-          expect(
-            capture.status ?? 599,
-            `${capture.side} document must not return a server error`
-          ).toBeLessThan(500);
-          expect(
-            capture.bodyTextLength,
-            `${capture.side} page must render meaningful text`
-          ).toBeGreaterThan(50);
-          expect(capture.pageErrors, `${capture.side} page errors`).toEqual([]);
-          expect(
-            capture.consoleErrors,
-            `${capture.side} console errors`
-          ).toEqual([]);
-          expect(
-            capture.failedRequests,
-            `${capture.side} failed network requests`
-          ).toEqual([]);
-        }
-
-        if (scenario.expectedSourcePath !== undefined) {
-          expect(new URL(source.finalUrl).pathname).toBe(
-            scenario.expectedSourcePath
-          );
-        }
-        if (scenario.expectedTargetPath !== undefined) {
-          expect(new URL(target.finalUrl).pathname).toBe(
-            scenario.expectedTargetPath
-          );
-        }
-
-        const comparison = await compareCaptures({
-          source,
-          target,
-          artifactDirectory: repeatRoot,
-          captureOnly: group.comparisonGate === 'capture-only',
-        });
-        await testInfo.attach(
-          `${scenario.id}-${matrix.id}-repeat-${repeat}-contact-sheet`,
-          {
-            path: comparison.contactSheet,
-            contentType: 'image/png',
+          for (const capture of [source, target]) {
+            expect(
+              capture.status,
+              `${capture.side} document must return a status`
+            ).not.toBeNull();
+            expect(
+              capture.status ?? 599,
+              `${capture.side} document must not return a server error`
+            ).toBeLessThan(500);
+            expect(
+              capture.bodyTextLength,
+              `${capture.side} page must render meaningful text`
+            ).toBeGreaterThan(50);
+            expect(capture.pageErrors, `${capture.side} page errors`).toEqual(
+              []
+            );
+            expect(
+              capture.consoleErrors,
+              `${capture.side} console errors`
+            ).toEqual([]);
+            expect(
+              capture.failedRequests,
+              `${capture.side} failed network requests`
+            ).toEqual([]);
           }
-        );
 
-        await runtime.reset(
-          `${scenario.id}/${matrix.id}/repeat-${repeat}`,
-          'post',
-          resolve(repeatRoot, 'reset-post.json')
-        );
+          if (scenario.expectedSourcePath !== undefined) {
+            expect(new URL(source.finalUrl).pathname).toBe(
+              scenario.expectedSourcePath
+            );
+          }
+          if (scenario.expectedTargetPath !== undefined) {
+            expect(new URL(target.finalUrl).pathname).toBe(
+              scenario.expectedTargetPath
+            );
+          }
+
+          const comparison = await compareCaptures({
+            source,
+            target,
+            artifactDirectory: repeatRoot,
+            captureOnly: group.comparisonGate === 'capture-only',
+          });
+          await testInfo.attach(
+            `${scenario.id}-${matrix.id}-repeat-${repeat}-contact-sheet`,
+            {
+              path: comparison.contactSheet,
+              contentType: 'image/png',
+            }
+          );
+        } finally {
+          // Rollback is a failure-path invariant: assertion, capture, or
+          // comparison failures must still clear every scenario mutation and
+          // fixture request counter before Playwright advances or exits.
+          await runtime.reset(
+            `${scenario.id}/${matrix.id}/repeat-${repeat}`,
+            'post',
+            resolve(repeatRoot, 'reset-post.json')
+          );
+        }
       }
 
       const screenshotEquivalence = {

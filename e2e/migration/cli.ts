@@ -307,6 +307,102 @@ async function safeCleanArtifactRoot(path: string): Promise<void> {
   await mkdir(path, { recursive: true });
 }
 
+interface CleanupFailure {
+  label: string;
+  error: unknown;
+}
+
+async function cleanupRuntime(options: {
+  composeEnvironment: NodeJS.ProcessEnv;
+  composeStarted: boolean;
+  config: Awaited<ReturnType<typeof runtimeConfig>>;
+  managed: ManagedProcess[];
+  resetManager: RuntimeResetManager | undefined;
+  runtimeBootstrapped: boolean;
+  selectedGroup: number;
+}): Promise<CleanupFailure[]> {
+  const {
+    composeEnvironment,
+    composeStarted,
+    config,
+    managed,
+    resetManager,
+    runtimeBootstrapped,
+    selectedGroup,
+  } = options;
+  const failures: CleanupFailure[] = [];
+  const attempt = async (
+    label: string,
+    operation: () => Promise<void> | void
+  ): Promise<void> => {
+    try {
+      await operation();
+    } catch (error) {
+      failures.push({ label, error });
+    }
+  };
+  const fixtureProcess = managed.find(
+    processInfo => processInfo.name === 'fixture-server'
+  );
+
+  for (const processInfo of [...managed].reverse()) {
+    if (processInfo !== fixtureProcess) {
+      await attempt(`failed to stop ${processInfo.name}`, () =>
+        stopManagedProcess(processInfo)
+      );
+    }
+  }
+  if (resetManager !== undefined && runtimeBootstrapped) {
+    await attempt('final runtime rollback gate failed', async () => {
+      // Application polling can race a reset while source/target processes are
+      // alive. Stop them first, then prove one final rollback and smoke while
+      // the isolated fixture and Compose dependencies remain available.
+      await resetManager.reset(
+        `group-${selectedGroup}/cli-finalize`,
+        'post',
+        resolve(config.artifactRoot, 'reset-final.json')
+      );
+      await resetManager.smoke();
+    });
+  }
+  if (fixtureProcess !== undefined) {
+    await attempt('failed to stop fixture-server', () =>
+      stopManagedProcess(fixtureProcess)
+    );
+  }
+  if (composeStarted) {
+    await attempt('failed to remove isolated Compose runtime', () => {
+      runCommand(
+        'docker',
+        [
+          'compose',
+          '-f',
+          composePath,
+          'down',
+          '--volumes',
+          '--remove-orphans',
+        ],
+        { cwd: repoRoot, env: composeEnvironment }
+      );
+    });
+  }
+  return failures;
+}
+
+function mergeCleanupFailures(
+  runError: unknown,
+  failures: CleanupFailure[]
+): unknown {
+  for (const failure of failures) {
+    const message =
+      failure.error instanceof Error
+        ? failure.error.message
+        : String(failure.error);
+    process.stderr.write(`${failure.label}: ${message}\n`);
+  }
+  return runError ?? failures[0]?.error;
+}
+
 // Process orchestration is intentionally centralized so cleanup owns every
 // child/container handle in one try/finally boundary.
 // eslint-disable-next-line max-lines-per-function, complexity
@@ -338,6 +434,8 @@ async function run(): Promise<void> {
   let testStatus: number | undefined;
   let runError: unknown;
   let evidenceReady = false;
+  let resetManager: RuntimeResetManager | undefined;
+  let runtimeBootstrapped = false;
   try {
     // `compose up` can create a partial project before returning an error, so
     // cleanup owns the project from the moment startup is attempted.
@@ -364,8 +462,9 @@ async function run(): Promise<void> {
     managed.push(fixture);
     await waitForUrl(`${config.fixtureUrl}/health`, fixture, 30_000);
 
-    const resetManager = new RuntimeResetManager(config);
+    resetManager = new RuntimeResetManager(config);
     await resetManager.bootstrap();
+    runtimeBootstrapped = true;
 
     if (!existsSync(resolve(repoRoot, 'node_modules/.bin/playwright'))) {
       runCommand(
@@ -530,7 +629,6 @@ async function run(): Promise<void> {
     testStatus = await new Promise<number>(resolvePromise => {
       playwright.once('exit', code => resolvePromise(code ?? 1));
     });
-    await resetManager.smoke();
 
     evidenceReady = (await listFiles(config.artifactRoot)).some(path =>
       path.endsWith('/reproducibility.json')
@@ -541,27 +639,18 @@ async function run(): Promise<void> {
   } catch (error) {
     runError = error;
   } finally {
-    for (const processInfo of managed.reverse()) {
-      await stopManagedProcess(processInfo);
-    }
-    if (composeStarted) {
-      try {
-        runCommand(
-          'docker',
-          [
-            'compose',
-            '-f',
-            composePath,
-            'down',
-            '--volumes',
-            '--remove-orphans',
-          ],
-          { cwd: repoRoot, env: composeEnvironment }
-        );
-      } catch (error) {
-        runError ??= error;
-      }
-    }
+    runError = mergeCleanupFailures(
+      runError,
+      await cleanupRuntime({
+        composeEnvironment,
+        composeStarted,
+        config,
+        managed,
+        resetManager,
+        runtimeBootstrapped,
+        selectedGroup,
+      })
+    );
   }
   if (runError === undefined && evidenceReady) {
     try {

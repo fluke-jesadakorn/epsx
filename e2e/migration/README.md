@@ -45,11 +45,13 @@ checkout is never rewritten.
 7. Captures screenshots, highlighted diffs, DOM, accessibility snapshots,
    HAR/network data, browser logs, redirects, video, traces, server logs, and
    runtime reset proofs.
-8. Requires same-side screenshot, normalized DOM, and accessibility hashes to
-   match across repeats.
+8. Requires same-side screenshot pixel-equivalence plus exact normalized DOM
+   and accessibility hashes across repeats.
 9. Generates review-sized evidence under `docs/e2e/pr0/evidence/` and a
    SHA-256 manifest for the full CI artifact.
-10. Runs a post-reset smoke and removes only the isolated Compose services.
+10. Stops the source and target applications, runs a final rollback and
+    post-reset smoke with the fixture still available, then removes only the
+    isolated fixture and Compose services.
 
 ## Reset safety
 
