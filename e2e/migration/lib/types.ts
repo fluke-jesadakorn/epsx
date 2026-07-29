@@ -18,7 +18,9 @@ export interface ScenarioState {
   id: string;
   session: 'signed-out' | 'authenticated';
   audience?: SessionAudience;
+  sourceAudience?: SessionAudience;
   permissions?: string[];
+  tokenKeyId?: string;
   fixtureMode?: string;
   fixtureModeSide?: 'source' | 'target' | 'both';
   offline?: boolean;

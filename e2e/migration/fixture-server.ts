@@ -20,6 +20,8 @@ let sequence = 0;
 let fixtureMode = 'healthy';
 
 const signingKeyId = 'epsx-e2e-rs256-v1';
+const fixtureTier = 'migration-e2e';
+const fixtureTimestamp = '2026-01-01T00:00:00.000Z';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -62,14 +64,16 @@ function base64Url(value: string | Buffer): string {
   return Buffer.from(value).toString('base64url');
 }
 
-function fixtureAccessToken(
-  issuer: string,
-  audience: string,
-  permissions: string
-): string {
+function fixtureAccessToken(options: {
+  issuer: string;
+  audience: string;
+  permissions: string;
+  keyId: string;
+}): string {
+  const { audience, issuer, keyId, permissions } = options;
   const address = '0xea6400000000000000000000000000000000e3df';
   const header = base64Url(
-    JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: signingKeyId })
+    JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: keyId })
   );
   const payload = base64Url(
     JSON.stringify({
@@ -91,9 +95,29 @@ function fixtureAccessToken(
   return `${message}.${signature.toString('base64url')}`;
 }
 
+function fixtureAudience(value: unknown): string | null {
+  return Array.isArray(value) &&
+    value.length === 1 &&
+    typeof value[0] === 'string'
+    ? value[0]
+    : null;
+}
+
+function fixtureSubject(
+  subject: unknown,
+  walletAddress: unknown
+): string | null {
+  return typeof subject === 'string' &&
+    typeof walletAddress === 'string' &&
+    subject === walletAddress
+    ? subject
+    : null;
+}
+
 function fixturePrincipal(request: Request): {
   subject: string;
   permissions: string[];
+  audience: string;
 } | null {
   const authorization = request.headers.get('authorization');
   if (authorization?.startsWith('Bearer ') !== true) {
@@ -106,18 +130,24 @@ function fixturePrincipal(request: Request): {
   try {
     const claims = JSON.parse(
       Buffer.from(segments[1], 'base64url').toString('utf8')
-    ) as { sub?: unknown; wallet_address?: unknown; scope?: unknown };
-    const subject =
-      typeof claims.sub === 'string' &&
-      typeof claims.wallet_address === 'string' &&
-      claims.sub === claims.wallet_address
-        ? claims.sub
-        : null;
-    if (subject === null || typeof claims.scope !== 'string') {
+    ) as {
+      aud?: unknown;
+      sub?: unknown;
+      wallet_address?: unknown;
+      scope?: unknown;
+    };
+    const subject = fixtureSubject(claims.sub, claims.wallet_address);
+    const audience = fixtureAudience(claims.aud);
+    if (
+      subject === null ||
+      audience === null ||
+      typeof claims.scope !== 'string'
+    ) {
       return null;
     }
     return {
       subject,
+      audience,
       permissions: claims.scope.split(/\s+/).filter(Boolean),
     };
   } catch {
@@ -381,12 +411,17 @@ async function routeRequest(request: Request): Promise<Response> {
     if (!['epsx-frontend', 'epsx-admin'].includes(audience)) {
       return json({ error: 'invalid_audience' }, 400);
     }
+    const keyId = url.searchParams.get('key_id') ?? signingKeyId;
+    if (!/^epsx-e2e-rs256-[a-z0-9-]{1,64}$/.test(keyId)) {
+      return json({ error: 'invalid_key_id' }, 400);
+    }
     return json({
-      accessToken: fixtureAccessToken(
-        url.origin,
+      accessToken: fixtureAccessToken({
+        issuer: url.origin,
         audience,
-        url.searchParams.get('permissions') ?? ''
-      ),
+        permissions: url.searchParams.get('permissions') ?? '',
+        keyId,
+      }),
     });
   }
 
@@ -411,11 +446,14 @@ async function routeRequest(request: Request): Promise<Response> {
   if (url.pathname === '/health' || url.pathname === '/api/health') {
     return json({ status: 'ok', service: 'epsx-e2e-fixture' });
   }
+  if (
+    fixtureMode === 'dependency-unavailable' &&
+    url.pathname.includes('jwks')
+  ) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
   if (url.pathname.includes('jwks')) {
     return json({ keys: [signingJwk] });
-  }
-  if (fixtureMode === 'dependency-unavailable') {
-    return json({ success: false, error: 'dependency_unavailable' }, 503);
   }
   if (fixtureMode === 'malformed') {
     return json({ malformed: true });
@@ -466,6 +504,114 @@ async function routeRequest(request: Request): Promise<Response> {
       },
     });
   }
+  if (
+    url.pathname === '/api/auth/session' ||
+    url.pathname === '/api/auth/web3/session'
+  ) {
+    const principal = fixturePrincipal(request);
+    const expectedAudience =
+      request.headers.get('x-app-type') === 'admin'
+        ? 'epsx-admin'
+        : principal?.audience;
+    if (
+      principal === null ||
+      expectedAudience === undefined ||
+      principal.audience !== expectedAudience
+    ) {
+      return json({ error: 'authentication_required' }, 401);
+    }
+    if (url.pathname === '/api/auth/web3/session') {
+      return json({
+        authenticated: true,
+        wallet_address: principal.subject,
+        permissions: principal.permissions,
+      });
+    }
+    return json({
+      user: {
+        id: principal.subject,
+        wallet_address: principal.subject,
+        permissions: principal.permissions,
+        tier: fixtureTier,
+      },
+      expiresAt: 2524608000000,
+    });
+  }
+  if (url.pathname === '/api/permissions/definitions') {
+    const principal = fixturePrincipal(request);
+    if (principal === null) {
+      return json({ success: false, error: 'authentication_required' }, 401);
+    }
+    return json({
+      success: true,
+      data: principal.permissions.map((permission, index) => ({
+        id: `fixture-permission-${index + 1}`,
+        permission_string: permission,
+        name: permission,
+        description: 'Backend-issued migration contract permission',
+        platform: permission.split(':')[0] ?? 'epsx',
+        category: permission.split(':')[1] ?? null,
+        is_system: true,
+        is_active: true,
+        created_at: fixtureTimestamp,
+      })),
+    });
+  }
+  if (url.pathname === '/api/users/permissions/status') {
+    const principal = fixturePrincipal(request);
+    if (principal === null) {
+      return json({ success: false, error: 'authentication_required' }, 401);
+    }
+    const permissions = principal.permissions.map(permission => ({
+      permission,
+      expires_at: null,
+      source: 'session',
+      granted_by: null,
+      granted_at: fixtureTimestamp,
+      is_active: true,
+      expires_soon: false,
+      time_until_expiry: null,
+      metadata: null,
+    }));
+    return json({
+      success: true,
+      data: {
+        wallet_address: principal.subject,
+        permissions,
+        permission_version: 1,
+        last_updated: fixtureTimestamp,
+        total_permissions: permissions.length,
+        active_permissions: permissions.length,
+        expired_permissions: 0,
+        expiring_soon: 0,
+        has_admin_access: principal.permissions.some(permission =>
+          permission.startsWith('admin:')
+        ),
+        platform_permissions: {
+          epsx: principal.permissions.filter(permission =>
+            permission.startsWith('epsx:')
+          ),
+          admin: principal.permissions.filter(permission =>
+            permission.startsWith('admin:')
+          ),
+        },
+      },
+    });
+  }
+  if (url.pathname === '/api/users/access-overview') {
+    const principal = fixturePrincipal(request);
+    if (principal === null) {
+      return json({ success: false, error: 'authentication_required' }, 401);
+    }
+    return json({
+      success: true,
+      data: {
+        plan: fixtureTier,
+        permissions: principal.permissions,
+        expires_at: null,
+      },
+    });
+  }
   if (url.pathname === '/api/payments/credits/balance') {
     return json({
       success: true,
@@ -476,7 +622,7 @@ async function routeRequest(request: Request): Promise<Response> {
         available_balance: 120,
         lifetime_earned: 160,
         lifetime_spent: 40,
-        last_transaction_at: '2026-01-01T00:00:00.000Z',
+        last_transaction_at: fixtureTimestamp,
       },
     });
   }
@@ -505,6 +651,34 @@ async function routeRequest(request: Request): Promise<Response> {
           system: false,
           marketing: false,
         },
+      },
+    });
+  }
+  if (
+    url.pathname === '/api/v1/notification/push' ||
+    url.pathname === '/api/v1/notification/push/unsubscribe'
+  ) {
+    return json({
+      enabled: false,
+      subscribed: false,
+      public_key: null,
+    });
+  }
+  if (url.pathname === '/api/notifications/stream') {
+    return new Response('data: {"type":"connected"}\n\n', {
+      headers: {
+        'cache-control': 'no-store',
+        'content-type': 'text/event-stream',
+        'x-epsx-e2e-fixture': '1',
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/notifications') {
+    return json({
+      success: true,
+      data: {
+        notifications: [],
+        pagination: { page: 1, limit: 5, total: 0, total_pages: 1 },
       },
     });
   }
@@ -546,12 +720,12 @@ async function routeRequest(request: Request): Promise<Response> {
         subject: principal.subject,
         wallet_address: principal.subject,
         permissions: principal.permissions,
-        capabilities: ['migration-e2e'],
+        capabilities: [fixtureTier],
         auth_method: 'web3_siwe',
-        tier: 'migration-e2e',
+        tier: fixtureTier,
         status: 'active',
-        created_at: '2026-01-01T00:00:00.000Z',
-        last_login: '2026-01-01T00:00:00.000Z',
+        created_at: fixtureTimestamp,
+        last_login: fixtureTimestamp,
       },
     });
   }

@@ -270,7 +270,8 @@ async function fixtureControl<T>(
 
 async function proxySourceDependency(
   route: Route,
-  fixtureUrl: string
+  fixtureUrl: string,
+  accessToken: string | undefined
 ): Promise<void> {
   const request = route.request();
   const originalUrl = new URL(request.url());
@@ -281,6 +282,9 @@ async function proxySourceDependency(
   const headers = new Headers(request.headers());
   headers.delete('content-length');
   headers.delete('host');
+  if (!headers.has('authorization') && accessToken !== undefined) {
+    headers.set('authorization', `Bearer ${accessToken}`);
+  }
   const method = request.method();
   const response = await fetch(fixtureRequestUrl, {
     method,
@@ -299,6 +303,7 @@ async function proxySourceDependency(
   });
 }
 
+// eslint-disable-next-line complexity
 async function configureScenarioState(options: {
   context: BrowserContext;
   baseUrl: string;
@@ -306,7 +311,7 @@ async function configureScenarioState(options: {
   fixtureToken: string;
   scenario: Scenario;
   side: 'source' | 'target';
-}): Promise<void> {
+}): Promise<string | undefined> {
   const { baseUrl, context, fixtureToken, fixtureUrl, scenario, side } =
     options;
   const fixtureModeSide = scenario.state.fixtureModeSide ?? 'both';
@@ -321,9 +326,12 @@ async function configureScenarioState(options: {
     });
   }
   if (scenario.state.session !== 'authenticated') {
-    return;
+    return undefined;
   }
-  const audience = scenario.state.audience;
+  const audience =
+    side === 'source'
+      ? (scenario.state.sourceAudience ?? scenario.state.audience)
+      : scenario.state.audience;
   if (audience === undefined) {
     throw new Error(
       `authenticated scenario ${scenario.id} must declare an audience`
@@ -335,6 +343,8 @@ async function configureScenarioState(options: {
     fixtureToken,
     `/__e2e/session?audience=${encodeURIComponent(audience)}&permissions=${encodeURIComponent(
       permissions
+    )}&key_id=${encodeURIComponent(
+      scenario.state.tokenKeyId ?? 'epsx-e2e-rs256-v1'
     )}`
   );
   const targetName =
@@ -350,6 +360,7 @@ async function configureScenarioState(options: {
       sameSite: 'Lax',
     },
   ]);
+  return session.accessToken;
 }
 
 async function applyActions(
@@ -491,6 +502,14 @@ export async function captureSide(
       size: viewport,
     },
   });
+  const sourceAccessToken = await configureScenarioState({
+    context,
+    baseUrl,
+    fixtureUrl,
+    fixtureToken,
+    scenario,
+    side,
+  });
   await context.route('https://api.web3modal.org/appkit/v1/config**', route =>
     route.fulfill({
       status: 200,
@@ -504,7 +523,7 @@ export async function captureSide(
   if (side === 'source') {
     await context.route(
       /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
-      route => proxySourceDependency(route, fixtureUrl)
+      route => proxySourceDependency(route, fixtureUrl, sourceAccessToken)
     );
   }
   await context.addInitScript((theme: string) => {
@@ -519,14 +538,6 @@ export async function captureSide(
     applyTheme();
     document.addEventListener('DOMContentLoaded', applyTheme, { once: true });
   }, colorScheme);
-  await configureScenarioState({
-    context,
-    baseUrl,
-    fixtureUrl,
-    fixtureToken,
-    scenario,
-    side,
-  });
   await context.tracing.start({
     screenshots: true,
     snapshots: true,

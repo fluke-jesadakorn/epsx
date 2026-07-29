@@ -393,6 +393,14 @@ async function doctor(): Promise<void> {
           `scenario ${scenario.id} declares fixtureModeSide without fixtureMode`
         );
       }
+      if (
+        scenario.state.sourceAudience !== undefined &&
+        scenario.state.session !== 'authenticated'
+      ) {
+        throw new Error(
+          `scenario ${scenario.id} declares sourceAudience without an authenticated session`
+        );
+      }
     }
     for (const suite of group.backendContracts ?? []) {
       if (

@@ -646,14 +646,24 @@
             "id": "wrong-frontend-audience",
             "session": "authenticated",
             "audience": "epsx-admin",
+            "sourceAudience": "epsx-frontend",
             "permissions": ["epsx:profile:read", "admin:*"]
           },
           "actions": [{ "type": "reload" }],
           "outcomes": [
-            { "type": "path", "value": "/profile" },
+            {
+              "type": "path",
+              "value": "/profile",
+              "side": "source"
+            },
+            {
+              "type": "path",
+              "value": "/auth",
+              "side": "target"
+            },
             {
               "type": "text",
-              "value": "Sign in required",
+              "value": "Sign-in temporarily unavailable",
               "side": "target"
             },
             {
@@ -692,6 +702,7 @@
             "id": "wrong-admin-audience",
             "session": "authenticated",
             "audience": "epsx-frontend",
+            "sourceAudience": "epsx-admin",
             "permissions": ["admin:settings:read", "admin:settings:update"]
           },
           "actions": [{ "type": "reload" }],
@@ -749,6 +760,7 @@
             "session": "authenticated",
             "audience": "epsx-frontend",
             "permissions": ["epsx:profile:read"],
+            "tokenKeyId": "epsx-e2e-rs256-unavailable",
             "fixtureMode": "dependency-unavailable",
             "fixtureModeSide": "target"
           },
