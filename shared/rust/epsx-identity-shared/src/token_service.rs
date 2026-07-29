@@ -1620,10 +1620,4 @@ mod tests {
         )
         .is_err());
     }
-
-    #[tokio::test]
-    async fn test_valid_client_ids() {
-        // Test requires database setup - skipped for now
-        // This would need actual test setup with database and keys
-    }
 }

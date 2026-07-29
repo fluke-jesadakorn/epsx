@@ -428,6 +428,126 @@
         "persistent RS256 key",
         "identity failure modes"
       ],
+      "backendContracts": [
+        {
+          "id": "pr2.identity-token-contracts",
+          "title": "Identity nonce, token, refresh, revocation, and persistent-key contracts",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-identity-shared",
+            "--lib"
+          ],
+          "claims": [
+            "SIWE nonce entropy and replay-state classification",
+            "refresh client and family-state isolation",
+            "revoked, consumed, replayed, and invalid refresh states fail closed",
+            "single exact access-token audience",
+            "RS256 issuer, audience, algorithm, and key-id validation",
+            "persistent signing material survives service reconstruction"
+          ],
+          "sources": [
+            "shared/rust/epsx-identity-shared/src/auth_service.rs",
+            "shared/rust/epsx-identity-shared/src/token_service.rs",
+            "shared/rust/epsx-identity-shared/src/key_manager.rs",
+            "shared/rust/epsx-identity-shared/src/refresh_token_digest.rs"
+          ]
+        },
+        {
+          "id": "pr2.service-auth-boundary",
+          "title": "Service audience and permission boundary",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-service-auth",
+            "--lib"
+          ],
+          "claims": [
+            "frontend and admin audiences are exact and isolated",
+            "wrong audience, issuer, expiry, algorithm, and unknown keys are rejected",
+            "permission wildcard grammar does not widen authority"
+          ],
+          "sources": [
+            "shared/rust/epsx-service-auth/src/lib.rs"
+          ]
+        },
+        {
+          "id": "pr2.identity-service-policy",
+          "title": "Identity service route and owner policy",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-identity",
+            "--lib"
+          ],
+          "claims": [
+            "identity routes require exact audiences and literal permissions",
+            "spoofable owner headers are stripped",
+            "malformed credentials and hidden lifecycle routes fail closed",
+            "dependency verifier failures do not expose protected handlers"
+          ],
+          "sources": [
+            "services/identity/src/lib.rs"
+          ]
+        },
+        {
+          "id": "pr2.frontend-session-boundary",
+          "title": "Frontend BFF session lifecycle and owner isolation",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-frontend",
+            "--bin",
+            "bff-frontend"
+          ],
+          "claims": [
+            "invalid login and identity mismatch set no session",
+            "refresh rotates the verified cookie pair without replay",
+            "refresh dependency failure clears unprovable sessions",
+            "logout clears canonical and legacy cookies",
+            "profile and account data stay bound to the verified owner"
+          ],
+          "sources": [
+            "apps/frontend/src/api.rs",
+            "apps/frontend/src/auth.rs",
+            "apps/frontend/src/ssr.rs"
+          ]
+        },
+        {
+          "id": "pr2.admin-session-boundary",
+          "title": "Admin BFF audience, session, and permission lifecycle",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "--bin",
+            "bff-admin"
+          ],
+          "claims": [
+            "SIWE exchange requires the admin audience",
+            "frontend and multiple audiences cannot establish admin authority",
+            "refresh rotation, rejection, transport failure, and logout fail closed",
+            "backend profile permissions remain verbatim",
+            "unauthenticated and under-permissioned requests stop before upstream access"
+          ],
+          "sources": [
+            "apps/admin/src/session_auth.rs",
+            "apps/admin/src/session_auth_tests.rs",
+            "apps/admin/src/auth.rs",
+            "apps/admin/src/main.rs"
+          ]
+        }
+      ],
       "routes": {
         "frontend": ["/auth", "/account", "/profile", "/permissions"],
         "admin": ["/auth", "/settings"]
@@ -457,9 +577,14 @@
             "audience": "epsx-frontend",
             "permissions": ["epsx:profile:read", "epsx:profile:update"]
           },
-          "actions": [],
+          "actions": [{ "type": "reload" }],
           "outcomes": [
             { "type": "path", "value": "/account" },
+            {
+              "type": "text",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
             { "type": "no-horizontal-overflow" }
           ],
           "fixtureRequirements": ["profile", "preferences"]
@@ -501,6 +626,62 @@
           "fixtureRequirements": ["permission snapshot"]
         },
         {
+          "id": "pr2.permissions.empty-claims",
+          "surface": "frontend",
+          "path": "/permissions",
+          "title": "No frontend-invented permission claims",
+          "state": {
+            "id": "frontend-owner-empty-permissions",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": []
+          },
+          "actions": [{ "type": "reload" }],
+          "outcomes": [
+            { "type": "path", "value": "/permissions" },
+            {
+              "type": "text",
+              "value": "No permission claim strings were included in this verified session.",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "admin:*",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["empty permission snapshot"]
+        },
+        {
+          "id": "pr2.frontend.wrong-audience",
+          "surface": "frontend",
+          "path": "/profile",
+          "title": "Admin token cannot establish a frontend session",
+          "state": {
+            "id": "wrong-frontend-audience",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["epsx:profile:read", "admin:*"]
+          },
+          "actions": [{ "type": "reload" }],
+          "outcomes": [
+            { "type": "path", "value": "/profile" },
+            {
+              "type": "text",
+              "value": "Sign in required",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Backend-issued session claims",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["admin-audience RS256 token"]
+        },
+        {
           "id": "pr2.admin.settings",
           "surface": "admin",
           "path": "/settings",
@@ -519,19 +700,87 @@
           "fixtureRequirements": ["admin profile", "settings"]
         },
         {
-          "id": "pr2.auth.dependency-failure",
-          "surface": "frontend",
-          "path": "/auth",
-          "title": "Identity dependency failure is explicit",
+          "id": "pr2.admin.wrong-audience",
+          "surface": "admin",
+          "path": "/settings",
+          "title": "Frontend token cannot establish an admin session",
           "state": {
-            "id": "identity-unavailable",
-            "session": "signed-out",
-            "fixtureMode": "dependency-unavailable"
+            "id": "wrong-admin-audience",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["admin:settings:read", "admin:settings:update"]
+          },
+          "actions": [{ "type": "reload" }],
+          "outcomes": [
+            { "type": "path", "value": "/settings" },
+            {
+              "type": "text",
+              "value": "Sign in required",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Authoritative settings",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["frontend-audience RS256 token"]
+        },
+        {
+          "id": "pr2.auth.logout",
+          "surface": "frontend",
+          "path": "/account?logout=1",
+          "title": "Logout clears the verified frontend session",
+          "state": {
+            "id": "frontend-owner-logout",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"]
           },
           "actions": [],
           "outcomes": [
-            { "type": "path", "value": "/auth" },
-            { "type": "text", "value": "Connect Wallet" }
+            { "type": "path", "value": "/account" },
+            {
+              "type": "text",
+              "value": "Sign in to view",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["revocable frontend session"]
+        },
+        {
+          "id": "pr2.auth.dependency-failure",
+          "surface": "frontend",
+          "path": "/profile",
+          "title": "Identity dependency failure clears unprovable authority",
+          "state": {
+            "id": "identity-unavailable-authenticated",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"],
+            "fixtureMode": "dependency-unavailable"
+          },
+          "actions": [{ "type": "reload" }],
+          "outcomes": [
+            { "type": "path", "value": "/profile" },
+            {
+              "type": "text",
+              "value": "Sign in required",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Backend-issued session claims",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
           ],
           "fixtureRequirements": ["identity 503"]
         }

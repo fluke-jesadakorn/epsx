@@ -61,6 +61,15 @@ export interface Scenario {
   expectedTargetPath?: string;
 }
 
+export interface BackendContractSuite {
+  id: string;
+  title: string;
+  executable: 'cargo';
+  arguments: string[];
+  claims: string[];
+  sources: string[];
+}
+
 export interface ScenarioGroup {
   id: number;
   slug: string;
@@ -78,6 +87,7 @@ export interface ScenarioGroup {
   includeAllContractRoutes?: boolean;
   browsers?: string[];
   requiredBypasses?: number;
+  backendContracts?: BackendContractSuite[];
 }
 
 export interface ScenarioManifest {
@@ -265,4 +275,42 @@ export interface ComparisonResult {
   approvalReason: string;
   approvalCategory?: ApprovedDifferenceCategory;
   maximumAllowedDifferencePercent: number;
+}
+
+export interface BackendContractRepeat {
+  schemaVersion: number;
+  groupId: number;
+  suiteId: string;
+  repeat: number;
+  command: string[];
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  exitCode: number;
+  passedTests: number;
+  failedTests: number;
+  ignoredTests: number;
+  outputPath: string;
+  outputSha256: string;
+  preResetPath: string;
+  postResetPath: string;
+  passed: boolean;
+}
+
+export interface BackendContractReproducibility {
+  schemaVersion: number;
+  groupId: number;
+  suiteId: string;
+  title: string;
+  repeats: number;
+  claims: string[];
+  sources: string[];
+  results: BackendContractRepeat[];
+  checks: {
+    allRunsPassed: boolean;
+    stablePassedTestCount: boolean;
+    stableIgnoredTestCount: boolean;
+    noIgnoredTests: boolean;
+  };
+  passed: boolean;
 }

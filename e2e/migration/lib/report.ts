@@ -3,6 +3,9 @@ import { copyFile, rm, writeFile } from 'node:fs/promises';
 import { basename, relative, resolve } from 'node:path';
 
 import {
+  loadManifest,
+} from './config';
+import {
   artifactManifest,
   ensureDirectory,
   listFiles,
@@ -12,6 +15,7 @@ import {
   writeJson,
 } from './files';
 import type {
+  BackendContractReproducibility,
   CaptureResult,
   ComparisonResult,
   ResetProof,
@@ -72,7 +76,7 @@ function evidenceRowPassed(row: EvidenceRow): boolean {
 
 // The report is intentionally assembled in one ordered pass so its table,
 // contact sheets, and checksummed manifests describe the same evidence set.
-// eslint-disable-next-line max-lines-per-function, complexity
+// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
 export async function generateReport(
   config: RuntimeConfig
 ): Promise<{ reportPath: string; artifactManifestPath: string }> {
@@ -83,6 +87,24 @@ export async function generateReport(
   if (reproducibilityPaths.length === 0) {
     throw new Error('no reproducibility evidence was generated');
   }
+  const manifest = await loadManifest();
+  const expectedContractSuites = manifest.groups
+    .filter(group => group.id >= 0 && group.id <= config.groupId)
+    .flatMap(group => group.backendContracts ?? []);
+  const contractPaths = files
+    .filter(path =>
+      path.includes('/backend-contracts/')
+    )
+    .filter(path => path.endsWith('/reproducibility.json'))
+    .sort();
+  if (contractPaths.length !== expectedContractSuites.length) {
+    throw new Error(
+      `backend contract evidence has ${contractPaths.length} suites; expected ${expectedContractSuites.length}`
+    );
+  }
+  const contractEvidence = await Promise.all(
+    contractPaths.map(path => readJson<BackendContractReproducibility>(path))
+  );
 
   const expectedEvidenceRoot = resolve(
     config.repoRoot,
@@ -171,7 +193,10 @@ export async function generateReport(
   const finalReset = await readJson<ResetProof>(
     resolve(config.artifactRoot, 'reset-final.json')
   );
-  const allPassed = rows.every(evidenceRowPassed) && finalReset.passed;
+  const allPassed =
+    rows.every(evidenceRowPassed) &&
+    contractEvidence.every(contract => contract.passed) &&
+    finalReset.passed;
 
   let markdown = `# PR ${config.groupId} — cumulative migration E2E evidence\n\n`;
   markdown += `Result: **${allPassed ? 'PASS' : 'FAIL'}**\n\n`;
@@ -203,6 +228,23 @@ export async function generateReport(
     }, post=${row.postReset.passed ? 'PASS' : 'FAIL'} |\n`;
   }
   markdown += '\n';
+  if (contractEvidence.length > 0) {
+    markdown += '## Backend-authoritative contract evidence\n\n';
+    markdown +=
+      '| Suite | Group | Result | Clean repeats | Rust tests per repeat | Claims | Source anchors |\n';
+    markdown += '|---|---:|---|---:|---:|---|---|\n';
+    for (const contract of contractEvidence) {
+      markdown += `| \`${contract.suiteId}\` | ${contract.groupId} | ${
+        contract.passed ? 'PASS' : 'FAIL'
+      } | ${contract.repeats} | ${
+        contract.results[0]?.passedTests ?? 0
+      } | ${contract.claims.join('; ')} | ${contract.sources
+        .map(source => `\`${source}\``)
+        .join('<br>')} |\n`;
+    }
+    markdown +=
+      '\nEach repeat has a checksummed Cargo log plus guarded pre/post PostgreSQL, Redis, Anvil, and fixture reset proofs in the full artifact. Test counts and ignored-test counts must be stable, every command must pass, and ignored tests are forbidden.\n\n';
+  }
   markdown += '## Contact sheets\n\n';
   markdown +=
     'Each sheet is ordered **Next.js source → Rust/Dioxus target → highlighted pixel diff**.\n\n';

@@ -91,6 +91,40 @@ function fixtureAccessToken(
   return `${message}.${signature.toString('base64url')}`;
 }
 
+function fixturePrincipal(request: Request): {
+  subject: string;
+  permissions: string[];
+} | null {
+  const authorization = request.headers.get('authorization');
+  if (authorization?.startsWith('Bearer ') !== true) {
+    return null;
+  }
+  const segments = authorization.slice('Bearer '.length).split('.');
+  if (segments.length !== 3) {
+    return null;
+  }
+  try {
+    const claims = JSON.parse(
+      Buffer.from(segments[1], 'base64url').toString('utf8')
+    ) as { sub?: unknown; wallet_address?: unknown; scope?: unknown };
+    const subject =
+      typeof claims.sub === 'string' &&
+      typeof claims.wallet_address === 'string' &&
+      claims.sub === claims.wallet_address
+        ? claims.sub
+        : null;
+    if (subject === null || typeof claims.scope !== 'string') {
+      return null;
+    }
+    return {
+      subject,
+      permissions: claims.scope.split(/\s+/).filter(Boolean),
+    };
+  } catch {
+    return null;
+  }
+}
+
 if (!Number.isInteger(port) || port < 1024 || port > 65535) {
   throw new Error(`invalid E2E fixture port ${port}`);
 }
@@ -459,12 +493,16 @@ async function routeRequest(request: Request): Promise<Response> {
     url.pathname === '/api/admin/me' ||
     url.pathname === '/api/users/profile'
   ) {
+    const principal = fixturePrincipal(request);
+    if (principal === null) {
+      return json({ success: false, error: 'authentication_required' }, 401);
+    }
     return json({
       success: true,
       data: {
-        subject: '0xea6400000000000000000000000000000000e3df',
-        wallet_address: '0xea6400000000000000000000000000000000e3df',
-        permissions: ['admin:*:*', 'epsx:*:*'],
+        subject: principal.subject,
+        wallet_address: principal.subject,
+        permissions: principal.permissions,
         capabilities: ['migration-e2e'],
         auth_method: 'web3_siwe',
       },

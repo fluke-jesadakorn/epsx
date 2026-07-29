@@ -19,6 +19,7 @@ import {
   repoRoot,
   runtimeConfig,
 } from './lib/config';
+import { runBackendContracts } from './lib/backend-contracts';
 import { listFiles, readJson, sha256File } from './lib/files';
 import { generateReport, verifyArtifactManifest } from './lib/report';
 import { RuntimeResetManager } from './lib/runtime-reset';
@@ -382,6 +383,20 @@ async function doctor(): Promise<void> {
         );
       }
     }
+    for (const suite of group.backendContracts ?? []) {
+      if (
+        suite.id.trim() === '' ||
+        suite.title.trim() === '' ||
+        String(suite.executable) !== 'cargo' ||
+        suite.arguments.length === 0 ||
+        suite.claims.length === 0 ||
+        suite.sources.length === 0 ||
+        suite.claims.some(claim => claim.trim() === '') ||
+        suite.sources.some(source => source.trim() === '')
+      ) {
+        throw new Error(`group ${group.id} has an invalid backend contract`);
+      }
+    }
   }
   for (const surface of ['frontend', 'admin'] as const) {
     const application = contract.applications[surface];
@@ -640,6 +655,12 @@ async function run(): Promise<void> {
         `source dependency installation modified the immutable baseline: ${sourceChanges}`
       );
     }
+    await runBackendContracts({
+      config,
+      environment: safeEnvironment(),
+      groups: accumulatedGroups,
+      resetManager,
+    });
     runCommand(
       'cargo',
       [
