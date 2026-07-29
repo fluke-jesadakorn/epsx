@@ -580,7 +580,7 @@ function buildPlaywrightShards(
   for (const group of accumulatedGroups) {
     if (group.id !== 9) {
       shards.push({
-        grep: `^group ${group.id}:`,
+        grep: `group ${group.id}:`,
         project: 'migration-chromium',
       });
       continue;
@@ -589,13 +589,13 @@ function buildPlaywrightShards(
     for (const surface of group.surfaces) {
       for (const matrix of matrices) {
         shards.push({
-          grep: `^group 9: pr9\\.${surface}\\..* \\[${matrix.id}\\]$`,
+          grep: `group 9: pr9\\.${surface}\\..* \\[${matrix.id}\\]`,
           project: 'migration-chromium',
         });
       }
       for (const browser of group.browsers ?? []) {
         shards.push({
-          grep: `^cross-browser pr9\\.${surface}\\.`,
+          grep: `cross-browser pr9\\.${surface}\\.`,
           project: `migration-${browser}`,
         });
       }
