@@ -140,17 +140,19 @@ async function clearBrowserStorage(
 }
 
 function normalizedDom(semanticHtml: string): string {
-  return semanticHtml
-    .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
-    // React's useId allocation can shift between otherwise identical source
-    // captures when Radix mounts a different set of client-only primitives.
-    // Preserve every ID relationship while canonicalizing only Radix's
-    // generated identifier payload. Accessibility snapshots are gated
-    // separately and remain byte-exact.
-    .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
-    .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
-    .replaceAll(/\s+/g, ' ')
-    .trim();
+  return (
+    semanticHtml
+      .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
+      // React's useId allocation can shift between otherwise identical source
+      // captures when Radix mounts a different set of client-only primitives.
+      // Preserve every ID relationship while canonicalizing only Radix's
+      // generated identifier payload. Accessibility snapshots are gated
+      // separately and remain byte-exact.
+      .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
+      .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
+      .replaceAll(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 function errorLocation(message: {
@@ -167,9 +169,14 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
   return entries
     .filter(entry => entry.kind === 'failed')
     .filter(failure => {
-      const successfulResponseAbort =
+      const isSuccessfulStreamAbort =
         failure.method !== undefined &&
-        ['HEAD', 'POST'].includes(failure.method) &&
+        (['HEAD', 'POST'].includes(failure.method) ||
+          (failure.method === 'GET' &&
+            failure.resourceType === 'fetch' &&
+            new URL(failure.url).searchParams.has('_rsc')));
+      const successfulResponseAbort =
+        isSuccessfulStreamAbort &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -181,8 +188,8 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             entry.status < 400
         );
       // Chromium can report an abort after a successful HEAD response or a
-      // completed Next.js RSC POST stream. The observed 2xx/3xx response is
-      // authoritative; both raw entries remain available in network.json.
+      // completed Next.js RSC POST/GET stream. Only exact successful probes
+      // and `_rsc` fetches qualify; both raw entries remain in network.json.
       return !successfulResponseAbort;
     });
 }
@@ -671,6 +678,15 @@ export async function captureSide(
         node.remove();
       }
       for (const element of [clone, ...clone.querySelectorAll('*')]) {
+        if (
+          element.tagName === 'INPUT' &&
+          element.getAttribute('name') === 'idempotency_key'
+        ) {
+          // Idempotency tokens intentionally contain fresh entropy on every
+          // render. Preserve the input and its contract while canonicalizing
+          // only the volatile value for exact semantic-DOM repeat proofs.
+          element.setAttribute('value', '__EPSX_IDEMPOTENCY_KEY__');
+        }
         const runtimeAttributes = Array.from(element.attributes)
           .map(attribute => attribute.name)
           .filter(name => name.startsWith('data-nextjs') || name === 'nonce');

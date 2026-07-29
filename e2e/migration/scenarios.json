@@ -1023,7 +1023,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-admin-wallet-list-state=\"malformed\"]",
+              "value": "[data-admin-wallets-state=\"malformed\"]",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }
@@ -1053,11 +1053,6 @@
             {
               "type": "selector",
               "value": "[data-admin-wallet-list-state=\"ready\"]",
-              "side": "target"
-            },
-            {
-              "type": "selector",
-              "value": "[data-admin-wallets-state=\"ready\"]",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }
@@ -1283,31 +1278,31 @@
           "actions": [
             {
               "type": "fill",
-              "selector": "form input[name=\"wallet_address\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"credit_grant\"]) input[name=\"wallet_address\"]",
               "value": "0xea6400000000000000000000000000000000e3df",
               "side": "target"
             },
             {
               "type": "fill",
-              "selector": "form input[name=\"expected_version\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"credit_grant\"]) input[name=\"expected_version\"]",
               "value": "3",
               "side": "target"
             },
             {
               "type": "fill",
-              "selector": "form input[name=\"amount_minor\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"credit_grant\"]) input[name=\"amount_minor\"]",
               "value": "1000000000001",
               "side": "target"
             },
             {
               "type": "fill",
-              "selector": "form input[name=\"reason\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"credit_grant\"]) input[name=\"reason\"]",
               "value": "Validation boundary",
               "side": "target"
             },
             {
               "type": "click",
-              "selector": "form button[type=\"submit\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"credit_grant\"]) button[type=\"submit\"]",
               "side": "target"
             },
             {
@@ -1335,7 +1330,7 @@
         {
           "id": "pr3.admin.disable",
           "surface": "admin",
-          "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+          "path": "/wallet-management/0xea6400000000000000000000000000000000e3df",
           "title": "Wallet disable validation",
           "state": {
             "id": "wallet-admin",
@@ -1344,6 +1339,16 @@
             "permissions": ["admin:wallets:read"]
           },
           "actions": [
+            {
+              "type": "navigate",
+              "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-disable-state=\"form\"]",
+              "side": "target"
+            },
             {
               "type": "fill",
               "selector": "#wallet-disable-reason",
@@ -1374,7 +1379,7 @@
         {
           "id": "pr3.admin.disable-audit",
           "surface": "admin",
-          "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+          "path": "/wallet-management/0xea6400000000000000000000000000000000e3df",
           "title": "Committed wallet disable produces a bounded audit effect",
           "state": {
             "id": "wallet-manage-admin",
@@ -1387,6 +1392,16 @@
             ]
           },
           "actions": [
+            {
+              "type": "navigate",
+              "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-disable-state=\"form\"]",
+              "side": "target"
+            },
             {
               "type": "fill",
               "selector": "#wallet-disable-reason",
