@@ -81,9 +81,13 @@ export async function generateReport(
   config: RuntimeConfig
 ): Promise<{ reportPath: string; artifactManifestPath: string }> {
   const files = await listFiles(config.artifactRoot);
-  const reproducibilityPaths = files.filter(path =>
-    path.endsWith('/reproducibility.json')
-  );
+  const reproducibilityPaths = files
+    .filter(path => path.endsWith('/reproducibility.json'))
+    .filter(
+      path =>
+        !path.includes('/backend-contracts/') &&
+        !path.includes('/cross-browser/')
+    );
   if (reproducibilityPaths.length === 0) {
     throw new Error('no reproducibility evidence was generated');
   }
