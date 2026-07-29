@@ -466,6 +466,48 @@ async function routeRequest(request: Request): Promise<Response> {
       },
     });
   }
+  if (url.pathname === '/api/payments/credits/balance') {
+    return json({
+      success: true,
+      data: {
+        wallet_address: '0xea6400000000000000000000000000000000e3df',
+        balance: 120,
+        pending_balance: 0,
+        available_balance: 120,
+        lifetime_earned: 160,
+        lifetime_spent: 40,
+        last_transaction_at: '2026-01-01T00:00:00.000Z',
+      },
+    });
+  }
+  if (url.pathname === '/api/payments/history') {
+    return json({
+      success: true,
+      data: {
+        payments: [],
+        pagination: {
+          page: 1,
+          per_page: 10,
+          total: 0,
+          total_pages: 1,
+        },
+      },
+    });
+  }
+  if (url.pathname === '/api/notifications/preferences') {
+    return json({
+      success: true,
+      data: {
+        preferences: {
+          analytics: true,
+          security: true,
+          account: true,
+          system: false,
+          marketing: false,
+        },
+      },
+    });
+  }
   if (url.pathname === '/api/v1/notification/list') {
     return json({ items: [], total: 0 });
   }
@@ -500,11 +542,16 @@ async function routeRequest(request: Request): Promise<Response> {
     return json({
       success: true,
       data: {
+        id: principal.subject,
         subject: principal.subject,
         wallet_address: principal.subject,
         permissions: principal.permissions,
         capabilities: ['migration-e2e'],
         auth_method: 'web3_siwe',
+        tier: 'migration-e2e',
+        status: 'active',
+        created_at: '2026-01-01T00:00:00.000Z',
+        last_login: '2026-01-01T00:00:00.000Z',
       },
     });
   }

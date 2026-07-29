@@ -20,6 +20,7 @@ export interface ScenarioState {
   audience?: SessionAudience;
   permissions?: string[];
   fixtureMode?: string;
+  fixtureModeSide?: 'source' | 'target' | 'both';
   offline?: boolean;
 }
 

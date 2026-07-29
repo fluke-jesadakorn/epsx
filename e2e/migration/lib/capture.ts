@@ -1,7 +1,7 @@
 import { rename, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page, Route } from '@playwright/test';
 
 import { ensureDirectory, sha256, sha256File, writeJson } from './files';
 import type {
@@ -268,6 +268,37 @@ async function fixtureControl<T>(
   return (await response.json()) as T;
 }
 
+async function proxySourceDependency(
+  route: Route,
+  fixtureUrl: string
+): Promise<void> {
+  const request = route.request();
+  const originalUrl = new URL(request.url());
+  const fixtureRequestUrl = new URL(
+    `${originalUrl.pathname}${originalUrl.search}`,
+    fixtureUrl
+  );
+  const headers = new Headers(request.headers());
+  headers.delete('content-length');
+  headers.delete('host');
+  const method = request.method();
+  const response = await fetch(fixtureRequestUrl, {
+    method,
+    headers,
+    body: ['GET', 'HEAD'].includes(method) ? undefined : request.postData(),
+    redirect: 'manual',
+  });
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete('content-encoding');
+  responseHeaders.delete('content-length');
+  responseHeaders.delete('transfer-encoding');
+  await route.fulfill({
+    status: response.status,
+    headers: Object.fromEntries(responseHeaders.entries()),
+    body: Buffer.from(await response.arrayBuffer()),
+  });
+}
+
 async function configureScenarioState(options: {
   context: BrowserContext;
   baseUrl: string;
@@ -278,7 +309,11 @@ async function configureScenarioState(options: {
 }): Promise<void> {
   const { baseUrl, context, fixtureToken, fixtureUrl, scenario, side } =
     options;
-  if (scenario.state.fixtureMode !== undefined) {
+  const fixtureModeSide = scenario.state.fixtureModeSide ?? 'both';
+  if (
+    scenario.state.fixtureMode !== undefined &&
+    (fixtureModeSide === 'both' || fixtureModeSide === side)
+  ) {
     await fixtureControl(fixtureUrl, fixtureToken, '/__e2e/mode', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -308,7 +343,7 @@ async function configureScenarioState(options: {
       : 'epsx.frontend.access_token';
   await context.addCookies([
     {
-      name: side === 'source' ? 'epsx.sid' : targetName,
+      name: side === 'source' ? 'epsx.access_token' : targetName,
       value: session.accessToken,
       url: baseUrl,
       httpOnly: true,
@@ -441,6 +476,7 @@ export async function captureSide(
   const context = await browser.newContext({
     viewport,
     colorScheme,
+    bypassCSP: side === 'source',
     reducedMotion: 'reduce',
     locale: 'en-US',
     timezoneId: 'UTC',
@@ -466,14 +502,10 @@ export async function captureSide(
     route.fulfill({ status: 204, body: '' })
   );
   if (side === 'source') {
-    await context.route('http://localhost:8080/**', route => {
-      const original = new URL(route.request().url());
-      const fixture = new URL(
-        `${original.pathname}${original.search}`,
-        fixtureUrl
-      );
-      return route.continue({ url: fixture.toString() });
-    });
+    await context.route(
+      /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
+      route => proxySourceDependency(route, fixtureUrl)
+    );
   }
   await context.addInitScript((theme: string) => {
     localStorage.setItem('theme', theme);

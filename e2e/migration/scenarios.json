@@ -459,42 +459,26 @@
           "id": "pr2.service-auth-boundary",
           "title": "Service audience and permission boundary",
           "executable": "cargo",
-          "arguments": [
-            "test",
-            "--locked",
-            "-p",
-            "epsx-service-auth",
-            "--lib"
-          ],
+          "arguments": ["test", "--locked", "-p", "epsx-service-auth", "--lib"],
           "claims": [
             "frontend and admin audiences are exact and isolated",
             "wrong audience, issuer, expiry, algorithm, and unknown keys are rejected",
             "permission wildcard grammar does not widen authority"
           ],
-          "sources": [
-            "shared/rust/epsx-service-auth/src/lib.rs"
-          ]
+          "sources": ["shared/rust/epsx-service-auth/src/lib.rs"]
         },
         {
           "id": "pr2.identity-service-policy",
           "title": "Identity service route and owner policy",
           "executable": "cargo",
-          "arguments": [
-            "test",
-            "--locked",
-            "-p",
-            "epsx-identity",
-            "--lib"
-          ],
+          "arguments": ["test", "--locked", "-p", "epsx-identity", "--lib"],
           "claims": [
             "identity routes require exact audiences and literal permissions",
             "spoofable owner headers are stripped",
             "malformed credentials and hidden lifecycle routes fail closed",
             "dependency verifier failures do not expose protected handlers"
           ],
-          "sources": [
-            "services/identity/src/lib.rs"
-          ]
+          "sources": ["services/identity/src/lib.rs"]
         },
         {
           "id": "pr2.frontend-session-boundary",
@@ -765,7 +749,8 @@
             "session": "authenticated",
             "audience": "epsx-frontend",
             "permissions": ["epsx:profile:read"],
-            "fixtureMode": "dependency-unavailable"
+            "fixtureMode": "dependency-unavailable",
+            "fixtureModeSide": "target"
           },
           "actions": [{ "type": "reload" }],
           "outcomes": [
@@ -1297,7 +1282,10 @@
             "id": "notification-owner",
             "session": "authenticated",
             "audience": "epsx-frontend",
-            "permissions": ["epsx:notifications:read", "epsx:notifications:update"]
+            "permissions": [
+              "epsx:notifications:read",
+              "epsx:notifications:update"
+            ]
           },
           "actions": [],
           "outcomes": [{ "type": "no-horizontal-overflow" }],
@@ -1387,7 +1375,10 @@
             "id": "notification-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:notifications:read", "admin:notifications:redrive"]
+            "permissions": [
+              "admin:notifications:read",
+              "admin:notifications:redrive"
+            ]
           },
           "actions": [],
           "outcomes": [{ "type": "no-horizontal-overflow" }],

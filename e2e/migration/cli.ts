@@ -156,8 +156,11 @@ async function startManagedProcess(options: {
 async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
   const { child, name, processGroupId } = processInfo;
   const groupIsAlive = (): boolean => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return false;
+    }
     if (processGroupId === undefined) {
-      return child.exitCode === null && child.signalCode === null;
+      return true;
     }
     try {
       process.kill(-processGroupId, 0);
@@ -380,6 +383,14 @@ async function doctor(): Promise<void> {
       ) {
         throw new Error(
           `authenticated scenario ${scenario.id} is missing its audience`
+        );
+      }
+      if (
+        scenario.state.fixtureModeSide !== undefined &&
+        scenario.state.fixtureMode === undefined
+      ) {
+        throw new Error(
+          `scenario ${scenario.id} declares fixtureModeSide without fixtureMode`
         );
       }
     }
