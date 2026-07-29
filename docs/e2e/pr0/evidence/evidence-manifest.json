@@ -4,7 +4,7 @@
   "entries": [
     {
       "path": "artifact-manifest.json",
-      "sha256": "faa5148eb967da5836de573fb7b241d4e85491ff11568f6bf3c9d8cd44b2659c"
+      "sha256": "54db3795511abffe753852f5312c1bca9a3a4f630351756b9484a617d4effe6f"
     },
     {
       "path": "pr0.public.about--desktop-light--contact.png",
@@ -28,7 +28,7 @@
     },
     {
       "path": "pr0.public.about--mobile-dark--diff.png",
-      "sha256": "5c7d2866a78f6087ce0aaec23c8647cd9660c1d822ce4d6a49b9cb5a6f37bba2"
+      "sha256": "9134ab98f99e9f3e65117004054792f6202ab2bf96f6bb8886b2f91ee129324f"
     },
     {
       "path": "pr0.public.about--mobile-dark--source.png",
@@ -36,7 +36,7 @@
     },
     {
       "path": "pr0.public.about--mobile-dark--target.png",
-      "sha256": "89f57be042c75668e4134d8b2e1f39d48913fd79e7ce13c4c86e6c56196e6361"
+      "sha256": "986c65af35058d1d7b4003ebb72563acdc8d3052824972427fa4adb385caf129"
     },
     {
       "path": "pr0.public.contact--desktop-light--contact.png",
@@ -60,7 +60,7 @@
     },
     {
       "path": "pr0.public.contact--mobile-dark--diff.png",
-      "sha256": "9134ab98f99e9f3e65117004054792f6202ab2bf96f6bb8886b2f91ee129324f"
+      "sha256": "5c7d2866a78f6087ce0aaec23c8647cd9660c1d822ce4d6a49b9cb5a6f37bba2"
     },
     {
       "path": "pr0.public.contact--mobile-dark--source.png",
@@ -68,7 +68,7 @@
     },
     {
       "path": "pr0.public.contact--mobile-dark--target.png",
-      "sha256": "986c65af35058d1d7b4003ebb72563acdc8d3052824972427fa4adb385caf129"
+      "sha256": "89f57be042c75668e4134d8b2e1f39d48913fd79e7ce13c4c86e6c56196e6361"
     },
     {
       "path": "pr0.public.home--desktop-light--contact.png",
