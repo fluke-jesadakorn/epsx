@@ -539,6 +539,24 @@ fn chat_mutation_query(query: &str) -> Option<&'static str> {
     value
 }
 
+fn wallet_plan_mutation_query(query: &str) -> Option<&'static str> {
+    let mut value = None;
+    for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key != "mutation" || value.is_some() {
+            return None;
+        }
+        value = Some(match candidate.as_ref() {
+            "success" => "success",
+            "conflict" => "conflict",
+            "forbidden" => "forbidden",
+            "unavailable" => "unavailable",
+            "malformed" => "malformed",
+            _ => return None,
+        });
+    }
+    value
+}
+
 fn notification_mutation_query(query: &str) -> Option<&'static str> {
     let mut value = None;
     for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
@@ -1232,7 +1250,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         .strip_prefix("/wallet-management/access/plans/")
         .filter(|value| !value.is_empty() && !value.contains('/'))
     {
-        if query.is_empty() {
+        if query.is_empty() || wallet_plan_mutation_query(&query).is_some() {
             match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
@@ -2415,6 +2433,31 @@ mod tests {
             consume_notification_send_flash(&empty, "send=accepted"),
             (None, false)
         );
+    }
+
+    #[test]
+    fn wallet_plan_mutation_query_is_single_valued_and_closed() {
+        for state in [
+            "success",
+            "conflict",
+            "forbidden",
+            "unavailable",
+            "malformed",
+        ] {
+            assert_eq!(
+                wallet_plan_mutation_query(&format!("mutation={state}")),
+                Some(state)
+            );
+        }
+        for query in [
+            "",
+            "mutation=unknown",
+            "mutation=conflict&mutation=conflict",
+            "mutation=conflict&plan=private",
+            "plan=private",
+        ] {
+            assert_eq!(wallet_plan_mutation_query(query), None, "{query}");
+        }
     }
 
     #[test]

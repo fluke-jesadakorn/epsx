@@ -633,6 +633,18 @@ mod tests {
     }
 
     #[test]
+    fn detail_renders_only_a_closed_mutation_state() {
+        let mut conflict = detail_context(PLAN_ID, ADMIN_PLANS_READY, Some(plan_json(PLAN_ID)));
+        conflict.query = "mutation=conflict".to_string();
+        let rendered = dioxus_ssr::render_element(render_editor(&conflict).1);
+        assert!(rendered.contains("data-admin-wallet-plan-mutation-state=\"conflict\""));
+
+        conflict.query = "mutation=unknown".to_string();
+        let rendered = dioxus_ssr::render_element(render_editor(&conflict).1);
+        assert!(!rendered.contains("data-admin-wallet-plan-mutation-state="));
+    }
+
+    #[test]
     fn invalid_or_mismatched_dynamic_plan_ids_are_malformed() {
         let invalid = detail_context("not-a-uuid", ADMIN_PLANS_READY, Some(plan_json(PLAN_ID)));
         let mismatch = detail_context(

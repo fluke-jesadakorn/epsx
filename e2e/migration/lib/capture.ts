@@ -149,6 +149,14 @@ function normalizedDom(semanticHtml: string): string {
       // generated identifier payload. Accessibility snapshots are gated
       // separately and remain byte-exact.
       .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
+      // dnd-kit's provider counter is process-global in the pinned source,
+      // so otherwise identical captures can receive different numeric
+      // suffixes. Canonicalize the two linked live-region IDs while keeping
+      // their role-specific prefixes and relationships intact.
+      .replaceAll(
+        /\bDnd(DescribedBy|LiveRegion)-[0-9]+\b/g,
+        'Dnd$1-<normalized>'
+      )
       .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
       .replaceAll(/\s+/g, ' ')
       .trim()
