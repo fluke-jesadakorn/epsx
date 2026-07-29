@@ -3298,7 +3298,18 @@ pub fn design_system_head_with_keywords(
     border-radius: 0.375rem;
   }}
   .access-denied-actions {{ display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }}
-  .access-denied-actions > a {{ height: 2.25rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }}
+  .access-denied-actions > a {{
+    height: 2.25rem;
+    padding-top: 0.5rem;
+    padding-bottom: 0.5rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+  }}
+  .access-denied-actions > .btn-outline {{
+    border-color: var(--text);
+  }}
+  .access-denied-reason {{ color: var(--text); }}
+  html.dark .access-denied-page {{ background: #121212; }}
   @media (max-width: 639px) {{
     .access-denied-page > .access-denied {{ max-width: 28rem; padding-left: 1rem; padding-right: 1rem; }}
     .access-denied-page .access-denied-icon {{ width: 6rem; height: 6rem; }}

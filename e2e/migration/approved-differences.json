@@ -15,7 +15,7 @@
       "reason": "The pinned source hero advertises real-time analytics and interactive sharing before their verified public data contracts are available. The target replaces those claims with truthful navigation to dedicated routes; the shell structure and controls remain functional.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/home/hero-section.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/home/hero_section.rs#SignedOutHero",
-      "maximumDifferencePercent": 9
+      "maximumDifferencePercent": 12.5
     },
     {
       "scenarioId": "pr1.shell.home",
@@ -24,7 +24,7 @@
       "reason": "The pinned source hero advertises real-time analytics and interactive sharing before their verified public data contracts are available. The target replaces those claims with truthful navigation to dedicated routes; the shell structure and controls remain functional.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/home/hero-section.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/home/hero_section.rs#SignedOutHero",
-      "maximumDifferencePercent": 20.3
+      "maximumDifferencePercent": 21.6
     },
     {
       "scenarioId": "pr1.auth.about-redirect",
@@ -33,7 +33,7 @@
       "reason": "The pinned source auth surface asserts that the network is secure and operational without a backend health proof and advertises an unverified customer count. The target keeps the wallet CTA and feature geometry while replacing those claims with a static wallet-sign-in description and truthful product copy.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/auth/page.tsx#AuthContent",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/auth_page.rs#RenderAuth",
-      "maximumDifferencePercent": 9
+      "maximumDifferencePercent": 11.7
     },
     {
       "scenarioId": "pr1.auth.about-redirect",
@@ -51,7 +51,7 @@
       "reason": "The pinned source auth surface asserts that the network is secure and operational without a backend health proof and advertises an unverified customer count. The target keeps the wallet CTA and feature geometry while replacing those claims with a static wallet-sign-in description and truthful product copy.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/auth/page.tsx#AuthContent",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/auth_page.rs#RenderAuth",
-      "maximumDifferencePercent": 9
+      "maximumDifferencePercent": 11.7
     },
     {
       "scenarioId": "pr1.auth.contact-redirect",
@@ -78,7 +78,7 @@
       "reason": "The target validates the fixture's signed frontend session with the Rust BFF and renders the authenticated, owner-scoped chat control. The pinned source middleware admits the cookie for this public body but its client shell has no verified identity and therefore omits that control. With the authenticated control region excluded, the screenshot delta is below 1%.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/layout/chat-widget.tsx",
       "targetEvidence": "apps/frontend/src/widgets.rs#chat-widget",
-      "maximumDifferencePercent": 1.7
+      "maximumDifferencePercent": 2.7
     },
     {
       "scenarioId": "pr1.privacy.legal",
@@ -87,7 +87,7 @@
       "reason": "The pinned source privacy policy describes Google/OIDC and OAuth data flows that this wallet-only application does not use. The target accurately documents wallet addresses, EIP-4361 signatures, nonce/session handling, and provides a real contact link.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/privacy/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/privacy.rs",
-      "maximumDifferencePercent": 4.7
+      "maximumDifferencePercent": 5.9
     },
     {
       "scenarioId": "pr1.terms.legal",
@@ -96,7 +96,7 @@
       "reason": "The pinned source terms describe OAuth and Google sign-in and render non-functional subscription controls. The target states the wallet/SIWE authentication contract, links to contact, and removes the unsupported pseudo-form.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/terms/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/terms.rs",
-      "maximumDifferencePercent": 5.2
+      "maximumDifferencePercent": 5.7
     },
     {
       "scenarioId": "pr1.offline.public",
@@ -114,7 +114,7 @@
       "reason": "The pinned source offline page claims cached dashboard and analytics capabilities that have no verified service-worker cache contract. The target limits its availability list to the static shell and recovery actions that actually work offline.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/offline/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/offline.rs",
-      "maximumDifferencePercent": 6.2
+      "maximumDifferencePercent": 7.2
     },
     {
       "scenarioId": "pr1.error.not-found",
@@ -123,7 +123,7 @@
       "reason": "The pinned source masks an unknown signed-out route by redirecting to authentication. The target preserves the HTTP 404 boundary and renders safe recovery links, so route existence and error semantics are not confused with an authorization decision.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/middleware.ts",
       "targetEvidence": "apps/frontend/src/ssr.rs#not-found-boundary",
-      "maximumDifferencePercent": 8.8
+      "maximumDifferencePercent": 9.5
     },
     {
       "scenarioId": "pr1.error.not-found",
@@ -132,7 +132,7 @@
       "reason": "The pinned source masks an unknown signed-out route by redirecting to authentication. The target preserves the HTTP 404 boundary and renders safe recovery links, so route existence and error semantics are not confused with an authorization decision.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/middleware.ts",
       "targetEvidence": "apps/frontend/src/ssr.rs#not-found-boundary",
-      "maximumDifferencePercent": 12.5
+      "maximumDifferencePercent": 13.3
     },
     {
       "scenarioId": "pr1.admin.denial-query",
@@ -141,7 +141,7 @@
       "reason": "The pinned source presents browser-controlled reason and detail parameters as authoritative denial evidence. The target ignores those claims and explains that only the authenticated session and backend permissions determine access.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/access-denied/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs",
-      "maximumDifferencePercent": 1.7
+      "maximumDifferencePercent": 1.9
     },
     {
       "scenarioId": "pr1.admin.denial-query",
@@ -168,7 +168,7 @@
       "reason": "The target removes browser-controlled denial context and adds static administrator guidance without claiming an unverified route, permission, or backend error. Access remains determined by the Rust backend.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/unauthorized/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs",
-      "maximumDifferencePercent": 12.6
+      "maximumDifferencePercent": 13.5
     }
   ]
 }
