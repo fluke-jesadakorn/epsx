@@ -21,11 +21,17 @@ jobs:
 
     steps:
       - name: Check out target
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        env:
+          E2E_TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin https://github.com/${{ github.repository }}.git
+          git fetch --no-recurse-submodules origin \
+            "$E2E_TARGET_SHA" \
+            "+refs/heads/development:refs/remotes/origin/development" \
+            "+refs/heads/migration/dioxus-microservices:refs/remotes/origin/migration/dioxus-microservices"
+          git checkout --detach "$E2E_TARGET_SHA"
+          git rev-parse --verify HEAD | grep -Fx "$E2E_TARGET_SHA"
 
       - name: Fetch immutable source ref
         run: git fetch origin development:refs/remotes/origin/development
