@@ -830,9 +830,18 @@
         "wallet administrator",
         "validation failure",
         "optimistic conflict",
-        "granular permission denial"
+        "granular permission denial",
+        "backend dependency denial"
       ],
-      "actions": ["search", "filter", "open detail", "disable", "edit plan"],
+      "actions": [
+        "search",
+        "filter",
+        "open detail",
+        "disable",
+        "edit plan",
+        "submit invalid credits",
+        "inspect audit effect"
+      ],
       "outcomes": [
         "backend-authoritative balances and access",
         "validated mutations",
@@ -845,6 +854,77 @@
         "credits ledger",
         "access plans",
         "audit ledger"
+      ],
+      "backendContracts": [
+        {
+          "id": "pr3.wallet-service-policy",
+          "title": "Wallet ownership, credits, and administrator permission policy",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-wallet", "--lib"],
+          "claims": [
+            "wallet and credit reads require exact read permissions",
+            "wallet and credit mutations require exact manage permissions",
+            "frontend owners cannot cross wallet boundaries",
+            "admin and frontend audiences remain isolated",
+            "spoofed owner headers and unsafe paths fail closed"
+          ],
+          "sources": ["services/wallet/src/lib.rs"]
+        },
+        {
+          "id": "pr3.subscription-service-policy",
+          "title": "Plan and access assignment policy",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-subscription", "--lib"],
+          "claims": [
+            "plan and access reads require their literal read permissions",
+            "plan and access mutations require their literal manage permissions",
+            "audience and owner isolation are enforced by the Rust service",
+            "spoofed headers and hidden paths cannot widen authority"
+          ],
+          "sources": ["services/subscription/src/lib.rs"]
+        },
+        {
+          "id": "pr3.admin-commerce-adapter",
+          "title": "Admin BFF strict commerce projections",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "--bin",
+            "bff-admin",
+            "commerce_adapter::tests"
+          ],
+          "claims": [
+            "wallet, credit, access, and plan DTOs reject unknown or malformed fields",
+            "wallet and plan identifiers are canonical before upstream I/O",
+            "optimistic conflicts and forbidden mutations remain distinct",
+            "mutation success requires evidence-bearing backend responses"
+          ],
+          "sources": ["apps/admin/src/commerce_adapter.rs"]
+        },
+        {
+          "id": "pr3.admin-audit-adapter",
+          "title": "Admin BFF bounded audit projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "--bin",
+            "bff-admin",
+            "audit_log_adapter::tests"
+          ],
+          "claims": [
+            "audit reads accept only bounded backend summaries",
+            "invalid filters and cursors fail before upstream access",
+            "duplicate, unsorted, or malformed audit records are rejected",
+            "sensitive actor and metadata fields never enter the UI projection"
+          ],
+          "sources": ["apps/admin/src/audit_log_adapter.rs"]
+        }
       ],
       "routes": {
         "frontend": ["/account/credits"],
@@ -865,7 +945,7 @@
           "id": "pr3.frontend.credits",
           "surface": "frontend",
           "path": "/account/credits",
-          "title": "Owner credits ledger",
+          "title": "Owner credits fail closed without an authoritative ledger",
           "state": {
             "id": "wallet-owner",
             "session": "authenticated",
@@ -873,14 +953,23 @@
             "permissions": ["epsx:credits:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "attribute",
+              "selector": "[data-credits-state]",
+              "name": "data-credits-state",
+              "value": "unavailable",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["credits ledger"]
         },
         {
           "id": "pr3.admin.audit",
           "surface": "admin",
           "path": "/audit-log",
-          "title": "Wallet mutation audit effects",
+          "title": "Bounded wallet audit summary",
           "state": {
             "id": "wallet-admin",
             "session": "authenticated",
@@ -888,7 +977,14 @@
             "permissions": ["admin:audit:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-audit-log-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["audit ledger"]
         },
         {
@@ -904,9 +1000,69 @@
           },
           "actions": [],
           "outcomes": [
-            { "type": "path", "value": "/wallet-management/wallets" }
+            {
+              "type": "path",
+              "value": "/wallet-management/wallets",
+              "side": "target"
+            }
           ],
           "fixtureRequirements": ["wallet list"]
+        },
+        {
+          "id": "pr3.admin.wallets-query-rejected",
+          "surface": "admin",
+          "path": "/wallet-management/wallets?search=0xea64&status=active",
+          "title": "Unsupported wallet filters are rejected before upstream I/O",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-list-state=\"malformed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["wallet list", "filter facets"]
+        },
+        {
+          "id": "pr3.admin.wallets",
+          "surface": "admin",
+          "path": "/wallet-management/wallets",
+          "title": "Legacy search compared with the bounded wallet inventory",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[placeholder=\"Search address, label, or note...\"]",
+              "value": "0xea64",
+              "side": "source"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-list-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-wallets-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["wallet list", "filter facets"]
         },
         {
           "id": "pr3.admin.wallet-detail",
@@ -920,8 +1076,39 @@
             "permissions": ["admin:wallets:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-detail-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["wallet detail"]
+        },
+        {
+          "id": "pr3.admin.wallet-detail-forbidden",
+          "surface": "admin",
+          "path": "/wallet-management/0xea6400000000000000000000000000000000e3df",
+          "title": "Wallet detail backend denial",
+          "state": {
+            "id": "wallet-read-denied",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"],
+            "fixtureMode": "forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-detail-state=\"forbidden\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["wallet detail", "service denial"]
         },
         {
           "id": "pr3.admin.access",
@@ -935,8 +1122,39 @@
             "permissions": ["admin:access:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-access-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["access grants"]
+        },
+        {
+          "id": "pr3.admin.access-forbidden",
+          "surface": "admin",
+          "path": "/wallet-management/access",
+          "title": "Access assignment backend denial",
+          "state": {
+            "id": "access-read-denied",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:access:read"],
+            "fixtureMode": "forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-access-state=\"forbidden\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["access grants", "service denial"]
         },
         {
           "id": "pr3.admin.plans",
@@ -950,22 +1168,83 @@
             "permissions": ["admin:plans:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-plans-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["access plans"]
         },
         {
           "id": "pr3.admin.plan-detail",
           "surface": "admin",
-          "path": "/wallet-management/access/plans/plan-pro",
-          "title": "Access plan validation and conflict surface",
+          "path": "/wallet-management/access/plans/00000000-0000-0000-0000-000000000001",
+          "title": "Backend-authoritative access plan detail",
           "state": {
             "id": "plan-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:plans:read", "admin:plans:update"]
+            "permissions": ["admin:plans:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-plan-detail-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["access plan"]
+        },
+        {
+          "id": "pr3.admin.plan-conflict",
+          "surface": "admin",
+          "path": "/wallet-management/access/plans/00000000-0000-0000-0000-000000000001",
+          "title": "Stale plan update remains an optimistic conflict",
+          "state": {
+            "id": "plan-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:plans:read", "admin:plans:manage"],
+            "fixtureMode": "conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"merchant_id\"]",
+              "value": "00000000-0000-0000-0000-000000000002",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "button[type=\"submit\"]",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-plan-mutation-state=\"conflict\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "conflict",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-plan-mutation-state=\"conflict\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["access plan", "optimistic version"]
         },
         {
@@ -977,26 +1256,81 @@
             "id": "credit-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:credits:read", "admin:credits:update"]
+            "permissions": ["admin:credits:read", "admin:credits:manage"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-credits-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["credits ledger"]
         },
         {
-          "id": "pr3.admin.wallets",
+          "id": "pr3.admin.credits-validation",
           "surface": "admin",
-          "path": "/wallet-management/wallets",
-          "title": "Wallet search and filters",
+          "path": "/wallet-management/credits",
+          "title": "Oversized credit mutation is rejected before upstream I/O",
           "state": {
-            "id": "wallet-admin",
+            "id": "credit-validation",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:wallets:read"]
+            "permissions": ["admin:credits:read", "admin:credits:manage"]
           },
-          "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["wallet list", "filter facets"]
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "form input[name=\"wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "form input[name=\"expected_version\"]",
+              "value": "3",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "form input[name=\"amount_minor\"]",
+              "value": "1000000000001",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "form input[name=\"reason\"]",
+              "value": "Validation boundary",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form button[type=\"submit\"]",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-credits-mutation-state=\"malformed\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "malformed",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-credits-mutation-state=\"malformed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["credits ledger", "validation boundary"]
         },
         {
           "id": "pr3.admin.disable",
@@ -1007,11 +1341,97 @@
             "id": "wallet-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:wallets:disable"]
+            "permissions": ["admin:wallets:read"]
           },
-          "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["wallet detail", "audit ledger"]
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "#wallet-disable-reason",
+              "value": "Permission boundary",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "button[type=\"submit\"]",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-disable-state=\"forbidden\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-wallet-disable-state=\"forbidden\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["wallet detail", "granular permissions"]
+        },
+        {
+          "id": "pr3.admin.disable-audit",
+          "surface": "admin",
+          "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+          "title": "Committed wallet disable produces a bounded audit effect",
+          "state": {
+            "id": "wallet-manage-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": [
+              "admin:wallets:read",
+              "admin:wallets:manage",
+              "admin:audit:read"
+            ]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "#wallet-disable-reason",
+              "value": "Deterministic audit proof",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "button[type=\"submit\"]",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-disable-state=\"success\"]",
+              "side": "target"
+            },
+            {
+              "type": "navigate",
+              "path": "/audit-log",
+              "side": "target"
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-audit-log-state=\"ready\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "path",
+              "value": "/audit-log",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "wallet.disabled",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "wallet detail",
+            "wallet mutation receipt",
+            "audit ledger"
+          ]
         }
       ]
     },

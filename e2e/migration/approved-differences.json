@@ -349,6 +349,150 @@
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/profile/page.tsx",
       "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
       "maximumDifferencePercent": 22.7
+    },
+    {
+      "scenarioId": "pr3.frontend.credits",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "The pinned source renders a legacy credits balance and transaction interpretation. The target preserves the authenticated route but explicitly reports that no owner-scoped Rust ledger contract was selected, so it cannot infer a balance, zero value, or transaction history.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/account/credits/credits-page-client.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/account_credits.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.audit",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target audit page accepts only a bounded Rust projection and intentionally omits legacy actor identity, network, device, arbitrary details, totals, and export claims.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/audit-log/page.tsx",
+      "targetEvidence": "apps/admin/src/audit_log_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.wallet-redirect",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "The legacy wallet hub exposes unsupported mixed management claims. The target canonicalizes the entry route to the bounded backend-authoritative wallet list.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.wallets-query-rejected",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source applies browser-controlled search and status filters. The target rejects those unsupported query claims before upstream I/O because the wallet service exposes only a bounded authoritative list contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/wallet/wallet-filter-bar.tsx",
+      "targetEvidence": "apps/admin/src/wallet_stats_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.wallets",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "The source presents client-side search, filter facets, activity, subscription, and platform distributions that are absent from the selected wallet service contract. The target renders only the bounded wallet rows and stored status totals verified by Rust.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/wallet/wallet-hub.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.wallet-detail",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target detail is a strict redacted wallet projection and omits legacy metadata, permission, group, plan, subscription, and inferred activity fields that the wallet service did not authorize for this boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/lib/api/wallet-management-client.ts",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.wallet-detail-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy baseline while the target wallet service denies the same signed administrator. The Rust BFF removes all wallet fields and renders an explicit forbidden state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/lib/api/wallet-management-client.ts",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.access",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders exact backend plan, wallet, permission, expiry, and version claims and omits legacy client-composed membership and hierarchy interpretations.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/plan-actions.ts",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.access-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy baseline while the target subscription service denies the access read. The Rust BFF exposes no assignment fields and distinguishes the denial from empty data.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/page.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.plans",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target plan list is limited to the strict subscription-service DTO and does not recreate legacy permission-plan policy, hierarchy, membership, or client-owned operation claims.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/plans/page.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.plan-detail",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target exposes only the Rust-verified plan identifier, amount, currency, chain, interval, active state, and version; merchant and legacy permission-policy details remain redacted.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.plan-conflict",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target submits the read version and preserves the subscription service's 409 as an explicit optimistic-conflict state rather than inferring that an update committed.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/plan-actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.credits",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target displays backend-owned minor units without fiat conversion or ledger interpretation and keeps grant/revoke authority behind the Rust service.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/credits/credits-management.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.credits-validation",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target rejects an oversized credit amount at the Rust BFF boundary and renders a malformed mutation state without sending a wallet-service mutation.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/credits/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.disable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target wallet service requires literal admin:wallets:manage authority. A read-only administrator can inspect the versioned form but receives an explicit forbidden mutation result and no success claim.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/lib/api/wallet-management-client.ts",
+      "targetEvidence": "services/wallet/src/lib.rs",
+      "maximumDifferencePercent": 100
+    },
+    {
+      "scenarioId": "pr3.admin.disable-audit",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target treats wallet disable as committed only after an evidence-bearing service response, then displays the resulting bounded wallet.disabled audit summary from the analytics service.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/audit-log/page.tsx",
+      "targetEvidence": "apps/admin/src/audit_log_adapter.rs",
+      "maximumDifferencePercent": 100
     }
   ]
 }

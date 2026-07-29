@@ -22,6 +22,9 @@ let fixtureMode = 'healthy';
 const signingKeyId = 'epsx-e2e-rs256-v1';
 const fixtureTier = 'migration-e2e';
 const fixtureTimestamp = '2026-01-01T00:00:00.000Z';
+const fixtureWalletAddress = '0xea6400000000000000000000000000000000e3df';
+const fixturePlanId = '00000000-0000-0000-0000-000000000001';
+const fixtureMerchantId = '00000000-0000-0000-0000-000000000002';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -71,7 +74,7 @@ function fixtureAccessToken(options: {
   keyId: string;
 }): string {
   const { audience, issuer, keyId, permissions } = options;
-  const address = '0xea6400000000000000000000000000000000e3df';
+  const address = fixtureWalletAddress;
   const header = base64Url(
     JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: keyId })
   );
@@ -93,6 +96,79 @@ function fixtureAccessToken(options: {
   const message = `${header}.${payload}`;
   const signature = sign('RSA-SHA256', Buffer.from(message), signingKey);
   return `${message}.${signature.toString('base64url')}`;
+}
+
+function fixtureWallet(
+  status = 'active',
+  version = 3
+): {
+  address: string;
+  chain_id: string;
+  label: string;
+  role: string;
+  status: string;
+  metadata: Record<string, never>;
+  version: number;
+  created_at: string;
+} {
+  return {
+    address: fixtureWalletAddress,
+    chain_id: '31337',
+    label: 'Migration owner',
+    role: 'user',
+    status,
+    metadata: {},
+    version,
+    created_at: fixtureTimestamp,
+  };
+}
+
+function fixturePlan(): {
+  id: string;
+  merchant_id: string;
+  name: string;
+  description: string;
+  amount: string;
+  currency: string;
+  chain_id: string;
+  interval: number;
+  active: boolean;
+  created_at: string;
+  version: number;
+} {
+  return {
+    id: fixturePlanId,
+    merchant_id: fixtureMerchantId,
+    name: 'Migration Professional',
+    description: 'Deterministic backend-authoritative access plan.',
+    amount: '2900',
+    currency: 'USD',
+    chain_id: '31337',
+    interval: 30,
+    active: true,
+    created_at: fixtureTimestamp,
+    version: 7,
+  };
+}
+
+function requiredAdminPermission(path: string, method: string): string | null {
+  const mutation = !['GET', 'HEAD'].includes(method);
+  if (path.startsWith('/api/v1/admin/wallets')) {
+    return mutation ? 'admin:wallets:manage' : 'admin:wallets:read';
+  }
+  if (path.startsWith('/api/v1/admin/credits')) {
+    return mutation ? 'admin:credits:manage' : 'admin:credits:read';
+  }
+  if (path.startsWith('/api/v1/admin/subscription/access')) {
+    return mutation ? 'admin:access:manage' : 'admin:access:read';
+  }
+  if (path.startsWith('/api/v1/admin/subscription/plans')) {
+    return mutation ? 'admin:plans:manage' : 'admin:plans:read';
+  }
+  if (path.startsWith('/api/v1/analytics/admin/audit-log')) {
+    return 'admin:audit:read';
+  }
+  return null;
 }
 
 function fixtureAudience(value: unknown): string | null {
@@ -455,8 +531,139 @@ async function routeRequest(request: Request): Promise<Response> {
   if (url.pathname.includes('jwks')) {
     return json({ keys: [signingJwk] });
   }
+  const requiredPermission = requiredAdminPermission(
+    url.pathname,
+    request.method
+  );
+  if (requiredPermission !== null) {
+    const principal = fixturePrincipal(request);
+    if (
+      principal?.audience !== 'epsx-admin' ||
+      !principal.permissions.includes(requiredPermission)
+    ) {
+      return json({ success: false, error: 'forbidden' }, 403);
+    }
+  }
+  if (
+    fixtureMode === 'forbidden' &&
+    (url.pathname.startsWith('/api/v1/admin/') ||
+      url.pathname.startsWith('/api/v1/analytics/admin/'))
+  ) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (fixtureMode === 'conflict' && !['GET', 'HEAD'].includes(request.method)) {
+    return json({ success: false, error: 'optimistic_conflict' }, 409);
+  }
   if (fixtureMode === 'malformed') {
     return json({ malformed: true });
+  }
+  if (url.pathname === '/api/v1/admin/wallets/stats') {
+    return json({
+      total: 1,
+      active: 1,
+      disabled: 0,
+      new_30_days: 1,
+      correlation_id: 'e2e-wallet-stats',
+    });
+  }
+  if (url.pathname === '/api/v1/admin/wallets') {
+    return json({
+      items: [fixtureWallet()],
+      total: 1,
+      limit: 100,
+      offset: 0,
+      correlation_id: 'e2e-wallet-list',
+    });
+  }
+  const targetWalletPath = `/api/v1/admin/wallets/${fixtureWalletAddress}`;
+  if (url.pathname === `${targetWalletPath}/disable`) {
+    return json({
+      wallet: fixtureWallet('disabled', 4),
+      evidence: {
+        operation_id: '00000000-0000-0000-0000-000000000003',
+        version: 4,
+        observed_at: fixtureTimestamp,
+      },
+      correlation_id: 'e2e-wallet-disable',
+    });
+  }
+  if (url.pathname === targetWalletPath) {
+    return json(fixtureWallet());
+  }
+  if (url.pathname === '/api/v1/admin/credits') {
+    return json({
+      outstanding_minor: 12_000,
+      granted_today_minor: 2_000,
+      revoked_today_minor: 500,
+      active_accounts: 1,
+      correlation_id: 'e2e-credit-stats',
+    });
+  }
+  if (url.pathname.startsWith('/api/v1/admin/credits/')) {
+    return json({
+      transaction_id: '00000000-0000-0000-0000-000000000004',
+      version: 4,
+      correlation_id: 'e2e-credit-mutation',
+    });
+  }
+  if (url.pathname === '/api/v1/admin/subscription/access') {
+    return json({
+      items: [
+        {
+          wallet_address: fixtureWalletAddress,
+          plan_id: fixturePlanId,
+          plan_name: 'Migration Professional',
+          permission: 'epsx:analytics:read',
+          expires_at: null,
+          version: 2,
+          assigned_by: fixtureWalletAddress,
+          updated_at: fixtureTimestamp,
+        },
+      ],
+      correlation_id: 'e2e-access-list',
+    });
+  }
+  if (url.pathname.startsWith('/api/v1/admin/subscription/access/')) {
+    return json({
+      success: true,
+      correlation_id: 'e2e-access-mutation',
+    });
+  }
+  if (url.pathname === '/api/v1/admin/subscription/plans') {
+    if (!['GET', 'HEAD'].includes(request.method)) {
+      return json({ success: true, id: fixturePlanId });
+    }
+    return json({
+      items: [fixturePlan()],
+      total: 1,
+      limit: 100,
+      offset: 0,
+      correlation_id: 'e2e-plan-list',
+    });
+  }
+  if (url.pathname === `/api/v1/admin/subscription/plans/${fixturePlanId}`) {
+    return ['GET', 'HEAD'].includes(request.method)
+      ? json(fixturePlan())
+      : json({ success: true, id: fixturePlanId, version: 8 });
+  }
+  if (url.pathname === '/api/v1/analytics/admin/audit-log') {
+    const walletDisabled = mutations.some(
+      mutation => mutation.path === `${targetWalletPath}/disable`
+    );
+    return json({
+      items: [
+        {
+          id: '00000000-0000-0000-0000-000000000005',
+          category: 'wallet',
+          action: walletDisabled ? 'wallet.disabled' : 'wallet.reviewed',
+          resource_type: 'wallet',
+          effect: 'success',
+          occurred_at: fixtureTimestamp,
+        },
+      ],
+      next_cursor: null,
+      has_more: false,
+    });
   }
   if (
     url.pathname === '/api/analytics/rankings' ||
@@ -484,6 +691,158 @@ async function routeRequest(request: Request): Promise<Response> {
   }
   if (url.pathname === '/api/public/news/featured') {
     return json({ success: true, data: publicNews });
+  }
+  const legacyWallet = {
+    wallet_address: fixtureWalletAddress,
+    is_active: true,
+    created_at: fixtureTimestamp,
+    last_auth_at: fixtureTimestamp,
+    metadata: {
+      label: 'Migration owner',
+      note: 'Deterministic wallet fixture',
+    },
+    platforms: ['epsx'],
+    permissions: [
+      {
+        permission: 'epsx:analytics:read',
+        platform: 'epsx',
+        is_active: true,
+        source: 'migration-e2e',
+        created_at: fixtureTimestamp,
+      },
+    ],
+    groups: [],
+    plan_name: 'Migration Professional',
+    plans: [
+      {
+        plan_id: fixturePlanId,
+        plan_name: 'Migration Professional',
+        plan_type: 'premium',
+        assigned_at: fixtureTimestamp,
+        is_active: true,
+      },
+    ],
+    subscriptions: [],
+  };
+  if (url.pathname === '/api/admin/wallets/stats') {
+    return json({
+      success: true,
+      data: {
+        total_users: 1,
+        active_users: 1,
+        inactive_users: 0,
+        new_users_30_days: 1,
+        active_users_30_days: 1,
+        growth_rate: 0,
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/wallets') {
+    return json({
+      success: true,
+      data: {
+        wallets: [legacyWallet],
+        pagination: {
+          page: 1,
+          limit: 50,
+          total: 1,
+          total_pages: 1,
+          has_next_page: false,
+          has_previous_page: false,
+        },
+      },
+    });
+  }
+  if (
+    url.pathname === `/api/admin/wallets/${fixtureWalletAddress}` ||
+    url.pathname === `/api/admin/wallets/${fixtureWalletAddress}/access-summary`
+  ) {
+    if (url.pathname.endsWith('/access-summary')) {
+      return json({
+        success: true,
+        data: {
+          wallet_address: fixtureWalletAddress,
+          plans: legacyWallet.plans,
+          permissions: legacyWallet.permissions,
+        },
+      });
+    }
+    return json({
+      success: true,
+      data: { ...legacyWallet, wallet: legacyWallet },
+    });
+  }
+  if (
+    url.pathname === '/api/permissions/plans' ||
+    url.pathname === '/api/permissions/assignments' ||
+    url.pathname === '/api/admin/permissions/available' ||
+    url.pathname === '/api/admin/permissions/assignments'
+  ) {
+    return json({
+      success: true,
+      data:
+        url.pathname === '/api/admin/permissions/available'
+          ? ['epsx:analytics:read']
+          : [],
+    });
+  }
+  if (url.pathname === `/api/permissions/plans/${fixturePlanId}`) {
+    return json({
+      success: true,
+      data: {
+        id: fixturePlanId,
+        name: 'Migration Professional',
+        slug: 'migration-professional',
+        description: 'Deterministic legacy access plan.',
+        plan_type: 'premium',
+        permissions: ['epsx:analytics:read'],
+        is_active: true,
+        created_at: fixtureTimestamp,
+        updated_at: fixtureTimestamp,
+        default_expiry_days: 30,
+        tier_level: 1,
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/subscriptions') {
+    return json({
+      success: true,
+      data: { subscriptions: [], total: 0 },
+    });
+  }
+  if (url.pathname === '/api/payments/admin/credits/stats') {
+    return json({
+      success: true,
+      data: {
+        total_credits_outstanding: 12_000,
+        total_credits_granted_today: 2_000,
+        total_credits_used_today: 500,
+        active_users_with_credits: 1,
+        total_transactions_today: 2,
+        average_balance: 12_000,
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/audit-logs') {
+    return json({
+      success: true,
+      data: {
+        entries: [
+          {
+            id: 'legacy-audit-e2e-1',
+            action: 'wallet.reviewed',
+            wallet_address: fixtureWalletAddress,
+            resource_type: 'wallet',
+            resource_id: fixtureWalletAddress,
+            result: 'success',
+            details: null,
+            timestamp: fixtureTimestamp,
+            category: 'wallet',
+          },
+        ],
+        total_pages: 1,
+      },
+    });
   }
   if (url.pathname === '/api/admin/settings') {
     return json({
@@ -619,13 +978,37 @@ async function routeRequest(request: Request): Promise<Response> {
     return json({
       success: true,
       data: {
-        wallet_address: '0xea6400000000000000000000000000000000e3df',
+        wallet_address: fixtureWalletAddress,
         balance: 120,
         pending_balance: 0,
         available_balance: 120,
         lifetime_earned: 160,
         lifetime_spent: 40,
         last_transaction_at: fixtureTimestamp,
+      },
+    });
+  }
+  if (url.pathname === '/api/payments/credits/history') {
+    return json({
+      success: true,
+      data: {
+        success: true,
+        data: [
+          {
+            id: 'credit-e2e-1',
+            wallet_address: fixtureWalletAddress,
+            amount: 120,
+            balance_after: 120,
+            tx_type: 'grant',
+            reference_id: null,
+            reference_type: null,
+            reason: 'Migration baseline',
+            granted_by: fixtureWalletAddress,
+            expires_at: null,
+            created_at: fixtureTimestamp,
+          },
+        ],
+        count: 1,
       },
     });
   }

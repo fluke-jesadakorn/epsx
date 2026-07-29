@@ -574,7 +574,13 @@ function buildPlaywrightShards(
   explicitGrep?: string
 ): PlaywrightShard[] {
   if (explicitGrep !== undefined && explicitGrep !== '') {
-    return [{ grep: explicitGrep }];
+    return [
+      {
+        grep: explicitGrep,
+        project:
+          accumulatedGroups.at(-1)?.id === 9 ? undefined : 'migration-chromium',
+      },
+    ];
   }
   const shards: PlaywrightShard[] = [];
   for (const group of accumulatedGroups) {
@@ -905,15 +911,11 @@ async function run(): Promise<void> {
       process.stdout.write(
         `playwright shard: ${shard.project ?? 'all projects'} / ${shard.grep}\n`
       );
-      const playwright = spawn(
-        'bunx',
-        playwrightArgumentsForShard(shard),
-        {
-          cwd: repoRoot,
-          env: playwrightEnvironment,
-          stdio: 'inherit',
-        }
-      );
+      const playwright = spawn('bunx', playwrightArgumentsForShard(shard), {
+        cwd: repoRoot,
+        env: playwrightEnvironment,
+        stdio: 'inherit',
+      });
       testStatus = await new Promise<number>(resolvePromise => {
         playwright.once('exit', code => resolvePromise(code ?? 1));
       });
