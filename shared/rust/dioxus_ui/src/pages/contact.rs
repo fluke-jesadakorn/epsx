@@ -157,7 +157,7 @@ fn CopyEmailBtn() -> Element {
 fn ContactInfoCards() -> Element {
     let cards = [
         ContactInfoCard {
-            icon: "message-circle",
+            icon: "message-square",
             title: "General Inquiries",
             desc: "Questions about our platform, features, or pricing plans.",
             tone: ContactCardTone::Purple,
@@ -169,7 +169,7 @@ fn ContactInfoCards() -> Element {
             tone: ContactCardTone::Orange,
         },
         ContactInfoCard {
-            icon: "info",
+            icon: "clock",
             title: "Response Time",
             desc: "We typically respond within 24 hours on business days.",
             tone: ContactCardTone::Blue,

@@ -1,7 +1,7 @@
 //! EPSX design system — shared HTML template helpers.
 //!
 //! Every BFF (frontend, admin, pay, preview) calls `design_system_head()` to
-//! emit the same `<head>` block (system-ui font stack, Tailwind CDN, CSS
+//! emit the same `<head>` block (source-compatible font stack, Tailwind CSS, CSS
 //! variables, glassmorphism utilities, animations, dark/light mode FOUC
 //! prevention).
 //!
@@ -21,8 +21,7 @@ fn escape_html_attribute(value: &str) -> String {
 /// Returns the full `<head>` block matching the original Next.js design.
 ///
 /// Includes:
-/// - system-ui font stack via CSS variable `--font-sans` (no external font
-///   network round-trip — matches epsx.io which uses platform defaults)
+/// - the source app's effective Tailwind sans stack via `--font-sans`
 /// - Tailwind v2.2.19 CDN (we keep the older CDN for stability with our
 ///   utility classes; the design intent is identical to v4)
 /// - Complete CSS variable system for light + dark mode
@@ -135,27 +134,10 @@ pub fn design_system_head_with_keywords(
     --glass-blur:      12px;
     --glass-shadow:    0 8px 32px rgba(0, 0, 0, 0.08);
 
-    /* Font — Wave 26 T1: align with prod's epsx.io platform-default
-     * sans stack. Prod uses `next/font/google` to load the Kanit
-     * Google font and emits a body class containing the kanit
-     * variable (see `apps-old/frontend/app/layout.tsx` line 136
-     * plus `globals.css` line 50: body uses var(--font-kanit),
-     * system-ui, sans-serif). We can't ship Google Fonts in
-     * this offline dev BFF, so we use the platform default sans
-     * chain that resolves to the same glyphs on macOS / iOS /
-     * Windows (system-ui + the Apple/Windows/Linux user-font
-     * aliases). This is the same 7-font chain Tailwind v4's
-     * `--default-font-family` emits and that Wave 24 T4'
-     * adopted.
-     *
-     * `text-rendering: optimizeLegibility` plus
-     * `font-feature-settings: "cv11", "ss01"` are the modern
-     * typographic defaults that prod's `next/font` + Tailwind v4
-     * set automatically. The v2-CDN doesn't expose either, so
-     * we set them here on html/body to close the line-height /
-     * kerning gap.
-     */
-    --font-sans:       system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    /* The pinned source's Tailwind `font-sans` body utility wins over its
+     * lower-layer `next/font` declaration. Match the effective computed stack
+     * recorded in source layout evidence. */
+    --font-sans:       ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
     --font-mono:       ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
 
     /* Wave 26 T1 — design tokens for the v3-style gradient
@@ -316,26 +298,6 @@ pub fn design_system_head_with_keywords(
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow-x: hidden;
-  }}
-  /* Wave 26 T1 — typographic defaults that prod's `next/font/google`
-   * (Kanit) + Tailwind v4 set automatically via the user-agent
-   * stylesheet. The v2-CDN doesn't emit them, so without this rule
-   * the v2-CDN render uses default `auto` text-rendering and the
-   * default `normal` font-feature-settings, which produces a
-   * ~1px line-height + kerning drift vs prod's `optimizeLegibility`
-   * + `cv11,ss01` setting. This rule is the single source of truth
-   * for both — set on `html` so it cascades. */
-  html {{
-    text-rendering: optimizeLegibility;
-  }}
-  /* Reference captures include the browser's persistent vertical scrollbar.
-   * Reserve the same desktop gutter even when the automation browser uses
-   * overlay scrollbars, keeping centered page content on the same x-axis. */
-  @media (min-width: 768px) {{
-    html {{ scrollbar-gutter: stable; }}
-  }}
-  body {{
-    font-feature-settings: "cv11", "ss01";
   }}
   body {{ min-height: 100vh; }}
 
@@ -3315,7 +3277,7 @@ pub fn design_system_head_with_keywords(
     border-radius: 9999px;
     margin-bottom: 1.5rem;
   }}
-  .access-denied-title {{ font-size: 1.75rem; font-weight: 700; margin: 0 0 0.75rem 0; color: var(--text); }}
+  .access-denied-title {{ font-size: 1.75rem; line-height: 2rem; font-weight: 700; margin: 0 0 0.5rem 0; color: var(--text); }}
   .access-denied-reason {{ color: var(--text-muted); margin: 0 0 1.5rem 0; line-height: 1.5; }}
   .access-denied-perms {{
     background: var(--bg-muted, rgba(255,255,255,0.05));
@@ -3336,6 +3298,14 @@ pub fn design_system_head_with_keywords(
     border-radius: 0.375rem;
   }}
   .access-denied-actions {{ display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }}
+  .access-denied-actions > a {{ height: 2.25rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }}
+  @media (max-width: 639px) {{
+    .access-denied-page > .access-denied {{ max-width: 28rem; padding-left: 1rem; padding-right: 1rem; }}
+    .access-denied-page .access-denied-icon {{ width: 6rem; height: 6rem; }}
+    .access-denied-page .access-denied-title {{ font-size: 1.5rem; }}
+    .access-denied-page .access-denied-actions {{ flex-direction: column; width: 100%; }}
+    .access-denied-page .access-denied-actions > a {{ width: 100%; }}
+  }}
 
   /* --- progressive auth banner (inline strip) --- */
   .progressive-auth-banner {{
@@ -4059,15 +4029,43 @@ pub fn design_system_head_with_keywords(
   }}
 
   /* === About page sections === */
+  html.dark .about-page .marketing-bg-fixed {{
+    background: linear-gradient(to bottom right, #0f172a, #1e293b, #0f172a);
+  }}
+  html.dark .about-page .marketing-orb-orange {{
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.30), rgba(250, 204, 21, 0.30));
+  }}
+  html.dark .about-page .marketing-orb-blue {{
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.25), rgba(34, 211, 238, 0.25));
+  }}
+  html.dark .about-page .marketing-orb-purple {{
+    background: linear-gradient(to bottom right, rgba(192, 132, 252, 0.20), rgba(244, 114, 182, 0.20));
+  }}
+  html.dark .about-page .marketing-orb-green {{
+    background: linear-gradient(to bottom right, rgba(74, 222, 128, 0.15), rgba(16, 185, 129, 0.15));
+  }}
+  html.dark .about-page .marketing-mesh-orange {{ background: radial-gradient(circle at 25% 25%, rgba(255, 133, 27, 0.10) 0%, transparent 50%); }}
+  html.dark .about-page .marketing-mesh-blue {{ background: radial-gradient(circle at 75% 75%, rgba(59, 130, 246, 0.08) 0%, transparent 50%); }}
+  html.dark .about-page .marketing-mesh-purple {{ background: radial-gradient(circle at 50% 50%, rgba(168, 85, 247, 0.06) 0%, transparent 60%); }}
+  html.dark .about-page .marketing-shape-square {{
+    background: linear-gradient(to bottom right, rgba(251, 146, 60, 0.10), rgba(250, 204, 21, 0.10));
+  }}
+  html.dark .about-page .marketing-shape-circle {{
+    background: linear-gradient(to bottom right, rgba(96, 165, 250, 0.10), rgba(34, 211, 238, 0.10));
+  }}
+  .about-page .marketing-orb {{ filter: blur(64px); }}
+  html.dark .about-page .card-glass {{
+    background: rgba(30, 41, 59, 0.80);
+  }}
   .about-hero-section {{ padding: 4rem 0 2rem; text-align: center; }}
   .about-hero-content {{ max-width: 48rem; margin: 0 auto; }}
   .about-hero-title {{
-    font-size: 3rem; line-height: 1.1; font-weight: 800; margin: 0 0 1rem;
+    font-size: 3rem; line-height: 1; font-weight: 700; margin: 0 0 1rem;
     background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }}
   @media (min-width: 640px) {{ .about-hero-title {{ font-size: 3.75rem; }} }}
-  .about-hero-sub {{ font-size: 1.125rem; line-height: 1.7; color: rgb(82, 82, 91); margin: 0 auto 1.5rem; max-width: 48rem; }}
+  .about-hero-sub {{ font-size: 1.125rem; line-height: 1.625; color: rgb(82, 82, 91); margin: 0 auto 1.5rem; max-width: 48rem; }}
   .about-hero-underline {{ width: 10rem; height: 0.25rem; margin: 0 auto; border-radius: 9999px; background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8), rgb(234, 88, 12)); }}
 
   .mission-section {{ padding: 4rem 0; }}
@@ -4137,40 +4135,66 @@ pub fn design_system_head_with_keywords(
   .about-timeline-title {{ font-size: 1.25rem; font-weight: 700; color: rgb(24, 24, 27); margin: 0 0 0.5rem; }}
   .about-timeline-body {{ font-size: 0.9375rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0; }}
 
-  .datatech-section {{ padding: 2rem 0; }}
-  @media (min-width: 640px) {{ .datatech-section {{ padding: 4rem 0; }} }}
+  .datatech-section {{ padding: 3rem 0; }}
+  @media (min-width: 640px) {{ .datatech-section {{ padding: 6rem 0; }} }}
   .datatech-overview-grid {{ display: grid; grid-template-columns: 1fr; gap: 1.5rem; }}
-  @media (min-width: 1024px) {{ .datatech-overview-grid {{ grid-template-columns: 2fr 1fr; }} }}
-  .datatech-card {{ padding: 2.5rem 2rem; position: relative; overflow: hidden; }}
+  @media (min-width: 1024px) {{
+    .datatech-overview-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }}
+    .datatech-card-definition {{ grid-column: span 2 / span 2; }}
+  }}
+  .datatech-card {{
+    padding: 1.5rem; position: relative; overflow: hidden;
+    border-radius: 1.5rem; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  }}
   .datatech-card-title {{
-    font-size: 1.5rem; font-weight: 800; margin: 0 0 1rem;
+    font-size: 1.5rem; line-height: 2rem; font-weight: 700; margin: 0 0 1rem;
     background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8));
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }}
-  .datatech-card-body {{ font-size: 1rem; line-height: 1.7; color: rgb(63, 63, 70); margin: 0 0 1rem; }}
+  .datatech-card-body {{ font-size: 1rem; line-height: 1.625; color: rgb(63, 63, 70); margin: 0 0 1rem; }}
+  .datatech-card-definition .datatech-card-body:first-of-type {{ font-size: 1.125rem; line-height: 1.625; }}
   .datatech-card-body:last-child {{ margin-bottom: 0; }}
   .datatech-highlight {{ background: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 700; }}
   .datatech-text-orange {{ color: rgb(194, 65, 12); font-weight: 600; }}
   .datatech-text-blue {{ color: rgb(29, 78, 216); font-weight: 600; }}
   .datatech-why-list {{ list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.75rem; }}
-  .datatech-why-list li {{ display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; color: rgb(63, 63, 70); }}
+  .datatech-why-list li {{ display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; line-height: 1.25rem; color: rgb(63, 63, 70); }}
   .datatech-why-check {{ color: rgb(16, 185, 129); font-weight: 700; }}
+  .datatech-card-why {{ border-color: rgba(147, 197, 253, 0.50); }}
+  html.dark .about-page .datatech-card-why {{ border-color: rgba(96, 165, 250, 0.20); }}
   .datatech-card-why .datatech-card-title {{ background: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); -webkit-background-clip: text; background-clip: text; color: transparent; }}
+  .datatech-card-why .datatech-card-title {{ font-size: 1.25rem; line-height: 1.75rem; }}
+  @media (max-width: 639px) {{
+    .about-page .datatech-card {{
+      margin-left: 0.5rem; margin-right: 0.5rem;
+      border-radius: 1.5rem;
+    }}
+    .about-page .datatech-features-grid {{ padding-left: 0.5rem; padding-right: 0.5rem; }}
+  }}
 
   .datatech-features-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 2rem; }}
-  @media (min-width: 640px) {{ .datatech-features-grid {{ gap: 2rem; }} }}
-  .datatech-feature {{ padding: 2rem 1.5rem; position: relative; overflow: hidden; }}
-  .datatech-feature-title {{
-    font-size: 1.25rem; font-weight: 800; margin: 0 0 0.75rem; background-clip: text; -webkit-background-clip: text; color: transparent;
+  @media (min-width: 640px) {{ .datatech-features-grid {{ gap: 2rem; padding-left: 0; padding-right: 0; }} }}
+  @media (min-width: 1024px) {{ .datatech-features-grid {{ grid-template-columns: repeat(3, minmax(0, 1fr)); }} }}
+  .datatech-feature {{
+    padding: 1.5rem; position: relative; overflow: hidden;
+    border-color: rgba(254, 215, 170, 0.30);
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   }}
+  html.dark .about-page .datatech-feature {{ border-color: rgba(251, 146, 60, 0.20); }}
+  .datatech-feature-title {{
+    font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; margin: 0 0 1.5rem; background-clip: text; -webkit-background-clip: text; color: transparent;
+  }}
+  @media (min-width: 640px) {{ .datatech-feature-title {{ font-size: 1.5rem; line-height: 2rem; }} }}
   .datatech-feature-orange .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(249, 115, 22), rgb(234, 179, 8)); }}
   .datatech-feature-blue .datatech-feature-title   {{ background-image: linear-gradient(to right, rgb(59, 130, 246), rgb(6, 182, 212)); }}
   .datatech-feature-purple .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(168, 85, 247), rgb(236, 72, 153)); }}
   .datatech-feature-green .datatech-feature-title  {{ background-image: linear-gradient(to right, rgb(16, 185, 129), rgb(5, 150, 105)); }}
   .datatech-feature-red .datatech-feature-title    {{ background-image: linear-gradient(to right, rgb(239, 68, 68), rgb(249, 115, 22)); }}
   .datatech-feature-indigo .datatech-feature-title {{ background-image: linear-gradient(to right, rgb(99, 102, 241), rgb(168, 85, 247)); }}
-  .datatech-feature-body {{ font-size: 0.9375rem; line-height: 1.6; color: rgb(63, 63, 70); margin: 0 0 0.75rem; }}
-  .datatech-feature-detail {{ font-size: 0.8125rem; line-height: 1.6; color: rgb(113, 113, 122); margin: 0; }}
+  .datatech-feature-body {{ font-size: 1rem; line-height: 1.625; color: #4b5563; margin: 0 0 1rem; }}
+  .datatech-feature-detail {{ font-size: 0.875rem; line-height: 1.625; color: #6b7280; margin: 0; }}
+  html.dark .about-page .datatech-feature-body {{ color: #d1d5db; }}
+  html.dark .about-page .datatech-feature-detail {{ color: #9ca3af; }}
 
   .datatech-benefits {{ padding: 2.5rem 2rem; margin-top: 2rem; position: relative; overflow: hidden; }}
   .datatech-benefits-title {{
@@ -4319,7 +4343,7 @@ pub fn design_system_head_with_keywords(
   .plans-enterprise-cta-actions {{ display: flex; gap: 0.75rem; justify-content: center; flex-wrap: wrap; }}
 
   /* --- /contact --- gradient background + form + 3 info cards --- */
-  .contact-page {{ position: relative; z-index: 1; padding-bottom: 4rem; }}
+  .contact-page {{ position: relative; z-index: 1; }}
   .contact-bg {{
     position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
     background: linear-gradient(135deg, #eff6ff 0%, #fff7ed 50%, #fefce8 100%);
@@ -4327,23 +4351,27 @@ pub fn design_system_head_with_keywords(
   :root.dark .contact-bg {{
     background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   }}
-  .contact-bg-orb {{ position: absolute; border-radius: 9999px; filter: blur(80px); opacity: 0.35; }}
-  .contact-bg-orb-1 {{ width: 24rem; height: 24rem; top: -6rem; left: -8rem; }}
-  .contact-bg-orb-2 {{ width: 20rem; height: 20rem; top: 5rem; right: -6rem; }}
-  .contact-bg-orb-3 {{ width: 18rem; height: 18rem; bottom: 0; left: 30%; }}
-  .contact-bg-orb-4 {{ width: 16rem; height: 16rem; bottom: 6rem; right: 8rem; opacity: 0.25; }}
+  .contact-bg::before, .contact-bg::after {{ content: ""; position: absolute; inset: 0; }}
+  .contact-bg::before {{ background: radial-gradient(circle at 25% 25%, rgba(168,85,247,0.10) 0%, transparent 50%); }}
+  .contact-bg::after {{ background: radial-gradient(circle at 75% 75%, rgba(255,133,27,0.08) 0%, transparent 50%); }}
+  .contact-bg-orb {{ position: absolute; border-radius: 9999px; filter: blur(64px); opacity: 1; }}
+  .contact-bg-orb-1 {{ width: 24rem; height: 24rem; top: -10rem; left: -10rem; background: linear-gradient(to bottom right, rgba(192,132,252,0.30), rgba(244,114,182,0.30)); }}
+  .contact-bg-orb-2 {{ width: 20rem; height: 20rem; top: 5rem; right: -8rem; background: linear-gradient(to bottom right, rgba(251,146,60,0.25), rgba(250,204,21,0.25)); }}
+  .contact-bg-orb-3 {{ width: 18rem; height: 18rem; bottom: 5rem; left: 5rem; background: linear-gradient(to bottom right, rgba(96,165,250,0.20), rgba(34,211,238,0.20)); }}
+  .contact-bg-orb-4 {{ display: none; }}
   .contact-hero {{ padding: 4rem 0 2rem; text-align: center; position: relative; }}
   .contact-hero-title {{
-    font-size: 3rem; font-weight: 800; margin: 0 0 1rem;
+    font-size: 3rem; line-height: 1; font-weight: 700; margin: 0 0 1rem;
     background: linear-gradient(90deg, #a855f7, #f97316, #eab308);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }}
-  .contact-hero-subtitle {{ max-width: 36rem; margin: 0 auto; color: var(--text-muted, #475569); }}
+  @media (min-width: 640px) {{ .contact-hero-title {{ font-size: 3.75rem; }} }}
+  .contact-hero-subtitle {{ max-width: 42rem; margin: 0 auto; color: var(--text-muted, #475569); font-size: 1.125rem; line-height: 1.625; }}
   .contact-hero-divider {{
     width: 10rem; height: 0.25rem; margin: 1.5rem auto 0;
     background: linear-gradient(90deg, #a855f7, #f97316, #eab308); border-radius: 9999px;
   }}
-  .contact-email-section {{ padding: 1rem 0 3rem; }}
+  .contact-email-section {{ padding: 0 0 3rem; }}
   .contact-email-card {{
     max-width: 32rem; margin: 0 auto; padding: 2rem; text-align: center;
     background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px);
@@ -4355,29 +4383,49 @@ pub fn design_system_head_with_keywords(
     display: inline-flex; padding: 1rem; border-radius: 1rem;
     background: linear-gradient(135deg, #a855f7, #f97316); margin-bottom: 1.25rem;
   }}
-  .contact-email-title {{ font-size: 1.25rem; font-weight: 700; margin: 0 0 0.5rem; }}
-  .contact-email-subtitle {{ margin: 0 0 1.25rem; }}
-  .contact-mailto-btn {{ display: inline-flex; gap: 0.5rem; align-items: center; }}
-  .contact-email-divider {{ height: 1px; background: rgba(0,0,0,0.06); margin: 1rem 0; }}
+  .contact-email-title {{ font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; margin: 0 0 0.5rem; color: #1f2937; }}
+  .contact-email-subtitle {{ margin: 0 0 1.25rem; font-size: 0.875rem; line-height: 1.25rem; color: #6b7280; }}
+  :root.dark .contact-email-title {{ color: #f3f4f6; }}
+  :root.dark .contact-email-subtitle {{ color: #9ca3af; }}
+  .contact-mailto-btn {{
+    display: inline-flex; gap: 0.5rem; align-items: center;
+    padding: 0.75rem 2rem; border-radius: 0.75rem; font-weight: 600;
+    font-size: 1rem; line-height: 1.5rem;
+    background: linear-gradient(to right, #a855f7, #f97316);
+  }}
+  .contact-email-divider {{ height: 0; background: none; margin: 1rem 0 0; }}
   :root.dark .contact-email-divider {{ background: rgba(255,255,255,0.06); }}
-  .contact-copy-btn {{ display: inline-flex; gap: 0.4rem; align-items: center; }}
-  .contact-info-section {{ padding: 0 0 3rem; }}
-  .contact-info-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; max-width: 64rem; margin: 0 auto; }}
+  .contact-copy-btn {{
+    display: inline-flex; gap: 0.375rem; align-items: center;
+    padding: 0; border: 0; border-radius: 0;
+    font-size: 0.875rem; line-height: 1.25rem; color: #a855f7;
+  }}
+  .contact-info-section {{ padding: 0 0 4rem; }}
+  .contact-info-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; max-width: 56rem; margin: 0 auto; }}
   .contact-info-card {{
     background: rgba(255,255,255,0.8); backdrop-filter: blur(20px);
+    border: 1px solid rgba(168, 85, 247, 0.20);
     border-radius: 1.5rem; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
     padding: 0;
   }}
+  .contact-info-card-purple {{ border-color: rgba(233, 213, 255, 0.50); }}
+  .contact-info-card-orange {{ border-color: rgba(254, 215, 170, 0.50); }}
+  .contact-info-card-blue {{ border-color: rgba(191, 219, 254, 0.50); }}
   :root.dark .contact-info-card {{ background: rgba(30, 41, 59, 0.8); }}
-  .contact-info-row {{ display: flex; gap: 1rem; align-items: flex-start; padding: 1.25rem; }}
+  :root.dark .contact-info-card-purple {{ border-color: rgba(192, 132, 252, 0.20); }}
+  :root.dark .contact-info-card-orange {{ border-color: rgba(251, 146, 60, 0.20); }}
+  :root.dark .contact-info-card-blue {{ border-color: rgba(96, 165, 250, 0.20); }}
+  .contact-info-row {{ display: flex; gap: 1rem; align-items: flex-start; padding: 1.5rem; }}
   .contact-info-icon {{
     display: inline-flex; padding: 0.75rem; border-radius: 1rem; flex-shrink: 0;
   }}
   .contact-info-icon-purple {{ background: linear-gradient(135deg, #a855f7, #3b82f6); }}
   .contact-info-icon-orange {{ background: linear-gradient(135deg, #f97316, #eab308); }}
   .contact-info-icon-blue {{ background: linear-gradient(135deg, #3b82f6, #06b6d4); }}
-  .contact-info-title {{ font-weight: 600; margin: 0 0 0.25rem; }}
-  .contact-info-desc {{ margin: 0; }}
+  .contact-info-title {{ font-weight: 600; margin: 0 0 0.25rem; color: #1f2937; }}
+  .contact-info-desc {{ margin: 0; color: #6b7280; }}
+  :root.dark .contact-info-title {{ color: #f3f4f6; }}
+  :root.dark .contact-info-desc {{ color: #9ca3af; }}
   .contact-form-section {{ padding: 0 0 4rem; }}
   .contact-form-card {{ max-width: 48rem; margin: 0 auto; padding: 0; }}
   .contact-form-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.5rem; }}
@@ -4521,7 +4569,8 @@ pub fn design_system_head_with_keywords(
   .offline-tip-label {{ font-weight: 500; margin: 0 0 0.25rem; }}
   .offline-tip-text {{ margin: 0; }}
 
-  .access-denied-page {{ max-width: 42rem; margin: 0 auto; padding: 2rem 1rem; }}
+  .access-denied-page {{ max-width: none; margin: 0; padding: 0; }}
+  .access-denied-page > .access-denied {{ min-height: 100vh; }}
   .access-denied-reasons {{ margin-top: 2rem; }}
   .access-denied-reasons-card {{ padding: 0; }}
   .access-denied-reasons-title {{ font-size: 1rem; font-weight: 600; margin: 0 0 0.75rem; }}
@@ -6848,7 +6897,7 @@ pub fn copy_button_html(text: &str, label: &str) -> String {
 pub fn email_copy_button_html(email: &str) -> String {
     let onclick = html_attr_escape(&onclick_copy_text(email));
     format!(
-        r#"<button id="contact-copy-email-button" type="button" class="btn btn-ghost contact-copy-btn" data-copy="{safe_email}" data-copy-status-target="contact-copy-email-status" onclick="{onclick}" aria-label="Copy email address" aria-describedby="contact-copy-email-status"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="check"><polyline points="20 6 9 17 4 12"></polyline></svg><span>Copy</span></button>"#,
+        r#"<button id="contact-copy-email-button" type="button" class="btn btn-ghost contact-copy-btn" data-copy="{safe_email}" data-copy-status-target="contact-copy-email-status" onclick="{onclick}" aria-label="Copy email address" aria-describedby="contact-copy-email-status"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" data-lucide="copy"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path></svg><span>Copy</span></button>"#,
         safe_email = html_attr_escape(email),
         onclick = onclick,
     )

@@ -12,11 +12,51 @@ export interface ScenarioMatrix {
   colorScheme: ColorScheme;
 }
 
+export type SessionAudience = 'epsx-frontend' | 'epsx-admin';
+
+export interface ScenarioState {
+  id: string;
+  session: 'signed-out' | 'authenticated';
+  audience?: SessionAudience;
+  permissions?: string[];
+  fixtureMode?: string;
+  offline?: boolean;
+}
+
+export type ScenarioAction =
+  | { type: 'click'; selector: string }
+  | { type: 'fill'; selector: string; value: string }
+  | { type: 'press'; selector: string; key: string }
+  | { type: 'reload' }
+  | { type: 'set-offline'; offline: boolean }
+  | { type: 'wait-for'; selector: string };
+
+export type ScenarioOutcome = (
+  | { type: 'path'; value: string }
+  | { type: 'query'; key: string; value: string }
+  | { type: 'text'; value: string }
+  | { type: 'text-absent'; value: string }
+  | { type: 'selector'; value: string }
+  | {
+      type: 'attribute';
+      selector: string;
+      name: string;
+      value: string;
+    }
+  | { type: 'focused'; selector: string }
+  | { type: 'no-horizontal-overflow' }
+  | { type: 'status'; value: number }
+) & { side?: 'source' | 'target' | 'both' };
+
 export interface Scenario {
   id: string;
   surface: Surface;
   path: string;
   title: string;
+  state: ScenarioState;
+  actions: ScenarioAction[];
+  outcomes: ScenarioOutcome[];
+  fixtureRequirements: string[];
   expectedSourcePath?: string;
   expectedTargetPath?: string;
 }
@@ -25,9 +65,14 @@ export interface ScenarioGroup {
   id: number;
   slug: string;
   title: string;
-  matrix?: string;
-  repeat?: number;
-  comparisonGate?: 'capture-only' | 'parity';
+  matrix: string;
+  repeat: number;
+  comparisonGate: 'capture-only' | 'parity';
+  surfaces: Surface[];
+  states: string[];
+  actions: string[];
+  outcomes: string[];
+  fixtureRequirements: string[];
   scenarios?: Scenario[];
   routes?: Partial<Record<Surface, string[]>>;
   includeAllContractRoutes?: boolean;
@@ -39,8 +84,32 @@ export interface ScenarioManifest {
   schemaVersion: number;
   baselineLock: string;
   routeContract: string;
+  approvedDifferences: string;
   matrices: Record<string, ScenarioMatrix[]>;
   groups: ScenarioGroup[];
+}
+
+export type ApprovedDifferenceCategory =
+  | 'backend-authority'
+  | 'security'
+  | 'wallet-siwe-legal-accuracy'
+  | 'unsupported-feature-removal';
+
+export interface ApprovedDifference {
+  scenarioId: string;
+  matrixIds: string[];
+  category: ApprovedDifferenceCategory;
+  reason: string;
+  sourceEvidence: string;
+  targetEvidence: string;
+  maximumDifferencePercent: number;
+}
+
+export interface ApprovedDifferenceRegistry {
+  schemaVersion: number;
+  maximumUnapprovedDifferencePercent: number;
+  allowedCategories: ApprovedDifferenceCategory[];
+  items: ApprovedDifference[];
 }
 
 export interface BaselineLock {
@@ -173,6 +242,11 @@ export interface CaptureResult {
   screenshotSha256: string;
   domSha256: string;
   accessibilitySha256: string;
+  outcomeChecks: Array<{
+    outcome: ScenarioOutcome;
+    passed: boolean;
+    actual?: string | number | boolean;
+  }>;
 }
 
 export interface ComparisonResult {
@@ -189,4 +263,6 @@ export interface ComparisonResult {
   differencePercent: number;
   approvedDifference: boolean;
   approvalReason: string;
+  approvalCategory?: ApprovedDifferenceCategory;
+  maximumAllowedDifferencePercent: number;
 }

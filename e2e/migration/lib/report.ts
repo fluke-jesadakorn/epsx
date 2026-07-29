@@ -20,6 +20,7 @@ import type {
 
 interface Reproducibility {
   schemaVersion: number;
+  groupId: number;
   scenarioId: string;
   matrixId: string;
   repeats: number;
@@ -53,7 +54,8 @@ function capturePassed(capture: CaptureResult): boolean {
     capture.bodyTextLength > 50 &&
     capture.consoleErrors.length === 0 &&
     capture.pageErrors.length === 0 &&
-    capture.failedRequests.length === 0
+    capture.failedRequests.length === 0 &&
+    capture.outcomeChecks.every(check => check.passed)
   );
 }
 
@@ -62,6 +64,7 @@ function evidenceRowPassed(row: EvidenceRow): boolean {
     row.reproducibility.passed &&
     row.preReset.passed &&
     row.postReset.passed &&
+    row.comparison.approvedDifference &&
     capturePassed(row.source) &&
     capturePassed(row.target)
   );
@@ -69,7 +72,7 @@ function evidenceRowPassed(row: EvidenceRow): boolean {
 
 // The report is intentionally assembled in one ordered pass so its table,
 // contact sheets, and checksummed manifests describe the same evidence set.
-// eslint-disable-next-line max-lines-per-function
+// eslint-disable-next-line max-lines-per-function, complexity
 export async function generateReport(
   config: RuntimeConfig
 ): Promise<{ reportPath: string; artifactManifestPath: string }> {
@@ -170,13 +173,15 @@ export async function generateReport(
   );
   const allPassed = rows.every(evidenceRowPassed) && finalReset.passed;
 
-  let markdown = '# PR 0 — E2E harness and immutable baseline evidence\n\n';
+  let markdown = `# PR ${config.groupId} — cumulative migration E2E evidence\n\n`;
   markdown += `Result: **${allPassed ? 'PASS' : 'FAIL'}**\n\n`;
   markdown += `Source Next.js SHA: \`${config.sourceCommit}\`\n\n`;
   markdown += `Target Rust/Dioxus SHA: \`${config.targetCommit}\`\n\n`;
   markdown += `Generated: ${new Date().toISOString()}\n\n`;
   markdown +=
-    'PR 0 is a capture/reproducibility gate. Visual differences are recorded and assigned to PR 1; they are not silently treated as parity.\n\n';
+    config.groupId === 0
+      ? 'PR 0 is a capture/reproducibility gate. Visual differences are recorded and assigned to PR 1; they are not silently treated as parity.\n\n'
+      : `This report covers every executable scenario owned by cumulative groups 0–${config.groupId}. Visual differences above 1% require a machine-readable non-styling exception.\n\n`;
   markdown += '## Scenario evidence\n\n';
   markdown +=
     '| Scenario | Matrix | Result / coverage | Next.js | Rust/Dioxus | Highlighted diff | Δ pixels | Difference disposition | Reset proof |\n';
@@ -185,7 +190,7 @@ export async function generateReport(
     const passed = evidenceRowPassed(row);
     markdown += `| \`${row.scenarioId}\` | \`${row.matrixId}\` | ${
       passed ? 'PASS' : 'FAIL'
-    }; 2 clean repeats | ${markdownImage(
+    }; ${row.reproducibility.repeats} clean repeats | ${markdownImage(
       'Next.js source',
       row.sourceImage
     )} | ${markdownImage(
@@ -218,8 +223,8 @@ export async function generateReport(
   markdown += '```bash\n';
   markdown += 'bun install --frozen-lockfile\n';
   markdown += 'bunx playwright install chromium\n';
-  markdown += 'bun run test:e2e:migration:pr0\n';
-  markdown += 'bun run e2e:migration:verify-artifacts\n';
+  markdown += `bun e2e/migration/cli.ts run --group ${config.groupId}\n`;
+  markdown += `bun e2e/migration/cli.ts verify-artifacts --group ${config.groupId}\n`;
   markdown += '```\n';
 
   const reportPath = resolve(config.evidenceRoot, 'report.md');

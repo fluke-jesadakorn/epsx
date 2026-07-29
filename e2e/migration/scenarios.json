@@ -1,7 +1,8 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "baselineLock": "e2e/migration/baseline.lock.json",
   "routeContract": "docs/migration/contracts/routes.json",
+  "approvedDifferences": "e2e/migration/approved-differences.json",
   "artifactPolicy": {
     "commitContactSheets": true,
     "hashAlgorithm": "sha256",
@@ -20,6 +21,18 @@
   },
   "matrices": {
     "pr0-smoke": [
+      {
+        "id": "desktop-light",
+        "viewport": { "width": 1440, "height": 900 },
+        "colorScheme": "light"
+      },
+      {
+        "id": "mobile-dark",
+        "viewport": { "width": 390, "height": 844 },
+        "colorScheme": "dark"
+      }
+    ],
+    "feature": [
       {
         "id": "desktop-light",
         "viewport": { "width": 1440, "height": 900 },
@@ -62,6 +75,11 @@
       "matrix": "pr0-smoke",
       "repeat": 2,
       "comparisonGate": "capture-only",
+      "surfaces": ["frontend"],
+      "states": ["signed-out deterministic baseline"],
+      "actions": ["navigate"],
+      "outcomes": ["meaningful stable document", "clean browser runtime"],
+      "fixtureRequirements": ["healthy loopback dependencies"],
       "scenarios": [
         {
           "id": "pr0.public.home",
@@ -69,19 +87,44 @@
           "path": "/",
           "expectedSourcePath": "/",
           "expectedTargetPath": "/",
-          "title": "Public home reproducibility smoke"
+          "title": "Public home reproducibility smoke",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["public rankings", "featured news"]
         },
         {
           "id": "pr0.public.about",
           "surface": "frontend",
           "path": "/about",
-          "title": "Public about reproducibility smoke"
+          "expectedSourcePath": "/auth",
+          "expectedTargetPath": "/auth",
+          "title": "Signed-out about redirect reproducibility smoke",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["JWKS"]
         },
         {
           "id": "pr0.public.contact",
           "surface": "frontend",
           "path": "/contact",
-          "title": "Public contact reproducibility smoke"
+          "expectedSourcePath": "/auth",
+          "expectedTargetPath": "/auth",
+          "title": "Signed-out contact redirect reproducibility smoke",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["JWKS"]
         }
       ]
     },
@@ -89,6 +132,37 @@
       "id": 1,
       "slug": "shared-shell-public",
       "title": "Shared shell and public experience",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "signed-out public shell",
+        "backend-verified frontend session",
+        "query-controlled admin denial",
+        "offline recovery"
+      ],
+      "actions": [
+        "navigate",
+        "keyboard tab",
+        "theme initialization",
+        "reduced-motion rendering"
+      ],
+      "outcomes": [
+        "signed-out redirect",
+        "authenticated public body",
+        "truthful wallet/SIWE legal copy",
+        "working link affordances",
+        "no pseudo-controls",
+        "responsive shell without overflow",
+        "visible keyboard focus"
+      ],
+      "fixtureRequirements": [
+        "RS256 JWKS",
+        "frontend session",
+        "admin session",
+        "healthy loopback dependencies"
+      ],
       "routes": {
         "frontend": [
           "/",
@@ -101,21 +175,397 @@
           "/__migration-not-found__"
         ],
         "admin": ["/access-denied", "/unauthorized"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr1.shell.home",
+          "surface": "frontend",
+          "path": "/",
+          "title": "Responsive signed-out home shell",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["public rankings", "featured news"]
+        },
+        {
+          "id": "pr1.auth.about-redirect",
+          "surface": "frontend",
+          "path": "/about",
+          "title": "Signed-out About redirect",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            {
+              "type": "text",
+              "value": "Connect Wallet"
+            }
+          ],
+          "fixtureRequirements": ["JWKS"]
+        },
+        {
+          "id": "pr1.auth.contact-redirect",
+          "surface": "frontend",
+          "path": "/contact",
+          "title": "Signed-out Contact redirect",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            {
+              "type": "text",
+              "value": "Connect Wallet"
+            }
+          ],
+          "fixtureRequirements": ["JWKS"]
+        },
+        {
+          "id": "pr1.about.authenticated",
+          "surface": "frontend",
+          "path": "/about",
+          "title": "Authenticated About body",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/about" },
+            { "type": "text", "value": "About EPSX" },
+            { "type": "text", "value": "Our Mission" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["frontend RS256 session"]
+        },
+        {
+          "id": "pr1.contact.authenticated",
+          "surface": "frontend",
+          "path": "/contact",
+          "title": "Authenticated Contact body and working actions",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/contact" },
+            { "type": "text", "value": "Contact Us" },
+            {
+              "type": "selector",
+              "value": "a[href^='mailto:']",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["frontend RS256 session"]
+        },
+        {
+          "id": "pr1.privacy.legal",
+          "surface": "frontend",
+          "path": "/privacy",
+          "title": "Wallet/SIWE-accurate Privacy policy with contact link",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Privacy Policy" },
+            {
+              "type": "text-absent",
+              "value": "Google Sign-in",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "a[href='/contact']",
+              "side": "target"
+            }
+          ],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr1.terms.legal",
+          "surface": "frontend",
+          "path": "/terms",
+          "title": "Wallet/SIWE-accurate Terms without unsupported controls",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Terms and Conditions" },
+            {
+              "type": "text-absent",
+              "value": "Google Sign-in",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Subscribe for Updates",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "a[href='/contact']",
+              "side": "target"
+            }
+          ],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr1.offline.public",
+          "surface": "frontend",
+          "path": "/offline",
+          "title": "Authenticated offline recovery surface",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/offline" },
+            { "type": "text", "value": "offline" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["frontend RS256 session"]
+        },
+        {
+          "id": "pr1.error.access-denied",
+          "surface": "frontend",
+          "path": "/access-denied?reason=Injected%20authority%20claim&route=%2Fbilling-admin",
+          "title": "Frontend access-denied ignores query claims and keeps recovery actions",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Access Denied" },
+            { "type": "selector", "value": "a[href='/']" },
+            { "type": "selector", "value": "a[href='/contact']" },
+            {
+              "type": "text-absent",
+              "value": "Injected authority claim",
+              "side": "target"
+            }
+          ],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr1.error.not-found",
+          "surface": "frontend",
+          "path": "/__migration-not-found__",
+          "title": "Not-found boundary actions",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "status", "value": 404, "side": "target" },
+            { "type": "selector", "value": "a[href='/']" }
+          ],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr1.admin.denial-query",
+          "surface": "admin",
+          "path": "/access-denied?reason=backend_error&detail=Injected%20authority%20claim",
+          "title": "Admin denial ignores query-controlled authority claims",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Access Denied" },
+            {
+              "type": "text-absent",
+              "value": "Injected authority claim",
+              "side": "target"
+            }
+          ],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr1.admin.unauthorized",
+          "surface": "admin",
+          "path": "/unauthorized",
+          "title": "Admin unauthorized recovery surface",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Access Denied" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": []
+        }
+      ]
     },
     {
       "id": 2,
       "slug": "auth-account-permissions",
       "title": "Authentication, sessions, account, and permissions",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "signed-out",
+        "frontend RS256 session",
+        "admin RS256 session",
+        "wrong-audience session",
+        "identity dependency unavailable"
+      ],
+      "actions": ["navigate", "refresh", "logout", "restart verification"],
+      "outcomes": [
+        "nonce and replay rejection",
+        "audience and owner isolation",
+        "backend-issued permissions only",
+        "profile/account/settings rendering",
+        "fail-closed dependency states"
+      ],
+      "fixtureRequirements": [
+        "SIWE challenge",
+        "session refresh",
+        "revocation ledger",
+        "persistent RS256 key",
+        "identity failure modes"
+      ],
       "routes": {
         "frontend": ["/auth", "/account", "/profile", "/permissions"],
         "admin": ["/auth", "/settings"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr2.auth.signed-out",
+          "surface": "frontend",
+          "path": "/auth?return_url=%2Faccount",
+          "title": "Signed-out SIWE entry",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            { "type": "text", "value": "Connect Wallet" }
+          ],
+          "fixtureRequirements": ["SIWE challenge"]
+        },
+        {
+          "id": "pr2.account.verified",
+          "surface": "frontend",
+          "path": "/account",
+          "title": "Verified account",
+          "state": {
+            "id": "frontend-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read", "epsx:profile:update"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/account" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["profile", "preferences"]
+        },
+        {
+          "id": "pr2.profile.verified",
+          "surface": "frontend",
+          "path": "/profile",
+          "title": "Owner-isolated profile",
+          "state": {
+            "id": "frontend-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:profile:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/profile" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["profile"]
+        },
+        {
+          "id": "pr2.permissions.verified",
+          "surface": "frontend",
+          "path": "/permissions",
+          "title": "Backend-issued permissions",
+          "state": {
+            "id": "frontend-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:permissions:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/permissions" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["permission snapshot"]
+        },
+        {
+          "id": "pr2.admin.settings",
+          "surface": "admin",
+          "path": "/settings",
+          "title": "Admin settings with isolated audience",
+          "state": {
+            "id": "admin-owner",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:settings:read", "admin:settings:update"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/settings" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["admin profile", "settings"]
+        },
+        {
+          "id": "pr2.auth.dependency-failure",
+          "surface": "frontend",
+          "path": "/auth",
+          "title": "Identity dependency failure is explicit",
+          "state": {
+            "id": "identity-unavailable",
+            "session": "signed-out",
+            "fixtureMode": "dependency-unavailable"
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/auth" },
+            { "type": "text", "value": "Connect Wallet" }
+          ],
+          "fixtureRequirements": ["identity 503"]
+        }
+      ]
     },
     {
       "id": 3,
       "slug": "wallet-credits-access",
       "title": "Wallet, credits, and access management",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "wallet owner",
+        "wallet administrator",
+        "validation failure",
+        "optimistic conflict",
+        "granular permission denial"
+      ],
+      "actions": ["search", "filter", "open detail", "disable", "edit plan"],
+      "outcomes": [
+        "backend-authoritative balances and access",
+        "validated mutations",
+        "conflict response",
+        "audit side effect",
+        "granular permission enforcement"
+      ],
+      "fixtureRequirements": [
+        "wallet list",
+        "credits ledger",
+        "access plans",
+        "audit ledger"
+      ],
       "routes": {
         "frontend": ["/account/credits"],
         "admin": [
@@ -129,30 +579,455 @@
           "/wallet-management/wallets",
           "/wallet-management/wallets/:address/disable"
         ]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr3.frontend.credits",
+          "surface": "frontend",
+          "path": "/account/credits",
+          "title": "Owner credits ledger",
+          "state": {
+            "id": "wallet-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:credits:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["credits ledger"]
+        },
+        {
+          "id": "pr3.admin.audit",
+          "surface": "admin",
+          "path": "/audit-log",
+          "title": "Wallet mutation audit effects",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:audit:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["audit ledger"]
+        },
+        {
+          "id": "pr3.admin.wallet-redirect",
+          "surface": "admin",
+          "path": "/wallet-management",
+          "title": "Canonical wallet management redirect",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "path", "value": "/wallet-management/wallets" }
+          ],
+          "fixtureRequirements": ["wallet list"]
+        },
+        {
+          "id": "pr3.admin.wallet-detail",
+          "surface": "admin",
+          "path": "/wallet-management/0xea6400000000000000000000000000000000e3df",
+          "title": "Wallet detail",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallet detail"]
+        },
+        {
+          "id": "pr3.admin.access",
+          "surface": "admin",
+          "path": "/wallet-management/access",
+          "title": "Granular access overview",
+          "state": {
+            "id": "access-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:access:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["access grants"]
+        },
+        {
+          "id": "pr3.admin.plans",
+          "surface": "admin",
+          "path": "/wallet-management/access/plans",
+          "title": "Access plan list",
+          "state": {
+            "id": "plan-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:plans:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["access plans"]
+        },
+        {
+          "id": "pr3.admin.plan-detail",
+          "surface": "admin",
+          "path": "/wallet-management/access/plans/plan-pro",
+          "title": "Access plan validation and conflict surface",
+          "state": {
+            "id": "plan-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:plans:read", "admin:plans:update"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["access plan", "optimistic version"]
+        },
+        {
+          "id": "pr3.admin.credits",
+          "surface": "admin",
+          "path": "/wallet-management/credits",
+          "title": "Admin credit management",
+          "state": {
+            "id": "credit-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:credits:read", "admin:credits:update"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["credits ledger"]
+        },
+        {
+          "id": "pr3.admin.wallets",
+          "surface": "admin",
+          "path": "/wallet-management/wallets",
+          "title": "Wallet search and filters",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallet list", "filter facets"]
+        },
+        {
+          "id": "pr3.admin.disable",
+          "surface": "admin",
+          "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+          "title": "Wallet disable validation",
+          "state": {
+            "id": "wallet-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:wallets:disable"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallet detail", "audit ledger"]
+        }
+      ]
     },
     {
       "id": 4,
       "slug": "analytics-portfolio-ranking",
       "title": "Analytics, portfolio, and ranking",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "public rankings",
+        "entitled rankings",
+        "stale projection",
+        "analytics dependency failure"
+      ],
+      "actions": ["filter", "sort", "paginate", "refresh"],
+      "outcomes": [
+        "Rust-provided ranking offsets",
+        "backend entitlement projection",
+        "freshness marker",
+        "stale and error states"
+      ],
+      "fixtureRequirements": [
+        "rankings",
+        "filter facets",
+        "portfolio",
+        "entitlements",
+        "freshness clock"
+      ],
       "routes": {
         "frontend": ["/", "/analytics", "/portfolio", "/dashboard"],
         "admin": ["/", "/analytics"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr4.frontend.home-rankings",
+          "surface": "frontend",
+          "path": "/",
+          "title": "Public ranking preview",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["rankings"]
+        },
+        {
+          "id": "pr4.frontend.analytics",
+          "surface": "frontend",
+          "path": "/analytics?sort=eps_growth&order=desc&page=1",
+          "title": "Filtering sorting pagination and offsets",
+          "state": {
+            "id": "analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["rankings", "filter facets", "entitlements"]
+        },
+        {
+          "id": "pr4.frontend.portfolio",
+          "surface": "frontend",
+          "path": "/portfolio",
+          "title": "Owner portfolio",
+          "state": {
+            "id": "portfolio-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:portfolio:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["portfolio"]
+        },
+        {
+          "id": "pr4.frontend.dashboard",
+          "surface": "frontend",
+          "path": "/dashboard",
+          "title": "Dashboard analytics projection",
+          "state": {
+            "id": "dashboard-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["rankings", "portfolio"]
+        },
+        {
+          "id": "pr4.admin.dashboard",
+          "surface": "admin",
+          "path": "/",
+          "title": "Admin analytics dashboard",
+          "state": {
+            "id": "analytics-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["analytics summary"]
+        },
+        {
+          "id": "pr4.admin.analytics",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin analytics freshness and errors",
+          "state": {
+            "id": "analytics-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["analytics summary", "freshness clock"]
+        }
+      ]
     },
     {
       "id": 5,
       "slug": "content-news-media-manual",
       "title": "Content, news, media, and manual",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "published content",
+        "draft content",
+        "revision conflict",
+        "upload retry",
+        "content dependency failure"
+      ],
+      "actions": ["list", "open detail", "create", "edit", "upload", "retry"],
+      "outcomes": [
+        "publication lifecycle",
+        "draft authorization",
+        "revision conflict",
+        "cache invalidation",
+        "not-found and retry",
+        "reconciliation"
+      ],
+      "fixtureRequirements": [
+        "published news",
+        "draft news",
+        "revision ledger",
+        "media storage",
+        "cache generation"
+      ],
       "routes": {
         "frontend": ["/news", "/news/:slug", "/manual"],
         "admin": ["/media", "/news", "/news/create", "/news/:id/edit"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr5.frontend.news",
+          "surface": "frontend",
+          "path": "/news",
+          "title": "Published news list",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["published news"]
+        },
+        {
+          "id": "pr5.frontend.news-detail",
+          "surface": "frontend",
+          "path": "/news/deterministic-market-brief",
+          "title": "Published news detail",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Deterministic Market Brief" }
+          ],
+          "fixtureRequirements": ["published news detail"]
+        },
+        {
+          "id": "pr5.frontend.manual",
+          "surface": "frontend",
+          "path": "/manual",
+          "title": "Manual route reconciliation",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["route inventory"]
+        },
+        {
+          "id": "pr5.admin.media",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Authorized uploads and retry",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:media:read", "admin:media:write"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["media storage"]
+        },
+        {
+          "id": "pr5.admin.news",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Publication lifecycle list",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["published and draft news"]
+        },
+        {
+          "id": "pr5.admin.news-create",
+          "surface": "admin",
+          "path": "/news/create",
+          "title": "Draft creation",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:create"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["draft news", "cache generation"]
+        },
+        {
+          "id": "pr5.admin.news-edit",
+          "surface": "admin",
+          "path": "/news/news-e2e-1/edit",
+          "title": "Revision editing and conflict",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:update"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["draft news", "revision ledger"]
+        }
+      ]
     },
     {
       "id": 6,
       "slug": "notifications-chat",
       "title": "Notifications and chat",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "notification owner",
+        "quiet hours",
+        "SSE replay",
+        "push lifecycle",
+        "worker restart",
+        "Redis loss",
+        "chat owner"
+      ],
+      "actions": [
+        "mark read",
+        "delete",
+        "update preferences",
+        "compose",
+        "redrive",
+        "send chat",
+        "retry"
+      ],
+      "outcomes": [
+        "owner isolation",
+        "deduplication",
+        "quiet-hour deferral",
+        "SSE cursor replay",
+        "push subscription lifecycle",
+        "worker restart recovery",
+        "Redis-loss reconciliation"
+      ],
+      "fixtureRequirements": [
+        "notification inbox",
+        "SSE ledger",
+        "push provider",
+        "templates",
+        "delivery outbox",
+        "chat conversations"
+      ],
       "routes": {
         "frontend": ["/notifications", "/chat", "/chat/:id", "/chat/history"],
         "admin": [
@@ -162,34 +1037,1161 @@
           "/chat",
           "/chat/:id"
         ]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr6.frontend.notifications",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Notification mutations preferences and replay",
+          "state": {
+            "id": "notification-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:notifications:read", "epsx:notifications:update"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notification inbox", "SSE ledger"]
+        },
+        {
+          "id": "pr6.frontend.chat",
+          "surface": "frontend",
+          "path": "/chat",
+          "title": "Chat ownership and retries",
+          "state": {
+            "id": "chat-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:chat:read", "epsx:chat:send"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat conversations"]
+        },
+        {
+          "id": "pr6.frontend.chat-detail",
+          "surface": "frontend",
+          "path": "/chat/e2e-conversation",
+          "title": "Owned chat conversation",
+          "state": {
+            "id": "chat-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:chat:read", "epsx:chat:send"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat conversation"]
+        },
+        {
+          "id": "pr6.frontend.chat-history",
+          "surface": "frontend",
+          "path": "/chat/history",
+          "title": "Owner-isolated chat history",
+          "state": {
+            "id": "chat-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:chat:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat history"]
+        },
+        {
+          "id": "pr6.admin.notifications-redirect",
+          "surface": "admin",
+          "path": "/notifications",
+          "title": "Canonical admin notification route",
+          "state": {
+            "id": "notification-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notification campaigns"]
+        },
+        {
+          "id": "pr6.admin.notification-create",
+          "surface": "admin",
+          "path": "/notifications/create",
+          "title": "Compose templates and quiet hours",
+          "state": {
+            "id": "notification-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:create"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["templates", "quiet hours"]
+        },
+        {
+          "id": "pr6.admin.notification-manage",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Delivery redrive and deduplication",
+          "state": {
+            "id": "notification-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:read", "admin:notifications:redrive"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["delivery outbox", "provider events"]
+        },
+        {
+          "id": "pr6.admin.chat",
+          "surface": "admin",
+          "path": "/chat",
+          "title": "Admin chat queue",
+          "state": {
+            "id": "chat-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat queue"]
+        },
+        {
+          "id": "pr6.admin.chat-detail",
+          "surface": "admin",
+          "path": "/chat/e2e-conversation",
+          "title": "Admin chat conversation",
+          "state": {
+            "id": "chat-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read", "admin:chat:send"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat conversation"]
+        }
+      ]
     },
     {
       "id": 7,
       "slug": "developer-apis-metering",
       "title": "Developer APIs and metering",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "API-key owner",
+        "secret-once response",
+        "revoked key",
+        "rate limited",
+        "malformed request"
+      ],
+      "actions": ["create key", "copy once", "revoke", "inspect usage"],
+      "outcomes": [
+        "secret shown once",
+        "owner isolation",
+        "rate and plan enforcement",
+        "metered usage",
+        "malformed input rejection",
+        "audit record"
+      ],
+      "fixtureRequirements": [
+        "API key registry",
+        "usage meter",
+        "rate policy",
+        "audit ledger",
+        "OpenAPI document"
+      ],
       "routes": {
         "frontend": ["/developer", "/developer/docs", "/developer/usage"],
         "admin": ["/developer-portal", "/developer-portal/api-keys/create"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr7.frontend.developer",
+          "surface": "frontend",
+          "path": "/developer",
+          "title": "Developer overview and key ownership",
+          "state": {
+            "id": "developer-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:api-keys:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["API key registry"]
+        },
+        {
+          "id": "pr7.frontend.docs",
+          "surface": "frontend",
+          "path": "/developer/docs",
+          "title": "Developer documentation",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["OpenAPI document"]
+        },
+        {
+          "id": "pr7.frontend.usage",
+          "surface": "frontend",
+          "path": "/developer/usage",
+          "title": "Owner-isolated usage and rate policy",
+          "state": {
+            "id": "developer-owner",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:usage:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["usage meter", "rate policy"]
+        },
+        {
+          "id": "pr7.admin.portal",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "Admin API client registry",
+          "state": {
+            "id": "developer-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:api-keys:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["API key registry", "audit ledger"]
+        },
+        {
+          "id": "pr7.admin.create-key",
+          "surface": "admin",
+          "path": "/developer-portal/api-keys/create",
+          "title": "Secret-once API key creation",
+          "state": {
+            "id": "developer-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:api-keys:create"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["API key registry", "secret-once response"]
+        }
+      ]
     },
     {
       "id": 8,
       "slug": "plans-subscriptions-payments",
       "title": "Plans, subscriptions, payments, and entitlements",
+      "matrix": "feature",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "public plans",
+        "checkout pending",
+        "receipt finalized",
+        "chain reorg",
+        "webhook retry",
+        "subscription owner"
+      ],
+      "actions": [
+        "start checkout",
+        "verify receipt",
+        "cancel subscription",
+        "reconcile webhook"
+      ],
+      "outcomes": [
+        "backend-authoritative price and entitlement",
+        "finality and reorg handling",
+        "idempotent checkout",
+        "subscription lifecycle",
+        "escrow verification",
+        "rollback"
+      ],
+      "fixtureRequirements": [
+        "plans",
+        "checkout ledger",
+        "Anvil receipts",
+        "subscription projection",
+        "webhook ledger",
+        "escrow contract"
+      ],
       "routes": {
         "frontend": ["/plans", "/payment", "/payment/:type/:id"],
         "admin": ["/payments"]
-      }
+      },
+      "scenarios": [
+        {
+          "id": "pr8.frontend.plans",
+          "surface": "frontend",
+          "path": "/plans",
+          "title": "Backend-authoritative public plans",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["plans"]
+        },
+        {
+          "id": "pr8.frontend.payment",
+          "surface": "frontend",
+          "path": "/payment",
+          "title": "Checkout entry and idempotency",
+          "state": {
+            "id": "subscriber",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:payments:create"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["checkout ledger", "plans"]
+        },
+        {
+          "id": "pr8.frontend.receipt",
+          "surface": "frontend",
+          "path": "/payment/plan/plan-pro",
+          "title": "Receipt finality reorg and entitlement projection",
+          "state": {
+            "id": "subscriber",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:payments:read"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": [
+            "Anvil receipt",
+            "subscription projection",
+            "escrow contract"
+          ]
+        },
+        {
+          "id": "pr8.admin.payments",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Payment reconciliation and webhook redrive",
+          "state": {
+            "id": "payment-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:read", "admin:payments:reconcile"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": [
+            "checkout ledger",
+            "webhook ledger",
+            "subscription projection"
+          ]
+        }
+      ]
     },
     {
       "id": 9,
       "slug": "full-migration-regression",
       "title": "Full migration regression",
-      "includeAllContractRoutes": true,
       "matrix": "full",
+      "repeat": 2,
+      "comparisonGate": "parity",
+      "surfaces": ["frontend", "admin"],
+      "states": [
+        "all 28 frontend routes",
+        "all 27 admin routes",
+        "signed-out and verified sessions",
+        "offline",
+        "dependency failure",
+        "process restart"
+      ],
+      "actions": [
+        "navigate",
+        "keyboard traversal",
+        "retry",
+        "reload",
+        "restart",
+        "offline recovery"
+      ],
+      "outcomes": [
+        "four Chromium visual matrices",
+        "Chromium Firefox WebKit functional smoke",
+        "accessibility snapshot",
+        "hydration stability",
+        "dependency failure recovery",
+        "performance budget",
+        "empty bypass registry"
+      ],
+      "fixtureRequirements": [
+        "all deterministic feature fixtures",
+        "PostgreSQL rollback",
+        "scoped Redis rollback",
+        "Anvil rollback",
+        "worker rollback"
+      ],
+      "includeAllContractRoutes": true,
       "browsers": ["chromium", "firefox", "webkit"],
-      "requiredBypasses": 0
+      "requiredBypasses": 0,
+      "scenarios": [
+        {
+          "id": "pr9.frontend.home",
+          "surface": "frontend",
+          "path": "/",
+          "title": "Frontend /",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["public data"]
+        },
+        {
+          "id": "pr9.frontend.about",
+          "surface": "frontend",
+          "path": "/about",
+          "title": "Frontend /about",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["frontend session"]
+        },
+        {
+          "id": "pr9.frontend.access-denied",
+          "surface": "frontend",
+          "path": "/access-denied",
+          "title": "Frontend /access-denied",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.frontend.account",
+          "surface": "frontend",
+          "path": "/account",
+          "title": "Frontend /account",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["account"]
+        },
+        {
+          "id": "pr9.frontend.account-credits",
+          "surface": "frontend",
+          "path": "/account/credits",
+          "title": "Frontend /account/credits",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["credits"]
+        },
+        {
+          "id": "pr9.frontend.analytics",
+          "surface": "frontend",
+          "path": "/analytics",
+          "title": "Frontend /analytics",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["rankings"]
+        },
+        {
+          "id": "pr9.frontend.auth",
+          "surface": "frontend",
+          "path": "/auth?return_url=%2Faccount",
+          "title": "Frontend /auth",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["SIWE"]
+        },
+        {
+          "id": "pr9.frontend.chat",
+          "surface": "frontend",
+          "path": "/chat",
+          "title": "Frontend /chat",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat"]
+        },
+        {
+          "id": "pr9.frontend.chat-detail",
+          "surface": "frontend",
+          "path": "/chat/e2e-conversation",
+          "title": "Frontend /chat/:id",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat"]
+        },
+        {
+          "id": "pr9.frontend.chat-history",
+          "surface": "frontend",
+          "path": "/chat/history",
+          "title": "Frontend /chat/history",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat"]
+        },
+        {
+          "id": "pr9.frontend.contact",
+          "surface": "frontend",
+          "path": "/contact",
+          "title": "Frontend /contact",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["frontend session"]
+        },
+        {
+          "id": "pr9.frontend.dashboard",
+          "surface": "frontend",
+          "path": "/dashboard",
+          "title": "Frontend /dashboard",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["dashboard"]
+        },
+        {
+          "id": "pr9.frontend.developer",
+          "surface": "frontend",
+          "path": "/developer",
+          "title": "Frontend /developer",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["developer"]
+        },
+        {
+          "id": "pr9.frontend.developer-docs",
+          "surface": "frontend",
+          "path": "/developer/docs",
+          "title": "Frontend /developer/docs",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["OpenAPI"]
+        },
+        {
+          "id": "pr9.frontend.developer-usage",
+          "surface": "frontend",
+          "path": "/developer/usage",
+          "title": "Frontend /developer/usage",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["usage"]
+        },
+        {
+          "id": "pr9.frontend.manual",
+          "surface": "frontend",
+          "path": "/manual",
+          "title": "Frontend /manual",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["route inventory"]
+        },
+        {
+          "id": "pr9.frontend.news",
+          "surface": "frontend",
+          "path": "/news",
+          "title": "Frontend /news",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["news"]
+        },
+        {
+          "id": "pr9.frontend.news-detail",
+          "surface": "frontend",
+          "path": "/news/deterministic-market-brief",
+          "title": "Frontend /news/:slug",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["news detail"]
+        },
+        {
+          "id": "pr9.frontend.notifications",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Frontend /notifications",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notifications"]
+        },
+        {
+          "id": "pr9.frontend.offline",
+          "surface": "frontend",
+          "path": "/offline",
+          "title": "Frontend /offline",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.frontend.payment",
+          "surface": "frontend",
+          "path": "/payment",
+          "title": "Frontend /payment",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["checkout"]
+        },
+        {
+          "id": "pr9.frontend.payment-detail",
+          "surface": "frontend",
+          "path": "/payment/plan/plan-pro",
+          "title": "Frontend /payment/:type/:id",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["receipt"]
+        },
+        {
+          "id": "pr9.frontend.permissions",
+          "surface": "frontend",
+          "path": "/permissions",
+          "title": "Frontend /permissions",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["permissions"]
+        },
+        {
+          "id": "pr9.frontend.plans",
+          "surface": "frontend",
+          "path": "/plans",
+          "title": "Frontend /plans",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["plans"]
+        },
+        {
+          "id": "pr9.frontend.portfolio",
+          "surface": "frontend",
+          "path": "/portfolio",
+          "title": "Frontend /portfolio",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["portfolio"]
+        },
+        {
+          "id": "pr9.frontend.privacy",
+          "surface": "frontend",
+          "path": "/privacy",
+          "title": "Frontend /privacy",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.frontend.profile",
+          "surface": "frontend",
+          "path": "/profile",
+          "title": "Frontend /profile",
+          "state": {
+            "id": "frontend-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["profile"]
+        },
+        {
+          "id": "pr9.frontend.terms",
+          "surface": "frontend",
+          "path": "/terms",
+          "title": "Frontend /terms",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.admin.home",
+          "surface": "admin",
+          "path": "/",
+          "title": "Admin /",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["admin dashboard"]
+        },
+        {
+          "id": "pr9.admin.access-denied",
+          "surface": "admin",
+          "path": "/access-denied",
+          "title": "Admin /access-denied",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.admin.analytics",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin /analytics",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["analytics"]
+        },
+        {
+          "id": "pr9.admin.audit-log",
+          "surface": "admin",
+          "path": "/audit-log",
+          "title": "Admin /audit-log",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["audit"]
+        },
+        {
+          "id": "pr9.admin.auth",
+          "surface": "admin",
+          "path": "/auth",
+          "title": "Admin /auth",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["SIWE"]
+        },
+        {
+          "id": "pr9.admin.chat",
+          "surface": "admin",
+          "path": "/chat",
+          "title": "Admin /chat",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat"]
+        },
+        {
+          "id": "pr9.admin.chat-detail",
+          "surface": "admin",
+          "path": "/chat/e2e-conversation",
+          "title": "Admin /chat/:id",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["chat"]
+        },
+        {
+          "id": "pr9.admin.developer-portal",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "Admin /developer-portal",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["API keys"]
+        },
+        {
+          "id": "pr9.admin.api-key-create",
+          "surface": "admin",
+          "path": "/developer-portal/api-keys/create",
+          "title": "Admin /developer-portal/api-keys/create",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["API keys"]
+        },
+        {
+          "id": "pr9.admin.media",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Admin /media",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["media"]
+        },
+        {
+          "id": "pr9.admin.news",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Admin /news",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["news"]
+        },
+        {
+          "id": "pr9.admin.news-create",
+          "surface": "admin",
+          "path": "/news/create",
+          "title": "Admin /news/create",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["news"]
+        },
+        {
+          "id": "pr9.admin.news-edit",
+          "surface": "admin",
+          "path": "/news/news-e2e-1/edit",
+          "title": "Admin /news/:id/edit",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["news"]
+        },
+        {
+          "id": "pr9.admin.notifications",
+          "surface": "admin",
+          "path": "/notifications",
+          "title": "Admin /notifications",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notifications"]
+        },
+        {
+          "id": "pr9.admin.notifications-create",
+          "surface": "admin",
+          "path": "/notifications/create",
+          "title": "Admin /notifications/create",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notifications"]
+        },
+        {
+          "id": "pr9.admin.notifications-manage",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Admin /notifications/manage",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["notifications"]
+        },
+        {
+          "id": "pr9.admin.payments",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Admin /payments",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["payments"]
+        },
+        {
+          "id": "pr9.admin.settings",
+          "surface": "admin",
+          "path": "/settings",
+          "title": "Admin /settings",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["settings"]
+        },
+        {
+          "id": "pr9.admin.unauthorized",
+          "surface": "admin",
+          "path": "/unauthorized",
+          "title": "Admin /unauthorized",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": []
+        },
+        {
+          "id": "pr9.admin.wallet-management",
+          "surface": "admin",
+          "path": "/wallet-management",
+          "title": "Admin /wallet-management",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallets"]
+        },
+        {
+          "id": "pr9.admin.wallet-detail",
+          "surface": "admin",
+          "path": "/wallet-management/0xea6400000000000000000000000000000000e3df",
+          "title": "Admin /wallet-management/:address",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallets"]
+        },
+        {
+          "id": "pr9.admin.wallet-access",
+          "surface": "admin",
+          "path": "/wallet-management/access",
+          "title": "Admin /wallet-management/access",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["access"]
+        },
+        {
+          "id": "pr9.admin.wallet-plans",
+          "surface": "admin",
+          "path": "/wallet-management/access/plans",
+          "title": "Admin /wallet-management/access/plans",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["plans"]
+        },
+        {
+          "id": "pr9.admin.wallet-plan-detail",
+          "surface": "admin",
+          "path": "/wallet-management/access/plans/plan-pro",
+          "title": "Admin /wallet-management/access/plans/:planId",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["plans"]
+        },
+        {
+          "id": "pr9.admin.wallet-credits",
+          "surface": "admin",
+          "path": "/wallet-management/credits",
+          "title": "Admin /wallet-management/credits",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["credits"]
+        },
+        {
+          "id": "pr9.admin.wallets",
+          "surface": "admin",
+          "path": "/wallet-management/wallets",
+          "title": "Admin /wallet-management/wallets",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallets"]
+        },
+        {
+          "id": "pr9.admin.wallet-disable",
+          "surface": "admin",
+          "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
+          "title": "Admin /wallet-management/wallets/:address/disable",
+          "state": {
+            "id": "admin-user",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:*:*"]
+          },
+          "actions": [],
+          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "fixtureRequirements": ["wallets"]
+        }
+      ]
     }
   ]
 }

@@ -5,6 +5,7 @@ import { resolve } from 'node:path';
 
 import { readJson } from './files';
 import type {
+  ApprovedDifferenceRegistry,
   BaselineLock,
   RuntimeConfig,
   ScenarioGroup,
@@ -26,13 +27,33 @@ export const defaultSourceRoot = resolve(
 );
 export const manifestPath = resolve(migrationRoot, 'scenarios.json');
 export const baselineLockPath = resolve(migrationRoot, 'baseline.lock.json');
+export const approvedDifferencesPath = resolve(
+  migrationRoot,
+  'approved-differences.json'
+);
 
 export async function loadManifest(): Promise<ScenarioManifest> {
   const manifest = await readJson<ScenarioManifest>(manifestPath);
-  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.groups)) {
-    throw new Error('scenario manifest schemaVersion 1 is required');
+  if (manifest.schemaVersion !== 2 || !Array.isArray(manifest.groups)) {
+    throw new Error('scenario manifest schemaVersion 2 is required');
   }
   return manifest;
+}
+
+export async function loadApprovedDifferences(): Promise<ApprovedDifferenceRegistry> {
+  const registry =
+    await readJson<ApprovedDifferenceRegistry>(approvedDifferencesPath);
+  if (
+    registry.schemaVersion !== 1 ||
+    registry.maximumUnapprovedDifferencePercent !== 1 ||
+    !Array.isArray(registry.allowedCategories) ||
+    !Array.isArray(registry.items)
+  ) {
+    throw new Error(
+      'approved-difference registry schemaVersion 1 with a 1% default is required'
+    );
+  }
+  return registry;
 }
 
 export async function loadBaselineLock(): Promise<BaselineLock> {

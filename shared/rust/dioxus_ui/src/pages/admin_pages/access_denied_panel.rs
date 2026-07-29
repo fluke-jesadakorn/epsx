@@ -1,12 +1,10 @@
-//! Source-parity denial panels for the admin `/access-denied` and
-//! `/unauthorized` routes.
+//! Denial panels for the admin `/access-denied` and `/unauthorized` routes.
 //!
-//! The pinned Next.js source uses the same `AccessDeniedContent` component for
-//! both routes. `/access-denied` additionally accepts `route`, `reason`,
-//! `context`, `permission`, and `detail` query values. This SSR port restores
-//! that contract while bounding and control-filtering every decoded value.
-//! Dioxus owns HTML escaping; query data is never interpolated into markup or
-//! script source.
+//! The pinned Next.js source reflects `route`, `reason`, `context`,
+//! `permission`, and `detail` query values as if they were authoritative
+//! denial data. Query parameters are browser-controlled, so this Rust surface
+//! deliberately ignores all of them. Only static copy may be rendered until a
+//! denial reason is supplied by an authenticated backend response.
 
 use super::super::{PageContext, PageMeta, PageStatus};
 use crate::primitives::icon::Icon;
@@ -34,11 +32,7 @@ const DENIAL_INLINE_CSS: &str = r#"
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct DenialModel {
     reason: String,
-    route: Option<String>,
-    context: Option<String>,
-    permission: Option<String>,
-    detail: Option<String>,
-    safe_return_target: String,
+    show_admin_guidance: bool,
 }
 
 /// Render the source denial component. The API-key-create route still uses the
@@ -46,22 +40,17 @@ struct DenialModel {
 /// package because its source is a mutation form rather than a denial page.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let model = match ctx.path.as_str() {
-        "/access-denied" => access_denied_model(ctx),
+        "/access-denied" => DenialModel {
+            reason: DEFAULT_REASON.to_string(),
+            show_admin_guidance: false,
+        },
         "/unauthorized" | "/developer-portal/api-keys/create" => DenialModel {
             reason: ADMIN_REASON.to_string(),
-            route: None,
-            context: None,
-            permission: None,
-            detail: None,
-            safe_return_target: "/".to_string(),
+            show_admin_guidance: true,
         },
         _ => DenialModel {
             reason: DEFAULT_REASON.to_string(),
-            route: None,
-            context: None,
-            permission: None,
-            detail: None,
-            safe_return_target: "/".to_string(),
+            show_admin_guidance: false,
         },
     };
 
@@ -88,157 +77,8 @@ fn denial_meta() -> PageMeta {
     }
 }
 
-fn access_denied_model(ctx: &PageContext) -> DenialModel {
-    // `useSearchParams()` performs the URL-form decode. The source then calls
-    // `decodeURIComponent()` once more for reason/detail/route/permission;
-    // `context` is intentionally decoded only once. Invalid percent escapes
-    // remain literal here instead of crashing the whole client render.
-    let reason = source_query_value(ctx, "reason", 240, true)
-        .filter(|value| !value.is_empty())
-        .unwrap_or_else(|| DEFAULT_REASON.to_string());
-    let route = source_query_value(ctx, "route", 256, true).filter(|value| !value.is_empty());
-    let context = source_query_value(ctx, "context", 64, false).filter(|value| !value.is_empty());
-    let permission =
-        source_query_value(ctx, "permission", 160, true).filter(|value| !value.is_empty());
-    let detail = source_query_value(ctx, "detail", 240, true).filter(|value| !value.is_empty());
-    let safe_return_target = safe_return_target(route.as_deref()).to_string();
-
-    DenialModel {
-        reason,
-        route,
-        context,
-        permission,
-        detail,
-        safe_return_target,
-    }
-}
-
-fn source_query_value(
-    ctx: &PageContext,
-    key: &str,
-    max_chars: usize,
-    source_decodes_again: bool,
-) -> Option<String> {
-    let raw = ctx.query_param(key)?;
-    let once = decode_query_text(&raw, max_chars);
-    Some(if source_decodes_again {
-        decode_query_text(&once, max_chars)
-    } else {
-        once
-    })
-}
-
-/// URL-form decode with bounded output. `+` becomes a space, valid `%HH`
-/// escapes are decoded, malformed escapes stay literal, and control bytes are
-/// removed before the character limit is applied.
-fn decode_query_text(value: &str, max_chars: usize) -> String {
-    let bytes = value.as_bytes();
-    let byte_limit = max_chars.saturating_mul(4).max(max_chars);
-    let mut decoded = Vec::with_capacity(bytes.len().min(byte_limit));
-    let mut index = 0;
-    while index < bytes.len() && decoded.len() < byte_limit {
-        match bytes[index] {
-            b'+' => {
-                decoded.push(b' ');
-                index += 1;
-            }
-            b'%' if index + 2 < bytes.len() => {
-                if let (Some(high), Some(low)) =
-                    (hex_value(bytes[index + 1]), hex_value(bytes[index + 2]))
-                {
-                    decoded.push((high << 4) | low);
-                    index += 3;
-                } else {
-                    decoded.push(bytes[index]);
-                    index += 1;
-                }
-            }
-            byte => {
-                decoded.push(byte);
-                index += 1;
-            }
-        }
-    }
-    String::from_utf8_lossy(&decoded)
-        .chars()
-        .filter(|character| !character.is_control())
-        .take(max_chars)
-        .collect()
-}
-
-fn hex_value(byte: u8) -> Option<u8> {
-    match byte {
-        b'0'..=b'9' => Some(byte - b'0'),
-        b'a'..=b'f' => Some(byte - b'a' + 10),
-        b'A'..=b'F' => Some(byte - b'A' + 10),
-        _ => None,
-    }
-}
-
-/// Accept only a local path as a post-auth/history fallback. Auth, denial,
-/// browser-internal, static, and API targets are rejected so the page cannot
-/// create a loop or turn a display-only query field into an open redirect.
-fn safe_return_target(candidate: Option<&str>) -> &str {
-    let Some(candidate) = candidate.map(str::trim) else {
-        return "/";
-    };
-    if candidate.is_empty()
-        || !candidate.starts_with('/')
-        || candidate.starts_with("//")
-        || candidate.contains('\\')
-        || candidate.chars().any(char::is_control)
-    {
-        return "/";
-    }
-    let path = candidate
-        .split_once(['?', '#'])
-        .map(|(path, _)| path)
-        .unwrap_or(candidate);
-    if path.split('/').any(|segment| matches!(segment, "." | "..")) {
-        return "/";
-    }
-    if [
-        "/.well-known",
-        "/_next",
-        "/api",
-        "/auth",
-        "/login",
-        "/access-denied",
-        "/unauthorized",
-        "/favicon",
-        "/public",
-        "/static",
-    ]
-    .iter()
-    .any(|prefix| path == *prefix || path.starts_with(&format!("{prefix}/")))
-    {
-        "/"
-    } else {
-        candidate
-    }
-}
-
-fn url_encode_query_value(value: &str) -> String {
-    let mut output = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        match byte {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                output.push(byte as char)
-            }
-            _ => output.push_str(&format!("%{byte:02X}")),
-        }
-    }
-    output
-}
-
 #[component]
 fn AccessDeniedPanelInner(model: DenialModel) -> Element {
-    let auth_href = format!(
-        "/auth?return_url={}",
-        url_encode_query_value(&model.safe_return_target)
-    );
-    let context_is_admin = model.context.as_deref() == Some("admin");
-
     rsx! {
         style { "{DENIAL_INLINE_CSS}" }
         div {
@@ -308,33 +148,12 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                             }
                             div {
                                 class: "space-y-3 text-sm",
-                                if let Some(route) = model.route.as_ref() {
-                                    div { class: "flex justify-between items-start gap-4",
-                                        span { class: "text-muted-foreground shrink-0", "Requested Route:" }
-                                        code { class: "text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all min-w-0", "{route}" }
-                                    }
-                                }
-                                if let Some(context) = model.context.as_ref() {
-                                    div { class: "flex justify-between items-center gap-4",
-                                        span { class: "text-muted-foreground", "Context:" }
-                                        span { class: "text-foreground capitalize break-all text-right min-w-0", "{context}" }
-                                    }
-                                }
-                                if let Some(permission) = model.permission.as_ref() {
-                                    div { class: "flex justify-between items-start gap-4",
-                                        span { class: "text-muted-foreground shrink-0", "Required Permission:" }
-                                        code { class: "text-foreground bg-muted/30 border border-border/20 px-2 py-1 rounded text-right break-all min-w-0", "{permission}" }
-                                    }
-                                }
-                                if let Some(detail) = model.detail.as_ref() {
-                                    div { class: "flex justify-between items-start gap-4 border-t border-border/20 pt-3 mt-1",
-                                        span { class: "text-muted-foreground shrink-0", "Backend Detail:" }
-                                        span { class: "text-foreground text-right break-words min-w-0", "{detail}" }
-                                    }
+                                p { class: "text-muted-foreground",
+                                    "Access is determined from your authenticated session and backend permissions. URL parameters cannot grant access or change this message."
                                 }
                             }
                         }
-                        if context_is_admin {
+                        if model.show_admin_guidance {
                             div { class: "border-t border-border/20 bg-gradient-to-r from-purple-500/10 to-orange-500/10 p-4",
                                 p { class: "text-sm text-foreground",
                                     span { class: "font-medium", "Admin Access Required:" }
@@ -347,7 +166,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                         class: "flex flex-col sm:flex-row gap-3",
                         "aria-label": "Access denied actions",
                         a {
-                            href: "{auth_href}",
+                            href: "/auth?return_url=%2F",
                             "data-admin-denial-auth": "true",
                             class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all",
                             Icon {
@@ -411,7 +230,7 @@ mod tests {
     }
 
     #[test]
-    fn access_denied_decodes_bounds_and_escapes_all_source_query_fields() {
+    fn access_denied_ignores_all_query_controlled_authority_claims() {
         let query = concat!(
             "reason=Denied+%253Cscript+data-probe%253Ealert%25281%2529%253C%252Fscript%253E",
             "&route=%252Fpayments%253Ftab%253Dhistory%2526probe%253D%253Cimg%253E",
@@ -421,37 +240,31 @@ mod tests {
         );
         let (_, html) = render_path("/access-denied", query);
 
-        assert!(html.contains("Denied &#60;script data-probe&#62;alert(1)&#60;/script&#62;"));
-        assert!(html.contains("/payments?tab=history&#38;probe=&#60;img&#62;"));
-        assert!(html.contains("admin"));
-        assert!(html.contains("admin:payments:read&#60;svg&#62;"));
-        assert!(html.contains("backend &#60;b&#62;secret&#60;/b&#62;"));
-        assert!(html.contains("Admin Access Required:"));
-        assert!(!html.contains("<script data-probe>"));
-        assert!(!html.contains("<img>"));
-        assert!(!html.contains("<svg>"));
-        assert!(!html.contains("<b>secret</b>"));
-        assert!(html
-            .contains("href=\"/auth?return_url=%2Fpayments%3Ftab%3Dhistory%26probe%3D%3Cimg%3E\""));
+        assert!(html.contains("You don&#39;t have permission to access this resource."));
+        assert!(html.contains("backend permissions"));
+        assert!(html.contains("URL parameters cannot grant access"));
+        for untrusted_claim in [
+            "data-probe",
+            "/payments?tab=history",
+            "admin:payments:read",
+            "backend &#60;b&#62;secret",
+            "Admin Access Required:",
+            "Requested Route:",
+            "Required Permission:",
+            "Backend Detail:",
+        ] {
+            assert!(
+                !html.contains(untrusted_claim),
+                "query-controlled denial claim leaked: {untrusted_claim}"
+            );
+        }
+        assert!(html.contains("href=\"/auth?return_url=%2F\""));
         assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
-
-        let long = format!("reason={}&detail={}", "x".repeat(600), "y".repeat(600));
-        let model = access_denied_model(&PageContext {
-            path: "/access-denied".to_string(),
-            query: long,
-            ..Default::default()
-        });
-        assert_eq!(model.reason.chars().count(), 240);
-        assert_eq!(model.detail.unwrap().chars().count(), 240);
-        assert_eq!(
-            decode_query_text("bad%2Gline%00%0Abreak", 40),
-            "bad%2Glinebreak"
-        );
     }
 
     #[test]
-    fn unsafe_or_reserved_return_targets_fail_closed() {
-        for unsafe_target in [
+    fn query_controlled_return_targets_always_fail_closed() {
+        for untrusted_target in [
             "https://evil.example",
             "//evil.example/path",
             "/\\evil.example",
@@ -460,27 +273,19 @@ mod tests {
             "/section/../auth",
             "/access-denied?loop=1",
             "/api/v1/auth/logout",
+            "/payments?tab=history#latest",
             "",
         ] {
-            assert_eq!(
-                safe_return_target(Some(unsafe_target)),
-                "/",
-                "{unsafe_target}"
+            let (_, html) = render_path(
+                "/access-denied",
+                &format!("route={untrusted_target}&reason={untrusted_target}"),
             );
+            assert!(html.contains("href=\"/auth?return_url=%2F\""));
+            assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
+            assert!(!html.contains("evil.example"));
+            assert!(!html.contains("tab=history"));
+            assert!(!html.contains("javascript:"));
         }
-        assert_eq!(
-            safe_return_target(Some("/payments?tab=history#latest")),
-            "/payments?tab=history#latest"
-        );
-
-        let (_, html) = render_path(
-            "/access-denied",
-            "route=https%253A%252F%252Fevil.example%252Fsteal",
-        );
-        assert!(html.contains("href=\"/auth?return_url=%2F\""));
-        assert!(html.contains("href=\"/\" data-admin-denial-back=\"true\""));
-        assert!(!html.contains("href=\"https://evil.example"));
-        assert!(!html.contains("javascript:"));
     }
 
     #[test]

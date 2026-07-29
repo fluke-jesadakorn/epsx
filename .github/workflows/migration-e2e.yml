@@ -1,10 +1,18 @@
 name: Migration E2E evidence
 
 on:
+  push:
+    branches:
+      - "e2e/[1-9]-*"
   pull_request:
     branches:
       - migration/dioxus-microservices
   workflow_dispatch:
+    inputs:
+      group:
+        description: Campaign group (0-9); defaults to the e2e branch name
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -14,13 +22,48 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  pr0-harness-smoke:
-    name: Immutable baseline and rollback smoke
+  cumulative-campaign:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'push' ||
+      startsWith(github.head_ref, 'e2e/')
+    name: Cumulative migration group gate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 360
 
     steps:
-      - name: Check out target
+      - name: Derive campaign group
+        id: campaign
+        env:
+          DISPATCH_GROUP: ${{ inputs.group }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          REF_BRANCH: ${{ github.ref_name }}
+        run: |
+          branch="$HEAD_BRANCH"
+          if [ -z "$branch" ]; then
+            branch="$REF_BRANCH"
+          fi
+          group="$DISPATCH_GROUP"
+          if [ -z "$group" ]; then
+            if [[ "$branch" =~ ^e2e/([0-9])- ]]; then
+              group="${BASH_REMATCH[1]}"
+            else
+              echo "Unsupported campaign branch: $branch" >&2
+              exit 1
+            fi
+          fi
+          if [[ ! "$group" =~ ^[0-9]$ ]]; then
+            echo "Campaign group must be an integer from 0 through 9" >&2
+            exit 1
+          fi
+          if [ "$EVENT_NAME" = "push" ] && [ "$group" = "0" ]; then
+            echo "PR 0 remains pinned to its published branch" >&2
+            exit 1
+          fi
+          echo "group=$group" >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact target
         env:
           E2E_TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
         run: |
@@ -52,28 +95,35 @@ jobs:
       - name: Install target dependencies
         run: bun install --frozen-lockfile
 
-      - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
+      - name: Install campaign browsers
+        env:
+          E2E_GROUP: ${{ steps.campaign.outputs.group }}
+        run: |
+          if [ "$E2E_GROUP" = "9" ]; then
+            bunx playwright install --with-deps chromium firefox webkit
+          else
+            bunx playwright install --with-deps chromium
+          fi
 
       - name: Validate migration manifest
-        run: bun run e2e:migration:doctor
+        run: bun e2e/migration/cli.ts doctor --group ${{ steps.campaign.outputs.group }}
 
       - name: Type-check migration harness
         run: bun run type-check:e2e:migration
 
-      - name: Run PR 0 evidence gate
-        run: bun run test:e2e:migration:pr0
+      - name: Run cumulative evidence gate
+        run: bun e2e/migration/cli.ts run --group ${{ steps.campaign.outputs.group }}
 
       - name: Verify artifact hashes
-        run: bun run e2e:migration:verify-artifacts
+        run: bun e2e/migration/cli.ts verify-artifacts --group ${{ steps.campaign.outputs.group }}
 
       - name: Upload full migration evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: migration-e2e-pr0-${{ github.event.pull_request.head.sha || github.sha }}
+          name: migration-e2e-pr${{ steps.campaign.outputs.group }}-${{ github.event.pull_request.head.sha || github.sha }}
           path: |
             e2e/migration/artifacts/
-            docs/e2e/pr0/evidence/
+            docs/e2e/pr${{ steps.campaign.outputs.group }}/evidence/
           if-no-files-found: error
           retention-days: 14

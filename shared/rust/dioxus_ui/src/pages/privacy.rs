@@ -86,7 +86,7 @@ fn PrivacyProse() -> Element {
                     "When you use our services, we collect certain information about you:"
                 }
                 ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
-                    li { "Basic profile information from Google Sign-in (name and email)" }
+                    li { "Your public wallet address and signed authentication message metadata" }
                     li { "Account preferences and settings" }
                     li { "Usage data and analytics" }
                 }
@@ -110,12 +110,12 @@ fn PrivacyProse() -> Element {
                     "3. Third-Party Services"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
-                    "We use OpenID Connect authentication for secure sign-in. When you authenticate:"
+                    "We use wallet providers and supported blockchain networks for secure sign-in. When you authenticate:"
                 }
                 ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
-                    li { "We only request necessary permissions (email and basic profile)" }
-                    li { "Your credentials are handled securely by our authentication system" }
-                    li { "We receive only basic profile information needed for account creation" }
+                    li { "Your wallet signs a Sign-In with Ethereum message that proves control of the address" }
+                    li { "We never request or receive your wallet private key or seed phrase" }
+                    li { "Your wallet provider and blockchain network may process connection metadata under their own policies" }
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-security",
@@ -126,7 +126,7 @@ fn PrivacyProse() -> Element {
                     "We take security seriously and implement industry-standard measures to protect your data:"
                 }
                 ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
-                    li { "Secure authentication using OAuth 2.0" }
+                    li { "Nonce-protected Sign-In with Ethereum authentication" }
                     li { "Encrypted data storage and transfer" }
                     li { "Regular security audits and updates" }
                     li { "Secure session management" }
@@ -140,7 +140,7 @@ fn PrivacyProse() -> Element {
                 ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
                     li { "Access your personal data" }
                     li { "Request data correction or deletion" }
-                    li { "Revoke access to third-party services like Google Sign-in" }
+                    li { "Revoke your application session without affecting your wallet or on-chain assets" }
                     li { "Opt-out of communications" }
                 }
             }
@@ -157,8 +157,9 @@ fn PrivacyProse() -> Element {
                     "7. Contact Us"
                 }
                 p { class: "text-gray-300 privacy-prod-p",
-                    "If you have questions about this Privacy Policy, please contact us at: "
-                    a { class: "text-purple-400 hover:underline", href: "mailto:info@epsx.io", "info@epsx.io" }
+                    "If you have questions about this Privacy Policy, please use our "
+                    a { class: "text-purple-400 hover:underline", href: "/contact", "contact page" }
+                    "."
                 }
             }
         }
@@ -265,6 +266,14 @@ mod tests {
         assert_eq!(html.matches("aria-labelledby=\"privacy-").count(), 7);
         assert!(html.contains("<article"));
         assert!(html.contains("aria-label=\"Privacy policy details\""));
-        assert!(html.contains("href=\"mailto:info@epsx.io\""));
+        assert!(html.contains("href=\"/contact\""));
+        assert!(html.contains("Sign-In with Ethereum"));
+        assert!(html.contains("never request or receive your wallet private key"));
+        for stale_auth_claim in ["Google Sign-in", "OpenID Connect", "OAuth 2.0"] {
+            assert!(
+                !html.contains(stale_auth_claim),
+                "privacy policy contains stale authentication copy: {stale_auth_claim}"
+            );
+        }
     }
 }
