@@ -26,13 +26,19 @@ export interface ScenarioState {
   offline?: boolean;
 }
 
-export type ScenarioAction =
+export type ScenarioAction = (
   | { type: 'click'; selector: string }
   | { type: 'fill'; selector: string; value: string }
   | { type: 'press'; selector: string; key: string }
   | { type: 'reload' }
   | { type: 'set-offline'; offline: boolean }
-  | { type: 'wait-for'; selector: string };
+  | { type: 'wait-for'; selector: string }
+  | { type: 'navigate'; path: string }
+  | { type: 'clear-cookies' }
+) & {
+  side?: 'source' | 'target' | 'both';
+  matrixIds?: string[];
+};
 
 export type ScenarioOutcome = (
   | { type: 'path'; value: string }

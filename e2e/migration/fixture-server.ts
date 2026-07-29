@@ -537,6 +537,9 @@ async function routeRequest(request: Request): Promise<Response> {
       expiresAt: 2524608000000,
     });
   }
+  if (url.pathname === '/api/auth/web3/logout') {
+    return json({ success: true, revoked: true });
+  }
   if (url.pathname === '/api/permissions/definitions') {
     const principal = fixturePrincipal(request);
     if (principal === null) {

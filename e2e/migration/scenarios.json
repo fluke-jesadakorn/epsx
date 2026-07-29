@@ -663,7 +663,7 @@
             },
             {
               "type": "text",
-              "value": "Sign-in temporarily unavailable",
+              "value": "Connect Wallet",
               "side": "target"
             },
             {
@@ -710,7 +710,7 @@
             { "type": "path", "value": "/settings" },
             {
               "type": "text",
-              "value": "Sign in required",
+              "value": "Admin Access",
               "side": "target"
             },
             {
@@ -725,7 +725,7 @@
         {
           "id": "pr2.auth.logout",
           "surface": "frontend",
-          "path": "/account?logout=1",
+          "path": "/account",
           "title": "Logout clears the verified frontend session",
           "state": {
             "id": "frontend-owner-logout",
@@ -733,18 +733,43 @@
             "audience": "epsx-frontend",
             "permissions": ["epsx:profile:read"]
           },
-          "actions": [],
-          "outcomes": [
-            { "type": "path", "value": "/account" },
+          "actions": [
+            { "type": "clear-cookies", "side": "source" },
+            { "type": "navigate", "path": "/", "side": "source" },
             {
-              "type": "text",
-              "value": "Sign in to view",
+              "type": "click",
+              "selector": "[data-epsx-logout]:visible",
+              "side": "target",
+              "matrixIds": ["desktop-light"]
+            },
+            {
+              "type": "click",
+              "selector": "#epsx-mobile-menu-btn:visible",
+              "side": "target",
+              "matrixIds": ["mobile-dark"]
+            },
+            {
+              "type": "click",
+              "selector": "#epsx-mobile-sheet [data-epsx-logout]:visible",
+              "side": "target",
+              "matrixIds": ["mobile-dark"]
+            },
+            {
+              "type": "wait-for",
+              "selector": "[data-epsx-authenticated=\"false\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            { "type": "path", "value": "/" },
+            {
+              "type": "selector",
+              "value": "[data-epsx-authenticated=\"false\"]",
               "side": "target"
             },
             {
               "type": "text-absent",
-              "value": "0xea6400000000000000000000000000000000e3df",
-              "side": "target"
+              "value": "0xea6400000000000000000000000000000000e3df"
             },
             { "type": "no-horizontal-overflow" }
           ],
@@ -766,10 +791,19 @@
           },
           "actions": [{ "type": "reload" }],
           "outcomes": [
-            { "type": "path", "value": "/profile" },
+            {
+              "type": "path",
+              "value": "/profile",
+              "side": "source"
+            },
+            {
+              "type": "path",
+              "value": "/auth",
+              "side": "target"
+            },
             {
               "type": "text",
-              "value": "Sign in required",
+              "value": "Sign-in temporarily unavailable",
               "side": "target"
             },
             {

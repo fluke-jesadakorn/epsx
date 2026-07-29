@@ -142,6 +142,12 @@ async function clearBrowserStorage(
 function normalizedDom(semanticHtml: string): string {
   return semanticHtml
     .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
+    // React's useId allocation can shift between otherwise identical source
+    // captures when Radix mounts a different set of client-only primitives.
+    // Preserve every ID relationship while canonicalizing only Radix's
+    // generated identifier payload. Accessibility snapshots are gated
+    // separately and remain byte-exact.
+    .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
     .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
     .replaceAll(/\s+/g, ' ')
     .trim();
@@ -161,8 +167,9 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
   return entries
     .filter(entry => entry.kind === 'failed')
     .filter(failure => {
-      const successfulHeadResponse =
-        failure.method === 'HEAD' &&
+      const successfulResponseAbort =
+        failure.method !== undefined &&
+        ['HEAD', 'POST'].includes(failure.method) &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -173,10 +180,10 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             entry.status >= 200 &&
             entry.status < 400
         );
-      // Chromium can report a body abort after a successful HEAD response.
-      // HEAD has no response body, so the completed 2xx/3xx headers are the
-      // authoritative outcome; the raw response and abort remain in network.json.
-      return !successfulHeadResponse;
+      // Chromium can report an abort after a successful HEAD response or a
+      // completed Next.js RSC POST stream. The observed 2xx/3xx response is
+      // authoritative; both raw entries remain available in network.json.
+      return !successfulResponseAbort;
     });
 }
 
@@ -363,13 +370,30 @@ async function configureScenarioState(options: {
   return session.accessToken;
 }
 
-async function applyActions(
-  context: BrowserContext,
-  page: Page,
-  actions: ScenarioAction[]
-): Promise<number | null> {
+// eslint-disable-next-line complexity
+async function applyActions(options: {
+  context: BrowserContext;
+  page: Page;
+  actions: ScenarioAction[];
+  side: 'source' | 'target';
+  matrixId: string;
+}): Promise<number | null> {
+  const { actions, context, matrixId, page, side } = options;
   let status: number | null = null;
   for (const action of actions) {
+    if (
+      action.side !== undefined &&
+      action.side !== 'both' &&
+      action.side !== side
+    ) {
+      continue;
+    }
+    if (
+      action.matrixIds !== undefined &&
+      !action.matrixIds.includes(matrixId)
+    ) {
+      continue;
+    }
     if (action.type === 'click') {
       await page.locator(action.selector).click();
     } else if (action.type === 'fill') {
@@ -382,6 +406,15 @@ async function applyActions(
         null;
     } else if (action.type === 'set-offline') {
       await context.setOffline(action.offline);
+    } else if (action.type === 'navigate') {
+      status =
+        (
+          await page.goto(new URL(action.path, page.url()).toString(), {
+            waitUntil: 'domcontentloaded',
+          })
+        )?.status() ?? null;
+    } else if (action.type === 'clear-cookies') {
+      await context.clearCookies();
     } else {
       await page.locator(action.selector).waitFor({ state: 'visible' });
     }
@@ -614,7 +647,13 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
-    const actionStatus = await applyActions(context, page, scenario.actions);
+    const actionStatus = await applyActions({
+      context,
+      page,
+      actions: scenario.actions,
+      side,
+      matrixId,
+    });
     await page
       .waitForLoadState('domcontentloaded', { timeout: 5_000 })
       .catch(() => undefined);
