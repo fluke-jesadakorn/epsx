@@ -4,7 +4,7 @@
   "entries": [
     {
       "path": "artifact-manifest.json",
-      "sha256": "b245b6340861640042a4f60249d19b115d8414d484609c6d4e958e37ba76cb23"
+      "sha256": "faa5148eb967da5836de573fb7b241d4e85491ff11568f6bf3c9d8cd44b2659c"
     },
     {
       "path": "pr0.public.about--desktop-light--contact.png",
@@ -88,15 +88,15 @@
     },
     {
       "path": "pr0.public.home--mobile-dark--contact.png",
-      "sha256": "83133de778cda14e6a290c03e9c1e0fc04fed48593d30a951e14fc6142f32fdf"
+      "sha256": "edb1e9cc8e747f388ab67b02a77412443e709caeee8a0cec731417624378205a"
     },
     {
       "path": "pr0.public.home--mobile-dark--diff.png",
-      "sha256": "ddbd3c93212d27fcb2b72fc8e33726dff20b371fff43f1faa565ce1d3d1252ec"
+      "sha256": "5aa297900e0c09c11d522a79861fac47dc1c0a55769b841d3ae23362170bf8f2"
     },
     {
       "path": "pr0.public.home--mobile-dark--source.png",
-      "sha256": "687cf6c8d579a736aef1813f141cc8b6493bd04050a9fc376e527b55aa1dd16b"
+      "sha256": "f0ed0d73818db43f4205d02b700a6c33eec28f6d6075d9f23e2bb281ffde1968"
     },
     {
       "path": "pr0.public.home--mobile-dark--target.png",
