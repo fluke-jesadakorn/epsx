@@ -5008,20 +5008,67 @@
       },
       "scenarios": [
         {
-          "id": "pr8.frontend.plans",
+          "id": "pr8.frontend.plans-unavailable",
           "surface": "frontend",
           "path": "/plans",
-          "title": "Backend-authoritative public plans",
+          "title": "Public plans fail closed without a verified catalog",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["plans"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-plans-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-section=\"plans-unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "$29",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "subscription-owned public plan DTO",
+            "no client-authored price or entitlement"
+          ]
         },
         {
-          "id": "pr8.frontend.payment",
+          "id": "pr8.frontend.payment-auth-required",
           "surface": "frontend",
           "path": "/payment",
-          "title": "Checkout entry and idempotency",
+          "title": "Signed-out checkout requires a verified session",
+          "state": { "id": "signed-out", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-payment-state=\"auth-required\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Connect Wallet",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Payment Successful",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["SIWE session boundary", "checkout ledger"]
+        },
+        {
+          "id": "pr8.frontend.payment-unavailable",
+          "surface": "frontend",
+          "path": "/payment",
+          "title": "Authenticated checkout fails closed without a payment intent",
           "state": {
             "id": "subscriber",
             "session": "authenticated",
@@ -5029,14 +5076,34 @@
             "permissions": ["epsx:payments:create"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["checkout ledger", "plans"]
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "Failed to Load Plans",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Payment Successful",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Transaction Hash",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "idempotent checkout ledger",
+            "backend-authored plan selection"
+          ]
         },
         {
-          "id": "pr8.frontend.receipt",
+          "id": "pr8.frontend.receipt-unavailable",
           "surface": "frontend",
           "path": "/payment/plan/plan-pro",
-          "title": "Receipt finality reorg and entitlement projection",
+          "title": "Dynamic receipt context cannot assert payment finality",
           "state": {
             "id": "subscriber",
             "session": "authenticated",
@@ -5044,30 +5111,487 @@
             "permissions": ["epsx:payments:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "Failed to Load Plans",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Payment Successful",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "plan-pro confirmed",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": [
             "Anvil receipt",
             "subscription projection",
-            "escrow contract"
+            "escrow contract",
+            "reorg-safe finality"
           ]
         },
         {
-          "id": "pr8.admin.payments",
+          "id": "pr8.admin.intents-ready",
           "surface": "admin",
           "path": "/payments",
-          "title": "Payment reconciliation and webhook redrive",
+          "title": "Strict payment-intent inventory",
           "state": {
             "id": "payment-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:payments:read", "admin:payments:reconcile"]
+            "permissions": ["admin:payments:view"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "Payment intents",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "intent_e2e_0001",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "pending",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": [
             "checkout ledger",
-            "webhook ledger",
-            "subscription projection"
+            "redacted payment-intent projection"
+          ]
+        },
+        {
+          "id": "pr8.admin.intents-empty",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Authoritative empty payment-intent inventory",
+          "state": {
+            "id": "payment-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:view"],
+            "fixtureMode": "payment-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "No payment intents found",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "intent_e2e_0001",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty checkout ledger"]
+        },
+        {
+          "id": "pr8.admin.intents-unavailable",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Payment service dependency failure",
+          "state": {
+            "id": "payment-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:view"],
+            "fixtureMode": "payment-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "Payment intents unavailable",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "intent_e2e_0001",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["payment dependency failure"]
+        },
+        {
+          "id": "pr8.admin.intents-malformed",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Malformed payment-intent response is rejected",
+          "state": {
+            "id": "payment-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:view"],
+            "fixtureMode": "payment-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "text",
+              "value": "Payment data could not be verified",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "unverified",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["strict payment-intent DTO validation"]
+        },
+        {
+          "id": "pr8.admin.intent-cancel",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Versioned payment-intent cancellation",
+          "state": {
+            "id": "payment-cancel",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:view", "admin:payments:manage"]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "success",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-mutation-state=\"success\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "payment lifecycle version",
+            "idempotency ledger",
+            "audit evidence"
+          ]
+        },
+        {
+          "id": "pr8.admin.intent-cancel-conflict",
+          "surface": "admin",
+          "path": "/payments",
+          "title": "Stale payment-intent cancellation is rejected",
+          "state": {
+            "id": "payment-cancel-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payments:view", "admin:payments:manage"],
+            "fixtureMode": "payment-conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "conflict",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-mutation-state=\"conflict\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "optimistic concurrency conflict",
+            "idempotency ledger"
+          ]
+        },
+        {
+          "id": "pr8.admin.links-ready",
+          "surface": "admin",
+          "path": "/payments?tab=payment-links",
+          "title": "Strict payment-link lifecycle projection",
+          "state": {
+            "id": "payment-links",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payment-links:view"]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-links-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "migration-checkout",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "29000000",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "redacted payment-link projection",
+            "versioned lifecycle"
+          ]
+        },
+        {
+          "id": "pr8.admin.links-empty",
+          "surface": "admin",
+          "path": "/payments?tab=payment-links",
+          "title": "Authoritative empty payment-link inventory",
+          "state": {
+            "id": "payment-links-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payment-links:view"],
+            "fixtureMode": "payment-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-links-state=\"empty\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty payment-link registry"]
+        },
+        {
+          "id": "pr8.admin.links-forbidden",
+          "surface": "admin",
+          "path": "/payments?tab=payment-links",
+          "title": "Payment-link permission denial",
+          "state": {
+            "id": "payment-links-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:payment-links:view"],
+            "fixtureMode": "payment-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-links-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "migration-checkout",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend payment-link permission denial"]
+        },
+        {
+          "id": "pr8.admin.link-create",
+          "surface": "admin",
+          "path": "/payments?tab=payment-links",
+          "title": "Idempotent payment-link creation",
+          "state": {
+            "id": "payment-link-create",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": [
+              "admin:payment-links:view",
+              "admin:payment-links:manage"
+            ]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "form:has(input[value=\"payment_link_create\"]) input[name=\"intent_id\"]",
+              "value": "intent_e2e_0001",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "form:has(input[value=\"payment_link_create\"]) input[name=\"max_uses\"]",
+              "value": "1",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form:has(input[value=\"payment_link_create\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "success",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-mutation-state=\"success\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "payment-link idempotency ledger",
+            "audit evidence"
+          ]
+        },
+        {
+          "id": "pr8.admin.link-disable",
+          "surface": "admin",
+          "path": "/payments?tab=payment-links",
+          "title": "Versioned payment-link disable",
+          "state": {
+            "id": "payment-link-disable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": [
+              "admin:payment-links:view",
+              "admin:payment-links:manage"
+            ]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "form:has(input[value=\"payment_link_disable\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "query",
+              "key": "mutation",
+              "value": "success",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-payment-mutation-state=\"success\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "payment-link lifecycle version",
+            "idempotency ledger",
+            "audit evidence"
+          ]
+        }
+      ],
+      "backendContracts": [
+        {
+          "id": "pr8-pay-service-authority",
+          "title": "Payment lifecycle, idempotency, finality, and escrow authority",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-pay-svc", "--lib"],
+          "claims": [
+            "checkout, links, webhooks, reconciliation, and audit evidence remain service-owned",
+            "idempotency, finality, reorg, and escrow transitions fail closed"
+          ],
+          "sources": ["services/pay/src/lib.rs", "services/pay/src/handlers"]
+        },
+        {
+          "id": "pr8-subscription-authority",
+          "title": "Subscription lifecycle and entitlement projection authority",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-subscription", "--lib"],
+          "claims": [
+            "subscription lifecycle remains owner-isolated and idempotent",
+            "entitlements are projected only from backend-authoritative state"
+          ],
+          "sources": ["services/subscription/src/lib.rs"]
+        },
+        {
+          "id": "pr8-admin-payment-intent-bff",
+          "title": "Admin payment-intent query and mutation boundary",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "payment_intent_adapter_tests"
+          ],
+          "claims": [
+            "read filters are allowlisted and bounded",
+            "cancellation requires a version and idempotency key"
+          ],
+          "sources": ["apps/admin/src/main.rs"]
+        },
+        {
+          "id": "pr8-admin-commerce-bff",
+          "title": "Strict admin payment and payment-link projections",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "commerce_adapter::tests"
+          ],
+          "claims": [
+            "financial projections reject malformed or extra authority",
+            "payment-link mutations remain versioned and redacted"
+          ],
+          "sources": ["apps/admin/src/commerce_adapter.rs"]
+        },
+        {
+          "id": "pr8-backend-receipt-verification",
+          "title": "Backend blockchain receipt verification",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx",
+            "--lib",
+            "test_verification_result"
+          ],
+          "claims": [
+            "receipt verification state is represented in Rust",
+            "frontend route labels cannot assert a finalized payment"
+          ],
+          "sources": [
+            "apps/backend/src/infrastructure/blockchain/payment_verifier.rs"
           ]
         }
       ]
