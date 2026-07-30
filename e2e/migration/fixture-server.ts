@@ -1624,7 +1624,8 @@ async function routeRequest(request: Request): Promise<Response> {
   if (
     url.pathname === '/api/notifications/stream' ||
     url.pathname === '/api/v1/notification/stream' ||
-    url.pathname === '/api/v1/notifications/stream'
+    url.pathname === '/api/v1/notifications/stream' ||
+    url.pathname === '/api/chat/stream'
   ) {
     return new Response(': deterministic fixture stream connected\n\n', {
       headers: {
@@ -1684,10 +1685,7 @@ async function routeRequest(request: Request): Promise<Response> {
     const principal = fixturePrincipal(request);
     const canReadNotifications =
       principal?.audience === 'epsx-frontend' &&
-      permissionAllows(
-        principal.permissions,
-        'epsx:notifications:read'
-      );
+      permissionAllows(principal.permissions, 'epsx:notifications:read');
     return json({
       count:
         canReadNotifications && fixtureMode !== 'notification-empty' ? 1 : 0,

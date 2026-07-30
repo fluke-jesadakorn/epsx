@@ -3396,7 +3396,7 @@
             },
             {
               "type": "text",
-              "value": "No notifications found",
+              "value": "No notifications yet",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }
@@ -3603,7 +3603,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-chat-state=\"unavailable\"]",
+              "value": "[data-chat-conversation-state=\"unavailable\"]",
               "side": "target"
             },
             {
@@ -3630,7 +3630,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-chat-state=\"unavailable\"]",
+              "value": "[data-chat-history-state=\"unavailable\"]",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }

@@ -1458,6 +1458,7 @@ fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Opt
         match params.get(NOTIFICATIONS_STATE_PARAM).map(String::as_str) {
             Some("ok") if params.contains_key(NOTIFICATIONS_DATA_PARAM) => StatusCode::OK,
             Some(NOTIFICATIONS_INVALID_QUERY) => StatusCode::BAD_REQUEST,
+            Some("malformed") => StatusCode::BAD_GATEWAY,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         },
     )
@@ -2029,6 +2030,11 @@ fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static st
     }
   });
 
+  if (window.location.pathname === '/notifications' &&
+      !document.querySelector('[data-notifications-window="complete"]')) {
+    setUnavailable();
+    return;
+  }
   loadCount();
 })();
 </script>"#
@@ -3149,17 +3155,19 @@ mod tests {
     }
 
     #[test]
-    fn notification_load_records_failures_as_503_and_removes_stale_payload() {
-        for (outcome, state) in [
+    fn notification_load_records_explicit_failure_statuses_and_removes_stale_payload() {
+        for (outcome, state, status) in [
             (
                 crate::api::NotificationListLoadOutcome::Unavailable(
                     crate::api::NotificationListUnavailable::Dependency,
                 ),
                 "error",
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
             ),
             (
                 crate::api::NotificationListLoadOutcome::Malformed,
                 "malformed",
+                axum::http::StatusCode::BAD_GATEWAY,
             ),
         ] {
             let mut params = HashMap::from([(
@@ -3189,7 +3197,7 @@ mod tests {
             assert!(!params.contains_key(super::NOTIFICATIONS_DATA_PARAM));
             assert_eq!(
                 notifications_ssr_status("/notifications", &params),
-                Some(axum::http::StatusCode::SERVICE_UNAVAILABLE)
+                Some(status)
             );
         }
     }

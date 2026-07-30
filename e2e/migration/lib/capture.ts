@@ -277,8 +277,22 @@ export function blockingFailedRequests(
         failureUrl.searchParams.get('st') === 'appkit' &&
         failureUrl.searchParams.get('sv') === 'html-core-1.7.8' &&
         [...failureUrl.searchParams.keys()].length === 3;
+      const isRetriedSubresourceAbort =
+        failure.method === 'GET' &&
+        failure.resourceType === 'image' &&
+        entries.some(
+          entry =>
+            entry.kind === 'response' &&
+            entry.method === failure.method &&
+            entry.url === failure.url &&
+            entry.status !== undefined &&
+            entry.status >= 200 &&
+            entry.status < 400
+        );
       const successfulResponseAbort =
-        (isSuccessfulStreamAbort || isCompletedNextStylesheet) &&
+        (isSuccessfulStreamAbort ||
+          isCompletedNextStylesheet ||
+          isRetriedSubresourceAbort) &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -290,9 +304,10 @@ export function blockingFailedRequests(
             entry.status < 400
         );
       // Chromium can report an abort after a successful HEAD response, a
-      // completed Next.js RSC stream, or a generated Next.js stylesheet that
-      // already returned successfully. Only exact 2xx/3xx URL/method matches
-      // qualify; both raw entries remain in network.json.
+      // completed Next.js RSC stream, a generated Next.js stylesheet, or a
+      // subresource canceled by an immediate canonical redirect and then
+      // fetched successfully on the destination. Only exact 2xx/3xx
+      // URL/method matches qualify; both raw entries remain in network.json.
       // The immutable source can also cancel its exact harness-stubbed wallet
       // config fetch during a redirect before Playwright emits the synthetic
       // response. The full URL, dummy project, client version, and abort remain
@@ -339,7 +354,7 @@ async function waitForStableMeaningfulBody(page: Page): Promise<void> {
   await page
     .waitForFunction(
       ({ minimumLength, stableForMs }) => {
-        const bodyTextLength = document.body.innerText.trim().length;
+        const bodyTextLength = document.body?.innerText.trim().length ?? 0;
         const stateContainer = globalThis as typeof globalThis & {
           __epsxE2eBodyTextState?: {
             length: number;

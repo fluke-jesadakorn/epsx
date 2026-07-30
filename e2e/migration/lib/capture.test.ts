@@ -90,6 +90,30 @@ describe('blockingFailedRequests', () => {
       unexplainedFailure,
     ]);
   });
+
+  test('accepts an image canceled by a redirect when the exact image retry succeeds', () => {
+    const url = 'http://127.0.0.1:4201/public/logos/epsx-icon.svg';
+    const failure: NetworkEntry = {
+      kind: 'failed',
+      method: 'GET',
+      resourceType: 'image',
+      url,
+      failure: 'net::ERR_ABORTED',
+    };
+
+    expect(
+      blockingFailedRequests([
+        failure,
+        {
+          kind: 'response',
+          method: 'GET',
+          resourceType: 'image',
+          url,
+          status: 200,
+        },
+      ])
+    ).toEqual([]);
+  });
 });
 
 test('migration capture wall clock is an exact canonical instant', () => {
