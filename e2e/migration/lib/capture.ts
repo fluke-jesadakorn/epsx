@@ -40,6 +40,15 @@ interface BrowserStorageState {
 
 export const MIGRATION_CAPTURE_TIME = '2026-07-29T05:00:00.000Z';
 
+export function requiresDeterministicWallClock(
+  scenario: Pick<Scenario, 'path' | 'surface'>
+): boolean {
+  return (
+    scenario.surface === 'admin' &&
+    new URL(scenario.path, 'http://epsx-e2e.invalid').pathname === '/'
+  );
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -707,17 +716,19 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
-    // Install the deterministic wall clock only after hydration. The pinned
-    // Next.js admin dashboard renders a live client clock; installing before
-    // hydration would intentionally disagree with its server render, while
-    // leaving real time enabled makes otherwise clean repeats differ in DOM,
-    // accessibility text, and pixels. setFixedTime keeps timers running, so one
-    // interval turn applies the fixed time through the application's own code.
-    await page.clock.setFixedTime(MIGRATION_CAPTURE_TIME);
-    // Keep this delay on the Node side: browser clock emulation deliberately
-    // owns page-side timer primitives as well as Date.
-    await new Promise(resolveDelay => setTimeout(resolveDelay, 1_100));
-    await page.evaluate(() => undefined);
+    if (requiresDeterministicWallClock(scenario)) {
+      // Install the deterministic wall clock only after hydration. The pinned
+      // Next.js admin root renders a live client clock; installing before
+      // hydration would intentionally disagree with its server render, while
+      // leaving real time enabled makes otherwise clean repeats differ in DOM,
+      // accessibility text, and pixels. Restrict control to that surface so
+      // unrelated source routes preserve their original async timing.
+      await page.clock.setFixedTime(MIGRATION_CAPTURE_TIME);
+      // Keep this delay on the Node side: browser clock emulation deliberately
+      // owns page-side timer primitives as well as Date.
+      await new Promise(resolveDelay => setTimeout(resolveDelay, 1_100));
+      await page.evaluate(() => undefined);
+    }
     const actionStatus = await applyActions({
       context,
       page,
