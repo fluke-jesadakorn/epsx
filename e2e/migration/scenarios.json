@@ -3315,7 +3315,13 @@
         "chat conversations"
       ],
       "routes": {
-        "frontend": ["/notifications", "/chat", "/chat/:id", "/chat/history"],
+        "frontend": [
+          "/notifications",
+          "/account",
+          "/chat",
+          "/chat/:id",
+          "/chat/history"
+        ],
         "admin": [
           "/notifications",
           "/notifications/create",
@@ -3326,10 +3332,10 @@
       },
       "scenarios": [
         {
-          "id": "pr6.frontend.notifications",
+          "id": "pr6.frontend.notifications-ready",
           "surface": "frontend",
           "path": "/notifications",
-          "title": "Notification mutations preferences and replay",
+          "title": "Owner-bound notification inbox and live replay",
           "state": {
             "id": "notification-owner",
             "session": "authenticated",
@@ -3340,14 +3346,253 @@
             ]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["notification inbox", "SSE ledger"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-notifications-window=\"complete\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-notification-id=\"idem_notification_e2e_1\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Migration notification",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-notifications-live-status=\"true\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "owner-bound notification inbox",
+            "SSE replay cursor ledger"
+          ]
+        },
+        {
+          "id": "pr6.frontend.notifications-empty",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Authoritative empty notification inbox",
+          "state": {
+            "id": "notification-empty",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:notifications:read"],
+            "fixtureMode": "notification-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-notifications-window=\"complete\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No notifications found",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty notification inbox"]
+        },
+        {
+          "id": "pr6.frontend.notifications-unavailable",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Notification dependency failure remains explicit",
+          "state": {
+            "id": "notification-dependency-failure",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:notifications:read"],
+            "fixtureMode": "notification-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "status",
+              "value": 503,
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Notifications are unavailable",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "No notifications found",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["notification dependency failure"]
+        },
+        {
+          "id": "pr6.frontend.notifications-malformed",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Malformed owner projection fails closed",
+          "state": {
+            "id": "notification-owner-mismatch",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:notifications:read"],
+            "fixtureMode": "notification-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "status",
+              "value": 502,
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Migration notification",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed owner projection"]
+        },
+        {
+          "id": "pr6.frontend.notification-read",
+          "surface": "frontend",
+          "path": "/notifications",
+          "title": "Owner notification mutation acknowledgement",
+          "state": {
+            "id": "notification-owner-mutation",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": [
+              "epsx:notifications:read",
+              "epsx:notifications:update"
+            ]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-notification-mutation=\"read\"][data-notification-id=\"idem_notification_e2e_1\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "path",
+              "value": "/notifications",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-notification-mutation-toolbar=\"true\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "idempotent notification mutation",
+            "owner mutation authorization"
+          ]
+        },
+        {
+          "id": "pr6.frontend.preferences-ready",
+          "surface": "frontend",
+          "path": "/account",
+          "title": "Quiet hours and push preference projection",
+          "state": {
+            "id": "notification-preferences",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": [
+              "epsx:notifications:read",
+              "epsx:notifications:update"
+            ]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-preferences-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-preferences-form=\"true\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "input[name=\"timezone\"]",
+              "name": "value",
+              "value": "Asia/Bangkok",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "quiet-hour preference projection",
+            "push subscription lifecycle"
+          ]
+        },
+        {
+          "id": "pr6.frontend.preferences-save",
+          "surface": "frontend",
+          "path": "/account",
+          "title": "Quiet-hour preference update",
+          "state": {
+            "id": "notification-preferences-update",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": [
+              "epsx:notifications:read",
+              "epsx:notifications:update"
+            ]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"timezone\"]",
+              "value": "Asia/Bangkok",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[data-preferences-form=\"true\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "path",
+              "value": "/account",
+              "side": "target"
+            },
+            {
+              "type": "query",
+              "key": "preferences",
+              "value": "saved",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["quiet-hour update", "preference idempotency"]
         },
         {
           "id": "pr6.frontend.chat",
           "surface": "frontend",
           "path": "/chat",
-          "title": "Chat ownership and retries",
+          "title": "Unsupported user chat is truthfully unavailable",
           "state": {
             "id": "chat-owner",
             "session": "authenticated",
@@ -3355,14 +3600,26 @@
             "permissions": ["epsx:chat:read", "epsx:chat:send"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["chat conversations"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-chat-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Sample conversation",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend-owned chat capability state"]
         },
         {
           "id": "pr6.frontend.chat-detail",
           "surface": "frontend",
-          "path": "/chat/e2e-conversation",
-          "title": "Owned chat conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
+          "title": "Unsupported owned conversation fails closed",
           "state": {
             "id": "chat-owner",
             "session": "authenticated",
@@ -3370,14 +3627,21 @@
             "permissions": ["epsx:chat:read", "epsx:chat:send"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["chat conversation"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-chat-state=\"unavailable\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["owner-isolated chat conversation"]
         },
         {
           "id": "pr6.frontend.chat-history",
           "surface": "frontend",
           "path": "/chat/history",
-          "title": "Owner-isolated chat history",
+          "title": "Unsupported owner chat history fails closed",
           "state": {
             "id": "chat-owner",
             "session": "authenticated",
@@ -3385,8 +3649,15 @@
             "permissions": ["epsx:chat:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["chat history"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-chat-state=\"unavailable\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["owner-isolated chat history"]
         },
         {
           "id": "pr6.admin.notifications-redirect",
@@ -3400,14 +3671,148 @@
             "permissions": ["admin:notifications:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["notification campaigns"]
+          "outcomes": [
+            {
+              "type": "path",
+              "value": "/notifications/manage",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["canonical notification management route"]
+        },
+        {
+          "id": "pr6.admin.notification-manage",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Redacted inventory delivery metrics and redrive evidence",
+          "state": {
+            "id": "notification-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": [
+              "admin:notifications:read",
+              "admin:notifications:manage"
+            ]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-notification-metrics=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Migration notification",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Your deterministic migration notification is ready.",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "redacted notification inventory",
+            "delivery outbox counters",
+            "provider event reconciliation",
+            "dead-letter redrive ledger"
+          ]
+        },
+        {
+          "id": "pr6.admin.notification-empty",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Authoritative empty admin inventory",
+          "state": {
+            "id": "notification-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:read"],
+            "fixtureMode": "notification-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"empty\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty admin inventory"]
+        },
+        {
+          "id": "pr6.admin.notification-forbidden",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Notification permission denial",
+          "state": {
+            "id": "notification-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:read"],
+            "fixtureMode": "notification-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Migration notification",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend notification permission denial"]
+        },
+        {
+          "id": "pr6.admin.notification-malformed",
+          "surface": "admin",
+          "path": "/notifications/manage",
+          "title": "Malformed notification projection",
+          "state": {
+            "id": "notification-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:read"],
+            "fixtureMode": "notification-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"malformed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["strict notification response projection"]
         },
         {
           "id": "pr6.admin.notification-create",
           "surface": "admin",
           "path": "/notifications/create",
-          "title": "Compose templates and quiet hours",
+          "title": "Idempotent notification composer",
           "state": {
             "id": "notification-admin",
             "session": "authenticated",
@@ -3415,32 +3820,129 @@
             "permissions": ["admin:notifications:create"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["templates", "quiet hours"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"form\"][data-admin-notifications-surface=\"create\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "templates",
+            "quiet hours",
+            "idempotency ledger"
+          ]
         },
         {
-          "id": "pr6.admin.notification-manage",
+          "id": "pr6.admin.notification-send",
           "surface": "admin",
-          "path": "/notifications/manage",
-          "title": "Delivery redrive and deduplication",
+          "path": "/notifications/create",
+          "title": "Notification send acknowledgement",
           "state": {
-            "id": "notification-admin",
+            "id": "notification-admin-send",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": [
-              "admin:notifications:read",
-              "admin:notifications:redrive"
-            ]
+            "permissions": ["admin:notifications:create"]
           },
-          "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["delivery outbox", "provider events"]
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"recipient_wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"title\"]",
+              "value": "Migration send",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "textarea[name=\"message\"]",
+              "value": "Deterministic notification delivery.",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[action=\"/notifications/create\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"sent\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Notification sent",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["idempotent send acknowledgement"]
+        },
+        {
+          "id": "pr6.admin.notification-send-conflict",
+          "surface": "admin",
+          "path": "/notifications/create",
+          "title": "Notification idempotency conflict",
+          "state": {
+            "id": "notification-send-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:notifications:create"],
+            "fixtureMode": "notification-send-conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"recipient_wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"title\"]",
+              "value": "Migration conflict",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "textarea[name=\"message\"]",
+              "value": "Conflicting deterministic notification.",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[action=\"/notifications/create\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-notifications-state=\"conflict\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Notification sent",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["idempotency conflict ledger"]
         },
         {
           "id": "pr6.admin.chat",
           "surface": "admin",
           "path": "/chat",
-          "title": "Admin chat queue",
+          "title": "Backend-authoritative chat queue",
           "state": {
             "id": "chat-admin",
             "session": "authenticated",
@@ -3448,14 +3950,103 @@
             "permissions": ["admin:chat:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["chat queue"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-state=\"ready\"][data-admin-chat-surface=\"inbox\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Migration support conversation",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["owner-isolated chat queue"]
+        },
+        {
+          "id": "pr6.admin.chat-empty",
+          "surface": "admin",
+          "path": "/chat",
+          "title": "Authoritative empty chat queue",
+          "state": {
+            "id": "chat-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read"],
+            "fixtureMode": "chat-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-state=\"empty\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty chat queue"]
+        },
+        {
+          "id": "pr6.admin.chat-forbidden",
+          "surface": "admin",
+          "path": "/chat",
+          "title": "Chat permission denial",
+          "state": {
+            "id": "chat-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read"],
+            "fixtureMode": "chat-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Migration support conversation",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend chat permission denial"]
+        },
+        {
+          "id": "pr6.admin.chat-malformed",
+          "surface": "admin",
+          "path": "/chat",
+          "title": "Malformed chat projection",
+          "state": {
+            "id": "chat-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read"],
+            "fixtureMode": "chat-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-state=\"malformed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["strict chat response projection"]
         },
         {
           "id": "pr6.admin.chat-detail",
           "surface": "admin",
-          "path": "/chat/e2e-conversation",
-          "title": "Admin chat conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
+          "title": "Admin chat conversation and owner evidence",
           "state": {
             "id": "chat-admin",
             "session": "authenticated",
@@ -3463,8 +4054,189 @@
             "permissions": ["admin:chat:read", "admin:chat:send"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["chat conversation"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-state=\"ready\"][data-admin-chat-surface=\"conversation\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Please verify my migration notification.",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "chat conversation",
+            "owner-isolated messages"
+          ]
+        },
+        {
+          "id": "pr6.admin.chat-reply",
+          "surface": "admin",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
+          "title": "Idempotent admin chat reply",
+          "state": {
+            "id": "chat-admin-reply",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read", "admin:chat:send"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "textarea[name=\"content\"]",
+              "value": "Your migration notification was verified.",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form input[name=\"operation\"][value=\"reply\"] + input + label + button, form:has(input[name=\"operation\"][value=\"reply\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-mutation-state=\"success\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "chat mutation idempotency",
+            "worker retry ledger"
+          ]
+        },
+        {
+          "id": "pr6.admin.chat-reply-conflict",
+          "surface": "admin",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
+          "title": "Chat retry conflict fails closed",
+          "state": {
+            "id": "chat-admin-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:chat:read", "admin:chat:send"],
+            "fixtureMode": "chat-mutation-conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "textarea[name=\"content\"]",
+              "value": "Conflicting chat retry.",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form:has(input[name=\"operation\"][value=\"reply\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-chat-mutation-state=\"conflict\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["chat mutation conflict ledger"]
+        }
+      ],
+      "backendContracts": [
+        {
+          "id": "pr6-notification-service",
+          "title": "Notification delivery replay and reconciliation",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--lib",
+            "--",
+            "--skip",
+            "runtime_retry_dead_letter_and_redrive_are_durable"
+          ],
+          "claims": [
+            "delivery deduplication quiet hours and provider outcomes remain in Rust",
+            "SSE replay push lifecycle worker restart and Redis loss fail closed"
+          ],
+          "sources": [
+            "services/notification/src/lib.rs",
+            "services/notification/src/delivery.rs"
+          ]
+        },
+        {
+          "id": "pr6-frontend-notification-bff",
+          "title": "Frontend owner-bound notification projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-frontend",
+            "notification_contract_tests"
+          ],
+          "claims": [
+            "list preferences mutations stream replay and push remain owner-bound",
+            "malformed dependencies never become authoritative empty state"
+          ],
+          "sources": ["apps/frontend/src/api.rs", "apps/frontend/src/ssr.rs"]
+        },
+        {
+          "id": "pr6-admin-notification-bff",
+          "title": "Admin notification redaction and lifecycle projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "notification_admin_adapter::tests"
+          ],
+          "claims": [
+            "admin reads redact recipient body and provider errors",
+            "send mutation and metrics require strict backend evidence"
+          ],
+          "sources": ["apps/admin/src/notification_admin_adapter.rs"]
+        },
+        {
+          "id": "pr6-admin-chat-bff",
+          "title": "Admin chat ownership and mutation projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "chat_admin_adapter::tests"
+          ],
+          "claims": [
+            "chat list detail and messages require strict backend envelopes",
+            "ownership status assignment and retries remain backend decisions"
+          ],
+          "sources": ["apps/admin/src/chat_admin_adapter.rs"]
+        },
+        {
+          "id": "pr6-gateway-chat-policy",
+          "title": "Chat owner isolation policy",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-gateway",
+            "owner_history_policy"
+          ],
+          "claims": [
+            "chat history owner selectors are injected by the Rust gateway",
+            "caller supplied owner identities are rejected"
+          ],
+          "sources": ["services/gateway/src/policy.rs"]
         }
       ]
     },
