@@ -1081,8 +1081,19 @@
             "audience": "epsx-admin",
             "permissions": ["admin:wallets:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "input[placeholder=\"e.g. Main Trading Wallet\"]",
+              "side": "source"
+            }
+          ],
           "outcomes": [
+            {
+              "type": "text",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "source"
+            },
             {
               "type": "selector",
               "value": "[data-admin-wallet-detail-state=\"ready\"]",
