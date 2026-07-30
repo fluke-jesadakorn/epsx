@@ -173,10 +173,18 @@ function errorLocation(message: {
   return `${location.url}:${location.lineNumber ?? 0}:${location.columnNumber ?? 0}`;
 }
 
-function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
+export function blockingFailedRequests(
+  entries: NetworkEntry[]
+): NetworkEntry[] {
   return entries
     .filter(entry => entry.kind === 'failed')
     .filter(failure => {
+      const failureUrl = new URL(failure.url);
+      const isCompletedNextStylesheet =
+        failure.method === 'GET' &&
+        failure.resourceType === 'stylesheet' &&
+        failureUrl.pathname.startsWith('/_next/static/chunks/') &&
+        failureUrl.pathname.endsWith('.css');
       const isSuccessfulStreamAbort =
         failure.method !== undefined &&
         (['HEAD', 'POST'].includes(failure.method) ||
@@ -184,7 +192,7 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             failure.resourceType === 'fetch' &&
             new URL(failure.url).searchParams.has('_rsc')));
       const successfulResponseAbort =
-        isSuccessfulStreamAbort &&
+        (isSuccessfulStreamAbort || isCompletedNextStylesheet) &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -195,9 +203,10 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             entry.status >= 200 &&
             entry.status < 400
         );
-      // Chromium can report an abort after a successful HEAD response or a
-      // completed Next.js RSC POST/GET stream. Only exact successful probes
-      // and `_rsc` fetches qualify; both raw entries remain in network.json.
+      // Chromium can report an abort after a successful HEAD response, a
+      // completed Next.js RSC stream, or a generated Next.js stylesheet that
+      // already returned successfully. Only exact 2xx/3xx URL/method matches
+      // qualify; both raw entries remain in network.json.
       return !successfulResponseAbort;
     });
 }

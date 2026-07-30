@@ -3,7 +3,7 @@ name: Migration E2E evidence
 on:
   push:
     branches:
-      - "e2e/[1-9]-*"
+      - 'e2e/[1-9]-*'
   pull_request:
     branches:
       - migration/dioxus-microservices
@@ -110,6 +110,9 @@ jobs:
 
       - name: Type-check migration harness
         run: bun run type-check:e2e:migration
+
+      - name: Test migration harness
+        run: bun run test:e2e:migration:unit
 
       - name: Run cumulative evidence gate
         run: bun e2e/migration/cli.ts run --group ${{ steps.campaign.outputs.group }}
