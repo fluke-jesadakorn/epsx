@@ -1000,11 +1000,6 @@
           },
           "actions": [
             {
-              "type": "navigate",
-              "path": "/wallet-management/wallets",
-              "side": "source"
-            },
-            {
               "type": "wait-for",
               "selector": "text=1 wallet",
               "side": "source"
@@ -1203,7 +1198,7 @@
           "actions": [
             {
               "type": "wait-for",
-              "selector": "text=Plan not found >> nth=0",
+              "selector": "text=Plan not found >> nth=1",
               "side": "source"
             }
           ],

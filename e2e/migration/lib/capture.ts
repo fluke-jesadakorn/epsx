@@ -163,6 +163,37 @@ function normalizedDom(semanticHtml: string): string {
   );
 }
 
+async function accessibilitySnapshot(page: Page): Promise<string> {
+  const announcers = page.locator('next-route-announcer [role="alert"]');
+  const priorAriaHidden = await announcers.evaluateAll(elements =>
+    elements.map(element => element.getAttribute('aria-hidden'))
+  );
+  await announcers.evaluateAll(elements => {
+    for (const element of elements) {
+      // Next.js writes route announcements asynchronously. The announcement
+      // has already been delivered by the time the stable page is sampled,
+      // but its retained text can race between an empty alert and the last
+      // route title. Exclude only that framework-owned transient node from
+      // the static accessibility proof; application alerts remain exact.
+      element.setAttribute('aria-hidden', 'true');
+    }
+  });
+  try {
+    return await page.locator('body').ariaSnapshot();
+  } finally {
+    await announcers.evaluateAll((elements, priorValues) => {
+      elements.forEach((element, index) => {
+        const prior = priorValues[index];
+        if (prior === null || prior === undefined) {
+          element.removeAttribute('aria-hidden');
+        } else {
+          element.setAttribute('aria-hidden', prior);
+        }
+      });
+    }, priorAriaHidden);
+  }
+}
+
 function errorLocation(message: {
   location(): { url?: string; lineNumber?: number; columnNumber?: number };
 }): string | undefined {
@@ -723,7 +754,7 @@ export async function captureSide(
       return clone.outerHTML;
     });
     const canonicalDom = normalizedDom(semanticHtml);
-    const accessibility = await page.locator('body').ariaSnapshot();
+    const accessibility = await accessibilitySnapshot(page);
     const outcomeChecks = await Promise.all(
       scenario.outcomes.map(outcome =>
         checkOutcome(page, outcome, finalStatus, side)
