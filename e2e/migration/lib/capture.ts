@@ -266,6 +266,17 @@ export function blockingFailedRequests(
           (failure.method === 'GET' &&
             failure.resourceType === 'fetch' &&
             new URL(failure.url).searchParams.has('_rsc')));
+      const isCanceledStubbedWalletConfig =
+        failure.method === 'GET' &&
+        failure.resourceType === 'fetch' &&
+        failure.failure === 'net::ERR_ABORTED' &&
+        failureUrl.origin === 'https://api.web3modal.org' &&
+        failureUrl.pathname === '/appkit/v1/config' &&
+        failureUrl.searchParams.get('projectId') ===
+          '00000000000000000000000000000000' &&
+        failureUrl.searchParams.get('st') === 'appkit' &&
+        failureUrl.searchParams.get('sv') === 'html-core-1.7.8' &&
+        [...failureUrl.searchParams.keys()].length === 3;
       const successfulResponseAbort =
         (isSuccessfulStreamAbort || isCompletedNextStylesheet) &&
         failure.failure === 'net::ERR_ABORTED' &&
@@ -282,7 +293,11 @@ export function blockingFailedRequests(
       // completed Next.js RSC stream, or a generated Next.js stylesheet that
       // already returned successfully. Only exact 2xx/3xx URL/method matches
       // qualify; both raw entries remain in network.json.
-      return !successfulResponseAbort;
+      // The immutable source can also cancel its exact harness-stubbed wallet
+      // config fetch during a redirect before Playwright emits the synthetic
+      // response. The full URL, dummy project, client version, and abort remain
+      // in network.json; every other external or wallet request still blocks.
+      return !successfulResponseAbort && !isCanceledStubbedWalletConfig;
     });
 }
 

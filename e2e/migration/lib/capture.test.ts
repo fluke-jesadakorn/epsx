@@ -63,6 +63,33 @@ describe('blockingFailedRequests', () => {
       ])
     ).toEqual([failure]);
   });
+
+  test('accepts only the exact canceled harness-stubbed wallet config fetch', () => {
+    const exactStubAbort: NetworkEntry = {
+      kind: 'failed',
+      method: 'GET',
+      resourceType: 'fetch',
+      url: 'https://api.web3modal.org/appkit/v1/config?projectId=00000000000000000000000000000000&st=appkit&sv=html-core-1.7.8',
+      failure: 'net::ERR_ABORTED',
+    };
+    expect(blockingFailedRequests([exactStubAbort])).toEqual([]);
+
+    const realProjectFailure = {
+      ...exactStubAbort,
+      url: 'https://api.web3modal.org/appkit/v1/config?projectId=real-project&st=appkit&sv=html-core-1.7.8',
+    };
+    expect(blockingFailedRequests([realProjectFailure])).toEqual([
+      realProjectFailure,
+    ]);
+
+    const unexplainedFailure = {
+      ...exactStubAbort,
+      failure: 'net::ERR_FAILED',
+    };
+    expect(blockingFailedRequests([unexplainedFailure])).toEqual([
+      unexplainedFailure,
+    ]);
+  });
 });
 
 test('migration capture wall clock is an exact canonical instant', () => {
