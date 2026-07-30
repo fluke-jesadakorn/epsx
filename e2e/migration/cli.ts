@@ -8,6 +8,7 @@ import {
 } from 'node:child_process';
 import { createWriteStream, existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 
 import {
@@ -173,23 +174,10 @@ async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
       throw error;
     }
   };
-  const sendSignal = (signal: NodeJS.Signals): void => {
-    try {
-      if (processGroupId === undefined) {
-        child.kill(signal);
-      } else {
-        process.kill(-processGroupId, signal);
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-        throw error;
-      }
-    }
-  };
   if (!groupIsAlive()) {
     return;
   }
-  sendSignal('SIGTERM');
+  signalManagedProcess(processInfo, 'SIGTERM');
   const deadline = Date.now() + 10_000;
   while (groupIsAlive() && Date.now() < deadline) {
     await new Promise(resolvePromise => setTimeout(resolvePromise, 100));
@@ -198,8 +186,48 @@ async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
     process.stderr.write(
       `${name} did not stop after SIGTERM; sending SIGKILL\n`
     );
-    sendSignal('SIGKILL');
+    signalManagedProcess(processInfo, 'SIGKILL');
   }
+}
+
+function signalManagedProcess(
+  processInfo: ManagedProcess,
+  signal: NodeJS.Signals
+): void {
+  try {
+    if (processInfo.processGroupId === undefined) {
+      processInfo.child.kill(signal);
+    } else {
+      process.kill(-processInfo.processGroupId, signal);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
+async function assertTcpPortAvailable(
+  rawUrl: string,
+  label: string
+): Promise<void> {
+  const url = new URL(rawUrl);
+  const port = Number(url.port);
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const server = createServer();
+    server.unref();
+    server.once('error', error => {
+      rejectPromise(
+        new Error(
+          `${label} requires free ${url.hostname}:${port}: ${error.message}`
+        )
+      );
+    });
+    server.listen(
+      { host: url.hostname, port, exclusive: true },
+      () => server.close(() => resolvePromise())
+    );
+  });
 }
 
 async function waitForUrl(
@@ -678,6 +706,20 @@ async function run(): Promise<void> {
   // manager calls remain guarded unless their caller makes this explicit.
   process.env.E2E_ALLOW_RUNTIME_MUTATION = '1';
   const config = await runtimeConfig(selectedGroup);
+  await Promise.all([
+    assertTcpPortAvailable(config.fixtureUrl, 'fixture server'),
+    assertTcpPortAvailable(config.sourceFrontendUrl, 'Next.js frontend source'),
+    assertTcpPortAvailable(config.targetFrontendUrl, 'Rust frontend target'),
+    ...(requiresAdmin
+      ? [
+          assertTcpPortAvailable(
+            config.sourceAdminUrl,
+            'Next.js admin source'
+          ),
+          assertTcpPortAvailable(config.targetAdminUrl, 'Rust admin target'),
+        ]
+      : []),
+  ]);
   await safeCleanArtifactRoot(config.artifactRoot);
   await mkdir(config.runRoot, { recursive: true });
   const logsRoot = resolve(config.artifactRoot, 'server-logs');
@@ -695,6 +737,27 @@ async function run(): Promise<void> {
   let evidenceReady = false;
   let resetManager: RuntimeResetManager | undefined;
   let runtimeBootstrapped = false;
+  let activePlaywright: ManagedProcess | undefined;
+  let interruptedSignal: NodeJS.Signals | undefined;
+  const handleInterrupt = (signal: NodeJS.Signals): void => {
+    if (interruptedSignal !== undefined) {
+      return;
+    }
+    interruptedSignal = signal;
+    process.stderr.write(
+      `migration e2e received ${signal}; stopping scoped child process groups\n`
+    );
+    if (activePlaywright !== undefined) {
+      signalManagedProcess(activePlaywright, 'SIGTERM');
+    }
+    for (const processInfo of [...managed].reverse()) {
+      signalManagedProcess(processInfo, 'SIGTERM');
+    }
+  };
+  const handleSigint = (): void => handleInterrupt('SIGINT');
+  const handleSigterm = (): void => handleInterrupt('SIGTERM');
+  process.on('SIGINT', handleSigint);
+  process.on('SIGTERM', handleSigterm);
   try {
     // `compose up` can create a partial project before returning an error, so
     // cleanup owns the project from the moment startup is attempted.
@@ -949,14 +1012,23 @@ async function run(): Promise<void> {
       process.stdout.write(
         `playwright shard: ${shard.project ?? 'all projects'} / ${shard.grep}\n`
       );
+      const useProcessGroup = process.platform !== 'win32';
       const playwright = spawn('bunx', playwrightArgumentsForShard(shard), {
         cwd: repoRoot,
+        detached: useProcessGroup,
         env: playwrightEnvironment,
         stdio: 'inherit',
       });
+      activePlaywright = {
+        name: 'playwright',
+        child: playwright,
+        logPath: resolve(config.artifactRoot, 'playwright-report'),
+        processGroupId: useProcessGroup ? playwright.pid : undefined,
+      };
       testStatus = await new Promise<number>(resolvePromise => {
         playwright.once('exit', code => resolvePromise(code ?? 1));
       });
+      activePlaywright = undefined;
       if (testStatus !== 0) {
         throw new Error(
           `Playwright migration group ${selectedGroup} shard ${shard.grep} failed`
@@ -970,6 +1042,9 @@ async function run(): Promise<void> {
   } catch (error) {
     runError = error;
   } finally {
+    if (interruptedSignal !== undefined && runError === undefined) {
+      runError = new Error(`migration e2e interrupted by ${interruptedSignal}`);
+    }
     runError = mergeCleanupFailures(
       runError,
       await cleanupRuntime({
@@ -982,6 +1057,8 @@ async function run(): Promise<void> {
         selectedGroup,
       })
     );
+    process.off('SIGINT', handleSigint);
+    process.off('SIGTERM', handleSigterm);
   }
   if (runError === undefined && evidenceReady) {
     try {
