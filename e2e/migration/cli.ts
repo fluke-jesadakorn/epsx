@@ -831,6 +831,10 @@ async function run(): Promise<void> {
       NEXT_PUBLIC_CDN_URL: config.fixtureUrl,
       TZ: 'UTC',
     };
+    const cargoTargetRoot = resolve(
+      repoRoot,
+      process.env.CARGO_TARGET_DIR?.trim() || 'target'
+    );
     const source = await startManagedProcess({
       name: 'nextjs-source',
       executable: 'bun',
@@ -848,7 +852,7 @@ async function run(): Promise<void> {
 
     const target = await startManagedProcess({
       name: 'dioxus-target',
-      executable: resolve(repoRoot, 'target/debug/bff-frontend'),
+      executable: resolve(cargoTargetRoot, 'debug/bff-frontend'),
       commandArgs: [],
       spawnOptions: {
         cwd: repoRoot,
@@ -888,7 +892,7 @@ async function run(): Promise<void> {
       managed.push(sourceAdmin);
       const targetAdmin = await startManagedProcess({
         name: 'dioxus-admin-target',
-        executable: resolve(repoRoot, 'target/debug/bff-admin'),
+        executable: resolve(cargoTargetRoot, 'debug/bff-admin'),
         commandArgs: [],
         spawnOptions: {
           cwd: repoRoot,
