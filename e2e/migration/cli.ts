@@ -66,6 +66,20 @@ function groupId(): number {
   return parsed;
 }
 
+function contractRouteMatches(
+  contractPath: string,
+  scenarioPath: string
+): boolean {
+  const pathname = new URL(scenarioPath, 'http://epsx.invalid').pathname;
+  const pattern = contractPath
+    .split('/')
+    .map(segment =>
+      segment.startsWith(':') ? '[^/]+' : escapedGrepLiteral(segment)
+    )
+    .join('/');
+  return new RegExp(`^${pattern}$`).test(pathname);
+}
+
 function safeEnvironment(
   additions: Record<string, string | undefined> = {}
 ): NodeJS.ProcessEnv {
@@ -464,6 +478,43 @@ async function doctor(): Promise<void> {
     if (missing.length > 0) {
       throw new Error(
         `${surface} routes missing feature-group ownership: ${missing.join(', ')}`
+      );
+    }
+    const finalScenarios = manifest.groups[9].scenarios?.filter(
+      scenario => scenario.surface === surface
+    );
+    const matchedContracts = new Set<string>();
+    for (const scenario of finalScenarios ?? []) {
+      const scenarioPathname = new URL(scenario.path, 'http://epsx.invalid')
+        .pathname;
+      const exactMatches = application.routes.filter(
+        route => route.path === scenarioPathname
+      );
+      const matches =
+        exactMatches.length > 0
+          ? exactMatches
+          : application.routes.filter(route =>
+              contractRouteMatches(route.path, scenario.path)
+            );
+      if (matches.length !== 1) {
+        throw new Error(
+          `PR 9 scenario ${scenario.id} matches ${matches.length} ${surface} route contracts`
+        );
+      }
+      const [matched] = matches;
+      if (matchedContracts.has(matched.path)) {
+        throw new Error(
+          `PR 9 duplicates ${surface} route contract ${matched.path}`
+        );
+      }
+      matchedContracts.add(matched.path);
+    }
+    const missingFinalRoutes = application.routes
+      .map(route => route.path)
+      .filter(path => !matchedContracts.has(path));
+    if (missingFinalRoutes.length > 0) {
+      throw new Error(
+        `PR 9 is missing ${surface} route contracts: ${missingFinalRoutes.join(', ')}`
       );
     }
   }

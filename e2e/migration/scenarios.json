@@ -5748,7 +5748,7 @@
         {
           "id": "pr9.frontend.chat-detail",
           "surface": "frontend",
-          "path": "/chat/e2e-conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
           "title": "Frontend /chat/:id",
           "state": {
             "id": "frontend-user",
@@ -6088,7 +6088,7 @@
         {
           "id": "pr9.admin.chat-detail",
           "surface": "admin",
-          "path": "/chat/e2e-conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
           "title": "Admin /chat/:id",
           "state": {
             "id": "admin-user",

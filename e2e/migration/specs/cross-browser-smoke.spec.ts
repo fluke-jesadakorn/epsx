@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
@@ -6,18 +7,11 @@ import { expect, test } from '@playwright/test';
 import { runtimeConfig } from '../lib/config';
 import { writeJson } from '../lib/files';
 import { RuntimeResetManager } from '../lib/runtime-reset';
-import type {
-  RuntimeConfig,
-  Scenario,
-  ScenarioManifest,
-} from '../lib/types';
+import type { RuntimeConfig, Scenario, ScenarioManifest } from '../lib/types';
 
 const selectedGroupId = Number(process.env.E2E_GROUP ?? '0');
 const manifest = JSON.parse(
-  readFileSync(
-    resolve(process.cwd(), 'e2e/migration/scenarios.json'),
-    'utf8'
-  )
+  readFileSync(resolve(process.cwd(), 'e2e/migration/scenarios.json'), 'utf8')
 ) as ScenarioManifest;
 const finalGroup = manifest.groups.find(group => group.id === 9);
 if (!finalGroup?.scenarios) {
@@ -27,9 +21,7 @@ if (!finalGroup?.scenarios) {
 let config: RuntimeConfig;
 let runtime: RuntimeResetManager;
 
-async function fixtureSession(
-  scenario: Scenario
-): Promise<string | undefined> {
+async function fixtureSession(scenario: Scenario): Promise<string | undefined> {
   if (scenario.state.session !== 'authenticated') {
     return undefined;
   }
@@ -65,11 +57,7 @@ test.beforeAll(async () => {
 });
 
 for (const scenario of finalGroup.scenarios) {
-  test(`cross-browser ${scenario.id}`, async ({
-    browserName,
-    context,
-    page,
-  }) => {
+  test(`cross-browser ${scenario.id}`, async ({ browser, browserName }) => {
     test.skip(selectedGroupId !== 9, 'Cross-browser smoke is owned by PR 9');
     const proofRoot = resolve(
       config.artifactRoot,
@@ -83,6 +71,8 @@ for (const scenario of finalGroup.scenarios) {
         'pre',
         resolve(proofRoot, `repeat-${repeat}-reset-pre.json`)
       );
+      const context = await browser.newContext();
+      const page = await context.newPage();
       try {
         const token = await fixtureSession(scenario);
         if (token !== undefined) {
@@ -101,9 +91,17 @@ for (const scenario of finalGroup.scenarios) {
         }
         const consoleErrors: string[] = [];
         const pageErrors: string[] = [];
+        const hydrationWarnings: string[] = [];
         page.on('console', message => {
           if (message.type() === 'error' || message.type() === 'assert') {
             consoleErrors.push(message.text());
+          }
+          if (
+            /hydration|hydrated|did not match|server rendered html/i.test(
+              message.text()
+            )
+          ) {
+            hydrationWarnings.push(message.text());
           }
         });
         page.on('pageerror', error => pageErrors.push(error.message));
@@ -126,6 +124,29 @@ for (const scenario of finalGroup.scenarios) {
         );
         await page.reload({ waitUntil: 'domcontentloaded' });
         const reloadedText = (await page.locator('body').innerText()).trim();
+        const reloadedAccessibility = await page.locator('body').ariaSnapshot();
+        let offlineProof:
+          | {
+              navigatorOnline: boolean;
+              bodyTextLength: number;
+            }
+          | undefined;
+        if (scenario.id === 'pr9.frontend.offline') {
+          await context.setOffline(true);
+          offlineProof = {
+            navigatorOnline: await page.evaluate(() => navigator.onLine),
+            bodyTextLength: (await page.locator('body').innerText()).trim()
+              .length,
+          };
+          await context.setOffline(false);
+          await page.reload({ waitUntil: 'domcontentloaded' });
+        }
+        const accessibilitySha256 = createHash('sha256')
+          .update(accessibility)
+          .digest('hex');
+        const reloadedAccessibilitySha256 = createHash('sha256')
+          .update(reloadedAccessibility)
+          .digest('hex');
         const proof = {
           schemaVersion: 1,
           groupId: 9,
@@ -137,7 +158,12 @@ for (const scenario of finalGroup.scenarios) {
           bodyTextLength: firstText.length,
           reloadBodyTextLength: reloadedText.length,
           accessibilityLength: accessibility.length,
+          reloadAccessibilityLength: reloadedAccessibility.length,
+          accessibilitySha256,
+          reloadedAccessibilitySha256,
           focusVisible,
+          hydrationWarnings,
+          offlineProof: offlineProof ?? null,
           consoleErrors,
           pageErrors,
         };
@@ -149,13 +175,20 @@ for (const scenario of finalGroup.scenarios) {
         expect(proof.status ?? 599).toBeLessThan(500);
         expect(proof.bodyTextLength).toBeGreaterThan(50);
         expect(proof.reloadBodyTextLength).toBeGreaterThan(50);
+        expect(proof.reloadBodyTextLength).toBe(proof.bodyTextLength);
         expect(proof.accessibilityLength).toBeGreaterThan(20);
+        expect(proof.reloadAccessibilityLength).toBe(proof.accessibilityLength);
         expect(proof.focusVisible).toBe(true);
+        expect(proof.hydrationWarnings).toEqual([]);
+        if (proof.offlineProof !== null) {
+          expect(proof.offlineProof.navigatorOnline).toBe(false);
+          expect(proof.offlineProof.bodyTextLength).toBeGreaterThan(50);
+        }
         expect(proof.consoleErrors).toEqual([]);
         expect(proof.pageErrors).toEqual([]);
         expect(proof.navigationMs).toBeLessThan(15_000);
       } finally {
-        await context.clearCookies();
+        await context.close();
         await runtime.reset(
           `${scenario.id}/${browserName}/repeat-${repeat}`,
           'post',
