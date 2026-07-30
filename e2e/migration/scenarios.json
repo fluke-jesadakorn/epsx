@@ -3425,7 +3425,7 @@
             },
             {
               "type": "text",
-              "value": "Notifications are unavailable",
+              "value": "Notifications are temporarily unavailable",
               "side": "target"
             },
             {
@@ -3603,7 +3603,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-chat-conversation-state=\"unavailable\"]",
+              "value": "[data-chat-state=\"unavailable\"]",
               "side": "target"
             },
             {
@@ -3630,7 +3630,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-chat-history-state=\"unavailable\"]",
+              "value": "[data-chat-conversation-state=\"unavailable\"]",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }
@@ -3652,7 +3652,7 @@
           "outcomes": [
             {
               "type": "selector",
-              "value": "[data-chat-state=\"unavailable\"]",
+              "value": "[data-chat-history-state=\"unavailable\"]",
               "side": "target"
             },
             { "type": "no-horizontal-overflow" }
