@@ -33,6 +33,8 @@ const fixtureNotificationId = 'idem_notification_e2e_1';
 const fixtureConversationId = '550e8400-e29b-41d4-a716-446655440000';
 const fixtureTopicId = '550e8400-e29b-41d4-a716-446655440001';
 const fixtureMessageId = '550e8400-e29b-41d4-a716-446655440002';
+const fixtureApiKeyId = '550e8400-e29b-41d4-a716-446655440003';
+const fixtureModuleId = '550e8400-e29b-41d4-a716-446655440004';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -200,6 +202,14 @@ function requiredAdminPermission(path: string, method: string): string | null {
   }
   if (path.startsWith('/api/admin/chat/conversations')) {
     return mutation ? 'admin:chat:send' : 'admin:chat:read';
+  }
+  if (path.startsWith('/api/admin/developer-portal')) {
+    if (!mutation) {
+      return 'admin:developer:read';
+    }
+    return path === '/api/admin/developer-portal/api-keys'
+      ? 'admin:developer:create'
+      : 'admin:developer:manage';
   }
   return null;
 }
@@ -1861,6 +1871,114 @@ async function routeRequest(request: Request): Promise<Response> {
     ).test(url.pathname)
   ) {
     return json({ success: true });
+  }
+  const developerPath = url.pathname.startsWith('/api/admin/developer-portal/');
+  if (fixtureMode === 'developer-forbidden' && developerPath) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (fixtureMode === 'developer-unavailable' && developerPath) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    fixtureMode === 'developer-malformed' &&
+    developerPath &&
+    ['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: true, data: { full_key: 'must-not-project' } });
+  }
+  if (
+    fixtureMode === 'developer-conflict' &&
+    developerPath &&
+    !['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: false, error: 'idempotency_conflict' }, 409);
+  }
+  const developerKey = {
+    id: fixtureApiKeyId,
+    key_prefix: 'epsx_e2e1234',
+    client_name: 'Migration integration',
+    client_description: null,
+    client_contact_email: null,
+    wallet_address: fixtureWalletAddress,
+    status: 'active',
+    total_requests: 42,
+    ip_restrictions: [],
+    rate_limits: { per_minute: 60, per_day: 10_000 },
+    allowed_modules: [],
+    permission_plans: [],
+    selected_permissions: ['epsx:analytics:read'],
+    expires_at: null,
+    last_used_at: fixtureTimestamp,
+    revoked_at: null,
+    revoked_by: null,
+    revocation_reason: null,
+    created_at: fixtureTimestamp,
+    created_by: fixtureWalletAddress,
+    updated_at: fixtureTimestamp,
+  };
+  if (url.pathname === '/api/admin/developer-portal/api-keys') {
+    if (!['GET', 'HEAD'].includes(request.method)) {
+      return json(
+        {
+          success: true,
+          data: {
+            api_key: developerKey,
+            secret: 'epsx_live_e2e_secret_once_7f4a',
+          },
+          error: null,
+          meta: fixtureResponseMeta(),
+        },
+        201
+      );
+    }
+    const apiKeys = fixtureMode === 'developer-empty' ? [] : [developerKey];
+    return json({
+      success: true,
+      data: { api_keys: apiKeys, total: apiKeys.length },
+      error: null,
+      meta: fixtureResponseMeta(),
+    });
+  }
+  if (url.pathname === '/api/admin/developer-portal/stats') {
+    const empty = fixtureMode === 'developer-empty';
+    return json({
+      success: true,
+      data: {
+        total_api_keys: empty ? 0 : 1,
+        active_api_keys: empty ? 0 : 1,
+        revoked_api_keys: 0,
+        expired_api_keys: 0,
+        total_modules: empty ? 0 : 1,
+        active_modules: empty ? 0 : 1,
+        total_requests_today: empty ? 0 : 7,
+        total_requests_this_month: empty ? 0 : 42,
+        top_modules_by_usage: empty
+          ? []
+          : [
+              {
+                module_id: fixtureModuleId,
+                module_name: 'Market analytics',
+                request_count: 42,
+                unique_api_keys: 1,
+              },
+            ],
+      },
+      error: null,
+      meta: fixtureResponseMeta(),
+    });
+  }
+  if (
+    url.pathname ===
+      `/api/admin/developer-portal/api-keys/${fixtureApiKeyId}/revoke` ||
+    url.pathname ===
+      `/api/admin/developer-portal/api-keys/${fixtureApiKeyId}/expiration`
+  ) {
+    return json({
+      success: true,
+      data: developerKey,
+      error: null,
+      meta: fixtureResponseMeta(),
+    });
   }
   if (url.pathname === '/api/v1/content/news') {
     const articles = fixtureMode === 'content-empty' ? [] : targetPublicNews;
