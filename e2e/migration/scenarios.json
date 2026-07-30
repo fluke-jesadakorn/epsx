@@ -998,8 +998,19 @@
             "audience": "epsx-admin",
             "permissions": ["admin:wallets:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "text=1 wallet",
+              "side": "source"
+            }
+          ],
           "outcomes": [
+            {
+              "type": "text",
+              "value": "1 wallet",
+              "side": "source"
+            },
             {
               "type": "path",
               "value": "/wallet-management/wallets",
@@ -1184,8 +1195,19 @@
             "audience": "epsx-admin",
             "permissions": ["admin:plans:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "text=Plan not found >> nth=0",
+              "side": "source"
+            }
+          ],
           "outcomes": [
+            {
+              "type": "text",
+              "value": "Plan not found",
+              "side": "source"
+            },
             {
               "type": "selector",
               "value": "[data-admin-wallet-plan-detail-state=\"ready\"]",
@@ -1210,6 +1232,11 @@
           },
           "actions": [
             {
+              "type": "wait-for",
+              "selector": "text=Plan not found >> nth=0",
+              "side": "source"
+            },
+            {
               "type": "fill",
               "selector": "input[name=\"merchant_id\"]",
               "value": "00000000-0000-0000-0000-000000000002",
@@ -1227,6 +1254,11 @@
             }
           ],
           "outcomes": [
+            {
+              "type": "text",
+              "value": "Plan not found",
+              "side": "source"
+            },
             {
               "type": "query",
               "key": "mutation",
