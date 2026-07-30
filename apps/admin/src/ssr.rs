@@ -708,7 +708,14 @@ fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: Admin
             );
             ADMIN_ANALYTICS_READY
         }
-        AdminAnalyticsLoad::Empty => ADMIN_ANALYTICS_EMPTY,
+        AdminAnalyticsLoad::Empty(snapshot) => {
+            params.insert(
+                ADMIN_ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&snapshot)
+                    .expect("the typed empty admin-analytics projection is serializable"),
+            );
+            ADMIN_ANALYTICS_EMPTY
+        }
         AdminAnalyticsLoad::Forbidden => ADMIN_ANALYTICS_FORBIDDEN,
         AdminAnalyticsLoad::Unavailable => ADMIN_ANALYTICS_UNAVAILABLE,
         AdminAnalyticsLoad::Malformed => ADMIN_ANALYTICS_MALFORMED,

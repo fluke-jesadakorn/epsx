@@ -1491,17 +1491,29 @@
       "comparisonGate": "parity",
       "surfaces": ["frontend", "admin"],
       "states": [
-        "public rankings",
-        "entitled rankings",
-        "stale projection",
-        "analytics dependency failure"
+        "public ranking preview",
+        "filtered and paginated ranking projection",
+        "backend entitlement offset",
+        "fresh and stale backend timestamps",
+        "authoritative empty projection",
+        "dependency unavailable",
+        "malformed backend response",
+        "unsupported owner portfolio and dashboard projections",
+        "admin ready, forbidden, unavailable, and malformed states"
       ],
-      "actions": ["filter", "sort", "paginate", "refresh"],
+      "actions": [
+        "navigate",
+        "filter by canonical query",
+        "sort by backend field",
+        "paginate",
+        "reload unavailable dependency"
+      ],
       "outcomes": [
-        "Rust-provided ranking offsets",
-        "backend entitlement projection",
-        "freshness marker",
-        "stale and error states"
+        "Rust-provided ranking offset and pagination",
+        "backend entitlement projection only",
+        "exact backend freshness timestamp and source",
+        "distinct empty, unavailable, malformed, and forbidden states",
+        "no invented portfolio, dashboard, health, or live-data claims"
       ],
       "fixtureRequirements": [
         "rankings",
@@ -1509,6 +1521,112 @@
         "portfolio",
         "entitlements",
         "freshness clock"
+      ],
+      "backendContracts": [
+        {
+          "id": "pr4.backend-ranking-policy",
+          "title": "Backend ranking offsets, entitlement, filtering, and pagination policy",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx", "--lib", "ranking"],
+          "claims": [
+            "ranking offsets are resolved from the backend authority port",
+            "locked ranks cannot be recovered through pagination or limit changes",
+            "cache keys isolate distinct backend ranking offsets",
+            "malformed, overflowing, or unavailable authority fails closed"
+          ],
+          "sources": [
+            "apps/backend/src/web/analytics/eps/cache.rs",
+            "apps/backend/src/web/analytics/eps/rankings.rs",
+            "apps/backend/src/domain/market_analytics/services/eps_ranking_service.rs"
+          ]
+        },
+        {
+          "id": "pr4.analytics-service-policy",
+          "title": "Analytics service audience and literal-permission policy",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-analytics", "--lib"],
+          "claims": [
+            "administrator analytics reads require the exact admin audience",
+            "analytics and audit reads require their literal permissions",
+            "untrusted owner headers and hidden routes cannot widen access",
+            "unsafe filters and cursors fail before data access"
+          ],
+          "sources": ["services/analytics/src/lib.rs"]
+        },
+        {
+          "id": "pr4.frontend-analytics-adapter",
+          "title": "Frontend BFF strict ranking and query projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-frontend",
+            "--bin",
+            "bff-frontend",
+            "analytics"
+          ],
+          "claims": [
+            "only canonical filter, sort, and pagination query fields reach analytics",
+            "ranking, access, freshness, filters, and watchlist projections are validated",
+            "empty, unavailable, and malformed responses remain distinct",
+            "unsupported dashboard and portfolio decisions are not inferred"
+          ],
+          "sources": [
+            "apps/frontend/src/ssr.rs",
+            "shared/rust/dioxus_ui/src/pages/analytics.rs",
+            "shared/rust/dioxus_ui/src/pages/portfolio.rs",
+            "shared/rust/dioxus_ui/src/pages/dashboard.rs"
+          ]
+        },
+        {
+          "id": "pr4.admin-analytics-adapter",
+          "title": "Admin BFF strict analytics snapshot and envelope freshness",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "--bin",
+            "bff-admin",
+            "analytics_admin_adapter::tests"
+          ],
+          "claims": [
+            "admin analytics accepts only its exact backend envelope",
+            "freshness is injected from the verified envelope rather than upstream data",
+            "fabricated telemetry and unknown fields are rejected",
+            "ready and authoritative empty projections preserve the backend timestamp"
+          ],
+          "sources": [
+            "apps/admin/src/analytics_admin_adapter.rs",
+            "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs"
+          ]
+        },
+        {
+          "id": "pr4.admin-dashboard-adapter",
+          "title": "Admin dashboard backend-owned user-status projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "--bin",
+            "bff-admin",
+            "dashboard_user_status_adapter::tests"
+          ],
+          "claims": [
+            "dashboard counts and observation time come only from the strict backend envelope",
+            "forbidden, unavailable, and malformed states remain distinct",
+            "health, uptime, activity, and permission metrics are not invented",
+            "invalid counts, timestamps, redirects, and oversized bodies fail closed"
+          ],
+          "sources": [
+            "apps/admin/src/dashboard_user_status_adapter.rs",
+            "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs"
+          ]
+        }
       ],
       "routes": {
         "frontend": ["/", "/analytics", "/portfolio", "/dashboard"],
@@ -1522,14 +1640,22 @@
           "title": "Public ranking preview",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-home-market-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "text", "value": "NVDA" },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["rankings"]
         },
         {
-          "id": "pr4.frontend.analytics",
+          "id": "pr4.frontend.analytics-query",
           "surface": "frontend",
-          "path": "/analytics?sort=eps_growth&order=desc&page=1",
-          "title": "Filtering sorting pagination and offsets",
+          "path": "/analytics?page=2&limit=1&country=america&sector=Technology&sort_by=eps_growth&min_eps=1&min_growth=10",
+          "title": "Canonical filtering sorting and pagination",
           "state": {
             "id": "analytics-user",
             "session": "authenticated",
@@ -1537,14 +1663,195 @@
             "permissions": ["epsx:analytics:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-analytics-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-analytics-freshness=\"backend\"]",
+              "name": "datetime",
+              "value": "2026-07-28T00:00:00Z",
+              "side": "target"
+            },
+            { "type": "text", "value": "MSFT", "side": "target" },
+            { "type": "text-absent", "value": "NVDA", "side": "target" },
+            {
+              "type": "query",
+              "key": "page",
+              "value": "2",
+              "side": "target"
+            },
+            {
+              "type": "query",
+              "key": "sort_by",
+              "value": "eps_growth",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["rankings", "filter facets", "entitlements"]
+        },
+        {
+          "id": "pr4.frontend.analytics-limited",
+          "surface": "frontend",
+          "path": "/analytics?page=1&limit=2",
+          "title": "Backend-owned entitlement offset",
+          "state": {
+            "id": "limited-analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read", "epsx:rankings:offset:2"],
+            "fixtureMode": "analytics-limited",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-analytics-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "text", "value": "Ranks 2+", "side": "target" },
+            { "type": "text", "value": "Rank 1 locked", "side": "target" },
+            { "type": "text-absent", "value": "NVDA", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["rankings", "backend entitlement offset"]
+        },
+        {
+          "id": "pr4.frontend.analytics-stale",
+          "surface": "frontend",
+          "path": "/analytics?page=1&limit=2",
+          "title": "Stale backend timestamp remains explicit",
+          "state": {
+            "id": "stale-analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"],
+            "fixtureMode": "analytics-stale",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "attribute",
+              "selector": "[data-analytics-freshness=\"backend\"]",
+              "name": "datetime",
+              "value": "2020-01-01T00:00:00Z",
+              "side": "target"
+            },
+            { "type": "text", "value": "stale-cache", "side": "target" },
+            { "type": "text-absent", "value": "Live", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["rankings", "stale freshness clock"]
+        },
+        {
+          "id": "pr4.frontend.analytics-empty",
+          "surface": "frontend",
+          "path": "/analytics",
+          "title": "Authoritative empty ranking projection",
+          "state": {
+            "id": "empty-analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"],
+            "fixtureMode": "analytics-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-analytics-state=\"empty\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-analytics-freshness=\"backend\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No rankings match",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["empty rankings", "freshness clock"]
+        },
+        {
+          "id": "pr4.frontend.analytics-unavailable",
+          "surface": "frontend",
+          "path": "/analytics",
+          "title": "Ranking dependency unavailable",
+          "state": {
+            "id": "unavailable-analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"],
+            "fixtureMode": "analytics-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-analytics-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-analytics-freshness=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "temporarily unavailable",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["analytics dependency failure"]
+        },
+        {
+          "id": "pr4.frontend.analytics-malformed",
+          "surface": "frontend",
+          "path": "/analytics",
+          "title": "Malformed freshness fails closed",
+          "state": {
+            "id": "malformed-analytics-user",
+            "session": "authenticated",
+            "audience": "epsx-frontend",
+            "permissions": ["epsx:analytics:read"],
+            "fixtureMode": "analytics-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-analytics-state=\"malformed\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "could not be validated",
+              "side": "target"
+            },
+            { "type": "text-absent", "value": "unverified", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed analytics response"]
         },
         {
           "id": "pr4.frontend.portfolio",
           "surface": "frontend",
           "path": "/portfolio",
-          "title": "Owner portfolio",
+          "title": "Owner portfolio fails closed without a selected contract",
           "state": {
             "id": "portfolio-owner",
             "session": "authenticated",
@@ -1552,7 +1859,22 @@
             "permissions": ["epsx:portfolio:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-portfolio-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-portfolio-freshness]",
+              "name": "data-portfolio-freshness",
+              "value": "unavailable",
+              "side": "target"
+            },
+            { "type": "text-absent", "value": "Live", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["portfolio"]
         },
         {
@@ -1567,38 +1889,294 @@
             "permissions": ["epsx:analytics:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-dashboard-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "There is no owner-scoped dashboard response",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["rankings", "portfolio"]
         },
         {
           "id": "pr4.admin.dashboard",
           "surface": "admin",
           "path": "/",
-          "title": "Admin analytics dashboard",
+          "title": "Backend-owned admin user-status dashboard",
           "state": {
-            "id": "analytics-admin",
+            "id": "dashboard-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:analytics:read"]
+            "permissions": ["admin:dashboard:view"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["analytics summary"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-dashboard-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-admin-dashboard-state=\"ready\"] time",
+              "name": "datetime",
+              "value": "2026-01-01T00:00:00.000Z",
+              "side": "target"
+            },
+            { "type": "text", "value": "Total users", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["dashboard user status", "freshness clock"]
+        },
+        {
+          "id": "pr4.admin.dashboard-forbidden",
+          "surface": "admin",
+          "path": "/",
+          "title": "Admin dashboard backend denial",
+          "state": {
+            "id": "dashboard-admin-denied",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:dashboard:view"],
+            "fixtureMode": "admin-dashboard-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-dashboard-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "access was denied",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["dashboard user status", "service denial"]
+        },
+        {
+          "id": "pr4.admin.dashboard-unavailable",
+          "surface": "admin",
+          "path": "/",
+          "title": "Admin dashboard dependency unavailable",
+          "state": {
+            "id": "dashboard-admin-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:dashboard:view"],
+            "fixtureMode": "admin-dashboard-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-dashboard-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "snapshot is unavailable",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["dashboard dependency failure"]
+        },
+        {
+          "id": "pr4.admin.dashboard-malformed",
+          "surface": "admin",
+          "path": "/",
+          "title": "Admin dashboard malformed snapshot",
+          "state": {
+            "id": "dashboard-admin-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:dashboard:view"],
+            "fixtureMode": "admin-dashboard-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-dashboard-state=\"malformed\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "could not be verified",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed dashboard response"]
         },
         {
           "id": "pr4.admin.analytics",
           "surface": "admin",
           "path": "/analytics",
-          "title": "Admin analytics freshness and errors",
+          "title": "Admin analytics strict ready projection",
           "state": {
             "id": "analytics-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:analytics:read"]
+            "permissions": ["admin:analytics:view"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-admin-analytics-freshness=\"backend\"]",
+              "name": "datetime",
+              "value": "2026-01-01T00:00:00.000Z",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Backend-authoritative analytics snapshot",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
           "fixtureRequirements": ["analytics summary", "freshness clock"]
+        },
+        {
+          "id": "pr4.admin.analytics-empty",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin authoritative empty analytics projection",
+          "state": {
+            "id": "analytics-admin-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:view"],
+            "fixtureMode": "admin-analytics-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-state=\"empty\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-freshness=\"backend\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["empty analytics summary", "freshness clock"]
+        },
+        {
+          "id": "pr4.admin.analytics-forbidden",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin analytics backend denial",
+          "state": {
+            "id": "analytics-admin-denied",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:view"],
+            "fixtureMode": "admin-analytics-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "access was denied",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["analytics service denial"]
+        },
+        {
+          "id": "pr4.admin.analytics-unavailable",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin analytics retry remains unavailable",
+          "state": {
+            "id": "analytics-admin-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:view"],
+            "fixtureMode": "admin-analytics-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            { "type": "reload", "side": "target" },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-analytics-state=\"unavailable\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "analytics are unavailable",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["analytics dependency failure", "retry"]
+        },
+        {
+          "id": "pr4.admin.analytics-malformed",
+          "surface": "admin",
+          "path": "/analytics",
+          "title": "Admin analytics rejects data-owned freshness",
+          "state": {
+            "id": "analytics-admin-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:analytics:view"],
+            "fixtureMode": "admin-analytics-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-analytics-state=\"malformed\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "could not be verified",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed analytics response"]
         }
       ]
     },

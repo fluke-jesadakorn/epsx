@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { blockingFailedRequests } from './capture';
+import { blockingFailedRequests, MIGRATION_CAPTURE_TIME } from './capture';
 import type { NetworkEntry } from './types';
 
 const nextStylesheet =
@@ -58,4 +58,10 @@ describe('blockingFailedRequests', () => {
       ])
     ).toEqual([failure]);
   });
+});
+
+test('migration capture wall clock is an exact canonical instant', () => {
+  expect(new Date(MIGRATION_CAPTURE_TIME).toISOString()).toBe(
+    MIGRATION_CAPTURE_TIME
+  );
 });

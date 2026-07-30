@@ -2,6 +2,7 @@
 
 use std::collections::HashSet;
 
+use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -218,6 +219,7 @@ impl AnalyticsResponse {
             || pagination.total < self.data.len() as i64
             || !safe_text(&self.metadata.request_timestamp, 128)
             || !safe_text(&self.metadata.data_source, 128)
+            || DateTime::parse_from_rfc3339(&self.metadata.request_timestamp).is_err()
         {
             return Err(AnalyticsValidationError);
         }
@@ -461,7 +463,7 @@ fn AnalyticsPage(
             div { class: "analytics-page relative min-h-screen",
                 AnalyticsBackground {}
                 div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                    AnalyticsHeader {}
+                    AnalyticsHeader { metadata: Some(response.metadata.clone()) }
                     section {
                         class: "analytics-rankings overflow-visible",
                         "data-section": "analytics-rankings",
@@ -511,7 +513,7 @@ fn AnalyticsBackground() -> Element {
 }
 
 #[component]
-fn AnalyticsHeader() -> Element {
+fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
     rsx! {
         header { class: "analytics-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", "data-section": "analytics-header",
             div { class: "flex min-w-0 items-center gap-3",
@@ -524,13 +526,27 @@ fn AnalyticsHeader() -> Element {
                 }
             }
             div { class: "flex gap-2",
-                span { class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400",
-                    Icon { name: "trending-up".to_string(), size: Some(14) }
-                    "Live"
-                }
-                span { class: "inline-flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400",
-                    Icon { name: "sparkles".to_string(), size: Some(14) }
-                    "AI-Powered"
+                if let Some(metadata) = metadata {
+                    time {
+                        class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400",
+                        datetime: metadata.request_timestamp.clone(),
+                        "data-analytics-freshness": "backend",
+                        Icon { name: "clock".to_string(), size: Some(14) }
+                        "Observed {metadata.request_timestamp}"
+                    }
+                    span {
+                        class: "inline-flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400",
+                        "data-analytics-source": "backend",
+                        Icon { name: "database".to_string(), size: Some(14) }
+                        "Source {metadata.data_source}"
+                    }
+                } else {
+                    span {
+                        class: "inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300",
+                        "data-analytics-freshness": "unavailable",
+                        Icon { name: "circle-alert".to_string(), size: Some(14) }
+                        "Data unavailable"
+                    }
                 }
             }
         }
@@ -925,7 +941,7 @@ fn AnalyticsFailurePage(
             div { class: "analytics-page relative min-h-screen",
                 AnalyticsBackground {}
                 div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                    AnalyticsHeader {}
+                    AnalyticsHeader { metadata: None }
                     section {
                         "data-section": "analytics-failure",
                         "data-analytics-state": "{failure_state}",
@@ -1116,6 +1132,10 @@ mod tests {
         assert!(rendered.contains("Ranks 1-99 locked"));
         assert!(rendered.contains("grid-cols-1"));
         assert!(rendered.contains("2xl:grid-cols-5"));
+        assert!(rendered.contains("data-analytics-freshness=\"backend\""));
+        assert!(rendered.contains("datetime=\"2026-07-27T00:00:00Z\""));
+        assert!(rendered.contains("Source live"));
+        assert!(!rendered.contains("AI-Powered"));
     }
 
     #[test]
@@ -1190,6 +1210,8 @@ mod tests {
         let unavailable_html = html(&page_ctx());
         assert!(unavailable_html.contains("data-analytics-state=\"unavailable\""));
         assert!(unavailable_html.contains("temporarily unavailable"));
+        assert!(unavailable_html.contains("data-analytics-freshness=\"unavailable\""));
+        assert!(!unavailable_html.contains(">Live<"));
         assert!(!unavailable_html.contains("data-stock-card=\"true\""));
     }
 

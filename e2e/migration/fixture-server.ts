@@ -168,6 +168,15 @@ function requiredAdminPermission(path: string, method: string): string | null {
   if (path.startsWith('/api/v1/analytics/admin/audit-log')) {
     return 'admin:audit:read';
   }
+  if (
+    path.startsWith('/api/admin/dashboard/') ||
+    path.startsWith('/api/admin/web3/recent-wallets')
+  ) {
+    return 'admin:dashboard:view';
+  }
+  if (path.startsWith('/api/admin/analytics/')) {
+    return 'admin:analytics:view';
+  }
   return null;
 }
 
@@ -361,28 +370,40 @@ const rankings = [
   },
 ];
 
-function rankingResponse(limit: number): unknown {
-  const selected = rankings.slice(0, limit);
+function rankingResponse(limit: number, page: number): Record<string, unknown> {
+  const limited = fixtureMode === 'analytics-limited';
+  const available =
+    fixtureMode === 'analytics-empty'
+      ? []
+      : limited
+        ? rankings.slice(1)
+        : rankings;
+  const totalPages =
+    available.length === 0 ? 0 : Math.ceil(available.length / limit);
+  const selected = available.slice((page - 1) * limit, page * limit);
+  const stale = fixtureMode === 'analytics-stale';
   return {
     success: true,
     data: selected,
     pagination: {
-      page: 1,
+      page,
       limit,
-      total: rankings.length,
-      totalPages: 1,
-      hasNext: false,
-      hasPrev: false,
+      total: available.length,
+      totalPages,
+      hasNext: page < totalPages,
+      hasPrev: page > 1 && totalPages > 0,
     },
     metadata: {
       available_countries: ['United States'],
       available_sectors: ['Technology'],
-      request_timestamp: '2026-07-28T00:00:00Z',
-      data_source: 'epsx-e2e-fixture-v1',
+      request_timestamp: stale
+        ? '2020-01-01T00:00:00Z'
+        : '2026-07-28T00:00:00Z',
+      data_source: stale ? 'stale-cache' : 'epsx-e2e-fixture-v1',
     },
     access_info: {
-      min_accessible_rank: 1,
-      locked_ranks_count: 0,
+      min_accessible_rank: limited ? 2 : 1,
+      locked_ranks_count: limited ? 1 : 0,
     },
     message: null,
     processing_time_ms: 1,
@@ -433,6 +454,76 @@ const publicNews = [
     read_time: 3,
   },
 ];
+
+function adminAnalyticsData(empty = false): Record<string, unknown> {
+  return {
+    user_stats: empty
+      ? null
+      : {
+          total: 12,
+          active: 10,
+          today_connections: 2,
+          total_users: 12,
+          active_users: 10,
+        },
+    permission_analytics: empty
+      ? null
+      : {
+          total: 8,
+          total_plans: 2,
+          total_permissions: 8,
+          active_permissions: 7,
+        },
+    plan_stats: empty
+      ? null
+      : {
+          total_plans: 2,
+          active_plans: 2,
+          total_memberships: 6,
+          active_memberships: 5,
+          recent_assignments: 1,
+        },
+    system_metrics: null,
+    developer_portal: empty
+      ? null
+      : {
+          total_api_keys: 3,
+          active_api_keys: 2,
+        },
+  };
+}
+
+function adminAnalyticsEnvelope(data: Record<string, unknown>): unknown {
+  return {
+    success: true,
+    data,
+    error: null,
+    message: 'Analytics dashboard retrieved',
+    timestamp: fixtureTimestamp,
+    admin_meta: {
+      operation: 'get_admin_analytics_dashboard',
+      performed_by: fixtureWalletAddress,
+    },
+  };
+}
+
+function adminDashboardEnvelope(): unknown {
+  return {
+    success: true,
+    data: {
+      observed_at: fixtureTimestamp,
+      total_users: 12,
+      active_users: 10,
+    },
+    error: null,
+    message: 'Dashboard user status retrieved successfully',
+    timestamp: fixtureTimestamp,
+    admin_meta: {
+      operation: 'get_dashboard_user_status',
+      performed_by: fixtureWalletAddress,
+    },
+  };
+}
 
 function authorizedControlRequest(request: Request): boolean {
   return request.headers.get('x-epsx-e2e-token') === token;
@@ -557,6 +648,65 @@ async function routeRequest(request: Request): Promise<Response> {
   if (fixtureMode === 'malformed') {
     return json({ malformed: true });
   }
+  if (url.pathname === '/api/admin/dashboard/user-status') {
+    if (fixtureMode === 'admin-dashboard-forbidden') {
+      return json({ success: false, error: 'forbidden' }, 403);
+    }
+    if (fixtureMode === 'admin-dashboard-unavailable') {
+      return json({ success: false, error: 'dependency_unavailable' }, 503);
+    }
+    if (fixtureMode === 'admin-dashboard-malformed') {
+      const malformed = adminDashboardEnvelope() as {
+        data: { observed_at: string };
+      };
+      malformed.data.observed_at = 'not-an-rfc3339-timestamp';
+      return json(malformed);
+    }
+    return json(adminDashboardEnvelope());
+  }
+  if (url.pathname === '/api/admin/analytics/dashboard') {
+    if (fixtureMode === 'admin-analytics-forbidden') {
+      return json({ success: false, error: 'forbidden' }, 403);
+    }
+    if (fixtureMode === 'admin-analytics-unavailable') {
+      return json({ success: false, error: 'dependency_unavailable' }, 503);
+    }
+    if (fixtureMode === 'admin-analytics-malformed') {
+      return json(
+        adminAnalyticsEnvelope({
+          ...adminAnalyticsData(),
+          observed_at: fixtureTimestamp,
+        })
+      );
+    }
+    return json(
+      adminAnalyticsEnvelope(
+        adminAnalyticsData(fixtureMode === 'admin-analytics-empty')
+      )
+    );
+  }
+  if (
+    (url.pathname === '/api/analytics/rankings' ||
+      url.pathname === '/api/public/analytics/rankings') &&
+    fixtureMode === 'analytics-unavailable'
+  ) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    (url.pathname === '/api/analytics/rankings' ||
+      url.pathname === '/api/public/analytics/rankings') &&
+    fixtureMode === 'analytics-malformed'
+  ) {
+    return json({
+      ...rankingResponse(3, 1),
+      metadata: {
+        available_countries: [],
+        available_sectors: [],
+        request_timestamp: 'not-an-rfc3339-timestamp',
+        data_source: 'unverified',
+      },
+    });
+  }
   if (url.pathname === '/api/v1/admin/wallets/stats') {
     return json({
       total: 1,
@@ -673,7 +823,23 @@ async function routeRequest(request: Request): Promise<Response> {
       1,
       Math.min(10, Number(url.searchParams.get('limit') ?? '3'))
     );
-    return json(rankingResponse(limit));
+    const page = Math.max(
+      1,
+      Math.min(1_000_000, Number(url.searchParams.get('page') ?? '1'))
+    );
+    return json(rankingResponse(limit, page));
+  }
+  if (url.pathname === '/api/analytics/filters') {
+    const data = {
+      countries: [{ value: 'america', label: 'United States' }],
+      sectors: ['Technology'],
+      exchanges: ['NASDAQ'],
+      stock_types: ['common'],
+    };
+    return request.headers.has('x-api-version') ||
+      request.headers.has('x-access-level')
+      ? json({ success: true, data })
+      : json(data);
   }
   if (url.pathname === '/api/public/analytics/filters') {
     return json({
@@ -683,6 +849,91 @@ async function routeRequest(request: Request): Promise<Response> {
         sectors: ['Technology'],
         exchanges: ['NASDAQ'],
         stock_types: ['common'],
+      },
+    });
+  }
+  if (url.pathname === '/api/users/watchlist') {
+    return json({ success: true, data: { symbols: ['NVDA'] } });
+  }
+  if (url.pathname === '/api/users/portfolio/overview') {
+    return json({
+      success: true,
+      data: {
+        watchlist: ['NVDA'],
+        rankings,
+      },
+    });
+  }
+  if (url.pathname === '/api/payments/plans/my-plan-access') {
+    return json({
+      success: true,
+      data: {
+        wallet_address: fixtureWalletAddress,
+        plan_name: 'Migration Professional',
+        plan_id: fixturePlanId,
+        plan_expires_at: null,
+        days_remaining: 30,
+        status: 'active',
+        ranking_offset: 1,
+        can_upgrade: false,
+        tier_level: 2,
+        proration_credit: null,
+        current_plan_price: '29',
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/dashboard/summary') {
+    return json({
+      success: true,
+      data: {
+        wallet_stats: {
+          total: 12,
+          active: 10,
+          today_connections: 2,
+        },
+        permission_stats: {
+          total: 8,
+          pending_notifications: 0,
+        },
+        system_health: null,
+      },
+    });
+  }
+  if (url.pathname === '/api/admin/web3/recent-wallets') {
+    return json({
+      success: true,
+      data: {
+        recent_wallets: [
+          {
+            wallet_address: fixtureWalletAddress,
+            metadata: {},
+            created_at: fixtureTimestamp,
+            last_auth_at: fixtureTimestamp,
+            is_active: true,
+            active_permissions_count: 2,
+            connection_info: {
+              is_new: false,
+              last_seen: 1_788_278_400,
+            },
+          },
+        ],
+        analytics: {
+          total_in_period: 1,
+          daily_breakdown: [
+            {
+              date: '2026-07-01',
+              connections: 1,
+            },
+          ],
+          period_days: 30,
+          avg_daily: 0.03,
+        },
+        metadata: {
+          limit: 10,
+          total_count: 1,
+          has_more: false,
+          generated_at: fixtureTimestamp,
+        },
       },
     });
   }

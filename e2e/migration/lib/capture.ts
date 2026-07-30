@@ -38,6 +38,8 @@ interface BrowserStorageState {
   serviceWorkers: number;
 }
 
+export const MIGRATION_CAPTURE_TIME = '2026-07-29T05:00:00.000Z';
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -291,13 +293,16 @@ async function waitForStableMeaningfulBody(page: Page): Promise<void> {
         if (previous?.length !== bodyTextLength) {
           stateContainer.__epsxE2eBodyTextState = {
             length: bodyTextLength,
-            observedAt: Date.now(),
+            // Wall time is fixed later in the capture so application clocks
+            // remain deterministic. A monotonic duration keeps this stability
+            // sampler independent from that deliberate wall-clock control.
+            observedAt: performance.now(),
           };
           return false;
         }
         return (
           bodyTextLength > minimumLength &&
-          Date.now() - previous.observedAt >= stableForMs
+          performance.now() - previous.observedAt >= stableForMs
         );
       },
       { minimumLength: 50, stableForMs: 500 },
@@ -702,6 +707,17 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
+    // Install the deterministic wall clock only after hydration. The pinned
+    // Next.js admin dashboard renders a live client clock; installing before
+    // hydration would intentionally disagree with its server render, while
+    // leaving real time enabled makes otherwise clean repeats differ in DOM,
+    // accessibility text, and pixels. setFixedTime keeps timers running, so one
+    // interval turn applies the fixed time through the application's own code.
+    await page.clock.setFixedTime(MIGRATION_CAPTURE_TIME);
+    // Keep this delay on the Node side: browser clock emulation deliberately
+    // owns page-side timer primitives as well as Date.
+    await new Promise(resolveDelay => setTimeout(resolveDelay, 1_100));
+    await page.evaluate(() => undefined);
     const actionStatus = await applyActions({
       context,
       page,
