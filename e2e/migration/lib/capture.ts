@@ -371,6 +371,54 @@ async function waitForStableMeaningfulBody(page: Page): Promise<void> {
     .catch(() => undefined);
 }
 
+async function waitForVisibleImages(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const visibleImages = Array.from(document.images).filter(image => {
+        const rect = image.getBoundingClientRect();
+        const style = getComputedStyle(image);
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.right > 0 &&
+          rect.top < window.innerHeight &&
+          rect.left < window.innerWidth &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden'
+        );
+      });
+      return visibleImages.every(image => image.complete);
+    },
+    undefined,
+    { polling: 100, timeout: 15_000 }
+  );
+  await page.evaluate(async () => {
+    const visibleImages = Array.from(document.images).filter(image => {
+      const rect = image.getBoundingClientRect();
+      const style = getComputedStyle(image);
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.left < window.innerWidth &&
+        style.display !== 'none' &&
+        style.visibility !== 'hidden'
+      );
+    });
+    await Promise.all(
+      visibleImages
+        .filter(image => image.naturalWidth > 0)
+        .map(image => image.decode())
+    );
+    await new Promise<void>(resolveFrame =>
+      requestAnimationFrame(() => resolveFrame())
+    );
+  });
+}
+
 // eslint-disable-next-line max-params
 async function fixtureControl<T>(
   fixtureUrl: string,
@@ -791,6 +839,7 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
+    await waitForVisibleImages(page);
     if (requiresDeterministicWallClock(scenario)) {
       // Install the deterministic wall clock only after hydration. The pinned
       // Next.js admin root renders a live client clock; installing before
@@ -815,6 +864,7 @@ export async function captureSide(
       .waitForLoadState('domcontentloaded', { timeout: 5_000 })
       .catch(() => undefined);
     await waitForStableMeaningfulBody(page);
+    await waitForVisibleImages(page);
 
     const finalUrl = page.url();
     const finalStatus = actionStatus ?? response?.status() ?? null;

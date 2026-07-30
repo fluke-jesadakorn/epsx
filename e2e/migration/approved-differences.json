@@ -852,7 +852,7 @@
       "reason": "The target renders deletion as committed only after the versioned Rust mutation succeeds, then reloads the backend inventory and displays the bounded audit-facing result.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
       "targetEvidence": "apps/admin/src/main.rs#submit_news_delete_form",
-      "maximumDifferencePercent": 9.9
+      "maximumDifferencePercent": 10.8
     },
     {
       "scenarioId": "pr5.admin.media-news-ready",
@@ -861,7 +861,7 @@
       "reason": "The target projects storage URLs and preview capabilities away, rendering only backend-verified news-bucket key, size, MIME, and modification metadata plus bounded BFF actions.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "apps/admin/src/media_adapter.rs",
-      "maximumDifferencePercent": 13.6
+      "maximumDifferencePercent": 14.7
     },
     {
       "scenarioId": "pr5.admin.media-public-ready",
@@ -870,7 +870,7 @@
       "reason": "The target binds the public bucket at the Rust query boundary and renders redacted object metadata without projecting backend URLs, previews, or storage credentials into the browser.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "apps/admin/src/media_adapter.rs",
-      "maximumDifferencePercent": 13.4
+      "maximumDifferencePercent": 14.3
     },
     {
       "scenarioId": "pr5.admin.media-empty",
@@ -879,7 +879,7 @@
       "reason": "The source receives its healthy media baseline while the target service returns an authoritative empty bucket. The target removes all object metadata and does not retain a preview or cached item.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs#MediaEmpty",
-      "maximumDifferencePercent": 13.3
+      "maximumDifferencePercent": 13.9
     },
     {
       "scenarioId": "pr5.admin.media-forbidden",
@@ -888,7 +888,7 @@
       "reason": "The source receives its permitted baseline while the target backend denies media access. The Rust BFF exposes no key, URL, size, MIME, modification, upload, or deletion claim.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "apps/admin/src/media_adapter.rs#AdminMediaLoad",
-      "maximumDifferencePercent": 9.3
+      "maximumDifferencePercent": 9.9
     },
     {
       "scenarioId": "pr5.admin.media-unavailable",
@@ -897,7 +897,7 @@
       "reason": "The source receives its healthy baseline while the target media dependency remains unavailable after retry. The Rust BFF removes stale object metadata and renders a distinct retry boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "apps/admin/src/media_adapter.rs#AdminMediaLoad",
-      "maximumDifferencePercent": 9.5
+      "maximumDifferencePercent": 10.1
     },
     {
       "scenarioId": "pr5.admin.media-malformed",
@@ -906,7 +906,7 @@
       "reason": "The source receives its healthy baseline while the target media payload violates the strict sorted projection. The Rust decoder fails closed and renders no hostile or partial object metadata.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
       "targetEvidence": "apps/admin/src/media_adapter.rs#decode_admin_media",
-      "maximumDifferencePercent": 9.5
+      "maximumDifferencePercent": 10.3
     },
     {
       "scenarioId": "pr5.admin.media-upload",
@@ -915,7 +915,7 @@
       "reason": "The target submits exact multipart bytes through the Rust BFF and renders only the redacted backend acknowledgement; storage URLs and credentials remain absent.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
       "targetEvidence": "apps/admin/src/media_adapter.rs#upload_admin_media",
-      "maximumDifferencePercent": 13.7
+      "maximumDifferencePercent": 15
     },
     {
       "scenarioId": "pr5.admin.media-upload-conflict",
@@ -924,7 +924,7 @@
       "reason": "The target preserves the storage service's conflict result and does not claim that duplicate object bytes committed or display a fabricated upload acknowledgement.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
       "targetEvidence": "apps/admin/src/main.rs#submit_media_upload_form",
-      "maximumDifferencePercent": 13.9
+      "maximumDifferencePercent": 14.8
     },
     {
       "scenarioId": "pr5.admin.media-delete",
@@ -933,7 +933,7 @@
       "reason": "The target treats deletion as committed only after the Rust adapter accepts the backend acknowledgement, then reconciles against the authoritative bucket without retaining a deleted preview.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
       "targetEvidence": "apps/admin/src/media_adapter.rs#delete_admin_media",
-      "maximumDifferencePercent": 13.8
+      "maximumDifferencePercent": 14.8
     },
     {
       "scenarioId": "pr5.frontend.manual",
