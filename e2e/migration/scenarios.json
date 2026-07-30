@@ -4171,6 +4171,47 @@
           ]
         },
         {
+          "id": "pr6-notification-delivery-runtime",
+          "title": "Notification worker restart and redrive durability",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--lib",
+            "runtime_retry_dead_letter_and_redrive_are_durable",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "dead-letter and redrive transitions remain durable and auditable",
+            "an expired worker lease is reclaimed after restart without losing the job"
+          ],
+          "sources": ["services/notification/src/delivery.rs"]
+        },
+        {
+          "id": "pr6-notification-redis-runtime",
+          "title": "Notification Redis fanout and loss fallback",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "redis_multi_instance_fanout_and_loss_fallback_are_bounded",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "Redis fanout wakes independent notification stream instances",
+            "Redis loss remains bounded and preserves the local PostgreSQL replay wake-up"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
           "id": "pr6-frontend-notification-bff",
           "title": "Frontend owner-bound notification projection",
           "executable": "cargo",

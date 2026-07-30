@@ -770,7 +770,10 @@ async function run(): Promise<void> {
     }
     await runBackendContracts({
       config,
-      environment: safeEnvironment(),
+      environment: safeEnvironment({
+        NOTIFICATION_RUNTIME_DATABASE_URL: databaseUrlForRuntime(config),
+        NOTIFICATION_RUNTIME_REDIS_URL: config.redisUrl,
+      }),
       groups: accumulatedGroups,
       resetManager,
     });
