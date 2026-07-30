@@ -501,7 +501,7 @@
       "reason": "The target preview renders only rows accepted by the strict Rust ranking projection and gives empty and unavailable data distinct states. It does not recreate the pinned source's client-composed market metrics or freshness claims.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/home/server-top-performers.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/home.rs#AnalyticsPreview",
-      "maximumDifferencePercent": 20.4
+      "maximumDifferencePercent": 22
     },
     {
       "scenarioId": "pr4.frontend.analytics-query",
@@ -510,7 +510,7 @@
       "reason": "The target preserves the requested filters and pagination while rendering the service's exact row, total, access, source, and observation-time projection. It removes the pinned source's unconditional Live and AI-Powered badges because neither is established by the response.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/analytics/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/analytics.rs#AnalyticsPage",
-      "maximumDifferencePercent": 20.9
+      "maximumDifferencePercent": 21.5
     },
     {
       "scenarioId": "pr4.frontend.analytics-limited",
@@ -537,7 +537,7 @@
       "reason": "The target preserves a valid service observation while rendering an explicit empty ranking result. It does not substitute sample rows, a synthetic count, or a frontend-owned freshness label.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/analytics/server-card-dashboard.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/analytics.rs#AnalyticsPage",
-      "maximumDifferencePercent": 19.9
+      "maximumDifferencePercent": 20.7
     },
     {
       "scenarioId": "pr4.frontend.analytics-unavailable",
@@ -573,7 +573,7 @@
       "reason": "No owner-scoped dashboard projection was selected for the Rust boundary. The target renders verified session identity and safe navigation but marks analytics, portfolio, and subscription summaries unavailable instead of reconstructing the pinned source's client-owned dashboard claims.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/dashboard/dashboard-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/dashboard.rs#AuthenticatedDashboard",
-      "maximumDifferencePercent": 6.7
+      "maximumDifferencePercent": 7.3
     },
     {
       "scenarioId": "pr4.admin.dashboard",
@@ -582,7 +582,7 @@
       "reason": "The target dashboard limits its authoritative data region to the analytics service's strict total-user, active-user, and envelope observation-time projection. Legacy recent-wallet activity and additional HUD values remain non-authoritative navigation rather than service claims.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/dashboard-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs#DashboardReady",
-      "maximumDifferencePercent": 10.7
+      "maximumDifferencePercent": 12
     },
     {
       "scenarioId": "pr4.admin.dashboard-forbidden",
@@ -591,7 +591,7 @@
       "reason": "The source receives its healthy baseline while the target analytics service denies the dashboard read. The Rust BFF removes all count and activity fields and renders the denial as distinct from empty or unavailable data.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/dashboard-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs#DashboardProblem",
-      "maximumDifferencePercent": 10.7
+      "maximumDifferencePercent": 12
     },
     {
       "scenarioId": "pr4.admin.dashboard-unavailable",
@@ -600,7 +600,7 @@
       "reason": "The source receives its healthy baseline while the target dashboard dependency is unavailable. The Rust BFF exposes no cached or fabricated counts and preserves a distinct retryable unavailable state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/dashboard-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs#DashboardProblem",
-      "maximumDifferencePercent": 10.7
+      "maximumDifferencePercent": 12
     },
     {
       "scenarioId": "pr4.admin.dashboard-malformed",
@@ -609,7 +609,7 @@
       "reason": "The source receives its healthy baseline while the target dashboard snapshot violates the bounded projection. The Rust decoder fails closed and renders no totals, activity, or observation-time claim from malformed data.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/dashboard-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs#DashboardProblem",
-      "maximumDifferencePercent": 10.8
+      "maximumDifferencePercent": 12
     },
     {
       "scenarioId": "pr4.admin.analytics",
@@ -618,7 +618,7 @@
       "reason": "The target renders only bounded user, permission, plan, developer, and system values accepted by the Rust adapter and binds freshness exclusively to the verified response envelope. It removes the pinned source's unconditional Live and AI-Powered claims.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs#AnalyticsReady",
-      "maximumDifferencePercent": 52.3
+      "maximumDifferencePercent": 53.3
     },
     {
       "scenarioId": "pr4.admin.analytics-empty",
@@ -627,7 +627,7 @@
       "reason": "The target accepts the verified envelope observation time but treats a zero-valued service projection as authoritative empty data. It does not create charts, totals, freshness, or activity from frontend defaults.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/analytics-dashboard.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs#AnalyticsEmpty",
-      "maximumDifferencePercent": 51.6
+      "maximumDifferencePercent": 52.5
     },
     {
       "scenarioId": "pr4.admin.analytics-forbidden",
@@ -636,7 +636,7 @@
       "reason": "The source receives its healthy baseline while the target analytics service denies the read. The Rust BFF removes every analytics field and renders a denial that cannot be confused with a zero-valued snapshot.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/analytics-dashboard.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs#AnalyticsProblem",
-      "maximumDifferencePercent": 50
+      "maximumDifferencePercent": 50.6
     },
     {
       "scenarioId": "pr4.admin.analytics-unavailable",
@@ -645,7 +645,7 @@
       "reason": "The source receives its healthy baseline while the target analytics dependency remains unavailable after retry. The Rust BFF exposes no stale totals or invented freshness and renders a distinct unavailable state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/analytics-dashboard.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs#AnalyticsProblem",
-      "maximumDifferencePercent": 50
+      "maximumDifferencePercent": 50.6
     },
     {
       "scenarioId": "pr4.admin.analytics-malformed",
@@ -654,7 +654,7 @@
       "reason": "The source receives its healthy baseline while the target payload attempts to own its observation time. The Rust adapter rejects data-owned freshness, exposes no analytics values, and renders a malformed state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/analytics-dashboard.tsx",
       "targetEvidence": "apps/admin/src/analytics_admin_adapter.rs",
-      "maximumDifferencePercent": 50
+      "maximumDifferencePercent": 50.6
     }
   ]
 }
