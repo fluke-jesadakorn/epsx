@@ -2882,7 +2882,7 @@ async fn verified_admin_auth_context(
 
 fn news_mutation_redirect(path: &str, state: &str) -> Response {
     let state = match state {
-        "conflict" | "forbidden" | "unavailable" | "malformed" => state,
+        "committed" | "conflict" | "forbidden" | "unavailable" | "malformed" => state,
         _ => "malformed",
     };
     let location = format!("{path}?mutation={state}");
@@ -3005,7 +3005,7 @@ async fn submit_news_image_upload_form(
     {
         Ok(result) => {
             let query = url::form_urlencoded::Serializer::new(String::new())
-                .append_pair("image_url", &result.url)
+                .append_pair("admin_news_image_url", &result.url)
                 .finish();
             Redirect::to(&format!("/news/{article_id}/edit?{query}")).into_response()
         }

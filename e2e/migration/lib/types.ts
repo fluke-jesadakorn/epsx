@@ -30,6 +30,13 @@ export type ScenarioAction = (
   | { type: 'click'; selector: string }
   | { type: 'fill'; selector: string; value: string }
   | { type: 'press'; selector: string; key: string }
+  | {
+      type: 'set-input-files';
+      selector: string;
+      name: string;
+      mimeType: string;
+      contentBase64: string;
+    }
   | { type: 'reload' }
   | { type: 'set-offline'; offline: boolean }
   | { type: 'wait-for'; selector: string }

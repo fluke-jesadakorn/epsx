@@ -2189,124 +2189,1069 @@
       "comparisonGate": "parity",
       "surfaces": ["frontend", "admin"],
       "states": [
-        "published content",
-        "draft content",
+        "published and draft content",
+        "authoritative empty content",
+        "backend denial",
+        "dependency unavailable",
+        "malformed dependency response",
         "revision conflict",
-        "upload retry",
-        "content dependency failure"
+        "committed mutation"
       ],
-      "actions": ["list", "open detail", "create", "edit", "upload", "retry"],
+      "actions": [
+        "list and filter",
+        "open detail",
+        "create and edit",
+        "publish and unpublish",
+        "upload and delete",
+        "retry"
+      ],
       "outcomes": [
+        "strict public content projection",
         "publication lifecycle",
-        "draft authorization",
-        "revision conflict",
-        "cache invalidation",
-        "not-found and retry",
-        "reconciliation"
+        "backend-owned authorization",
+        "revision and upload conflict",
+        "not-found and dependency retry",
+        "cache and media reconciliation"
       ],
       "fixtureRequirements": [
-        "published news",
-        "draft news",
-        "revision ledger",
-        "media storage",
-        "cache generation"
+        "strict public and admin news envelopes",
+        "published and draft records",
+        "revision and idempotency ledger",
+        "bounded media metadata",
+        "multipart upload bytes",
+        "cache invalidation generation"
       ],
       "routes": {
         "frontend": ["/news", "/news/:slug", "/manual"],
         "admin": ["/media", "/news", "/news/create", "/news/:id/edit"]
       },
-      "scenarios": [
+      "backendContracts": [
         {
-          "id": "pr5.frontend.news",
-          "surface": "frontend",
-          "path": "/news",
-          "title": "Published news list",
-          "state": { "id": "public", "session": "signed-out" },
-          "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["published news"]
+          "id": "pr5-content-service",
+          "title": "Content publication lifecycle and cache invalidation",
+          "executable": "cargo",
+          "arguments": ["test", "--locked", "-p", "epsx-content", "--lib"],
+          "claims": [
+            "publication lifecycle remains in the Rust content service",
+            "revisions, authorization, and cache invalidation fail closed"
+          ],
+          "sources": ["services/content/src/lib.rs"]
         },
         {
-          "id": "pr5.frontend.news-detail",
+          "id": "pr5-frontend-news-bff",
+          "title": "Frontend strict public-news projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-frontend",
+            "news_adapter_tests"
+          ],
+          "claims": [
+            "public list and detail envelopes are strict and bounded",
+            "not-found, malformed, and unavailable outcomes never become content"
+          ],
+          "sources": ["apps/frontend/src/api.rs"]
+        },
+        {
+          "id": "pr5-admin-news-bff",
+          "title": "Admin news authority and mutation projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "news_adapter::tests"
+          ],
+          "claims": [
+            "admin news reads and writes require verified backend projections",
+            "revision conflicts and malformed lifecycle results fail closed"
+          ],
+          "sources": ["apps/admin/src/news_adapter.rs"]
+        },
+        {
+          "id": "pr5-admin-media-bff",
+          "title": "Admin media metadata and mutation projection",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "media_adapter::tests"
+          ],
+          "claims": [
+            "media inventory exposes bounded metadata without storage credentials",
+            "upload and deletion outcomes require strict backend evidence"
+          ],
+          "sources": ["apps/admin/src/media_adapter.rs"]
+        }
+      ],
+      "scenarios": [
+        {
+          "id": "pr5.frontend.news-ready",
           "surface": "frontend",
-          "path": "/news/deterministic-market-brief",
-          "title": "Published news detail",
+          "path": "/news",
+          "title": "Published news list uses strict content data",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
           "outcomes": [
-            { "type": "text", "value": "Deterministic Market Brief" }
+            { "type": "text", "value": "Deterministic Market Brief" },
+            { "type": "no-horizontal-overflow" }
           ],
-          "fixtureRequirements": ["published news detail"]
+          "fixtureRequirements": ["strict published news list"]
+        },
+        {
+          "id": "pr5.frontend.news-filter",
+          "surface": "frontend",
+          "path": "/news?q=Deterministic&category=engineering",
+          "title": "News filters remain URL-stable and backend-bounded",
+          "state": { "id": "public-filter", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "query", "key": "q", "value": "Deterministic" },
+            { "type": "query", "key": "category", "value": "engineering" },
+            { "type": "text", "value": "Deterministic Market Brief" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["published news", "fixed upstream page"]
+        },
+        {
+          "id": "pr5.frontend.news-empty",
+          "surface": "frontend",
+          "path": "/news",
+          "title": "Authoritative empty news has no samples",
+          "state": {
+            "id": "public-empty",
+            "session": "signed-out",
+            "fixtureMode": "content-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": ".news-empty-state",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No published articles yet",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty content"]
+        },
+        {
+          "id": "pr5.frontend.news-unavailable",
+          "surface": "frontend",
+          "path": "/news",
+          "title": "News dependency retry remains fail-closed",
+          "state": {
+            "id": "public-unavailable",
+            "session": "signed-out",
+            "fixtureMode": "content-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": ".news-error-state a.btn-primary",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            { "type": "status", "value": 503, "side": "target" },
+            {
+              "type": "selector",
+              "value": ".news-error-state",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No cached or sample content",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["content dependency failure", "retry"]
+        },
+        {
+          "id": "pr5.frontend.news-malformed",
+          "surface": "frontend",
+          "path": "/news",
+          "title": "Malformed news cannot become published content",
+          "state": {
+            "id": "public-malformed",
+            "session": "signed-out",
+            "fixtureMode": "content-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "status", "value": 503, "side": "target" },
+            {
+              "type": "selector",
+              "value": ".news-error-state",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Deterministic Market Brief",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed public news envelope"]
+        },
+        {
+          "id": "pr5.frontend.news-detail-ready",
+          "surface": "frontend",
+          "path": "/news/deterministic-market-brief",
+          "title": "Published news detail preserves slug ownership",
+          "state": { "id": "public", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "text", "value": "Deterministic Market Brief" },
+            {
+              "type": "text",
+              "value": "It verifies the published content boundary",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["strict published news detail"]
+        },
+        {
+          "id": "pr5.frontend.news-detail-not-found",
+          "surface": "frontend",
+          "path": "/news/missing-article",
+          "title": "Missing article remains a truthful not-found boundary",
+          "state": { "id": "public-not-found", "session": "signed-out" },
+          "actions": [],
+          "outcomes": [
+            { "type": "status", "value": 404, "side": "target" },
+            {
+              "type": "selector",
+              "value": ".news-detail-not-found",
+              "side": "target"
+            },
+            { "type": "text", "value": "Article not found", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["content not-found"]
+        },
+        {
+          "id": "pr5.frontend.news-detail-unavailable",
+          "surface": "frontend",
+          "path": "/news/deterministic-market-brief",
+          "title": "Article dependency retry exposes no default article",
+          "state": {
+            "id": "detail-unavailable",
+            "session": "signed-out",
+            "fixtureMode": "content-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": ".news-detail-error a.btn-primary",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            { "type": "status", "value": 503, "side": "target" },
+            {
+              "type": "selector",
+              "value": ".news-detail-error",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No default article is being shown",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["detail dependency failure", "retry"]
+        },
+        {
+          "id": "pr5.frontend.news-detail-malformed",
+          "surface": "frontend",
+          "path": "/news/deterministic-market-brief",
+          "title": "Malformed detail cannot cross the content boundary",
+          "state": {
+            "id": "detail-malformed",
+            "session": "signed-out",
+            "fixtureMode": "content-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "status", "value": 503, "side": "target" },
+            {
+              "type": "selector",
+              "value": ".news-detail-error",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed detail envelope"]
         },
         {
           "id": "pr5.frontend.manual",
           "surface": "frontend",
           "path": "/manual",
-          "title": "Manual route reconciliation",
+          "title": "Manual route reconciliation remains responsive",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["route inventory"]
+          "outcomes": [
+            { "type": "text", "value": "EPSX Feature Manual" },
+            {
+              "type": "no-horizontal-overflow",
+              "side": "target"
+            }
+          ],
+          "fixtureRequirements": ["route inventory", "responsive status index"]
         },
         {
-          "id": "pr5.admin.media",
-          "surface": "admin",
-          "path": "/media",
-          "title": "Authorized uploads and retry",
-          "state": {
-            "id": "content-admin",
-            "session": "authenticated",
-            "audience": "epsx-admin",
-            "permissions": ["admin:media:read", "admin:media:write"]
-          },
-          "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["media storage"]
-        },
-        {
-          "id": "pr5.admin.news",
+          "id": "pr5.admin.news-ready",
           "surface": "admin",
           "path": "/news",
-          "title": "Publication lifecycle list",
+          "title": "Admin publication inventory is backend-authoritative",
           "state": {
             "id": "content-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:content:read"]
+            "permissions": ["admin:content:manage"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["published and draft news"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "text", "value": "Deterministic Market Brief" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["published admin news"]
         },
         {
-          "id": "pr5.admin.news-create",
+          "id": "pr5.admin.news-draft-filter",
+          "surface": "admin",
+          "path": "/news?status=draft&page=1",
+          "title": "Draft filter returns only backend draft state",
+          "state": {
+            "id": "content-admin-draft",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [],
+          "outcomes": [
+            { "type": "query", "key": "status", "value": "draft" },
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "text", "value": "draft", "side": "target" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["draft admin news"]
+        },
+        {
+          "id": "pr5.admin.news-empty",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Admin empty inventory has no inferred records",
+          "state": {
+            "id": "content-admin-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"empty\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "No articles found",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty admin news"]
+        },
+        {
+          "id": "pr5.admin.news-forbidden",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Admin content denial is backend-owned",
+          "state": {
+            "id": "content-admin-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "backend did not authorize",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend content denial"]
+        },
+        {
+          "id": "pr5.admin.news-unavailable",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Admin news retry remains unavailable without stale data",
+          "state": {
+            "id": "content-admin-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-news-state=\"unavailable\"] a.btn-outline",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Deterministic Market Brief",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["admin content dependency failure", "retry"]
+        },
+        {
+          "id": "pr5.admin.news-malformed",
+          "surface": "admin",
+          "path": "/news",
+          "title": "Malformed admin news is rejected",
+          "state": {
+            "id": "content-admin-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-state=\"malformed\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "could not be verified",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed admin news envelope"]
+        },
+        {
+          "id": "pr5.admin.news-create-form",
           "surface": "admin",
           "path": "/news/create",
-          "title": "Draft creation",
+          "title": "Draft editor exposes the Rust BFF submit boundary",
           "state": {
             "id": "content-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:content:create"]
+            "permissions": ["admin:content:manage"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["draft news", "cache generation"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"form\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-news-submit=\"bff\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["draft editor", "idempotency key"]
         },
         {
-          "id": "pr5.admin.news-edit",
+          "id": "pr5.admin.news-create-submit",
           "surface": "admin",
-          "path": "/news/news-e2e-1/edit",
-          "title": "Revision editing and conflict",
+          "path": "/news/create",
+          "title": "Draft creation commits through the content backend",
           "state": {
             "id": "content-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:content:update"]
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"title\"]:not([type=\"hidden\"])",
+              "value": "Migration Draft",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "textarea[name=\"content\"]",
+              "value": "Backend-authoritative draft content.",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "[data-admin-news-submit=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "path",
+              "value": "/news/00000000-0000-0000-0000-000000000006/edit",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "draft creation",
+            "idempotency ledger",
+            "cache invalidation"
+          ]
+        },
+        {
+          "id": "pr5.admin.news-edit-ready",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "Revision editor loads a canonical backend record",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["draft news", "revision ledger"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-admin-news-editor-state]",
+              "name": "data-admin-news-route",
+              "value": "edit",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "input[name=\"title\"]:not([type=\"hidden\"])",
+              "name": "value",
+              "value": "Deterministic Market Brief",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["canonical article UUID", "revision version"]
+        },
+        {
+          "id": "pr5.admin.news-update",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "Article update requires the backend revision version",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"title\"]:not([type=\"hidden\"])",
+              "value": "Updated Migration Brief",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "[data-admin-news-submit=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["revision update", "cache invalidation"]
+        },
+        {
+          "id": "pr5.admin.news-publish",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "Publish transition commits through Rust",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-news-transition=\"publish\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["publish transition", "cache invalidation"]
+        },
+        {
+          "id": "pr5.admin.news-unpublish",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "Unpublish transition commits through Rust",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-news-transition=\"unpublish\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-editor-state=\"ready\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["unpublish transition", "cache invalidation"]
+        },
+        {
+          "id": "pr5.admin.news-conflict",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "Stale article revision renders a typed conflict",
+          "state": {
+            "id": "content-admin-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-news-submit=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-mutation-state=\"conflict\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["revision conflict"]
+        },
+        {
+          "id": "pr5.admin.news-image-upload",
+          "surface": "admin",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
+          "title": "News image upload uses exact multipart bytes",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "set-input-files",
+              "selector": "form[action=\"/news/upload-image\"] input[name=\"file\"]",
+              "name": "migration-cover.png",
+              "mimeType": "image/png",
+              "contentBase64": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[action=\"/news/upload-image\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-mutation-state=\"committed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["multipart image", "verified upload URL"]
+        },
+        {
+          "id": "pr5.admin.news-delete",
+          "surface": "admin",
+          "path": "/news",
+          "title": "News deletion reloads a committed inventory",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-news-delete=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-news-mutation-state=\"committed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["delete mutation", "cache reconciliation"]
+        },
+        {
+          "id": "pr5.admin.media-news-ready",
+          "surface": "admin",
+          "path": "/media",
+          "title": "News media exposes bounded metadata only",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-admin-media-state]",
+              "name": "data-admin-media-bucket",
+              "value": "news",
+              "side": "target"
+            },
+            { "type": "text", "value": "release-notes.pdf" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["news media metadata"]
+        },
+        {
+          "id": "pr5.admin.media-public-ready",
+          "surface": "admin",
+          "path": "/media?bucket=public",
+          "title": "Public media bucket remains explicit",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "attribute",
+              "selector": "[data-admin-media-state]",
+              "name": "data-admin-media-bucket",
+              "value": "public",
+              "side": "target"
+            },
+            { "type": "text", "value": "getting-started.pdf" },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["public media metadata"]
+        },
+        {
+          "id": "pr5.admin.media-empty",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Empty media inventory is authoritative",
+          "state": {
+            "id": "content-admin-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-state=\"empty\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["empty media metadata"]
+        },
+        {
+          "id": "pr5.admin.media-forbidden",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Media authorization remains backend-owned",
+          "state": {
+            "id": "content-admin-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-state=\"forbidden\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend media denial"]
+        },
+        {
+          "id": "pr5.admin.media-unavailable",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Media retry exposes no stale storage rows",
+          "state": {
+            "id": "content-admin-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "[data-admin-media-state=\"unavailable\"] a.btn-primary",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-state=\"unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "release-notes.pdf",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["media dependency failure", "retry"]
+        },
+        {
+          "id": "pr5.admin.media-malformed",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Malformed media cannot become storage metadata",
+          "state": {
+            "id": "content-admin-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "content-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-state=\"malformed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["malformed media envelope"]
+        },
+        {
+          "id": "pr5.admin.media-upload",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Public upload commits exact multipart bytes",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "set-input-files",
+              "selector": "form[action=\"/media/upload\"] input[name=\"file\"]",
+              "name": "migration-proof.txt",
+              "mimeType": "text/plain",
+              "contentBase64": "RVBTWCBtaWdyYXRpb24gcHJvb2YK",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[action=\"/media/upload\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-mutation-state=\"committed\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-admin-media-state]",
+              "name": "data-admin-media-bucket",
+              "value": "public",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["multipart public upload", "idempotency"]
+        },
+        {
+          "id": "pr5.admin.media-upload-conflict",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Duplicate media mutation renders a typed conflict",
+          "state": {
+            "id": "content-admin-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"],
+            "fixtureMode": "conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "set-input-files",
+              "selector": "form[action=\"/media/upload\"] input[name=\"file\"]",
+              "name": "migration-proof.txt",
+              "mimeType": "text/plain",
+              "contentBase64": "RVBTWCBtaWdyYXRpb24gcHJvb2YK",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form[action=\"/media/upload\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-mutation-state=\"conflict\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["media idempotency conflict"]
+        },
+        {
+          "id": "pr5.admin.media-delete",
+          "surface": "admin",
+          "path": "/media",
+          "title": "Media deletion reconciles the verified object key",
+          "state": {
+            "id": "content-admin",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:content:manage"]
+          },
+          "actions": [
+            {
+              "type": "click",
+              "selector": "form[action=\"/media\"] button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-media-mutation-state=\"committed\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["media deletion", "storage reconciliation"]
         }
       ]
     },
@@ -3305,7 +4250,7 @@
         {
           "id": "pr9.admin.news-edit",
           "surface": "admin",
-          "path": "/news/news-e2e-1/edit",
+          "path": "/news/00000000-0000-0000-0000-000000000006/edit",
           "title": "Admin /news/:id/edit",
           "state": {
             "id": "admin-user",

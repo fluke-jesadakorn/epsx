@@ -1,4 +1,5 @@
 import { rename, writeFile } from 'node:fs/promises';
+import { Buffer } from 'node:buffer';
 import { basename, resolve } from 'node:path';
 
 import type { Browser, BrowserContext, Page, Route } from '@playwright/test';
@@ -39,6 +40,38 @@ interface BrowserStorageState {
 }
 
 export const MIGRATION_CAPTURE_TIME = '2026-07-29T05:00:00.000Z';
+
+type InputFileAction = Extract<ScenarioAction, { type: 'set-input-files' }>;
+
+export function inputFilePayload(action: InputFileAction): {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+} {
+  if (
+    action.name.trim() !== action.name ||
+    action.name === '' ||
+    action.name.includes('/') ||
+    action.name.includes('\\') ||
+    !/^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(action.mimeType)
+  ) {
+    throw new Error('invalid deterministic input-file metadata');
+  }
+  const normalized = action.contentBase64.replaceAll(/\s+/g, '');
+  const buffer = Buffer.from(normalized, 'base64');
+  if (
+    buffer.length === 0 ||
+    buffer.toString('base64').replaceAll(/=+$/g, '') !==
+      normalized.replaceAll(/=+$/g, '')
+  ) {
+    throw new Error('invalid deterministic input-file content');
+  }
+  return {
+    name: action.name,
+    mimeType: action.mimeType,
+    buffer,
+  };
+}
 
 export function requiresDeterministicWallClock(
   scenario: Pick<Scenario, 'path' | 'surface'>
@@ -469,6 +502,10 @@ async function applyActions(options: {
       await page.locator(action.selector).fill(action.value);
     } else if (action.type === 'press') {
       await page.locator(action.selector).press(action.key);
+    } else if (action.type === 'set-input-files') {
+      await page
+        .locator(action.selector)
+        .setInputFiles(inputFilePayload(action));
     } else if (action.type === 'reload') {
       status =
         (await page.reload({ waitUntil: 'domcontentloaded' }))?.status() ??
@@ -627,6 +664,29 @@ export async function captureSide(
       /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
       route => proxySourceDependency(route, fixtureUrl, sourceAccessToken)
     );
+    if (new URL(scenario.path, baseUrl).pathname === '/manual') {
+      // Next 16's pinned Turbopack dev output lowers viem's native BigInt
+      // exponentiation to Math.pow(BigInt, BigInt), which throws even though
+      // the original production expression is valid. Restore the original
+      // operator semantics only for the affected immutable source route;
+      // numeric Math.pow behavior is delegated unchanged.
+      await context.addInitScript(() => {
+        const nativePow = Math.pow;
+        Object.defineProperty(Math, 'pow', {
+          configurable: true,
+          writable: true,
+          value: (
+            base: number | bigint,
+            exponent: number | bigint
+          ): number | bigint => {
+            if (typeof base === 'bigint' && typeof exponent === 'bigint') {
+              return base ** exponent;
+            }
+            return nativePow(base as number, exponent as number);
+          },
+        });
+      });
+    }
   }
   await context.addInitScript((theme: string) => {
     localStorage.setItem('theme', theme);
@@ -749,7 +809,12 @@ export async function captureSide(
     const html = await page.content();
     const semanticHtml = await page.evaluate(() => {
       const clone = document.body.cloneNode(true) as HTMLElement;
-      for (const node of clone.querySelectorAll('script, style')) {
+      // Next.js can leave streamed document metadata in `<body>` for a
+      // hydration turn, then move it into `<head>` without changing pixels or
+      // the accessibility tree. Document metadata is not part of the body
+      // semantic contract (and the final title is captured separately), so
+      // exclude it alongside non-semantic runtime script/style nodes.
+      for (const node of clone.querySelectorAll('script, style, title, meta')) {
         node.remove();
       }
       for (const element of [clone, ...clone.querySelectorAll('*')]) {

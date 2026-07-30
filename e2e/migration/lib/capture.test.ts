@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   blockingFailedRequests,
+  inputFilePayload,
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
 } from './capture';
@@ -89,4 +90,39 @@ test('wall-clock control is limited to the admin root dashboard', () => {
   expect(
     requiresDeterministicWallClock({ surface: 'frontend', path: '/' })
   ).toBe(false);
+});
+
+test('deterministic multipart actions decode an exact in-memory file', () => {
+  const payload = inputFilePayload({
+    type: 'set-input-files',
+    selector: 'input[type=file]',
+    name: 'migration-proof.txt',
+    mimeType: 'text/plain',
+    contentBase64: 'RVBTWCBtaWdyYXRpb24gcHJvb2YK',
+  });
+
+  expect(payload.name).toBe('migration-proof.txt');
+  expect(payload.mimeType).toBe('text/plain');
+  expect(payload.buffer.toString('utf8')).toBe('EPSX migration proof\n');
+});
+
+test('deterministic multipart actions reject ambiguous metadata and bytes', () => {
+  expect(() =>
+    inputFilePayload({
+      type: 'set-input-files',
+      selector: 'input[type=file]',
+      name: '../escape.txt',
+      mimeType: 'text/plain',
+      contentBase64: 'RVBTWA==',
+    })
+  ).toThrow();
+  expect(() =>
+    inputFilePayload({
+      type: 'set-input-files',
+      selector: 'input[type=file]',
+      name: 'empty.txt',
+      mimeType: 'text/plain',
+      contentBase64: '',
+    })
+  ).toThrow();
 });

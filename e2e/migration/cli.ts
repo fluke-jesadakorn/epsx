@@ -568,12 +568,46 @@ interface PlaywrightShard {
   project?: string;
 }
 
+const maximumScenariosPerPlaywrightShard = 12;
+
+function escapedGrepLiteral(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function scenarioShards(group: ScenarioGroup): PlaywrightShard[] {
+  const scenarios = group.scenarios ?? [];
+  const shards: PlaywrightShard[] = [];
+  for (
+    let offset = 0;
+    offset < scenarios.length;
+    offset += maximumScenariosPerPlaywrightShard
+  ) {
+    const ids = scenarios
+      .slice(offset, offset + maximumScenariosPerPlaywrightShard)
+      .map(scenario => escapedGrepLiteral(scenario.id));
+    shards.push({
+      grep: `group ${group.id}: (?:${ids.join('|')}) \\[`,
+      project: 'migration-chromium',
+    });
+  }
+  return shards;
+}
+
 function buildPlaywrightShards(
   manifest: ScenarioManifest,
   accumulatedGroups: ScenarioGroup[],
   explicitGrep?: string
 ): PlaywrightShard[] {
   if (explicitGrep !== undefined && explicitGrep !== '') {
+    const exactGroup = /^group ([0-8]):$/.exec(explicitGrep);
+    if (exactGroup !== null) {
+      const group = accumulatedGroups.find(
+        candidate => candidate.id === Number(exactGroup[1])
+      );
+      if (group !== undefined) {
+        return scenarioShards(group);
+      }
+    }
     return [
       {
         grep: explicitGrep,
@@ -585,10 +619,7 @@ function buildPlaywrightShards(
   const shards: PlaywrightShard[] = [];
   for (const group of accumulatedGroups) {
     if (group.id !== 9) {
-      shards.push({
-        grep: `group ${group.id}:`,
-        project: 'migration-chromium',
-      });
+      shards.push(...scenarioShards(group));
       continue;
     }
     const matrices = manifest.matrices[group.matrix] ?? [];

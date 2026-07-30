@@ -655,6 +655,285 @@
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/analytics-dashboard.tsx",
       "targetEvidence": "apps/admin/src/analytics_admin_adapter.rs",
       "maximumDifferencePercent": 50.6
+    },
+    {
+      "scenarioId": "pr5.frontend.news-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy published-content baseline while the target content service returns an authoritative zero-row result. The target removes the source article card and renders the exact empty projection without sample or cached content.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-list.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/news.rs#NewsEmptyState",
+      "maximumDifferencePercent": 42.8
+    },
+    {
+      "scenarioId": "pr5.frontend.news-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy comparison baseline while the target content dependency remains unavailable after retry. The Rust BFF exposes no article or publication claims and renders a distinct retryable dependency state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-list.tsx",
+      "targetEvidence": "apps/frontend/src/api.rs#load_public_news",
+      "maximumDifferencePercent": 44.1
+    },
+    {
+      "scenarioId": "pr5.frontend.news-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy comparison baseline while the target content response violates the strict publication envelope. The Rust decoder fails closed and renders no fields from the malformed payload.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-list.tsx",
+      "targetEvidence": "apps/frontend/src/api.rs#news_adapter_tests",
+      "maximumDifferencePercent": 44.1
+    },
+    {
+      "scenarioId": "pr5.frontend.news-detail-not-found",
+      "matrixIds": ["mobile-dark"],
+      "category": "security",
+      "reason": "The pinned source converts the missing slug to a generic client 404 body with HTTP 200, while the target preserves the content service's truthful 404 and exposes no article fields. The compact mobile bodies therefore differ beyond the default threshold.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/news/[slug]/page.tsx",
+      "targetEvidence": "apps/frontend/src/ssr.rs",
+      "maximumDifferencePercent": 2.7
+    },
+    {
+      "scenarioId": "pr5.frontend.news-detail-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy article baseline while the target detail dependency is unavailable. The target removes the title, body, author, and publication claims and renders the Rust-classified retry boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-detail.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/news.rs#NewsDetailError",
+      "maximumDifferencePercent": 7.3
+    },
+    {
+      "scenarioId": "pr5.frontend.news-detail-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy article baseline while the target detail payload is malformed. The strict Rust projection fails closed and shows no unverified title, content, cover, author, or publication metadata.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-detail.tsx",
+      "targetEvidence": "apps/frontend/src/api.rs#news_adapter_tests",
+      "maximumDifferencePercent": 6.3
+    },
+    {
+      "scenarioId": "pr5.admin.news-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target inventory renders only the bounded article summary accepted by the Rust content adapter and replaces legacy client mutation affordances with links and controls backed by explicit BFF routes.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "apps/admin/src/news_adapter.rs",
+      "maximumDifferencePercent": 9.7
+    },
+    {
+      "scenarioId": "pr5.admin.news-draft-filter",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the backend-owned draft filter and displays the exact strict projection without deriving publication or pin state in the browser.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#AdminNewsQuery",
+      "maximumDifferencePercent": 9.9
+    },
+    {
+      "scenarioId": "pr5.admin.news-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy inventory baseline while the target content service returns a structurally valid zero-record page. The target renders authoritative empty data and does not retain an article row from the prior state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#NewsEmptyState",
+      "maximumDifferencePercent": 8
+    },
+    {
+      "scenarioId": "pr5.admin.news-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its permitted baseline while the target backend denies content access. The Rust BFF removes all article and mutation fields and renders a denial distinct from empty or unavailable data.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#AdminNewsLoad",
+      "maximumDifferencePercent": 8
+    },
+    {
+      "scenarioId": "pr5.admin.news-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy baseline while the target content dependency remains unavailable after retry. The target exposes no stale inventory or mutation authority and preserves an explicit retryable state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#AdminNewsLoad",
+      "maximumDifferencePercent": 8.2
+    },
+    {
+      "scenarioId": "pr5.admin.news-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy baseline while the target content payload violates the closed admin envelope. The Rust adapter rejects the response and renders no article, revision, or publication claims.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#decode_admin_news",
+      "maximumDifferencePercent": 8.2
+    },
+    {
+      "scenarioId": "pr5.admin.news-create-form",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target replaces the source's client-owned rich editor with a bounded server form whose accepted fields, idempotency key, and publication status are validated by the Rust BFF.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-editor.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#NewsEditor",
+      "maximumDifferencePercent": 7.1
+    },
+    {
+      "scenarioId": "pr5.admin.news-create-submit",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target treats creation as committed only after the Rust adapter accepts the strict response and then renders the returned canonical editor projection; the browser does not synthesize a draft or revision.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs#submit_news_create_form",
+      "maximumDifferencePercent": 6.9
+    },
+    {
+      "scenarioId": "pr5.admin.news-edit-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "The target removes the source's browser-only rich-text and local image-editor behaviors and retains a bounded server form populated only from the canonical article and revision returned by the Rust content adapter.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-editor.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#NewsEditor",
+      "maximumDifferencePercent": 7
+    },
+    {
+      "scenarioId": "pr5.admin.news-update",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target submits the backend revision and idempotency key and renders the article returned after the write. It does not optimistically claim that the edited title committed from browser state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs#submit_news_edit_form",
+      "maximumDifferencePercent": 7
+    },
+    {
+      "scenarioId": "pr5.admin.news-publish",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves publication as a versioned Rust content mutation and renders only the returned article projection after the service commits the transition.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#update_admin_news",
+      "maximumDifferencePercent": 7
+    },
+    {
+      "scenarioId": "pr5.admin.news-unpublish",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves unpublication as a versioned Rust content mutation and renders only the returned draft projection after the service commits the transition.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/news_adapter.rs#update_admin_news",
+      "maximumDifferencePercent": 7
+    },
+    {
+      "scenarioId": "pr5.admin.news-conflict",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the content service's optimistic 409 and replaces the editor with an explicit conflict result rather than presenting stale fields as committed.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs#news_mutation_error_state",
+      "maximumDifferencePercent": 5.6
+    },
+    {
+      "scenarioId": "pr5.admin.news-image-upload",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target accepts exact multipart bytes at the Rust boundary, validates the returned HTTPS URL, and renders a committed upload notice without exposing storage credentials or claiming that the article itself was saved.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-editor.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#submit_news_image_upload_form",
+      "maximumDifferencePercent": 7.4
+    },
+    {
+      "scenarioId": "pr5.admin.news-delete",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders deletion as committed only after the versioned Rust mutation succeeds, then reloads the backend inventory and displays the bounded audit-facing result.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs#submit_news_delete_form",
+      "maximumDifferencePercent": 9.9
+    },
+    {
+      "scenarioId": "pr5.admin.media-news-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target projects storage URLs and preview capabilities away, rendering only backend-verified news-bucket key, size, MIME, and modification metadata plus bounded BFF actions.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "apps/admin/src/media_adapter.rs",
+      "maximumDifferencePercent": 13.6
+    },
+    {
+      "scenarioId": "pr5.admin.media-public-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target binds the public bucket at the Rust query boundary and renders redacted object metadata without projecting backend URLs, previews, or storage credentials into the browser.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "apps/admin/src/media_adapter.rs",
+      "maximumDifferencePercent": 13.4
+    },
+    {
+      "scenarioId": "pr5.admin.media-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy media baseline while the target service returns an authoritative empty bucket. The target removes all object metadata and does not retain a preview or cached item.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs#MediaEmpty",
+      "maximumDifferencePercent": 13.3
+    },
+    {
+      "scenarioId": "pr5.admin.media-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its permitted baseline while the target backend denies media access. The Rust BFF exposes no key, URL, size, MIME, modification, upload, or deletion claim.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "apps/admin/src/media_adapter.rs#AdminMediaLoad",
+      "maximumDifferencePercent": 9.3
+    },
+    {
+      "scenarioId": "pr5.admin.media-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The source receives its healthy baseline while the target media dependency remains unavailable after retry. The Rust BFF removes stale object metadata and renders a distinct retry boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "apps/admin/src/media_adapter.rs#AdminMediaLoad",
+      "maximumDifferencePercent": 9.5
+    },
+    {
+      "scenarioId": "pr5.admin.media-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its healthy baseline while the target media payload violates the strict sorted projection. The Rust decoder fails closed and renders no hostile or partial object metadata.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/media/media-browser.tsx",
+      "targetEvidence": "apps/admin/src/media_adapter.rs#decode_admin_media",
+      "maximumDifferencePercent": 9.5
+    },
+    {
+      "scenarioId": "pr5.admin.media-upload",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target submits exact multipart bytes through the Rust BFF and renders only the redacted backend acknowledgement; storage URLs and credentials remain absent.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
+      "targetEvidence": "apps/admin/src/media_adapter.rs#upload_admin_media",
+      "maximumDifferencePercent": 13.7
+    },
+    {
+      "scenarioId": "pr5.admin.media-upload-conflict",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the storage service's conflict result and does not claim that duplicate object bytes committed or display a fabricated upload acknowledgement.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
+      "targetEvidence": "apps/admin/src/main.rs#submit_media_upload_form",
+      "maximumDifferencePercent": 13.9
+    },
+    {
+      "scenarioId": "pr5.admin.media-delete",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target treats deletion as committed only after the Rust adapter accepts the backend acknowledgement, then reconciles against the authoritative bucket without retaining a deleted preview.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/actions.ts",
+      "targetEvidence": "apps/admin/src/media_adapter.rs#delete_admin_media",
+      "maximumDifferencePercent": 13.8
+    },
+    {
+      "scenarioId": "pr5.frontend.manual",
+      "matrixIds": ["mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "At 390px the pinned source retains its 224px fixed desktop sidebar, leaving the feature cards clipped and their controls outside the usable viewport. The target removes that unsupported fixed-sidebar mode at the mobile breakpoint while retaining every category anchor in an overflow-safe index and every manual card and action.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/manual/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/manual.rs#MANUAL_INLINE_CSS",
+      "maximumDifferencePercent": 23.5
     }
   ]
 }
