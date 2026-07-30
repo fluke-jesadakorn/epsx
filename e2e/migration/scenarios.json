@@ -4212,6 +4212,116 @@
           "sources": ["services/notification/src/main.rs"]
         },
         {
+          "id": "pr6-notification-binary-boundaries",
+          "title": "Notification push stream template and provider boundaries",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "--",
+            "--skip",
+            "runtime_",
+            "--skip",
+            "redis_multi_instance_fanout_and_loss_fallback_are_bounded",
+            "--skip",
+            "redis_broker_restart_recovers_multi_instance_listeners"
+          ],
+          "claims": [
+            "push subscription and delivery validation fail closed with stable provider identities",
+            "stream cursors remain owner scoped and notification payloads remain bounded",
+            "template composition provider callbacks and preference inputs reject malformed data"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
+          "id": "pr6-notification-template-runtime",
+          "title": "Notification template revision and rollback durability",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "runtime_template_rollback_replays_body_and_audit",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "template revisions and rollback restore the exact body",
+            "template rollback emits an auditable durable history"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
+          "id": "pr6-notification-preferences-runtime",
+          "title": "Notification quiet-hour and suppression policy",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "runtime_preferences_enforce_quiet_hours_and_suppression",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "quiet hours are calculated from the persisted timezone and defer delivery",
+            "disabled channels are suppressed without fabricating successful delivery"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
+          "id": "pr6-notification-stream-runtime",
+          "title": "Notification SSE replay ownership",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "runtime_stream_cursor_acknowledgement_is_owner_bound",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "SSE replay cursors and acknowledgements remain bound to the verified owner",
+            "cross-owner cursor reuse cannot advance or expose another owner's stream"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
+          "id": "pr6-notification-provider-runtime",
+          "title": "Notification provider reconciliation and deduplication",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-notification",
+            "--bin",
+            "notification",
+            "runtime_provider_callback_reconciles_and_deduplicates",
+            "--",
+            "--ignored"
+          ],
+          "claims": [
+            "signed provider callbacks reconcile durable delivery state",
+            "replayed provider events remain idempotent and auditable"
+          ],
+          "sources": ["services/notification/src/main.rs"]
+        },
+        {
           "id": "pr6-frontend-notification-bff",
           "title": "Frontend owner-bound notification projection",
           "executable": "cargo",
