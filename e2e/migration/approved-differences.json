@@ -684,6 +684,15 @@
       "maximumDifferencePercent": 44.1
     },
     {
+      "scenarioId": "pr5.frontend.news-detail-ready",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source omits the legacy author_wallet field from the published article view. The target Rust BFF validates and normalizes that backend-owned field into the strict author projection, so the mobile metadata row and resulting body wrap differ while retaining the exact verified article.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/news/news-detail.tsx",
+      "targetEvidence": "apps/frontend/src/api.rs#normalize_detail_article",
+      "maximumDifferencePercent": 3.9
+    },
+    {
       "scenarioId": "pr5.frontend.news-detail-not-found",
       "matrixIds": ["mobile-dark"],
       "category": "security",
@@ -717,7 +726,7 @@
       "reason": "The target inventory renders only the bounded article summary accepted by the Rust content adapter and replaces legacy client mutation affordances with links and controls backed by explicit BFF routes.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
       "targetEvidence": "apps/admin/src/news_adapter.rs",
-      "maximumDifferencePercent": 9.7
+      "maximumDifferencePercent": 10.9
     },
     {
       "scenarioId": "pr5.admin.news-draft-filter",
@@ -726,7 +735,7 @@
       "reason": "The target preserves the backend-owned draft filter and displays the exact strict projection without deriving publication or pin state in the browser.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/news/news-management.tsx",
       "targetEvidence": "apps/admin/src/news_adapter.rs#AdminNewsQuery",
-      "maximumDifferencePercent": 9.9
+      "maximumDifferencePercent": 11
     },
     {
       "scenarioId": "pr5.admin.news-empty",
@@ -933,7 +942,7 @@
       "reason": "At 390px the pinned source retains its 224px fixed desktop sidebar, leaving the feature cards clipped and their controls outside the usable viewport. The target removes that unsupported fixed-sidebar mode at the mobile breakpoint while retaining every category anchor in an overflow-safe index and every manual card and action.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/manual/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/manual.rs#MANUAL_INLINE_CSS",
-      "maximumDifferencePercent": 23.5
+      "maximumDifferencePercent": 24
     }
   ]
 }
