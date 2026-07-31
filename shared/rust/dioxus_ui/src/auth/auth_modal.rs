@@ -92,9 +92,10 @@ pub fn AuthModal(
     let demo_label_val = demo_label.unwrap_or_else(|| "Try demo account".to_string());
     let extra_cls = class_name.unwrap_or_default();
 
-    // Runtime ids for the dialog + label/description. Generate a
-    // monotonic counter for SSR-stable panel ids (Modal does the same).
-    let panel_id = format!("auth-modal-panel-{}", generate_id());
+    // The global auth modal is a singleton on each page. Keep its
+    // accessibility identifiers deterministic across SSR renders so
+    // repeated migration captures have identical semantic DOM hashes.
+    let panel_id = "auth-modal-panel".to_string();
     let title_id = format!("{panel_id}-title");
     let desc_id = format!("{panel_id}-desc");
 
@@ -314,12 +315,4 @@ pub struct WalletInfo {
     /// Click handler. The handler receives the `MouseEvent`; the
     /// caller can read `id` from the surrounding closure scope.
     pub on_click: Option<EventHandler<WalletClick>>,
-}
-
-/// Monotonically increasing id for SSR-stable panel ids. Same trick
-/// Wave 1 used for `Modal`.
-fn generate_id() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

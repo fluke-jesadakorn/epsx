@@ -36,7 +36,10 @@ const fixtureMessageId = '550e8400-e29b-41d4-a716-446655440002';
 const fixtureApiKeyId = '550e8400-e29b-41d4-a716-446655440003';
 const fixtureModuleId = '550e8400-e29b-41d4-a716-446655440004';
 const fixturePaymentIntentId = 'intent_e2e_0001';
-const fixturePaymentLinkId = 'link_e2e_0001';
+// Payment-link identifiers are projected through the same bounded resource-id
+// decoder as every other financial record. Keep the fixture UUID-shaped so a
+// ready projection cannot be downgraded to malformed solely by its test id.
+const fixturePaymentLinkId = '550e8400-e29b-41d4-a716-446655440005';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4

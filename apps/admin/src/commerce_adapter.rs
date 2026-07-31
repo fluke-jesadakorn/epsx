@@ -468,6 +468,17 @@ pub(crate) async fn load_payment_links(
         Ok(payload) => payload,
         Err(error) => return error.into_load(),
     };
+    // An empty registry is authoritative when its bounded pagination envelope
+    // is valid. There is no item projection to decode in this state, so do not
+    // downgrade a strict zero-item response merely because an item-only
+    // projection check has nothing to inspect.
+    if payload.items.is_empty()
+        && payload.total == 0
+        && (1..=100).contains(&payload.limit)
+        && (0..=10_000_000).contains(&payload.offset)
+    {
+        return AdminCommerceLoad::Empty;
+    }
     let projection = serde_json::json!({
         "items": payload
             .items
@@ -821,6 +832,21 @@ mod tests {
         assert!(payment_intent_cancel_path("intent.id").is_none());
         assert!(payment_link_mutation_path(Some("linksfoo")).is_none());
         assert!(access_mutation_path("assignfoo").is_none());
+    }
+
+    #[test]
+    fn empty_payment_link_inventory_is_authoritative() {
+        let projection = serde_json::json!({
+            "items": [],
+            "total": 0,
+            "limit": 100,
+            "offset": 0,
+        });
+        let decoded = decode_admin_payment_link_list_projection(projection);
+        assert!(decoded.is_some());
+        let decoded = decoded.expect("empty payment-link projection");
+        assert!(decoded.items.is_empty());
+        assert_eq!(decoded.total, 0);
     }
 
     #[test]
