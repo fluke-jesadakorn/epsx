@@ -1137,10 +1137,10 @@
       "scenarioId": "pr6.frontend.chat-detail",
       "matrixIds": ["mobile-dark"],
       "category": "unsupported-feature-removal",
-      "reason": "No frozen owner-scoped conversation loader or send, read, attachment, status, or SSE mutation contract exists for the target route. The target therefore removes the source conversation controls and message claims and exposes only a bounded unverified route reference in an unavailable boundary.",
+      "reason": "No frozen owner-scoped conversation loader or send, read, attachment, status, or SSE mutation contract exists for the target route. The pinned mobile source stops at its shallow sign-in gate, while the target validates the owner session, removes the unsupported conversation controls and message claims, and renders the explicit unavailable boundary with only a bounded unverified route reference.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/chat/[id]/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/chat_conversation.rs#ChatConversationUnavailable",
-      "maximumDifferencePercent": 17.4
+      "maximumDifferencePercent": 18.3
     },
     {
       "scenarioId": "pr6.frontend.chat-history",
