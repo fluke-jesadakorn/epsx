@@ -3345,7 +3345,13 @@
               "epsx:notifications:update"
             ]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h3:has-text(\"No notifications\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
@@ -3664,13 +3670,20 @@
           "surface": "admin",
           "path": "/notifications",
           "title": "Canonical admin notification route",
+          "expectedSourcePath": "/notifications/manage",
           "state": {
             "id": "notification-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
             "permissions": ["admin:notifications:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h3:has-text(\"Silence is Golden\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "path",
