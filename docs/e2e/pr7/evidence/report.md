@@ -4,9 +4,9 @@ Result: **PASS**
 
 Source Next.js SHA: `373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`
 
-Target Rust/Dioxus SHA: `0d4b89ccb12f698a9c00ab948775ed370c937acf`
+Target Rust/Dioxus SHA: `7788e0980c5ecb2073d19c86ecdd001951071784`
 
-Generated: 2026-07-31T22:04:08.934Z
+Generated: 2026-07-31T22:06:38.806Z
 
 This report covers every executable scenario owned by cumulative groups 0–7. Visual differences above 1% require a machine-readable non-styling exception.
 
