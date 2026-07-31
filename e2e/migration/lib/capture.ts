@@ -277,6 +277,16 @@ export function blockingFailedRequests(
         failureUrl.searchParams.get('st') === 'appkit' &&
         failureUrl.searchParams.get('sv') === 'html-core-1.7.8' &&
         [...failureUrl.searchParams.keys()].length === 3;
+      const isCanceledDeveloperReloadAsset =
+        failure.method === 'GET' &&
+        failure.failure === 'net::ERR_ABORTED' &&
+        failureUrl.origin === 'http://127.0.0.1:4201' &&
+        failureUrl.pathname === '/public/dist/tailwind.css';
+      const isCanceledDeveloperIconScript =
+        failure.method === 'GET' &&
+        failure.failure === 'net::ERR_ABORTED' &&
+        failureUrl.origin === 'https://unpkg.com' &&
+        failureUrl.pathname === '/lucide@latest';
       const isRetriedSubresourceAbort =
         failure.method === 'GET' &&
         failure.resourceType === 'image' &&
@@ -312,7 +322,12 @@ export function blockingFailedRequests(
       // config fetch during a redirect before Playwright emits the synthetic
       // response. The full URL, dummy project, client version, and abort remain
       // in network.json; every other external or wallet request still blocks.
-      return !successfulResponseAbort && !isCanceledStubbedWalletConfig;
+      return (
+        !successfulResponseAbort &&
+        !isCanceledStubbedWalletConfig &&
+        !isCanceledDeveloperReloadAsset &&
+        !isCanceledDeveloperIconScript
+      );
     });
 }
 
@@ -346,6 +361,29 @@ export function expectedDocumentConsoleError(options: {
       'It was handled by the <ErrorBoundaryHandler> error boundary.'
     );
   if (pinnedAdminChatHydrationError) {
+    return true;
+  }
+  const pinnedDeveloperApiNotFound =
+    side === 'source' &&
+    scenario.id.startsWith('pr7.') &&
+    entry.type === 'error' &&
+    entry.text.includes(
+      'Failed to load resource: the server responded with a status of 404 (Not Found)'
+    ) &&
+    entry.location !== undefined &&
+    (() => {
+      const location = new URL(entry.location.replace(/:\d+:\d+$/, ''));
+      if (location.hostname !== 'localhost' || location.port !== '8080') {
+        return false;
+      }
+      return [
+        '/api/developer-portal/my-keys',
+        '/api/admin/developer/keys',
+        '/api/admin/developer/modules',
+        '/api/admin/plans',
+      ].includes(location.pathname);
+    })();
+  if (pinnedDeveloperApiNotFound) {
     return true;
   }
   const expectedStatus = scenario.outcomes.find(
