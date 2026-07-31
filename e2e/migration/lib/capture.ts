@@ -431,7 +431,12 @@ async function waitForVisibleImages(page: Page): Promise<void> {
       return visibleImages.every(image => image.complete);
     },
     undefined,
-    { polling: 100, timeout: 15_000 }
+    // The immutable Next.js source dev server compiles static image routes on
+    // demand. Under a cumulative Linux gate that response can exceed 15
+    // seconds even though it completes successfully (and remains recorded in
+    // the HAR). Keep the readiness requirement strict, but give the pinned
+    // source enough bounded time to finish serving the visible asset.
+    { polling: 100, timeout: 60_000 }
   );
   await page.evaluate(async () => {
     const visibleImages = Array.from(document.images).filter(image => {
