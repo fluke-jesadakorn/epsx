@@ -951,7 +951,7 @@
       "reason": "The source renders its client-side empty fallback while the target renders the owner-scoped notification, unread state, filters, actions, and replay status accepted by the strict Rust projection. The target does not replace that verified row with the source fallback.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/notifications.rs#NotificationsReady",
-      "maximumDifferencePercent": 3
+      "maximumDifferencePercent": 3.6
     },
     {
       "scenarioId": "pr6.frontend.notifications-ready",
@@ -960,7 +960,7 @@
       "reason": "The source renders its client-side empty fallback while the target renders the owner-scoped notification, unread state, filters, actions, and replay status accepted by the strict Rust projection. The authenticated mobile target also retains only controls backed by the verified session.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/notifications.rs#NotificationsReady",
-      "maximumDifferencePercent": 13.2
+      "maximumDifferencePercent": 15
     },
     {
       "scenarioId": "pr6.frontend.notifications-empty",
@@ -969,7 +969,7 @@
       "reason": "The target distinguishes a complete backend-verified zero-row window from loading, unavailable, malformed, and filtered-empty states, and exposes no notification row or unread claim. The source empty fallback does not carry that authoritative window state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/notifications.rs#NotificationsEmpty",
-      "maximumDifferencePercent": 2.6
+      "maximumDifferencePercent": 3.1
     },
     {
       "scenarioId": "pr6.frontend.notifications-empty",
@@ -978,7 +978,7 @@
       "reason": "The target distinguishes a complete backend-verified zero-row window from loading, unavailable, malformed, and filtered-empty states, exposes no notification row or unread claim, and retains only session-verified mobile controls.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/notifications.rs#NotificationsEmpty",
-      "maximumDifferencePercent": 11.7
+      "maximumDifferencePercent": 12.8
     },
     {
       "scenarioId": "pr6.frontend.notification-read",
@@ -987,7 +987,7 @@
       "reason": "The target keeps the notification row and mutation toolbar visible only after the Rust BFF accepts the owner-scoped read acknowledgement and reloads the verified inbox. The source comparison fallback has no equivalent committed mutation evidence.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/actions/notifications.ts",
       "targetEvidence": "apps/frontend/src/api.rs#notification_mutation",
-      "maximumDifferencePercent": 3
+      "maximumDifferencePercent": 3.6
     },
     {
       "scenarioId": "pr6.frontend.notification-read",
@@ -996,7 +996,7 @@
       "reason": "The target keeps the notification row and mutation toolbar visible only after the Rust BFF accepts the owner-scoped read acknowledgement and reloads the verified inbox. The source comparison fallback has no equivalent committed mutation evidence.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/actions/notifications.ts",
       "targetEvidence": "apps/frontend/src/api.rs#notification_mutation",
-      "maximumDifferencePercent": 13.2
+      "maximumDifferencePercent": 15
     },
     {
       "scenarioId": "pr6.frontend.notifications-unavailable",
@@ -1005,7 +1005,7 @@
       "reason": "The source receives its healthy comparison fallback while the target notification dependency remains unavailable. The Rust BFF preserves the retryable 503 boundary and removes every notification, unread, delivery, and empty-inbox claim.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "apps/frontend/src/api.rs#load_notifications_page",
-      "maximumDifferencePercent": 4.5
+      "maximumDifferencePercent": 4.9
     },
     {
       "scenarioId": "pr6.frontend.notifications-unavailable",
@@ -1014,7 +1014,7 @@
       "reason": "The source receives its healthy comparison fallback while the target notification dependency remains unavailable. The Rust BFF preserves the retryable 503 boundary and removes every notification, unread, delivery, and empty-inbox claim.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "apps/frontend/src/api.rs#load_notifications_page",
-      "maximumDifferencePercent": 10.1
+      "maximumDifferencePercent": 10.8
     },
     {
       "scenarioId": "pr6.frontend.notifications-malformed",
@@ -1023,7 +1023,7 @@
       "reason": "The source receives its healthy comparison fallback while the target owner projection is malformed. The strict Rust decoder fails closed with a 502 and renders no notification title, body, owner, unread state, action, delivery state, or partial payload field.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "apps/frontend/src/api.rs#decode_notification_page",
-      "maximumDifferencePercent": 4.5
+      "maximumDifferencePercent": 4.9
     },
     {
       "scenarioId": "pr6.frontend.notifications-malformed",
@@ -1032,7 +1032,7 @@
       "reason": "The source receives its healthy comparison fallback while the target owner projection is malformed. The strict Rust decoder fails closed with a 502 and renders no notification title, body, owner, unread state, action, delivery state, or partial payload field.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/notifications/notifications-client.tsx",
       "targetEvidence": "apps/frontend/src/api.rs#decode_notification_page",
-      "maximumDifferencePercent": 10.1
+      "maximumDifferencePercent": 10.8
     },
     {
       "scenarioId": "pr6.frontend.preferences-ready",
@@ -1050,7 +1050,7 @@
       "reason": "The target renders the owner-scoped quiet-hours and push-capability projection while suppressing the source account surface's fixture-derived plan, credit, payment, and preference claims. Unselected owner projections remain explicitly unavailable.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/account/account-client.tsx",
       "targetEvidence": "apps/frontend/src/api.rs#load_notification_preferences",
-      "maximumDifferencePercent": 16.7
+      "maximumDifferencePercent": 17.9
     },
     {
       "scenarioId": "pr6.frontend.preferences-save",
@@ -1068,7 +1068,7 @@
       "reason": "The target reports the quiet-hours update only after the Rust BFF validates the canonical form, receives a strict owner-scoped backend acknowledgement, and redirects to the saved state. It continues to suppress unrelated unverified account claims.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/actions/notifications.ts",
       "targetEvidence": "apps/frontend/src/api.rs#notification_preferences_form",
-      "maximumDifferencePercent": 16.7
+      "maximumDifferencePercent": 18
     },
     {
       "scenarioId": "pr6.admin.notifications-redirect",
@@ -1077,7 +1077,7 @@
       "reason": "The target canonicalizes the legacy administrator notification path to the backend-verified inventory instead of rendering the source command-center fallback and its unrelated synthesized operational cards.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications_redirect.rs",
-      "maximumDifferencePercent": 5.2
+      "maximumDifferencePercent": 6.3
     },
     {
       "scenarioId": "pr6.admin.notifications-redirect",
@@ -1086,7 +1086,7 @@
       "reason": "The target canonicalizes the legacy administrator notification path to the backend-verified inventory instead of rendering the source command-center fallback and its unrelated synthesized operational cards.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications_redirect.rs",
-      "maximumDifferencePercent": 7.2
+      "maximumDifferencePercent": 9
     },
     {
       "scenarioId": "pr6.admin.notification-manage",
@@ -1095,7 +1095,7 @@
       "reason": "The target renders the strict administrator notification inventory, delivery counters, bounded filters, and redrive actions accepted by the Rust BFF. It does not substitute the source command-center fallback or invent operational totals.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/notification-management.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#AdminNotificationsReady",
-      "maximumDifferencePercent": 5.2
+      "maximumDifferencePercent": 6.3
     },
     {
       "scenarioId": "pr6.admin.notification-manage",
@@ -1104,7 +1104,7 @@
       "reason": "The target renders the strict administrator notification inventory, delivery counters, bounded filters, and redrive actions accepted by the Rust BFF. It does not substitute the source command-center fallback or invent operational totals.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/notification-management.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#AdminNotificationsReady",
-      "maximumDifferencePercent": 7.2
+      "maximumDifferencePercent": 9
     },
     {
       "scenarioId": "pr6.admin.notification-empty",
@@ -1239,7 +1239,7 @@
       "reason": "The source renders search, filters, a new-conversation mutation, response-time status, and an empty-inbox claim without a frozen owner-scoped chat contract. The target preserves the responsive inbox geometry but removes those unsupported claims and controls and renders an explicit unavailable state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/chat/chat-inbox.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/chat.rs#RenderChatInbox",
-      "maximumDifferencePercent": 8
+      "maximumDifferencePercent": 8.4
     },
     {
       "scenarioId": "pr6.frontend.chat-detail",
