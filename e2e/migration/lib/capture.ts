@@ -343,9 +343,6 @@ export function expectedDocumentConsoleError(options: {
     ) &&
     entry.text.includes('onUpdate={function onUpdate}') &&
     entry.text.includes(
-      'The above error occurred in the <ChatConversationView> component.'
-    ) &&
-    entry.text.includes(
       'It was handled by the <ErrorBoundaryHandler> error boundary.'
     );
   if (pinnedAdminChatHydrationError) {

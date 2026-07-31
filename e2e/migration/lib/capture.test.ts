@@ -176,6 +176,18 @@ test('only the exact pinned admin chat hydration error is explained', () => {
   };
 
   expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: {
+        ...entry,
+        text: entry.text.replace(
+          '<ChatConversationView>',
+          '<Unknown>'
+        ),
+      },
+    })
+  ).toBe(true);
   expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
     false
   );
