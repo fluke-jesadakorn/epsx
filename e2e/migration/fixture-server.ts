@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { createPrivateKey, sign } from 'node:crypto';
 
 import { permissionAllows } from './lib/fixture-permissions';
+import { isNotificationItemMutationPath } from './lib/fixture-routes';
 
 interface FixtureRequest {
   sequence: number;
@@ -1695,9 +1696,7 @@ async function routeRequest(request: Request): Promise<Response> {
   if (
     url.pathname === '/api/v1/notification/mark-all-read' ||
     url.pathname === '/api/v1/notification/clear-all' ||
-    /^\/api\/v1\/notification\/[A-Za-z0-9_-]+(?:\/(?:read|unread|acknowledge|dismiss|click))?$/.test(
-      url.pathname
-    )
+    isNotificationItemMutationPath(url.pathname)
   ) {
     return json({ success: true, updated_count: 1, deleted_count: 1 });
   }
@@ -1712,7 +1711,6 @@ async function routeRequest(request: Request): Promise<Response> {
       id: 'idem_notification_send_e2e',
       status,
       delivered: status === 'sent',
-      error: status === 'failed' ? 'provider_failed' : null,
       request_id: 'epsx-e2e-notification-send',
     });
   }
