@@ -1184,7 +1184,12 @@
             "audience": "epsx-admin",
             "permissions": ["admin:plans:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-wallet-plans-state=\"ready\"], h2:has-text(\"Active Plans\")"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
