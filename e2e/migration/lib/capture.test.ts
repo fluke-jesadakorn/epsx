@@ -2,11 +2,12 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   blockingFailedRequests,
+  expectedDocumentConsoleError,
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
 } from './capture';
-import type { NetworkEntry } from './types';
+import type { NetworkEntry, Scenario } from './types';
 
 const nextStylesheet =
   'http://127.0.0.1:4100/_next/static/chunks/%5Broot-of-the-server%5D__9f26c86c._.css';
@@ -140,6 +141,55 @@ test('wall-clock control is limited to the admin root dashboard', () => {
   ).toBe(false);
   expect(
     requiresDeterministicWallClock({ surface: 'frontend', path: '/' })
+  ).toBe(false);
+});
+
+test('only the exact pinned admin chat hydration error is explained', () => {
+  const scenario: Scenario = {
+    id: 'pr6.admin.chat-detail',
+    surface: 'admin',
+    path: '/chat/550e8400-e29b-41d4-a716-446655440000',
+    title: 'Pinned chat detail',
+    state: { id: 'chat-admin', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4101/_next/static/chunks/c6277_next_dist_client_45827b1f._.js:1375:24',
+    text: [
+      'Error: Event handlers cannot be passed to Client Component props.',
+      'onUpdate={function onUpdate}',
+      'The above error occurred in the <ChatConversationView> component.',
+      'It was handled by the <ErrorBoundaryHandler> error boundary.',
+    ].join('\n'),
+  };
+  const options = {
+    entry,
+    finalUrl: 'http://127.0.0.1:4101/chat/550e8400-e29b-41d4-a716-446655440000',
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: { ...entry, text: 'different error' },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, path: '/chat/not-a-uuid' },
+    })
   ).toBe(false);
 });
 

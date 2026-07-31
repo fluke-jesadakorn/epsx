@@ -316,7 +316,7 @@ export function blockingFailedRequests(
     });
 }
 
-function expectedDocumentConsoleError(options: {
+export function expectedDocumentConsoleError(options: {
   entry: BrowserLogEntry;
   finalUrl: string;
   finalStatus: number | null;
@@ -326,6 +326,31 @@ function expectedDocumentConsoleError(options: {
 }): boolean {
   const { entry, finalStatus, finalUrl, networkEntries, scenario, side } =
     options;
+  const scenarioPath = new URL(scenario.path, 'http://epsx-e2e.invalid')
+    .pathname;
+  const pinnedAdminChatHydrationError =
+    side === 'source' &&
+    scenario.surface === 'admin' &&
+    /^\/chat\/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(
+      scenarioPath
+    ) &&
+    entry.type === 'error' &&
+    entry.location?.startsWith(
+      `${new URL(finalUrl).origin}/_next/static/chunks/c6277_next_dist_client_`
+    ) === true &&
+    entry.text.includes(
+      'Error: Event handlers cannot be passed to Client Component props.'
+    ) &&
+    entry.text.includes('onUpdate={function onUpdate}') &&
+    entry.text.includes(
+      'The above error occurred in the <ChatConversationView> component.'
+    ) &&
+    entry.text.includes(
+      'It was handled by the <ErrorBoundaryHandler> error boundary.'
+    );
+  if (pinnedAdminChatHydrationError) {
+    return true;
+  }
   const expectedStatus = scenario.outcomes.find(
     outcome =>
       outcome.type === 'status' &&
@@ -1049,19 +1074,22 @@ export async function captureSide(
       await rename(generatedPath, videoPath);
     }
 
-    const consoleErrors = capturedConsoleEntries
-      .filter(({ type }) => type === 'error' || type === 'assert')
-      .filter(
-        entry =>
-          !expectedDocumentConsoleError({
-            entry,
-            finalUrl,
-            finalStatus,
-            scenario,
-            side,
-            networkEntries: capturedNetworkEntries,
-          })
-      );
+    const capturedConsoleErrors = capturedConsoleEntries.filter(
+      ({ type }) => type === 'error' || type === 'assert'
+    );
+    const explainedConsoleErrors = capturedConsoleErrors.filter(entry =>
+      expectedDocumentConsoleError({
+        entry,
+        finalUrl,
+        finalStatus,
+        scenario,
+        side,
+        networkEntries: capturedNetworkEntries,
+      })
+    );
+    const consoleErrors = capturedConsoleErrors.filter(
+      entry => !explainedConsoleErrors.includes(entry)
+    );
     const failedRequests = blockingFailedRequests(capturedNetworkEntries);
     const result: CaptureResult = {
       side,
@@ -1074,6 +1102,7 @@ export async function captureSide(
       title,
       bodyTextLength,
       consoleErrors,
+      explainedConsoleErrors,
       pageErrors: capturedPageErrors,
       failedRequests,
       artifactDirectory,

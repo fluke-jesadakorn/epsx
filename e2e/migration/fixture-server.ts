@@ -1625,7 +1625,8 @@ async function routeRequest(request: Request): Promise<Response> {
     url.pathname === '/api/notifications/stream' ||
     url.pathname === '/api/v1/notification/stream' ||
     url.pathname === '/api/v1/notifications/stream' ||
-    url.pathname === '/api/chat/stream'
+    url.pathname === '/api/chat/stream' ||
+    url.pathname === '/api/chat/admin/stream'
   ) {
     return new Response(': deterministic fixture stream connected\n\n', {
       headers: {
