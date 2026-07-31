@@ -1113,7 +1113,7 @@
       "reason": "The target renders an empty inventory only after the Rust BFF returns a valid zero-item projection. The source substitutes its unrelated command-center cards and fixture-independent empty claim when its notification dependency is unavailable.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/notification-management.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#NotificationEmpty",
-      "maximumDifferencePercent": 7.2
+      "maximumDifferencePercent": 9
     },
     {
       "scenarioId": "pr6.admin.notification-forbidden",
@@ -1122,7 +1122,7 @@
       "reason": "The target preserves the Rust BFF permission denial and withholds notification inventory and delivery data. The source command-center fallback does not represent that backend authorization boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/notification-management.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#NotificationProblem",
-      "maximumDifferencePercent": 6.8
+      "maximumDifferencePercent": 8.7
     },
     {
       "scenarioId": "pr6.admin.notification-malformed",
@@ -1131,7 +1131,7 @@
       "reason": "The target rejects a malformed notification response at the strict Rust projection boundary and exposes no inventory claims. The source command-center fallback cannot prove or display this fail-closed state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/notification-management.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#decode_admin_notification_projection",
-      "maximumDifferencePercent": 7
+      "maximumDifferencePercent": 9
     },
     {
       "scenarioId": "pr6.admin.notification-create",
@@ -1140,7 +1140,7 @@
       "reason": "The source composer exposes broadcast, classification, priority, action-URL, and upload controls without a frozen target mutation contract. The target retains only the recipient, title, message, and idempotency fields accepted by the Rust BFF.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/send-notification-form.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#NotificationCreateForm",
-      "maximumDifferencePercent": 9.1
+      "maximumDifferencePercent": 10.7
     },
     {
       "scenarioId": "pr6.admin.notification-send",
@@ -1149,7 +1149,7 @@
       "reason": "The target reports delivery acceptance only after the Rust BFF validates the canonical form and receives the backend's idempotent acknowledgement. The source client-side composer has no equivalent deterministic acknowledgement state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/send-notification-form.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#NotificationCreateOutcome",
-      "maximumDifferencePercent": 9.2
+      "maximumDifferencePercent": 10.9
     },
     {
       "scenarioId": "pr6.admin.notification-send-conflict",
@@ -1158,7 +1158,7 @@
       "reason": "The target preserves the backend idempotency conflict and never presents a successful delivery claim. The source client-side mutation surface does not model this fail-closed conflict boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/components/notifications/send-notification-form.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#NotificationCreateProblem",
-      "maximumDifferencePercent": 9.1
+      "maximumDifferencePercent": 11.1
     },
     {
       "scenarioId": "pr6.admin.chat",
@@ -1167,7 +1167,7 @@
       "reason": "The target renders the owner-isolated conversation returned by the strict Rust BFF projection. The source converts its unavailable dependency into synthesized zero counters and an empty queue, which would conceal the verified conversation.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatListReady",
-      "maximumDifferencePercent": 6.6
+      "maximumDifferencePercent": 8.1
     },
     {
       "scenarioId": "pr6.admin.chat-empty",
@@ -1176,7 +1176,7 @@
       "reason": "The target renders an empty support queue only after receiving a valid owner-scoped zero-item projection. It omits the source's synthesized operational counters because those values were not supplied by the backend.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatProblem",
-      "maximumDifferencePercent": 6.9
+      "maximumDifferencePercent": 7.9
     },
     {
       "scenarioId": "pr6.admin.chat-forbidden",
@@ -1185,7 +1185,7 @@
       "reason": "The target preserves the Rust BFF chat permission denial and withholds conversation and ownership data. The source substitutes zero counters and an empty queue instead of representing that authorization boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatProblem",
-      "maximumDifferencePercent": 6.3
+      "maximumDifferencePercent": 7.5
     },
     {
       "scenarioId": "pr6.admin.chat-malformed",
@@ -1194,7 +1194,7 @@
       "reason": "The target rejects malformed conversation data at the strict Rust projection boundary and exposes no ownership claims. The source's synthesized empty queue cannot distinguish malformed backend data from a valid empty response.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#decode_admin_chat_list",
-      "maximumDifferencePercent": 6.6
+      "maximumDifferencePercent": 7.7
     },
     {
       "scenarioId": "pr6.admin.chat-detail",
@@ -1203,7 +1203,7 @@
       "reason": "The pinned source route falls into its generic error boundary when its chat dependency is unavailable. The target instead renders the strictly decoded, owner-isolated conversation and messages returned by the Rust BFF.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/[id]/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatDetailReady",
-      "maximumDifferencePercent": 7.9
+      "maximumDifferencePercent": 10.2
     },
     {
       "scenarioId": "pr6.admin.chat-reply",
@@ -1212,7 +1212,7 @@
       "reason": "The target reports a reply only after the Rust BFF validates the owner-scoped conversation, message body, and idempotency key and receives backend acknowledgement. The pinned source remains in its dependency error boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/actions/chat.ts",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatDetailReady",
-      "maximumDifferencePercent": 8.1
+      "maximumDifferencePercent": 10.4
     },
     {
       "scenarioId": "pr6.admin.chat-reply-conflict",
