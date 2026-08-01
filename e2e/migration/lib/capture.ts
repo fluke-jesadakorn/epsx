@@ -82,6 +82,21 @@ export function requiresDeterministicWallClock(
   );
 }
 
+/**
+ * The pinned Next.js admin plan editor runs its missing-plan effect more than
+ * once in development. Sonner keeps the duplicate, hidden notification
+ * nodes in the DOM, so the immutable source can otherwise produce different
+ * semantic and accessibility hashes while rendering identical pixels. Keep
+ * this normalization scoped to that source scenario; the first toast still
+ * proves the declared "Plan not found" outcome.
+ */
+export function canonicalizeSourceTransientToasts(
+  side: 'source' | 'target',
+  scenarioId: string
+): boolean {
+  return side === 'source' && scenarioId === 'pr3.admin.plan-conflict';
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -207,7 +222,10 @@ function normalizedDom(semanticHtml: string): string {
   );
 }
 
-async function accessibilitySnapshot(page: Page): Promise<string> {
+async function accessibilitySnapshot(
+  page: Page,
+  collapseDuplicateSourceToasts: boolean
+): Promise<string> {
   const announcers = page.locator('next-route-announcer [role="alert"]');
   const priorAriaHidden = await announcers.evaluateAll(elements =>
     elements.map(element => element.getAttribute('aria-hidden'))
@@ -222,9 +240,34 @@ async function accessibilitySnapshot(page: Page): Promise<string> {
       element.setAttribute('aria-hidden', 'true');
     }
   });
+  const transientToasts = page.locator('[data-sonner-toast]');
+  const priorToastAriaHidden = collapseDuplicateSourceToasts
+    ? await transientToasts.evaluateAll(elements =>
+        elements.map(element => element.getAttribute('aria-hidden'))
+      )
+    : [];
+  if (collapseDuplicateSourceToasts) {
+    await transientToasts.evaluateAll(elements => {
+      elements.slice(1).forEach(element => {
+        element.setAttribute('aria-hidden', 'true');
+      });
+    });
+  }
   try {
     return await page.locator('body').ariaSnapshot();
   } finally {
+    if (collapseDuplicateSourceToasts) {
+      await transientToasts.evaluateAll((elements, priorValues) => {
+        elements.forEach((element, index) => {
+          const prior = priorValues[index];
+          if (prior === null || prior === undefined) {
+            element.removeAttribute('aria-hidden');
+          } else {
+            element.setAttribute('aria-hidden', prior);
+          }
+        });
+      }, priorToastAriaHidden);
+    }
     await announcers.evaluateAll((elements, priorValues) => {
       elements.forEach((element, index) => {
         const prior = priorValues[index];
@@ -354,7 +397,9 @@ export function expectedDocumentConsoleError(options: {
     entry.type === 'error' &&
     entry.location?.includes('/_next/static/chunks/6063a_next_dist_client_') ===
       true &&
-    entry.text.includes('TypeError: Cannot convert a BigInt value to a number') &&
+    entry.text.includes(
+      'TypeError: Cannot convert a BigInt value to a number'
+    ) &&
     entry.text.includes('Math.pow') &&
     entry.text.includes('node_modules_viem__esm_') &&
     entry.text.includes('GlobalErrorBoundary');
@@ -927,46 +972,67 @@ export async function captureSide(
     const bodyTextLength = (await page.locator('body').innerText()).trim()
       .length;
     const html = await page.content();
-    const semanticHtml = await page.evaluate(() => {
-      const clone = document.body.cloneNode(true) as HTMLElement;
-      // Next.js can leave streamed document metadata in `<body>` for a
-      // hydration turn, then move it into `<head>` without changing pixels or
-      // the accessibility tree. Document metadata is not part of the body
-      // semantic contract (and the final title is captured separately), so
-      // exclude it alongside non-semantic runtime script/style nodes.
-      for (const node of clone.querySelectorAll('script, style, title, meta')) {
-        node.remove();
-      }
-      for (const element of [clone, ...clone.querySelectorAll('*')]) {
-        if (
-          element.tagName === 'INPUT' &&
-          element.getAttribute('name') === 'idempotency_key'
-        ) {
-          // Idempotency tokens intentionally contain fresh entropy on every
-          // render. Preserve the input and its contract while canonicalizing
-          // only the volatile value for exact semantic-DOM repeat proofs.
-          element.setAttribute('value', '__EPSX_IDEMPOTENCY_KEY__');
+    const collapseDuplicateSourceToasts = canonicalizeSourceTransientToasts(
+      side,
+      scenario.id
+    );
+    const semanticHtml = await page.evaluate(
+      ({ collapseDuplicateSourceToasts: collapseToasts }) => {
+        const clone = document.body.cloneNode(true) as HTMLElement;
+        // Next.js can leave streamed document metadata in `<body>` for a
+        // hydration turn, then move it into `<head>` without changing pixels or
+        // the accessibility tree. Document metadata is not part of the body
+        // semantic contract (and the final title is captured separately), so
+        // exclude it alongside non-semantic runtime script/style nodes.
+        for (const node of clone.querySelectorAll(
+          'script, style, title, meta'
+        )) {
+          node.remove();
         }
-        const runtimeAttributes = Array.from(element.attributes)
-          .map(attribute => attribute.name)
-          .filter(name => name.startsWith('data-nextjs') || name === 'nonce');
-        for (const name of runtimeAttributes) {
-          element.removeAttribute(name);
+        if (collapseToasts) {
+          clone
+            .querySelectorAll('[data-sonner-toast]')
+            .forEach((element, index) => {
+              if (index > 0) {
+                element.remove();
+              }
+            });
         }
-        const attributes = Array.from(element.attributes)
-          .map(attribute => [attribute.name, attribute.value] as const)
-          .sort(([left], [right]) => left.localeCompare(right));
-        while (element.attributes.length > 0) {
-          element.removeAttribute(element.attributes[0].name);
+        for (const element of [clone, ...clone.querySelectorAll('*')]) {
+          if (
+            element.tagName === 'INPUT' &&
+            element.getAttribute('name') === 'idempotency_key'
+          ) {
+            // Idempotency tokens intentionally contain fresh entropy on every
+            // render. Preserve the input and its contract while canonicalizing
+            // only the volatile value for exact semantic-DOM repeat proofs.
+            element.setAttribute('value', '__EPSX_IDEMPOTENCY_KEY__');
+          }
+          const runtimeAttributes = Array.from(element.attributes)
+            .map(attribute => attribute.name)
+            .filter(name => name.startsWith('data-nextjs') || name === 'nonce');
+          for (const name of runtimeAttributes) {
+            element.removeAttribute(name);
+          }
+          const attributes = Array.from(element.attributes)
+            .map(attribute => [attribute.name, attribute.value] as const)
+            .sort(([left], [right]) => left.localeCompare(right));
+          while (element.attributes.length > 0) {
+            element.removeAttribute(element.attributes[0].name);
+          }
+          for (const [name, value] of attributes) {
+            element.setAttribute(name, value);
+          }
         }
-        for (const [name, value] of attributes) {
-          element.setAttribute(name, value);
-        }
-      }
-      return clone.outerHTML;
-    });
+        return clone.outerHTML;
+      },
+      { collapseDuplicateSourceToasts }
+    );
     const canonicalDom = normalizedDom(semanticHtml);
-    const accessibility = await accessibilitySnapshot(page);
+    const accessibility = await accessibilitySnapshot(
+      page,
+      collapseDuplicateSourceToasts
+    );
     const outcomeChecks = await Promise.all(
       scenario.outcomes.map(outcome =>
         checkOutcome(page, outcome, finalStatus, side)

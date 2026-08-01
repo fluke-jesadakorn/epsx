@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   blockingFailedRequests,
+  canonicalizeSourceTransientToasts,
   expectedDocumentConsoleError,
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
@@ -144,6 +145,18 @@ test('wall-clock control is limited to the admin root dashboard', () => {
   ).toBe(false);
 });
 
+test('only the pinned source plan-conflict toast duplication is canonicalized', () => {
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-conflict')
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientToasts('target', 'pr3.admin.plan-conflict')
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
+  ).toBe(false);
+});
+
 test('only the exact pinned admin chat hydration error is explained', () => {
   const scenario: Scenario = {
     id: 'pr6.admin.chat-detail',
@@ -181,10 +194,7 @@ test('only the exact pinned admin chat hydration error is explained', () => {
       ...options,
       entry: {
         ...entry,
-        text: entry.text.replace(
-          '<ChatConversationView>',
-          '<Unknown>'
-        ),
+        text: entry.text.replace('<ChatConversationView>', '<Unknown>'),
       },
     })
   ).toBe(true);
