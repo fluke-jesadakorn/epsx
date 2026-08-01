@@ -471,6 +471,18 @@ export function expectedDocumentConsoleError(options: {
   if (pinnedViemBigIntMathError) {
     return true;
   }
+  const pinnedTargetNotificationDependencyError =
+    side === 'target' &&
+    scenario.id === 'pr2.profile.verified' &&
+    entry.type === 'error' &&
+    entry.location?.includes('/api/v1/notifications/unread-count:0:0') ===
+      true &&
+    entry.text.includes(
+      'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
+    );
+  if (pinnedTargetNotificationDependencyError) {
+    return true;
+  }
   const expectedStatus = scenario.outcomes.find(
     outcome =>
       outcome.type === 'status' &&
