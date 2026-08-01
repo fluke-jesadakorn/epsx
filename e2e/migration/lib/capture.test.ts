@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   blockingFailedRequests,
   canonicalizeSourceTransientToasts,
+  canonicalizeSourceTransientFrameworkNodes,
   expectedDocumentConsoleError,
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
@@ -160,6 +161,27 @@ test('only affected pinned source access toasts are canonicalized', () => {
   );
   expect(
     canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
+  ).toBe(false);
+});
+
+test('only the pinned source wallet denial hides framework transients', () => {
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr3.admin.wallet-detail-forbidden'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'target',
+      'pr3.admin.wallet-detail-forbidden'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr3.admin.wallet-detail'
+    )
   ).toBe(false);
 });
 

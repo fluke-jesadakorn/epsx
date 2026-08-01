@@ -100,6 +100,22 @@ export function canonicalizeSourceTransientToasts(
   );
 }
 
+/**
+ * The pinned source wallet detail mounts Next's route announcer and dnd-kit
+ * live-region helpers asynchronously. They are framework-owned transient
+ * nodes, not application state, and can be present in only one clean repeat.
+ * Keep their normalization limited to the exact source denial scenario that
+ * demonstrated the race; screenshots and raw HTML remain untouched.
+ */
+export function canonicalizeSourceTransientFrameworkNodes(
+  side: 'source' | 'target',
+  scenarioId: string
+): boolean {
+  return (
+    side === 'source' && scenarioId === 'pr3.admin.wallet-detail-forbidden'
+  );
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -227,7 +243,8 @@ function normalizedDom(semanticHtml: string): string {
 
 async function accessibilitySnapshot(
   page: Page,
-  collapseDuplicateSourceToasts: boolean
+  collapseDuplicateSourceToasts: boolean,
+  hideSourceFrameworkTransients: boolean
 ): Promise<string> {
   const announcers = page.locator('next-route-announcer [role="alert"]');
   const priorAriaHidden = await announcers.evaluateAll(elements =>
@@ -256,9 +273,36 @@ async function accessibilitySnapshot(
       });
     });
   }
+  const frameworkTransients = hideSourceFrameworkTransients
+    ? page.locator(
+        'next-route-announcer, [id^="DndDescribedBy-"], [id^="DndLiveRegion-"]'
+      )
+    : null;
+  const priorFrameworkTransientAriaHidden = frameworkTransients
+    ? await frameworkTransients.evaluateAll(elements =>
+        elements.map(element => element.getAttribute('aria-hidden'))
+      )
+    : [];
+  if (frameworkTransients) {
+    await frameworkTransients.evaluateAll(elements => {
+      elements.forEach(element => element.setAttribute('aria-hidden', 'true'));
+    });
+  }
   try {
     return await page.locator('body').ariaSnapshot();
   } finally {
+    if (frameworkTransients) {
+      await frameworkTransients.evaluateAll((elements, priorValues) => {
+        elements.forEach((element, index) => {
+          const prior = priorValues[index];
+          if (prior === null || prior === undefined) {
+            element.removeAttribute('aria-hidden');
+          } else {
+            element.setAttribute('aria-hidden', prior);
+          }
+        });
+      }, priorFrameworkTransientAriaHidden);
+    }
     if (collapseDuplicateSourceToasts) {
       await transientToasts.evaluateAll((elements, priorValues) => {
         elements.forEach((element, index) => {
@@ -979,8 +1023,13 @@ export async function captureSide(
       side,
       scenario.id
     );
+    const hideSourceFrameworkTransients =
+      canonicalizeSourceTransientFrameworkNodes(side, scenario.id);
     const semanticHtml = await page.evaluate(
-      ({ collapseDuplicateSourceToasts: collapseToasts }) => {
+      ({
+        collapseDuplicateSourceToasts: collapseToasts,
+        hideFrameworkTransients,
+      }) => {
         const clone = document.body.cloneNode(true) as HTMLElement;
         // Next.js can leave streamed document metadata in `<body>` for a
         // hydration turn, then move it into `<head>` without changing pixels or
@@ -1000,6 +1049,13 @@ export async function captureSide(
                 element.remove();
               }
             });
+        }
+        if (hideFrameworkTransients) {
+          clone
+            .querySelectorAll(
+              'next-route-announcer, [id^="DndDescribedBy-"], [id^="DndLiveRegion-"]'
+            )
+            .forEach(element => element.remove());
         }
         for (const element of [clone, ...clone.querySelectorAll('*')]) {
           if (
@@ -1029,12 +1085,16 @@ export async function captureSide(
         }
         return clone.outerHTML;
       },
-      { collapseDuplicateSourceToasts }
+      {
+        collapseDuplicateSourceToasts,
+        hideFrameworkTransients: hideSourceFrameworkTransients,
+      }
     );
     const canonicalDom = normalizedDom(semanticHtml);
     const accessibility = await accessibilitySnapshot(
       page,
-      collapseDuplicateSourceToasts
+      collapseDuplicateSourceToasts,
+      hideSourceFrameworkTransients
     );
     const outcomeChecks = await Promise.all(
       scenario.outcomes.map(outcome =>
