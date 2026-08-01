@@ -330,7 +330,7 @@ test('only pinned PR7 source developer API 404s are explained', () => {
   ).toBe(false);
 });
 
-test('only the exact pinned permissions viem BigInt error is explained', () => {
+test('only exact pinned viem BigInt errors are explained', () => {
   const scenario: Scenario = {
     id: 'pr2.permissions.verified',
     surface: 'frontend',
@@ -387,6 +387,17 @@ test('only the exact pinned permissions viem BigInt error is explained', () => {
         location:
           'http://127.0.0.1:4100/_next/static/chunks/6063a_next_dist_client_7dd5190d._.js:1375:24',
       },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
+        id: 'pr4.frontend.home-rankings',
+        path: '/',
+      },
+      finalUrl: 'http://127.0.0.1:4100/',
     })
   ).toBe(true);
 });
