@@ -130,6 +130,25 @@ export function canonicalizeSourceTransientEditorProjection(
   return side === 'source' && scenarioId === 'pr5.admin.news-unpublish';
 }
 
+/**
+ * The immutable Next.js admin source can transiently send its static brand
+ * asset through the backend-unavailable middleware during a clean repeat.
+ * Keep the static asset deterministic only for the exact notification
+ * management evidence that observed the redirect; application requests and
+ * all other source scenarios continue through the pinned server unchanged.
+ */
+export function shouldServePinnedSourceAdminBrandAsset(
+  side: 'source' | 'target',
+  scenarioId: string,
+  pathname: string
+): boolean {
+  return (
+    side === 'source' &&
+    scenarioId === 'pr6.admin.notification-manage' &&
+    pathname === '/logos/epsx-icon.svg'
+  );
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -949,6 +968,25 @@ export async function captureSide(
       /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
       route => proxySourceDependency(route, fixtureUrl, sourceAccessToken)
     );
+    if (
+      shouldServePinnedSourceAdminBrandAsset(
+        side,
+        scenario.id,
+        '/logos/epsx-icon.svg'
+      )
+    ) {
+      await context.route(
+        new URL('/logos/epsx-icon.svg', baseUrl).toString(),
+        route =>
+          route.fulfill({
+            path: resolve(
+              process.cwd(),
+              'apps/admin/public/logos/epsx-icon.svg'
+            ),
+            contentType: 'image/svg+xml',
+          })
+      );
+    }
     if (new URL(scenario.path, baseUrl).pathname === '/manual') {
       // Next 16's pinned Turbopack dev output lowers viem's native BigInt
       // exponentiation to Math.pow(BigInt, BigInt), which throws even though
