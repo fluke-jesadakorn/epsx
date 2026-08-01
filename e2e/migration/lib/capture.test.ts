@@ -205,6 +205,49 @@ test('only the exact pinned admin chat hydration error is explained', () => {
   ).toBe(false);
 });
 
+test('only the exact pinned permissions viem BigInt error is explained', () => {
+  const scenario: Scenario = {
+    id: 'pr2.permissions.verified',
+    surface: 'frontend',
+    path: '/permissions',
+    title: 'Pinned permissions',
+    state: { id: 'permissions-verified', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4100/_next/static/chunks/node_modules_viem__esm_03c4dab7._.js:254:20',
+    text: [
+      '%o',
+      'TypeError: Cannot convert a BigInt value to a number',
+      'at Math.pow (<anonymous>)',
+      'It was handled by the <GlobalErrorBoundary> error boundary.',
+    ].join('\n'),
+  };
+  const options = {
+    entry,
+    finalUrl: 'http://127.0.0.1:4100/permissions',
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: { ...entry, text: entry.text.replace('Math.pow', 'Math.max') },
+    })
+  ).toBe(false);
+});
+
 test('deterministic multipart actions decode an exact in-memory file', () => {
   const payload = inputFilePayload({
     type: 'set-input-files',

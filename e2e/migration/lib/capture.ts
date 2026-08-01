@@ -348,6 +348,18 @@ export function expectedDocumentConsoleError(options: {
   if (pinnedAdminChatHydrationError) {
     return true;
   }
+  const pinnedViemBigIntMathError =
+    side === 'source' &&
+    scenario.id === 'pr2.permissions.verified' &&
+    entry.type === 'error' &&
+    entry.location?.includes('/_next/static/chunks/node_modules_viem__esm_') ===
+      true &&
+    entry.text.includes('TypeError: Cannot convert a BigInt value to a number') &&
+    entry.text.includes('Math.pow') &&
+    entry.text.includes('GlobalErrorBoundary');
+  if (pinnedViemBigIntMathError) {
+    return true;
+  }
   const expectedStatus = scenario.outcomes.find(
     outcome =>
       outcome.type === 'status' &&
