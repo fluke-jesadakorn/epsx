@@ -1228,6 +1228,11 @@
               "type": "wait-for",
               "selector": "text=Plan not found >> nth=1",
               "side": "source"
+            },
+            {
+              "type": "wait-for",
+              "selector": "h2:has-text(\"Active Plans\")",
+              "side": "source"
             }
           ],
           "outcomes": [
