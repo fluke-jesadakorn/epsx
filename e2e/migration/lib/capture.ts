@@ -391,10 +391,11 @@ export function expectedDocumentConsoleError(options: {
     side === 'source' &&
     scenario.id === 'pr2.permissions.verified' &&
     entry.type === 'error' &&
-    entry.location?.includes('/_next/static/chunks/node_modules_viem__esm_') ===
+    entry.location?.includes('/_next/static/chunks/6063a_next_dist_client_') ===
       true &&
     entry.text.includes('TypeError: Cannot convert a BigInt value to a number') &&
     entry.text.includes('Math.pow') &&
+    entry.text.includes('node_modules_viem__esm_') &&
     entry.text.includes('GlobalErrorBoundary');
   if (pinnedViemBigIntMathError) {
     return true;
