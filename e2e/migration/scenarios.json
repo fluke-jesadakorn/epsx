@@ -3420,7 +3420,13 @@
             "fixtureMode": "notification-empty",
             "fixtureModeSide": "target"
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h3:has-text(\"No notifications\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
