@@ -5272,7 +5272,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5312,7 +5312,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5440,19 +5440,19 @@
           "actions": [
             {
               "type": "fill",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"intent_id\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"intent_id\"]",
               "value": "intent_e2e_0001",
               "side": "target"
             },
             {
               "type": "fill",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"max_uses\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"max_uses\"]",
               "value": "1",
               "side": "target"
             },
             {
               "type": "click",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5492,7 +5492,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[value=\"payment_link_disable\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[value=\"payment_link_disable\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5852,7 +5852,7 @@
           "title": "Frontend /manual",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [{ "type": "no-horizontal-overflow", "side": "target" }],
           "fixtureRequirements": ["route inventory"]
         },
         {

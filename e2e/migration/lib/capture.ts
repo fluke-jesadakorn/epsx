@@ -365,7 +365,8 @@ export function expectedDocumentConsoleError(options: {
   }
   const pinnedDeveloperApiNotFound =
     side === 'source' &&
-    scenario.id.startsWith('pr7.') &&
+    (scenario.id.startsWith('pr7.') ||
+      scenario.id === 'pr9.frontend.developer') &&
     entry.type === 'error' &&
     entry.text.includes(
       'Failed to load resource: the server responded with a status of 404 (Not Found)'

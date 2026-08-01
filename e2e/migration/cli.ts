@@ -237,9 +237,8 @@ async function assertTcpPortAvailable(
         )
       );
     });
-    server.listen(
-      { host: url.hostname, port, exclusive: true },
-      () => server.close(() => resolvePromise())
+    server.listen({ host: url.hostname, port, exclusive: true }, () =>
+      server.close(() => resolvePromise())
     );
   });
 }
@@ -687,11 +686,20 @@ function buildPlaywrightShards(
         return scenarioShards(group);
       }
     }
+    const requestedBrowser = process.env.E2E_BROWSER;
+    const explicitProject =
+      requestedBrowser === 'chromium' ||
+      requestedBrowser === 'firefox' ||
+      requestedBrowser === 'webkit'
+        ? `migration-${requestedBrowser}`
+        : 'migration-chromium';
     return [
       {
         grep: explicitGrep,
-        project:
-          accumulatedGroups.at(-1)?.id === 9 ? undefined : 'migration-chromium',
+        // Explicit filters are review-sized Chromium evidence selectors;
+        // cross-browser smoke remains owned by the generated PR 9 shards.
+        // E2E_BROWSER is an opt-in smoke selector for local browser recovery.
+        project: explicitProject,
       },
     ];
   }
@@ -763,10 +771,7 @@ async function run(): Promise<void> {
     assertTcpPortAvailable(config.targetFrontendUrl, 'Rust frontend target'),
     ...(requiresAdmin
       ? [
-          assertTcpPortAvailable(
-            config.sourceAdminUrl,
-            'Next.js admin source'
-          ),
+          assertTcpPortAvailable(config.sourceAdminUrl, 'Next.js admin source'),
           assertTcpPortAvailable(config.targetAdminUrl, 'Rust admin target'),
         ]
       : []),
