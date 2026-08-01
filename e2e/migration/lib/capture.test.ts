@@ -219,8 +219,22 @@ test('only the pinned notification source serves the static admin brand asset', 
   ).toBe(true);
   expect(
     shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
       'target',
       'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.chat-reply',
       '/logos/epsx-icon.svg'
     )
   ).toBe(false);
