@@ -1144,7 +1144,13 @@
             "audience": "epsx-admin",
             "permissions": ["admin:access:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h1",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
