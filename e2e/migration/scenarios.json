@@ -1405,6 +1405,11 @@
           },
           "actions": [
             {
+              "type": "wait-for",
+              "selector": "input[placeholder=\"e.g. Main Trading Wallet\"]",
+              "side": "source"
+            },
+            {
               "type": "navigate",
               "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
               "side": "target"
@@ -1457,6 +1462,11 @@
             ]
           },
           "actions": [
+            {
+              "type": "wait-for",
+              "selector": "input[placeholder=\"e.g. Main Trading Wallet\"]",
+              "side": "source"
+            },
             {
               "type": "navigate",
               "path": "/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable",
