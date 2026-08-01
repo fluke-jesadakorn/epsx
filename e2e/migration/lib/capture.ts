@@ -133,8 +133,8 @@ export function canonicalizeSourceTransientEditorProjection(
 /**
  * The immutable Next.js admin source can transiently send its static brand
  * asset through the backend-unavailable middleware during a clean repeat.
- * Keep the static asset deterministic only for the exact notification
- * management evidence that observed the redirect; application requests and
+ * Keep the static asset deterministic only for the exact notification and
+ * conversation evidence that observed the redirect; application requests and
  * all other source scenarios continue through the pinned server unchanged.
  */
 export function shouldServePinnedSourceAdminBrandAsset(
@@ -144,7 +144,9 @@ export function shouldServePinnedSourceAdminBrandAsset(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.notification-manage' &&
+    ['pr6.admin.notification-manage', 'pr6.admin.chat-detail'].includes(
+      scenarioId
+    ) &&
     pathname === '/logos/epsx-icon.svg'
   );
 }
