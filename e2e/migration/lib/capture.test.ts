@@ -145,13 +145,19 @@ test('wall-clock control is limited to the admin root dashboard', () => {
   ).toBe(false);
 });
 
-test('only the pinned source plan-conflict toast duplication is canonicalized', () => {
+test('only affected pinned source access toasts are canonicalized', () => {
   expect(
     canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-conflict')
   ).toBe(true);
+  expect(canonicalizeSourceTransientToasts('source', 'pr3.admin.access')).toBe(
+    true
+  );
   expect(
     canonicalizeSourceTransientToasts('target', 'pr3.admin.plan-conflict')
   ).toBe(false);
+  expect(canonicalizeSourceTransientToasts('target', 'pr3.admin.access')).toBe(
+    false
+  );
   expect(
     canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
   ).toBe(false);
