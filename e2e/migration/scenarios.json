@@ -1116,7 +1116,13 @@
             "fixtureMode": "forbidden",
             "fixtureModeSide": "target"
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "input[placeholder=\"e.g. Main Trading Wallet\"]",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
