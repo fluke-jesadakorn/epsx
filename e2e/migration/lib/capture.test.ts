@@ -4,6 +4,7 @@ import {
   blockingFailedRequests,
   canonicalizeSourceTransientToasts,
   canonicalizeSourceTransientFrameworkNodes,
+  canonicalizeSourceTransientEditorProjection,
   expectedDocumentConsoleError,
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
@@ -181,6 +182,27 @@ test('only the pinned source wallet denial hides framework transients', () => {
     canonicalizeSourceTransientFrameworkNodes(
       'source',
       'pr3.admin.wallet-detail'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned news unpublish editor projection is normalized', () => {
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'source',
+      'pr5.admin.news-unpublish'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'target',
+      'pr5.admin.news-unpublish'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'source',
+      'pr5.admin.news-edit-ready'
     )
   ).toBe(false);
 });

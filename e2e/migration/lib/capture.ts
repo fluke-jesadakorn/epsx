@@ -116,6 +116,20 @@ export function canonicalizeSourceTransientFrameworkNodes(
   );
 }
 
+/**
+ * The pinned source news editor hydrates its rich-text projection after the
+ * textarea value is available. A clean repeat can therefore capture either
+ * the rendered paragraph or the still-empty contenteditable shell while
+ * pixels and accessibility remain identical. Normalize only that exact source
+ * scenario in the semantic clone; raw HTML and visual evidence stay intact.
+ */
+export function canonicalizeSourceTransientEditorProjection(
+  side: 'source' | 'target',
+  scenarioId: string
+): boolean {
+  return side === 'source' && scenarioId === 'pr5.admin.news-unpublish';
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -1025,10 +1039,13 @@ export async function captureSide(
     );
     const hideSourceFrameworkTransients =
       canonicalizeSourceTransientFrameworkNodes(side, scenario.id);
+    const normalizeSourceEditorProjection =
+      canonicalizeSourceTransientEditorProjection(side, scenario.id);
     const semanticHtml = await page.evaluate(
       ({
         collapseDuplicateSourceToasts: collapseToasts,
         hideFrameworkTransients,
+        normalizeEditorProjection,
       }) => {
         const clone = document.body.cloneNode(true) as HTMLElement;
         // Next.js can leave streamed document metadata in `<body>` for a
@@ -1056,6 +1073,17 @@ export async function captureSide(
               'next-route-announcer, [id^="DndDescribedBy-"], [id^="DndLiveRegion-"]'
             )
             .forEach(element => element.remove());
+        }
+        if (normalizeEditorProjection) {
+          const editor = clone.querySelector<HTMLDivElement>(
+            'div[contenteditable="true"]'
+          );
+          const textarea = clone.querySelector<HTMLTextAreaElement>(
+            'textarea[placeholder="Write markdown content…"]'
+          );
+          if (editor && textarea) {
+            editor.textContent = textarea.value;
+          }
         }
         for (const element of [clone, ...clone.querySelectorAll('*')]) {
           if (
@@ -1088,6 +1116,7 @@ export async function captureSide(
       {
         collapseDuplicateSourceToasts,
         hideFrameworkTransients: hideSourceFrameworkTransients,
+        normalizeEditorProjection: normalizeSourceEditorProjection,
       }
     );
     const canonicalDom = normalizedDom(semanticHtml);
