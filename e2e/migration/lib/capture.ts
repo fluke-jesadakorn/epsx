@@ -83,18 +83,21 @@ export function requiresDeterministicWallClock(
 }
 
 /**
- * The pinned Next.js admin plan editor runs its missing-plan effect more than
- * once in development. Sonner keeps the duplicate, hidden notification
+ * The pinned Next.js admin access surfaces can run their client effects more
+ * than once in development. Sonner keeps duplicate, hidden notification
  * nodes in the DOM, so the immutable source can otherwise produce different
  * semantic and accessibility hashes while rendering identical pixels. Keep
- * this normalization scoped to that source scenario; the first toast still
- * proves the declared "Plan not found" outcome.
+ * this normalization scoped to the affected source scenarios; the first
+ * toast still proves the declared outcome.
  */
 export function canonicalizeSourceTransientToasts(
   side: 'source' | 'target',
   scenarioId: string
 ): boolean {
-  return side === 'source' && scenarioId === 'pr3.admin.plan-conflict';
+  return (
+    side === 'source' &&
+    ['pr3.admin.access', 'pr3.admin.plan-conflict'].includes(scenarioId)
+  );
 }
 
 async function storageState(
