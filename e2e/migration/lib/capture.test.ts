@@ -219,11 +219,12 @@ test('only the exact pinned permissions viem BigInt error is explained', () => {
   const entry = {
     type: 'error',
     location:
-      'http://127.0.0.1:4100/_next/static/chunks/node_modules_viem__esm_03c4dab7._.js:254:20',
+      'http://127.0.0.1:4100/_next/static/chunks/6063a_next_dist_client_7dd5190d._.js:1375:24',
     text: [
       '%o',
       'TypeError: Cannot convert a BigInt value to a number',
       'at Math.pow (<anonymous>)',
+      'at module evaluation (http://127.0.0.1:4100/_next/static/chunks/node_modules_viem__esm_f2746204._.js:1061:180)',
       'It was handled by the <GlobalErrorBoundary> error boundary.',
     ].join('\n'),
   };
