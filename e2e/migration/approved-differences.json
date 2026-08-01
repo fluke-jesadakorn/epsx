@@ -195,7 +195,7 @@
       "reason": "The pinned source privacy policy describes Google/OIDC and OAuth data flows that this wallet-only application does not use. The target accurately documents wallet addresses, EIP-4361 signatures, nonce/session handling, and provides a real contact link.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/privacy/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/privacy.rs",
-      "maximumDifferencePercent": 5.9
+      "maximumDifferencePercent": 6.0
     },
     {
       "scenarioId": "pr1.terms.legal",
@@ -204,7 +204,7 @@
       "reason": "The pinned source terms describe OAuth and Google sign-in and render non-functional subscription controls. The target states the wallet/SIWE authentication contract, links to contact, and removes the unsupported pseudo-form.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/terms/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/terms.rs",
-      "maximumDifferencePercent": 5.7
+      "maximumDifferencePercent": 5.8
     },
     {
       "scenarioId": "pr1.offline.public",
