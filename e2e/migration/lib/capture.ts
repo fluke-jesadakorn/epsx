@@ -149,6 +149,27 @@ export function shouldServePinnedSourceAdminBrandAsset(
   );
 }
 
+/**
+ * The immutable Next.js admin source can revalidate the notification route
+ * while its backend fixture is still settling. That revalidation is a HEAD
+ * request which may redirect the already-rendered page to backend-unavailable
+ * and erase the body before capture. Keep only the exact pinned source route
+ * navigation stable; GET/POST application traffic remains untouched.
+ */
+export function shouldStabilizePinnedSourceAdminNotificationNavigation(
+  side: 'source' | 'target',
+  scenarioId: string,
+  method: string,
+  pathname: string
+): boolean {
+  return (
+    side === 'source' &&
+    scenarioId === 'pr6.admin.notification-manage' &&
+    method === 'HEAD' &&
+    pathname === '/notifications/manage'
+  );
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -947,6 +968,28 @@ export async function captureSide(
             ),
             contentType: 'image/svg+xml',
           })
+      );
+    }
+    if (
+      shouldStabilizePinnedSourceAdminNotificationNavigation(
+        side,
+        scenario.id,
+        'HEAD',
+        new URL(scenario.path, baseUrl).pathname
+      )
+    ) {
+      await context.route(
+        new URL(scenario.path, baseUrl).toString(),
+        async route => {
+          if (route.request().method() === 'HEAD') {
+            await route.fulfill({
+              status: 200,
+              headers: { 'cache-control': 'no-store' },
+            });
+            return;
+          }
+          await route.continue();
+        }
       );
     }
     if (new URL(scenario.path, baseUrl).pathname === '/manual') {
