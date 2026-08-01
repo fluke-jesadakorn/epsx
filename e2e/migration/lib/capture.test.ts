@@ -9,6 +9,7 @@ import {
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
+  shouldServePinnedSourceAdminBrandAsset,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
 
@@ -228,6 +229,37 @@ test('only the exact pinned news unpublish editor projection is normalized', () 
     canonicalizeSourceTransientEditorProjection(
       'source',
       'pr5.admin.news-edit-ready'
+    )
+  ).toBe(false);
+});
+
+test('only the pinned notification source serves the static admin brand asset', () => {
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'target',
+      'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notifications-redirect',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      '/logos/other.svg'
     )
   ).toBe(false);
 });
