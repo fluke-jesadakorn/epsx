@@ -1174,7 +1174,13 @@
             "fixtureMode": "forbidden",
             "fixtureModeSide": "target"
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h2:has-text(\"Active Plans\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
