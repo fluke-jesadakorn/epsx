@@ -3752,7 +3752,13 @@
               "admin:notifications:manage"
             ]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "h1:has-text(\"Command Center\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
