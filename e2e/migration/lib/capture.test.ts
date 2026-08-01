@@ -10,6 +10,7 @@ import {
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
   shouldServePinnedSourceAdminBrandAsset,
+  shouldStabilizePinnedSourceAdminNotificationNavigation,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
 
@@ -260,6 +261,49 @@ test('only the pinned notification source serves the static admin brand asset', 
       'source',
       'pr6.admin.notification-manage',
       '/logos/other.svg'
+    )
+  ).toBe(false);
+});
+
+test('only the pinned notification source stabilizes its HEAD navigation', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/manage'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'target',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/manage'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/notifications/manage'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notifications-redirect',
+      'HEAD',
+      '/notifications/manage'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/create'
     )
   ).toBe(false);
 });
