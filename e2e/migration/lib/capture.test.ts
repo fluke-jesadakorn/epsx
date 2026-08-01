@@ -372,6 +372,23 @@ test('only the exact pinned permissions viem BigInt error is explained', () => {
       entry: { ...entry, text: entry.text.replace('Math.pow', 'Math.max') },
     })
   ).toBe(false);
+
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
+        id: 'pr4.frontend.analytics-malformed',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+      entry: {
+        ...entry,
+        location:
+          'http://127.0.0.1:4100/_next/static/chunks/6063a_next_dist_client_7dd5190d._.js:1375:24',
+      },
+    })
+  ).toBe(true);
 });
 
 test('deterministic multipart actions decode an exact in-memory file', () => {
