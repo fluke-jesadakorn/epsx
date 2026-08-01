@@ -492,7 +492,9 @@ export function expectedDocumentConsoleError(options: {
   }
   const pinnedViemBigIntMathError =
     side === 'source' &&
-    scenario.id === 'pr2.permissions.verified' &&
+    ['pr2.permissions.verified', 'pr4.frontend.analytics-malformed'].includes(
+      scenario.id
+    ) &&
     entry.type === 'error' &&
     entry.location?.includes('/_next/static/chunks/6063a_next_dist_client_') ===
       true &&
