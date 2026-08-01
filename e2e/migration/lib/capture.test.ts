@@ -329,6 +329,17 @@ test('only exact pinned viem BigInt errors are explained', () => {
       ...options,
       scenario: {
         ...scenario,
+        id: 'pr4.frontend.analytics-unavailable',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
         id: 'pr4.frontend.home-rankings',
         path: '/',
       },
