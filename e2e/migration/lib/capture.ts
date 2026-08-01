@@ -496,7 +496,14 @@ export function expectedDocumentConsoleError(options: {
     [
       'pr2.permissions.verified',
       'pr4.frontend.home-rankings',
+      'pr4.frontend.analytics-query',
+      'pr4.frontend.analytics-limited',
+      'pr4.frontend.analytics-stale',
+      'pr4.frontend.analytics-empty',
+      'pr4.frontend.analytics-unavailable',
       'pr4.frontend.analytics-malformed',
+      'pr4.frontend.portfolio',
+      'pr4.frontend.dashboard',
     ].includes(scenario.id) &&
     entry.type === 'error' &&
     entry.location?.includes('/_next/static/chunks/6063a_next_dist_client_') ===
