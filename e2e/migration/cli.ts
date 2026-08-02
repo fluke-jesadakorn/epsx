@@ -223,9 +223,8 @@ async function assertTcpPortAvailable(
         )
       );
     });
-    server.listen(
-      { host: url.hostname, port, exclusive: true },
-      () => server.close(() => resolvePromise())
+    server.listen({ host: url.hostname, port, exclusive: true }, () =>
+      server.close(() => resolvePromise())
     );
   });
 }
@@ -684,6 +683,33 @@ function playwrightArgumentsForShard(shard: PlaywrightShard): string[] {
   return argumentsForShard;
 }
 
+function selectPlaywrightShards(shards: PlaywrightShard[]): PlaywrightShard[] {
+  const rawIndex = process.env.E2E_SHARD_INDEX?.trim();
+  const rawCount = process.env.E2E_SHARD_COUNT?.trim();
+  if (rawIndex === undefined && rawCount === undefined) {
+    return shards;
+  }
+  if (rawIndex === undefined || rawCount === undefined) {
+    throw new Error(
+      'E2E_SHARD_INDEX and E2E_SHARD_COUNT must be provided together'
+    );
+  }
+  const index = Number(rawIndex);
+  const count = Number(rawCount);
+  if (
+    !Number.isInteger(index) ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    index < 0 ||
+    index >= count
+  ) {
+    throw new Error(
+      `invalid Playwright shard selection index=${rawIndex} count=${rawCount}`
+    );
+  }
+  return shards.filter((_, shardIndex) => shardIndex % count === index);
+}
+
 // Process orchestration is intentionally centralized so cleanup owns every
 // child/container handle in one try/finally boundary.
 // eslint-disable-next-line max-lines-per-function, complexity
@@ -712,10 +738,7 @@ async function run(): Promise<void> {
     assertTcpPortAvailable(config.targetFrontendUrl, 'Rust frontend target'),
     ...(requiresAdmin
       ? [
-          assertTcpPortAvailable(
-            config.sourceAdminUrl,
-            'Next.js admin source'
-          ),
+          assertTcpPortAvailable(config.sourceAdminUrl, 'Next.js admin source'),
           assertTcpPortAvailable(config.targetAdminUrl, 'Rust admin target'),
         ]
       : []),
@@ -831,15 +854,22 @@ async function run(): Promise<void> {
         `source dependency installation modified the immutable baseline: ${sourceChanges}`
       );
     }
-    await runBackendContracts({
-      config,
-      environment: safeEnvironment({
-        NOTIFICATION_RUNTIME_DATABASE_URL: databaseUrlForRuntime(config),
-        NOTIFICATION_RUNTIME_REDIS_URL: config.redisUrl,
-      }),
-      groups: accumulatedGroups,
-      resetManager,
-    });
+    const shardIndex = Number(process.env.E2E_SHARD_INDEX ?? '0');
+    if (shardIndex === 0) {
+      await runBackendContracts({
+        config,
+        environment: safeEnvironment({
+          NOTIFICATION_RUNTIME_DATABASE_URL: databaseUrlForRuntime(config),
+          NOTIFICATION_RUNTIME_REDIS_URL: config.redisUrl,
+        }),
+        groups: accumulatedGroups,
+        resetManager,
+      });
+    } else {
+      process.stdout.write(
+        `backend contract suites assigned to shard 0; skipping on shard ${shardIndex}\n`
+      );
+    }
     runCommand(
       'cargo',
       [
@@ -1003,10 +1033,12 @@ async function run(): Promise<void> {
           }
         : {}),
     });
-    const playwrightShards = buildPlaywrightShards(
-      manifest,
-      accumulatedGroups,
-      process.env.E2E_GREP
+    const playwrightShards = selectPlaywrightShards(
+      buildPlaywrightShards(manifest, accumulatedGroups, process.env.E2E_GREP)
+    );
+    process.stdout.write(
+      `selected ${playwrightShards.length} Playwright shard(s) from ` +
+        `${process.env.E2E_SHARD_COUNT ?? '1'} campaign worker(s)\n`
     );
     for (const shard of playwrightShards) {
       process.stdout.write(
@@ -1060,7 +1092,8 @@ async function run(): Promise<void> {
     process.off('SIGINT', handleSigint);
     process.off('SIGTERM', handleSigterm);
   }
-  if (runError === undefined && evidenceReady) {
+  const isShardedRun = process.env.E2E_SHARD_COUNT !== undefined;
+  if (runError === undefined && evidenceReady && !isShardedRun) {
     try {
       await generateReport(config);
       await verifyArtifactManifest(config);
