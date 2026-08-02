@@ -311,15 +311,23 @@ test('only the pinned notification source stabilizes its HEAD navigation', () =>
       'source',
       'pr6.admin.notifications-redirect',
       'HEAD',
-      '/notifications/manage'
+      '/notifications'
     )
-  ).toBe(false);
+  ).toBe(true);
   expect(
     shouldStabilizePinnedSourceAdminNotificationNavigation(
       'source',
       'pr6.admin.notification-manage',
       'HEAD',
       '/notifications/create'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'target',
+      'pr6.admin.notifications-redirect',
+      'HEAD',
+      '/notifications'
     )
   ).toBe(false);
 });
