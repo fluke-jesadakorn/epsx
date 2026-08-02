@@ -12,6 +12,7 @@ import {
   shouldServePinnedSourceAdminBrandAsset,
   shouldCachePinnedSourceAdminChatStaticAsset,
   shouldStabilizePinnedSourceAdminChatStream,
+  shouldStabilizePinnedSourceAdminNotificationStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
   shouldPatchPinnedSourceViemBigIntMath,
 } from './capture';
@@ -376,7 +377,42 @@ test('only the exact pinned admin chat source stabilizes its notification stream
   ).toBe(false);
 });
 
-test('only the exact pinned admin chat source caches its static chunks', () => {
+test('only the exact pinned admin notification source stabilizes its stream', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'target',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-manage',
+      'POST',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin notification/chat sources cache static chunks', () => {
   expect(
     shouldCachePinnedSourceAdminChatStaticAsset(
       'source',
@@ -403,6 +439,20 @@ test('only the exact pinned admin chat source caches its static chunks', () => {
       'source',
       'pr6.admin.chat-detail',
       'http://127.0.0.1:4101/chat/550e8400-e29b-41d4-a716-446655440000'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      'http://127.0.0.1:4101/_next/static/chunks/notifications.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.notification-manage',
+      'http://127.0.0.1:4201/_next/static/chunks/notifications.js'
     )
   ).toBe(false);
 });
