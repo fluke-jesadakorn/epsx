@@ -172,6 +172,28 @@ export function shouldStabilizePinnedSourceAdminNotificationNavigation(
   );
 }
 
+/**
+ * The pinned source chat error boundary still mounts its global notification
+ * EventSource. On a clean desktop repeat the source reconnect loop can keep
+ * the browser context alive after capture, even though chat itself has no
+ * notification surface. Return the protocol's terminal 204 response only for
+ * this exact source scenario; every target and other source stream remains
+ * fixture-backed and observable.
+ */
+export function shouldStabilizePinnedSourceAdminChatStream(
+  side: 'source' | 'target',
+  scenarioId: string,
+  method: string,
+  pathname: string
+): boolean {
+  return (
+    side === 'source' &&
+    scenarioId === 'pr6.admin.chat-detail' &&
+    method === 'GET' &&
+    pathname === '/api/notifications/stream'
+  );
+}
+
 async function storageState(
   context: BrowserContext,
   page: Page
@@ -1025,6 +1047,28 @@ export async function captureSide(
           if (route.request().method() === 'HEAD') {
             await route.fulfill({
               status: 200,
+              headers: { 'cache-control': 'no-store' },
+            });
+            return;
+          }
+          await route.continue();
+        }
+      );
+    }
+    if (
+      shouldStabilizePinnedSourceAdminChatStream(
+        side,
+        scenario.id,
+        'GET',
+        '/api/notifications/stream'
+      )
+    ) {
+      await context.route(
+        /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/api\/notifications\/stream(?:\?.*)?$/,
+        async route => {
+          if (route.request().method() === 'GET') {
+            await route.fulfill({
+              status: 204,
               headers: { 'cache-control': 'no-store' },
             });
             return;

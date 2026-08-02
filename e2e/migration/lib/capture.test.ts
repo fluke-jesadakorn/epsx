@@ -10,6 +10,7 @@ import {
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
   shouldServePinnedSourceAdminBrandAsset,
+  shouldStabilizePinnedSourceAdminChatStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
@@ -318,6 +319,49 @@ test('only the pinned notification source stabilizes its HEAD navigation', () =>
       'pr6.admin.notification-manage',
       'HEAD',
       '/notifications/create'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin chat source stabilizes its notification stream', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'target',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-reply',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'POST',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/unread-count'
     )
   ).toBe(false);
 });
