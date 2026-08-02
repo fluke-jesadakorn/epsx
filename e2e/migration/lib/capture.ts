@@ -105,9 +105,9 @@ interface PinnedSourceStaticAsset {
 
 // The pinned Next.js development server can recompile a large dependency
 // chunk during the second desktop chat capture (observed at >170 seconds).
-// Cache only the exact immutable source chat-detail static assets between its
-// repeats; the bytes still come from the pinned server and no document or API
-// response is cached.
+// Cache only the exact immutable source notification/chat static assets between
+// their repeats; the bytes still come from the pinned server and no document
+// or API response is cached.
 const pinnedSourceChatStaticAssetCache = new Map<
   string,
   PinnedSourceStaticAsset
@@ -246,6 +246,26 @@ export function shouldStabilizePinnedSourceAdminChatStream(
   );
 }
 
+/**
+ * The pinned source notification management page also opens the global
+ * notification EventSource. On a clean desktop repeat it can remain pending
+ * while the page is already fully rendered. Return the protocol's terminal
+ * 204 response only for this exact source scenario.
+ */
+export function shouldStabilizePinnedSourceAdminNotificationStream(
+  side: 'source' | 'target',
+  scenarioId: string,
+  method: string,
+  pathname: string
+): boolean {
+  return (
+    side === 'source' &&
+    scenarioId === 'pr6.admin.notification-manage' &&
+    method === 'GET' &&
+    pathname === '/api/notifications/stream'
+  );
+}
+
 export function shouldCachePinnedSourceAdminChatStaticAsset(
   side: 'source' | 'target',
   scenarioId: string,
@@ -255,7 +275,9 @@ export function shouldCachePinnedSourceAdminChatStaticAsset(
     const parsed = new URL(url);
     return (
       side === 'source' &&
-      scenarioId === 'pr6.admin.chat-detail' &&
+      ['pr6.admin.chat-detail', 'pr6.admin.notification-manage'].includes(
+        scenarioId
+      ) &&
       parsed.port === '4101' &&
       parsed.pathname.startsWith('/_next/static/')
     );
@@ -1097,6 +1119,28 @@ export async function captureSide(
     }
     if (
       shouldStabilizePinnedSourceAdminChatStream(
+        side,
+        scenario.id,
+        'GET',
+        '/api/notifications/stream'
+      )
+    ) {
+      await context.route(
+        /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/api\/notifications\/stream(?:\?.*)?$/,
+        async route => {
+          if (route.request().method() === 'GET') {
+            await route.fulfill({
+              status: 204,
+              headers: { 'cache-control': 'no-store' },
+            });
+            return;
+          }
+          await route.continue();
+        }
+      );
+    }
+    if (
+      shouldStabilizePinnedSourceAdminNotificationStream(
         side,
         scenario.id,
         'GET',
