@@ -97,6 +97,22 @@ const PINNED_SOURCE_VIEM_BIGINT_SCENARIOS = [
   'pr9.frontend.manual',
 ] as const;
 
+interface PinnedSourceStaticAsset {
+  status: number;
+  headers: Record<string, string>;
+  body: Buffer;
+}
+
+// The pinned Next.js development server can recompile a large dependency
+// chunk during the second desktop chat capture (observed at >170 seconds).
+// Cache only the exact immutable source chat-detail static assets between its
+// repeats; the bytes still come from the pinned server and no document or API
+// response is cached.
+const pinnedSourceChatStaticAssetCache = new Map<
+  string,
+  PinnedSourceStaticAsset
+>();
+
 /**
  * Next's pinned Turbopack output lowers viem's native BigInt exponentiation
  * to Math.pow(BigInt, BigInt), which throws during module evaluation. Keep
@@ -228,6 +244,24 @@ export function shouldStabilizePinnedSourceAdminChatStream(
     method === 'GET' &&
     pathname === '/api/notifications/stream'
   );
+}
+
+export function shouldCachePinnedSourceAdminChatStaticAsset(
+  side: 'source' | 'target',
+  scenarioId: string,
+  url: string
+): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      side === 'source' &&
+      scenarioId === 'pr6.admin.chat-detail' &&
+      parsed.port === '4101' &&
+      parsed.pathname.startsWith('/_next/static/')
+    );
+  } catch {
+    return false;
+  }
 }
 
 async function storageState(
@@ -1121,6 +1155,37 @@ export async function captureSide(
         }
       );
     }
+    await context.route(
+      /^http:\/\/(?:localhost|127\.0\.0\.1):4101\/_next\/static\/.*$/,
+      async route => {
+        const requestUrl = route.request().url();
+        if (
+          !shouldCachePinnedSourceAdminChatStaticAsset(
+            side,
+            scenario.id,
+            requestUrl
+          )
+        ) {
+          await route.continue();
+          return;
+        }
+        const cached = pinnedSourceChatStaticAssetCache.get(requestUrl);
+        if (cached !== undefined) {
+          await route.fulfill(cached);
+          return;
+        }
+        const response = await route.fetch();
+        const body = await response.body();
+        const headers = Object.fromEntries(
+          response.headersArray().map(header => [header.name, header.value])
+        );
+        const asset = { status: response.status(), headers, body };
+        if (response.ok()) {
+          pinnedSourceChatStaticAssetCache.set(requestUrl, asset);
+        }
+        await route.fulfill(asset);
+      }
+    );
     if (shouldPatchPinnedSourceViemBigIntMath(side, scenario.id)) {
       // Numeric Math.pow behavior is delegated unchanged.
       await context.addInitScript(() => {
