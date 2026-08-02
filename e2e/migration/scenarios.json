@@ -3762,6 +3762,11 @@
               "type": "wait-for",
               "selector": "h1:has-text(\"Command Center\")",
               "side": "source"
+            },
+            {
+              "type": "wait-for",
+              "selector": "h3:has-text(\"Silence is Golden\")",
+              "side": "source"
             }
           ],
           "outcomes": [
