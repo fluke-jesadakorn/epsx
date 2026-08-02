@@ -27,9 +27,13 @@ jobs:
       github.event_name == 'workflow_dispatch' ||
       github.event_name == 'push' ||
       startsWith(github.head_ref, 'e2e/')
-    name: Cumulative migration group gate
+    name: Cumulative migration group gate (shard ${{ matrix.shard }})
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
 
     steps:
       - name: Derive campaign group
@@ -115,13 +119,98 @@ jobs:
         run: bun run test:e2e:migration:unit
 
       - name: Run cumulative evidence gate
+        env:
+          E2E_SHARD_INDEX: ${{ matrix.shard }}
+          E2E_SHARD_COUNT: 4
+          E2E_ARTIFACT_ROOT: e2e/migration/artifacts/shard-${{ matrix.shard }}
         run: bun e2e/migration/cli.ts run --group ${{ steps.campaign.outputs.group }}
 
       - name: Verify artifact hashes
-        run: bun e2e/migration/cli.ts verify-artifacts --group ${{ steps.campaign.outputs.group }}
+        env:
+          E2E_ARTIFACT_ROOT: e2e/migration/artifacts/shard-${{ matrix.shard }}
+        run: |
+          test -d "$E2E_ARTIFACT_ROOT"
+          echo "Shard evidence retained; aggregate job performs the complete hash verification."
 
       - name: Upload full migration evidence
         if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: migration-e2e-pr${{ steps.campaign.outputs.group }}-${{ github.event.pull_request.head.sha || github.sha }}-shard-${{ matrix.shard }}
+          path: |
+            e2e/migration/artifacts/
+          if-no-files-found: error
+          retention-days: 14
+
+  aggregate-evidence:
+    if: ${{ needs.cumulative-campaign.result == 'success' }}
+    needs: cumulative-campaign
+    name: Aggregate migration evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Derive campaign group
+        id: campaign
+        env:
+          DISPATCH_GROUP: ${{ inputs.group }}
+          EVENT_NAME: ${{ github.event_name }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+          REF_BRANCH: ${{ github.ref_name }}
+        run: |
+          branch="$HEAD_BRANCH"
+          if [ -z "$branch" ]; then
+            branch="$REF_BRANCH"
+          fi
+          group="$DISPATCH_GROUP"
+          if [ -z "$group" ] && [[ "$branch" =~ ^e2e/([0-9])- ]]; then
+            group="${BASH_REMATCH[1]}"
+          fi
+          if [[ ! "$group" =~ ^[0-9]$ ]]; then
+            echo "Campaign group must be an integer from 0 through 9" >&2
+            exit 1
+          fi
+          echo "group=$group" >> "$GITHUB_OUTPUT"
+
+      - name: Check out exact target
+        env:
+          E2E_TARGET_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: |
+          git init .
+          git remote add origin https://github.com/${{ github.repository }}.git
+          git fetch --no-recurse-submodules origin \
+            "$E2E_TARGET_SHA" \
+            "+refs/heads/development:refs/remotes/origin/development"
+          git checkout --detach "$E2E_TARGET_SHA"
+          git rev-parse --verify HEAD | grep -Fx "$E2E_TARGET_SHA"
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.4
+
+      - name: Install migration tooling
+        run: bun install --frozen-lockfile
+
+      - name: Download shard evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: migration-e2e-pr${{ steps.campaign.outputs.group }}-${{ github.event.pull_request.head.sha || github.sha }}-shard-*
+          path: e2e/migration/artifacts
+          merge-multiple: true
+
+      - name: Prepare immutable source checkout
+        run: bun e2e/migration/cli.ts prepare-source
+
+      - name: Restore aggregate final rollback proof
+        run: cp e2e/migration/artifacts/shard-0/reset-final.json e2e/migration/artifacts/reset-final.json
+
+      - name: Generate aggregate report
+        run: bun e2e/migration/cli.ts report --group ${{ steps.campaign.outputs.group }}
+
+      - name: Verify aggregate artifact hashes
+        run: bun e2e/migration/cli.ts verify-artifacts --group ${{ steps.campaign.outputs.group }}
+
+      - name: Upload complete migration evidence
         uses: actions/upload-artifact@v4
         with:
           name: migration-e2e-pr${{ steps.campaign.outputs.group }}-${{ github.event.pull_request.head.sha || github.sha }}
