@@ -200,9 +200,11 @@ export function shouldStabilizePinnedSourceAdminNotificationNavigation(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.notification-manage' &&
     method === 'HEAD' &&
-    pathname === '/notifications/manage'
+    ((scenarioId === 'pr6.admin.notification-manage' &&
+      pathname === '/notifications/manage') ||
+      (scenarioId === 'pr6.admin.notifications-redirect' &&
+        pathname === '/notifications'))
   );
 }
 
