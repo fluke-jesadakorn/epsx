@@ -1335,7 +1335,13 @@
             "audience": "epsx-admin",
             "permissions": ["admin:credits:read", "admin:credits:manage"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "text=Total Credits Outstanding",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
