@@ -1223,7 +1223,14 @@ export async function captureSide(
         // compiling a large immutable admin chunk. This timeout is scoped to
         // the exact source notification/chat cache route above; application
         // requests and all target traffic retain their normal timings.
-        const response = await route.fetch({ timeout: 120_000 });
+        // Turbopack can reset an immutable chunk connection while the pinned
+        // source server finishes compiling it. Playwright retries only
+        // transport resets here; the route remains exact-source and exact
+        // scenario scoped, so application and target traffic are untouched.
+        const response = await route.fetch({
+          timeout: 120_000,
+          maxRetries: 3,
+        });
         const body = await response.body();
         const headers = Object.fromEntries(
           response.headersArray().map(header => [header.name, header.value])
