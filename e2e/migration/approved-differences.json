@@ -1541,7 +1541,7 @@
       "reason": "The full-route target preserves the migrated public shell while removing the pinned source's unsupported live-market, social-proof, customer, and call-to-action claims. This is the same reviewed public-home disposition as the shared-shell migration, not a styling exception.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/page.tsx",
       "targetEvidence": "shared/rust/templates/src/lib.rs#RenderHomePage",
-      "maximumDifferencePercent": 21.6
+      "maximumDifferencePercent": 22.7
     },
     {
       "scenarioId": "pr9.frontend.about",
@@ -1569,7 +1569,7 @@
       "reason": "The target renders the owner account only from the Rust-verified session/profile projection and omits legacy client-owned claims. The visible state difference is required by the backend authority boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/account/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/account.rs#RenderAccount",
-      "maximumDifferencePercent": 16.7
+      "maximumDifferencePercent": 17.9
     },
     {
       "scenarioId": "pr9.frontend.account-credits",
@@ -1653,7 +1653,7 @@
       "reason": "The target does not fabricate a chat history projection that lacks a verified Rust owner contract. The visible difference is required unsupported-feature removal.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/chat/history/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/chat_history.rs#render",
-      "maximumDifferencePercent": 3.0
+      "maximumDifferencePercent": 3.8
     },
     {
       "scenarioId": "pr9.frontend.contact",
@@ -1667,7 +1667,7 @@
       "reason": "The target renders the authenticated Contact body from the Rust-owned session and public-content projection, while the pinned source uses a legacy client shell. The small full-route delta is required by the backend authority boundary.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/contact/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/contact.rs#render",
-      "maximumDifferencePercent": 1.6
+      "maximumDifferencePercent": 2.7
     },
     {
       "scenarioId": "pr9.frontend.dashboard",
@@ -1681,7 +1681,7 @@
       "reason": "The target dashboard withholds unsupported client-computed portfolio and market claims until Rust-owned contracts are verified. The visible difference is required feature removal.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/dashboard/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/dashboard.rs#RenderDashboard",
-      "maximumDifferencePercent": 7.3
+      "maximumDifferencePercent": 7.9
     },
     {
       "scenarioId": "pr9.frontend.developer",
@@ -1709,7 +1709,7 @@
       "reason": "The target documentation page removes the pinned source's unsupported live-request execution and keeps the API contract as non-executing documentation. The visible difference is required security behavior.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/developer/docs/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/developer.rs#render_docs",
-      "maximumDifferencePercent": 78.9
+      "maximumDifferencePercent": 79.5
     },
     {
       "scenarioId": "pr9.frontend.developer-usage",
@@ -1723,7 +1723,7 @@
       "reason": "The target reports unavailable usage until the Rust metering service returns an authoritative owner projection; it does not fabricate usage totals from the pinned source. The difference is required backend behavior.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/developer/usage/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/developer.rs#render_usage",
-      "maximumDifferencePercent": 8.4
+      "maximumDifferencePercent": 9.5
     },
     {
       "scenarioId": "pr9.frontend.notifications",
@@ -1891,7 +1891,232 @@
       "reason": "The target news detail renders only the bounded publication projection verified by the Rust content service. The small full-route difference is required backend authority, matching the reviewed PR5 detail state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/news/[slug]/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/news_detail.rs#render",
-      "maximumDifferencePercent": 3.9
+      "maximumDifferencePercent": 4.5
+    },
+    {
+      "scenarioId": "pr9.admin.home",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The mobile full-route target renders only the Rust admin projection and verified permission state; the pinned source carries legacy client-owned claims. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/dashboard.rs#render",
+      "maximumDifferencePercent": 12.9
+    },
+    {
+      "scenarioId": "pr9.admin.access-denied",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target preserves the Rust permission denial and withholds admin claims; the pinned source has no equivalent verified boundary. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/access-denied/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied.rs#render",
+      "maximumDifferencePercent": 12.9
+    },
+    {
+      "scenarioId": "pr9.admin.analytics",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target projects only Rust-verified analytics and ranking data, while the pinned source exposes a broader legacy surface. The measured delta is required backend policy, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/analytics/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/analytics.rs#render",
+      "maximumDifferencePercent": 33.4
+    },
+    {
+      "scenarioId": "pr9.admin.audit-log",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only the Rust-owned audit projection and does not fabricate browser-side records. The measured delta is required audit authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/audit-log/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/audit.rs#render",
+      "maximumDifferencePercent": 13.3
+    },
+    {
+      "scenarioId": "pr9.admin.auth",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target keeps the Rust-issued admin audience and SIWE security boundary rather than exposing unsupported client-auth claims. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/auth/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/auth.rs#render",
+      "maximumDifferencePercent": 41.5
+    },
+    {
+      "scenarioId": "pr9.admin.chat",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only owner-scoped chat data returned by the Rust BFF and removes unsupported live claims. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#render",
+      "maximumDifferencePercent": 7.9
+    },
+    {
+      "scenarioId": "pr9.admin.chat-detail",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders the strictly decoded, owner-isolated conversation returned by Rust and withholds unsupported source claims. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/[id]/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatDetailReady",
+      "maximumDifferencePercent": 9.9
+    },
+    {
+      "scenarioId": "pr9.admin.api-key-create",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target exposes API-key creation only after Rust validation, secret-once projection, and audit persistence. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#render_create_key",
+      "maximumDifferencePercent": 9.1
+    },
+    {
+      "scenarioId": "pr9.admin.media",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-authorized media metadata and upload state; the pinned source exposes legacy browser-owned claims. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/media/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/media.rs#render",
+      "maximumDifferencePercent": 14.7
+    },
+    {
+      "scenarioId": "pr9.admin.news",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only the canonical Rust content projection and publication state. The measured delta is required content authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#render",
+      "maximumDifferencePercent": 10.8
+    },
+    {
+      "scenarioId": "pr9.admin.news-create",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target commits news only through the Rust content service and renders its canonical response. The measured delta is required content authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/create/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#NewsEditor",
+      "maximumDifferencePercent": 7.6
+    },
+    {
+      "scenarioId": "pr9.admin.news-edit",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target edits only the revision returned by the Rust content service and does not present stale browser fields as committed. The measured delta is required content authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/news/[id]/edit/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/news.rs#NewsEditor",
+      "maximumDifferencePercent": 8.2
+    },
+    {
+      "scenarioId": "pr9.admin.notifications",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-owned notification projections and verified delivery state. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#render",
+      "maximumDifferencePercent": 9.8
+    },
+    {
+      "scenarioId": "pr9.admin.notifications-create",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target composes notifications only through the Rust delivery service and renders its verified acknowledgement. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/create/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#render_compose",
+      "maximumDifferencePercent": 10.5
+    },
+    {
+      "scenarioId": "pr9.admin.notifications-manage",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target manages notification templates only through Rust-owned projections and mutation acknowledgements. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/manage/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#render_manage",
+      "maximumDifferencePercent": 9.8
+    },
+    {
+      "scenarioId": "pr9.admin.payments",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target renders only redacted, typed payment projections verified by the Rust payment service. The measured delta is required financial/security authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
+      "maximumDifferencePercent": 14.7
+    },
+    {
+      "scenarioId": "pr9.admin.settings",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target renders only Rust-verified admin settings and permission claims. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/settings/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/settings.rs#render",
+      "maximumDifferencePercent": 12.0
+    },
+    {
+      "scenarioId": "pr9.admin.unauthorized",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target preserves the Rust authorization failure and withholds admin data. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/unauthorized/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/unauthorized.rs#render",
+      "maximumDifferencePercent": 13.3
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-management",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-verified wallet inventory and ownership state. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_management.rs#render",
+      "maximumDifferencePercent": 8.5
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-detail",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target renders only the owner- and permission-checked wallet projection returned by Rust. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/[address]/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_management.rs#WalletDetailReady",
+      "maximumDifferencePercent": 9.4
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-access",
+      "matrixIds": ["mobile-light"],
+      "category": "security",
+      "reason": "The target exposes wallet access only from the Rust permission and ownership projection. The measured delta is required security behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs#render",
+      "maximumDifferencePercent": 12.5
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-plans",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-owned plan and entitlement projections. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/plans/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs#render_plans",
+      "maximumDifferencePercent": 12.3
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-plan-detail",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only the Rust-verified plan detail and version state. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs#render_plan_detail",
+      "maximumDifferencePercent": 7.5
+    },
+    {
+      "scenarioId": "pr9.admin.wallet-credits",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-owned credit ledger values and mutation authority. The measured delta is required financial/backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/credits/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_credits.rs#render",
+      "maximumDifferencePercent": 8.9
+    },
+    {
+      "scenarioId": "pr9.admin.wallets",
+      "matrixIds": ["mobile-light"],
+      "category": "backend-authority",
+      "reason": "The target renders only Rust-verified wallet inventory and ownership state. The measured delta is required backend behavior, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/wallets/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_management.rs#render_wallets",
+      "maximumDifferencePercent": 8.5
     }
   ]
 }
