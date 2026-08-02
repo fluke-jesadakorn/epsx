@@ -263,6 +263,20 @@ test('only the pinned notification source serves the static admin brand asset', 
   expect(
     shouldServePinnedSourceAdminBrandAsset(
       'source',
+      'pr6.admin.chat-empty',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'target',
+      'pr6.admin.chat-empty',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
       'pr6.admin.chat-reply',
       '/logos/epsx-icon.svg'
     )
@@ -354,6 +368,22 @@ test('only the exact pinned admin chat source stabilizes its notification stream
   expect(
     shouldStabilizePinnedSourceAdminChatStream(
       'source',
+      'pr6.admin.chat-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'target',
+      'pr6.admin.chat-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
       'pr6.admin.chat-reply',
       'GET',
       '/api/notifications/stream'
@@ -424,6 +454,20 @@ test('only the exact pinned admin notification/chat sources cache static chunks'
     shouldCachePinnedSourceAdminChatStaticAsset(
       'target',
       'pr6.admin.chat-detail',
+      'http://127.0.0.1:4201/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-empty',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.chat-empty',
       'http://127.0.0.1:4201/_next/static/chunks/chat.js'
     )
   ).toBe(false);

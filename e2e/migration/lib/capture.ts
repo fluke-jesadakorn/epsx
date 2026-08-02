@@ -184,8 +184,8 @@ export function canonicalizeSourceTransientEditorProjection(
  * The immutable Next.js admin source can transiently send its static brand
  * asset through the backend-unavailable middleware during a clean repeat.
  * Keep the static asset deterministic only for the exact notification and
- * conversation evidence that observed the redirect; application requests and
- * all other source scenarios continue through the pinned server unchanged.
+ * chat evidence that observed the redirect; application requests and all
+ * other source scenarios continue through the pinned server unchanged.
  */
 export function shouldServePinnedSourceAdminBrandAsset(
   side: 'source' | 'target',
@@ -194,9 +194,11 @@ export function shouldServePinnedSourceAdminBrandAsset(
 ): boolean {
   return (
     side === 'source' &&
-    ['pr6.admin.notification-manage', 'pr6.admin.chat-detail'].includes(
-      scenarioId
-    ) &&
+    [
+      'pr6.admin.notification-manage',
+      'pr6.admin.chat-empty',
+      'pr6.admin.chat-detail',
+    ].includes(scenarioId) &&
     pathname === '/logos/epsx-icon.svg'
   );
 }
@@ -229,8 +231,8 @@ export function shouldStabilizePinnedSourceAdminNotificationNavigation(
  * EventSource. On a clean desktop repeat the source reconnect loop can keep
  * the browser context alive after capture, even though chat itself has no
  * notification surface. Return the protocol's terminal 204 response only for
- * this exact source scenario; every target and other source stream remains
- * fixture-backed and observable.
+ * these exact source chat scenarios; every target and other source stream
+ * remains fixture-backed and observable.
  */
 export function shouldStabilizePinnedSourceAdminChatStream(
   side: 'source' | 'target',
@@ -240,7 +242,7 @@ export function shouldStabilizePinnedSourceAdminChatStream(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.chat-detail' &&
+    ['pr6.admin.chat-empty', 'pr6.admin.chat-detail'].includes(scenarioId) &&
     method === 'GET' &&
     pathname === '/api/notifications/stream'
   );
@@ -275,9 +277,11 @@ export function shouldCachePinnedSourceAdminChatStaticAsset(
     const parsed = new URL(url);
     return (
       side === 'source' &&
-      ['pr6.admin.chat-detail', 'pr6.admin.notification-manage'].includes(
-        scenarioId
-      ) &&
+      [
+        'pr6.admin.chat-empty',
+        'pr6.admin.chat-detail',
+        'pr6.admin.notification-manage',
+      ].includes(scenarioId) &&
       parsed.port === '4101' &&
       parsed.pathname.startsWith('/_next/static/')
     );
