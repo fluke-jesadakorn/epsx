@@ -1149,6 +1149,11 @@
               "type": "wait-for",
               "selector": "h1",
               "side": "source"
+            },
+            {
+              "type": "wait-for",
+              "selector": "h2:has-text(\"Active Plans\")",
+              "side": "source"
             }
           ],
           "outcomes": [
