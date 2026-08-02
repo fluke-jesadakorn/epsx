@@ -575,6 +575,45 @@ test('only exact pinned viem BigInt errors are explained', () => {
       },
     })
   ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4200/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/push:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'source',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4100/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4100/api/v1/notifications/push:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4200/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
 });
 
 test('deterministic multipart actions decode an exact in-memory file', () => {

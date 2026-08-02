@@ -581,12 +581,21 @@ export function expectedDocumentConsoleError(options: {
   if (pinnedViemBigIntMathError) {
     return true;
   }
+  // The pinned target account shell probes push capability before logout. Its
+  // notification service may be unavailable in the auth fixture, yielding an
+  // exact 503 console entry while the verified logout mutation still returns
+  // to the signed-out shell. Keep this explanation limited to the two proven
+  // target scenarios and their exact endpoint; all other dependency errors
+  // remain blocking evidence.
   const pinnedTargetNotificationDependencyError =
     side === 'target' &&
-    scenario.id === 'pr2.profile.verified' &&
+    ['pr2.profile.verified', 'pr2.auth.logout'].includes(scenario.id) &&
     entry.type === 'error' &&
-    entry.location?.includes('/api/v1/notifications/unread-count:0:0') ===
-      true &&
+    ((scenario.id === 'pr2.profile.verified' &&
+      entry.location?.includes('/api/v1/notifications/unread-count:0:0') ===
+        true) ||
+      (scenario.id === 'pr2.auth.logout' &&
+        entry.location?.includes('/api/v1/notifications/push:0:0') === true)) &&
     entry.text.includes(
       'Failed to load resource: the server responded with a status of 503 (Service Unavailable)'
     );
