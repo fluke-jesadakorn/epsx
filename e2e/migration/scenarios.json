@@ -1761,7 +1761,14 @@
             "fixtureMode": "analytics-limited",
             "fixtureModeSide": "target"
           },
-          "actions": [],
+          "actions": [
+            { "type": "reload", "side": "source" },
+            {
+              "type": "wait-for",
+              "selector": "h1:has-text(\"Analytics\")",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
