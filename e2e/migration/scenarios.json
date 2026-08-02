@@ -737,6 +737,12 @@
             { "type": "clear-cookies", "side": "source" },
             { "type": "navigate", "path": "/", "side": "source" },
             {
+              "type": "wait-for",
+              "selector": "button:has-text(\"Connect\"):visible",
+              "side": "source",
+              "matrixIds": ["desktop-light"]
+            },
+            {
               "type": "click",
               "selector": "[data-epsx-logout]:visible",
               "side": "target",
