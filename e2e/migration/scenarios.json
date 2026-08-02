@@ -976,7 +976,13 @@
             "audience": "epsx-admin",
             "permissions": ["admin:audit:read"]
           },
-          "actions": [],
+          "actions": [
+            {
+              "type": "wait-for",
+              "selector": "text=Page 1 of 1",
+              "side": "source"
+            }
+          ],
           "outcomes": [
             {
               "type": "selector",
