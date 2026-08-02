@@ -1218,7 +1218,11 @@ export async function captureSide(
           await route.fulfill(cached);
           return;
         }
-        const response = await route.fetch();
+        // Pinned Turbopack can take more than Playwright's 15s default while
+        // compiling a large immutable admin chunk. This timeout is scoped to
+        // the exact source notification/chat cache route above; application
+        // requests and all target traffic retain their normal timings.
+        const response = await route.fetch({ timeout: 120_000 });
         const body = await response.body();
         const headers = Object.fromEntries(
           response.headersArray().map(header => [header.name, header.value])
