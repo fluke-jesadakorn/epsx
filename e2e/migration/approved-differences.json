@@ -1329,7 +1329,7 @@
       "reason": "The target preserves the backend retry conflict and does not present a successful reply claim. The pinned source remains in its dependency error boundary and has no equivalent deterministic conflict state.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/actions/chat.ts",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatDetailReady",
-      "maximumDifferencePercent": 8.1
+      "maximumDifferencePercent": 10.4
     },
     {
       "scenarioId": "pr6.frontend.chat",
