@@ -12,6 +12,7 @@ import {
   shouldServePinnedSourceAdminBrandAsset,
   shouldStabilizePinnedSourceAdminChatStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
+  shouldPatchPinnedSourceViemBigIntMath,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
 
@@ -613,6 +614,27 @@ test('only exact pinned viem BigInt errors are explained', () => {
         text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
       },
     })
+  ).toBe(false);
+});
+
+test('only exact pinned source viem scenarios patch BigInt exponentiation', () => {
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath(
+      'source',
+      'pr4.frontend.analytics-limited'
+    )
+  ).toBe(true);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath('source', 'pr5.frontend.manual')
+  ).toBe(true);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath(
+      'target',
+      'pr4.frontend.analytics-limited'
+    )
+  ).toBe(false);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath('source', 'pr4.admin.dashboard')
   ).toBe(false);
 });
 
