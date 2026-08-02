@@ -545,7 +545,18 @@ async function doctor(): Promise<void> {
 
 async function safeCleanArtifactRoot(path: string): Promise<void> {
   const expected = resolve(migrationRoot, 'artifacts');
-  if (resolve(path) !== expected) {
+  const resolved = resolve(path);
+  const shardIndex = process.env.E2E_SHARD_INDEX?.trim();
+  const shardCount = process.env.E2E_SHARD_COUNT?.trim();
+  const isExactShardRoot =
+    shardIndex !== undefined &&
+    shardCount !== undefined &&
+    /^\d+$/.test(shardIndex) &&
+    /^\d+$/.test(shardCount) &&
+    Number(shardCount) > 0 &&
+    Number(shardIndex) < Number(shardCount) &&
+    resolved === resolve(expected, `shard-${shardIndex}`);
+  if (resolved !== expected && !isExactShardRoot) {
     throw new Error(`refusing to clean unexpected artifact root ${path}`);
   }
   await rm(path, { recursive: true, force: true });
