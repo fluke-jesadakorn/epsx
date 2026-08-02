@@ -10,6 +10,7 @@ import {
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
   shouldServePinnedSourceAdminBrandAsset,
+  shouldCachePinnedSourceAdminChatStaticAsset,
   shouldStabilizePinnedSourceAdminChatStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
   shouldPatchPinnedSourceViemBigIntMath,
@@ -371,6 +372,37 @@ test('only the exact pinned admin chat source stabilizes its notification stream
       'pr6.admin.chat-detail',
       'GET',
       '/api/notifications/unread-count'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin chat source caches its static chunks', () => {
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4201/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-reply',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4101/chat/550e8400-e29b-41d4-a716-446655440000'
     )
   ).toBe(false);
 });
