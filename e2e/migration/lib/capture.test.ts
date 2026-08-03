@@ -14,6 +14,8 @@ import {
   shouldStabilizePinnedSourceAdminChatStream,
   shouldStabilizePinnedSourceAdminNotificationStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
+  pinnedSourceAdminRedirectTarget,
+  shouldHideDuplicateSourceToastsInScreenshot,
   shouldPatchPinnedSourceViemBigIntMath,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
@@ -194,6 +196,55 @@ test('only affected pinned source access toasts are canonicalized', () => {
   expect(
     canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
   ).toBe(false);
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr9.admin.wallet-plan-detail')
+  ).toBe(true);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot(
+      'source',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(true);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot(
+      'target',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(false);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot('source', 'pr3.admin.access')
+  ).toBe(false);
+});
+
+test('only exact source alias routes wait for canonical admin destinations', () => {
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.notifications',
+      '/notifications'
+    )
+  ).toBe('/notifications/manage');
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-management',
+      '/wallet-management'
+    )
+  ).toBe('/wallet-management/wallets');
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'target',
+      'pr9.admin.notifications',
+      '/notifications'
+    )
+  ).toBeUndefined();
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.notifications',
+      '/notifications/manage'
+    )
+  ).toBeUndefined();
 });
 
 test('only the pinned source wallet denial hides framework transients', () => {

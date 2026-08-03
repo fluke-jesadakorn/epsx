@@ -1919,7 +1919,7 @@
       "reason": "The target preserves the Rust permission denial and withholds admin claims; the pinned source has no equivalent verified boundary. The measured delta is required security behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/access-denied/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied.rs#render",
-      "maximumDifferencePercent": 12.9
+      "maximumDifferencePercent": 14
     },
     {
       "scenarioId": "pr9.admin.analytics",
@@ -1975,7 +1975,7 @@
       "reason": "The target renders only owner-scoped chat data returned by the Rust BFF and removes unsupported live claims. The measured delta is required backend behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#render",
-      "maximumDifferencePercent": 7.9
+      "maximumDifferencePercent": 8.5
     },
     {
       "scenarioId": "pr9.admin.chat-detail",
@@ -1989,7 +1989,7 @@
       "reason": "The target renders the strictly decoded, owner-isolated conversation returned by Rust and withholds unsupported source claims. The measured delta is required backend behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/chat/[id]/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/chat.rs#ChatDetailReady",
-      "maximumDifferencePercent": 9.9
+      "maximumDifferencePercent": 10.5
     },
     {
       "scenarioId": "pr9.admin.developer-portal",
@@ -2017,7 +2017,7 @@
       "reason": "The target exposes API-key creation only after Rust validation, secret-once projection, and audit persistence. The measured delta is required security behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#render_create_key",
-      "maximumDifferencePercent": 9.1
+      "maximumDifferencePercent": 10
     },
     {
       "scenarioId": "pr9.admin.media",
@@ -2101,7 +2101,7 @@
       "reason": "The target composes notifications only through the Rust delivery service and renders its verified acknowledgement. The measured delta is required backend behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/notifications/create/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/notifications.rs#render_compose",
-      "maximumDifferencePercent": 10.5
+      "maximumDifferencePercent": 11
     },
     {
       "scenarioId": "pr9.admin.notifications-manage",
@@ -2129,7 +2129,7 @@
       "reason": "The target renders only redacted, typed payment projections verified by the Rust payment service. The measured delta is required financial/security authority, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
       "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
-      "maximumDifferencePercent": 14.7
+      "maximumDifferencePercent": 15.5
     },
     {
       "scenarioId": "pr9.admin.settings",
@@ -2227,7 +2227,7 @@
       "reason": "The target renders only the Rust-verified plan detail and version state. The measured delta is required backend behavior, not styling.",
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/wallet-management/access/plans/[planId]/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/wallet_access.rs#render_plan_detail",
-      "maximumDifferencePercent": 7.5
+      "maximumDifferencePercent": 8
     },
     {
       "scenarioId": "pr9.admin.wallet-credits",

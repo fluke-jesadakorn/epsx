@@ -146,8 +146,56 @@ export function canonicalizeSourceTransientToasts(
 ): boolean {
   return (
     side === 'source' &&
-    ['pr3.admin.access', 'pr3.admin.plan-conflict'].includes(scenarioId)
+    [
+      'pr3.admin.access',
+      'pr3.admin.plan-conflict',
+      'pr9.admin.wallet-plan-detail',
+    ].includes(scenarioId)
   );
+}
+
+/**
+ * The source plan-detail route can emit the same backend-authoritative
+ * "Plan not found" toast twice while its client boundary hydrates. Keep the
+ * screenshot proof focused on the first toast while preserving the raw HTML
+ * and all application requests. This is intentionally narrower than the
+ * semantic toast canonicalization above because visual evidence must remain
+ * unchanged for every other scenario.
+ */
+export function shouldHideDuplicateSourceToastsInScreenshot(
+  side: 'source' | 'target',
+  scenarioId: string
+): boolean {
+  return side === 'source' && scenarioId === 'pr9.admin.wallet-plan-detail';
+}
+
+/**
+ * The pinned source uses client redirects for the public aliases below. Wait
+ * for their canonical destination before sampling so a clean repeat cannot
+ * capture the shell-only alias page while the other repeat captures the
+ * destination page.
+ */
+export function pinnedSourceAdminRedirectTarget(
+  side: 'source' | 'target',
+  scenarioId: string,
+  pathname: string
+): string | undefined {
+  if (side !== 'source') {
+    return undefined;
+  }
+  if (
+    scenarioId === 'pr9.admin.notifications' &&
+    pathname === '/notifications'
+  ) {
+    return '/notifications/manage';
+  }
+  if (
+    scenarioId === 'pr9.admin.wallet-management' &&
+    pathname === '/wallet-management'
+  ) {
+    return '/wallet-management/wallets';
+  }
+  return undefined;
 }
 
 /**
@@ -1356,6 +1404,20 @@ export async function captureSide(
     await page
       .waitForLoadState('networkidle', { timeout: 7_500 })
       .catch(() => undefined);
+    const pinnedRedirectTarget = pinnedSourceAdminRedirectTarget(
+      side,
+      scenario.id,
+      new URL(requestedUrl).pathname
+    );
+    if (pinnedRedirectTarget !== undefined) {
+      await page.waitForURL(
+        url => new URL(url).pathname === pinnedRedirectTarget,
+        { timeout: 20_000 }
+      );
+      await page
+        .waitForLoadState('networkidle', { timeout: 7_500 })
+        .catch(() => undefined);
+    }
     await page.addStyleTag({
       content:
         '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}nextjs-portal{display:none!important}',
@@ -1590,11 +1652,46 @@ export async function captureSide(
         layout
       );
     }
-    await page.screenshot({
-      path: screenshotPath,
-      fullPage: false,
-      animations: 'disabled',
-    });
+    const hideDuplicateSourceToasts =
+      shouldHideDuplicateSourceToastsInScreenshot(side, scenario.id);
+    const screenshotToasts = hideDuplicateSourceToasts
+      ? page.locator('[data-sonner-toast]')
+      : null;
+    const priorToastDisplays = screenshotToasts
+      ? await screenshotToasts.evaluateAll(elements =>
+          elements.map(element => element.getAttribute('style'))
+        )
+      : [];
+    if (screenshotToasts) {
+      await screenshotToasts.evaluateAll(elements => {
+        elements.slice(1).forEach(element => {
+          element.setAttribute(
+            'style',
+            `${element.getAttribute('style') ?? ''};display:none!important`
+          );
+        });
+      });
+    }
+    try {
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: false,
+        animations: 'disabled',
+      });
+    } finally {
+      if (screenshotToasts) {
+        await screenshotToasts.evaluateAll((elements, priorStyles) => {
+          elements.forEach((element, index) => {
+            const prior = priorStyles[index];
+            if (prior === null || prior === undefined) {
+              element.removeAttribute('style');
+            } else {
+              element.setAttribute('style', prior);
+            }
+          });
+        }, priorToastDisplays);
+      }
+    }
     const capturedConsoleEntries = [...consoleEntries];
     const capturedPageErrors = [...pageErrors];
     const capturedNetworkEntries = [...networkEntries];
