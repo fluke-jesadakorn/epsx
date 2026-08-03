@@ -233,6 +233,13 @@ test('only exact source alias routes wait for canonical admin destinations', () 
   ).toBe('/wallet-management/wallets');
   expect(
     pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-plan-detail',
+      '/wallet-management/access/plans/plan-pro'
+    )
+  ).toBe('/wallet-management/access');
+  expect(
+    pinnedSourceAdminRedirectTarget(
       'target',
       'pr9.admin.notifications',
       '/notifications'
@@ -243,6 +250,13 @@ test('only exact source alias routes wait for canonical admin destinations', () 
       'source',
       'pr9.admin.notifications',
       '/notifications/manage'
+    )
+  ).toBeUndefined();
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-plan-detail',
+      '/wallet-management/access'
     )
   ).toBeUndefined();
 });
@@ -497,6 +511,22 @@ test('only the exact pinned admin notification source stabilizes its stream', ()
     shouldStabilizePinnedSourceAdminNotificationStream(
       'source',
       'pr6.admin.notification-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr9.admin.wallet-disable',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'target',
+      'pr9.admin.wallet-disable',
       'GET',
       '/api/notifications/stream'
     )
@@ -871,6 +901,40 @@ test('only exact pinned viem BigInt errors are explained', () => {
       entry: {
         ...entry,
         location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: {
+        ...scenario,
+        id: 'pr9.frontend.analytics',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4200/analytics',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'source',
+      scenario: {
+        ...scenario,
+        id: 'pr9.frontend.analytics',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4100/api/v1/notifications/unread-count:0:0',
         text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
       },
     })

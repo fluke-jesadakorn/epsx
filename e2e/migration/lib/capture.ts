@@ -195,6 +195,12 @@ export function pinnedSourceAdminRedirectTarget(
   ) {
     return '/wallet-management/wallets';
   }
+  if (
+    scenarioId === 'pr9.admin.wallet-plan-detail' &&
+    pathname === '/wallet-management/access/plans/plan-pro'
+  ) {
+    return '/wallet-management/access';
+  }
   return undefined;
 }
 
@@ -302,10 +308,11 @@ export function shouldStabilizePinnedSourceAdminChatStream(
 }
 
 /**
- * The pinned source notification management page also opens the global
- * notification EventSource. On a clean desktop repeat it can remain pending
- * while the page is already fully rendered. Return the protocol's terminal
- * 204 response only for this exact source scenario.
+ * The pinned source notification management and wallet-disable pages open the
+ * global notification EventSource. On a clean desktop repeat it can remain
+ * pending while the page is already fully rendered and prevent context
+ * shutdown. Return the protocol's terminal 204 response only for these exact
+ * source scenarios.
  */
 export function shouldStabilizePinnedSourceAdminNotificationStream(
   side: 'source' | 'target',
@@ -315,7 +322,9 @@ export function shouldStabilizePinnedSourceAdminNotificationStream(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.notification-manage' &&
+    ['pr6.admin.notification-manage', 'pr9.admin.wallet-disable'].includes(
+      scenarioId
+    ) &&
     method === 'GET' &&
     pathname === '/api/notifications/stream'
   );
@@ -745,14 +754,17 @@ export function expectedDocumentConsoleError(options: {
   // The pinned target account shell probes push capability before logout. Its
   // notification service may be unavailable in the auth fixture, yielding an
   // exact 503 console entry while the verified logout mutation still returns
-  // to the signed-out shell. Keep this explanation limited to the two proven
-  // target scenarios and their exact endpoint; all other dependency errors
-  // remain blocking evidence.
+  // to the signed-out shell. The analytics shell performs the same unrelated
+  // unread-count probe while ranking content is rendered. Keep this
+  // explanation limited to the proven target scenarios and exact endpoint;
+  // all other dependency errors remain blocking evidence.
   const pinnedTargetNotificationDependencyError =
     side === 'target' &&
-    ['pr2.profile.verified', 'pr2.auth.logout'].includes(scenario.id) &&
+    ['pr2.profile.verified', 'pr2.auth.logout', 'pr9.frontend.analytics'].includes(
+      scenario.id
+    ) &&
     entry.type === 'error' &&
-    ((scenario.id === 'pr2.profile.verified' &&
+    ((['pr2.profile.verified', 'pr9.frontend.analytics'].includes(scenario.id) &&
       entry.location?.includes('/api/v1/notifications/unread-count:0:0') ===
         true) ||
       (scenario.id === 'pr2.auth.logout' &&
