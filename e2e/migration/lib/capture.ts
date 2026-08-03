@@ -162,7 +162,12 @@ export function canonicalizeSourceTransientFrameworkNodes(
   scenarioId: string
 ): boolean {
   return (
-    side === 'source' && scenarioId === 'pr3.admin.wallet-detail-forbidden'
+    side === 'source' &&
+    [
+      'pr3.admin.wallet-detail-forbidden',
+      'pr9.admin.wallet-detail',
+      'pr9.admin.wallet-plan-detail',
+    ].includes(scenarioId)
   );
 }
 
@@ -630,7 +635,8 @@ export function expectedDocumentConsoleError(options: {
   const pinnedDeveloperApiNotFound =
     side === 'source' &&
     (scenario.id.startsWith('pr7.') ||
-      scenario.id === 'pr9.frontend.developer') &&
+      scenario.id === 'pr9.frontend.developer' ||
+      scenario.id === 'pr9.admin.developer-portal') &&
     entry.type === 'error' &&
     entry.text.includes(
       'Failed to load resource: the server responded with a status of 404 (Not Found)'
@@ -649,6 +655,17 @@ export function expectedDocumentConsoleError(options: {
       ].includes(location.pathname);
     })();
   if (pinnedDeveloperApiNotFound) {
+    return true;
+  }
+  const pinnedWalletDuplicateKeyWarning =
+    side === 'source' &&
+    scenario.id === 'pr9.admin.wallet-disable' &&
+    entry.type === 'error' &&
+    entry.location?.startsWith('http://127.0.0.1:4101/_next/static/chunks/') ===
+      true &&
+    entry.text.includes('Encountered two children with the same key') &&
+    entry.text.includes('/wallet-management/wallets');
+  if (pinnedWalletDuplicateKeyWarning) {
     return true;
   }
   const pinnedViemBigIntMathError =

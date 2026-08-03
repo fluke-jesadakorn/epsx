@@ -212,6 +212,24 @@ test('only the pinned source wallet denial hides framework transients', () => {
   expect(
     canonicalizeSourceTransientFrameworkNodes(
       'source',
+      'pr9.admin.wallet-detail'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'target',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
       'pr3.admin.wallet-detail'
     )
   ).toBe(false);
@@ -595,6 +613,63 @@ test('only pinned PR7 source developer API 404s are explained', () => {
     expectedDocumentConsoleError({
       ...options,
       scenario: { ...scenario, id: 'pr6.admin.notification-empty' },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, id: 'pr9.admin.developer-portal' },
+      entry: {
+        ...entry,
+        location: 'http://localhost:8080/api/admin/plans?is_active=true:0:0',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, id: 'pr9.admin.developer-portal' },
+      side: 'target',
+    })
+  ).toBe(false);
+});
+
+test('only the pinned source wallet disable duplicate-key warning is explained', () => {
+  const scenario: Scenario = {
+    id: 'pr9.admin.wallet-disable',
+    surface: 'admin',
+    path: '/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable',
+    title: 'Pinned wallet disable',
+    state: { id: 'wallet-admin', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4101/_next/static/chunks/c6277_next_dist_6157defe._.js:3330:31',
+    text: 'Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. /wallet-management/wallets',
+  };
+  const options = {
+    entry,
+    finalUrl: scenario.path,
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: {
+        ...entry,
+        text: entry.text.replace('same key', 'different key'),
+      },
     })
   ).toBe(false);
 });
