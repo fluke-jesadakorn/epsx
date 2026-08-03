@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { expect, test } from '@playwright/test';
+import { expect, test, type Page } from '@playwright/test';
 
 import { runtimeConfig } from '../lib/config';
 import { writeJson } from '../lib/files';
@@ -48,6 +48,36 @@ function targetBaseUrl(scenario: Scenario): string {
   return scenario.surface === 'admin'
     ? config.targetAdminUrl
     : config.targetFrontendUrl;
+}
+
+async function waitForCrossBrowserReadyState(
+  page: Page,
+  scenario: Scenario
+): Promise<void> {
+  if (scenario.id !== 'pr9.frontend.notifications') {
+    return;
+  }
+  // The SSR notification window is authoritative, while its live-update
+  // controller deliberately starts in `connecting` and then reports the
+  // backend-owned stream state. Capture only after that transition so the
+  // body/reload equality proof compares the same semantic surface in every
+  // browser engine.
+  await page.waitForFunction(
+    () => {
+      const status = document.querySelector(
+        '[data-notifications-live-status="true"]'
+      );
+      const state = status?.getAttribute('data-notifications-live-state');
+      return (
+        state === 'connected' ||
+        state === 'reconnecting' ||
+        state === 'unavailable' ||
+        state === 'paused'
+      );
+    },
+    undefined,
+    { polling: 100, timeout: 10_000 }
+  );
 }
 
 test.describe.configure({ mode: 'serial' });
@@ -114,6 +144,7 @@ for (const scenario of finalGroup.scenarios) {
         await page
           .waitForLoadState('networkidle', { timeout: 7_500 })
           .catch(() => undefined);
+        await waitForCrossBrowserReadyState(page, scenario);
         const firstText = (await page.locator('body').innerText()).trim();
         const accessibility = await page.locator('body').ariaSnapshot();
         await page.keyboard.press('Tab');
@@ -123,6 +154,7 @@ for (const scenario of finalGroup.scenarios) {
             document.activeElement !== document.body
         );
         await page.reload({ waitUntil: 'domcontentloaded' });
+        await waitForCrossBrowserReadyState(page, scenario);
         const reloadedText = (await page.locator('body').innerText()).trim();
         const reloadedAccessibility = await page.locator('body').ariaSnapshot();
         let offlineProof:
