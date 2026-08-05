@@ -124,6 +124,31 @@ describe('blockingFailedRequests', () => {
       ])
     ).toEqual([]);
   });
+
+  test('accepts exact canceled developer reload assets', () => {
+    const tailwindAbort: NetworkEntry = {
+      kind: 'failed',
+      method: 'GET',
+      resourceType: 'stylesheet',
+      url: 'http://127.0.0.1:4201/public/dist/tailwind.css',
+      failure: 'net::ERR_ABORTED',
+    };
+    const iconScriptAbort: NetworkEntry = {
+      kind: 'failed',
+      method: 'GET',
+      resourceType: 'script',
+      url: 'https://unpkg.com/lucide@latest',
+      failure: 'net::ERR_ABORTED',
+    };
+    expect(blockingFailedRequests([tailwindAbort, iconScriptAbort])).toEqual(
+      []
+    );
+    expect(
+      blockingFailedRequests([
+        { ...tailwindAbort, url: 'http://127.0.0.1:4201/public/other.css' },
+      ])
+    ).not.toEqual([]);
+  });
 });
 
 test('migration capture wall clock is an exact canonical instant', () => {
@@ -486,6 +511,46 @@ test('only the exact pinned admin chat hydration error is explained', () => {
     expectedDocumentConsoleError({
       ...options,
       scenario: { ...scenario, path: '/chat/not-a-uuid' },
+    })
+  ).toBe(false);
+});
+
+test('only pinned PR7 source developer API 404s are explained', () => {
+  const scenario: Scenario = {
+    id: 'pr7.admin.portal-ready',
+    surface: 'admin',
+    path: '/developer-portal',
+    title: 'Pinned developer portal',
+    state: { id: 'developer-admin', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location: 'http://localhost:8080/api/admin/developer/modules:0:0',
+    text: 'Failed to load resource: the server responded with a status of 404 (Not Found)',
+  };
+  const options = {
+    entry,
+    finalUrl: 'http://127.0.0.1:4101/developer-portal',
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: { ...entry, location: 'http://localhost:8080/api/other' },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, id: 'pr6.admin.notification-empty' },
     })
   ).toBe(false);
 });

@@ -1276,6 +1276,123 @@
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/chat/history/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/chat_history.rs#ChatHistoryUnavailable",
       "maximumDifferencePercent": 3
+    },
+    {
+      "scenarioId": "pr7.frontend.developer-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source exposes an owner API-key inventory without a verified Rust ownership projection. The target fails closed and renders only the backend-owned unavailable state, never projecting a live secret or unverified usage claim.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/developer/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/developer.rs#render_overview",
+      "maximumDifferencePercent": 72.1
+    },
+    {
+      "scenarioId": "pr7.frontend.docs",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target serves a version-pinned, explicitly warned OpenAPI reference from the migration source snapshot instead of presenting an unverified live developer contract. The large delta is the required removal of unsupported documentation claims, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/developer/docs/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/developer.rs#render_docs",
+      "maximumDifferencePercent": 79.4
+    },
+    {
+      "scenarioId": "pr7.frontend.usage-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source renders usage figures without a verified owner-isolated meter. The target refuses to invent request counts and shows the backend-owned unavailable projection until the Rust usage contract is present.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/developer/usage/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/developer.rs#render_usage",
+      "maximumDifferencePercent": 8.5
+    },
+    {
+      "scenarioId": "pr7.admin.portal-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target projects only the redacted API-key and usage records returned by the Rust admin BFF, while the pinned source uses legacy browser API paths. Secret, wallet, ownership, and audit decisions therefore remain backend-authoritative.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#DeveloperPortalReady",
+      "maximumDifferencePercent": 11.3
+    },
+    {
+      "scenarioId": "pr7.admin.portal-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders an authoritative empty registry only when the Rust BFF returns an empty owner-scoped projection. The pinned source calls unsupported legacy endpoints, so this state is a required backend-contract difference.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#DeveloperPortalEmpty",
+      "maximumDifferencePercent": 9.2
+    },
+    {
+      "scenarioId": "pr7.admin.portal-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target displays the Rust BFF permission denial and withholds the registry projection. The pinned source has no equivalent verified developer permission boundary and instead fails through legacy browser requests.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#DeveloperPortalProblem",
+      "maximumDifferencePercent": 10.0
+    },
+    {
+      "scenarioId": "pr7.admin.portal-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the backend dependency failure and does not fabricate an API-key inventory. The source's legacy browser endpoints are not an authoritative replacement for the Rust developer BFF.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#DeveloperPortalProblem",
+      "maximumDifferencePercent": 10.2
+    },
+    {
+      "scenarioId": "pr7.admin.portal-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target fails closed when a developer projection is malformed or contains secret-bearing fields. This deliberate redaction and rejection is required security behavior and cannot be replaced by the pinned source's legacy client projection.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#developer_portal_load",
+      "maximumDifferencePercent": 10.2
+    },
+    {
+      "scenarioId": "pr7.admin.create-key-form",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target exposes a create form whose submit is routed through the Rust BFF and its idempotency and audit ledger. The pinned source does not provide a verified secret-once creation contract, so the structural delta is required rather than styling-only.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/developer_portal.rs#render_create_key",
+      "maximumDifferencePercent": 8.9
+    },
+    {
+      "scenarioId": "pr7.admin.create-key-secret-once",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target reveals the API-key secret only in the Rust BFF creation response and persists only its hash and audit record. The pinned source has no verified secret-once boundary; the visual difference is required security behavior.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#admin_developer_create_key",
+      "maximumDifferencePercent": 7.3
+    },
+    {
+      "scenarioId": "pr7.admin.create-key-secret-cleared",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target clears the secret-once response on reload and returns to the Rust-backed creation form, proving that plaintext credentials are not persisted in browser state. The pinned source has no equivalent verified lifecycle, so this delta is required security behavior.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#admin_developer_create_key",
+      "maximumDifferencePercent": 9.0
+    },
+    {
+      "scenarioId": "pr7.admin.create-key-conflict",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target reports the Rust idempotency conflict and withholds any secret or success claim. The pinned source has no authoritative conflict ledger, so the state difference is required by the backend contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/api-keys/create/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#admin_developer_create_key",
+      "maximumDifferencePercent": 6.5
+    },
+    {
+      "scenarioId": "pr7.admin.revoke-key",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target acknowledges revocation only after the Rust BFF validates ownership, permission, and audit persistence. The pinned source uses unsupported legacy developer endpoints, so the visible mutation state is a required backend-authority difference.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#admin_developer_revoke_key",
+      "maximumDifferencePercent": 10.6
     }
   ]
 }

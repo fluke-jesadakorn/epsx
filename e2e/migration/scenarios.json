@@ -4508,35 +4508,69 @@
       },
       "scenarios": [
         {
-          "id": "pr7.frontend.developer",
+          "id": "pr7.frontend.developer-unavailable",
           "surface": "frontend",
           "path": "/developer",
-          "title": "Developer overview and key ownership",
+          "title": "Unimplemented owner API-key inventory fails closed",
           "state": {
             "id": "developer-owner",
             "session": "authenticated",
             "audience": "epsx-frontend",
-            "permissions": ["epsx:api-keys:read"]
+            "permissions": ["epsx:api-keys:read", "epsx:usage:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["API key registry"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-section=\"developer-overview-unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "epsx_live_",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "backend-owned capability state",
+            "owner API-key registry"
+          ]
         },
         {
           "id": "pr7.frontend.docs",
           "surface": "frontend",
           "path": "/developer/docs",
-          "title": "Developer documentation",
+          "title": "Pinned developer documentation",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["OpenAPI document"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-section=\"developer-docs\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-docs-reference-warning=\"true\"]",
+              "side": "target"
+            },
+            {
+              "type": "attribute",
+              "selector": "[data-docs-source-baseline]",
+              "name": "data-docs-source-baseline",
+              "value": "origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["pinned OpenAPI reference", "rate policy"]
         },
         {
-          "id": "pr7.frontend.usage",
+          "id": "pr7.frontend.usage-unavailable",
           "surface": "frontend",
           "path": "/developer/usage",
-          "title": "Owner-isolated usage and rate policy",
+          "title": "Unimplemented owner usage projection fails closed",
           "state": {
             "id": "developer-owner",
             "session": "authenticated",
@@ -4544,38 +4578,456 @@
             "permissions": ["epsx:usage:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["usage meter", "rate policy"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-section=\"developer-usage-unavailable\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "42 requests",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "owner-isolated usage meter",
+            "backend-owned rate policy"
+          ]
         },
         {
-          "id": "pr7.admin.portal",
+          "id": "pr7.admin.portal-ready",
           "surface": "admin",
           "path": "/developer-portal",
-          "title": "Admin API client registry",
+          "title": "Redacted API client registry and metering",
           "state": {
             "id": "developer-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:api-keys:read"]
+            "permissions": ["admin:developer:read"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["API key registry", "audit ledger"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-portal-state=\"ready\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Migration integration",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "Market analytics",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "epsx_live_e2e_secret_once_7f4a",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "redacted API-key registry",
+            "persisted usage meter",
+            "audit ledger"
+          ]
         },
         {
-          "id": "pr7.admin.create-key",
+          "id": "pr7.admin.portal-empty",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "Authoritative empty API-key registry",
+          "state": {
+            "id": "developer-empty",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:read"],
+            "fixtureMode": "developer-empty",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-portal-state=\"empty\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["authoritative empty API-key registry"]
+        },
+        {
+          "id": "pr7.admin.portal-forbidden",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "API-key registry permission denial",
+          "state": {
+            "id": "developer-forbidden",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:read"],
+            "fixtureMode": "developer-forbidden",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-portal-state=\"forbidden\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "Migration integration",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["backend developer permission denial"]
+        },
+        {
+          "id": "pr7.admin.portal-unavailable",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "API-key registry dependency failure",
+          "state": {
+            "id": "developer-unavailable",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:read"],
+            "fixtureMode": "developer-unavailable",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-portal-state=\"unavailable\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["developer dependency failure"]
+        },
+        {
+          "id": "pr7.admin.portal-malformed",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "Secret-bearing registry response fails closed",
+          "state": {
+            "id": "developer-malformed",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:read"],
+            "fixtureMode": "developer-malformed",
+            "fixtureModeSide": "target"
+          },
+          "actions": [],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-portal-state=\"malformed\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "must-not-project",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["strict secret-free read projection"]
+        },
+        {
+          "id": "pr7.admin.create-key-form",
           "surface": "admin",
           "path": "/developer-portal/api-keys/create",
-          "title": "Secret-once API key creation",
+          "title": "Backend-authorized API-key creation form",
           "state": {
             "id": "developer-admin",
             "session": "authenticated",
             "audience": "epsx-admin",
-            "permissions": ["admin:api-keys:create"]
+            "permissions": ["admin:developer:create"]
           },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
-          "fixtureRequirements": ["API key registry", "secret-once response"]
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-create-state=\"form\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-create-submit=\"bff\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "API-key registry",
+            "idempotency ledger",
+            "audit ledger"
+          ]
+        },
+        {
+          "id": "pr7.admin.create-key-secret-once",
+          "surface": "admin",
+          "path": "/developer-portal/api-keys/create",
+          "title": "Secret-once API-key creation",
+          "state": {
+            "id": "developer-admin-create",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:create"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"client_name\"]",
+              "value": "Migration integration",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"permissions\"]",
+              "value": "epsx:analytics:read",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "[data-admin-developer-create-submit=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-create-state=\"created\"]",
+              "side": "target"
+            },
+            {
+              "type": "selector",
+              "value": "[data-secret-once=\"true\"]",
+              "side": "target"
+            },
+            {
+              "type": "text",
+              "value": "epsx_live_e2e_secret_once_7f4a",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "secret-once creation response",
+            "hash-only persistence",
+            "creation audit record"
+          ]
+        },
+        {
+          "id": "pr7.admin.create-key-secret-cleared",
+          "surface": "admin",
+          "path": "/developer-portal/api-keys/create",
+          "title": "API-key secret disappears after first render",
+          "state": {
+            "id": "developer-admin-create-reload",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:create"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"client_name\"]",
+              "value": "Migration integration",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "[data-admin-developer-create-submit=\"bff\"]",
+              "side": "target"
+            },
+            { "type": "reload", "side": "target" }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-create-state=\"form\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "epsx_live_e2e_secret_once_7f4a",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["secret-once cookie erasure"]
+        },
+        {
+          "id": "pr7.admin.create-key-conflict",
+          "surface": "admin",
+          "path": "/developer-portal/api-keys/create",
+          "title": "API-key idempotency conflict",
+          "state": {
+            "id": "developer-create-conflict",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:create"],
+            "fixtureMode": "developer-conflict",
+            "fixtureModeSide": "target"
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "input[name=\"client_name\"]",
+              "value": "Conflicting integration",
+              "side": "target"
+            },
+            {
+              "type": "fill",
+              "selector": "input[name=\"wallet_address\"]",
+              "value": "0xea6400000000000000000000000000000000e3df",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "[data-admin-developer-create-submit=\"bff\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-create-state=\"conflict\"]",
+              "side": "target"
+            },
+            {
+              "type": "text-absent",
+              "value": "epsx_live_e2e_secret_once_7f4a",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": ["idempotency conflict ledger"]
+        },
+        {
+          "id": "pr7.admin.revoke-key",
+          "surface": "admin",
+          "path": "/developer-portal",
+          "title": "API-key revocation and audit acknowledgement",
+          "state": {
+            "id": "developer-revoke",
+            "session": "authenticated",
+            "audience": "epsx-admin",
+            "permissions": ["admin:developer:read", "admin:developer:manage"]
+          },
+          "actions": [
+            {
+              "type": "fill",
+              "selector": "form:has(input[value=\"revoke\"]) input[name=\"reason\"]",
+              "value": "Migration revocation verification",
+              "side": "target"
+            },
+            {
+              "type": "click",
+              "selector": "form:has(input[value=\"revoke\"]) button[type=\"submit\"]",
+              "side": "target"
+            }
+          ],
+          "outcomes": [
+            {
+              "type": "selector",
+              "value": "[data-admin-developer-mutation-state=\"success\"]",
+              "side": "target"
+            },
+            { "type": "no-horizontal-overflow" }
+          ],
+          "fixtureRequirements": [
+            "revocation ledger",
+            "revocation audit record"
+          ]
+        }
+      ],
+      "backendContracts": [
+        {
+          "id": "pr7-admin-developer-bff",
+          "title": "Admin secret-once and redacted API-key projections",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx-admin",
+            "developer_portal_adapter::tests"
+          ],
+          "claims": [
+            "plaintext secrets exist only in the creation response",
+            "list usage lifecycle and malformed outcomes are strict and redacted"
+          ],
+          "sources": ["apps/admin/src/developer_portal_adapter.rs"]
+        },
+        {
+          "id": "pr7-backend-developer-authority",
+          "title": "Developer API ownership audit and persistence authority",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx",
+            "--lib",
+            "developer_portal"
+          ],
+          "claims": [
+            "API-key ownership lifecycle and usage remain backend-owned",
+            "creation revocation and expiration require audit evidence"
+          ],
+          "sources": [
+            "apps/backend/src/web/admin/developer_portal_handlers.rs",
+            "apps/backend/src/infrastructure/adapters/repositories/developer_portal/api_key_repository.rs"
+          ]
+        },
+        {
+          "id": "pr7-rate-plan-enforcement",
+          "title": "Backend rate and plan enforcement",
+          "executable": "cargo",
+          "arguments": [
+            "test",
+            "--locked",
+            "-p",
+            "epsx",
+            "--lib",
+            "multi_level_rate_limiter"
+          ],
+          "claims": [
+            "global user API-key and plan limits are enforced in Rust",
+            "usage windows are deterministic and isolated per principal"
+          ],
+          "sources": [
+            "apps/backend/src/web/middleware/multi_level_rate_limiter.rs"
+          ]
         }
       ]
     },
