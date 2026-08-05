@@ -119,3 +119,4 @@ infrastructure/kubernetes/snapshots/
 tools/e2e/baselines/
 tools/e2e/diff/
 tools/e2e/logs/
+e2e/rust-artifacts/

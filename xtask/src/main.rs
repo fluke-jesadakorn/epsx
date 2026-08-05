@@ -3,6 +3,8 @@
 //! This crate intentionally has no runtime dependencies. It is the first
 //! migration tool that can run after the Bun/Node toolchain is removed.
 
+mod node_free;
+
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet, HashSet},
@@ -111,6 +113,13 @@ fn main() -> ExitCode {
         "notification-privacy-audit" => notification_privacy_audit(&flags),
         "notification-migration-audit" => notification_migration_audit(&flags),
         "sync-audit" => sync_audit(),
+        "audit" => node_free::audit(&flags),
+        "e2e" => node_free::e2e(&flags),
+        "env" => node_free::env_command(&flags),
+        "setup-local" => node_free::setup_local(&flags),
+        "dev" => node_free::dev(&flags),
+        "build" => node_free::build(&flags),
+        "test" => node_free::test(&flags),
         "verify" => rust_audit(&["--strict".to_string()]),
         "help" | "--help" | "-h" => {
             print_help();
@@ -132,6 +141,19 @@ fn print_help() {
     println!(
         "\
 cargo xtask commands:
+  audit no-node [--strict]
+                         reject tracked Node/JS sources, tooling, active commands, and inline runtimes
+  e2e doctor [--group 0..9]
+  e2e run --group 0..9 [--webdriver-url URL] [--browser chromium|firefox|safari]
+  e2e report [--group 0..9]
+  e2e verify-artifacts [--group 0..9]
+                         Rust-native migration scenario and evidence commands
+  env validate          validate the merged root environment against .env.example
+  setup-local           deploy the local Foundry contracts and tokens
+  dev --all|--frontend|--admin|--backend
+                         run the Rust/Dioxus development surface
+  build --profile development|production
+  test --all            run the Rust workspace test suite
   rust-audit [--strict]  inventory tracked JS/TS and embedded runtime markers
   migration-audit [--strict] detect colliding versions and destructive SQL
   authority-audit [--strict] verify the notification authority/compatibility matrix
