@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "repository": "https://github.com/fluke-jesadakorn/epsx.git",
+  "ref": "origin/development",
+  "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+  "application": "Next.js frontend and admin baseline",
+  "packageManager": "bun@1.3.4",
+  "dependencyLock": "bun.lock",
+  "dependencyLockSha256": "1481506b3f93015dc70c1f771851c6446fbaebcdda2436729747e813831501de",
+  "immutable": true
+}

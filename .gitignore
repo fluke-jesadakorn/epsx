@@ -23,6 +23,8 @@ test-results/
 playwright-report/
 playwright-synpress-report/
 .cache-synpress/
+e2e/migration/.runtime/
+e2e/migration/artifacts/
 
 # Environment Files
 .env
