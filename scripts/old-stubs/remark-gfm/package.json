@@ -1,8 +1,0 @@
-{
-  "name": "remark-gfm",
-  "version": "4.0.0-stub",
-  "main": "src/index.js",
-  "exports": {
-    ".": "./src/index.js"
-  }
-}

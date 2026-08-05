@@ -8,7 +8,7 @@ if [ -z "$ADDRESS" ]; then
     exit 1
 fi
 
-echo "🔍 Checking balances for $ADDRESS on Local Anvil Node..."
+echo "🔍 Checking balances for $ADDRESS on the local Anvil chain..."
 
 # USDT
 USDT_BAL=$(cast call 0x55d398326f99059fF775485246999027B3197955 "balanceOf(address)(uint256)" "$ADDRESS" --rpc-url "$RPC_URL")

@@ -9,7 +9,7 @@ mod ports;
 mod selection;
 
 #[cfg(feature = "dormant-postgres-adapter")]
-mod postgres;
+pub mod postgres;
 
 #[cfg(test)]
 mod memory;

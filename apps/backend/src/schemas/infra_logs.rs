@@ -1077,6 +1077,3 @@ pub mod infra_logs {
         wallet_activity_logs,
     );
 }
-
-// Keep existing callers stable while Diesel groups schema-qualified tables.
-pub use infra_logs::*;

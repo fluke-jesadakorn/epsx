@@ -24,16 +24,16 @@ pub struct PermissionDb {
     pub resource: String,
     /// Extracted action from permission_string
     pub action: String,
-    /// Human readable name
-    pub name: Option<String>,
     /// Permission description
     pub description: Option<String>,
+    /// Permission type (legacy field)
+    pub permission_type: String,
+    /// Human readable name
+    pub name: Option<String>,
     /// Permission category
     pub category: Option<String>,
     /// Whether this is a system permission (cannot be deleted)
     pub is_system: bool,
-    /// Permission type (legacy field)
-    pub permission_type: String,
     /// Whether this permission is currently active
     pub is_active: bool,
     /// Creation timestamp

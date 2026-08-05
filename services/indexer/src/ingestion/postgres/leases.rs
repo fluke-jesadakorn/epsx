@@ -266,9 +266,9 @@ fn require_exact_live_grant(
 ) -> Result<(), SelectedChainRepositoryError> {
     if stored.owner.as_ref() != Some(grant.owner())
         || stored.fence != Some(grant.fence())
-        || !stored
+        || stored
             .expires_at
-            .is_some_and(|expires_at| expires_at > stored.database_now)
+            .is_none_or(|expires_at| expires_at <= stored.database_now)
     {
         return Err(SelectionConflict::StaleLease.into());
     }

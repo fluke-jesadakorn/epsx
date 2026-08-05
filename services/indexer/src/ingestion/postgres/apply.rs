@@ -305,9 +305,9 @@ fn require_live_lease(
 ) -> Result<(), SelectedChainRepositoryError> {
     if stored.lease_owner.as_ref() != Some(mutation.owner())
         || stored.lease_fence != Some(mutation.fence())
-        || !stored
+        || stored
             .lease_expires_at
-            .is_some_and(|expires_at| expires_at > stored.database_now)
+            .is_none_or(|expires_at| expires_at <= stored.database_now)
     {
         return Err(SelectionConflict::StaleLease.into());
     }

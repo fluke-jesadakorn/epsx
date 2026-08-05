@@ -8,9 +8,9 @@
 #   MinIO         — launchctl load ~/Library/LaunchAgents/com.epsx.minio.plist (ports 9100/9101)
 #   Cloudflared   — launchctl load ~/Library/LaunchAgents/com.epsx.cloudflared.plist
 #
-# App services (backend :8080, frontend :3000, admin :3001) run locally via `bun dev`.
+# App services (backend :8080, frontend :3000, admin :3001) run via `cargo xtask dev --all`.
 # Cloudflare tunnel (bare metal) routes dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
-# directly to localhost so they reach the locally-running bun dev processes.
+# directly to localhost so they reach the locally running Rust processes.
 
 name: epsx-dev
 

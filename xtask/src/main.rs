@@ -1795,6 +1795,7 @@ fn migration_audit(flags: &[String]) -> Result<(), String> {
     }
 
     let root = repo_root()?;
+    let destructive_allowlist = migration_destructive_allowlist(&root)?;
     let mut duplicate_versions = Vec::new();
     let mut destructive_files = Vec::new();
     for migration_root in migration_roots(&root)? {
@@ -1805,21 +1806,26 @@ fn migration_audit(flags: &[String]) -> Result<(), String> {
             let entry =
                 entry.map_err(|error| format!("could not inspect migration entry: {error}"))?;
             let path = entry.path();
-            if !path.is_dir() {
-                continue;
-            }
             let Some(name) = path.file_name().and_then(OsStr::to_str) else {
                 continue;
             };
-            let version = migration_version(name);
-            versions.entry(version).or_default().push(path.clone());
-
-            let up = path.join("up.sql");
-            let down = path.join("down.sql");
-            for sql_file in [up, down] {
-                if let Ok(sql) = std::fs::read_to_string(&sql_file) {
+            if path.is_dir() {
+                let version = migration_version(name);
+                versions.entry(version).or_default().push(path.clone());
+                for sql_file in [path.join("up.sql"), path.join("down.sql")] {
+                    if let Ok(sql) = std::fs::read_to_string(&sql_file) {
+                        if contains_destructive_sql(&sql) {
+                            destructive_files.push(sql_file);
+                        }
+                    }
+                }
+            } else if path.extension() == Some(OsStr::new("sql")) {
+                let version =
+                    migration_version(path.file_stem().and_then(OsStr::to_str).unwrap_or(name));
+                versions.entry(version).or_default().push(path.clone());
+                if let Ok(sql) = std::fs::read_to_string(&path) {
                     if contains_destructive_sql(&sql) {
-                        destructive_files.push(sql_file);
+                        destructive_files.push(path);
                     }
                 }
             }
@@ -1926,6 +1932,30 @@ fn migration_audit(flags: &[String]) -> Result<(), String> {
     };
     let lifecycle_ready = lifecycle_ready && expiration_ready;
 
+    destructive_files.sort();
+    let mut approved_destructive_files = Vec::new();
+    let mut unapproved_destructive_files = Vec::new();
+    let mut observed_allowlist_paths = BTreeSet::new();
+    for path in &destructive_files {
+        let relative = path
+            .strip_prefix(&root)
+            .map_err(|_| format!("migration path escaped the repository: {}", path.display()))?
+            .to_path_buf();
+        let digest =
+            sha256_file(path).ok_or_else(|| format!("could not hash {}", path.display()))?;
+        if destructive_allowlist.get(&relative) == Some(&digest) {
+            observed_allowlist_paths.insert(relative);
+            approved_destructive_files.push(path.clone());
+        } else {
+            unapproved_destructive_files.push(path.clone());
+        }
+    }
+    let stale_allowlist_entries = destructive_allowlist
+        .keys()
+        .filter(|path| !observed_allowlist_paths.contains(*path))
+        .cloned()
+        .collect::<Vec<_>>();
+
     println!(
         "migration-audit: duplicate active versions={}",
         duplicate_versions.len()
@@ -1937,11 +1967,16 @@ fn migration_audit(flags: &[String]) -> Result<(), String> {
         }
     }
     println!(
-        "migration-audit: files containing destructive SQL markers={}",
-        destructive_files.len()
+        "migration-audit: destructive SQL approved_history={} unapproved={} stale_allowlist={}",
+        approved_destructive_files.len(),
+        unapproved_destructive_files.len(),
+        stale_allowlist_entries.len()
     );
-    for path in &destructive_files {
-        println!("  destructive-sql: {}", path.display());
+    for path in &unapproved_destructive_files {
+        println!("  unapproved-destructive-sql: {}", path.display());
+    }
+    for path in &stale_allowlist_entries {
+        println!("  stale-destructive-allowlist: {}", path.display());
     }
     println!(
         "migration-audit: notification lifecycle foundation={}",
@@ -1953,16 +1988,67 @@ fn migration_audit(flags: &[String]) -> Result<(), String> {
     );
 
     if strict
-        && (!duplicate_versions.is_empty() || !destructive_files.is_empty() || !lifecycle_ready)
+        && (!duplicate_versions.is_empty()
+            || !unapproved_destructive_files.is_empty()
+            || !stale_allowlist_entries.is_empty()
+            || !lifecycle_ready)
     {
         return Err(format!(
-            "strict migration gate failed: {} colliding versions, {} files with destructive SQL markers, lifecycle foundation={}",
+            "strict migration gate failed: {} colliding versions, {} unapproved destructive SQL files, {} stale allowlist entries, lifecycle foundation={}",
             duplicate_versions.len(),
-            destructive_files.len(),
+            unapproved_destructive_files.len(),
+            stale_allowlist_entries.len(),
             if lifecycle_ready { "present" } else { "missing-or-unsafe" }
         ));
     }
     Ok(())
+}
+
+fn migration_destructive_allowlist(root: &Path) -> Result<BTreeMap<PathBuf, String>, String> {
+    let path = root.join("docs/migration/contracts/legacy-destructive-migrations.sha256");
+    let contents = std::fs::read_to_string(&path)
+        .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+    let mut entries = BTreeMap::new();
+    for (index, raw) in contents.lines().enumerate() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let mut fields = line.split_whitespace();
+        let digest = fields.next().unwrap_or("");
+        let relative = fields.next().unwrap_or("");
+        if fields.next().is_some()
+            || digest.len() != 64
+            || !digest.bytes().all(|byte| byte.is_ascii_hexdigit())
+        {
+            return Err(format!(
+                "invalid destructive migration allowlist line {}",
+                index + 1
+            ));
+        }
+        let relative = PathBuf::from(relative);
+        if relative.as_os_str().is_empty()
+            || relative.is_absolute()
+            || relative.components().any(|component| {
+                matches!(
+                    component,
+                    std::path::Component::ParentDir | std::path::Component::RootDir
+                )
+            })
+        {
+            return Err(format!(
+                "unsafe destructive migration allowlist path on line {}",
+                index + 1
+            ));
+        }
+        if entries.insert(relative, digest.to_string()).is_some() {
+            return Err(format!(
+                "duplicate destructive migration allowlist path on line {}",
+                index + 1
+            ));
+        }
+    }
+    Ok(entries)
 }
 
 fn migration_roots(root: &Path) -> Result<Vec<PathBuf>, String> {

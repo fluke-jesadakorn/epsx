@@ -126,7 +126,7 @@ services:
         aliases:
           - epsx-frontend.epsx-prod.svc.cluster.local
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -178,7 +178,7 @@ services:
         aliases:
           - epsx-admin.epsx-prod.svc.cluster.local
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))\"" ]
+      test: ["CMD-SHELL", "curl -fsS http://localhost:3000/api/health >/dev/null"]
       interval: 15s
       timeout: 5s
       retries: 3

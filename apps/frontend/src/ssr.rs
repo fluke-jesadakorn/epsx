@@ -623,11 +623,8 @@ fn news_detail_route_segment(path: &str) -> Option<&str> {
     (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
-fn escaped_page_metadata(meta: &PageMeta) -> (String, String) {
-    (
-        epsx_templates::html_text_escape_pub(&meta.title),
-        epsx_templates::html_attr_escape_pub(&meta.description),
-    )
+fn page_metadata(meta: &PageMeta) -> (String, String) {
+    (meta.title.clone(), meta.description.clone())
 }
 
 /// Wave 22 T4 — `/pricing` is an alias for `/plans` in prod. The
@@ -904,7 +901,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Page bodies remain responsible for any route-specific footer content.
     let include_footer = false;
 
-    let (metadata_title, metadata_description) = escaped_page_metadata(&meta);
+    let (metadata_title, metadata_description) = page_metadata(&meta);
     let doc = epsx_templates::page_shell_with_body_class_and_keywords(
         &metadata_title,
         &metadata_description,
@@ -1535,7 +1532,6 @@ mod tests {
     use super::design_bypass_identity_enabled;
     use super::design_bypass_requested;
     use super::design_bypass_wallet_enabled;
-    use super::escaped_page_metadata;
     use super::frontend_navigation_html;
     use super::load_home_analytics;
     use super::load_home_news;
@@ -1544,6 +1540,7 @@ mod tests {
     use super::news_ssr_status;
     use super::normalized_request_target;
     use super::notifications_ssr_status;
+    use super::page_metadata;
     use super::pricing_redirect_response;
     use super::record_account_notification_preferences_form_state;
     use super::record_account_notification_preferences_load;
@@ -2572,7 +2569,7 @@ mod tests {
         meta.title = "Close </title><script>alert(\"metadata-title\")</script> & news".into();
         meta.description =
             "Summary \"quoted\"'><script>alert('metadata-summary')</script> & more".into();
-        let (title, description) = escaped_page_metadata(&meta);
+        let (title, description) = page_metadata(&meta);
         let shell = epsx_templates::page_shell(&title, &description, "", "", false);
 
         assert_eq!(shell.matches("<title>").count(), 1);

@@ -21,16 +21,16 @@ mod reads;
 /// Construction does not connect to PostgreSQL, run a migration, start a
 /// worker, or activate an ingestion route. Durable repository behavior is
 /// added only by later reviewed slices.
-pub(super) struct PostgresSelectedChainRepository {
+pub struct PostgresSelectedChainRepository {
     pool: PgPool,
 }
 
 impl PostgresSelectedChainRepository {
-    pub(super) fn new(pool: PgPool) -> Self {
+    pub fn new(pool: PgPool) -> Self {
         Self { pool }
     }
 
-    pub(super) fn pool(&self) -> &PgPool {
+    pub fn pool(&self) -> &PgPool {
         &self.pool
     }
 }

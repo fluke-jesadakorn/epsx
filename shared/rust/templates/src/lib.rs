@@ -14,6 +14,14 @@ fn escape_html_attribute(value: &str) -> String {
     value
         .replace('&', "&amp;")
         .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}
+
+fn escape_html_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
@@ -39,6 +47,8 @@ pub fn design_system_head_with_keywords(
     description: &str,
     keywords: Option<&str>,
 ) -> String {
+    let title = escape_html_text(title);
+    let description = escape_html_attribute(description);
     let keywords_meta = keywords
         .map(escape_html_attribute)
         // Keep the separator as a real newline. A raw `\\n` sequence here
@@ -6125,9 +6135,8 @@ fn html_attr_escape(s: &str) -> String {
 }
 
 /// Public re-export of `html_attr_escape` for Dioxus components
-/// that need to build raw HTML strings via `dangerous_inner_html`
-/// (e.g. inline `onclick="..."` attributes that need to be
-/// XSS-safe). Prefer using the higher-level `copy_button_html` /
+/// that need to build raw HTML strings via `dangerous_inner_html`.
+/// Prefer using the higher-level `copy_button_html` /
 /// `share_button_html` / `email_copy_button_html` builders for
 /// common cases; this is for bespoke markup.
 pub fn html_attr_escape_pub(s: &str) -> String {

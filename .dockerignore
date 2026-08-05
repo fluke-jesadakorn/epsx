@@ -1,18 +1,5 @@
-node_modules/
-.pnp/
-yarn.lock
-package-lock.json
-
-.next/
-dist/
-build/
-out/
-tmp/
-.cache/
-.turbo/
-.swc/
-
 target/
+target-check/
 **/*.rs.bk
 .worktrees/
 !Cargo.lock
@@ -24,70 +11,40 @@ target/
 !.env.production
 
 coverage/
-.nyc_output/
-__tests__/
-test/
-tests/
-*.test.*
-*.spec.*
-playwright-report/
-test-results/
+e2e/migration/.runtime/
+e2e/migration/artifacts/
+e2e/rust-artifacts/
 
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-.pnpm-debug.log*
 debug/
+.cache/
 
 .git/
 .gitignore
-
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
-*.md
-!README.md
-docs/
-
 .DS_Store
 Thumbs.db
 
-*.tsbuildinfo
-
-.vercel/
-.firebase/
-.github/
-docker-compose.override.yml
-
-scripts/
-.dockerignore
-
-.eslintrc*
-.prettier*
+docs/
+webDesign/
 
 *.pem
 *.key
 secrets/
 .secret/
-
 *.db
 *.sqlite
-
-.yarn/
-.pnpm-store/
 
 deploy.tar.gz
 deploy-prod.tar.gz
 *.tar.gz
 
-apps/contracts/src/
 apps/contracts/lib/
 apps/contracts/out/
 apps/contracts/cache/
-apps/contracts/test/
-apps/contracts/script/
 apps/contracts/broadcast/

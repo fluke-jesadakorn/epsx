@@ -942,7 +942,7 @@ impl Tabs {
         let items: Vec<String> = self.tabs.iter().map(|(n, l)| {
             let active_cls = if n == &self.active { " active" } else { "" };
             format!(
-                r##"<button type="button" data-tab-group="{g}" data-tab-name="{n}" data-epsx-action="activate-tab" class="tab{active}">{l}</button>"##,
+                r##"<button type="button" data-tab-group="{g}" data-tab-name="{n}" class="tab{active}" data-epsx-action="activate-tab">{l}</button>"##,
                 g = self.group, n = html_escape_attr(n), active = active_cls, l = html_escape_text(l)
             )
         }).collect();
