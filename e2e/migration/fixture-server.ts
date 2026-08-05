@@ -1,5 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { createPrivateKey, sign } from 'node:crypto';
 
 interface FixtureRequest {
   sequence: number;
@@ -16,6 +17,79 @@ const logPath = process.env.E2E_FIXTURE_LOG;
 let requests: FixtureRequest[] = [];
 let mutations: FixtureRequest[] = [];
 let sequence = 0;
+let fixtureMode = 'healthy';
+
+const signingKeyId = 'epsx-e2e-rs256-v1';
+const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
+MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
+G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
+hURnmaiPfxf6KO1XmRq4J4zav27yV7+LkHHX9EmFSokpZkAikhCjV2fW3acpkWBD
+Yei+v5wWiSrXJdcccQr0BQieC+fP1a35jErN95VVdQ3sT+KvmBm0djGqMan4gGeW
+6Zd1wXVJM2a/hPf+AcPtKfGN4MVU3l38nupiPnmcN5FN7A/f75IyXFLdd4sA51FR
+QKdnnNXj3jJFuaE7k7O9eRdfFZsgOMN5lykz5aDYoBm+ju0a1RVXAyNm1DpURoi/
+c3GrJlJ3AgMBAAECggEANnjIwaIdvA0ru1DqtD6e7nfTA/iXvr6lS6ZWYPELIRhl
+0LOdv/th4uTkdyPda6yz95WeQO59wzRs/j1OwNqBlwUvkOxg+fiOWA3fJwVepXns
+eT5Qocx7nawyquokuF/bszf9rnKs+IqmJb1JzIXKjWL2J2qkxlzI3Qs1sQNmOXMD
+hUJZy0IEbTXs5Ix5r7dRWA2qUPLrHnWT8vm7oaGNYhJRaFTqTaauGRLVJ403zSoI
+KXpVtU6k8MX4LlQlTpQC3ej0UnMqZewFf0aHDW1fv2cqab+el2V3I/EekMyDx68z
+9EsZdult/wIZOP8BBCzWIyQE56OY+A1hvFL7w00qSQKBgQDsJ6FPkMYdAqLkEyjn
+brNZqprkqpOXHluUZuwO5vOH9ragtIIIQoJKv5cxlwmY9dD/KPBjC+1MBFkzk3CM
+ATNLgBqxA4/ZHwFCtPZr002IX3QtoZjM6pHUn8CN24Jp6QeBz+5Xw6c7YoMvclTb
+GRhvhpTexzpWyeGNXobUDcPP2wKBgQDG0Gg5s78DkmfDktMfVuw7lOx8PrDC788R
+3JlSYXe62bs9CDS1LFB8OCXxIj/vnjj6P4888SzPYZ5bW3F1cjc2o5TQe3E9DcEi
+aclkrekmf649LpBTcQ66Gf7XDuC9qUIfMs5Kcre5FoY7XUFlTtkQjfj6x9AQ+Lhr
+ebFdmeaIlQKBgQDIkkgxebaqAQk0SQmetqjhaUMxH6dG3GPPwTKQ3ZrNSb+G8ojW
+VxauQdc6KRvfrDgb3zt8BC9BNxhD89/NKV/VqjIBUhMkx26cp3H71nWtc9UKxIsw
+z7GYMy6pzVwQc/kKSf4W0HgCugLNk396ru/QGS/rnq5v8/r7xOMiy6YZrQKBgQCp
+uk/QOwhuNzXIe/crAR0JvJirdSWYNfw0RnzKHJWHecvkTbYZmWxYr+KMWm301cHU
+uiBBqa9UmAUF/yn8VvaV+c7YsRm6QpzIEUGyZtntWQFaD/98jL9C12B9HqF0qSPe
+2JPOcOMx6u3LjlB++XJMNLgC+ERDyOJANpLZ0sJBhQKBgQCgpBL4H+ycCK4npGMG
+SCZiOro0+J52I9plnzcnpT92bg3GrH5Wa72cMrfOTYg4T1KTQ2NbnCWIsvzNFV+W
+v8c5kgY8YwO5hfBbV1VfoIMo3nu2rasMHbUzX9xnBxUB7PZD3bfbs3uBn29vdkmn
+Wjh7jLLxLl6Tu7Awh6UNeNJ29w==
+-----END PRIVATE KEY-----
+`);
+const signingJwk = {
+  kty: 'RSA',
+  use: 'sig',
+  alg: 'RS256',
+  kid: signingKeyId,
+  n: 't2bnG-7KA5bV1BuXv2ptQNXQus2clwOkwbHuZLV-9M003yBLK6Oy6GBeOFIFpjN4sqzQCuZFYoyK-IVEZ5moj38X-ijtV5kauCeM2r9u8le_i5Bx1_RJhUqJKWZAIpIQo1dn1t2nKZFgQ2Hovr-cFokq1yXXHHEK9AUIngvnz9Wt-YxKzfeVVXUN7E_ir5gZtHYxqjGp-IBnlumXdcF1STNmv4T3_gHD7SnxjeDFVN5d_J7qYj55nDeRTewP3--SMlxS3XeLAOdRUUCnZ5zV494yRbmhO5OzvXkXXxWbIDjDeZcpM-Wg2KAZvo7tGtUVVwMjZtQ6VEaIv3NxqyZSdw',
+  e: 'AQAB',
+};
+
+function base64Url(value: string | Buffer): string {
+  return Buffer.from(value).toString('base64url');
+}
+
+function fixtureAccessToken(
+  issuer: string,
+  audience: string,
+  permissions: string
+): string {
+  const address = '0xea6400000000000000000000000000000000e3df';
+  const header = base64Url(
+    JSON.stringify({ alg: 'RS256', typ: 'JWT', kid: signingKeyId })
+  );
+  const payload = base64Url(
+    JSON.stringify({
+      iss: issuer,
+      sub: address,
+      aud: [audience],
+      exp: 2524608000,
+      iat: 1785283200,
+      nbf: 1785283170,
+      jti: `epsx-e2e-${audience}`,
+      scope: permissions,
+      wallet_address: address,
+      auth_method: 'web3_siwe',
+      auth_time: 1785283200,
+    })
+  );
+  const message = `${header}.${payload}`;
+  const signature = sign('RSA-SHA256', Buffer.from(message), signingKey);
+  return `${message}.${signature.toString('base64url')}`;
+}
 
 if (!Number.isInteger(port) || port < 1024 || port > 65535) {
   throw new Error(`invalid E2E fixture port ${port}`);
@@ -226,8 +300,8 @@ function authorizedControlRequest(request: Request): boolean {
 
 // The fixture router stays explicit so every supported dependency path is
 // reviewable in one place.
-// eslint-disable-next-line complexity
-async function handler(request: Request): Promise<Response> {
+// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
+async function routeRequest(request: Request): Promise<Response> {
   const url = new URL(request.url);
   if (request.method === 'OPTIONS') {
     return json({});
@@ -239,6 +313,7 @@ async function handler(request: Request): Promise<Response> {
     requests = [];
     mutations = [];
     sequence = 0;
+    fixtureMode = 'healthy';
     await log('fixture reset');
     return json({ reset: true });
   }
@@ -250,6 +325,34 @@ async function handler(request: Request): Promise<Response> {
       requestCount: requests.length,
       requests,
       mutations,
+      mode: fixtureMode,
+    });
+  }
+  if (url.pathname === '/__e2e/mode') {
+    if (!authorizedControlRequest(request) || request.method !== 'PUT') {
+      return json({ error: 'forbidden' }, 403);
+    }
+    const body = (await request.json()) as { mode?: unknown };
+    if (typeof body.mode !== 'string' || body.mode.trim() === '') {
+      return json({ error: 'invalid_mode' }, 400);
+    }
+    fixtureMode = body.mode;
+    return json({ mode: fixtureMode });
+  }
+  if (url.pathname === '/__e2e/session') {
+    if (!authorizedControlRequest(request)) {
+      return json({ error: 'forbidden' }, 403);
+    }
+    const audience = url.searchParams.get('audience') ?? '';
+    if (!['epsx-frontend', 'epsx-admin'].includes(audience)) {
+      return json({ error: 'invalid_audience' }, 400);
+    }
+    return json({
+      accessToken: fixtureAccessToken(
+        url.origin,
+        audience,
+        url.searchParams.get('permissions') ?? ''
+      ),
     });
   }
 
@@ -275,7 +378,13 @@ async function handler(request: Request): Promise<Response> {
     return json({ status: 'ok', service: 'epsx-e2e-fixture' });
   }
   if (url.pathname.includes('jwks')) {
-    return json({ keys: [] });
+    return json({ keys: [signingJwk] });
+  }
+  if (fixtureMode === 'dependency-unavailable') {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (fixtureMode === 'malformed') {
+    return json({ malformed: true });
   }
   if (
     url.pathname === '/api/analytics/rankings' ||
@@ -304,6 +413,31 @@ async function handler(request: Request): Promise<Response> {
   if (url.pathname === '/api/public/news/featured') {
     return json({ success: true, data: publicNews });
   }
+  if (url.pathname === '/api/admin/settings') {
+    return json({
+      data: {
+        general: {
+          systemName: 'EPSX Admin',
+          adminEmail: 'admin@epsx.io',
+          maintenanceMode: false,
+        },
+        notifications: {
+          emailNotifications: true,
+          pushNotifications: false,
+          smsNotifications: true,
+          securityAlerts: true,
+        },
+        security: { sessionTimeout: 30 },
+        appearance: { theme: 'auto', primaryColor: '#3b82f6' },
+      },
+    });
+  }
+  if (url.pathname === '/api/v1/notification/list') {
+    return json({ items: [], total: 0 });
+  }
+  if (url.pathname === '/api/v1/notification/unread-count') {
+    return json({ count: 0 });
+  }
   if (url.pathname === '/api/v1/content/news') {
     return json({ success: true, data: publicNews });
   }
@@ -321,6 +455,21 @@ async function handler(request: Request): Promise<Response> {
   ) {
     return json({ success: false, error: 'authentication_required' }, 401);
   }
+  if (
+    url.pathname === '/api/admin/me' ||
+    url.pathname === '/api/users/profile'
+  ) {
+    return json({
+      success: true,
+      data: {
+        subject: '0xea6400000000000000000000000000000000e3df',
+        wallet_address: '0xea6400000000000000000000000000000000e3df',
+        permissions: ['admin:*:*', 'epsx:*:*'],
+        capabilities: ['migration-e2e'],
+        auth_method: 'web3_siwe',
+      },
+    });
+  }
   return json(
     {
       success: false,
@@ -329,6 +478,17 @@ async function handler(request: Request): Promise<Response> {
     },
     404
   );
+}
+
+async function handler(request: Request): Promise<Response> {
+  const response = await routeRequest(request);
+  const origin = request.headers.get('origin');
+  if (origin !== null && origin !== '') {
+    response.headers.set('access-control-allow-origin', origin);
+    response.headers.set('access-control-allow-credentials', 'true');
+    response.headers.set('vary', 'origin');
+  }
+  return response;
 }
 
 const server = Bun.serve({

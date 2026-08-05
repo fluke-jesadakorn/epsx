@@ -10,6 +10,8 @@ import type {
   ColorScheme,
   NetworkEntry,
   Scenario,
+  ScenarioAction,
+  ScenarioOutcome,
   Viewport,
 } from './types';
 
@@ -23,6 +25,8 @@ interface CaptureOptions {
   artifactDirectory: string;
   viewport: Viewport;
   colorScheme: ColorScheme;
+  fixtureUrl: string;
+  fixtureToken: string;
 }
 
 interface BrowserStorageState {
@@ -176,6 +180,40 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
     });
 }
 
+function expectedDocumentConsoleError(options: {
+  entry: BrowserLogEntry;
+  finalUrl: string;
+  finalStatus: number | null;
+  scenario: Scenario;
+  side: 'source' | 'target';
+  networkEntries: NetworkEntry[];
+}): boolean {
+  const { entry, finalStatus, finalUrl, networkEntries, scenario, side } =
+    options;
+  const expectedStatus = scenario.outcomes.find(
+    outcome =>
+      outcome.type === 'status' &&
+      (outcome.side === undefined ||
+        outcome.side === 'both' ||
+        outcome.side === side)
+  );
+  if (
+    expectedStatus?.type !== 'status' ||
+    finalStatus !== expectedStatus.value ||
+    entry.location?.startsWith(`${finalUrl}:`) !== true ||
+    !entry.text.includes(`status of ${expectedStatus.value}`)
+  ) {
+    return false;
+  }
+  return networkEntries.some(
+    networkEntry =>
+      networkEntry.kind === 'response' &&
+      networkEntry.resourceType === 'document' &&
+      networkEntry.url === finalUrl &&
+      networkEntry.status === expectedStatus.value
+  );
+}
+
 async function waitForStableMeaningfulBody(page: Page): Promise<void> {
   await page
     .waitForFunction(
@@ -209,6 +247,156 @@ async function waitForStableMeaningfulBody(page: Page): Promise<void> {
     .catch(() => undefined);
 }
 
+// eslint-disable-next-line max-params
+async function fixtureControl<T>(
+  fixtureUrl: string,
+  fixtureToken: string,
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const headers = new Headers(init?.headers);
+  headers.set('x-epsx-e2e-token', fixtureToken);
+  const response = await fetch(new URL(path, fixtureUrl), {
+    ...init,
+    headers,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `fixture control ${path} failed with HTTP ${response.status}`
+    );
+  }
+  return (await response.json()) as T;
+}
+
+async function configureScenarioState(options: {
+  context: BrowserContext;
+  baseUrl: string;
+  fixtureUrl: string;
+  fixtureToken: string;
+  scenario: Scenario;
+  side: 'source' | 'target';
+}): Promise<void> {
+  const { baseUrl, context, fixtureToken, fixtureUrl, scenario, side } =
+    options;
+  if (scenario.state.fixtureMode !== undefined) {
+    await fixtureControl(fixtureUrl, fixtureToken, '/__e2e/mode', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ mode: scenario.state.fixtureMode }),
+    });
+  }
+  if (scenario.state.session !== 'authenticated') {
+    return;
+  }
+  const audience = scenario.state.audience;
+  if (audience === undefined) {
+    throw new Error(
+      `authenticated scenario ${scenario.id} must declare an audience`
+    );
+  }
+  const permissions = (scenario.state.permissions ?? []).join(' ');
+  const session = await fixtureControl<{ accessToken: string }>(
+    fixtureUrl,
+    fixtureToken,
+    `/__e2e/session?audience=${encodeURIComponent(audience)}&permissions=${encodeURIComponent(
+      permissions
+    )}`
+  );
+  const targetName =
+    scenario.surface === 'admin'
+      ? 'epsx.admin.access_token'
+      : 'epsx.frontend.access_token';
+  await context.addCookies([
+    {
+      name: side === 'source' ? 'epsx.sid' : targetName,
+      value: session.accessToken,
+      url: baseUrl,
+      httpOnly: true,
+      sameSite: 'Lax',
+    },
+  ]);
+}
+
+async function applyActions(
+  context: BrowserContext,
+  page: Page,
+  actions: ScenarioAction[]
+): Promise<number | null> {
+  let status: number | null = null;
+  for (const action of actions) {
+    if (action.type === 'click') {
+      await page.locator(action.selector).click();
+    } else if (action.type === 'fill') {
+      await page.locator(action.selector).fill(action.value);
+    } else if (action.type === 'press') {
+      await page.locator(action.selector).press(action.key);
+    } else if (action.type === 'reload') {
+      status =
+        (await page.reload({ waitUntil: 'domcontentloaded' }))?.status() ??
+        null;
+    } else if (action.type === 'set-offline') {
+      await context.setOffline(action.offline);
+    } else {
+      await page.locator(action.selector).waitFor({ state: 'visible' });
+    }
+  }
+  return status;
+}
+
+// The manifest outcome union is deliberately evaluated in one exhaustive
+// boundary so unsupported assertions cannot silently pass.
+// eslint-disable-next-line max-params, complexity
+async function checkOutcome(
+  page: Page,
+  outcome: ScenarioOutcome,
+  status: number | null,
+  side: 'source' | 'target'
+): Promise<CaptureResult['outcomeChecks'][number]> {
+  if (
+    outcome.side !== undefined &&
+    outcome.side !== 'both' &&
+    outcome.side !== side
+  ) {
+    return { outcome, passed: true, actual: 'not-applicable' };
+  }
+  let actual: string | number | boolean;
+  let passed: boolean;
+  if (outcome.type === 'path') {
+    actual = new URL(page.url()).pathname;
+    passed = actual === outcome.value;
+  } else if (outcome.type === 'query') {
+    actual = new URL(page.url()).searchParams.get(outcome.key) ?? '';
+    passed = actual === outcome.value;
+  } else if (outcome.type === 'text') {
+    actual = await page.locator('body').innerText();
+    passed = actual.includes(outcome.value);
+  } else if (outcome.type === 'text-absent') {
+    actual = await page.locator('body').innerText();
+    passed = !actual.includes(outcome.value);
+  } else if (outcome.type === 'selector') {
+    actual = await page.locator(outcome.value).count();
+    passed = actual > 0;
+  } else if (outcome.type === 'attribute') {
+    actual =
+      (await page.locator(outcome.selector).getAttribute(outcome.name)) ?? '';
+    passed = actual === outcome.value;
+  } else if (outcome.type === 'focused') {
+    actual = await page
+      .locator(outcome.selector)
+      .evaluate(element => element === document.activeElement);
+    passed = actual;
+  } else if (outcome.type === 'no-horizontal-overflow') {
+    actual = await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth
+    );
+    passed = actual;
+  } else {
+    actual = status ?? -1;
+    passed = actual === outcome.value;
+  }
+  return { outcome, passed, actual };
+}
+
 // Capture deliberately keeps the context lifecycle and every artifact in one
 // fail-closed boundary so a partial capture cannot be reported as complete.
 // eslint-disable-next-line max-lines-per-function
@@ -220,6 +408,8 @@ export async function captureSide(
     baseUrl,
     browser,
     colorScheme,
+    fixtureToken,
+    fixtureUrl,
     matrixId,
     repeat,
     scenario,
@@ -265,18 +455,26 @@ export async function captureSide(
       size: viewport,
     },
   });
-  await context.route(
-    'https://api.web3modal.org/appkit/v1/config**',
-    route =>
-      route.fulfill({
-        status: 200,
-        contentType: 'application/json',
-        body: JSON.stringify({ features: [] }),
-      })
+  await context.route('https://api.web3modal.org/appkit/v1/config**', route =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ features: [] }),
+    })
   );
   await context.route('https://pulse.walletconnect.org/**', route =>
     route.fulfill({ status: 204, body: '' })
   );
+  if (side === 'source') {
+    await context.route('http://localhost:8080/**', route => {
+      const original = new URL(route.request().url());
+      const fixture = new URL(
+        `${original.pathname}${original.search}`,
+        fixtureUrl
+      );
+      return route.continue({ url: fixture.toString() });
+    });
+  }
   await context.addInitScript((theme: string) => {
     localStorage.setItem('theme', theme);
     const applyTheme = (): void => {
@@ -289,6 +487,14 @@ export async function captureSide(
     applyTheme();
     document.addEventListener('DOMContentLoaded', applyTheme, { once: true });
   }, colorScheme);
+  await configureScenarioState({
+    context,
+    baseUrl,
+    fixtureUrl,
+    fixtureToken,
+    scenario,
+    side,
+  });
   await context.tracing.start({
     screenshots: true,
     snapshots: true,
@@ -365,8 +571,14 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
+    const actionStatus = await applyActions(context, page, scenario.actions);
+    await page
+      .waitForLoadState('domcontentloaded', { timeout: 5_000 })
+      .catch(() => undefined);
+    await waitForStableMeaningfulBody(page);
 
     const finalUrl = page.url();
+    const finalStatus = actionStatus ?? response?.status() ?? null;
     const title = await page.title();
     const bodyTextLength = (await page.locator('body').innerText()).trim()
       .length;
@@ -379,9 +591,7 @@ export async function captureSide(
       for (const element of [clone, ...clone.querySelectorAll('*')]) {
         const runtimeAttributes = Array.from(element.attributes)
           .map(attribute => attribute.name)
-          .filter(
-            name => name.startsWith('data-nextjs') || name === 'nonce'
-          );
+          .filter(name => name.startsWith('data-nextjs') || name === 'nonce');
         for (const name of runtimeAttributes) {
           element.removeAttribute(name);
         }
@@ -399,6 +609,100 @@ export async function captureSide(
     });
     const canonicalDom = normalizedDom(semanticHtml);
     const accessibility = await page.locator('body').ariaSnapshot();
+    const outcomeChecks = await Promise.all(
+      scenario.outcomes.map(outcome =>
+        checkOutcome(page, outcome, finalStatus, side)
+      )
+    );
+    const layoutSelectors = (process.env.E2E_LAYOUT_SELECTORS ?? '')
+      .split('|')
+      .map(selector => selector.trim())
+      .filter(Boolean);
+    if (layoutSelectors.length > 0) {
+      const layout = await page.evaluate(selectors => {
+        return Object.fromEntries(
+          selectors.map(selector => {
+            const element = selector.startsWith('text=')
+              ? Array.from(
+                  document.querySelectorAll<HTMLElement>('body *')
+                ).find(
+                  candidate =>
+                    candidate.childElementCount === 0 &&
+                    candidate.textContent
+                      .trim()
+                      .startsWith(selector.slice('text='.length))
+                )
+              : document.querySelector(selector);
+            if (!(element instanceof HTMLElement)) {
+              return [selector, null];
+            }
+            const rect = element.getBoundingClientRect();
+            const contentRange = document.createRange();
+            contentRange.selectNodeContents(element);
+            const contentRect = contentRange.getBoundingClientRect();
+            const style = getComputedStyle(element);
+            return [
+              selector,
+              {
+                rect: {
+                  x: rect.x,
+                  y: rect.y,
+                  width: rect.width,
+                  height: rect.height,
+                },
+                contentRect: {
+                  x: contentRect.x,
+                  y: contentRect.y,
+                  width: contentRect.width,
+                  height: contentRect.height,
+                },
+                fontFamily: style.fontFamily,
+                fontSize: style.fontSize,
+                fontWeight: style.fontWeight,
+                lineHeight: style.lineHeight,
+                letterSpacing: style.letterSpacing,
+                margin: style.margin,
+                padding: style.padding,
+                gap: style.gap,
+                color: style.color,
+                background: style.background,
+                ancestors: Array.from(
+                  (function* ancestors(): Generator<HTMLElement> {
+                    let parent = element.parentElement;
+                    let depth = 0;
+                    while (parent !== null && depth < 6) {
+                      yield parent;
+                      parent = parent.parentElement;
+                      depth += 1;
+                    }
+                  })()
+                ).map(parent => {
+                  const parentRect = parent.getBoundingClientRect();
+                  const parentStyle = getComputedStyle(parent);
+                  return {
+                    tag: parent.tagName.toLowerCase(),
+                    className: parent.className,
+                    rect: {
+                      x: parentRect.x,
+                      y: parentRect.y,
+                      width: parentRect.width,
+                      height: parentRect.height,
+                    },
+                    margin: parentStyle.margin,
+                    padding: parentStyle.padding,
+                    gap: parentStyle.gap,
+                  };
+                }),
+              },
+            ];
+          })
+        );
+      }, layoutSelectors);
+      await writeJson(
+        resolve(artifactDirectory, `${side}.layout.json`),
+        layout
+      );
+    }
     await page.screenshot({
       path: screenshotPath,
       fullPage: false,
@@ -427,9 +731,19 @@ export async function captureSide(
       await rename(generatedPath, videoPath);
     }
 
-    const consoleErrors = capturedConsoleEntries.filter(
-      ({ type }) => type === 'error' || type === 'assert'
-    );
+    const consoleErrors = capturedConsoleEntries
+      .filter(({ type }) => type === 'error' || type === 'assert')
+      .filter(
+        entry =>
+          !expectedDocumentConsoleError({
+            entry,
+            finalUrl,
+            finalStatus,
+            scenario,
+            side,
+            networkEntries: capturedNetworkEntries,
+          })
+      );
     const failedRequests = blockingFailedRequests(capturedNetworkEntries);
     const result: CaptureResult = {
       side,
@@ -438,7 +752,7 @@ export async function captureSide(
       repeat,
       requestedUrl,
       finalUrl,
-      status: response?.status() ?? null,
+      status: finalStatus,
       title,
       bodyTextLength,
       consoleErrors,
@@ -459,6 +773,7 @@ export async function captureSide(
       screenshotSha256: await sha256File(screenshotPath),
       domSha256: sha256(canonicalDom),
       accessibilitySha256: sha256(accessibility),
+      outcomeChecks,
     };
     await writeJson(resolve(artifactDirectory, `${side}.capture.json`), result);
     return result;

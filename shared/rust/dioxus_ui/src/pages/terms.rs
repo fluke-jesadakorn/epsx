@@ -1,9 +1,10 @@
 //! `/terms` — Terms of Service page.
 //!
 //! Source baseline: `origin/development:apps/frontend/app/terms/page.tsx`.
-//! The six-section legal body is preserved. The source newsletter panel is
-//! retained as a truthful unavailable state because no matching subscription
-//! handler or complete feedback contract exists.
+//! The six-section legal body is preserved, with the authentication contract
+//! corrected to match wallet-based Sign-In with Ethereum. The source
+//! newsletter pseudo-controls are intentionally omitted because no supported
+//! subscription capability exists.
 //!
 //! Section coverage (6 sections matching the pinned source legal body):
 //! 1. Introduction
@@ -19,7 +20,6 @@
 use super::PageContext;
 use super::PageMeta;
 use crate::layout::main_layout::MainLayout;
-use crate::primitives::Icon;
 use dioxus::prelude::*;
 
 const TERMS_INLINE_CSS: &str = r#"
@@ -30,30 +30,6 @@ const TERMS_INLINE_CSS: &str = r#"
 .terms-page-prod .legal-section-list { color: #d1d5db !important; }
 .terms-page-prod .legal-section-list { list-style: disc !important; }
 .terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }
-.terms-page-prod .terms-subscribe-card { margin-top: 2rem !important; padding: 2rem !important; }
-.terms-subscribe-form {
-  display: flex; flex-direction: column; align-items: stretch; gap: 1rem;
-  width: 100%;
-}
-.terms-subscribe-input {
-  display: flex; align-items: center; gap: 0.75rem; min-height: 3rem;
-  padding: 0.75rem 1rem; border: 1px solid rgba(255,255,255,0.78);
-  width: 100%; box-sizing: border-box; border-radius: 0.5rem;
-  color: #9ca3af; background: rgba(0,0,0,0.08);
-}
-.terms-subscribe-input svg { flex: 0 0 auto; color: #c084fc; }
-.terms-subscribe-action {
-  display: inline-flex; width: fit-content; align-items: center; gap: 0.5rem;
-  min-height: 2.75rem; padding: 0.65rem 1rem; border-radius: 0.5rem;
-  color: #fff; background: linear-gradient(90deg, #a855f7, #ec4899);
-  opacity: 0.62; cursor: not-allowed; user-select: none;
-}
-.terms-subscribe-action svg { flex: 0 0 auto; }
-.terms-subscribe-note { color: #9ca3af; }
-@media (max-width: 640px) {
-  .terms-subscribe-card { padding: 1.25rem !important; }
-  .terms-subscribe-action { width: 100%; justify-content: center; }
-}
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
@@ -69,7 +45,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         div { class: "terms-prod-card border p-8 shadow-xl",
                             TermsSections {}
                         }
-                        TermsSubscriptionUnavailable {}
                     }
                 }
             }
@@ -118,20 +93,20 @@ fn TermsSections() -> Element {
             section { class: "legal-section", id: "introduction", "aria-labelledby": "introduction-title",
                 h2 { class: "legal-section-title", id: "introduction-title", "1. Introduction" }
                 p { class: "legal-section-text",
-                    "Welcome to our platform. By accessing or using our services, you agree to be bound by these terms and conditions, including our use of Google Sign-in for authentication."
+                    "Welcome to our platform. By accessing or using our services, you agree to be bound by these terms and conditions, including our wallet-based Sign-In with Ethereum authentication."
                 }
             }
             // 2. Authentication & Account Security
             section { class: "legal-section", id: "authentication-security", "aria-labelledby": "authentication-security-title",
                 h2 { class: "legal-section-title", id: "authentication-security-title", "2. Authentication & Account Security" }
                 p { class: "legal-section-text",
-                    "We use OpenID Connect authentication to provide secure authentication. By using this service:"
+                    "We use Sign-In with Ethereum to authenticate control of a supported wallet address. By using this service:"
                 }
                 ul { class: "legal-section-list",
-                    li { "You agree to provide accurate information during the sign-in process" }
-                    li { "You acknowledge that we only request necessary permissions (email and basic profile)" }
-                    li { "You understand that token revocation may occur for security purposes" }
-                    li { "You are responsible for maintaining the security of your account" }
+                    li { "You agree to review each sign-in message before signing it" }
+                    li { "You acknowledge that a valid signature proves control of the wallet address but does not transfer assets" }
+                    li { "You understand that application sessions may be revoked for security purposes" }
+                    li { "You are responsible for maintaining the security of your wallet" }
                 }
             }
             // 3. Data Collection & Usage
@@ -141,9 +116,9 @@ fn TermsSections() -> Element {
                     "We collect and process certain data as outlined in our Privacy Policy, including:"
                 }
                 ul { class: "legal-section-list",
-                    li { "Basic profile information from Google (name and email)" }
+                    li { "Your public wallet address and authentication message metadata" }
                     li { "Account preferences and settings" }
-                    li { "Authentication tokens and session data" }
+                    li { "Application session and usage data, but never your private key or seed phrase" }
                 }
             }
             // 4. User Responsibilities
@@ -156,7 +131,7 @@ fn TermsSections() -> Element {
                     li { "Maintaining the confidentiality of your account" }
                     li { "All activities that occur under your account" }
                     li { "Notifying us of any unauthorized access" }
-                    li { "Keeping your Google account secure" }
+                    li { "Keeping your wallet, private keys, and recovery phrase secure" }
                 }
             }
             // 5. Service Changes & Termination
@@ -176,52 +151,10 @@ fn TermsSections() -> Element {
             section { class: "legal-section", id: "authentication-standards", "aria-labelledby": "authentication-standards-title",
                 h2 { class: "legal-section-title", id: "authentication-standards-title", "6. Authentication Standards" }
                 p { class: "legal-section-text",
-                    "Our authentication system follows OpenID Connect standards and OAuth 2.0 specifications. We implement industry-standard security protocols to protect your account and data."
+                    "Our authentication system follows the Sign-In with Ethereum (EIP-4361) standard. Signed messages are verified by the backend before it issues scoped application session tokens. "
+                    a { class: "text-purple-400 hover:underline", href: "/contact", "Contact us" }
+                    " if you have questions about these terms."
                 }
-            }
-        }
-    }
-}
-
-#[component]
-fn TermsSubscriptionUnavailable() -> Element {
-    rsx! {
-        section {
-            class: "terms-subscribe-card terms-prod-card border p-8 shadow-xl",
-            "data-terms-subscription-state": "unavailable",
-            aria_labelledby: "terms-subscribe-title",
-            h2 {
-                id: "terms-subscribe-title",
-                class: "mb-6 text-2xl font-bold text-purple-400",
-                "Subscribe for Updates"
-            }
-            div {
-                class: "terms-subscribe-form",
-                "aria-describedby": "terms-subscribe-note",
-                div {
-                    class: "terms-subscribe-input",
-                    role: "textbox",
-                    aria_disabled: "true",
-                    tabindex: "-1",
-                    Icon { name: "mail".to_string(), size: Some(18), class_name: Some("shrink-0".to_string()) }
-                    span { "Enter your email" }
-                }
-                div {
-                    class: "terms-subscribe-action",
-                    role: "button",
-                    aria_disabled: "true",
-                    tabindex: "-1",
-                    "data-terms-subscribe-disabled": "true",
-                    Icon { name: "send".to_string(), size: Some(16) }
-                    span { "Subscribe" }
-                }
-            }
-            p {
-                id: "terms-subscribe-note",
-                class: "terms-subscribe-note mt-4 text-sm",
-                role: "note",
-                "Email subscriptions are unavailable until the notification subscription contract is verified. "
-                a { class: "underline underline-offset-2", href: "/contact", "Contact us" }
             }
         }
     }
@@ -316,36 +249,39 @@ mod tests {
     }
 
     #[test]
-    fn terms_preserves_accessible_legal_content_without_unsupported_subscription() {
+    fn terms_preserves_accessible_wallet_legal_content_without_pseudo_controls() {
         let (_meta, el) = render(&empty_ctx());
         let html = dioxus_ssr::render_element(el);
 
         assert_eq!(html.matches("<h1").count(), 1);
-        assert_eq!(html.matches("<h2").count(), 7);
+        assert_eq!(html.matches("<h2").count(), 6);
         assert_eq!(html.matches("<h3").count(), 0);
         assert!(html.contains("<article"));
         assert!(html.contains("aria-label=\"Terms and conditions details\""));
-        assert_eq!(html.matches("aria-labelledby=").count(), 7);
+        assert_eq!(html.matches("aria-labelledby=").count(), 6);
         assert!(html.contains("Last updated: 7/26/2026"));
-        assert!(html.contains("data-terms-subscription-state=\"unavailable\""));
-        assert!(html.contains("Subscribe for Updates"));
-        assert!(html.contains("terms-subscribe-input"));
-        assert!(html.contains("terms-subscribe-action"));
-        assert!(html.contains("data-terms-subscribe-disabled=\"true\""));
-        assert!(html.contains("Email subscriptions are unavailable"));
+        assert!(html.contains("Sign-In with Ethereum"));
+        assert!(html.contains("EIP-4361"));
+        assert!(html.contains("never your private key or seed phrase"));
         assert!(html.contains("href=\"/contact\""));
 
         for forbidden in [
             "<form",
             "<input",
+            "role=\"textbox\"",
+            "role=\"button\"",
             "type=\"email\"",
             "type=\"submit\"",
             "/api/public/subscribe",
             "quarterly digest",
+            "Subscribe for Updates",
+            "Google Sign-in",
+            "OpenID Connect",
+            "OAuth 2.0",
         ] {
             assert!(
                 !html.contains(forbidden),
-                "unsupported newsletter surface leaked: {forbidden}"
+                "unsupported or stale legal surface leaked: {forbidden}"
             );
         }
     }

@@ -1,13 +1,10 @@
 //! Global widgets injected into every page (chat bubble, auth modal, toaster).
 
 /// Floating chat widget shown on every authenticated page. Hidden on /chat.
-pub fn chat_widget(is_authed: bool, user_id: &str) -> String {
+pub fn chat_widget(is_authed: bool, _user_id: &str) -> String {
     if !is_authed {
         return String::new();
     }
-    // Keep the identity inside a JavaScript string literal instead of
-    // interpolating it directly into the script.
-    let user_id_js = serde_json::to_string(user_id).unwrap_or_else(|_| "\"\"".to_string());
     let js = format!(
         r##"<script>
 (function() {{
@@ -25,14 +22,13 @@ pub fn chat_widget(is_authed: bool, user_id: &str) -> String {
     bubble.style.display = '';
   }});
   // Refresh unread count every 30s
-  const userId = {user_id_js};
   async function refreshUnread() {{
     try {{
-      const res = await fetch('/api/v1/notifications?user_id=' + userId + '&limit=1');
+      const res = await fetch('/api/v1/notifications/unread-count');
       if (!res.ok) return;
       const data = await res.json();
       const badge = widget.querySelector('.chat-bubble-badge');
-      const unread = (data.items || []).filter(i => !i.read_at).length;
+      const unread = Number.isSafeInteger(data.count) && data.count >= 0 ? data.count : 0;
       if (unread > 0) {{
         badge.textContent = unread;
         badge.style.display = '';
@@ -46,7 +42,6 @@ pub fn chat_widget(is_authed: bool, user_id: &str) -> String {
   window.epsxChatRefresh = refreshUnread;
 }})();
 </script>"##,
-        user_id_js = user_id_js
     );
     format!(
         r##"<div id="chat-widget" style="position:fixed;bottom:1.5rem;right:1.5rem;z-index:50;">

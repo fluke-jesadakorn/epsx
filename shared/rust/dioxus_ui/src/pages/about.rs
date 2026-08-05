@@ -24,11 +24,13 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     (
         meta,
         rsx! {
-            MainLayout { ctx: ctx.clone(),
-                MarketingBackground {
-                    Hero {}
-                    DataTechSection {}
-                    MissionAndVision {}
+            div { class: "about-page",
+                MainLayout { ctx: ctx.clone(),
+                    MarketingBackground {
+                        Hero {}
+                        DataTechSection {}
+                        MissionAndVision {}
+                    }
                 }
             }
         },

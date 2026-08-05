@@ -13,6 +13,7 @@ import { dirname, resolve } from 'node:path';
 import {
   baselineLockPath,
   defaultSourceRoot,
+  loadApprovedDifferences,
   loadBaselineLock,
   loadManifest,
   repoRoot,
@@ -81,6 +82,13 @@ function safeEnvironment(
     'RUSTC_WRAPPER',
     'CARGO_TARGET_DIR',
     'CARGO_INCREMENTAL',
+    // Preserve an explicitly selected local Docker daemon. This lets the
+    // campaign use a dedicated non-Kubernetes E2E profile without mutating the
+    // user's active Docker context.
+    'DOCKER_HOST',
+    'DOCKER_CONTEXT',
+    'DOCKER_TLS_VERIFY',
+    'DOCKER_CERT_PATH',
   ];
   const environment: NodeJS.ProcessEnv = {};
   for (const key of allowed) {
@@ -224,6 +232,17 @@ async function prepareSource(): Promise<string> {
   const lock = await loadBaselineLock();
   const sourceRoot = resolve(process.env.E2E_SOURCE_ROOT ?? defaultSourceRoot);
   if (!existsSync(sourceRoot)) {
+    // A killed prior run can leave a registered worktree whose directory no
+    // longer exists. Remove only this deterministic source registration before
+    // recreating it; never prune or mutate unrelated user worktrees.
+    try {
+      execFileSync('git', ['worktree', 'remove', '--force', sourceRoot], {
+        cwd: repoRoot,
+        stdio: 'ignore',
+      });
+    } catch {
+      // No matching registration is the normal first-run case.
+    }
     runCommand(
       'git',
       ['worktree', 'add', '--detach', sourceRoot, lock.commit],
@@ -243,9 +262,13 @@ async function prepareSource(): Promise<string> {
   return sourceRoot;
 }
 
+// Validation is intentionally exhaustive and fail-closed because this command
+// is the branch/CI policy boundary for all ten cumulative groups.
+// eslint-disable-next-line max-lines-per-function, complexity, sonarjs/cognitive-complexity
 async function doctor(): Promise<void> {
   const lock = await loadBaselineLock();
   const manifest = await loadManifest();
+  const approvedDifferences = await loadApprovedDifferences();
   execFileSync('git', ['cat-file', '-e', `${lock.commit}^{commit}`], {
     cwd: repoRoot,
   });
@@ -254,6 +277,13 @@ async function doctor(): Promise<void> {
   });
   if (manifest.baselineLock !== 'e2e/migration/baseline.lock.json') {
     throw new Error('scenario manifest does not reference the baseline lock');
+  }
+  if (
+    manifest.approvedDifferences !== 'e2e/migration/approved-differences.json'
+  ) {
+    throw new Error(
+      'scenario manifest does not reference the approved-difference registry'
+    );
   }
   const contract = await readJson<RouteContract>(
     resolve(repoRoot, manifest.routeContract)
@@ -265,7 +295,93 @@ async function doctor(): Promise<void> {
     throw new Error('bypass registry schemaVersion 1 is required');
   }
   if (bypasses.items.length > 0) {
-    throw new Error('PR 0 cannot pass with required bypasses');
+    throw new Error('migration campaign cannot pass with scenario bypasses');
+  }
+  const expectedCategories = new Set([
+    'backend-authority',
+    'security',
+    'wallet-siwe-legal-accuracy',
+    'unsupported-feature-removal',
+  ]);
+  if (
+    approvedDifferences.allowedCategories.length !== expectedCategories.size ||
+    approvedDifferences.allowedCategories.some(
+      category => !expectedCategories.has(category)
+    )
+  ) {
+    throw new Error(
+      'approved differences may use only authority, security, legal-accuracy, or unsupported-feature categories'
+    );
+  }
+  const approvedKeys = new Set<string>();
+  for (const item of approvedDifferences.items) {
+    if (
+      item.reason.trim() === '' ||
+      item.sourceEvidence.trim() === '' ||
+      item.targetEvidence.trim() === '' ||
+      item.matrixIds.length === 0 ||
+      item.maximumDifferencePercent <= 1 ||
+      item.maximumDifferencePercent > 100 ||
+      !approvedDifferences.allowedCategories.includes(item.category)
+    ) {
+      throw new Error(
+        `invalid approved-difference entry for ${item.scenarioId}`
+      );
+    }
+    for (const matrixId of item.matrixIds) {
+      const key = `${item.scenarioId}/${matrixId}`;
+      if (approvedKeys.has(key)) {
+        throw new Error(`duplicate approved-difference entry ${key}`);
+      }
+      approvedKeys.add(key);
+    }
+  }
+  if (
+    manifest.groups.length !== 10 ||
+    manifest.groups.some((group, index) => group.id !== index)
+  ) {
+    throw new Error('scenario groups must be the ordered cumulative range 0-9');
+  }
+  for (const group of manifest.groups) {
+    const matrices = manifest.matrices[group.matrix];
+    if (
+      !Array.isArray(matrices) ||
+      matrices.length === 0 ||
+      group.repeat < 2 ||
+      group.surfaces.length === 0 ||
+      group.states.length === 0 ||
+      group.actions.length === 0 ||
+      group.outcomes.length === 0 ||
+      group.fixtureRequirements.length === 0 ||
+      !Array.isArray(group.scenarios) ||
+      group.scenarios.length === 0
+    ) {
+      throw new Error(
+        `group ${group.id} must explicitly declare matrices, repeats, surfaces, states, actions, outcomes, fixtures, and scenarios`
+      );
+    }
+    for (const scenario of group.scenarios) {
+      if (
+        !group.surfaces.includes(scenario.surface) ||
+        scenario.state.id.trim() === '' ||
+        !Array.isArray(scenario.actions) ||
+        !Array.isArray(scenario.outcomes) ||
+        scenario.outcomes.length === 0 ||
+        !Array.isArray(scenario.fixtureRequirements)
+      ) {
+        throw new Error(
+          `scenario ${scenario.id} is missing explicit state/action/outcome/surface/fixture data`
+        );
+      }
+      if (
+        scenario.state.session === 'authenticated' &&
+        scenario.state.audience === undefined
+      ) {
+        throw new Error(
+          `authenticated scenario ${scenario.id} is missing its audience`
+        );
+      }
+    }
   }
   for (const surface of ['frontend', 'admin'] as const) {
     const application = contract.applications[surface];
@@ -287,6 +403,22 @@ async function doctor(): Promise<void> {
         `${surface} routes missing feature-group ownership: ${missing.join(', ')}`
       );
     }
+  }
+  const finalGroup = manifest.groups[9];
+  const finalFrontend = finalGroup.scenarios?.filter(
+    scenario => scenario.surface === 'frontend'
+  );
+  const finalAdmin = finalGroup.scenarios?.filter(
+    scenario => scenario.surface === 'admin'
+  );
+  if (
+    finalFrontend?.length !== contract.applications.frontend.expectedCount ||
+    finalAdmin?.length !== contract.applications.admin.expectedCount ||
+    finalGroup.requiredBypasses !== 0
+  ) {
+    throw new Error(
+      'PR 9 must execute all 28 frontend and 27 admin routes with zero bypasses'
+    );
   }
   for (const executable of ['bun', 'cargo', 'docker', 'git']) {
     execFileSync('sh', ['-c', `command -v "$1"`, 'doctor', executable], {
@@ -374,14 +506,7 @@ async function cleanupRuntime(options: {
     await attempt('failed to remove isolated Compose runtime', () => {
       runCommand(
         'docker',
-        [
-          'compose',
-          '-f',
-          composePath,
-          'down',
-          '--volumes',
-          '--remove-orphans',
-        ],
+        ['compose', '-f', composePath, 'down', '--volumes', '--remove-orphans'],
         { cwd: repoRoot, env: composeEnvironment }
       );
     });
@@ -408,13 +533,19 @@ function mergeCleanupFailures(
 // eslint-disable-next-line max-lines-per-function, complexity
 async function run(): Promise<void> {
   const selectedGroup = groupId();
-  if (selectedGroup !== 0) {
-    throw new Error(
-      `PR ${selectedGroup} scenarios are not executable on the PR 0 branch`
-    );
-  }
   await doctor();
   await prepareSource();
+  const manifest = await loadManifest();
+  const accumulatedGroups =
+    selectedGroup === 0
+      ? manifest.groups.filter(group => group.id === 0)
+      : manifest.groups.filter(
+          group => group.id >= 0 && group.id <= selectedGroup
+        );
+  const requiredSurfaces = new Set(
+    accumulatedGroups.flatMap(group => group.surfaces)
+  );
+  const requiresAdmin = requiredSurfaces.has('admin');
   // The command itself owns the isolated Compose graph. Standalone reset
   // manager calls remain guarded unless their caller makes this explicit.
   process.env.E2E_ALLOW_RUNTIME_MUTATION = '1';
@@ -511,7 +642,13 @@ async function run(): Promise<void> {
     }
     runCommand(
       'cargo',
-      ['build', '--locked', '-p', 'epsx-frontend', '--bin', 'bff-frontend'],
+      [
+        'build',
+        '--locked',
+        '-p',
+        'epsx-frontend',
+        ...(requiresAdmin ? ['-p', 'epsx-admin'] : ['--bin', 'bff-frontend']),
+      ],
       {
         cwd: repoRoot,
         env: safeEnvironment(),
@@ -537,6 +674,7 @@ async function run(): Promise<void> {
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: 'testnet',
       NEXT_PUBLIC_CHAIN_ID: '31337',
       NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID: '00000000000000000000000000000000',
+      NEXT_PUBLIC_OAUTH_CLIENT_ID: 'epsx-frontend',
       NEXT_PUBLIC_BACKEND_URL: config.fixtureUrl,
       NEXT_PUBLIC_APP_URL: config.sourceFrontendUrl,
       NEXT_PUBLIC_ADMIN_URL: config.sourceAdminUrl,
@@ -589,43 +727,91 @@ async function run(): Promise<void> {
     });
     managed.push(target);
 
-    await Promise.all([
+    const readiness = [
       waitForUrl(config.sourceFrontendUrl, source),
       waitForUrl(config.targetFrontendUrl, target),
-    ]);
+    ];
+    if (requiresAdmin) {
+      const sourceAdmin = await startManagedProcess({
+        name: 'nextjs-admin-source',
+        executable: 'bun',
+        commandArgs: ['run', 'dev'],
+        spawnOptions: {
+          cwd: resolve(config.sourceRoot, 'apps/admin-frontend'),
+          env: safeEnvironment({
+            ...commonAppEnvironment,
+            PORT: new URL(config.sourceAdminUrl).port,
+            NEXT_PUBLIC_APP_URL: config.sourceAdminUrl,
+            FRONTEND_URL: config.sourceAdminUrl,
+            NEXT_PUBLIC_OAUTH_CLIENT_ID: 'epsx-admin',
+          }),
+        },
+        logPath: resolve(logsRoot, 'nextjs-admin-source.log'),
+      });
+      managed.push(sourceAdmin);
+      const targetAdmin = await startManagedProcess({
+        name: 'dioxus-admin-target',
+        executable: resolve(repoRoot, 'target/debug/bff-admin'),
+        commandArgs: [],
+        spawnOptions: {
+          cwd: repoRoot,
+          env: safeEnvironment({
+            ...commonAppEnvironment,
+            PORT: new URL(config.targetAdminUrl).port,
+            HOST: '127.0.0.1',
+            FRONTEND_URL: config.targetAdminUrl,
+            NEXT_PUBLIC_OAUTH_CLIENT_ID: 'epsx-admin',
+            RUST_LOG: 'info',
+          }),
+        },
+        logPath: resolve(logsRoot, 'dioxus-admin-target.log'),
+      });
+      managed.push(targetAdmin);
+      readiness.push(
+        waitForUrl(config.sourceAdminUrl, sourceAdmin),
+        waitForUrl(config.targetAdminUrl, targetAdmin)
+      );
+    }
+    await Promise.all(readiness);
 
-    const playwright = spawn(
-      'bunx',
-      [
-        'playwright',
-        'test',
-        '--config',
-        resolve(migrationRoot, 'playwright.config.ts'),
-      ],
-      {
-        cwd: repoRoot,
-        env: safeEnvironment({
-          E2E_GROUP: String(selectedGroup),
-          E2E_SOURCE_ROOT: config.sourceRoot,
-          E2E_ARTIFACT_ROOT: config.artifactRoot,
-          E2E_RUN_ROOT: config.runRoot,
-          E2E_ALLOW_RUNTIME_MUTATION: '1',
-          E2E_SOURCE_FRONTEND_URL: config.sourceFrontendUrl,
-          E2E_SOURCE_ADMIN_URL: config.sourceAdminUrl,
-          E2E_TARGET_FRONTEND_URL: config.targetFrontendUrl,
-          E2E_TARGET_ADMIN_URL: config.targetAdminUrl,
-          E2E_FIXTURE_URL: config.fixtureUrl,
-          E2E_FIXTURE_TOKEN: config.fixtureToken,
-          E2E_POSTGRES_ADMIN_URL: config.postgresAdminUrl,
-          E2E_POSTGRES_TEMPLATE_DATABASE: config.postgresTemplateDatabase,
-          E2E_POSTGRES_RUNTIME_DATABASE: config.postgresRuntimeDatabase,
-          E2E_REDIS_URL: config.redisUrl,
-          E2E_REDIS_PREFIX: config.redisPrefix,
-          E2E_ANVIL_URL: config.anvilUrl,
-        }),
-        stdio: 'inherit',
-      }
-    );
+    const playwrightArguments = [
+      'playwright',
+      'test',
+      '--config',
+      resolve(migrationRoot, 'playwright.config.ts'),
+    ];
+    if (process.env.E2E_GREP !== undefined && process.env.E2E_GREP !== '') {
+      playwrightArguments.push('--grep', process.env.E2E_GREP);
+    }
+    const playwright = spawn('bunx', playwrightArguments, {
+      cwd: repoRoot,
+      env: safeEnvironment({
+        E2E_GROUP: String(selectedGroup),
+        E2E_SOURCE_ROOT: config.sourceRoot,
+        E2E_ARTIFACT_ROOT: config.artifactRoot,
+        E2E_RUN_ROOT: config.runRoot,
+        E2E_ALLOW_RUNTIME_MUTATION: '1',
+        E2E_SOURCE_FRONTEND_URL: config.sourceFrontendUrl,
+        E2E_SOURCE_ADMIN_URL: config.sourceAdminUrl,
+        E2E_TARGET_FRONTEND_URL: config.targetFrontendUrl,
+        E2E_TARGET_ADMIN_URL: config.targetAdminUrl,
+        E2E_FIXTURE_URL: config.fixtureUrl,
+        E2E_FIXTURE_TOKEN: config.fixtureToken,
+        E2E_POSTGRES_ADMIN_URL: config.postgresAdminUrl,
+        E2E_POSTGRES_TEMPLATE_DATABASE: config.postgresTemplateDatabase,
+        E2E_POSTGRES_RUNTIME_DATABASE: config.postgresRuntimeDatabase,
+        E2E_REDIS_URL: config.redisUrl,
+        E2E_REDIS_PREFIX: config.redisPrefix,
+        E2E_ANVIL_URL: config.anvilUrl,
+        ...(process.env.E2E_LAYOUT_SELECTORS !== undefined &&
+        process.env.E2E_LAYOUT_SELECTORS !== ''
+          ? {
+              E2E_LAYOUT_SELECTORS: process.env.E2E_LAYOUT_SELECTORS,
+            }
+          : {}),
+      }),
+      stdio: 'inherit',
+    });
     testStatus = await new Promise<number>(resolvePromise => {
       playwright.once('exit', code => resolvePromise(code ?? 1));
     });

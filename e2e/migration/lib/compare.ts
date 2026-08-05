@@ -5,7 +5,11 @@ import pixelmatch from 'pixelmatch';
 import { PNG } from 'pngjs';
 
 import { writeJson } from './files';
-import type { CaptureResult, ComparisonResult } from './types';
+import type {
+  ApprovedDifferenceRegistry,
+  CaptureResult,
+  ComparisonResult,
+} from './types';
 
 interface ScreenshotReproducibility {
   equivalent: boolean;
@@ -51,13 +55,21 @@ function scaledCopy(options: {
   }
 }
 
+// eslint-disable-next-line complexity
 export async function compareCaptures(options: {
   source: CaptureResult;
   target: CaptureResult;
   artifactDirectory: string;
   captureOnly: boolean;
+  approvedDifferences: ApprovedDifferenceRegistry;
 }): Promise<ComparisonResult> {
-  const { artifactDirectory, captureOnly, source, target } = options;
+  const {
+    approvedDifferences,
+    artifactDirectory,
+    captureOnly,
+    source,
+    target,
+  } = options;
   const sourcePng = PNG.sync.read(await readFile(source.screenshotPath));
   const targetPng = PNG.sync.read(await readFile(target.screenshotPath));
   if (
@@ -120,6 +132,30 @@ export async function compareCaptures(options: {
   await writeFile(contactSheet, PNG.sync.write(contactPng));
 
   const totalPixels = sourcePng.width * sourcePng.height;
+  const differencePercent = Number(
+    ((differingPixels / totalPixels) * 100).toFixed(4)
+  );
+  const approval = approvedDifferences.items.find(
+    item =>
+      item.scenarioId === source.scenarioId &&
+      item.matrixIds.includes(source.matrixId)
+  );
+  const withinDefault =
+    differencePercent <=
+    approvedDifferences.maximumUnapprovedDifferencePercent;
+  const withinApprovedException =
+    approval !== undefined &&
+    approvedDifferences.allowedCategories.includes(approval.category) &&
+    differencePercent <= approval.maximumDifferencePercent;
+  const approvedDifference =
+    captureOnly || withinDefault || withinApprovedException;
+  const approvalReason = captureOnly
+    ? 'PR 0 establishes the immutable baseline and reproducible evidence path; source/target parity disposition is owned by PR 1.'
+    : withinDefault
+      ? `Within the ${approvedDifferences.maximumUnapprovedDifferencePercent}% campaign visual threshold.`
+      : withinApprovedException
+        ? approval.reason
+        : `Unapproved visual difference exceeds ${approvedDifferences.maximumUnapprovedDifferencePercent}%.`;
   const comparison: ComparisonResult = {
     schemaVersion: 1,
     scenarioId: source.scenarioId,
@@ -131,13 +167,13 @@ export async function compareCaptures(options: {
     contactSheet,
     differingPixels,
     totalPixels,
-    differencePercent: Number(
-      ((differingPixels / totalPixels) * 100).toFixed(4)
-    ),
-    approvedDifference: captureOnly,
-    approvalReason: captureOnly
-      ? 'PR 0 establishes the immutable baseline and reproducible evidence path; source/target parity disposition is owned by PR 1.'
-      : '',
+    differencePercent,
+    approvedDifference,
+    approvalReason,
+    approvalCategory: approval?.category,
+    maximumAllowedDifferencePercent:
+      approval?.maximumDifferencePercent ??
+      approvedDifferences.maximumUnapprovedDifferencePercent,
   };
   await writeJson(resolve(artifactDirectory, 'comparison.json'), comparison);
   return comparison;

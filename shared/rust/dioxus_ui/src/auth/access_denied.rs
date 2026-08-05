@@ -55,7 +55,7 @@ pub fn AccessDenied(
     rsx! {
         div { class: "access-denied {extra_cls}", role: "alert",
             div { class: "access-denied-icon",
-                Icon { name: icon_val.clone(), size: Some(64), class_name: Some("text-destructive".to_string()) }
+                Icon { name: icon_val.clone(), size: Some(48), class_name: Some("text-destructive".to_string()) }
             }
             h1 { class: "access-denied-title", "Access Denied" }
             p { class: "access-denied-reason", "{reason_val}" }
