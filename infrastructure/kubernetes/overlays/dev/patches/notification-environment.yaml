@@ -1,0 +1,12 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-notification
+spec:
+  template:
+    spec:
+      containers:
+        - name: epsx-notification
+          env:
+            - name: EPSX_ENV
+              value: development

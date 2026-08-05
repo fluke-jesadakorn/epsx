@@ -19,8 +19,8 @@
 //! with smoke render + key prop handling (default vs custom title,
 //! admin-context details card).
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // StatusPageLayout (private)
@@ -31,7 +31,8 @@ use crate::primitives::icon::Icon;
 
 #[component]
 fn StatusPageLayout(class_name: Option<String>, children: Element) -> Element {
-    let mut cls = "flex flex-col items-center justify-center min-h-[60vh] p-6 sm:p-8 lg:p-12".to_string();
+    let mut cls =
+        "flex flex-col items-center justify-center min-h-[60vh] p-6 sm:p-8 lg:p-12".to_string();
     if let Some(c) = class_name {
         cls.push(' ');
         cls.push_str(&c);
@@ -56,7 +57,9 @@ pub fn NotFoundContent(
     show_back_button: Option<bool>,
 ) -> Element {
     let title = title.unwrap_or_else(|| "Page Not Found".to_string());
-    let message = message.unwrap_or_else(|| "The page you're looking for doesn't exist or has been moved.".to_string());
+    let message = message.unwrap_or_else(|| {
+        "The page you're looking for doesn't exist or has been moved.".to_string()
+    });
     let show_home_link = show_home_link.unwrap_or(true);
     let show_back_button = show_back_button.unwrap_or(true);
     rsx! {
@@ -131,7 +134,8 @@ pub fn ErrorContent(
     extra_action: Option<Element>,
 ) -> Element {
     let title = title.unwrap_or_else(|| "Something Went Wrong".to_string());
-    let message = message.unwrap_or_else(|| "An unexpected error occurred. Please try again.".to_string());
+    let message =
+        message.unwrap_or_else(|| "An unexpected error occurred. Please try again.".to_string());
     let show_home_link = show_home_link.unwrap_or(true);
     let show_back_button = show_back_button.unwrap_or(true);
     rsx! {
@@ -210,7 +214,8 @@ pub fn AccessDeniedContent(
     show_home_button: Option<bool>,
 ) -> Element {
     let title = title.unwrap_or_else(|| "Access Denied".to_string());
-    let reason = reason.unwrap_or_else(|| "You don't have permission to access this resource.".to_string());
+    let reason =
+        reason.unwrap_or_else(|| "You don't have permission to access this resource.".to_string());
     let show_login_button = show_login_button.unwrap_or(true);
     let show_home_button = show_home_button.unwrap_or(true);
     let is_admin_context = context.as_deref() == Some("admin");
@@ -353,26 +358,50 @@ mod tests {
     #[test]
     fn not_found_content_renders_404() {
         let html = render_html(harness_not_found_default);
-        assert!(html.contains("404"), "NotFoundContent must render 404 code. Got: {html}");
-        assert!(html.contains("Page Not Found"), "NotFoundContent default title. Got: {html}");
-        assert!(html.contains("Go Home"), "NotFoundContent must render Go Home. Got: {html}");
-        assert!(html.contains("Go Back"), "NotFoundContent must render Go Back. Got: {html}");
-        assert!(html.contains("blur-3xl"), "NotFoundContent background blur decoration. Got: {html}");
+        assert!(
+            html.contains("404"),
+            "NotFoundContent must render 404 code. Got: {html}"
+        );
+        assert!(
+            html.contains("Page Not Found"),
+            "NotFoundContent default title. Got: {html}"
+        );
+        assert!(
+            html.contains("Go Home"),
+            "NotFoundContent must render Go Home. Got: {html}"
+        );
+        assert!(
+            html.contains("Go Back"),
+            "NotFoundContent must render Go Back. Got: {html}"
+        );
+        assert!(
+            html.contains("blur-3xl"),
+            "NotFoundContent background blur decoration. Got: {html}"
+        );
     }
 
     /// `NotFoundContent` with custom title shows the override.
     #[test]
     fn not_found_content_renders_custom_title() {
         let html = render_html(harness_not_found_custom);
-        assert!(html.contains("Custom message"), "NotFoundContent custom message. Got: {html}");
+        assert!(
+            html.contains("Custom message"),
+            "NotFoundContent custom message. Got: {html}"
+        );
     }
 
     /// `NotFoundContent` with both action flags false hides them.
     #[test]
     fn not_found_content_hides_actions_when_disabled() {
         let html = render_html(harness_not_found_no_actions);
-        assert!(!html.contains("Go Home"), "NotFoundContent must hide Go Home. Got: {html}");
-        assert!(!html.contains("Go Back"), "NotFoundContent must hide Go Back. Got: {html}");
+        assert!(
+            !html.contains("Go Home"),
+            "NotFoundContent must hide Go Home. Got: {html}"
+        );
+        assert!(
+            !html.contains("Go Back"),
+            "NotFoundContent must hide Go Back. Got: {html}"
+        );
     }
 
     /// `ErrorContent` renders the default title + retry slot when
@@ -380,18 +409,36 @@ mod tests {
     #[test]
     fn error_content_renders_default_and_retry() {
         let html = render_html(harness_error_with_id);
-        assert!(html.contains("Something Went Wrong"), "ErrorContent default title. Got: {html}");
-        assert!(html.contains("Error encountered"), "ErrorContent subtitle. Got: {html}");
-        assert!(html.contains("err-12345"), "ErrorContent error ID. Got: {html}");
-        assert!(html.contains("bg-red-600"), "ErrorContent red icon bg. Got: {html}");
+        assert!(
+            html.contains("Something Went Wrong"),
+            "ErrorContent default title. Got: {html}"
+        );
+        assert!(
+            html.contains("Error encountered"),
+            "ErrorContent subtitle. Got: {html}"
+        );
+        assert!(
+            html.contains("err-12345"),
+            "ErrorContent error ID. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-red-600"),
+            "ErrorContent red icon bg. Got: {html}"
+        );
     }
 
     /// `ErrorContent` with custom title shows the override.
     #[test]
     fn error_content_renders_custom_title() {
         let html = render_html(harness_error_custom);
-        assert!(html.contains("Database Error"), "ErrorContent custom title. Got: {html}");
-        assert!(html.contains("Connection lost"), "ErrorContent custom message. Got: {html}");
+        assert!(
+            html.contains("Database Error"),
+            "ErrorContent custom title. Got: {html}"
+        );
+        assert!(
+            html.contains("Connection lost"),
+            "ErrorContent custom message. Got: {html}"
+        );
     }
 
     /// `AccessDeniedContent` renders the shield icon + title + admin
@@ -399,25 +446,49 @@ mod tests {
     #[test]
     fn access_denied_renders_admin_banner() {
         let html = render_html(harness_access_denied_admin);
-        assert!(html.contains("Access Denied"), "AccessDeniedContent default title. Got: {html}");
-        assert!(html.contains("/admin/wallets"), "AccessDeniedContent route. Got: {html}");
-        assert!(html.contains("wallets:manage"), "AccessDeniedContent permission. Got: {html}");
-        assert!(html.contains("Admin Access Required"), "AccessDeniedContent admin banner. Got: {html}");
-        assert!(html.contains("Go to Auth"), "AccessDeniedContent reauth CTA. Got: {html}");
+        assert!(
+            html.contains("Access Denied"),
+            "AccessDeniedContent default title. Got: {html}"
+        );
+        assert!(
+            html.contains("/admin/wallets"),
+            "AccessDeniedContent route. Got: {html}"
+        );
+        assert!(
+            html.contains("wallets:manage"),
+            "AccessDeniedContent permission. Got: {html}"
+        );
+        assert!(
+            html.contains("Admin Access Required"),
+            "AccessDeniedContent admin banner. Got: {html}"
+        );
+        assert!(
+            html.contains("Go to Auth"),
+            "AccessDeniedContent reauth CTA. Got: {html}"
+        );
     }
 
     /// `AccessDeniedContent` without admin context omits the banner.
     #[test]
     fn access_denied_omits_banner_for_non_admin() {
         let html = render_html(harness_access_denied_user);
-        assert!(!html.contains("Admin Access Required"), "AccessDeniedContent must hide admin banner for non-admin context. Got: {html}");
+        assert!(
+            !html.contains("Admin Access Required"),
+            "AccessDeniedContent must hide admin banner for non-admin context. Got: {html}"
+        );
     }
 
     /// `AccessDeniedContent` with no context omits the details row.
     #[test]
     fn access_denied_omits_context_row_when_empty() {
         let html = render_html(harness_access_denied_default);
-        assert!(!html.contains("Context:"), "AccessDeniedContent must omit Context row when no context. Got: {html}");
-        assert!(!html.contains("Admin Access Required"), "AccessDeniedContent must omit admin banner. Got: {html}");
+        assert!(
+            !html.contains("Context:"),
+            "AccessDeniedContent must omit Context row when no context. Got: {html}"
+        );
+        assert!(
+            !html.contains("Admin Access Required"),
+            "AccessDeniedContent must omit admin banner. Got: {html}"
+        );
     }
 }

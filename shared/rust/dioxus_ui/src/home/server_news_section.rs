@@ -15,21 +15,29 @@ use dioxus::prelude::*;
 #[component]
 pub fn ServerNewsSection(
     /// Title for the featured (large) news card.
-    #[props(default = "EPSX Q2 Platform Update".to_string())] featured_title: String,
+    #[props(default = "EPSX Q2 Platform Update".to_string())]
+    featured_title: String,
     /// Summary for the featured card.
-    #[props(default = "Sub-millisecond EPS rankings over 8.5M data points. New on-chain payment flow.".to_string())] featured_summary: String,
+    #[props(default = "Sub-millisecond EPS rankings over 8.5M data points. New on-chain payment flow.".to_string())]
+    featured_summary: String,
     /// Date string for the featured card.
-    #[props(default = "Jun 12, 2026".to_string())] featured_date: String,
+    #[props(default = "Jun 12, 2026".to_string())]
+    featured_date: String,
     /// Optional tag for the featured card.
-    #[props(default = "Product".to_string())] featured_tag: String,
+    #[props(default = "Product".to_string())]
+    featured_tag: String,
     /// Title for the first small card.
-    #[props(default = "Building a scalable foundation".to_string())] small_1_title: String,
+    #[props(default = "Building a scalable foundation".to_string())]
+    small_1_title: String,
     /// Date for the first small card.
-    #[props(default = "Jun 5, 2026".to_string())] small_1_date: String,
+    #[props(default = "Jun 5, 2026".to_string())]
+    small_1_date: String,
     /// Title for the second small card.
-    #[props(default = "On-chain payment primer".to_string())] small_2_title: String,
+    #[props(default = "On-chain payment primer".to_string())]
+    small_2_title: String,
     /// Date for the second small card.
-    #[props(default = "May 28, 2026".to_string())] small_2_date: String,
+    #[props(default = "May 28, 2026".to_string())]
+    small_2_date: String,
 ) -> Element {
     rsx! {
         section { class: "server-news-section",
@@ -93,7 +101,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn server_news_section_smoke() {
-        
-    }
+    fn server_news_section_smoke() {}
 }

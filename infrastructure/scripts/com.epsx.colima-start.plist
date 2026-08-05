@@ -8,12 +8,17 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>/opt/homebrew/bin/colima start --profile epsx</string>
+        <string>/opt/homebrew/bin/colima status --profile epsx >/dev/null 2>&amp;1 || exec /opt/homebrew/bin/colima start --profile epsx</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <false/>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
     <key>StandardOutPath</key>
     <string>/tmp/colima-start.log</string>
     <key>StandardErrorPath</key>

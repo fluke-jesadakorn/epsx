@@ -7,8 +7,8 @@
 //! port renders the same structure.
 
 use crate::chat::chat_header::{ChatHeader, ChatHeaderData};
-use crate::chat::chat_message_list::ChatMessageList;
 use crate::chat::chat_input::ChatInput;
+use crate::chat::chat_message_list::ChatMessageList;
 use crate::chat::message_bubble::Message;
 
 use dioxus::prelude::*;
@@ -20,9 +20,11 @@ pub fn ChatPanel(
     /// When `false`, the panel is collapsed (only the bubble
     /// trigger is visible). When `true`, the full panel is
     /// shown.
-    #[props(default = true)] is_open: bool,
+    #[props(default = true)]
+    is_open: bool,
     /// Fired when the user clicks the close button.
-    #[props(default = None)] on_close: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_close: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     if !is_open {
         return rsx! { Fragment {} };
@@ -41,7 +43,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_panel_smoke() {
-        
-    }
+    fn chat_panel_smoke() {}
 }

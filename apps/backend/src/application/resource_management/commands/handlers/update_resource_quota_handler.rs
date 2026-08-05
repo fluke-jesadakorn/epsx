@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::resource_management::commands::{
-    UpdateResourceQuotaCommand, UpdateResourceQuotaResponse
+    UpdateResourceQuotaCommand, UpdateResourceQuotaResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::resource_management::repository_ports::PlanResourceConfigRepository;
+use crate::prelude::*;
 
 /// Handler for updating resource quotas
 pub struct UpdateResourceQuotaCommandHandler<R: PlanResourceConfigRepository> {
@@ -22,18 +22,25 @@ impl<R: PlanResourceConfigRepository + Send + Sync> CommandHandler<UpdateResourc
 where
     R::Error: std::fmt::Display,
 {
-    async fn handle(&self, command: UpdateResourceQuotaCommand) -> ApplicationResult<UpdateResourceQuotaResponse> {
+    async fn handle(
+        &self,
+        command: UpdateResourceQuotaCommand,
+    ) -> ApplicationResult<UpdateResourceQuotaResponse> {
         // 1. Retrieve plan config
-        let mut config = self.plan_repository
+        let mut config = self
+            .plan_repository
             .get_plan_config(command.plan_id)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("plan_config", command.plan_id.to_string()))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("plan_config", command.plan_id.to_string())
+            })?;
 
         // 2. Update resource limits
         let mut updated_resources = Vec::new();
         for (resource_type, limit) in command.resource_limits {
-            config.set_resource_limit(resource_type.clone(), limit)
+            config
+                .set_resource_limit(resource_type.clone(), limit)
                 .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
             updated_resources.push(resource_type);
         }

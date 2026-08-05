@@ -1,10 +1,12 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::permission_management::commands::{
-    RemoveWalletFromPlanCommand, RemoveWalletFromPlanResponse
+    RemoveWalletFromPlanCommand, RemoveWalletFromPlanResponse,
 };
-use crate::domain::permission_management::{PlanAssignmentRepositoryPort, PlanId, events::WalletRemovedFromPlanEvent};
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
+use crate::domain::permission_management::{
+    events::WalletRemovedFromPlanEvent, PlanAssignmentRepositoryPort, PlanId,
+};
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 // wave11(track-c) R7: migrated from `Arc<dyn DomainEventBus>` to the
 // kernel-level `EventPublisherPort`. See `delete_plan_handler.rs` for
 // the design notes.
@@ -30,7 +32,10 @@ impl RemoveWalletFromPlanCommandHandler {
 
 #[async_trait]
 impl CommandHandler<RemoveWalletFromPlanCommand> for RemoveWalletFromPlanCommandHandler {
-    async fn handle(&self, command: RemoveWalletFromPlanCommand) -> ApplicationResult<RemoveWalletFromPlanResponse> {
+    async fn handle(
+        &self,
+        command: RemoveWalletFromPlanCommand,
+    ) -> ApplicationResult<RemoveWalletFromPlanResponse> {
         // 1. Parse plan ID and wallet address
         let plan_id = PlanId::parse(&command.plan_id)
             .map_err(|e| ApplicationError::validation("plan_id", e.to_string()))?;
@@ -39,7 +44,9 @@ impl CommandHandler<RemoveWalletFromPlanCommand> for RemoveWalletFromPlanCommand
             .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?;
 
         // 2. Delete assignment
-        self.assignment_repository.delete(&wallet_address, &plan_id).await
+        self.assignment_repository
+            .delete(&wallet_address, &plan_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 3. Publish WalletRemovedFromPlanEvent (R7 + R8 wiring — was

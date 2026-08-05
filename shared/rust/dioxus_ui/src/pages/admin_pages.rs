@@ -34,34 +34,34 @@
 //! The 22 other admin routes keep the Wave 34 behavior
 //! (skeleton-only).
 
-use dioxus::prelude::*;
-use crate::primitives::*;
-use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
-use super::{PageContext, PageMeta};
 use super::not_found;
+use super::{PageContext, PageMeta};
+use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
+use crate::primitives::*;
+use dioxus::prelude::*;
 
-pub mod dashboard;
+pub mod access_denied;
+pub mod access_denied_panel;
 pub mod analytics;
 pub mod audit_log;
+pub mod auth_page;
+pub mod auth_redirect;
 pub mod chat;
+pub mod dashboard;
 pub mod developer_portal;
 pub mod media;
 pub mod news;
 pub mod notifications;
 pub mod notifications_redirect;
 pub mod payments;
+pub mod policies;
 pub mod settings;
 pub mod unauthorized;
-pub mod auth_redirect;
-pub mod auth_page;
-pub mod access_denied;
-pub mod access_denied_panel;
+pub mod wallet_access;
+pub mod wallet_credits;
+pub mod wallet_plans;
 pub mod wallet_redirect;
 pub mod wallet_wallets;
-pub mod wallet_credits;
-pub mod wallet_access;
-pub mod wallet_plans;
-pub mod policies;
 
 pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     let p = ctx.path.as_str();
@@ -124,10 +124,9 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     // function which used the wrong (non-prod) class strings
     // — see the `access_denied_panel::render` doc for the
     // historical fix.
-    let skeleton_mode = ctx.user.is_none()
-        || std::env::var("EPSX_E2E_SKELETON").ok().as_deref() == Some("1");
-    if skeleton_mode && !matches!(p, "/dashboard" | "/policies")
-    {
+    let skeleton_mode =
+        ctx.user.is_none() || std::env::var("EPSX_E2E_SKELETON").ok().as_deref() == Some("1");
+    if skeleton_mode && !matches!(p, "/dashboard" | "/policies") {
         let slug = slug_for_path(p);
         // Dynamic conversation, news, wallet, and plan identifiers may be
         // security-sensitive. Keep them out of signed-out HTML and return
@@ -155,7 +154,17 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
             meta,
             rsx! {
                 AuthPageOverlay { return_url }
-                SkeletonPage { route_slug: slug.to_string() }
+                // `/auth` is a standalone source route. Its full-screen
+                // wallet selector owns the viewport, so mounting the generic
+                // shell skeleton underneath it would make full-page captures
+                // continue below the auth composition. Other gated routes
+                // retain the skeleton body for their shell parity.
+                // The source admin home capture is an auth-only composition:
+                // the wallet selector owns the viewport and no dashboard
+                // skeleton is rendered beneath it while signed out.
+                if p != "/auth" && p != "/" && p != "/index" {
+                    SkeletonPage { route_slug: slug.to_string() }
+                }
             },
         );
     }
@@ -328,7 +337,8 @@ fn slug_for_path(path: &str) -> &'static str {
                 "admin-news-sample-id-edit"
             } else if path.starts_with("/wallet-management/access/plans/") {
                 "admin-wallet-management-access-plans-sample-plan-id"
-            } else if path.starts_with("/wallet-management/wallets/") && path.ends_with("/disable") {
+            } else if path.starts_with("/wallet-management/wallets/") && path.ends_with("/disable")
+            {
                 "admin-wallet-management-wallets-sample-address-disable"
             } else if path.starts_with("/wallet-management/wallets/") {
                 "admin-wallet-management-wallets"
@@ -350,13 +360,22 @@ mod tests {
         assert_eq!(slug_for_path("/"), "admin-home");
         assert_eq!(slug_for_path("/settings"), "admin-settings");
         assert_eq!(slug_for_path("/news/create"), "admin-news-create");
-        assert_eq!(slug_for_path("/wallet-management/credits"), "admin-wallet-management-credits");
+        assert_eq!(
+            slug_for_path("/wallet-management/credits"),
+            "admin-wallet-management-credits"
+        );
     }
 
     #[test]
     fn test_slug_for_path_dynamic_routes() {
-        assert_eq!(slug_for_path("/chat/sample-conv-id"), "admin-chat-sample-id");
-        assert_eq!(slug_for_path("/news/sample-id/edit"), "admin-news-sample-id-edit");
+        assert_eq!(
+            slug_for_path("/chat/sample-conv-id"),
+            "admin-chat-sample-id"
+        );
+        assert_eq!(
+            slug_for_path("/news/sample-id/edit"),
+            "admin-news-sample-id-edit"
+        );
         assert_eq!(
             slug_for_path("/wallet-management/access/plans/sample-plan-id"),
             "admin-wallet-management-access-plans-sample-plan-id"
@@ -386,7 +405,10 @@ mod tests {
             "/wallet-management/access/plans/pro",
             "/wallet-management/wallets/0xabc/disable",
         ] {
-            let ctx = PageContext { path: path.into(), ..Default::default() };
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
             let (meta, _) = dispatch(&ctx);
             assert_eq!(meta.status, super::super::PageStatus::Ok, "{path}");
         }
@@ -404,10 +426,16 @@ mod tests {
             "/wallet-management/wallets//disable",
             "/wallet-management/wallets/id/disable/extra",
         ] {
-            let ctx = PageContext { path: path.into(), ..Default::default() };
+            let ctx = PageContext {
+                path: path.into(),
+                ..Default::default()
+            };
             let (meta, body) = dispatch(&ctx);
             assert_eq!(meta.status, super::super::PageStatus::NotFound, "{path}");
-            assert!(dioxus_ssr::render_element(body).contains("Page not found"), "{path}");
+            assert!(
+                dioxus_ssr::render_element(body).contains("Page not found"),
+                "{path}"
+            );
         }
     }
 
@@ -437,7 +465,10 @@ mod tests {
             let rendered = dioxus_ssr::render_element(body);
 
             assert_eq!(meta.status, super::super::PageStatus::Ok, "{path}");
-            assert!(!rendered.contains("private-case-reference"), "{path}: {rendered}");
+            assert!(
+                !rendered.contains("private-case-reference"),
+                "{path}: {rendered}"
+            );
             assert_eq!(
                 rendered
                     .matches(&format!("data-return-url=\"{safe_return_url}\""))

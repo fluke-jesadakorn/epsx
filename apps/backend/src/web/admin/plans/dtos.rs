@@ -1,8 +1,8 @@
-use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use utoipa::ToSchema;
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
+use uuid::Uuid;
 
 #[derive(Debug, Deserialize, ToSchema)]
 pub struct CreatePlanRequest {
@@ -11,7 +11,7 @@ pub struct CreatePlanRequest {
     #[schema(example = "Plan for advanced users")]
     pub description: Option<String>,
     #[schema(example = "Advanced Access Plan")]
-    pub permission_plan_name: String, 
+    pub permission_plan_name: String,
     #[schema(value_type = String, example = "29.99")]
     pub current_price: Decimal,
     #[schema(example = "USD")]
@@ -139,7 +139,7 @@ pub struct PermissionPlanRequest {
     pub name: String,
     pub description: Option<String>,
     pub permissions: Vec<String>,
-    pub plan_type: String, 
+    pub plan_type: String,
 }
 #[derive(Debug, Deserialize)]
 pub struct SubscriptionListQuery {

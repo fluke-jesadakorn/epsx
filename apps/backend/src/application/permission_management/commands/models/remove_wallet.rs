@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
+use crate::prelude::*;
 
 /// Command to remove a wallet from a permission plan
 #[derive(Debug, Clone)]

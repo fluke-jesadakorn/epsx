@@ -1,0 +1,18 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.7-notification-readiness",
+  "productionReady": false,
+  "scope": "offline redacted metrics evaluation only; no database, network, provider, or deployment access",
+  "thresholds": {
+    "max_queue_depth": 10000,
+    "max_queue_age_seconds": 300,
+    "max_retry_wait": 1000,
+    "max_terminal_failed": 100,
+    "max_dead_lettered": 25,
+    "max_stream_lag_seconds": 60,
+    "max_stream_query_failures": 0,
+    "max_active_streams": 256,
+    "max_replayed_events_per_connection": 100000,
+    "min_provider_acceptance_percent": 95
+  }
+}

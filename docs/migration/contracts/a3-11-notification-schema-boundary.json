@@ -26,8 +26,8 @@
   "evidencePinning": {
     "authority": "contract-plus-independent-verifier-constants",
     "compatibilityQuery": {
-      "bytes": 20887,
-      "sha256": "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e"
+      "bytes": 23624,
+      "sha256": "0486b3ad1a89414b62a87f40487f695cbb99c43e09a72ccd47e222642c204a3c"
     },
     "upMigration": {
       "bytes": 1128,
@@ -96,11 +96,11 @@
     "startupErrorSwallowSitesAfter": 0,
     "compatibilityQueryConstant": "NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY",
     "compatibilityFunction": "verify_schema_compatibility",
-    "compatibilityQueryBytes": 20887,
-    "compatibilityQuerySha256": "8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e",
+    "compatibilityQueryBytes": 23624,
+    "compatibilityQuerySha256": "0486b3ad1a89414b62a87f40487f695cbb99c43e09a72ccd47e222642c204a3c",
     "qualifiedRelationOccurrences": {
-      "public.templates": 8,
-      "public.notifications": 11
+      "public.templates": 14,
+      "public.notifications": 33
     },
     "timestampBind": "Some(chrono::Utc::now())",
     "templateLoadResult": "Result<(), TemplateLoadError>",
@@ -108,7 +108,7 @@
       "sqlx::PgPool::connect(&args.database_url)",
       "verify_schema_compatibility(&db)",
       "load_templates_to_hb(&db, &mut hb)",
-      "SmtpTransport::relay(&args.smtp_host)",
+      "let smtp = build_smtp_transport(",
       "tokio::net::TcpListener::bind(addr)",
       "axum::serve(listener, app)"
     ],
@@ -116,6 +116,8 @@
       "WITH expected_columns (",
       "expected_not_null (table_name, column_name) AS (",
       "expected_key_constraints (table_name, constraint_name, constraint_type, column_name) AS (",
+      "expected_check_constraints (table_name, constraint_name) AS (",
+      "expected_foreign_keys (source_table, constraint_name, target_table) AS (",
       "expected_indexes (",
       "LEFT JOIN information_schema.columns AS actual",
       "actual.ordinal_position = expected.ordinal_position",
@@ -142,6 +144,11 @@
       "NOT constraint_record.condeferrable",
       "NOT constraint_record.condeferred",
       "constraint_record.convalidated",
+      "COUNT(*) = 8",
+      "COUNT(*) = 3",
+      "expected_foreign.source_table IS NOT NULL",
+      "expected_check.table_name IS NOT NULL",
+      "constraint_record.confdeltype = 'r'",
       "AND constraint_record.connoinherit",
       "to_jsonb(constraint_record) ? 'conperiod'",
       "to_jsonb(constraint_record) ? 'conenforced'",
@@ -252,9 +259,22 @@
     "notNullTotal": 14,
     "primaryKeys": ["templates.id", "notifications.id"],
     "uniqueKeys": ["templates.name"],
-    "foreignKeys": [],
-    "checkConstraints": [],
-    "relationConstraintTotalWithoutPg18NotNull": 3,
+    "foreignKeys": [
+      "notification_channel_jobs.notification_id->notifications",
+      "notification_channel_jobs.source_event_id->notification_outbox",
+      "notification_dead_letters.job_id->notification_channel_jobs",
+      "notification_delivery_attempts.job_id->notification_channel_jobs",
+      "notification_engagement.notification_id->notifications",
+      "notification_provider_events.job_id->notification_channel_jobs",
+      "notification_template_audit.template_id->templates",
+      "notification_template_versions.template_id->templates"
+    ],
+    "checkConstraints": [
+      "templates_channel_check",
+      "templates_variables_object_check",
+      "notifications_channel_check"
+    ],
+    "relationConstraintTotalWithoutPg18NotNull": 14,
     "pg18NotNullInventory": "zero-or-exact-fourteen",
     "keyConstraintPolicy": {
       "local": true,
@@ -288,7 +308,7 @@
     },
     "foreignKeyBoundary": {
       "inventoryDirection": "inbound-and-outbound",
-      "exactTotal": 0,
+      "exactTotal": 8,
       "unexpectedInboundAccepted": false,
       "unexpectedOutboundAccepted": false
     },

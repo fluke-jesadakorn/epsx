@@ -150,7 +150,13 @@ pub fn AdminActionConfirm(
 fn open_label(title: &str) -> String {
     title
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() { c.to_ascii_lowercase() } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
         .collect::<String>()
         .trim_matches('_')
         .to_string()
@@ -318,8 +324,14 @@ mod tests {
     /// the wrong class.
     #[test]
     fn confirm_btn_class_matches_variants() {
-        assert_eq!(confirm_btn_class(ConfirmVariant::Destructive), "btn btn-danger");
-        assert_eq!(confirm_btn_class(ConfirmVariant::Warning), "btn btn-warning");
+        assert_eq!(
+            confirm_btn_class(ConfirmVariant::Destructive),
+            "btn btn-danger"
+        );
+        assert_eq!(
+            confirm_btn_class(ConfirmVariant::Warning),
+            "btn btn-warning"
+        );
         assert_eq!(confirm_btn_class(ConfirmVariant::Info), "btn btn-primary");
     }
 

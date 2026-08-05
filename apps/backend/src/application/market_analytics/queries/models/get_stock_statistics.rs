@@ -1,6 +1,6 @@
-use crate::prelude::*;
 use crate::application::shared::Query;
 use crate::domain::market_analytics::repository_ports::StockAnalysisStatistics;
+use crate::prelude::*;
 
 /// Query to get overall stock analysis statistics
 #[derive(Debug, Clone)]

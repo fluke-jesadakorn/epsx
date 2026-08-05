@@ -18,9 +18,14 @@ pub enum ChainVerificationStatus {
     Idle,
     Connecting,
     Submitting,
-    Confirming { confirmations: u32, target: u32 },
+    Confirming {
+        confirmations: u32,
+        target: u32,
+    },
     Verified,
-    Failed { reason: String },
+    Failed {
+        reason: String,
+    },
 }
 
 #[component]
@@ -28,21 +33,46 @@ pub fn ChainVerificationCard(
     status: ChainVerificationStatus,
     /// Optional transaction hash. When `Some`, a "View on
     /// Explorer" link is rendered.
-    #[props(default = None)] tx_hash: Option<String>,
+    #[props(default = None)]
+    tx_hash: Option<String>,
     /// Network name (e.g. "BNB Smart Chain").
-    #[props(default = "BNB Smart Chain".to_string())] network: String,
+    #[props(default = "BNB Smart Chain".to_string())]
+    network: String,
 ) -> Element {
     let (label, color, icon) = match status {
-        ChainVerificationStatus::Idle => ("Idle".to_string(), "slate".to_string(), "circle".to_string()),
-        ChainVerificationStatus::Connecting => ("Connecting wallet".to_string(), "blue".to_string(), "loader".to_string()),
-        ChainVerificationStatus::Submitting => ("Submitting transaction".to_string(), "blue".to_string(), "loader".to_string()),
-        ChainVerificationStatus::Confirming { confirmations, target } => (
+        ChainVerificationStatus::Idle => (
+            "Idle".to_string(),
+            "slate".to_string(),
+            "circle".to_string(),
+        ),
+        ChainVerificationStatus::Connecting => (
+            "Connecting wallet".to_string(),
+            "blue".to_string(),
+            "loader".to_string(),
+        ),
+        ChainVerificationStatus::Submitting => (
+            "Submitting transaction".to_string(),
+            "blue".to_string(),
+            "loader".to_string(),
+        ),
+        ChainVerificationStatus::Confirming {
+            confirmations,
+            target,
+        } => (
             format!("Confirming {}/{}", confirmations, target),
             "orange".to_string(),
             "loader".to_string(),
         ),
-        ChainVerificationStatus::Verified => ("Verified".to_string(), "green".to_string(), "check-circle".to_string()),
-        ChainVerificationStatus::Failed { .. } => ("Failed".to_string(), "red".to_string(), "x-circle".to_string()),
+        ChainVerificationStatus::Verified => (
+            "Verified".to_string(),
+            "green".to_string(),
+            "check-circle".to_string(),
+        ),
+        ChainVerificationStatus::Failed { .. } => (
+            "Failed".to_string(),
+            "red".to_string(),
+            "x-circle".to_string(),
+        ),
     };
     rsx! {
         div { class: "chain-verification-card card card-glass",
@@ -81,7 +111,5 @@ mod tests {
     }
 
     #[test]
-    fn chain_verification_card_smoke() {
-        
-    }
+    fn chain_verification_card_smoke() {}
 }

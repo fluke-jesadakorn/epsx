@@ -5,19 +5,19 @@
 //! Uses wallet_plan_assignments table for all plan access data
 
 use axum::{
-    extract::{State, Path, Extension},
+    extract::{Extension, Path, State},
     response::Json,
 };
+use chrono::{DateTime, Utc};
 use diesel::OptionalExtension;
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
 use tracing::info;
+use uuid::Uuid;
 
 use crate::{
     prelude::*,
-    web::middleware::{UnifiedErrorResponse, OpenIDUserContext},
+    web::middleware::{OpenIDUserContext, UnifiedErrorResponse},
 };
 
 // ============================================================================
@@ -69,13 +69,13 @@ pub struct PlanAccessData {
     pub plan_id: Option<String>,
     pub plan_expires_at: Option<DateTime<Utc>>,
     pub days_remaining: i64,
-    pub status: String, // "active", "expiring_soon", "expired", "no_plan"
+    pub status: String,      // "active", "expiring_soon", "expired", "no_plan"
     pub ranking_offset: i32, // Starting rank position (0 = top ranks, 100 = ranks 101+)
     pub can_upgrade: bool,
     pub tier_level: i32, // Plan tier level for upgrade/downgrade logic
     pub all_plans: Vec<PlanSummary>,
-    pub proration_credit: Option<String>,   // Pro-rata credit from remaining plan time
-    pub current_plan_price: Option<String>,  // Current plan price for reference
+    pub proration_credit: Option<String>, // Pro-rata credit from remaining plan time
+    pub current_plan_price: Option<String>, // Current plan price for reference
 }
 
 /// Summary of an active subscription
@@ -118,12 +118,14 @@ pub async fn get_user_plans_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
 ) -> Result<Json<UserPlansResponse>, Json<UnifiedErrorResponse>> {
-    info!("Getting plan access for user: {}", user_context.wallet_address);
+    info!(
+        "Getting plan access for user: {}",
+        user_context.wallet_address
+    );
 
-    let mut conn = app_state.db_pool
-        .get()
-        .await
-        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
+    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+        UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
+    })?;
 
     let now = Utc::now();
 
@@ -180,15 +182,24 @@ pub async fn get_user_plans_handler(
     .await
     .unwrap_or_default();
 
-
     if !active_subs.is_empty() {
         // Sort by ranking_offset ascending (lowest = best access), tie-break by tier_level desc
-        let mut subs_with_offset: Vec<(i32, usize)> = active_subs.iter().enumerate()
-            .map(|(i, s)| (extract_ranking_offset(&s.plan_metadata, s.offset_permission.as_deref()), i))
+        let mut subs_with_offset: Vec<(i32, usize)> = active_subs
+            .iter()
+            .enumerate()
+            .map(|(i, s)| {
+                (
+                    extract_ranking_offset(&s.plan_metadata, s.offset_permission.as_deref()),
+                    i,
+                )
+            })
             .collect();
         subs_with_offset.sort_by(|(offset_a, idx_a), (offset_b, idx_b)| {
-            offset_a.cmp(offset_b)
-                .then(active_subs[*idx_b].tier_level.cmp(&active_subs[*idx_a].tier_level))
+            offset_a.cmp(offset_b).then(
+                active_subs[*idx_b]
+                    .tier_level
+                    .cmp(&active_subs[*idx_a].tier_level),
+            )
         });
 
         let &(ranking_offset, best_idx) = subs_with_offset.as_slice().first().expect("non-empty");
@@ -196,20 +207,26 @@ pub async fn get_user_plans_handler(
 
         // Calculate proration credit from remaining plan time
         let proration_credit = {
+            use super::upgrade_service::{billing_period_days, calculate_upgrade_credit};
             use std::str::FromStr;
-            use super::upgrade_service::{calculate_upgrade_credit, billing_period_days};
             if let (Some(exp), Some(price_bd)) = (sub.expires_at, sub.price.as_ref()) {
-                let price = rust_decimal::Decimal::from_str(&price_bd.to_string()).unwrap_or_default();
+                let price =
+                    rust_decimal::Decimal::from_str(&price_bd.to_string()).unwrap_or_default();
                 if price > rust_decimal::Decimal::ZERO && exp > now {
                     let period = billing_period_days(sub.billing_cycle.as_deref());
                     Some(calculate_upgrade_credit(price, exp, period).to_string())
-                } else { None }
-            } else { None }
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
         };
 
         let current_plan_price = sub.price.as_ref().map(|p| p.to_string());
 
-        let days_remaining = sub.expires_at
+        let days_remaining = sub
+            .expires_at
             .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
             .unwrap_or(3650); // Effectively unlimited if NULL (permanent)
 
@@ -227,12 +244,16 @@ pub async fn get_user_plans_handler(
         let can_upgrade = ranking_offset > 1;
 
         // Build summary list — mark the best-access plan as effective
-        let all_plans = active_subs.iter().enumerate().map(|(i, s)| PlanSummary {
-            plan_name: s.name.clone(),
-            expires_at: s.expires_at,
-            tier_level: s.tier_level,
-            is_effective: i == best_idx,
-        }).collect();
+        let all_plans = active_subs
+            .iter()
+            .enumerate()
+            .map(|(i, s)| PlanSummary {
+                plan_name: s.name.clone(),
+                expires_at: s.expires_at,
+                tier_level: s.tier_level,
+                is_effective: i == best_idx,
+            })
+            .collect();
 
         return Ok(Json(UserPlansResponse {
             success: true,
@@ -282,11 +303,14 @@ pub async fn get_plan_expiry_status_handler(
     State(app_state): State<crate::web::auth::AppState>,
     Extension(user_context): Extension<OpenIDUserContext>,
 ) -> Result<Json<PlanExpiryResponse>, Json<UnifiedErrorResponse>> {
-    info!("Checking plan expiry for user: {}", user_context.wallet_address);
+    info!(
+        "Checking plan expiry for user: {}",
+        user_context.wallet_address
+    );
 
     // Reuse get_user_plans_handler logic
     let result = get_user_plans_handler(State(app_state), Extension(user_context)).await?;
-    
+
     Ok(Json(PlanExpiryResponse {
         success: result.success,
         message: "Plan expiry status retrieved".to_string(),
@@ -301,12 +325,14 @@ pub async fn cancel_plan_handler(
     Path(plan_id): Path<Uuid>,
     Json(_payload): Json<CancelPlanRequest>,
 ) -> Result<Json<CancelPlanResponse>, Json<UnifiedErrorResponse>> {
-    info!("Cancelling plan {} for user {}", plan_id, user_context.wallet_address);
+    info!(
+        "Cancelling plan {} for user {}",
+        plan_id, user_context.wallet_address
+    );
 
-    let mut conn = app_state.db_pool
-        .get()
-        .await
-        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
+    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+        UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
+    })?;
 
     // Deactivate wallet_plan_assignments for this wallet and plan
     let rows_affected = diesel::sql_query(
@@ -316,7 +342,7 @@ pub async fn cancel_plan_handler(
         WHERE LOWER(wallet_address) = LOWER($1)
           AND plan_id = $2
           AND is_active = true
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .bind::<diesel::sql_types::Uuid, _>(plan_id)
@@ -354,13 +380,13 @@ pub struct UpgradePreviewResponse {
 pub struct UpgradePreviewData {
     pub current_plan: Option<CurrentPlanInfo>,
     pub new_plan: NewPlanInfo,
-    pub credit_from_current_plan: String,  // Pro-rata credit from remaining time
-    pub wallet_credit_balance: String,     // Available credit in wallet
-    pub total_credits_available: String,   // Total credits (proration + wallet)
-    pub amount_to_pay: String,             // new_price - total_credits (what user pays)
+    pub credit_from_current_plan: String, // Pro-rata credit from remaining time
+    pub wallet_credit_balance: String,    // Available credit in wallet
+    pub total_credits_available: String,  // Total credits (proration + wallet)
+    pub amount_to_pay: String,            // new_price - total_credits (what user pays)
     pub new_duration_days: i64,
     pub new_expiry_date: DateTime<Utc>,
-    pub is_upgrade_allowed: bool,          // false if attempting downgrade
+    pub is_upgrade_allowed: bool, // false if attempting downgrade
 }
 
 /// Current plan info
@@ -368,7 +394,7 @@ pub struct UpgradePreviewData {
 pub struct CurrentPlanInfo {
     pub id: Option<i32>,
     pub name: String,
-    pub price: String,                     // Original price paid
+    pub price: String, // Original price paid
     pub expires_at: Option<DateTime<Utc>>,
     pub started_at: Option<DateTime<Utc>>, // When plan was activated
     pub days_remaining: i64,
@@ -395,17 +421,19 @@ pub async fn get_upgrade_preview_handler(
     axum::extract::Query(query): axum::extract::Query<UpgradePreviewQuery>,
 ) -> Result<Json<UpgradePreviewResponse>, Json<UnifiedErrorResponse>> {
     use std::str::FromStr;
-    
-    info!("Getting upgrade preview for user: {}, new_plan_id: {}",
-          user_context.wallet_address, query.new_plan_id);
 
-    let new_plan_uuid = Uuid::parse_str(&query.new_plan_id)
-        .map_err(|_| UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
+    info!(
+        "Getting upgrade preview for user: {}, new_plan_id: {}",
+        user_context.wallet_address, query.new_plan_id
+    );
 
-    let mut conn = app_state.db_pool
-        .get()
-        .await
-        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
+    let new_plan_uuid = Uuid::parse_str(&query.new_plan_id).map_err(|_| {
+        UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID")
+    })?;
+
+    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+        UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
+    })?;
 
     // Get new plan details
     #[derive(diesel::QueryableByName)]
@@ -445,17 +473,27 @@ pub async fn get_upgrade_preview_handler(
         }
     };
 
-    let new_plan_base_price: rust_decimal::Decimal = new_plan.price.as_ref()
+    let new_plan_base_price: rust_decimal::Decimal = new_plan
+        .price
+        .as_ref()
         .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
 
     // Check for active promotion and use effective price
-    let new_plan_price = new_plan.plan_metadata.get("promotion")
+    let new_plan_price = new_plan
+        .plan_metadata
+        .get("promotion")
         .and_then(|promo_val| {
-            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
+            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(
+                promo_val.clone(),
+            )
+            .ok()
         })
         .map(|promo| {
-            let bp = new_plan_base_price.to_string().parse::<f64>().unwrap_or(0.0);
+            let bp = new_plan_base_price
+                .to_string()
+                .parse::<f64>()
+                .unwrap_or(0.0);
             let ep = promo.calculate_effective_price(bp);
             rust_decimal::Decimal::from_str(&format!("{:.2}", ep)).unwrap_or(new_plan_base_price)
         })
@@ -486,7 +524,7 @@ pub async fn get_upgrade_preview_handler(
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY assigned_at DESC
         LIMIT 1
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .get_result(&mut conn)
@@ -496,7 +534,9 @@ pub async fn get_upgrade_preview_handler(
     .flatten();
 
     // Get current plan details if user has an assignment
-    let (current_plan_info, current_plan_price, current_billing_period) = if let Some(ref a) = assignment {
+    let (current_plan_info, current_plan_price, current_billing_period) = if let Some(ref a) =
+        assignment
+    {
         #[derive(diesel::QueryableByName)]
         #[allow(dead_code)]
         struct CurPlanRow {
@@ -510,35 +550,41 @@ pub async fn get_upgrade_preview_handler(
             billing_cycle: Option<String>,
         }
 
-        let plan: Option<CurPlanRow> = diesel::sql_query(
-            "SELECT id, name, price, billing_cycle FROM plans WHERE id = $1"
-        )
-        .bind::<diesel::sql_types::Uuid, _>(a.plan_id)
-        .get_result(&mut conn)
-        .await
-        .optional()
-        .ok()
-        .flatten();
+        let plan: Option<CurPlanRow> =
+            diesel::sql_query("SELECT id, name, price, billing_cycle FROM plans WHERE id = $1")
+                .bind::<diesel::sql_types::Uuid, _>(a.plan_id)
+                .get_result(&mut conn)
+                .await
+                .optional()
+                .ok()
+                .flatten();
 
         if let Some(g) = plan {
-            let price: rust_decimal::Decimal = g.price.as_ref()
+            let price: rust_decimal::Decimal = g
+                .price
+                .as_ref()
                 .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
                 .unwrap_or(rust_decimal::Decimal::ZERO);
 
             let period = super::upgrade_service::billing_period_days(g.billing_cycle.as_deref());
 
-            let days_remaining = a.expires_at
+            let days_remaining = a
+                .expires_at
                 .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
                 .unwrap_or(0);
 
-            (Some(CurrentPlanInfo {
-                id: None, // Plans use UUID, not i32
-                name: g.name,
-                price: price.to_string(),
-                expires_at: a.expires_at,
-                started_at: Some(a.assigned_at),
-                days_remaining,
-            }), price, period)
+            (
+                Some(CurrentPlanInfo {
+                    id: None, // Plans use UUID, not i32
+                    name: g.name,
+                    price: price.to_string(),
+                    expires_at: a.expires_at,
+                    started_at: Some(a.assigned_at),
+                    days_remaining,
+                }),
+                price,
+                period,
+            )
         } else {
             (None, rust_decimal::Decimal::ZERO, 30i64)
         }
@@ -547,9 +593,13 @@ pub async fn get_upgrade_preview_handler(
     };
 
     // Calculate credit using upgrade_service
-    use super::upgrade_service::{calculate_upgrade_credit, calculate_upgrade_days, is_upgrade_allowed, billing_period_days};
+    use super::upgrade_service::{
+        billing_period_days, calculate_upgrade_credit, calculate_upgrade_days, is_upgrade_allowed,
+    };
 
-    let is_extension = assignment.as_ref().is_some_and(|a| a.plan_id == new_plan_uuid);
+    let is_extension = assignment
+        .as_ref()
+        .is_some_and(|a| a.plan_id == new_plan_uuid);
 
     let proration_credit = if is_extension {
         rust_decimal::Decimal::ZERO
@@ -566,48 +616,69 @@ pub async fn get_upgrade_preview_handler(
     // For extensions: pay full price, extend from current expiry
     // For upgrades: FREE — convert remaining days to fewer days on new plan
     // For new subscriptions: pay full price, standard duration
-    let (wallet_credit_balance, total_credits, amount_to_pay, new_expiry, new_duration_days) = if is_extension {
-        let remaining = assignment.as_ref()
-            .and_then(|a| a.expires_at)
-            .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
-            .unwrap_or(0);
-        let ext_expiry = assignment.as_ref()
-            .and_then(|a| a.expires_at)
-            .map(|exp| if exp > now { exp + chrono::Duration::days(standard_duration_days) } else { now + chrono::Duration::days(standard_duration_days) })
-            .unwrap_or(now + chrono::Duration::days(standard_duration_days));
-        (
-            rust_decimal::Decimal::ZERO,
-            rust_decimal::Decimal::ZERO,
-            new_plan_price,
-            ext_expiry,
-            remaining + standard_duration_days,
-        )
-    } else if assignment.is_some() && current_plan_price > rust_decimal::Decimal::ZERO {
-        // UPGRADE: convert remaining days to new plan days (FREE)
-        let days_remaining = assignment.as_ref()
-            .and_then(|a| a.expires_at)
-            .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
-            .unwrap_or(0);
-        let new_period = billing_period_days(new_plan.billing_cycle.as_deref());
-        let converted = calculate_upgrade_days(
-            current_plan_price, current_billing_period,
-            days_remaining,
-            new_plan_price, new_period,
-        ).max(1); // Minimum 1 day
-        (
-            rust_decimal::Decimal::ZERO,
-            proration_credit,
-            rust_decimal::Decimal::ZERO, // FREE upgrade
-            now + chrono::Duration::days(converted),
-            converted,
-        )
-    } else {
-        // New subscription: full price, standard duration
-        let exp = now + chrono::Duration::days(standard_duration_days);
-        (rust_decimal::Decimal::ZERO, rust_decimal::Decimal::ZERO, new_plan_price, exp, standard_duration_days)
-    };
+    let (wallet_credit_balance, total_credits, amount_to_pay, new_expiry, new_duration_days) =
+        if is_extension {
+            let remaining = assignment
+                .as_ref()
+                .and_then(|a| a.expires_at)
+                .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
+                .unwrap_or(0);
+            let ext_expiry = assignment
+                .as_ref()
+                .and_then(|a| a.expires_at)
+                .map(|exp| {
+                    if exp > now {
+                        exp + chrono::Duration::days(standard_duration_days)
+                    } else {
+                        now + chrono::Duration::days(standard_duration_days)
+                    }
+                })
+                .unwrap_or(now + chrono::Duration::days(standard_duration_days));
+            (
+                rust_decimal::Decimal::ZERO,
+                rust_decimal::Decimal::ZERO,
+                new_plan_price,
+                ext_expiry,
+                remaining + standard_duration_days,
+            )
+        } else if assignment.is_some() && current_plan_price > rust_decimal::Decimal::ZERO {
+            // UPGRADE: convert remaining days to new plan days (FREE)
+            let days_remaining = assignment
+                .as_ref()
+                .and_then(|a| a.expires_at)
+                .map(|exp| if exp > now { (exp - now).num_days() } else { 0 })
+                .unwrap_or(0);
+            let new_period = billing_period_days(new_plan.billing_cycle.as_deref());
+            let converted = calculate_upgrade_days(
+                current_plan_price,
+                current_billing_period,
+                days_remaining,
+                new_plan_price,
+                new_period,
+            )
+            .max(1); // Minimum 1 day
+            (
+                rust_decimal::Decimal::ZERO,
+                proration_credit,
+                rust_decimal::Decimal::ZERO, // FREE upgrade
+                now + chrono::Duration::days(converted),
+                converted,
+            )
+        } else {
+            // New subscription: full price, standard duration
+            let exp = now + chrono::Duration::days(standard_duration_days);
+            (
+                rust_decimal::Decimal::ZERO,
+                rust_decimal::Decimal::ZERO,
+                new_plan_price,
+                exp,
+                standard_duration_days,
+            )
+        };
 
-    let is_upgrade = current_plan_info.is_none() || is_extension || is_upgrade_allowed(current_plan_price, new_plan_base_price);
+    let is_upgrade = current_plan_info.is_none()
+        || is_extension
+        || is_upgrade_allowed(current_plan_price, new_plan_base_price);
 
     // Build response
     let response_data = UpgradePreviewData {
@@ -627,11 +698,17 @@ pub async fn get_upgrade_preview_handler(
     };
 
     let message = if is_extension {
-        format!("Extension — 30 days added to your current plan. Amount to pay: ${}", amount_to_pay)
+        format!(
+            "Extension — 30 days added to your current plan. Amount to pay: ${}",
+            amount_to_pay
+        )
     } else if !is_upgrade {
         "Downgrade not available. You can only upgrade to a higher-tier plan.".to_string()
     } else if amount_to_pay == rust_decimal::Decimal::ZERO && assignment.is_some() {
-        format!("Free upgrade — your remaining time converts to {} days on {}", new_duration_days, new_plan.name)
+        format!(
+            "Free upgrade — your remaining time converts to {} days on {}",
+            new_duration_days, new_plan.name
+        )
     } else {
         format!("New subscription - {} days access", new_duration_days)
     };
@@ -680,15 +757,18 @@ pub async fn execute_plan_switch_handler(
     use std::str::FromStr;
 
     let wallet = &user_context.wallet_address;
-    info!("Plan switch requested by {} to plan {}", wallet, payload.new_plan_id);
+    info!(
+        "Plan switch requested by {} to plan {}",
+        wallet, payload.new_plan_id
+    );
 
-    let new_plan_uuid = Uuid::parse_str(&payload.new_plan_id)
-        .map_err(|_| UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
+    let new_plan_uuid = Uuid::parse_str(&payload.new_plan_id).map_err(|_| {
+        UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID")
+    })?;
 
-    let mut conn = app_state.db_pool
-        .get()
-        .await
-        .map_err(|e| UnifiedErrorResponse::json(500, "Database connection failed", e.to_string()))?;
+    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+        UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
+    })?;
 
     // 1. Get current active plan assignment
     #[derive(diesel::QueryableByName)]
@@ -713,7 +793,7 @@ pub async fn execute_plan_switch_handler(
           AND (expires_at IS NULL OR expires_at > NOW())
         ORDER BY assigned_at DESC
         LIMIT 1
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
     .get_result(&mut conn)
@@ -723,18 +803,34 @@ pub async fn execute_plan_switch_handler(
 
     let assignment = match assignment {
         Some(a) => a,
-        None => return Err(UnifiedErrorResponse::json(400, "No active plan", "You don't have an active plan to switch from")),
+        None => {
+            return Err(UnifiedErrorResponse::json(
+                400,
+                "No active plan",
+                "You don't have an active plan to switch from",
+            ))
+        }
     };
 
     // Guard: plan must have expiry (not permanent)
     let expires_at = match assignment.expires_at {
         Some(exp) => exp,
-        None => return Err(UnifiedErrorResponse::json(400, "Cannot switch", "Permanent plans cannot be switched")),
+        None => {
+            return Err(UnifiedErrorResponse::json(
+                400,
+                "Cannot switch",
+                "Permanent plans cannot be switched",
+            ))
+        }
     };
 
     // Guard: same plan
     if assignment.plan_id == new_plan_uuid {
-        return Err(UnifiedErrorResponse::json(400, "Already on this plan", "You are already on this plan"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Already on this plan",
+            "You are already on this plan",
+        ));
     }
 
     // 2. Get current plan details
@@ -754,7 +850,7 @@ pub async fn execute_plan_switch_handler(
     }
 
     let current_plan: SwitchPlanRow = diesel::sql_query(
-        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1"
+        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment.plan_id)
     .get_result(&mut conn)
@@ -763,37 +859,54 @@ pub async fn execute_plan_switch_handler(
 
     // 3. Get new plan details
     let new_plan: SwitchPlanRow = diesel::sql_query(
-        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1"
+        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(new_plan_uuid)
     .get_result(&mut conn)
     .await
     .optional()
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch new plan", e.to_string()))?
-    .ok_or_else(|| UnifiedErrorResponse::json(400, "Plan not found", "The selected plan does not exist"))?;
+    .ok_or_else(|| {
+        UnifiedErrorResponse::json(400, "Plan not found", "The selected plan does not exist")
+    })?;
 
     if !new_plan.is_active {
-        return Err(UnifiedErrorResponse::json(400, "Plan inactive", "The selected plan is not available"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Plan inactive",
+            "The selected plan is not available",
+        ));
     }
 
-    let current_price: rust_decimal::Decimal = current_plan.price.as_ref()
+    let current_price: rust_decimal::Decimal = current_plan
+        .price
+        .as_ref()
         .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
 
-    let new_price: rust_decimal::Decimal = new_plan.price.as_ref()
+    let new_price: rust_decimal::Decimal = new_plan
+        .price
+        .as_ref()
         .and_then(|bd| rust_decimal::Decimal::from_str(&bd.to_string()).ok())
         .unwrap_or(rust_decimal::Decimal::ZERO);
 
     // 4. Calculate converted days (free upgrade by day conversion)
-    use super::upgrade_service::{calculate_upgrade_credit, calculate_upgrade_days, billing_period_days};
+    use super::upgrade_service::{
+        billing_period_days, calculate_upgrade_credit, calculate_upgrade_days,
+    };
 
     let cur_period = billing_period_days(current_plan.billing_cycle.as_deref());
     let new_period = billing_period_days(new_plan.billing_cycle.as_deref());
     let days_remaining = (expires_at - Utc::now()).num_days().max(0);
 
     let converted_days = calculate_upgrade_days(
-        current_price, cur_period, days_remaining, new_price, new_period
-    ).max(1); // Minimum 1 day
+        current_price,
+        cur_period,
+        days_remaining,
+        new_price,
+        new_period,
+    )
+    .max(1); // Minimum 1 day
 
     let new_expires_at = Utc::now() + chrono::Duration::days(converted_days);
 
@@ -805,7 +918,11 @@ pub async fn execute_plan_switch_handler(
 
     // Block downgrades — users can only upgrade
     if is_downgrade {
-        return Err(UnifiedErrorResponse::json(400, "Downgrade not allowed", "You can only upgrade to a higher-tier plan."));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Downgrade not allowed",
+            "You can only upgrade to a higher-tier plan.",
+        ));
     }
 
     // 5. Direct plan switch: deactivate old, create new assignment
@@ -815,7 +932,7 @@ pub async fn execute_plan_switch_handler(
         UPDATE wallet_plan_assignments
         SET is_active = false, updated_at = NOW()
         WHERE LOWER(wallet_address) = LOWER($1) AND is_active = true
-        "#
+        "#,
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
     .execute(&mut conn)

@@ -25,15 +25,19 @@ pub fn ConnectedWalletDropdown(
     /// Wallet address (Ethereum 0x... form). When `None`, the
     /// component renders nothing — matches the TS source's early
     /// return.
-    #[props(default = None)] address: Option<String>,
+    #[props(default = None)]
+    address: Option<String>,
     /// Class names appended to the wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     /// Fired when the user clicks the disconnect button. The
     /// default is a no-op so the SSR snapshot is well-formed.
-    #[props(default = None)] on_disconnect: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_disconnect: Option<EventHandler<MouseEvent>>,
     /// Fired when the user clicks the "Copy Address" row. Default
     /// is a no-op.
-    #[props(default = None)] on_copy: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_copy: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     let addr = match address.as_ref() {
         Some(a) if !a.is_empty() => a.clone(),
@@ -43,7 +47,14 @@ pub fn ConnectedWalletDropdown(
     let truncated = format!(
         "{}...{}",
         &addr.chars().take(6).collect::<String>(),
-        &addr.chars().rev().take(4).collect::<String>().chars().rev().collect::<String>()
+        &addr
+            .chars()
+            .rev()
+            .take(4)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect::<String>()
     );
     rsx! {
         div { class: "connected-wallet-dropdown {cls}",
@@ -122,7 +133,6 @@ mod tests {
         // The Dioxus port returns an empty Fragment. We assert the
         // component name resolves and is a function that takes
         // Option<String> for the address prop.
-        
     }
 
     #[test]
@@ -134,7 +144,14 @@ mod tests {
         let truncated = format!(
             "{}...{}",
             &addr.chars().take(6).collect::<String>(),
-            &addr.chars().rev().take(4).collect::<String>().chars().rev().collect::<String>()
+            &addr
+                .chars()
+                .rev()
+                .take(4)
+                .collect::<String>()
+                .chars()
+                .rev()
+                .collect::<String>()
         );
         assert_eq!(truncated, "0x1234...cdef");
     }

@@ -34,45 +34,60 @@ pub fn AuthModal(
     on_close: EventHandler<MouseEvent>,
     /// Variant tag — `"user"` (default) or `"admin"`. Drives the
     /// copy in the brand panel and the demo-button visibility.
-    #[props(default = None)] variant: Option<String>,
+    #[props(default = None)]
+    variant: Option<String>,
     /// When `true`, the "Try demo account" button is rendered.
     /// Defaults to `false`.
-    #[props(default = None)] demo_enabled: Option<bool>,
+    #[props(default = None)]
+    demo_enabled: Option<bool>,
     /// Custom label for the demo button. Defaults to
     /// "Try demo account".
-    #[props(default = None)] demo_label: Option<String>,
+    #[props(default = None)]
+    demo_label: Option<String>,
     /// Fires when the demo button is clicked.
-    #[props(default = None)] on_demo: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_demo: Option<EventHandler<MouseEvent>>,
     /// Fires whenever the modal transitions to a closed state (Escape,
     /// overlay click, close button, or programmatic close).
-    #[props(default = None)] on_open_change: Option<EventHandler<bool>>,
+    #[props(default = None)]
+    on_open_change: Option<EventHandler<bool>>,
     /// Optional callback fired after a successful auth (currently a
     /// no-op stub — the real SIWE flow is wired by the BFF; this
     /// callback is here for parity with the TS shadcn wrapper).
-    #[props(default = None)] on_success: Option<EventHandler<()>>,
+    #[props(default = None)]
+    on_success: Option<EventHandler<()>>,
     /// Title text. Defaults to "Choose your wallet".
-    #[props(default = None)] title: Option<String>,
+    #[props(default = None)]
+    title: Option<String>,
     /// Description text shown below the title.
-    #[props(default = None)] description: Option<String>,
+    #[props(default = None)]
+    description: Option<String>,
     /// List of wallet options rendered in the dialog. When `None`
     /// a default MetaMask/WalletConnect/Coinbase/Trust/Binance list
     /// is rendered, matching the Wave 1 scaffold.
-    #[props(default = None)] wallets: Option<Vec<WalletInfo>>,
+    #[props(default = None)]
+    wallets: Option<Vec<WalletInfo>>,
     /// Disable the overlay-click-to-close behavior. Defaults to
     /// `false` (overlay click closes the modal).
-    #[props(default = true)] close_on_overlay: bool,
+    #[props(default = true)]
+    close_on_overlay: bool,
     /// Disable the Escape-to-close behavior. Defaults to `false`
     /// (Escape closes the modal).
-    #[props(default = true)] close_on_escape: bool,
+    #[props(default = true)]
+    close_on_escape: bool,
     /// Extra class names for the dialog panel.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
-    if !open { return rsx! { Fragment {} }; }
+    if !open {
+        return rsx! { Fragment {} };
+    }
     let demo = demo_enabled.unwrap_or(false);
     let variant_val = variant.unwrap_or_else(|| "user".to_string());
     let title_val = title.unwrap_or_else(|| "Choose your wallet".to_string());
     let description_val = description.unwrap_or_else(|| {
-        "Connect your Web3 wallet to access dashboards, analytics, and on-chain payments.".to_string()
+        "Connect your Web3 wallet to access dashboards, analytics, and on-chain payments."
+            .to_string()
     });
     let demo_label_val = demo_label.unwrap_or_else(|| "Try demo account".to_string());
     let extra_cls = class_name.unwrap_or_default();
@@ -105,20 +120,30 @@ pub fn AuthModal(
     }
 
     let on_overlay_click = move |e: MouseEvent| {
-        if !close_on_overlay { return; }
+        if !close_on_overlay {
+            return;
+        }
         on_close.call(e);
-        if let Some(h) = &on_open_change { h.call(false); }
+        if let Some(h) = &on_open_change {
+            h.call(false);
+        }
     };
 
     let on_close_button = move |e: MouseEvent| {
         on_close.call(e);
-        if let Some(h) = &on_open_change { h.call(false); }
+        if let Some(h) = &on_open_change {
+            h.call(false);
+        }
     };
 
     let on_key_down = move |e: Event<KeyboardData>| {
-        if !close_on_escape { return; }
+        if !close_on_escape {
+            return;
+        }
         if matches!(e.key(), Key::Escape) {
-            if let Some(h) = &on_open_change { h.call(false); }
+            if let Some(h) = &on_open_change {
+                h.call(false);
+            }
         }
     };
 
@@ -210,14 +235,17 @@ pub fn AuthModal(
 pub fn WalletOption(
     name: String,
     /// Icon name from the lucide registry. Defaults to "wallet".
-    #[props(default = "wallet".to_string())] icon: String,
+    #[props(default = "wallet".to_string())]
+    icon: String,
     /// Stable id for this wallet ("metamask", "walletconnect", ...).
     /// Forwarded to `on_click` so callers can switch on the connector.
-    #[props(default = None)] id: Option<String>,
+    #[props(default = None)]
+    id: Option<String>,
     /// Click handler. When `None`, the button is rendered but
     /// disabled (the existing pages that don't wire a click still
     /// compile and render).
-    #[props(default = None)] on_click: Option<EventHandler<WalletClick>>,
+    #[props(default = None)]
+    on_click: Option<EventHandler<WalletClick>>,
 ) -> Element {
     let id_val = id.clone();
     let on_click_handler = on_click.clone();
@@ -255,7 +283,8 @@ pub struct WalletClick {
 #[component]
 pub fn DemoButton(
     /// Button label. Defaults to "Try demo account".
-    #[props(default = "Try demo account".to_string())] label: String,
+    #[props(default = "Try demo account".to_string())]
+    label: String,
     #[props(default = None)] on_click: Option<EventHandler<MouseEvent>>,
     #[props(default = None)] class_name: Option<String>,
 ) -> Element {

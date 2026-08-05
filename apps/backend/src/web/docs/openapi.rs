@@ -3,9 +3,8 @@
 //! Defines the complete OpenAPI 3.0 specification for the EPSX data analytics platform API.
 
 use utoipa::{
-    OpenApi,
-    Modify,
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
 };
 
 /// Minimal OpenAPI documentation for Scalar
@@ -230,9 +229,9 @@ impl Modify for SecurityAddon {
                             1) Generate challenge via POST /api/auth/web3/challenge \
                             2) Sign the SIWE message with your wallet \
                             3) Verify signature via POST /api/auth/web3/verify to get token \
-                            4) Use the token as Bearer authentication for protected endpoints"
+                            4) Use the token as Bearer authentication for protected endpoints",
                         ))
-                        .build()
+                        .build(),
                 ),
             );
         }

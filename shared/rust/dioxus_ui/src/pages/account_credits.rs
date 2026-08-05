@@ -26,7 +26,10 @@ fn RenderAccountCredits(ctx: PageContext) -> Element {
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content credits-ledger-page",
+            // The source credits route uses a centered max-w-6xl frame with
+            // a 1.5rem inset and top breathing room below the header. Keep
+            // that geometry even when the owner-scoped data is unavailable.
+            div { class: "page-content credits-ledger-page mx-auto max-w-6xl px-6 pt-6",
                 div { class: "mb-6",
                     h1 { class: "text-3xl font-bold text-foreground", "Credit Balance" }
                     p { class: "mt-2 text-slate-400",

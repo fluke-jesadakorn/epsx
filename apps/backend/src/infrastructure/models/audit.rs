@@ -1,12 +1,11 @@
-use diesel::prelude::*;
-use uuid::Uuid;
-use chrono::{DateTime, Utc};
-use serde_json::Value as JsonValue;
 use crate::schemas::infra_logs::{audit_logs, unified_audit_log};
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
+use serde_json::Value as JsonValue;
+use uuid::Uuid;
 
 #[derive(Queryable, Selectable, Insertable, Debug, Clone)]
 #[diesel(table_name = audit_logs)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct AuditLogDb {
     pub id: Uuid,
     pub wallet_address: Option<String>,
@@ -35,7 +34,6 @@ pub struct NewAuditLogDb {
 
 #[derive(Queryable, Selectable, Debug, Clone)]
 #[diesel(table_name = unified_audit_log)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
 pub struct UnifiedAuditDb {
     pub id: Uuid,
     pub actor: Option<String>,

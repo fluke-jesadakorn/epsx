@@ -1,30 +1,64 @@
 //! Public home page (`/`).
 //!
-//! The development implementation populated this page from rankings, plans, and
-//! news producers. The Rust frontend now consumes the same strict normalized
-//! public-news list outcome as `/news`, while ranking and plan previews remain
-//! unavailable until their backend-owned contracts are verified.
+//! Rankings and news are independent live-data outcomes. A failure in either
+//! dependency never suppresses a valid response from the other.
 
+use crate::components::stock_data_card::StockDataCard;
+use crate::home::{HeroSection, SignedOutHero};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
 
+use super::analytics::{AnalyticsResponse, AnalyticsRow};
 use super::news::{parse_news_list_outcome, NewsListOutcome, NewsPost};
 use super::{PageContext, PageMeta};
+
+pub const HOME_ANALYTICS_DATA_PARAM: &str = "data_home_analytics";
+pub const HOME_ANALYTICS_STATE_PARAM: &str = "data_home_analytics_state";
+
+#[derive(Clone, Debug, PartialEq)]
+enum HomeAnalyticsOutcome {
+    Ready(AnalyticsResponse),
+    Empty,
+    Unavailable,
+}
+
+fn parse_home_analytics(ctx: &PageContext) -> HomeAnalyticsOutcome {
+    let state = ctx
+        .param(HOME_ANALYTICS_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or("unavailable");
+    let response = ctx
+        .param(HOME_ANALYTICS_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
+        .and_then(|response| response.validated().ok());
+    match (state, response) {
+        ("ready", Some(response)) if !response.data.is_empty() => {
+            HomeAnalyticsOutcome::Ready(response)
+        }
+        ("empty", Some(response)) if response.data.is_empty() => HomeAnalyticsOutcome::Empty,
+        _ => HomeAnalyticsOutcome::Unavailable,
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Home");
     let news_outcome =
         parse_news_list_outcome(ctx.params.get("data_home_news").map(String::as_str));
+    let analytics_outcome = parse_home_analytics(ctx);
     (
         meta,
         rsx! {
             MainLayout { ctx: ctx.clone(),
                 div {
-                    class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900",
+                    class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
                     div { class: "relative z-[1] home-prod-content",
-                        HeroSection {}
-                        AnalyticsPreview {}
+                        if ctx.wallet.address.is_some() || ctx.user.is_some() {
+                            HeroSection {}
+                        } else {
+                            SignedOutHero {}
+                        }
+                        AnalyticsPreview { outcome: analytics_outcome }
                         PlansPreview {}
                         NewsPreview { outcome: news_outcome }
                     }
@@ -34,73 +68,37 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-#[component]
-fn HeroSection() -> Element {
-    rsx! {
-        section {
-            class: "home-prod-hero relative w-full min-h-[85vh] flex items-center justify-center overflow-hidden",
-            "aria-labelledby": "home-title",
-            div { class: "home-prod-hero-inner relative text-center space-y-12 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-20 z-[1]",
-                div { class: "home-prod-hero-head space-y-8",
-                    div { class: "space-y-6",
-                        div { class: "inline-block home-prod-hero-anim-up",
-                            div { class: "home-prod-hero-badge mb-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-primary/10 to-secondary/10 border border-primary/20 backdrop-blur-sm",
-                                Icon {
-                                    name: "trending-up".to_string(),
-                                    size: Some(16),
-                                    class_name: Some("text-primary".to_string()),
-                                }
-                                span { class: "text-sm font-medium text-primary", "EPSX" }
-                            }
-                            h1 {
-                                id: "home-title",
-                                class: "home-prod-hero-title text-4xl sm:text-5xl md:text-6xl lg:text-7xl xl:text-8xl font-bold leading-tight",
-                                span { class: "block home-prod-hero-line", "Explore" }
-                                span { class: "block bg-gradient-to-r from-orange-500 via-yellow-500 to-orange-600 bg-clip-text text-transparent home-prod-hero-gradient",
-                                    "Market Analytics"
-                                }
-                                span { class: "block mt-2 home-prod-hero-line", "With Verified Data" }
-                            }
-                        }
-                        p { class: "home-prod-hero-subtitle text-lg sm:text-xl md:text-2xl text-slate-300 max-w-4xl mx-auto leading-relaxed",
-                            "Explore verified public news below. Market and plan previews remain on their dedicated routes until their data contracts are available."
-                        }
-                    }
-                    div { class: "home-prod-hero-actions flex flex-col sm:flex-row gap-4 sm:gap-6 justify-center items-center",
-                        a {
-                            class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold bg-gradient-to-r from-orange-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white rounded-2xl shadow-2xl px-6 inline-flex items-center justify-center",
-                            href: "/analytics",
-                            Icon {
-                                name: "line-chart".to_string(),
-                                size: Some(24),
-                                class_name: Some("mr-3".to_string()),
-                            }
-                            span { "Open analytics" }
-                        }
-                        a {
-                            class: "home-prod-hero-cta w-full sm:w-auto min-w-[220px] h-14 text-lg font-bold border border-orange-400/40 text-orange-100 rounded-2xl px-6 inline-flex items-center justify-center hover:bg-orange-400/10",
-                            href: "/plans",
-                            Icon {
-                                name: "layers".to_string(),
-                                size: Some(24),
-                                class_name: Some("mr-3".to_string()),
-                            }
-                            span { "Review plans" }
-                        }
-                    }
-                }
-            }
-        }
-    }
+fn home_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) {
+    let latest = row.quarterly_performance.first();
+    let growth = latest
+        .map(|quarter| quarter.eps_growth)
+        .or(row.growth_factor)
+        .unwrap_or(0.0);
+    let price = latest
+        .map(|quarter| quarter.price)
+        .or(row.price_current)
+        .unwrap_or(row.value);
+    let days = row
+        .next_quarter_estimate
+        .as_ref()
+        .map(|estimate| estimate.days_until_announcement)
+        .or(row.days_until_next_earnings)
+        .filter(|days| *days >= 0);
+    (growth, price, days, row.progress_percentage)
 }
 
 #[component]
-fn AnalyticsPreview() -> Element {
+fn AnalyticsPreview(outcome: HomeAnalyticsOutcome) -> Element {
+    let state = match &outcome {
+        HomeAnalyticsOutcome::Ready(_) => "ready",
+        HomeAnalyticsOutcome::Empty => "empty",
+        HomeAnalyticsOutcome::Unavailable => "unavailable",
+    };
     rsx! {
         section {
             class: "home-prod-top-performers container mx-auto px-4 py-16 sm:py-24 lg:py-32",
             "aria-labelledby": "home-analytics-title",
-            "data-home-market-state": "unavailable",
+            "data-home-market-state": state,
             div { class: "relative",
                 div { class: "absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-xl home-prod-tp-blob-1" }
                 div { class: "absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 blur-xl home-prod-tp-blob-2" }
@@ -109,12 +107,51 @@ fn AnalyticsPreview() -> Element {
                         h2 {
                             id: "home-analytics-title",
                             class: "home-prod-tp-title pancake-gradient-text text-3xl font-bold sm:text-4xl",
-                            "Market analytics"
+                            "Performance Companies"
                         }
-                        p { class: "text-slate-300 mx-auto max-w-2xl home-prod-tp-sub",
-                            "No ranking or market records are loaded on the home page. Open analytics to check the route's current data state."
+                        p { class: "text-gray-600 dark:text-gray-300 mx-auto max-w-2xl home-prod-tp-sub",
+                            "Discover the data leaders with exceptional growth and performance metrics"
                         }
                         div { class: "home-prod-tp-divider pancake-gradient mx-auto h-1 w-24 rounded-full" }
+                    }
+                    match outcome {
+                        HomeAnalyticsOutcome::Ready(response) => rsx! {
+                            div {
+                                class: "home-ranking-grid grid grid-cols-1 gap-6 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3",
+                                "aria-label": "Public EPS ranking preview",
+                                for row in response.data.into_iter().take(3) {
+                                    {
+                                        let (growth, price, days, progress) = home_card_values(&row);
+                                        rsx! {
+                                            StockDataCard {
+                                                symbol: row.symbol,
+                                                rank: row.rank,
+                                                eps_growth: growth,
+                                                price,
+                                                company_name: row.company_name,
+                                                days_until_next_action: days,
+                                                progress_percentage: progress,
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                        HomeAnalyticsOutcome::Empty => rsx! {
+                            p { class: "text-gray-600 dark:text-gray-400",
+                                "No public rankings are available at this time."
+                            }
+                        },
+                        HomeAnalyticsOutcome::Unavailable => rsx! {
+                            div { role: "alert",
+                                p { class: "text-gray-600 dark:text-gray-400",
+                                    "Unable to load ranking data at this time. Please try again later."
+                                }
+                                p { class: "sr-only",
+                                    "No sample ranking or market records are shown on the home page."
+                                }
+                            }
+                        },
                     }
                     a {
                         class: "mx-auto inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 px-5 py-3 font-semibold text-cyan-300 hover:bg-cyan-400/10",
@@ -135,27 +172,48 @@ fn PlansPreview() -> Element {
             class: "home-prod-pricing container mx-auto px-4 py-16 sm:py-24 lg:py-32",
             "aria-labelledby": "home-plans-title",
             "data-home-plans-state": "unavailable",
-            div { class: "rounded-3xl border border-orange-400/20 bg-slate-800/70 p-8 sm:p-12 text-center shadow-2xl",
-                div { class: "mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/20",
-                    Icon {
-                        name: "layers".to_string(),
-                        size: Some(24),
-                        class_name: Some("text-emerald-400".to_string()),
-                    }
-                }
+            div { class: "home-prod-plan-shell mx-auto max-w-3xl text-center",
                 h2 {
                     id: "home-plans-title",
-                    class: "home-prod-pricing-personal-title text-3xl font-bold text-white",
-                    "Plans"
+                    class: "home-prod-plan-title pancake-gradient-text text-3xl font-bold sm:text-4xl",
+                    "Custom Plans"
                 }
-                p { class: "mx-auto mt-4 max-w-2xl text-slate-300",
+                p { class: "mx-auto mt-4 max-w-2xl text-gray-600 dark:text-slate-300",
+                    "Tailored solutions for partners, corporate, and enterprise needs"
+                }
+                div { class: "pancake-gradient mx-auto mt-5 h-1 w-24 rounded-full" }
+                article { class: "home-prod-plan-card mx-auto mt-8 max-w-md rounded-2xl border border-purple-500/30 bg-slate-950/70 p-6 text-left shadow-2xl shadow-purple-950/20 sm:p-8",
+                    div { class: "text-center",
+                        p { class: "text-xs font-semibold tracking-[0.25em] text-slate-300", "CUSTOM" }
+                        h3 { class: "mt-4 text-2xl font-bold text-purple-300", "Revenue Share" }
+                    }
+                    ul { class: "mt-6 space-y-3 text-sm text-slate-300",
+                        for item in [
+                            "Custom feature set & permissions",
+                            "Dedicated support & SLA",
+                            "Volume-based pricing",
+                            "Custom API rate limits",
+                            "White-label options",
+                            "Priority onboarding",
+                        ] {
+                            li { class: "flex items-center gap-2",
+                                span { class: "text-purple-400", "✓" }
+                                "{item}"
+                            }
+                        }
+                    }
+                    a {
+                        class: "mt-7 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-fuchsia-500 px-5 py-3 font-semibold text-white hover:from-purple-600 hover:to-fuchsia-600",
+                        href: "/contact",
+                        Icon { name: "message-square".to_string(), size: Some(16) }
+                        "Get in Touch"
+                    }
+                    p { class: "mt-3 text-center text-xs text-slate-500",
+                        "We'll create a plan that fits your needs"
+                    }
+                }
+                p { class: "sr-only",
                     "The home page does not publish a price or feature catalog. Open plans for the route's current availability and verified terms."
-                }
-                a {
-                    class: "mt-7 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-orange-500 to-yellow-500 px-5 py-3 font-semibold text-white hover:from-orange-600 hover:to-yellow-600",
-                    href: "/plans",
-                    "Open plans"
-                    Icon { name: "arrow-right".to_string(), size: Some(16) }
                 }
             }
         }
@@ -186,7 +244,7 @@ fn NewsSectionHeader() -> Element {
                 }
                 h2 {
                     id: "home-news-title",
-                    class: "home-prod-news-title text-xl font-bold text-white",
+                    class: "home-prod-news-title text-xl font-bold text-gray-900 dark:text-white",
                     "Latest News"
                 }
             }
@@ -411,6 +469,74 @@ mod tests {
         )
     }
 
+    fn home_ranking(rank: i32, symbol: &str) -> serde_json::Value {
+        serde_json::json!({
+            "rank": rank,
+            "symbol": symbol,
+            "company_name": format!("{symbol} Live Company"),
+            "latest_date": "2026-07-27",
+            "value": 99.0,
+            "active_status": "TRACK",
+            "quarterly_performance": [{
+                "quarter": "Q2",
+                "date": "2026-06-30",
+                "price": 250.25,
+                "eps": 2.0,
+                "eps_growth": 18.5,
+                "price_growth": 2.0,
+                "announcement_date": null,
+                "announcement_timestamp": null,
+                "is_estimated": false
+            }],
+            "next_quarter_estimate": null,
+            "next_earnings_date": null,
+            "last_earnings_date": null,
+            "next_earnings_date_formatted": null,
+            "days_until_next_earnings": null,
+            "progress_percentage": null,
+            "current_eps": 2.0,
+            "growth_factor": 18.5,
+            "price_current": 250.25
+        })
+    }
+
+    fn with_home_rankings(mut ctx: PageContext, rows: Vec<serde_json::Value>) -> PageContext {
+        let total = rows.len();
+        ctx.params.insert(
+            HOME_ANALYTICS_STATE_PARAM.to_string(),
+            if rows.is_empty() { "empty" } else { "ready" }.to_string(),
+        );
+        ctx.params.insert(
+            HOME_ANALYTICS_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "success": true,
+                "data": rows,
+                "pagination": {
+                    "page": 1,
+                    "limit": 3,
+                    "total": total,
+                    "totalPages": if total == 0 { 0 } else { 1 },
+                    "hasNext": false,
+                    "hasPrev": false
+                },
+                "metadata": {
+                    "available_countries": ["america"],
+                    "available_sectors": ["Technology"],
+                    "request_timestamp": "2026-07-27T00:00:00Z",
+                    "data_source": "live"
+                },
+                "access_info": {
+                    "min_accessible_rank": 100,
+                    "locked_ranks_count": 99
+                },
+                "message": "public preview",
+                "processing_time_ms": 1
+            })
+            .to_string(),
+        );
+        ctx
+    }
+
     fn render_to_string(ctx: &PageContext) -> String {
         let (_meta, el) = render(ctx);
         dioxus_ssr::render_element(el)
@@ -426,7 +552,10 @@ mod tests {
             "home-prod-top-performers",
             "home-prod-pricing",
             "home-prod-news",
-            "Market Analytics",
+            "Performance Analytics Platform",
+            "Track Your",
+            "Performance Growth",
+            "Metrics ✨",
             "Latest News",
             "href=\"/analytics\"",
             "href=\"/plans\"",
@@ -440,14 +569,14 @@ mod tests {
     }
 
     #[test]
-    fn home_keeps_market_and_plans_unavailable_and_fails_closed_without_news() {
+    fn home_keeps_independent_market_plans_and_news_unavailable_states() {
         let html = render_to_string(&empty_ctx());
 
         for marker in [
             "data-home-market-state=\"unavailable\"",
             "data-home-plans-state=\"unavailable\"",
             "data-home-news-state=\"unavailable\"",
-            "No ranking or market records are loaded",
+            "No sample ranking or market records are shown",
             "does not publish a price or feature catalog",
             "Latest news is temporarily unavailable",
             "No cached or sample articles",
@@ -458,6 +587,57 @@ mod tests {
                 "missing unavailable-state marker `{marker}`: {html}"
             );
         }
+    }
+
+    #[test]
+    fn home_renders_exactly_three_live_public_cards_in_backend_order() {
+        let ctx = with_home_rankings(
+            empty_ctx(),
+            vec![
+                home_ranking(100, "LIVE100"),
+                home_ranking(101, "LIVE101"),
+                home_ranking(102, "LIVE102"),
+            ],
+        );
+        let html = render_to_string(&ctx);
+
+        assert!(html.contains("data-home-market-state=\"ready\""));
+        assert_eq!(html.matches("data-stock-card=\"true\"").count(), 3);
+        assert!(html.contains("RANK #100"));
+        assert!(html.contains("RANK #101"));
+        assert!(html.contains("RANK #102"));
+        assert!(html.contains("$250.25"));
+        assert!(html.contains("+18.50%"));
+        assert!(!html.contains("data-watchlist-toggle"));
+        assert!(!html.contains("data-watchlist-signed-out"));
+        let first = html.find("LIVE100").unwrap();
+        let second = html.find("LIVE101").unwrap();
+        let third = html.find("LIVE102").unwrap();
+        assert!(first < second && second < third);
+    }
+
+    #[test]
+    fn home_market_empty_and_malformed_do_not_affect_ready_news() {
+        let news = ready_context(vec![news_article(1, false)], "");
+        let empty = render_to_string(&with_home_rankings(news.clone(), vec![]));
+        assert!(empty.contains("data-home-market-state=\"empty\""));
+        assert!(empty.contains("No public rankings"));
+        assert!(empty.contains("data-home-news-state=\"ready\""));
+        assert!(empty.contains("Article 1"));
+
+        let mut malformed = news;
+        malformed
+            .params
+            .insert(HOME_ANALYTICS_STATE_PARAM.to_string(), "ready".to_string());
+        malformed.params.insert(
+            HOME_ANALYTICS_DATA_PARAM.to_string(),
+            r#"{"success":true,"data":[{"rank":100,"symbol":"CANNED"}]}"#.to_string(),
+        );
+        let malformed = render_to_string(&malformed);
+        assert!(malformed.contains("data-home-market-state=\"unavailable\""));
+        assert!(!malformed.contains("CANNED"));
+        assert!(malformed.contains("data-home-news-state=\"ready\""));
+        assert!(malformed.contains("Article 1"));
     }
 
     #[test]
@@ -604,7 +784,7 @@ mod tests {
     }
 
     #[test]
-    fn home_does_not_render_legacy_fixtures_or_numeric_claims() {
+    fn home_does_not_render_legacy_fixtures_or_unverified_market_data() {
         let html = render_to_string(&empty_ctx());
 
         for fixture in [
@@ -615,11 +795,7 @@ mod tests {
             "+4657%",
             "EPSX Q2 Platform Update",
             "Jun 12, 2026",
-            "24/7",
-            "100+",
-            "&#60; 1s",
-            "real-time",
-            "Revenue Share",
+            "real-time ranking fixture",
             "API Personal",
         ] {
             assert!(
@@ -630,24 +806,21 @@ mod tests {
     }
 
     #[test]
-    fn home_has_no_inert_share_or_data_controls() {
+    fn home_share_cta_is_wired_and_data_controls_remain_absent() {
         let html = render_to_string(&empty_ctx());
 
-        for control in [
-            "Share Platform",
-            "share-2",
-            "Refresh",
-            "Export",
-            "Load more",
-        ] {
+        for control in ["Refresh", "Export", "Load more"] {
             assert!(
                 !html.contains(control),
                 "inert home control `{control}` must not render: {html}"
             );
         }
+        assert!(html.contains("Share Platform"));
+        assert!(html.contains("data-share-text=\"\""));
+        assert!(html.contains("onclick=\"epsx.shareText"));
         assert!(
-            !html.contains("<button"),
-            "home previews must use working native links: {html}"
+            html.contains("type=\"button\""),
+            "home share CTA must render a native button: {html}"
         );
     }
 }

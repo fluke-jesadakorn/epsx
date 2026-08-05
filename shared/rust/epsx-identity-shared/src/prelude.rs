@@ -7,13 +7,13 @@
 //! 10 prep pass) so the moved auth code and the backend see the
 //! same concrete type.
 
-pub use std::sync::Arc;
-pub use std::fmt::{Debug, Display};
 pub use std::error::Error as StdError;
+pub use std::fmt::{Debug, Display};
+pub use std::sync::Arc;
 
 pub use async_trait::async_trait;
-pub use serde::{Serialize, Deserialize};
 pub use chrono::{DateTime, Utc};
+pub use serde::{Deserialize, Serialize};
 
 pub use crate::core::AppError;
 

@@ -68,28 +68,163 @@ pub fn Breadcrumbs(items: Vec<Crumb>) -> Element {
 /// is the human label + optional emoji icon.
 ///
 /// `static` so it's a single allocation shared across all calls.
-pub static ROUTE_CONFIG: std::sync::LazyLock<std::collections::HashMap<&'static str, BreadcrumbItem>> = std::sync::LazyLock::new(|| {
+pub static ROUTE_CONFIG: std::sync::LazyLock<
+    std::collections::HashMap<&'static str, BreadcrumbItem>,
+> = std::sync::LazyLock::new(|| {
     use std::collections::HashMap;
     let mut m: HashMap<&'static str, BreadcrumbItem> = HashMap::new();
-    m.insert("/", BreadcrumbItem { label: "Dashboard".into(), href: "/".into(), icon: Some("🏠".into()) });
-    m.insert("/users", BreadcrumbItem { label: "Users".into(), href: "/users".into(), icon: Some("👥".into()) });
-    m.insert("/users/create", BreadcrumbItem { label: "Create user".into(), href: "/users/create".into(), icon: None });
-    m.insert("/users/bulk", BreadcrumbItem { label: "Bulk Operations".into(), href: "/users/bulk".into(), icon: None });
-    m.insert("/analytics", BreadcrumbItem { label: "Analytics".into(), href: "/analytics".into(), icon: Some("📊".into()) });
-    m.insert("/analytics/eps", BreadcrumbItem { label: "EPS Analytics".into(), href: "/analytics/eps".into(), icon: None });
-    m.insert("/notifications", BreadcrumbItem { label: "Notifications".into(), href: "/notifications".into(), icon: Some("🔔".into()) });
-    m.insert("/notifications/manage", BreadcrumbItem { label: "Overview".into(), href: "/notifications/manage".into(), icon: None });
-    m.insert("/notifications/create", BreadcrumbItem { label: "Create Notification".into(), href: "/notifications/create".into(), icon: None });
-    m.insert("/settings", BreadcrumbItem { label: "Settings".into(), href: "/settings".into(), icon: Some("⚙️".into()) });
-    m.insert("/audit-log", BreadcrumbItem { label: "Audit Log".into(), href: "/audit-log".into(), icon: Some("📜".into()) });
-    m.insert("/bulk-permissions", BreadcrumbItem { label: "Bulk Permissions".into(), href: "/bulk-permissions".into(), icon: Some("⚡".into()) });
-    m.insert("/developer-portal", BreadcrumbItem { label: "Developer Portal".into(), href: "/developer-portal".into(), icon: Some("👨‍💻".into()) });
-    m.insert("/wallet-management", BreadcrumbItem { label: "Wallet Management".into(), href: "/wallet-management".into(), icon: Some("👛".into()) });
-    m.insert("/wallet-management/wallets", BreadcrumbItem { label: "Wallets".into(), href: "/wallet-management/wallets".into(), icon: None });
-    m.insert("/wallet-management/access", BreadcrumbItem { label: "Access Control".into(), href: "/wallet-management/access".into(), icon: None });
-    m.insert("/wallet-management/access/plans", BreadcrumbItem { label: "Plans".into(), href: "/wallet-management/access/plans".into(), icon: None });
-    m.insert("/payments", BreadcrumbItem { label: "Payments".into(), href: "/payments".into(), icon: Some("💰".into()) });
-    m.insert("/chat", BreadcrumbItem { label: "Chat Support".into(), href: "/chat".into(), icon: Some("💬".into()) });
+    m.insert(
+        "/",
+        BreadcrumbItem {
+            label: "Dashboard".into(),
+            href: "/".into(),
+            icon: Some("🏠".into()),
+        },
+    );
+    m.insert(
+        "/users",
+        BreadcrumbItem {
+            label: "Users".into(),
+            href: "/users".into(),
+            icon: Some("👥".into()),
+        },
+    );
+    m.insert(
+        "/users/create",
+        BreadcrumbItem {
+            label: "Create user".into(),
+            href: "/users/create".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/users/bulk",
+        BreadcrumbItem {
+            label: "Bulk Operations".into(),
+            href: "/users/bulk".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/analytics",
+        BreadcrumbItem {
+            label: "Analytics".into(),
+            href: "/analytics".into(),
+            icon: Some("📊".into()),
+        },
+    );
+    m.insert(
+        "/analytics/eps",
+        BreadcrumbItem {
+            label: "EPS Analytics".into(),
+            href: "/analytics/eps".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/notifications",
+        BreadcrumbItem {
+            label: "Notifications".into(),
+            href: "/notifications".into(),
+            icon: Some("🔔".into()),
+        },
+    );
+    m.insert(
+        "/notifications/manage",
+        BreadcrumbItem {
+            label: "Overview".into(),
+            href: "/notifications/manage".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/notifications/create",
+        BreadcrumbItem {
+            label: "Create Notification".into(),
+            href: "/notifications/create".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/settings",
+        BreadcrumbItem {
+            label: "Settings".into(),
+            href: "/settings".into(),
+            icon: Some("⚙️".into()),
+        },
+    );
+    m.insert(
+        "/audit-log",
+        BreadcrumbItem {
+            label: "Audit Log".into(),
+            href: "/audit-log".into(),
+            icon: Some("📜".into()),
+        },
+    );
+    m.insert(
+        "/bulk-permissions",
+        BreadcrumbItem {
+            label: "Bulk Permissions".into(),
+            href: "/bulk-permissions".into(),
+            icon: Some("⚡".into()),
+        },
+    );
+    m.insert(
+        "/developer-portal",
+        BreadcrumbItem {
+            label: "Developer Portal".into(),
+            href: "/developer-portal".into(),
+            icon: Some("👨‍💻".into()),
+        },
+    );
+    m.insert(
+        "/wallet-management",
+        BreadcrumbItem {
+            label: "Wallet Management".into(),
+            href: "/wallet-management".into(),
+            icon: Some("👛".into()),
+        },
+    );
+    m.insert(
+        "/wallet-management/wallets",
+        BreadcrumbItem {
+            label: "Wallets".into(),
+            href: "/wallet-management/wallets".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/wallet-management/access",
+        BreadcrumbItem {
+            label: "Access Control".into(),
+            href: "/wallet-management/access".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/wallet-management/access/plans",
+        BreadcrumbItem {
+            label: "Plans".into(),
+            href: "/wallet-management/access/plans".into(),
+            icon: None,
+        },
+    );
+    m.insert(
+        "/payments",
+        BreadcrumbItem {
+            label: "Payments".into(),
+            href: "/payments".into(),
+            icon: Some("💰".into()),
+        },
+    );
+    m.insert(
+        "/chat",
+        BreadcrumbItem {
+            label: "Chat Support".into(),
+            href: "/chat".into(),
+            icon: Some("💬".into()),
+        },
+    );
     m
 });
 
@@ -103,7 +238,11 @@ pub fn generate_breadcrumbs(pathname: &str) -> Vec<BreadcrumbItem> {
     let dashboard_item = ROUTE_CONFIG
         .get("/")
         .cloned()
-        .unwrap_or_else(|| BreadcrumbItem { label: "Dashboard".into(), href: "/".into(), icon: Some("🏠".into()) });
+        .unwrap_or_else(|| BreadcrumbItem {
+            label: "Dashboard".into(),
+            href: "/".into(),
+            icon: Some("🏠".into()),
+        });
     breadcrumbs.push(dashboard_item);
 
     let segments: Vec<&str> = pathname.split('/').filter(|s| !s.is_empty()).collect();

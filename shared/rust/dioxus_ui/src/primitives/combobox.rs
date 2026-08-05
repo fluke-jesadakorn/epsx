@@ -34,12 +34,19 @@ pub fn Combobox(
     let filtered: Vec<(String, String)> = if q.is_empty() {
         options.clone()
     } else {
-        options.iter().filter(|(_, l)| l.to_lowercase().contains(&q)).cloned().collect()
+        options
+            .iter()
+            .filter(|(_, l)| l.to_lowercase().contains(&q))
+            .cloned()
+            .collect()
     };
     let filtered_len = filtered.len();
 
     let mut wrap_cls = "combobox-wrap".to_string();
-    if let Some(c) = &class_name { wrap_cls.push(' '); wrap_cls.push_str(c); }
+    if let Some(c) = &class_name {
+        wrap_cls.push(' ');
+        wrap_cls.push_str(c);
+    }
 
     rsx! {
         div { class: "field combobox",
@@ -126,15 +133,18 @@ pub fn ComboboxAsync(
     /// while the initial fetch is in flight.
     options: Vec<(String, String)>,
     /// When `true`, render a loading indicator inside the menu.
-    #[props(default = false)] loading: bool,
+    #[props(default = false)]
+    loading: bool,
     /// Currently-selected value (controlled).
-    #[props(default = None)] value: Option<String>,
+    #[props(default = None)]
+    value: Option<String>,
     #[props(default = None)] label: Option<String>,
     #[props(default = None)] placeholder: Option<String>,
     #[props(default = None)] help: Option<String>,
     #[props(default = None)] error: Option<String>,
     /// Text shown when `options` is empty and not loading.
-    #[props(default = None)] empty_text: Option<String>,
+    #[props(default = None)]
+    empty_text: Option<String>,
     #[props(default = false)] required: bool,
     on_select: Option<EventHandler<String>>,
 ) -> Element {
@@ -146,7 +156,11 @@ pub fn ComboboxAsync(
     let filtered: Vec<(String, String)> = if q.is_empty() {
         options.clone()
     } else {
-        options.iter().filter(|(_, l)| l.to_lowercase().contains(&q)).cloned().collect()
+        options
+            .iter()
+            .filter(|(_, l)| l.to_lowercase().contains(&q))
+            .cloned()
+            .collect()
     };
     let filtered_len = filtered.len();
 
@@ -245,7 +259,8 @@ pub fn ComboboxMulti(
     #[props(default = None)] error: Option<String>,
     #[props(default = false)] required: bool,
     /// Maximum number of selections allowed. None = unlimited.
-    #[props(default = None)] max: Option<usize>,
+    #[props(default = None)]
+    max: Option<usize>,
     on_change: Option<EventHandler<Vec<String>>>,
 ) -> Element {
     // Use a Signal so the closures can clone on every call without moving.
@@ -259,7 +274,11 @@ pub fn ComboboxMulti(
     let filtered: Vec<(String, String)> = if q.is_empty() {
         options.clone()
     } else {
-        options.iter().filter(|(_, l)| l.to_lowercase().contains(&q)).cloned().collect()
+        options
+            .iter()
+            .filter(|(_, l)| l.to_lowercase().contains(&q))
+            .cloned()
+            .collect()
     };
 
     rsx! {

@@ -91,7 +91,10 @@ mod tests {
     #[test]
     fn payload_uses_compile_time_default_theme() {
         let p = safe_theme_script_payload();
-        assert!(p.contains(DEFAULT_THEME), "payload should embed default theme");
+        assert!(
+            p.contains(DEFAULT_THEME),
+            "payload should embed default theme"
+        );
     }
 
     #[test]

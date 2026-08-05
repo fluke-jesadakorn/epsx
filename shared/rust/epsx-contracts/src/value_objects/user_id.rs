@@ -1,11 +1,11 @@
 // kernel extraction wave9 — moved from apps/backend/src/domain/shared_kernel/value_objects/user_id.rs
 // Import-path adjustment: the `ValueObject` / `ValueObjectError` / `Identity`
 // traits now live in sibling modules of this crate.
+use crate::traits::aggregate_root::Identity;
+use crate::value_object::{ValueObject, ValueObjectError};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use uuid::Uuid;
-use crate::value_object::{ValueObject, ValueObjectError};
-use crate::traits::aggregate_root::Identity;
 
 /// User identifier value object
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -24,7 +24,9 @@ impl UserId {
 
     pub fn from_string(id: String) -> Result<Self, ValueObjectError> {
         if id.is_empty() {
-            return Err(ValueObjectError::Required("User ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "User ID cannot be empty".to_string(),
+            ));
         }
         let wallet_address = Self(id);
         wallet_address.validate()?;
@@ -46,17 +48,21 @@ impl UserId {
 
 impl ValueObject for UserId {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("User ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "User ID cannot be empty".to_string(),
+            ));
         }
-        
+
         // Basic UUID format validation - could be more strict
         if self.0.len() < 8 {
-            return Err(ValueObjectError::InvalidFormat("User ID must be at least 8 characters".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "User ID must be at least 8 characters".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }

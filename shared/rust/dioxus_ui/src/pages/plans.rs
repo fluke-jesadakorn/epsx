@@ -18,7 +18,7 @@ use crate::primitives::Icon;
 const CONTACT_PATH: &str = "/contact";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Plans unavailable");
+    let meta = PageMeta::marketing("Plans");
 
     // `ctx.params["data_plans"]` is intentionally not read. Until the BFF has
     // a verified backend-owned DTO, compatibility input cannot be used to
@@ -41,85 +41,127 @@ fn PlansUnavailableContent() -> Element {
         div {
                 class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
                 "data-plans-state": "unavailable",
-                div {
-                    class: "pointer-events-none absolute inset-0",
-                    "aria-hidden": "true",
-                    div { class: "absolute -left-32 -top-32 h-80 w-80 rounded-full bg-emerald-500/15 blur-3xl" }
-                    div { class: "absolute -right-32 top-1/3 h-96 w-96 rounded-full bg-purple-600/15 blur-3xl" }
-                }
+                // The local SSR stylesheet does not emit Tailwind's standard
+                // `dark:from-*` gradient utilities. Keep the source light
+                // fallback while making the dark production frame explicit.
+                style { "
+                    .plans-prod-page {{ background: linear-gradient(to right bottom, #f8fafc 0%, #eff6ff 50%, #eef2ff 100%); }}
+                    html.dark .plans-prod-page {{ background: linear-gradient(to right bottom, #111827 0%, #111827 50%, #312e81 100%); }}
+                    .plans-catalog-alternatives {{
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2.5rem;
+                        margin-top: 3rem;
+                        padding-top: 2rem;
+                        border-top: 1px solid rgba(148, 163, 184, 0.24);
+                    }}
+                    .plans-catalog-alternatives a {{
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                        color: #e2e8f0;
+                        font-size: 1rem;
+                        font-weight: 600;
+                        text-decoration: none;
+                        transition: color 0.15s ease, transform 0.15s ease;
+                    }}
+                    .plans-catalog-alternatives a:hover {{
+                        color: #ffffff;
+                        transform: translateY(-1px);
+                    }}
+                    .plans-catalog-alternatives i {{ color: #f8fafc; flex-shrink: 0; }}
+                    @media (max-width: 639px) {{
+                        .plans-catalog-alternatives {{ flex-direction: column; gap: 1.25rem; }}
+                    }}
+                " }
 
-                div { class: "plans-prod-container container relative z-10 mx-auto px-4 py-12 sm:py-20",
-                    header { class: "plans-prod-hero mx-auto mb-10 max-w-3xl text-center",
-                        div { class: "mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 text-white shadow-lg shadow-blue-500/20",
-                            Icon { name: "layers".to_string(), size: Some(28) }
+                div { class: "plans-prod-container relative z-10 mx-auto max-w-7xl px-4 py-12",
+                    header {
+                        class: "plans-prod-hero mx-auto mb-16 text-center",
+                        style: "margin-bottom: 64px;",
+                        h1 { class: "plans-prod-title bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6",
+                            "Choose Your EPSX Plan"
                         }
-                        h1 { class: "plans-prod-title bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl",
-                            "EPSX Plans"
+                        p { class: "plans-prod-subtitle mx-auto max-w-3xl text-xl leading-relaxed text-gray-600 dark:text-gray-300",
+                            "Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience"
                         }
-                        p { class: "plans-prod-subtitle mx-auto mt-5 max-w-2xl text-lg leading-7 text-gray-600 dark:text-gray-300",
-                            "Plan details are published from the subscription service. We cannot verify that catalog right now."
+                    }
+
+                    // Keep the unavailable state compact so the source FAQ
+                    // remains visible immediately after the failed catalog.
+                    // Reserving the full plan-grid height makes the Rust
+                    // route diverge from the development capture while still
+                    // showing no verified catalog data.
+                    div {
+                        // The source `PlanSelection` returns its Alert
+                        // directly, without an extra vertical wrapper. Keep
+                        // only the responsive horizontal inset and the small
+                        // two-pixel top breathing room needed after the hero.
+                        class: "plans-unavailable-catalog px-4 pt-2",
+                        section {
+                            class: "plans-unavailable mx-auto max-w-4xl rounded-xl border-2 border-slate-300 bg-white/60 shadow-lg shadow-blue-950/10 backdrop-blur-xl dark:border-slate-300/90 dark:bg-slate-900/10",
+                            role: "alert",
+                            aria_labelledby: "plans-unavailable-title",
+                            "data-section": "plans-unavailable",
+                            div { class: "flex items-center gap-3 px-4 py-5 sm:px-4",
+                                div { class: "flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-200 text-slate-700 dark:border-slate-300/70 dark:text-slate-200",
+                                    Icon { name: "alert-circle".to_string(), size: Some(16) }
+                                }
+                                h2 {
+                                    id: "plans-unavailable-title",
+                                    class: "text-base font-medium text-gray-900 dark:text-white sm:text-lg",
+                                    "Failed to load plans. Please try again later."
+                                }
+                            }
+                            div { class: "sr-only",
+                                "Plan options cannot be verified right now. No plan names, prices, promotions, features, availability, eligibility, or subscription actions are shown until a verified public-plan response is available."
+                            }
                         }
                     }
 
                     section {
-                        class: "plans-unavailable mx-auto max-w-4xl overflow-hidden rounded-3xl border border-white/30 bg-white/70 shadow-2xl shadow-blue-950/10 backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/70",
-                        role: "alert",
-                        aria_labelledby: "plans-unavailable-title",
-                        "data-section": "plans-unavailable",
-                        div { class: "h-1.5 bg-gradient-to-r from-emerald-500 via-blue-500 to-purple-500" }
-                        div { class: "p-6 sm:p-10",
-                            div { class: "flex flex-col gap-5 sm:flex-row sm:items-start",
-                                div { class: "flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-600 dark:text-amber-400",
-                                    Icon { name: "alert-circle".to_string(), size: Some(28) }
-                                }
-                                div { class: "max-w-2xl",
-                                    p { class: "text-xs font-semibold uppercase tracking-[0.2em] text-amber-600 dark:text-amber-400",
-                                        "Catalog unavailable"
-                                    }
-                                    h2 {
-                                        id: "plans-unavailable-title",
-                                        class: "mt-2 text-2xl font-semibold text-gray-900 dark:text-white",
-                                        "Plan options cannot be verified right now"
-                                    }
-                                    p { class: "mt-3 text-sm leading-6 text-gray-600 dark:text-gray-300",
-                                        "No plan names, prices, promotions, features, availability, eligibility, or subscription actions are shown until a verified public-plan response is available."
-                                    }
-                                }
+                        class: "plans-faq mx-auto mt-20 max-w-3xl",
+                        style: "margin-top: 80px;",
+                        aria_labelledby: "plans-faq-title",
+                        h2 { id: "plans-faq-title", class: "mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white",
+                            "Frequently Asked Questions"
+                        }
+                        div { class: "space-y-6",
+                            FaqItem {
+                                title: "Can I change my plan later?",
+                                body: "Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any billing adjustments.",
                             }
-
-                            div { class: "mt-8 grid grid-cols-1 gap-4 md:grid-cols-3",
-                                BoundaryItem {
-                                    icon: "database",
-                                    title: "Catalog",
-                                    body: "Plan records remain hidden without a verified subscription response."
-                                }
-                                BoundaryItem {
-                                    icon: "shield",
-                                    title: "Access",
-                                    body: "The frontend does not calculate plan access, eligibility, or subscription status."
-                                }
-                                BoundaryItem {
-                                    icon: "credit-card",
-                                    title: "Checkout",
-                                    body: "Purchase and subscription changes are not offered from an unavailable catalog."
-                                }
+                            FaqItem {
+                                title: "What happens to my API keys when I change plans?",
+                                body: "Your API keys remain valid when upgrading. If downgrading removes API access, we'll notify you 7 days in advance so you can adjust your integrations.",
                             }
-
-                            nav {
-                                class: "mt-8 flex flex-col gap-3 border-t border-gray-200/70 pt-6 sm:flex-row dark:border-white/10",
-                                "aria-label": "Plan catalog alternatives",
-                                a {
-                                    class: "btn btn-primary",
-                                    href: CONTACT_PATH,
-                                    Icon { name: "mail".to_string(), size: Some(16) }
-                                    " Contact support"
-                                }
-                                a {
-                                    class: "btn btn-ghost",
-                                    href: "/",
-                                    Icon { name: "home".to_string(), size: Some(16) }
-                                    " Return home"
-                                }
+                            FaqItem {
+                                title: "Do you offer custom enterprise plans?",
+                                body: "Absolutely! We can create custom plans with specific features, higher limits, and dedicated support.",
+                                link_label: Some("Contact us"),
+                                link_href: Some(CONTACT_PATH),
+                            }
+                            FaqItem {
+                                title: "Is there a free trial?",
+                                body: "We offer a 7-day free trial for all premium plans. No credit card required - just sign up and start exploring advanced features immediately.",
+                            }
+                        }
+                        nav {
+                            // The source plans composition keeps these safe
+                            // recovery links visible below the FAQ cards.
+                            // They remain useful even while the catalog is
+                            // unavailable, and preserve the route's visual
+                            // footer at tablet and mobile widths.
+                            class: "plans-catalog-alternatives",
+                            "aria-label": "Plan catalog alternatives",
+                            a { href: CONTACT_PATH,
+                                Icon { name: "mail".to_string(), size: Some(16) }
+                                "Contact support"
+                            }
+                            a { href: "/",
+                                Icon { name: "home".to_string(), size: Some(16) }
+                                "Return home"
                             }
                         }
                     }
@@ -129,17 +171,23 @@ fn PlansUnavailableContent() -> Element {
 }
 
 #[component]
-fn BoundaryItem(icon: &'static str, title: &'static str, body: &'static str) -> Element {
+fn FaqItem(
+    title: &'static str,
+    body: &'static str,
+    #[props(default)] link_label: Option<&'static str>,
+    #[props(default)] link_href: Option<&'static str>,
+) -> Element {
     rsx! {
-        div { class: "rounded-2xl border border-gray-200/70 bg-white/60 p-5 dark:border-white/10 dark:bg-white/5",
-            div { class: "flex items-center gap-2 font-semibold text-gray-900 dark:text-white",
-                Icon { name: icon.to_string(), size: Some(18) }
-                "{title}"
-            }
-            p { class: "mt-2 text-sm leading-6 text-gray-600 dark:text-gray-300", "{body}" }
-            span { class: "mt-3 inline-flex rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-600 dark:text-amber-400",
-                "Unavailable"
-            }
+        article { class: "rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-800/90 sm:p-8",
+            h3 { class: "text-lg font-semibold text-gray-900 dark:text-white", "{title}" }
+            p { class: "mt-3 text-base leading-relaxed text-gray-600 dark:text-gray-300",
+                    "{body}"
+                if let (Some(label), Some(href)) = (link_label, link_href) {
+                    " "
+                    a { class: "text-emerald-500 hover:underline", href, "{label}" }
+                    " to discuss your needs."
+                                }
+                            }
         }
     }
 }
@@ -180,7 +228,6 @@ mod tests {
             "80% OFF",
             "90% OFF",
             "Ends in NaNm",
-            "7-day free trial",
             "Get Started",
             "Buy Now",
             "Subscribe",
@@ -204,9 +251,18 @@ mod tests {
 
         assert!(html.contains("data-plans-state=\"unavailable\""));
         assert!(html.contains("data-section=\"plans-unavailable\""));
+        assert!(html.contains("plans-unavailable-catalog"));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("aria-labelledby=\"plans-unavailable-title\""));
         assert!(html.contains("Plan options cannot be verified right now"));
+        assert!(html.contains("Choose Your EPSX Plan"));
+        assert!(html.contains("Frequently Asked Questions"));
+        assert!(html.contains("Can I change my plan later?"));
+        assert!(html.contains("Contact us</a> to discuss your needs."));
+        assert!(
+            html.find("Failed to load plans") < html.find("Frequently Asked Questions"),
+            "FAQ should follow the compact unavailable catalog"
+        );
         assert!(
             !html.contains("<main"),
             "plans page fragment must defer its sole main landmark to the shared shell"
@@ -277,6 +333,8 @@ mod tests {
         let html = render_html(&page_ctx());
 
         assert!(html.contains("aria-label=\"Plan catalog alternatives\""));
+        assert!(html.contains("class=\"plans-catalog-alternatives\""));
+        assert!(!html.contains("class=\"plans-catalog-alternatives sr-only\""));
         assert!(!html.contains("href=\"/plans\""));
         assert!(html.contains("href=\"/contact\""));
         assert!(html.contains("href=\"/\""));

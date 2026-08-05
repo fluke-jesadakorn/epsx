@@ -20,13 +20,13 @@ use crate::prelude::TlsPool;
 // ============================================================================
 
 use chrono::{DateTime, Utc};
-use serde::{Deserialize, Serialize};
-use diesel_async::RunQueryDsl;
 use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 // Note: wallet_plan_assignments table not implemented yet
-  // use crate::schemas::primary::{wallet_plan_assignments};
-use tracing::{debug, info, warn, error};
+// use crate::schemas::primary::{wallet_plan_assignments};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::core::AppError;
@@ -120,12 +120,18 @@ pub struct UnifiedPermissionService {
 impl UnifiedPermissionService {
     /// Create new unified permission service with cache
     pub fn new(db_pool: &'static TlsPool, cache: Arc<UnifiedPermissionCache>) -> Self {
-        Self { db_pool, cache: Some(cache) }
+        Self {
+            db_pool,
+            cache: Some(cache),
+        }
     }
 
     /// Create new unified permission service without cache (direct DB queries only)
     pub fn new_without_cache(db_pool: &'static TlsPool) -> Self {
-        Self { db_pool, cache: None }
+        Self {
+            db_pool,
+            cache: None,
+        }
     }
 
     // ========================================================================
@@ -140,22 +146,25 @@ impl UnifiedPermissionService {
         permission: &str,
     ) -> Result<bool, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
-        debug!("Checking permission '{}' for wallet: {}", permission, wallet_lower);
+        debug!(
+            "Checking permission '{}' for wallet: {}",
+            permission, wallet_lower
+        );
 
         // Try cache first
         if let Some(ref cache) = self.cache {
-            if let Some(cached_result) = cache.get_permission_check(&wallet_lower, permission).await {
+            if let Some(cached_result) = cache.get_permission_check(&wallet_lower, permission).await
+            {
                 debug!("Cache hit for permission check: {}", permission);
                 return Ok(cached_result);
             }
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct PermissionCheck {
@@ -177,7 +186,9 @@ impl UnifiedPermissionService {
 
         // Cache result
         if let Some(ref cache) = self.cache {
-            cache.set_permission_check(&wallet_lower, permission, result).await;
+            cache
+                .set_permission_check(&wallet_lower, permission, result)
+                .await;
         }
 
         Ok(result)
@@ -200,11 +211,10 @@ impl UnifiedPermissionService {
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         // Define PermissionDetailRow inline since it's only used here
         #[derive(diesel::QueryableByName)]
@@ -239,7 +249,7 @@ impl UnifiedPermissionService {
                 granted_at,
                 is_permanent
             FROM public.get_wallet_permissions_detailed_working($1)
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .load::<PermissionDetailRow>(&mut conn)
@@ -251,34 +261,40 @@ impl UnifiedPermissionService {
 
         let permissions: Vec<PermissionDetail> = rows
             .into_iter()
-            .map(|row| {
-                PermissionDetail {
-                    permission_string: row.permission_string,
-                    permission_id: row.permission_id
-                        .and_then(|s| Uuid::parse_str(&s).ok())
-                        .unwrap_or_else(Uuid::new_v4),
-                    source_type: if row.source_type == "plan" {
-                        PermissionSource::Plan
-                    } else {
-                        PermissionSource::Direct
-                    },
-                    source_id: row.source_id
-                        .and_then(|s| Uuid::parse_str(&s).ok())
-                        .unwrap_or_else(Uuid::new_v4),
-                    source_name: row.source_name.unwrap_or_else(|| "Unknown".to_string()),
-                    expires_at: row.expires_at,
-                    granted_at: row.granted_at,
-                    is_permanent: row.is_permanent,
-                }
+            .map(|row| PermissionDetail {
+                permission_string: row.permission_string,
+                permission_id: row
+                    .permission_id
+                    .and_then(|s| Uuid::parse_str(&s).ok())
+                    .unwrap_or_else(Uuid::new_v4),
+                source_type: if row.source_type == "plan" {
+                    PermissionSource::Plan
+                } else {
+                    PermissionSource::Direct
+                },
+                source_id: row
+                    .source_id
+                    .and_then(|s| Uuid::parse_str(&s).ok())
+                    .unwrap_or_else(Uuid::new_v4),
+                source_name: row.source_name.unwrap_or_else(|| "Unknown".to_string()),
+                expires_at: row.expires_at,
+                granted_at: row.granted_at,
+                is_permanent: row.is_permanent,
             })
             .collect();
 
         // Cache result
         if let Some(ref cache) = self.cache {
-            cache.set_wallet_permissions(&wallet_lower, &permissions).await;
+            cache
+                .set_wallet_permissions(&wallet_lower, &permissions)
+                .await;
         }
 
-        info!("Found {} permissions for wallet: {}", permissions.len(), wallet_lower);
+        info!(
+            "Found {} permissions for wallet: {}",
+            permissions.len(),
+            wallet_lower
+        );
         Ok(permissions)
     }
 
@@ -291,16 +307,17 @@ impl UnifiedPermissionService {
         // and return the list of permission strings. This bypasses the potentially
         // broken/divergent 'get_wallet_effective_permissions' SQL function.
         let permissions = self.get_wallet_permissions(wallet_address).await?;
-        
+
         // Extract unique strings
-        let mut strings: Vec<String> = permissions.into_iter()
+        let mut strings: Vec<String> = permissions
+            .into_iter()
             .map(|p| p.permission_string)
             .collect();
-            
+
         // Sort and deduplicate
         strings.sort();
         strings.dedup();
-        
+
         Ok(strings)
     }
 
@@ -311,16 +328,19 @@ impl UnifiedPermissionService {
         permissions: &[String],
     ) -> Result<Vec<(String, bool)>, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
-        debug!("Batch checking {} permissions for wallet: {}", permissions.len(), wallet_lower);
+        debug!(
+            "Batch checking {} permissions for wallet: {}",
+            permissions.len(),
+            wallet_lower
+        );
 
         // Convert to PostgreSQL array
         let perms_array: Vec<String> = permissions.to_vec();
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct BatchPermissionResult {
@@ -334,7 +354,7 @@ impl UnifiedPermissionService {
             r#"
             SELECT permission_string, has_permission
             FROM wallet_has_permissions_batch($1, $2)
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .bind::<diesel::sql_types::Array<diesel::sql_types::Text>, _>(&perms_array)
@@ -372,14 +392,15 @@ impl UnifiedPermissionService {
         Self::validate_permission_format(&request.permission_string)?;
 
         // Get or create permission
-        let permission_id = self.get_or_create_permission(&request.permission_string).await?;
+        let permission_id = self
+            .get_or_create_permission(&request.permission_string)
+            .await?;
 
         // Insert into wallet_direct_permissions
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct InsertResult {
@@ -406,7 +427,7 @@ impl UnifiedPermissionService {
                 granted_by = EXCLUDED.granted_by,
                 grant_reason = EXCLUDED.grant_reason
             RETURNING id
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .bind::<diesel::sql_types::Uuid, _>(permission_id)
@@ -428,7 +449,10 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully granted permission '{}' to wallet: {}", request.permission_string, wallet_lower);
+        info!(
+            "Successfully granted permission '{}' to wallet: {}",
+            request.permission_string, wallet_lower
+        );
         Ok(direct_permission_id)
     }
 
@@ -444,15 +468,16 @@ impl UnifiedPermissionService {
         );
 
         // Get permission ID
-        let permission_id = self.get_permission_id(&request.permission_string).await?
+        let permission_id = self
+            .get_permission_id(&request.permission_string)
+            .await?
             .ok_or_else(|| AppError::not_found("Permission not found"))?;
 
         // Delete from wallet_direct_permissions
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         let rows_affected = diesel::sql_query(
             r#"
@@ -460,7 +485,7 @@ impl UnifiedPermissionService {
             WHERE wallet_address = $1
               AND permission_id = $2
               AND is_active = TRUE
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .bind::<diesel::sql_types::Uuid, _>(permission_id)
@@ -472,7 +497,10 @@ impl UnifiedPermissionService {
         })? as u64;
 
         if rows_affected == 0 {
-            warn!("Permission '{}' was not found for wallet: {}", request.permission_string, wallet_lower);
+            warn!(
+                "Permission '{}' was not found for wallet: {}",
+                request.permission_string, wallet_lower
+            );
             return Err(AppError::not_found("Permission not found for this wallet"));
         }
 
@@ -483,15 +511,15 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully revoked permission '{}' from wallet: {}", request.permission_string, wallet_lower);
+        info!(
+            "Successfully revoked permission '{}' from wallet: {}",
+            request.permission_string, wallet_lower
+        );
         Ok(())
     }
 
     /// Assign wallet to permission plan
-    pub async fn assign_plan(
-        &self,
-        request: AssignPlanRequest,
-    ) -> Result<Uuid, AppError> {
+    pub async fn assign_plan(&self, request: AssignPlanRequest) -> Result<Uuid, AppError> {
         let wallet_lower = request.wallet_address.to_lowercase();
         info!(
             "Assigning plan {} to wallet: {} by {}",
@@ -553,15 +581,15 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully assigned plan {} to wallet: {}", request.plan_id, wallet_lower);
+        info!(
+            "Successfully assigned plan {} to wallet: {}",
+            request.plan_id, wallet_lower
+        );
         Ok(assignment_id)
     }
 
     /// Remove wallet from permission plan
-    pub async fn remove_plan(
-        &self,
-        request: RemovePlanRequest,
-    ) -> Result<(), AppError> {
+    pub async fn remove_plan(&self, request: RemovePlanRequest) -> Result<(), AppError> {
         let wallet_lower = request.wallet_address.to_lowercase();
         info!(
             "Removing plan {} from wallet: {} by {}",
@@ -592,8 +620,13 @@ impl UnifiedPermissionService {
             })?;
 
         if rows_affected == 0 {
-            warn!("Plan {} was not found for wallet: {}", request.plan_id, wallet_lower);
-            return Err(AppError::not_found("Plan assignment not found for this wallet"));
+            warn!(
+                "Plan {} was not found for wallet: {}",
+                request.plan_id, wallet_lower
+            );
+            return Err(AppError::not_found(
+                "Plan assignment not found for this wallet",
+            ));
         }
 
         // Invalidate cache
@@ -603,7 +636,10 @@ impl UnifiedPermissionService {
 
         // Audit log (trigger handles this automatically)
 
-        info!("Successfully removed plan {} from wallet: {}", request.plan_id, wallet_lower);
+        info!(
+            "Successfully removed plan {} from wallet: {}",
+            request.plan_id, wallet_lower
+        );
         Ok(())
     }
 
@@ -618,11 +654,10 @@ impl UnifiedPermissionService {
     ) -> Result<PermissionStats, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct StatsRow {
@@ -689,14 +724,15 @@ impl UnifiedPermissionService {
         for part in &parts {
             if part.trim().is_empty() {
                 return Err(AppError::validation_error(
-                    "Permission parts cannot be empty"
+                    "Permission parts cannot be empty",
                 ));
             }
         }
 
         // Validate characters (alphanumeric, underscore, hyphen, asterisk only)
         let valid_chars = |s: &str| {
-            s.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '*')
+            s.chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '-' || c == '*')
         };
 
         for part in &parts {
@@ -714,11 +750,10 @@ impl UnifiedPermissionService {
     async fn get_or_create_permission(&self, permission_string: &str) -> Result<Uuid, AppError> {
         let parts: Vec<&str> = permission_string.split(':').collect();
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct PermissionId {
@@ -739,7 +774,7 @@ impl UnifiedPermissionService {
             ON CONFLICT (permission_string)
             DO UPDATE SET updated_at = NOW()
             RETURNING id
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(permission_string)
         .bind::<diesel::sql_types::Text, _>(parts[0])
@@ -758,11 +793,10 @@ impl UnifiedPermissionService {
 
     /// Get permission ID by string
     async fn get_permission_id(&self, permission_string: &str) -> Result<Option<Uuid>, AppError> {
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct PermissionIdResult {
@@ -771,7 +805,7 @@ impl UnifiedPermissionService {
         }
 
         let permission_id = diesel::sql_query(
-            "SELECT id FROM permissions WHERE permission_string = $1 AND is_active = TRUE"
+            "SELECT id FROM permissions WHERE permission_string = $1 AND is_active = TRUE",
         )
         .bind::<diesel::sql_types::Text, _>(permission_string)
         .get_result::<PermissionIdResult>(&mut conn)
@@ -792,18 +826,14 @@ impl UnifiedPermissionService {
 
     /// Get ranking offset for a wallet based on their active plans/plans.
     /// Returns the minimum offset found in plan_metadata, or FREE_PLAN_RANKING_OFFSET for Free Plan/unauthenticated.
-    pub async fn get_wallet_ranking_offset(
-        &self,
-        wallet_address: &str,
-    ) -> Result<i32, AppError> {
+    pub async fn get_wallet_ranking_offset(&self, wallet_address: &str) -> Result<i32, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting ranking offset for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.get().await
-            .map_err(|e| {
-                error!("Pool error: {}", e);
-                AppError::database_error(format!("Pool error: {}", e))
-            })?;
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
 
         #[derive(QueryableByName)]
         struct PlanRow {
@@ -823,7 +853,7 @@ impl UnifiedPermissionService {
               AND wgm.is_active = TRUE
               AND g.is_active = TRUE
               AND (wgm.expires_at IS NULL OR wgm.expires_at > NOW())
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .load::<PlanRow>(&mut conn)
@@ -834,7 +864,12 @@ impl UnifiedPermissionService {
         })?;
 
         if rows.is_empty() {
-            info!("No active plans for wallet {}, using {} offset {}", wallet_lower, crate::constants::FREE_PLAN_NAME, crate::constants::FREE_PLAN_RANKING_OFFSET);
+            info!(
+                "No active plans for wallet {}, using {} offset {}",
+                wallet_lower,
+                crate::constants::FREE_PLAN_NAME,
+                crate::constants::FREE_PLAN_RANKING_OFFSET
+            );
             return Ok(crate::constants::FREE_PLAN_RANKING_OFFSET);
         }
 
@@ -857,7 +892,7 @@ impl UnifiedPermissionService {
             JOIN permissions p ON pp.permission_id = p.id
             WHERE pp.plan_id = ANY($1)
               AND p.permission_string LIKE 'epsx:rankings:offset:%'
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
         .load::<PermRow>(&mut conn)
@@ -869,7 +904,11 @@ impl UnifiedPermissionService {
 
         for row in &rows {
             // Check plan_metadata (legacy fallback)
-            if let Some(offset) = row.plan_metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
+            if let Some(offset) = row
+                .plan_metadata
+                .get("ranking_offset")
+                .and_then(|v| v.as_i64())
+            {
                 let offset_i32 = offset as i32;
                 if offset_i32 < min_offset {
                     min_offset = offset_i32;
@@ -878,7 +917,9 @@ impl UnifiedPermissionService {
             // Check permission string epsx:rankings:offset:N
             for perm in &perm_rows {
                 if perm.plan_id == row.plan_id {
-                    if let Some(offset_str) = perm.permission_string.strip_prefix("epsx:rankings:offset:") {
+                    if let Some(offset_str) =
+                        perm.permission_string.strip_prefix("epsx:rankings:offset:")
+                    {
                         if let Ok(offset) = offset_str.parse::<i32>() {
                             if offset < min_offset {
                                 min_offset = offset;
@@ -906,14 +947,18 @@ mod tests {
     fn test_validate_permission_format() {
         // Valid permissions
         assert!(UnifiedPermissionService::validate_permission_format("admin:users:read").is_ok());
-        assert!(UnifiedPermissionService::validate_permission_format("epsx:analytics:view").is_ok());
+        assert!(
+            UnifiedPermissionService::validate_permission_format("epsx:analytics:view").is_ok()
+        );
         assert!(UnifiedPermissionService::validate_permission_format("admin:*:*").is_ok());
 
         // Invalid permissions
         assert!(UnifiedPermissionService::validate_permission_format("invalid").is_err());
         assert!(UnifiedPermissionService::validate_permission_format("admin:users").is_err());
         assert!(UnifiedPermissionService::validate_permission_format("admin::read").is_err());
-        assert!(UnifiedPermissionService::validate_permission_format("admin:users:read:extra").is_ok());
+        assert!(
+            UnifiedPermissionService::validate_permission_format("admin:users:read:extra").is_ok()
+        );
         assert!(UnifiedPermissionService::validate_permission_format("admin:users:read!").is_err());
     }
 }

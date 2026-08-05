@@ -1,9 +1,7 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult};
-use crate::application::market_analytics::commands::{
-    RefreshCacheCommand, RefreshCacheResponse,
-};
+use crate::application::market_analytics::commands::{RefreshCacheCommand, RefreshCacheResponse};
+use crate::application::shared::{ApplicationResult, CommandHandler};
 use crate::infrastructure::adapters::services::tradingview::TradingViewApiService;
+use crate::prelude::*;
 
 /// Command handler for refreshing analytics cache
 pub struct RefreshCacheCommandHandler {
@@ -12,7 +10,9 @@ pub struct RefreshCacheCommandHandler {
 
 impl RefreshCacheCommandHandler {
     pub fn new(tradingview_service: Arc<TradingViewApiService>) -> Self {
-        Self { tradingview_service }
+        Self {
+            tradingview_service,
+        }
     }
 }
 

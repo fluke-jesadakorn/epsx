@@ -1,15 +1,19 @@
-use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use crate::domain::audit::repository::AuditLogRepository;
-use crate::domain::shared_kernel::entities::audit::{AuditLogEntry, AuditQuery, AuditAction, ResourceType, AuditResult};
+use crate::domain::shared_kernel::entities::audit::{
+    AuditAction, AuditLogEntry, AuditQuery, AuditResult, ResourceType,
+};
+use crate::infrastructure::database::diesel_connection_manager::{
+    get_analytics_pool, get_payments_pool,
+};
 use crate::infrastructure::models::audit::{AuditLogDb, NewAuditLogDb};
-use crate::infrastructure::database::diesel_connection_manager::{get_analytics_pool, get_payments_pool};
 use crate::schemas::infra_logs::audit_logs;
-use anyhow::{Result, Context};
-use epsx_contracts::value_objects::UserId;
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
-use diesel::sql_types::{Text, Nullable, Timestamptz, Jsonb, BigInt};
+use diesel::prelude::*;
+use diesel::sql_types::{BigInt, Jsonb, Nullable, Text, Timestamptz};
+use diesel_async::RunQueryDsl;
+use epsx_contracts::value_objects::UserId;
 
 pub struct DieselAuditLogRepository;
 
@@ -33,7 +37,9 @@ impl DieselAuditLogRepository {
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await
+        let mut conn = pool
+            .get()
+            .await
             .map_err(|e| anyhow::anyhow!("Analytics pool error: {:?}", e))?;
 
         // Build sub-selects based on category filter
@@ -91,9 +97,8 @@ impl DieselAuditLogRepository {
 
         // Whitelist category to prevent SQL injection — only known values are interpolated
         let valid_category = match category {
-            Some("system") | Some("permission") | Some("wallet") | Some("plan") |
-            Some("auth") | Some("developer") | Some("notification") | Some("payment") |
-            Some("all") => category,
+            Some("system") | Some("permission") | Some("wallet") | Some("plan") | Some("auth")
+            | Some("developer") | Some("notification") | Some("payment") | Some("all") => category,
             Some(_) => None, // reject unknown categories
             None => None,
         };
@@ -108,7 +113,7 @@ impl DieselAuditLogRepository {
             Some("permission") => unions.push(permission_sql),
             Some("wallet") => unions.push(wallet_sql),
             Some("plan") => unions.push(assignment_sql),
-            Some("auth") | Some("developer") | Some("notification") => {}, // only in unified_audit_log
+            Some("auth") | Some("developer") | Some("notification") => {} // only in unified_audit_log
             _ => {
                 unions.push(audit_logs_sql);
                 unions.push(permission_sql);
@@ -196,8 +201,9 @@ impl DieselAuditLogRepository {
             .await
             .context("Failed to query analytics audit logs")?;
 
-        let entries: Vec<AuditLogEntry> = rows.into_iter().map(|r| {
-            AuditLogEntry {
+        let entries: Vec<AuditLogEntry> = rows
+            .into_iter()
+            .map(|r| AuditLogEntry {
                 id: r.id,
                 wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
                 action: parse_action(&r.action),
@@ -211,8 +217,8 @@ impl DieselAuditLogRepository {
                 category: Some(r.category),
                 action_raw: Some(r.action),
                 resource_type_raw: Some(r.resource_type),
-            }
-        }).collect();
+            })
+            .collect();
 
         Ok((entries, count_result.cnt))
     }
@@ -225,7 +231,9 @@ impl DieselAuditLogRepository {
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_payments_pool().await?;
-        let mut conn = pool.get().await
+        let mut conn = pool
+            .get()
+            .await
             .map_err(|e| anyhow::anyhow!("Payments pool error: {:?}", e))?;
 
         let bind_search: Option<String> = search
@@ -243,9 +251,8 @@ impl DieselAuditLogRepository {
             cnt: i64,
         }
 
-        let count_sql = format!(
-            "SELECT COUNT(*)::bigint as cnt FROM payment_audit_log {where_clause}"
-        );
+        let count_sql =
+            format!("SELECT COUNT(*)::bigint as cnt FROM payment_audit_log {where_clause}");
 
         let count_result = diesel::sql_query(&count_sql)
             .bind::<Nullable<Text>, _>(&bind_search)
@@ -291,29 +298,38 @@ impl DieselAuditLogRepository {
             .await
             .context("Failed to query payment audit logs")?;
 
-        let entries: Vec<AuditLogEntry> = rows.into_iter().map(|r| {
-            let mut details = r.metadata.unwrap_or(serde_json::json!({}));
-            if let Some(obj) = details.as_object_mut() {
-                if let Some(old) = &r.old_status { obj.insert("old_status".into(), serde_json::json!(old)); }
-                if let Some(new) = &r.new_status { obj.insert("new_status".into(), serde_json::json!(new)); }
-                if let Some(reason) = &r.reason { obj.insert("reason".into(), serde_json::json!(reason)); }
-            }
-            AuditLogEntry {
-                id: r.id,
-                wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
-                action: parse_action(&r.action),
-                resource_type: ResourceType::Payment,
-                resource_id: r.resource_id,
-                result: AuditResult::Success,
-                ip_address: None,
-                user_agent: None,
-                additional_data: Some(details),
-                timestamp: r.created_at,
-                category: Some("payment".to_string()),
-                action_raw: Some(r.action),
-                resource_type_raw: Some("payment".to_string()),
-            }
-        }).collect();
+        let entries: Vec<AuditLogEntry> = rows
+            .into_iter()
+            .map(|r| {
+                let mut details = r.metadata.unwrap_or(serde_json::json!({}));
+                if let Some(obj) = details.as_object_mut() {
+                    if let Some(old) = &r.old_status {
+                        obj.insert("old_status".into(), serde_json::json!(old));
+                    }
+                    if let Some(new) = &r.new_status {
+                        obj.insert("new_status".into(), serde_json::json!(new));
+                    }
+                    if let Some(reason) = &r.reason {
+                        obj.insert("reason".into(), serde_json::json!(reason));
+                    }
+                }
+                AuditLogEntry {
+                    id: r.id,
+                    wallet_address: r.wallet_address.map(UserId::from_string_unchecked),
+                    action: parse_action(&r.action),
+                    resource_type: ResourceType::Payment,
+                    resource_id: r.resource_id,
+                    result: AuditResult::Success,
+                    ip_address: None,
+                    user_agent: None,
+                    additional_data: Some(details),
+                    timestamp: r.created_at,
+                    category: Some("payment".to_string()),
+                    action_raw: Some(r.action),
+                    resource_type_raw: Some("payment".to_string()),
+                }
+            })
+            .collect();
 
         Ok((entries, count_result.cnt))
     }
@@ -395,7 +411,9 @@ fn parse_action(s: &str) -> AuditAction {
         "PermissionGranted" | "permission_granted" | "granted" => AuditAction::PermissionGranted,
         "PermissionRevoked" | "permission_revoked" => AuditAction::PermissionRevoked,
         "PaymentInitiated" | "payment_initiated" | "initiated" => AuditAction::PaymentInitiated,
-        "PaymentCompleted" | "payment_completed" | "completed" | "confirmed" => AuditAction::PaymentCompleted,
+        "PaymentCompleted" | "payment_completed" | "completed" | "confirmed" => {
+            AuditAction::PaymentCompleted
+        }
         "Export" | "export" => AuditAction::Export,
         _ => AuditAction::Update,
     }
@@ -450,7 +468,10 @@ impl From<AuditLogDb> for AuditLogEntry {
 impl AuditLogRepository for DieselAuditLogRepository {
     async fn save(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
         let pool = get_analytics_pool().await?;
-        let mut conn = pool.get().await.map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
+        let mut conn = pool
+            .get()
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
 
         let new_log = NewAuditLogDb {
             wallet_address: entry.wallet_address.map(|w| w.to_string()),

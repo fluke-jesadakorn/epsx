@@ -1,8 +1,7 @@
-use crate::prelude::*;
-use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
-use crate::domain::subscription_management::{PlanId, Price, BillingCycle, PlanFeatures};
+use crate::domain::shared_kernel::{AggregateBase, AggregateRoot, DomainEvent};
 use crate::domain::subscription_management::value_objects::quota::Quota;
-
+use crate::domain::subscription_management::{BillingCycle, PlanFeatures, PlanId, Price};
+use crate::prelude::*;
 
 /// Plan Aggregate Root
 /// Represents a subscription plan with pricing, features, and permission group association
@@ -17,7 +16,7 @@ pub struct Plan {
     features: PlanFeatures,
     target_audience: String,
     // New fields for permission-based logic
-    pub permissions: Vec<String>, 
+    pub permissions: Vec<String>,
     pub quotas: std::collections::HashMap<String, Quota>,
 
     is_active: bool,
@@ -26,7 +25,6 @@ pub struct Plan {
     metadata: serde_json::Value,
     base: AggregateBase,
 }
-
 
 pub struct CreatePlanParams {
     pub name: String,
@@ -43,13 +41,12 @@ pub struct CreatePlanParams {
     pub metadata: Option<serde_json::Value>,
 }
 
-
 pub struct LoadPlanParams {
     pub id: PlanId,
     pub name: String,
     pub description: String,
     pub plan_id: PlanId,
-    pub permissions: Vec<String>, // Added
+    pub permissions: Vec<String>,                         // Added
     pub quotas: std::collections::HashMap<String, Quota>, // Added
     pub price: Price,
     pub billing_cycle: BillingCycle,
@@ -126,25 +123,29 @@ impl Plan {
             is_promoted: params.is_promoted,
             tier_level: params.tier_level,
             metadata: params.metadata,
-            base: AggregateBase::from_persistence(params.version, params.created_at, params.updated_at),
+            base: AggregateBase::from_persistence(
+                params.version,
+                params.created_at,
+                params.updated_at,
+            ),
         }
     }
 
     /// Helper to sync permissions vector with metadata
     fn sync_permissions_vec(permissions: &mut Vec<String>, metadata: &serde_json::Value) {
         // Remove existing dynamic permissions to avoid duplicates
-        permissions.retain(|p| 
-            !p.starts_with("epsx:rankings:offset:") && 
-            !p.starts_with("epsx:rankings:limit:") &&
-            !p.starts_with("epsx:analytics:view:")
-        );
+        permissions.retain(|p| {
+            !p.starts_with("epsx:rankings:offset:")
+                && !p.starts_with("epsx:rankings:limit:")
+                && !p.starts_with("epsx:analytics:view:")
+        });
 
         if let Some(features) = metadata.get("features").and_then(|f| f.as_object()) {
             // Handle ranking offset
             if let Some(offset) = features.get("ranking_offset").and_then(|v| v.as_i64()) {
                 permissions.push(format!("epsx:rankings:offset:{}", offset));
             }
-            
+
             // Handle ranking limit
             if let Some(limit) = features.get("rankings_limit").and_then(|v| v.as_i64()) {
                 permissions.push(format!("epsx:rankings:limit:{}", limit));
@@ -154,10 +155,10 @@ impl Plan {
         }
         // Also check top-level if not in features object (fallback)
         else {
-             if let Some(offset) = metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
+            if let Some(offset) = metadata.get("ranking_offset").and_then(|v| v.as_i64()) {
                 permissions.push(format!("epsx:rankings:offset:{}", offset));
             }
-            
+
             if let Some(limit) = metadata.get("rankings_limit").and_then(|v| v.as_i64()) {
                 permissions.push(format!("epsx:rankings:limit:{}", limit));
                 permissions.push(format!("epsx:analytics:view:{}", limit));
@@ -168,7 +169,7 @@ impl Plan {
     /// Calculate quotas based on permissions
     pub fn calculate_quotas(&mut self) {
         let mut quotas = std::collections::HashMap::new();
-        
+
         for permission in &self.permissions {
             if permission.contains("limit:") {
                 // Example logic to parse limit from permission string
@@ -180,7 +181,7 @@ impl Plan {
                 }
             }
         }
-        
+
         self.quotas = quotas;
     }
 
@@ -204,29 +205,29 @@ impl Plan {
         if let Some(ta) = params.target_audience {
             self.target_audience = ta;
         }
-        
+
         // Handle permissions update
         let permissions_updated = params.permissions.is_some();
         if let Some(perms) = params.permissions {
             self.permissions = perms;
         }
-        
+
         // Handle metadata update and sync permissions
         if let Some(meta) = params.metadata {
             self.metadata = meta;
             // Always resync when metadata changes (or if new permissions were just set)
             Self::sync_permissions_vec(&mut self.permissions, &self.metadata);
         } else if permissions_updated {
-             // If only permissions changed but metadata didn't, we should still ensure metadata-derived permissions are present
-             // (unless we want to allow manual override?) 
-             // Logic decision: Metadata constraints should usually override or be additive.
-             // Let's re-run sync to ensure metadata constraints are enforced.
-             Self::sync_permissions_vec(&mut self.permissions, &self.metadata);
+            // If only permissions changed but metadata didn't, we should still ensure metadata-derived permissions are present
+            // (unless we want to allow manual override?)
+            // Logic decision: Metadata constraints should usually override or be additive.
+            // Let's re-run sync to ensure metadata constraints are enforced.
+            Self::sync_permissions_vec(&mut self.permissions, &self.metadata);
         }
 
         // Recalculate quotas after all permission changes
         self.calculate_quotas();
-        
+
         if let Some(active) = params.is_active {
             self.is_active = active;
         }
@@ -242,7 +243,6 @@ impl Plan {
 
         Ok(())
     }
-
 
     /// Activate plan
     pub fn activate(&mut self) {

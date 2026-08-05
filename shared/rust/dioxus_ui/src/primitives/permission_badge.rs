@@ -17,7 +17,11 @@ use super::icon::Icon;
 use dioxus::prelude::*;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum PermissionBadgeSize { Sm, Md, Lg }
+pub enum PermissionBadgeSize {
+    Sm,
+    Md,
+    Lg,
+}
 
 impl PermissionBadgeSize {
     pub fn classes(&self) -> &'static str {
@@ -57,8 +61,15 @@ pub struct PermissionBadgeProps {
 /// permission code is shown verbatim (a useful fallback during loading).
 pub fn PermissionBadge(props: PermissionBadgeProps) -> Element {
     let PermissionBadgeProps {
-        permission, title, note, platform, category,
-        size, show_note, show_platform, show_code,
+        permission,
+        title,
+        note,
+        platform,
+        category,
+        size,
+        show_note,
+        show_platform,
+        show_code,
     } = props;
 
     let platform_cls = match platform.as_deref() {
@@ -90,8 +101,7 @@ pub fn PermissionBadge(props: PermissionBadgeProps) -> Element {
         }
     };
 
-    let should_show_tooltip = show_note
-        && note.as_deref().map(|s| !s.is_empty()).unwrap_or(false);
+    let should_show_tooltip = show_note && note.as_deref().map(|s| !s.is_empty()).unwrap_or(false);
 
     if should_show_tooltip {
         let tooltip_note = note.clone().unwrap_or_default();
@@ -161,7 +171,10 @@ mod tests {
         // First-match in iteration order: "view" alone = eye, but
         // "epsx:analytics:view" hits "analytics" first → bar-chart-3.
         // The test documents the precedence the impl actually has.
-        assert_eq!(infer_icon_for_permission("epsx:analytics:view"), "bar-chart-3");
+        assert_eq!(
+            infer_icon_for_permission("epsx:analytics:view"),
+            "bar-chart-3"
+        );
         assert_eq!(infer_icon_for_permission(":view"), "eye");
         assert_eq!(infer_icon_for_permission(":users:manage"), "users");
         assert_eq!(infer_icon_for_permission(":admin:admin"), "crown");

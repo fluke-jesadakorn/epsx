@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
+use crate::prelude::*;
 use std::collections::HashMap;
 
 /// Command to update resource quotas for a plan

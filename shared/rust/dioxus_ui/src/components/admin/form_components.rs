@@ -27,9 +27,9 @@
 
 pub use crate::components::admin::{Label, Textarea};
 pub use crate::primitives::button::Button;
+pub use crate::primitives::form::{Field as FormFieldWrapper, Form, FormField};
 pub use crate::primitives::input::{Input, InputKind};
 pub use crate::primitives::select::Select;
-pub use crate::primitives::form::{Field as FormFieldWrapper, Form, FormField};
 
 // =====================================================================
 // Tests
@@ -57,8 +57,14 @@ mod tests {
     fn test_form_components_button_smoke() {
         let el = rsx! { Button { children: rsx!("Save") } };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Save"), "Button should render children. Got: {html}");
-        assert!(html.contains("<button"), "Button should render <button> element. Got: {html}");
+        assert!(
+            html.contains("Save"),
+            "Button should render children. Got: {html}"
+        );
+        assert!(
+            html.contains("<button"),
+            "Button should render <button> element. Got: {html}"
+        );
     }
 
     /// `Label` is reachable from the admin form-components module.
@@ -71,6 +77,9 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("for=\"email\""), "Label should propagate html_for. Got: {html}");
+        assert!(
+            html.contains("for=\"email\""),
+            "Label should propagate html_for. Got: {html}"
+        );
     }
 }

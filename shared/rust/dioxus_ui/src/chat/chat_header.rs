@@ -22,7 +22,8 @@ pub struct ChatHeaderData {
 pub fn ChatHeader(
     data: ChatHeaderData,
     /// Fired when the close button is clicked.
-    #[props(default = None)] on_close: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_close: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     rsx! {
         div { class: "chat-header flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700",
@@ -67,7 +68,5 @@ mod tests {
     }
 
     #[test]
-    fn chat_header_smoke() {
-        
-    }
+    fn chat_header_smoke() {}
 }

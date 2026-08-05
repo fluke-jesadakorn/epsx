@@ -271,3 +271,6 @@ COMMENT ON TABLE infra_logs.outbox_events IS 'Transactional outbox for reliable 
 COMMENT ON TABLE infra_logs.unified_audit_log IS 'Consolidated audit trail for all system actions';
 
 SELECT 'EPSX INFRA_LOGS CONSOLIDATED SCHEMA v3 CREATED SUCCESSFULLY! 🎉' AS success_message;
+
+-- Diesel records applied migrations in public.__diesel_schema_migrations.
+RESET search_path;

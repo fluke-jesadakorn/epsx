@@ -20,8 +20,8 @@
 //! with smoke render + key prop handling (e.g. active tab state,
 //! empty-list behavior, gradient selection).
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // PageLayout
@@ -42,7 +42,9 @@ pub enum PageMaxWidth {
 }
 
 impl Default for PageMaxWidth {
-    fn default() -> Self { PageMaxWidth::SevenXl }
+    fn default() -> Self {
+        PageMaxWidth::SevenXl
+    }
 }
 
 impl PageMaxWidth {
@@ -99,7 +101,9 @@ pub enum PageGradient {
 }
 
 impl Default for PageGradient {
-    fn default() -> Self { PageGradient::Default }
+    fn default() -> Self {
+        PageGradient::Default
+    }
 }
 
 impl PageGradient {
@@ -214,7 +218,8 @@ pub fn PageTabs(
     on_tab_change: EventHandler<String>,
     class_name: Option<String>,
 ) -> Element {
-    let mut outer = "bg-card p-1.5 rounded-2xl border border-border/20 shadow-xl max-w-2xl mx-auto".to_string();
+    let mut outer =
+        "bg-card p-1.5 rounded-2xl border border-border/20 shadow-xl max-w-2xl mx-auto".to_string();
     if let Some(c) = class_name {
         outer.push(' ');
         outer.push_str(&c);
@@ -382,7 +387,8 @@ pub fn PageEmpty(
     let title = title.unwrap_or_else(|| "No data found".to_string());
     let message = message.unwrap_or_else(|| "There are no items to display".to_string());
     let emoji = emoji.unwrap_or_else(|| "\u{1F4ED}".to_string()); // 📭
-    let mut outer = "flex flex-col items-center justify-center py-12 sm:py-16 text-center".to_string();
+    let mut outer =
+        "flex flex-col items-center justify-center py-12 sm:py-16 text-center".to_string();
     if let Some(c) = class_name {
         outer.push(' ');
         outer.push_str(&c);
@@ -420,7 +426,8 @@ pub fn PageError(
 ) -> Element {
     let title = title.unwrap_or_else(|| "Something went wrong".to_string());
     let message = message.unwrap_or_else(|| "An error occurred while loading the data".to_string());
-    let mut outer = "flex flex-col items-center justify-center py-12 sm:py-16 text-center".to_string();
+    let mut outer =
+        "flex flex-col items-center justify-center py-12 sm:py-16 text-center".to_string();
     if let Some(c) = class_name {
         outer.push(' ');
         outer.push_str(&c);
@@ -456,8 +463,10 @@ pub fn PageAuthRequired(
     class_name: Option<String>,
 ) -> Element {
     let title = title.unwrap_or_else(|| "Authentication Required".to_string());
-    let message = message.unwrap_or_else(|| "Please connect your wallet to access this page.".to_string());
-    let mut outer = "flex flex-col items-center justify-center py-16 sm:py-24 text-center".to_string();
+    let message =
+        message.unwrap_or_else(|| "Please connect your wallet to access this page.".to_string());
+    let mut outer =
+        "flex flex-col items-center justify-center py-16 sm:py-24 text-center".to_string();
     if let Some(c) = class_name {
         outer.push(' ');
         outer.push_str(&c);
@@ -512,9 +521,27 @@ mod tests {
     }
     fn harness_page_tabs() -> Element {
         let tabs = vec![
-            PageTabItem { id: "all".into(), label: "All".into(), prefix: None, icon: None, gradient: None },
-            PageTabItem { id: "draft".into(), label: "Draft".into(), prefix: None, icon: None, gradient: None },
-            PageTabItem { id: "published".into(), label: "Published".into(), prefix: None, icon: None, gradient: None },
+            PageTabItem {
+                id: "all".into(),
+                label: "All".into(),
+                prefix: None,
+                icon: None,
+                gradient: None,
+            },
+            PageTabItem {
+                id: "draft".into(),
+                label: "Draft".into(),
+                prefix: None,
+                icon: None,
+                gradient: None,
+            },
+            PageTabItem {
+                id: "published".into(),
+                label: "Published".into(),
+                prefix: None,
+                icon: None,
+                gradient: None,
+            },
         ];
         rsx! {
             PageTabs {
@@ -547,43 +574,82 @@ mod tests {
     #[test]
     fn page_layout_renders_with_default_max_width() {
         let html = render_html(harness_page_layout_default);
-        assert!(html.contains("p-3 sm:p-6 lg:p-8"), "PageLayout must emit responsive padding. Got: {html}");
-        assert!(html.contains("max-w-7xl mx-auto"), "PageLayout default must be max-w-7xl. Got: {html}");
-        assert!(html.contains("space-y-6"), "PageLayout inner must space children. Got: {html}");
+        assert!(
+            html.contains("p-3 sm:p-6 lg:p-8"),
+            "PageLayout must emit responsive padding. Got: {html}"
+        );
+        assert!(
+            html.contains("max-w-7xl mx-auto"),
+            "PageLayout default must be max-w-7xl. Got: {html}"
+        );
+        assert!(
+            html.contains("space-y-6"),
+            "PageLayout inner must space children. Got: {html}"
+        );
     }
 
     /// `PageLayout` with `Full` max-width omits the inner max-w-* class.
     #[test]
     fn page_layout_renders_full_width() {
         let html = render_html(harness_page_layout_full);
-        assert!(!html.contains("max-w-7xl mx-auto"), "PageLayout Full must omit max-w-7xl. Got: {html}");
+        assert!(
+            !html.contains("max-w-7xl mx-auto"),
+            "PageLayout Full must omit max-w-7xl. Got: {html}"
+        );
     }
 
     /// `PageHeader` emits the gradient text class + the title text.
     #[test]
     fn page_header_renders_gradient_title() {
         let html = render_html(harness_page_header);
-        assert!(html.contains("Payments Hub"), "PageHeader must render the title text. Got: {html}");
-        assert!(html.contains("Manage payments"), "PageHeader must render subtitle. Got: {html}");
-        assert!(html.contains("bg-clip-text"), "PageHeader must use bg-clip-text for gradient. Got: {html}");
-        assert!(html.contains("text-transparent"), "PageHeader gradient text must be transparent. Got: {html}");
+        assert!(
+            html.contains("Payments Hub"),
+            "PageHeader must render the title text. Got: {html}"
+        );
+        assert!(
+            html.contains("Manage payments"),
+            "PageHeader must render subtitle. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-clip-text"),
+            "PageHeader must use bg-clip-text for gradient. Got: {html}"
+        );
+        assert!(
+            html.contains("text-transparent"),
+            "PageHeader gradient text must be transparent. Got: {html}"
+        );
     }
 
     /// `PageHeader` with emoji prefix renders the emoji.
     #[test]
     fn page_header_renders_emoji_prefix() {
         let html = render_html(harness_page_header_emoji);
-        assert!(html.contains("\u{1F4F0}"), "PageHeader must render emoji prefix. Got: {html}");
+        assert!(
+            html.contains("\u{1F4F0}"),
+            "PageHeader must render emoji prefix. Got: {html}"
+        );
     }
 
     /// `PageTabs` renders all tab labels and marks the active tab.
     #[test]
     fn page_tabs_renders_active_state() {
         let html = render_html(harness_page_tabs);
-        assert!(html.contains("All"), "PageTabs must render first tab label. Got: {html}");
-        assert!(html.contains("Draft"), "PageTabs must render second tab label. Got: {html}");
-        assert!(html.contains("Published"), "PageTabs must render third tab label. Got: {html}");
-        assert!(html.contains("shadow-purple-500/20"), "Active tab must have gradient shadow. Got: {html}");
+        assert!(
+            html.contains("All"),
+            "PageTabs must render first tab label. Got: {html}"
+        );
+        assert!(
+            html.contains("Draft"),
+            "PageTabs must render second tab label. Got: {html}"
+        );
+        assert!(
+            html.contains("Published"),
+            "PageTabs must render third tab label. Got: {html}"
+        );
+        assert!(
+            html.contains("shadow-purple-500/20"),
+            "Active tab must have gradient shadow. Got: {html}"
+        );
     }
 
     /// `PageSkeleton` renders the expected number of stat cards + row
@@ -591,12 +657,21 @@ mod tests {
     #[test]
     fn page_skeleton_renders_stats_and_rows() {
         let html = render_html(harness_page_skeleton);
-        assert!(html.contains("animate-pulse"), "PageSkeleton must be animated. Got: {html}");
+        assert!(
+            html.contains("animate-pulse"),
+            "PageSkeleton must be animated. Got: {html}"
+        );
         for i in 0..4 {
-            assert!(html.contains(&format!("stat-skel-{i}")), "PageSkeleton must render stat-skel-{i}. Got: {html}");
+            assert!(
+                html.contains(&format!("stat-skel-{i}")),
+                "PageSkeleton must render stat-skel-{i}. Got: {html}"
+            );
         }
         for i in 0..3 {
-            assert!(html.contains(&format!("row-skel-{i}")), "PageSkeleton must render row-skel-{i}. Got: {html}");
+            assert!(
+                html.contains(&format!("row-skel-{i}")),
+                "PageSkeleton must render row-skel-{i}. Got: {html}"
+            );
         }
     }
 
@@ -604,42 +679,81 @@ mod tests {
     #[test]
     fn page_skeleton_renders_zero_stats() {
         let html = render_html(harness_page_skeleton_zero);
-        assert!(!html.contains("stat-skel-"), "PageSkeleton with 0 stats must skip stat cards. Got: {html}");
+        assert!(
+            !html.contains("stat-skel-"),
+            "PageSkeleton with 0 stats must skip stat cards. Got: {html}"
+        );
     }
 
     /// `PageEmpty` renders the title + message + default emoji.
     #[test]
     fn page_empty_renders_default_emoji() {
         let html = render_html(harness_page_empty_default);
-        assert!(html.contains("No data found"), "PageEmpty default title. Got: {html}");
-        assert!(html.contains("There are no items to display"), "PageEmpty default message. Got: {html}");
-        assert!(html.contains("\u{1F4ED}"), "PageEmpty default emoji. Got: {html}");
+        assert!(
+            html.contains("No data found"),
+            "PageEmpty default title. Got: {html}"
+        );
+        assert!(
+            html.contains("There are no items to display"),
+            "PageEmpty default message. Got: {html}"
+        );
+        assert!(
+            html.contains("\u{1F4ED}"),
+            "PageEmpty default emoji. Got: {html}"
+        );
     }
 
     /// `PageEmpty` with custom title + icon shows them.
     #[test]
     fn page_empty_renders_custom_title_and_icon() {
         let html = render_html(harness_page_empty_custom);
-        assert!(html.contains("No payments"), "PageEmpty custom title. Got: {html}");
-        assert!(html.contains("Try adjusting filters"), "PageEmpty custom message. Got: {html}");
-        assert!(html.contains("lucide-credit-card") || html.contains("credit-card"), "PageEmpty icon. Got: {html}");
+        assert!(
+            html.contains("No payments"),
+            "PageEmpty custom title. Got: {html}"
+        );
+        assert!(
+            html.contains("Try adjusting filters"),
+            "PageEmpty custom message. Got: {html}"
+        );
+        assert!(
+            html.contains("lucide-credit-card") || html.contains("credit-card"),
+            "PageEmpty icon. Got: {html}"
+        );
     }
 
     /// `PageError` renders the default warning copy.
     #[test]
     fn page_error_renders_warning() {
         let html = render_html(harness_page_error);
-        assert!(html.contains("Something went wrong"), "PageError default title. Got: {html}");
-        assert!(html.contains("bg-red-500/10"), "PageError red bg. Got: {html}");
-        assert!(html.contains("\u{26A0}\u{FE0F}"), "PageError warning emoji. Got: {html}");
+        assert!(
+            html.contains("Something went wrong"),
+            "PageError default title. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-red-500/10"),
+            "PageError red bg. Got: {html}"
+        );
+        assert!(
+            html.contains("\u{26A0}\u{FE0F}"),
+            "PageError warning emoji. Got: {html}"
+        );
     }
 
     /// `PageAuthRequired` renders the connect-wallet CTA.
     #[test]
     fn page_auth_required_renders_connect_cta() {
         let html = render_html(harness_page_auth_required);
-        assert!(html.contains("Authentication Required"), "PageAuthRequired default title. Got: {html}");
-        assert!(html.contains("Connect Wallet"), "PageAuthRequired CTA. Got: {html}");
-        assert!(html.contains("\u{1F510}"), "PageAuthRequired lock emoji. Got: {html}");
+        assert!(
+            html.contains("Authentication Required"),
+            "PageAuthRequired default title. Got: {html}"
+        );
+        assert!(
+            html.contains("Connect Wallet"),
+            "PageAuthRequired CTA. Got: {html}"
+        );
+        assert!(
+            html.contains("\u{1F510}"),
+            "PageAuthRequired lock emoji. Got: {html}"
+        );
     }
 }

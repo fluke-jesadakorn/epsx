@@ -46,23 +46,29 @@ pub fn AuthGate(
     /// When set, the gate fires if the user is missing any of these
     /// permissions. Ignored when the user is signed out (the sign-in
     /// gate takes priority).
-    #[props(default = None)] required_permissions: Option<Vec<String>>,
+    #[props(default = None)]
+    required_permissions: Option<Vec<String>>,
     /// URL the user should be sent to after a successful sign-in.
     /// Forwarded as a `?return_url=...` query string on the connect
     /// link (matches the prod Vercel middleware convention).
-    #[props(default = None)] return_url: Option<String>,
+    #[props(default = None)]
+    return_url: Option<String>,
     /// Optional override for the gate headline. Defaults to
     /// "Sign in required".
-    #[props(default = None)] reason: Option<String>,
+    #[props(default = None)]
+    reason: Option<String>,
     /// When `false`, the gate is bypassed and `children` are rendered
     /// unconditionally. Defaults to `true`.
-    #[props(default = true)] is_gated: bool,
+    #[props(default = true)]
+    is_gated: bool,
     /// Optional click handler for the "Connect Wallet" button. When
     /// set, the link is replaced with a button (useful when the
     /// caller wants to open an in-page modal rather than navigate).
-    #[props(default = None)] on_connect: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_connect: Option<EventHandler<MouseEvent>>,
     /// Extra class names for the gate panel.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
     children: Element,
 ) -> Element {
     if !is_gated {
@@ -73,7 +79,11 @@ pub fn AuthGate(
     if let Some(u) = &user {
         let missing = match &required_permissions {
             None => vec![],
-            Some(perms) => perms.iter().filter(|p| !u.has_permission(p)).cloned().collect(),
+            Some(perms) => perms
+                .iter()
+                .filter(|p| !u.has_permission(p))
+                .cloned()
+                .collect(),
         };
         if missing.is_empty() {
             return rsx! { Fragment { {children} } };
@@ -180,7 +190,11 @@ pub fn AdminAuthGate(
         if let Some(u) = &user {
             let missing: Vec<String> = match &required_permissions {
                 None => vec![],
-                Some(perms) => perms.iter().filter(|p| !u.has_permission(p)).cloned().collect(),
+                Some(perms) => perms
+                    .iter()
+                    .filter(|p| !u.has_permission(p))
+                    .cloned()
+                    .collect(),
             };
             if missing.is_empty() {
                 return rsx! { Fragment { {children} } };

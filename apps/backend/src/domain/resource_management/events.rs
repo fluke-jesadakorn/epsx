@@ -1,11 +1,11 @@
 // Domain Events for Resource Management
 // Events that occur within the resource management domain
 
-use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
+use crate::prelude::*;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 use uuid::Uuid;
 
 /// Resource usage events

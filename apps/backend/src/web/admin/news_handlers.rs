@@ -7,16 +7,12 @@ use tracing::error;
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
-    CreateNewsReq, NewsListQuery, NewsListResponse, NewNewsArticle, UpdateNewsArticle,
-    UpdateNewsReq, NewsArticleDb,
+    CreateNewsReq, NewNewsArticle, NewsArticleDb, NewsListQuery, NewsListResponse,
+    UpdateNewsArticle, UpdateNewsReq,
 };
 use crate::infrastructure::repositories::NewsRepository;
-use crate::infrastructure::storage::{Bucket, upload_file};
-use crate::web::{
-    auth::AppState,
-    middleware::OpenIDUserContext,
-    responses::UnifiedApiResponse,
-};
+use crate::infrastructure::storage::{upload_file, Bucket};
+use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
 
 // ============================================================================
 // HANDLERS
@@ -26,12 +22,23 @@ pub async fn create_news(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
     Json(body): Json<CreateNewsReq>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
     if body.title.trim().is_empty() {
-        return Err(Json(UnifiedApiResponse::error(400, "Validation error", "Title cannot be empty")));
+        return Err(Json(UnifiedApiResponse::error(
+            400,
+            "Validation error",
+            "Title cannot be empty",
+        )));
     }
     if body.content.trim().is_empty() {
-        return Err(Json(UnifiedApiResponse::error(400, "Validation error", "Content cannot be empty")));
+        return Err(Json(UnifiedApiResponse::error(
+            400,
+            "Validation error",
+            "Content cannot be empty",
+        )));
     }
 
     let slug = match NewsRepository::unique_slug(&app_state.db_pool, &body.title).await {
@@ -43,8 +50,13 @@ pub async fn create_news(
     };
 
     let status = body.status.unwrap_or_else(|| "draft".to_string());
-    let published_at = if status == "published" { Some(Utc::now()) } else { None };
-    let tags = body.tags
+    let published_at = if status == "published" {
+        Some(Utc::now())
+    } else {
+        None
+    };
+    let tags = body
+        .tags
         .map(|v| serde_json::to_value(v).unwrap_or(serde_json::Value::Array(vec![])))
         .unwrap_or(serde_json::Value::Array(vec![]));
 
@@ -77,7 +89,12 @@ pub async fn list_news(
         Ok((articles, total)) => {
             let page = query.page.unwrap_or(1).max(1);
             let limit = query.limit.unwrap_or(20).clamp(1, 100);
-            Ok(Json(UnifiedApiResponse::success(NewsListResponse { articles, total, page, limit })))
+            Ok(Json(UnifiedApiResponse::success(NewsListResponse {
+                articles,
+                total,
+                page,
+                limit,
+            })))
         }
         Err(e) => {
             error!("Failed to list news: {}", e);
@@ -89,10 +106,17 @@ pub async fn list_news(
 pub async fn get_news(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
     match NewsRepository::get_by_id(&app_state.db_pool, id).await {
         Ok(Some(article)) => Ok(Json(UnifiedApiResponse::success(article))),
-        Ok(None) => Err(Json(UnifiedApiResponse::error(404, "Not found", "Article not found"))),
+        Ok(None) => Err(Json(UnifiedApiResponse::error(
+            404,
+            "Not found",
+            "Article not found",
+        ))),
         Err(e) => {
             error!("Failed to get news article: {}", e);
             Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
@@ -104,10 +128,13 @@ pub async fn update_news(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
     Json(body): Json<UpdateNewsReq>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
-    let tags = body.tags.map(|v| {
-        serde_json::to_value(v).unwrap_or(serde_json::Value::Array(vec![]))
-    });
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
+    let tags = body
+        .tags
+        .map(|v| serde_json::to_value(v).unwrap_or(serde_json::Value::Array(vec![])));
 
     let update = UpdateNewsArticle {
         title: body.title,
@@ -146,7 +173,10 @@ pub async fn delete_news(
 pub async fn publish_news(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
     let update = UpdateNewsArticle {
         title: None,
         slug: None,
@@ -171,7 +201,10 @@ pub async fn publish_news(
 pub async fn unpublish_news(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
     let update = UpdateNewsArticle {
         title: None,
         slug: None,
@@ -223,19 +256,42 @@ pub async fn upload_news_image(
     State(app_state): State<AppState>,
     mut multipart: Multipart,
 ) -> Result<Json<UnifiedApiResponse<serde_json::Value>>, Json<UnifiedApiResponse<()>>> {
-    let s3 = app_state.s3.as_ref()
-        .ok_or_else(|| Json(UnifiedApiResponse::error(503, "Storage unavailable", "S3 storage not configured")))?;
+    let s3 = app_state.s3.as_ref().ok_or_else(|| {
+        Json(UnifiedApiResponse::error(
+            503,
+            "Storage unavailable",
+            "S3 storage not configured",
+        ))
+    })?;
 
     let field = match multipart.next_field().await {
         Ok(Some(f)) => f,
-        Ok(None) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", "No file provided"))),
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Ok(None) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                "No file provided",
+            )))
+        }
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     let original_name = field.file_name().unwrap_or("image").to_string();
     let bytes = match field.bytes().await {
         Ok(b) => b,
-        Err(e) => return Err(Json(UnifiedApiResponse::error(400, "Bad request", &e.to_string()))),
+        Err(e) => {
+            return Err(Json(UnifiedApiResponse::error(
+                400,
+                "Bad request",
+                &e.to_string(),
+            )))
+        }
     };
 
     match upload_file(s3, Bucket::News, &bytes, &original_name, None).await {

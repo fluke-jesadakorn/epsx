@@ -24,9 +24,11 @@ pub fn ChatConversationList(
     #[props(default = Vec::new())] items: Vec<ConversationSummary>,
     /// Currently selected conversation id. When `Some`, the
     /// matching row gets a highlight class.
-    #[props(default = None)] selected: Option<String>,
+    #[props(default = None)]
+    selected: Option<String>,
     /// Fired when the user clicks a row.
-    #[props(default = None)] on_select: Option<EventHandler<String>>,
+    #[props(default = None)]
+    on_select: Option<EventHandler<String>>,
 ) -> Element {
     rsx! {
         ul { class: "chat-conversation-list space-y-1",
@@ -79,7 +81,5 @@ mod tests {
     }
 
     #[test]
-    fn chat_conversation_list_smoke() {
-        
-    }
+    fn chat_conversation_list_smoke() {}
 }

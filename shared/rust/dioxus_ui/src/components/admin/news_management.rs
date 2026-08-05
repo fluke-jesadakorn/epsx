@@ -19,8 +19,8 @@
 //! with smoke render + key prop handling (status variant, empty
 //! list, multi-page pagination).
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Data shape
@@ -289,8 +289,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-green-500/10"), "NewsStatusBadge published must use success class. Got: {html}");
-        assert!(html.contains("published"), "NewsStatusBadge must render status text. Got: {html}");
+        assert!(
+            html.contains("bg-green-500/10"),
+            "NewsStatusBadge published must use success class. Got: {html}"
+        );
+        assert!(
+            html.contains("published"),
+            "NewsStatusBadge must render status text. Got: {html}"
+        );
     }
 
     /// `NewsStatusBadge` uses warning class for "draft".
@@ -302,8 +308,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("bg-yellow-500/10"), "NewsStatusBadge draft must use warning class. Got: {html}");
-        assert!(html.contains("draft"), "NewsStatusBadge must render status text. Got: {html}");
+        assert!(
+            html.contains("bg-yellow-500/10"),
+            "NewsStatusBadge draft must use warning class. Got: {html}"
+        );
+        assert!(
+            html.contains("draft"),
+            "NewsStatusBadge must render status text. Got: {html}"
+        );
     }
 
     /// `NewsArticleCard` renders title + slug + status + summary + tags.
@@ -315,12 +327,30 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Welcome to EPSX"), "NewsArticleCard must render title. Got: {html}");
-        assert!(html.contains("welcome-to-epsx"), "NewsArticleCard must render slug. Got: {html}");
-        assert!(html.contains("published"), "NewsArticleCard must render status. Got: {html}");
-        assert!(html.contains("Introducing the EPSX platform."), "NewsArticleCard must render summary. Got: {html}");
-        assert!(html.contains("announcement"), "NewsArticleCard must render tag. Got: {html}");
-        assert!(html.contains("news-management-article-card"), "NewsArticleCard must render container class. Got: {html}");
+        assert!(
+            html.contains("Welcome to EPSX"),
+            "NewsArticleCard must render title. Got: {html}"
+        );
+        assert!(
+            html.contains("welcome-to-epsx"),
+            "NewsArticleCard must render slug. Got: {html}"
+        );
+        assert!(
+            html.contains("published"),
+            "NewsArticleCard must render status. Got: {html}"
+        );
+        assert!(
+            html.contains("Introducing the EPSX platform."),
+            "NewsArticleCard must render summary. Got: {html}"
+        );
+        assert!(
+            html.contains("announcement"),
+            "NewsArticleCard must render tag. Got: {html}"
+        );
+        assert!(
+            html.contains("news-management-article-card"),
+            "NewsArticleCard must render container class. Got: {html}"
+        );
     }
 
     /// `NewsArticleCard` for a pinned article shows the pin icon (data-icon=pin).
@@ -333,7 +363,10 @@ mod tests {
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
         // Pinned article uses pin-off (the unpin action) for its icon button
-        assert!(html.contains("lucide-pin-off"), "NewsArticleCard pinned must show unpin icon. Got: {html}");
+        assert!(
+            html.contains("lucide-pin-off"),
+            "NewsArticleCard pinned must show unpin icon. Got: {html}"
+        );
     }
 
     /// `NewsArticleCard` for a draft article shows the eye (publish action) icon.
@@ -347,7 +380,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("lucide-eye "), "NewsArticleCard draft must show publish icon. Got: {html}");
+        assert!(
+            html.contains("lucide-eye "),
+            "NewsArticleCard draft must show publish icon. Got: {html}"
+        );
     }
 
     /// `NewsEmptyState` renders the headline + CTA.
@@ -359,10 +395,22 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("news-management-empty-state"), "NewsEmptyState must render container class. Got: {html}");
-        assert!(html.contains("No articles yet"), "NewsEmptyState must render headline. Got: {html}");
-        assert!(html.contains("Create your first article"), "NewsEmptyState must render subhead. Got: {html}");
-        assert!(html.contains("Create Article"), "NewsEmptyState must render CTA. Got: {html}");
+        assert!(
+            html.contains("news-management-empty-state"),
+            "NewsEmptyState must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No articles yet"),
+            "NewsEmptyState must render headline. Got: {html}"
+        );
+        assert!(
+            html.contains("Create your first article"),
+            "NewsEmptyState must render subhead. Got: {html}"
+        );
+        assert!(
+            html.contains("Create Article"),
+            "NewsEmptyState must render CTA. Got: {html}"
+        );
     }
 
     /// `NewsPagination` renders nothing when total_pages <= 1.
@@ -374,7 +422,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(!html.contains("news-management-pagination"), "NewsPagination must hide when total_pages <= 1. Got: {html}");
+        assert!(
+            !html.contains("news-management-pagination"),
+            "NewsPagination must hide when total_pages <= 1. Got: {html}"
+        );
     }
 
     /// `NewsPagination` renders Prev / Next when total_pages > 1.
@@ -386,15 +437,30 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Previous"), "NewsPagination must render Previous. Got: {html}");
-        assert!(html.contains("Next"), "NewsPagination must render Next. Got: {html}");
-        assert!(html.contains("2 / 5"), "NewsPagination must render page indicator. Got: {html}");
+        assert!(
+            html.contains("Previous"),
+            "NewsPagination must render Previous. Got: {html}"
+        );
+        assert!(
+            html.contains("Next"),
+            "NewsPagination must render Next. Got: {html}"
+        );
+        assert!(
+            html.contains("2 / 5"),
+            "NewsPagination must render page indicator. Got: {html}"
+        );
     }
 
     /// `news_status_class` returns the expected class per status.
     #[test]
     fn news_status_class_matches_source() {
-        assert_eq!(news_status_class("published"), "bg-green-500/10 text-green-400 border border-green-500/20");
-        assert_eq!(news_status_class("draft"), "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20");
+        assert_eq!(
+            news_status_class("published"),
+            "bg-green-500/10 text-green-400 border border-green-500/20"
+        );
+        assert_eq!(
+            news_status_class("draft"),
+            "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+        );
     }
 }

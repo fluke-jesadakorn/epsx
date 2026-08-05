@@ -4,15 +4,15 @@
 //! using the existing PaymentVerifier for blockchain transaction validation
 
 pub mod admin;
-pub mod validation_handlers;
-pub mod subscription_handlers;
 pub mod admin_handlers;
-pub mod user_payment_handlers;
-pub mod submit_tx_handler;
-pub mod get_tx_status_handler;
 pub mod admin_reprocess_handler;
-pub mod upgrade_service;
 pub mod credit_handlers;
+pub mod get_tx_status_handler;
+pub mod submit_tx_handler;
+pub mod subscription_handlers;
+pub mod upgrade_service;
+pub mod user_payment_handlers;
+pub mod validation_handlers;
 
 // wave11(track-b): payment-link handlers folded into the
 // payments area. Pre-wave-11 the file lived at
@@ -33,55 +33,29 @@ pub mod payment_link_handlers;
 pub mod pay_proxy;
 
 // Re-export handler functions for router integration
-pub use validation_handlers::{
-    validate_payment_handler,
-    activate_subscription_handler,
-    get_payment_details_handler,
-
-};
-pub use subscription_handlers::{
-    get_user_plans_handler,
-    get_plan_expiry_status_handler,
-    cancel_plan_handler,
-    get_upgrade_preview_handler,
-    execute_plan_switch_handler,
-};
 pub use admin_handlers::{
-    admin_list_payments_handler,
-    admin_get_payment_details_handler,
+    admin_get_payment_analytics_handler, admin_get_payment_details_handler,
+    admin_list_payments_handler, admin_list_subscriptions_handler, admin_process_refund_handler,
     admin_update_payment_status_handler,
-    admin_process_refund_handler,
-    admin_list_subscriptions_handler,
-    admin_get_payment_analytics_handler,
 };
-pub use user_payment_handlers::{
-    get_user_payment_history,
-};
-pub use submit_tx_handler::{
-    submit_transaction_handler,
-};
-pub use get_tx_status_handler::{
-    get_transaction_status_handler,
-};
-pub use admin_reprocess_handler::{
-    admin_reprocess_payment_handler,
-    admin_payment_events_handler,
-};
+pub use admin_reprocess_handler::{admin_payment_events_handler, admin_reprocess_payment_handler};
 pub use credit_handlers::{
-    get_credit_balance,
-    get_credit_history,
-    admin_get_user_credits,
-    admin_grant_credits,
-    admin_revoke_credits,
-    admin_get_credit_stats,
+    admin_get_credit_stats, admin_get_user_credits, admin_grant_credits, admin_revoke_credits,
+    get_credit_balance, get_credit_history,
 };
+pub use get_tx_status_handler::get_transaction_status_handler;
+pub use pay_proxy::{pay_proxy, PayProxyState};
 pub use payment_link_handlers::{
-    create_payment_link_handler,
-    delete_payment_link_handler,
-    get_payment_link_by_slug_handler,
-    get_payment_link_handler,
-    list_payment_links_handler,
-    record_payment_usage_handler,
+    create_payment_link_handler, delete_payment_link_handler, get_payment_link_by_slug_handler,
+    get_payment_link_handler, list_payment_links_handler, record_payment_usage_handler,
     update_payment_link_handler,
 };
-pub use pay_proxy::{pay_proxy, PayProxyState};
+pub use submit_tx_handler::submit_transaction_handler;
+pub use subscription_handlers::{
+    cancel_plan_handler, execute_plan_switch_handler, get_plan_expiry_status_handler,
+    get_upgrade_preview_handler, get_user_plans_handler,
+};
+pub use user_payment_handlers::get_user_payment_history;
+pub use validation_handlers::{
+    activate_subscription_handler, get_payment_details_handler, validate_payment_handler,
+};

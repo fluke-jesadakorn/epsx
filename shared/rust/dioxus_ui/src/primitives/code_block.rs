@@ -42,10 +42,7 @@ pub fn CodeBlock(
 ///
 /// - `class: Option<String>` — extra Tailwind classes.
 #[component]
-pub fn InlineCode(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn InlineCode(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "inline-code relative rounded bg-muted px-[0.3rem] py-[0.2rem] font-mono text-sm font-semibold".to_string();
     if let Some(c) = class {
         cls.push(' ');

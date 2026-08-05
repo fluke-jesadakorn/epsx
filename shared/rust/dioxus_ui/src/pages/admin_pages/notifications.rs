@@ -8,6 +8,7 @@
 use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
@@ -34,6 +35,15 @@ pub const ADMIN_NOTIFICATIONS_EMPTY: &str = "empty";
 pub const ADMIN_NOTIFICATIONS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_NOTIFICATIONS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NOTIFICATIONS_MALFORMED: &str = "malformed";
+pub const ADMIN_NOTIFICATIONS_SEND_STATE_PARAM: &str = "data_admin_notifications_send_state";
+pub const ADMIN_NOTIFICATIONS_SEND_ACCEPTED: &str = "accepted";
+pub const ADMIN_NOTIFICATIONS_SEND_ERROR: &str = "error";
+pub const ADMIN_NOTIFICATIONS_METRICS_PARAM: &str = "data_admin_notifications_metrics";
+pub const ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM: &str = "data_admin_notifications_metrics_state";
+pub const ADMIN_NOTIFICATIONS_METRICS_READY: &str = "ready";
+pub const ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_NOTIFICATIONS_METRICS_MALFORMED: &str = "malformed";
 
 /// Deliberately excludes recipient and user identity, body/message/data/error,
 /// read state, action URLs, and every field that could imply mutation access.
@@ -58,6 +68,66 @@ pub struct AdminNotificationList {
     pub total: i64,
     pub limit: i64,
     pub offset: i64,
+}
+
+/// Redacted operational counters safe for the admin workspace. These are
+/// bounded observations, not delivery receipts for any individual message.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminNotificationMetrics {
+    pub queue_depth: i64,
+    pub queue_age_seconds: Option<i64>,
+    pub suppressed: i64,
+    pub retry_wait: i64,
+    pub terminal_failed: i64,
+    pub dead_lettered: i64,
+    pub provider_accepted: i64,
+    pub attempting: i64,
+    pub channel_outcomes: BTreeMap<String, i64>,
+    pub provider_events: i64,
+    pub delivery_attempts: i64,
+    pub replay_cursors: i64,
+    pub replay_cursor_age_seconds: Option<i64>,
+    pub active_streams: i64,
+    pub stream_connections_total: i64,
+    pub stream_reconnects_total: i64,
+    pub stream_replayed_events_total: i64,
+    pub stream_lag_seconds: Option<i64>,
+    pub stream_query_failures_total: i64,
+}
+
+pub fn decode_admin_notification_metrics(
+    value: serde_json::Value,
+) -> Option<AdminNotificationMetrics> {
+    let metrics: AdminNotificationMetrics = serde_json::from_value(value).ok()?;
+    let non_negative = |value: i64| (0..=10_000_000).contains(&value);
+    if !non_negative(metrics.queue_depth)
+        || !metrics.queue_age_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.suppressed)
+        || !non_negative(metrics.retry_wait)
+        || !non_negative(metrics.terminal_failed)
+        || !non_negative(metrics.dead_lettered)
+        || !non_negative(metrics.provider_accepted)
+        || !non_negative(metrics.attempting)
+        || !non_negative(metrics.provider_events)
+        || !non_negative(metrics.delivery_attempts)
+        || !non_negative(metrics.replay_cursors)
+        || !metrics.replay_cursor_age_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.active_streams)
+        || metrics.active_streams > 256
+        || !non_negative(metrics.stream_connections_total)
+        || !non_negative(metrics.stream_reconnects_total)
+        || !non_negative(metrics.stream_replayed_events_total)
+        || !metrics.stream_lag_seconds.is_none_or(non_negative)
+        || !non_negative(metrics.stream_query_failures_total)
+        || metrics.channel_outcomes.len() > 3
+        || metrics.channel_outcomes.iter().any(|(channel, count)| {
+            !matches!(channel.as_str(), "email" | "in_app" | "push") || !non_negative(*count)
+        })
+    {
+        return None;
+    }
+    Some(metrics)
 }
 
 /// Decode the exact read projection and reject semantically impossible values
@@ -92,7 +162,10 @@ impl AdminNotificationSummary {
             && valid_optional_text(self.title.as_deref(), MAX_TITLE_CHARS)
             && valid_optional_text(self.subject.as_deref(), MAX_SUBJECT_CHARS)
             && valid_channel(&self.channel)
-            && matches!(self.status.as_str(), "pending" | "sent" | "failed")
+            && matches!(
+                self.status.as_str(),
+                "pending" | "sent" | "failed" | "suppressed" | "expired"
+            )
             && valid_optional_text(self.notification_type.as_deref(), MAX_TYPE_CHARS)
             && self.priority.as_deref().is_none_or(|priority| {
                 matches!(priority, "low" | "normal" | "high" | "critical" | "urgent")
@@ -133,6 +206,7 @@ fn notification_status_class(status: &str) -> &'static str {
     match status {
         "sent" => "border-green-500/30 bg-green-500/10 text-green-800 dark:text-green-300",
         "failed" => "border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300",
+        "suppressed" => "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300",
         _ => "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300",
     }
 }
@@ -225,10 +299,11 @@ pub fn render_manage(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// `/notifications/create` — authenticated fail-closed compose shell. No form
-/// is emitted until the service owns an authorized, idempotent mutation.
+/// `/notifications/create` — authenticated canonical-wallet compose form.
+/// Broadcast, plan, scheduling, image, and arbitrary-data controls stay out of
+/// this surface until their source-compatible backend contracts are complete.
 pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("New notification unavailable");
+    let meta = PageMeta::admin("New notification");
     (
         meta,
         rsx! {
@@ -239,15 +314,15 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
                 PageLayout {
                     max_width: Some(PageMaxWidth::FourXl),
                     PageHeader {
-                        title: "New notification".to_string(),
-                        subtitle: Some("Backend-authorized delivery workspace".to_string()),
+                        title: "Command Center".to_string(),
+                        subtitle: Some("Global broadcast protocol and network alert management".to_string()),
                         icon: Some("bell".to_string()),
                         gradient: Some(PageGradient::Info),
                         centered: Some(false),
                         extra_actions: None,
                         class_name: None,
                     }
-                    NotificationCreateUnavailable {}
+                    NotificationCreateForm {}
                 }
             }
         },
@@ -270,6 +345,10 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
                 centered: Some(false),
                 extra_actions: None,
                 class_name: None,
+            }
+            NotificationMetricsState { ctx: ctx.clone() }
+            if let Some(state) = ctx.params.get(ADMIN_NOTIFICATIONS_SEND_STATE_PARAM) {
+                NotificationSendFeedback { state: state.clone() }
             }
             match load {
                 NotificationLoad::Ready(projection) => rsx! {
@@ -448,19 +527,199 @@ fn NotificationProblem(
 }
 
 #[component]
-fn NotificationCreateUnavailable() -> Element {
+fn NotificationCreateForm() -> Element {
     rsx! {
         section {
-            class: "rounded-2xl border border-cyan-500/20 bg-card p-8 shadow-xl",
-            role: "status",
-            "data-admin-notifications-state": ADMIN_NOTIFICATIONS_UNAVAILABLE,
+            class: "relative overflow-hidden rounded-2xl border border-border/20 bg-card p-1 shadow-2xl",
+            "data-admin-notifications-state": "create",
             "data-admin-notifications-surface": "create",
-            h2 { class: "text-2xl font-semibold text-foreground", "Notification creation is unavailable" }
-            p { class: "mt-3 text-sm leading-6 text-muted-foreground", "Recipient selection, content, scheduling, and delivery actions remain hidden until an authorized, idempotent backend mutation is connected." }
-            nav { class: "mt-8 flex flex-wrap gap-3 border-t border-border/30 pt-6", aria_label: "Notification route recovery",
-                a { class: "btn btn-primary", href: NOTIFICATIONS_PATH, "Return to notifications" }
-                a { class: "btn btn-outline", href: "/", "Admin home" }
+            div { class: "relative rounded-2xl bg-card/60 p-8 sm:p-12",
+                div { class: "mx-auto max-w-4xl",
+                    div { class: "mb-12",
+                        h2 { class: "text-3xl font-black uppercase tracking-tight text-foreground", "Signal Generator" }
+                        p { class: "mt-2 text-sm font-bold text-muted-foreground", "Construct and transmit high-priority system alerts" }
+                    }
+                    p { class: "mb-8 max-w-3xl text-sm leading-6 text-muted-foreground", "This Rust-owned form queues one notification for one canonical wallet. The backend validates authorization, ownership, content bounds, and delivery state before writing." }
+                    form { class: "space-y-10", method: "post", action: "/notifications/create",
+                        fieldset { class: "space-y-4", aria_label: "Transmission logic",
+                            legend { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Transmission Logic" }
+                            div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2",
+                                button { class: "flex items-center gap-6 rounded-xl border border-[#1fc7d4] bg-[#1fc7d4]/10 p-6 text-left shadow-[0_0_20px_rgba(31,199,212,0.1)]", r#type: "button", aria_pressed: "true",
+                                    div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#1fc7d4] text-white", Icon { name: "user".to_string(), size: Some(24) } }
+                                    div {
+                                        div { class: "text-sm font-black uppercase tracking-tight text-foreground", "Targeted Client" }
+                                        div { class: "text-[10px] font-bold uppercase text-muted-foreground opacity-60", "Single Node Access" }
+                                    }
+                                }
+                                button { class: "flex cursor-not-allowed items-center gap-6 rounded-xl border border-border/40 bg-muted/30 p-6 text-left opacity-50", r#type: "button", disabled: true, aria_disabled: "true",
+                                    div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted/50 text-muted-foreground/40", Icon { name: "users".to_string(), size: Some(24) } }
+                                    div {
+                                        div { class: "text-sm font-black uppercase tracking-tight text-foreground", "Global Broadcast" }
+                                        div { class: "text-[10px] font-bold uppercase text-muted-foreground", "Unavailable until backend contract" }
+                                    }
+                                }
+                            }
+                        }
+                        div { class: "grid grid-cols-1 gap-x-10 gap-y-8 lg:grid-cols-2",
+                            label { class: "block space-y-3 lg:col-span-2",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Destination Node" }
+                                div { class: "relative",
+                                    input { class: "input h-14 w-full rounded-2xl bg-muted/30 px-6 font-mono text-sm", r#type: "text", name: "recipient_wallet_address", required: true, maxlength: "42", autocomplete: "off", placeholder: "0x..." }
+                                    span { class: "pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-muted-foreground/40", "Required" }
+                                }
+                            }
+                            label { class: "block space-y-3",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Classification" }
+                                select { class: "input h-14 w-full rounded-2xl bg-muted/30 px-6 text-sm font-black uppercase tracking-widest", disabled: true, aria_disabled: "true",
+                                    option { selected: true, "System Alert" }
+                                    option { "Security Event" }
+                                    option { "Permission Auth" }
+                                    option { "Payment Transaction" }
+                                    option { "General Message" }
+                                }
+                            }
+                            label { class: "block space-y-3",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Priority Vector" }
+                                select { class: "input h-14 w-full rounded-2xl bg-muted/30 px-6 text-sm font-black uppercase tracking-widest", disabled: true, aria_disabled: "true",
+                                    option { selected: true, "Normal Operation" }
+                                    option { "Low Clearance" }
+                                    option { "High Priority" }
+                                    option { "Critical Override" }
+                                }
+                            }
+                            label { class: "block space-y-3 lg:col-span-2",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Subject Heading" }
+                                input { class: "input h-14 w-full rounded-2xl bg-muted/30 px-6 text-sm font-bold", r#type: "text", name: "title", required: true, maxlength: "255", placeholder: "Payload designation..." }
+                            }
+                            label { class: "block space-y-3 lg:col-span-2",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Message Payload" }
+                                textarea { class: "input min-h-40 w-full resize-none rounded-2xl bg-muted/30 p-6 text-sm font-bold", name: "message", required: true, maxlength: "16384", placeholder: "Enter transmission data..." }
+                            }
+                            label { class: "block space-y-3 opacity-50",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Action URL" }
+                                input { class: "input h-12 w-full rounded-2xl bg-muted/30 px-5 text-xs", r#type: "url", disabled: true, aria_disabled: "true", placeholder: "Unavailable until action contract is verified" }
+                            }
+                            label { class: "block space-y-3 opacity-50",
+                                span { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Asset URL" }
+                                input { class: "input h-12 w-full rounded-2xl bg-muted/30 px-5 text-xs", r#type: "url", disabled: true, aria_disabled: "true", placeholder: "Image upload unavailable" }
+                            }
+                        }
+                        p { class: "text-xs text-muted-foreground", "Broadcast, plan targeting, scheduling, images, and arbitrary payloads are intentionally unavailable until their contracts are verified." }
+                        div { class: "flex items-center gap-6 border-t border-border/20 pt-10",
+                            a { class: "btn btn-ghost flex-1 rounded-2xl py-7 text-[10px] font-black uppercase tracking-[0.2em] opacity-60", href: NOTIFICATIONS_PATH, "Abort" }
+                            button { class: "btn btn-primary flex-[2] rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] py-7 font-black uppercase tracking-[0.2em]", r#type: "submit", "Queue Notification" }
+                        }
+                    }
+                }
             }
+        }
+    }
+}
+
+#[component]
+fn NotificationSendFeedback(state: String) -> Element {
+    let (class_name, title, detail) = match state.as_str() {
+        ADMIN_NOTIFICATIONS_SEND_ACCEPTED => (
+            "border-green-500/30 bg-green-500/10 text-green-900 dark:text-green-200",
+            "Notification queued",
+            "The backend accepted the canonical-wallet notification request. Delivery remains asynchronous.",
+        ),
+        ADMIN_NOTIFICATIONS_SEND_ERROR => (
+            "border-red-500/30 bg-red-500/10 text-red-900 dark:text-red-200",
+            "Notification was not queued",
+            "The backend rejected or could not complete the request. No delivery success is being claimed.",
+        ),
+        _ => return rsx! {},
+    };
+    rsx! {
+        section { class: "mb-6 rounded-xl border p-4 {class_name}", role: "status", "data-admin-notifications-send-state": state,
+            h2 { class: "font-semibold", "{title}" }
+            p { class: "mt-1 text-sm", "{detail}" }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetricsState(ctx: PageContext) -> Element {
+    let Some(state) = ctx.params.get(ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM) else {
+        return rsx! {};
+    };
+    match state.as_str() {
+        ADMIN_NOTIFICATIONS_METRICS_READY => {
+            let metrics = ctx
+                .params
+                .get(ADMIN_NOTIFICATIONS_METRICS_PARAM)
+                .and_then(|raw| serde_json::from_str::<serde_json::Value>(raw).ok())
+                .and_then(decode_admin_notification_metrics);
+            match metrics {
+                Some(metrics) => rsx! { NotificationMetricsPanel { snapshot: metrics } },
+                None => rsx! {
+                    NotificationMetricsProblem { state: ADMIN_NOTIFICATIONS_METRICS_MALFORMED.to_string() }
+                },
+            }
+        }
+        ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN
+        | ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE
+        | ADMIN_NOTIFICATIONS_METRICS_MALFORMED => {
+            rsx! { NotificationMetricsProblem { state: state.clone() } }
+        }
+        _ => rsx! {
+            NotificationMetricsProblem { state: ADMIN_NOTIFICATIONS_METRICS_MALFORMED.to_string() }
+        },
+    }
+}
+
+#[component]
+fn NotificationMetricsPanel(snapshot: AdminNotificationMetrics) -> Element {
+    rsx! {
+        section {
+            class: "mb-6 rounded-2xl border border-border/30 bg-card p-6 shadow-lg",
+            role: "status",
+            "data-admin-notifications-metrics-state": ADMIN_NOTIFICATIONS_METRICS_READY,
+            h2 { class: "text-lg font-semibold text-foreground", "Operational queue snapshot" }
+            p { class: "mt-1 text-xs text-muted-foreground", "Backend counters are observations only; they do not claim delivery of an individual notification." }
+            div { class: "mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
+                NotificationMetric { label: "Queued", value: snapshot.queue_depth }
+                NotificationMetric { label: "Retry wait", value: snapshot.retry_wait }
+                NotificationMetric { label: "Attempting", value: snapshot.attempting }
+                NotificationMetric { label: "Provider accepted", value: snapshot.provider_accepted }
+                NotificationMetric { label: "Terminal failed", value: snapshot.terminal_failed }
+                NotificationMetric { label: "Dead lettered", value: snapshot.dead_lettered }
+                NotificationMetric { label: "Suppressed", value: snapshot.suppressed }
+                NotificationMetric { label: "Active streams", value: snapshot.active_streams }
+            }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetric(label: &'static str, value: i64) -> Element {
+    rsx! {
+        div { class: "rounded-xl border border-border/30 bg-muted/20 p-3",
+            p { class: "text-xs text-muted-foreground", "{label}" }
+            p { class: "mt-1 text-xl font-semibold tabular-nums text-foreground", "{value}" }
+        }
+    }
+}
+
+#[component]
+fn NotificationMetricsProblem(state: String) -> Element {
+    let detail = match state.as_str() {
+        ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN => {
+            "The backend did not authorize the operational snapshot. No counters are shown."
+        }
+        ADMIN_NOTIFICATIONS_METRICS_MALFORMED => {
+            "The backend response did not match the bounded metrics contract. No counters are shown."
+        }
+        _ => "The operational snapshot is unavailable. No counters are shown.",
+    };
+    rsx! {
+        section {
+            class: "mb-6 rounded-xl border border-amber-500/30 bg-amber-500/5 p-4",
+            role: "status",
+            "data-admin-notifications-metrics-state": state,
+            h2 { class: "font-semibold text-foreground", "Operational snapshot unavailable" }
+            p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -511,6 +770,30 @@ mod tests {
             total,
             limit: NOTIFICATION_PAGE_LIMIT,
             offset,
+        }
+    }
+
+    fn metrics() -> AdminNotificationMetrics {
+        AdminNotificationMetrics {
+            queue_depth: 4,
+            queue_age_seconds: Some(2),
+            suppressed: 1,
+            retry_wait: 1,
+            terminal_failed: 0,
+            dead_lettered: 0,
+            provider_accepted: 3,
+            attempting: 1,
+            channel_outcomes: BTreeMap::from([(String::from("in_app"), 4)]),
+            provider_events: 3,
+            delivery_attempts: 4,
+            replay_cursors: 2,
+            replay_cursor_age_seconds: Some(1),
+            active_streams: 1,
+            stream_connections_total: 2,
+            stream_reconnects_total: 1,
+            stream_replayed_events_total: 1,
+            stream_lag_seconds: Some(1),
+            stream_query_failures_total: 0,
         }
     }
 
@@ -629,6 +912,43 @@ mod tests {
         assert!(unavailable.contains("Notification records are unavailable"));
         assert!(malformed.contains("data-admin-notifications-state=\"malformed\""));
         assert!(malformed.contains("Notification data could not be verified"));
+    }
+
+    #[test]
+    fn metrics_projection_is_strict_bounded_and_truthful() {
+        let valid = serde_json::to_value(metrics()).unwrap();
+        assert!(decode_admin_notification_metrics(valid.clone()).is_some());
+
+        let mut unknown = valid.clone();
+        unknown["recipient"] = serde_json::json!("private");
+        assert!(decode_admin_notification_metrics(unknown).is_none());
+
+        let mut negative = valid.clone();
+        negative["queue_depth"] = serde_json::json!(-1);
+        assert!(decode_admin_notification_metrics(negative).is_none());
+
+        let mut too_many_streams = valid.clone();
+        too_many_streams["active_streams"] = serde_json::json!(257);
+        assert!(decode_admin_notification_metrics(too_many_streams).is_none());
+
+        let mut unknown_channel = valid.clone();
+        unknown_channel["channel_outcomes"] = serde_json::json!({"sms": 1});
+        assert!(decode_admin_notification_metrics(unknown_channel).is_none());
+
+        let mut page = ctx(ADMIN_NOTIFICATIONS_EMPTY, Some(projection(vec![], 0, 0)), 1);
+        page.params.insert(
+            ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_METRICS_READY.to_string(),
+        );
+        page.params.insert(
+            ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+            serde_json::to_string(&metrics()).unwrap(),
+        );
+        let rendered = html(&page);
+        assert!(rendered.contains("Operational queue snapshot"));
+        assert!(rendered.contains("Provider accepted"));
+        assert!(rendered.contains("Backend counters are observations only"));
+        assert!(!rendered.contains("recipient"));
     }
 
     #[test]
@@ -756,13 +1076,17 @@ mod tests {
             "border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300"
         );
         assert_eq!(
+            notification_status_class("suppressed"),
+            "border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-300"
+        );
+        assert_eq!(
             notification_status_class("pending"),
             "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300"
         );
     }
 
     #[test]
-    fn manage_and_create_expose_no_mutation_or_sample_surfaces() {
+    fn manage_and_create_expose_only_the_supported_canonical_wallet_form() {
         let manage = html(&ctx(
             ADMIN_NOTIFICATIONS_READY,
             Some(projection(vec![notification()], 1, 0)),
@@ -772,14 +1096,33 @@ mod tests {
             render_create(&ctx(ADMIN_NOTIFICATIONS_UNAVAILABLE, None, 1)).1,
         );
         assert!(create.contains("data-admin-notifications-surface=\"create\""));
+        assert!(create.contains("method=\"post\""));
+        assert!(create.contains("action=\"/notifications/create\""));
+        for supported in [
+            "name=\"recipient_wallet_address\"",
+            "name=\"title\"",
+            "name=\"message\"",
+            "Queue Notification",
+            "Signal Generator",
+            "Transmission Logic",
+            "Destination Node",
+            "Subject Heading",
+            "Message Payload",
+        ] {
+            assert!(
+                create.contains(supported),
+                "supported form field missing: {supported}"
+            );
+        }
 
-        for rendered in [manage, create] {
+        for rendered in [manage, create.clone()] {
             for forbidden in [
-                "<form",
-                "<input",
-                "<textarea",
-                "<select",
-                "<button",
+                "name=\"broadcast\"",
+                "name=\"plan_id\"",
+                "name=\"schedule\"",
+                "name=\"image_url\"",
+                "name=\"action_url\"",
+                "name=\"data\"",
                 "Search notifications",
                 "Delivery analytics",
                 "Total Sent",
@@ -787,15 +1130,11 @@ mod tests {
                 "Welcome to the platform",
                 "New feature: charts",
                 "Maintenance window",
-                "Send notification",
-                "Create notification",
                 "Delete",
                 "Purge",
                 "Mark read",
                 "Mark unread",
                 "Clear all",
-                "Templates",
-                "action_url",
             ] {
                 assert!(
                     !rendered.contains(forbidden),
@@ -803,5 +1142,40 @@ mod tests {
                 );
             }
         }
+        assert!(create.contains("Global Broadcast"));
+        assert!(create.contains("disabled"));
+        assert!(create.contains("Action URL"));
+        assert!(create.contains("Asset URL"));
+    }
+
+    #[test]
+    fn send_feedback_is_closed_and_never_claims_provider_delivery() {
+        let mut accepted = ctx(
+            ADMIN_NOTIFICATIONS_READY,
+            Some(projection(vec![notification()], 1, 0)),
+            1,
+        );
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_SEND_ACCEPTED.to_string(),
+        );
+        let accepted_html = html(&accepted);
+        assert!(accepted_html.contains("data-admin-notifications-send-state=\"accepted\""));
+        assert!(accepted_html.contains("Delivery remains asynchronous"));
+        assert!(!accepted_html.contains("delivered successfully"));
+
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            ADMIN_NOTIFICATIONS_SEND_ERROR.to_string(),
+        );
+        let error_html = html(&accepted);
+        assert!(error_html.contains("data-admin-notifications-send-state=\"error\""));
+        assert!(error_html.contains("No delivery success is being claimed"));
+
+        accepted.params.insert(
+            ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+            "forged".to_string(),
+        );
+        assert!(!html(&accepted).contains("data-admin-notifications-send-state"));
     }
 }

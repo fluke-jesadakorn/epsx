@@ -1,0 +1,77 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.8-notification-cutover-rollback",
+  "productionReady": false,
+  "scope": "non-production design and static validation only; no routing, database, provider, secret, deployment, or cutover access",
+  "singleWriter": {
+    "authority": "legacy",
+    "switchControl": "NOTIFICATION_WRITE_AUTHORITY",
+    "allowedValues": ["legacy", "service"],
+    "defaultValue": "legacy",
+    "dualWrite": false,
+    "auditRequired": true,
+    "unknownValue": "fail_closed"
+  },
+  "shadow": {
+    "source": "legacy",
+    "target": "service",
+    "enabledByDefault": false,
+    "serveTargetResults": false,
+    "compareFields": [
+      "source_event_id",
+      "wallet_address",
+      "status",
+      "broadcast",
+      "template_id",
+      "preference_hash",
+      "provider_message_id",
+      "provider_event_id"
+    ],
+    "maxUnexplainedMismatches": 0
+  },
+  "canary": {
+    "enabledByDefault": false,
+    "allowlistedEventTypes": ["notification.canary"],
+    "allowlistedWallets": [],
+    "maxRecipientsPerEvent": 10,
+    "maxProviderAttemptsPerEvent": 1,
+    "requiresShadowClean": true,
+    "requiresReconciliationApproval": true
+  },
+  "abortThresholds": [
+    "any source/target owner or broadcast mismatch",
+    "any duplicate source event or provider acceptance",
+    "any target result served while shadow mode is active",
+    "any queue, dead-letter, provider, or SSE threshold breach",
+    "any authentication, authorization, privacy, or schema readiness failure"
+  ],
+  "rollback": {
+    "preserveDurableRecords": true,
+    "preserveInboxIdempotencyProviderEvents": true,
+    "replayAcceptedProviderSends": false,
+    "destructiveSchemaRollback": false,
+    "steps": [
+      "freeze the switch and record the audited operator and reason",
+      "stop service-authority publishers without deleting inbox, outbox, job, or provider rows",
+      "restore NOTIFICATION_WRITE_AUTHORITY=legacy and verify the legacy writer is the only writer",
+      "reconcile source/target event IDs, wallets, statuses, broadcasts, and provider IDs",
+      "reconnect SSE clients from durable replay cursors without replaying accepted provider sends",
+      "retain the rollback window and approve a new canary before any retry"
+    ]
+  },
+  "executionOrder": [
+    "shadow_compare_without_serving",
+    "approve_allowlisted_canary",
+    "switch_one_writer",
+    "observe_abort_thresholds",
+    "reconcile_after_window",
+    "rollback_without_destructive_schema_or_provider_replay"
+  ],
+  "requiredApprovals": [
+    "migration owner",
+    "notification service owner",
+    "source writer owner",
+    "security/privacy reviewer",
+    "on-call rollback owner"
+  ]
+}

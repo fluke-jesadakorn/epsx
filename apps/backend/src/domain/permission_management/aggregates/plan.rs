@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::domain::shared_kernel::{AggregateRoot, AggregateBase, DomainEvent};
 use crate::domain::permission_management::{
-    PlanId, PlanSlug, PermissionString, PlanCategory, PlanGroup,
-    events::{PlanCreatedEvent, PlanUpdatedEvent}
+    events::{PlanCreatedEvent, PlanUpdatedEvent},
+    PermissionString, PlanCategory, PlanGroup, PlanId, PlanSlug,
 };
+use crate::domain::shared_kernel::{AggregateBase, AggregateRoot, DomainEvent};
+use crate::prelude::*;
 use std::collections::HashSet;
 
 /// Plan Aggregate Root
@@ -118,7 +118,9 @@ impl Plan {
             permissions: permissions.clone(),
             price: params.price.unwrap_or(0.0),
             currency: params.currency.unwrap_or_else(|| "USD".to_string()),
-            billing_cycle: params.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+            billing_cycle: params
+                .billing_cycle
+                .unwrap_or_else(|| "monthly".to_string()),
             is_active: params.is_active.unwrap_or(true),
             is_promoted: params.is_promoted.unwrap_or(false),
             tier_level: params.tier_level.unwrap_or(0),

@@ -53,7 +53,7 @@ pub struct MyApiKeyListResponse {
 #[derive(Debug, Serialize)]
 pub struct MaskedApiKey {
     pub id: String,
-    pub key_preview: String, // e.g., "epsx_xxxx...xxxx"
+    pub key_preview: String,      // e.g., "epsx_xxxx...xxxx"
     pub full_key: Option<String>, // Full key for copying (only for owner)
     pub client_name: String,
     pub client_description: Option<String>,
@@ -145,7 +145,15 @@ pub async fn list_my_keys_handler(
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
 
-    match repo.list_by_wallet(&wallet_address, query.limit, query.offset, query.status.as_deref()).await {
+    match repo
+        .list_by_wallet(
+            &wallet_address,
+            query.limit,
+            query.offset,
+            query.status.as_deref(),
+        )
+        .await
+    {
         Ok((api_keys, total)) => {
             // Convert to masked response
             let masked_keys: Vec<MaskedApiKey> = api_keys
@@ -157,11 +165,15 @@ pub async fn list_my_keys_handler(
                     client_name: key.client_name,
                     client_description: key.client_description,
                     status: key.status.to_string(),
-                    plans: key.permission_plans.into_iter().map(|g| PermissionPlanInfo {
-                        id: g.id.to_string(),
-                        name: g.name,
-                        slug: g.slug,
-                    }).collect(),
+                    plans: key
+                        .permission_plans
+                        .into_iter()
+                        .map(|g| PermissionPlanInfo {
+                            id: g.id.to_string(),
+                            name: g.name,
+                            slug: g.slug,
+                        })
+                        .collect(),
                     permissions: key.selected_permissions,
                     total_requests: key.total_requests,
                     expires_at: key.expires_at.map(|dt| dt.to_rfc3339()),
@@ -202,7 +214,9 @@ pub async fn create_my_key_handler(
     };
 
     // Convert plan_ids from strings to UUIDs
-    let plan_ids: Vec<uuid::Uuid> = body.plan_ids.iter()
+    let plan_ids: Vec<uuid::Uuid> = body
+        .plan_ids
+        .iter()
         .filter_map(|id| uuid::Uuid::parse_str(id).ok())
         .collect();
 
@@ -246,7 +260,11 @@ pub async fn get_my_key_handler(
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
         Err(_) => {
-            return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID")
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
         }
     };
 
@@ -269,11 +287,15 @@ pub async fn get_my_key_handler(
                 client_name: api_key.client_name,
                 client_description: api_key.client_description,
                 status: api_key.status.to_string(),
-                plans: api_key.permission_plans.into_iter().map(|g| PermissionPlanInfo {
-                    id: g.id.to_string(),
-                    name: g.name,
-                    slug: g.slug,
-                }).collect(),
+                plans: api_key
+                    .permission_plans
+                    .into_iter()
+                    .map(|g| PermissionPlanInfo {
+                        id: g.id.to_string(),
+                        name: g.name,
+                        slug: g.slug,
+                    })
+                    .collect(),
                 permissions: api_key.selected_permissions,
                 total_requests: api_key.total_requests,
                 expires_at: api_key.expires_at.map(|dt| dt.to_rfc3339()),
@@ -305,12 +327,22 @@ pub async fn revoke_my_key_handler(
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
         Err(e) => {
-            error!("Invalid UUID provided for revocation: {} - error: {}", id, e);
-            return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID")
+            error!(
+                "Invalid UUID provided for revocation: {} - error: {}",
+                id, e
+            );
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            );
         }
     };
-    
-    info!("Attempting to revoke key {} for wallet {}", uuid, wallet_address);
+
+    info!(
+        "Attempting to revoke key {} for wallet {}",
+        uuid, wallet_address
+    );
 
     // First verify ownership
     match repo.get_by_id(uuid).await {
@@ -328,7 +360,9 @@ pub async fn revoke_my_key_handler(
     }
 
     let request = RevokeApiKeyRequest {
-        reason: body.reason.unwrap_or_else(|| "Revoked by owner".to_string()),
+        reason: body
+            .reason
+            .unwrap_or_else(|| "Revoked by owner".to_string()),
         revoked_by: wallet_address,
     };
 
@@ -350,12 +384,10 @@ pub async fn revoke_my_key_handler(
 
 /// GET /api/developer-portal/available-plans
 /// List permission plans available for API key assignment
-pub async fn list_available_plans_handler(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn list_available_plans_handler(State(state): State<AppState>) -> impl IntoResponse {
+    use crate::schemas::primary::{permissions, plan_permissions, plans};
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::primary::{plans, plan_permissions, permissions};
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -425,7 +457,9 @@ pub async fn list_available_plans_handler(
     }
 
     info!("Returning {} available plans", result_plans.len());
-    UnifiedApiResponse::success(AvailablePlansResponse { plans: result_plans })
+    UnifiedApiResponse::success(AvailablePlansResponse {
+        plans: result_plans,
+    })
 }
 
 /// GET /api/developer-portal/my-plans
@@ -434,10 +468,10 @@ pub async fn get_my_plans_handler(
     State(state): State<AppState>,
     Extension(wallet_address): Extension<String>,
 ) -> impl IntoResponse {
+    use crate::schemas::payments::subscriptions;
+    use crate::schemas::primary::{api_keys, permissions, plan_permissions, plans};
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
-    use crate::schemas::primary::{plans, plan_permissions, permissions, api_keys};
-    use crate::schemas::payments::subscriptions;
 
     let pool = *state.db_pool;
     let mut conn = match pool.get().await {
@@ -465,7 +499,8 @@ pub async fn get_my_plans_handler(
     let wallet_lower = wallet_address.to_lowercase();
     let all_api_keys = match api_keys::table
         .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-            "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
+            "LOWER(wallet_address) = '{}'",
+            wallet_lower.replace('\'', "''")
         )))
         .select((
             api_keys::id,
@@ -487,7 +522,7 @@ pub async fn get_my_plans_handler(
 
     let total_api_keys = all_api_keys.len() as i64;
     let total_requests: i64 = all_api_keys.iter().map(|k| k.total_requests).sum();
-    
+
     // Use first active key for rate limits (if any)
     let user_api_keys: Vec<_> = all_api_keys;
 
@@ -522,7 +557,7 @@ pub async fn get_my_plans_handler(
     }
 
     let plan_ids: Vec<uuid::Uuid> = wallet_assignments.iter().map(|a| a.plan_id).collect();
-    
+
     let assigned_plans = if plan_ids.is_empty() {
         vec![]
     } else {
@@ -555,10 +590,10 @@ pub async fn get_my_plans_handler(
 
         // Find the wallet assignment for this plan to get expiry/assigned_at
         let wallet_assignment = wallet_assignments.iter().find(|a| a.plan_id == plan.id);
-        
+
         // Use first API key for rate limits if available (use get(0) to avoid Diesel trait conflict)
         let first_api_key = user_api_keys.as_slice().first();
-        
+
         result_plans.push(UserAssignedPlan {
             id: plan.id.to_string(),
             name: plan.name,
@@ -576,7 +611,11 @@ pub async fn get_my_plans_handler(
         });
     }
 
-    info!("Returning {} assigned plans for wallet {}", result_plans.len(), wallet_address);
+    info!(
+        "Returning {} assigned plans for wallet {}",
+        result_plans.len(),
+        wallet_address
+    );
     UnifiedApiResponse::success(MyPlansResponse {
         plans: result_plans,
         total_api_keys,
@@ -616,7 +655,8 @@ pub async fn get_usage_history_handler(
     let pool = *state.db_pool;
     let service = UsageService::new_core_only(pool);
 
-    let days = params.get("days")
+    let days = params
+        .get("days")
         .and_then(|d| d.parse::<i32>().ok())
         .unwrap_or(7); // Default to 7 days
 
@@ -639,7 +679,8 @@ pub async fn get_top_endpoints_handler(
     let pool = *state.db_pool;
     let service = UsageService::new_core_only(pool);
 
-    let days = params.get("days")
+    let days = params
+        .get("days")
         .and_then(|d| d.parse::<i32>().ok())
         .unwrap_or(7);
 
@@ -671,7 +712,8 @@ pub async fn developer_overview_handler(
     Extension(wallet_address): Extension<String>,
     Query(params): Query<std::collections::HashMap<String, String>>,
 ) -> impl IntoResponse {
-    let days = params.get("days")
+    let days = params
+        .get("days")
         .and_then(|d| d.parse::<i32>().ok())
         .unwrap_or(7);
 
@@ -688,18 +730,23 @@ pub async fn developer_overview_handler(
     );
 
     let api_keys = keys_res.ok().map(|(keys, total)| {
-        let masked: Vec<serde_json::Value> = keys.into_iter().map(|k| serde_json::json!({
-            "id": k.id.to_string(),
-            "key_preview": mask_key_prefix(&k.key_prefix),
-            "full_key": k.full_key,
-            "client_name": k.client_name,
-            "client_description": k.client_description,
-            "status": k.status.to_string(),
-            "total_requests": k.total_requests,
-            "expires_at": k.expires_at.map(|dt| dt.to_rfc3339()),
-            "last_used_at": k.last_used_at.map(|dt| dt.to_rfc3339()),
-            "created_at": k.created_at.to_rfc3339(),
-        })).collect();
+        let masked: Vec<serde_json::Value> = keys
+            .into_iter()
+            .map(|k| {
+                serde_json::json!({
+                    "id": k.id.to_string(),
+                    "key_preview": mask_key_prefix(&k.key_prefix),
+                    "full_key": k.full_key,
+                    "client_name": k.client_name,
+                    "client_description": k.client_description,
+                    "status": k.status.to_string(),
+                    "total_requests": k.total_requests,
+                    "expires_at": k.expires_at.map(|dt| dt.to_rfc3339()),
+                    "last_used_at": k.last_used_at.map(|dt| dt.to_rfc3339()),
+                    "created_at": k.created_at.to_rfc3339(),
+                })
+            })
+            .collect();
         serde_json::json!({ "api_keys": masked, "total": total })
     });
 
@@ -707,6 +754,8 @@ pub async fn developer_overview_handler(
         api_keys,
         stats: stats_res.ok().and_then(|s| serde_json::to_value(s).ok()),
         history: history_res.ok().and_then(|h| serde_json::to_value(h).ok()),
-        top_endpoints: endpoints_res.ok().and_then(|e| serde_json::to_value(e).ok()),
+        top_endpoints: endpoints_res
+            .ok()
+            .and_then(|e| serde_json::to_value(e).ok()),
     })
 }

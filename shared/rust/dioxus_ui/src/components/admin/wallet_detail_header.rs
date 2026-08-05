@@ -109,14 +109,12 @@ mod tests {
     fn test_wallet_detail_header_renders_title() {
         fn render() -> Element {
             rsx! {
-            WalletDetailHeader {
-                title: "Wallet Details".to_string(),
-                subtitle: "Manage wallet access and plans".to_string(),
-                on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                WalletDetailHeader {
+                    title: "Wallet Details".to_string(),
+                    subtitle: "Manage wallet access and plans".to_string(),
+                    on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -130,7 +128,10 @@ mod tests {
             html.contains("Manage wallet access and plans"),
             "Subtitle should render. Got: {html}"
         );
-        assert!(html.contains("👛"), "Wallet emoji should render. Got: {html}");
+        assert!(
+            html.contains("👛"),
+            "Wallet emoji should render. Got: {html}"
+        );
     }
 
     /// Back link renders.
@@ -138,14 +139,12 @@ mod tests {
     fn test_wallet_detail_header_renders_back_link() {
         fn render() -> Element {
             rsx! {
-            WalletDetailHeader {
-                title: "T".to_string(),
-                subtitle: "S".to_string(),
-                on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                WalletDetailHeader {
+                    title: "T".to_string(),
+                    subtitle: "S".to_string(),
+                    on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -166,14 +165,12 @@ mod tests {
     fn test_wallet_detail_header_renders_refresh_button() {
         fn render() -> Element {
             rsx! {
-            WalletDetailHeader {
-                title: "T".to_string(),
-                subtitle: "S".to_string(),
-                on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                WalletDetailHeader {
+                    title: "T".to_string(),
+                    subtitle: "S".to_string(),
+                    on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -190,15 +187,13 @@ mod tests {
     fn test_wallet_detail_header_refreshing_state() {
         fn render() -> Element {
             rsx! {
-            WalletDetailHeader {
-                title: "T".to_string(),
-                subtitle: "S".to_string(),
-                is_refreshing: Some(true),
-                on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                WalletDetailHeader {
+                    title: "T".to_string(),
+                    subtitle: "S".to_string(),
+                    is_refreshing: Some(true),
+                    on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -219,15 +214,13 @@ mod tests {
     fn test_wallet_detail_header_propagates_class_name() {
         fn render() -> Element {
             rsx! {
-            WalletDetailHeader {
-                title: "T".to_string(),
-                subtitle: "S".to_string(),
-                on_refresh: EventHandler::new(|_: MouseEvent| {}),
-                class_name: Some("mb-6".to_string()),
+                WalletDetailHeader {
+                    title: "T".to_string(),
+                    subtitle: "S".to_string(),
+                    on_refresh: EventHandler::new(|_: MouseEvent| {}),
+                    class_name: Some("mb-6".to_string()),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);

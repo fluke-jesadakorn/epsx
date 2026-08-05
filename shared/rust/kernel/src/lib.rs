@@ -260,7 +260,10 @@ pub struct PaginationParams {
 
 impl Default for PaginationParams {
     fn default() -> Self {
-        Self { page: 1, page_size: 20 }
+        Self {
+            page: 1,
+            page_size: 20,
+        }
     }
 }
 
@@ -286,12 +289,18 @@ mod tests {
     #[test]
     fn test_token_address() {
         let usdt = Token::USDT.address(ChainId(56)).unwrap();
-        assert_eq!(usdt.0.to_lowercase(), "0x55d398326f99059ff775485246999027b3197955");
+        assert_eq!(
+            usdt.0.to_lowercase(),
+            "0x55d398326f99059ff775485246999027b3197955"
+        );
     }
 
     #[test]
     fn test_token_for_chain() {
-        assert_eq!(Token::for_chain(56), vec![Token::BNB, Token::USDT, Token::USDC]);
+        assert_eq!(
+            Token::for_chain(56),
+            vec![Token::BNB, Token::USDT, Token::USDC]
+        );
         assert_eq!(Token::for_chain(1), Vec::<Token>::new());
     }
 

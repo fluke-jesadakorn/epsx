@@ -76,7 +76,10 @@ pub fn Content(
         Some("top") => cls.push_str(" dropdown-menu-content-side-top"),
         _ => cls.push_str(" dropdown-menu-content-side-bottom"),
     }
-    if let Some(c) = class { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
     rsx! {
         div { class: "{cls}", role: "menu", {children} }
     }

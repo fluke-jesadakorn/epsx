@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::queries::{
-    GetStockStatisticsQuery, GetStockStatisticsResponse
+    GetStockStatisticsQuery, GetStockStatisticsResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::market_analytics::StockAnalysisRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for getting overall stock analysis statistics
 pub struct GetStockStatisticsQueryHandler {
@@ -20,9 +20,13 @@ impl GetStockStatisticsQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetStockStatisticsQuery> for GetStockStatisticsQueryHandler {
-    async fn handle(&self, _query: GetStockStatisticsQuery) -> ApplicationResult<GetStockStatisticsResponse> {
+    async fn handle(
+        &self,
+        _query: GetStockStatisticsQuery,
+    ) -> ApplicationResult<GetStockStatisticsResponse> {
         // 1. Get statistics from repository
-        let statistics = self.stock_analysis_repository
+        let statistics = self
+            .stock_analysis_repository
             .get_statistics()
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;

@@ -37,11 +37,5 @@ mod tests {
     fn payment_module_re_exports_resolve() {
         // Smoke test: all 6 NEW payment components are exported
         // from `crate::payment::*`. Compile-time check.
-        
-        
-        
-        
-        
-        
     }
 }

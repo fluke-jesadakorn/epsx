@@ -11,7 +11,7 @@ images:
     newTag: staging
   - name: epsx-frontend
     newTag: staging
-  - name: epsx-admin-frontend
+  - name: epsx-admin
     newTag: staging
   # wave12(integration): the new epsx-analytics binary
   # uses a per-wave image tag rather than `staging` to
@@ -23,8 +23,14 @@ images:
     newTag: wave49-staging
   - name: epsx-pay-bff
     newTag: wave49-staging
+  - name: epsx-notification
+    newTag: staging
 
 patches:
+  - path: patches/namespace-label.yaml
+    target:
+      kind: Namespace
+      name: epsx-prod
   - path: patches/replicas.yaml
   - path: patches/resources.yaml
   - path: patches/services-nodeport.yaml

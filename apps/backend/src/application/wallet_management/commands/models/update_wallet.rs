@@ -1,7 +1,7 @@
-use serde::{Serialize, Deserialize};
-use std::collections::HashSet;
-use crate::application::shared::{Command, ApplicationResult};
+use crate::application::shared::{ApplicationResult, Command};
 use crate::domain::wallet_management::value_objects::Permission;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 /// Command to update wallet information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateWalletCommand {

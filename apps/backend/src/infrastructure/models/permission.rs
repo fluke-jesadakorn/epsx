@@ -5,7 +5,7 @@
 //! optimized table that supports direct, group-based, and route permissions.
 
 use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset, Identifiable};
+use diesel::{AsChangeset, Identifiable, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -333,7 +333,7 @@ impl PermissionDb {
     }
 }
 
-    /// Create a simplified permission definition
+/// Create a simplified permission definition
 impl NewPermissionDb {
     pub fn new(
         permission_string: String,
@@ -344,7 +344,9 @@ impl NewPermissionDb {
         // Parse permission string into components
         let parts: Vec<&str> = permission_string.split(':').collect();
         if parts.len() != 3 {
-            return Err("Permission string must be in format 'platform:resource:action'".to_string());
+            return Err(
+                "Permission string must be in format 'platform:resource:action'".to_string(),
+            );
         }
 
         let platform = parts[0].to_string();

@@ -68,10 +68,7 @@ pub fn ToastProvider(children: Element) -> Element {
 /// rendered. Use at the top of the layout (right before
 /// `</body>`).
 #[component]
-pub fn ToastViewport(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn ToastViewport(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "fixed top-0 z-[100] flex max-h-screen w-full flex-col-reverse p-4 sm:bottom-0 sm:right-0 sm:top-auto sm:flex-col md:max-w-[420px]".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -120,10 +117,7 @@ pub fn Toast(
 
 /// Action button inside a toast — e.g. "Undo" or "View".
 #[component]
-pub fn ToastAction(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn ToastAction(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "inline-flex h-8 shrink-0 items-center justify-center rounded-md border bg-transparent px-3 text-sm font-medium ring-offset-background transition-colors hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 group-[.destructive]:border-muted/40 group-[.destructive]:hover:border-destructive/30 group-[.destructive]:hover:bg-destructive group-[.destructive]:hover:text-destructive-foreground group-[.destructive]:focus:ring-destructive".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -140,9 +134,7 @@ pub fn ToastAction(
 
 /// Close button — renders an `X` icon in the top-right corner.
 #[component]
-pub fn ToastClose(
-    #[props(default = None)] class: Option<String>,
-) -> Element {
+pub fn ToastClose(#[props(default = None)] class: Option<String>) -> Element {
     let mut cls = "absolute right-2 top-2 rounded-md p-1 text-foreground/50 opacity-0 transition-opacity hover:text-foreground focus:opacity-100 focus:outline-none focus:ring-2 group-hover:opacity-100 group-[.destructive]:text-red-300 group-[.destructive]:hover:text-red-50 group-[.destructive]:focus:ring-red-400 group-[.destructive]:focus:ring-offset-red-600".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -161,10 +153,7 @@ pub fn ToastClose(
 
 /// Title — bold first line of a toast.
 #[component]
-pub fn ToastTitle(
-    #[props(default = None)] class: Option<String>,
-    children: Element,
-) -> Element {
+pub fn ToastTitle(#[props(default = None)] class: Option<String>, children: Element) -> Element {
     let mut cls = "text-sm font-semibold".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -241,7 +230,11 @@ mod tests {
         ];
         let classes: Vec<&str> = variants.iter().map(|v| v.as_class()).collect();
         let unique: std::collections::HashSet<&str> = classes.iter().copied().collect();
-        assert_eq!(unique.len(), variants.len(), "variants must have distinct class strings");
+        assert_eq!(
+            unique.len(),
+            variants.len(),
+            "variants must have distinct class strings"
+        );
     }
 
     #[test]

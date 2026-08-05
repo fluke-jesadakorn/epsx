@@ -2,7 +2,7 @@
 //!
 //! Each `*_body()` function returns a `String` of HTML for that page's
 //! `<main>` region. The BFF's `render_page()` in `main.rs` wires these
-//! into the design-system shell, navbar, and footer.
+//! into the design-system shell and navbar.
 
 use epsx_templates::components::{BadgeKind, Input, StatCard, Tabs};
 

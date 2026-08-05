@@ -3,8 +3,8 @@
 
 use crate::prelude::*;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
-use tracing::{info, error, debug};
+use diesel_async::RunQueryDsl;
+use tracing::{debug, error, info};
 use uuid::Uuid;
 
 /// Configuration for event store
@@ -103,11 +103,14 @@ impl EventStore for PostgresEventStore {
         }
 
         for event in events {
-            let event_json_str = event.to_json()
-                .map_err(|e| AppError::internal_error(format!("Failed to serialize event: {}", e)))?;
+            let event_json_str = event.to_json().map_err(|e| {
+                AppError::internal_error(format!("Failed to serialize event: {}", e))
+            })?;
 
-            let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
-                .map_err(|e| AppError::internal_error(format!("Failed to parse event JSON: {}", e)))?;
+            let event_json: serde_json::Value =
+                serde_json::from_str(&event_json_str).map_err(|e| {
+                    AppError::internal_error(format!("Failed to parse event JSON: {}", e))
+                })?;
 
             let metadata = serde_json::json!({
                 "occurred_at": event.occurred_at(),
@@ -131,7 +134,7 @@ impl EventStore for PostgresEventStore {
                     user_id
                 ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 ON CONFLICT (aggregate_id, aggregate_version) DO NOTHING
-                "#
+                "#,
             )
             .bind::<diesel::sql_types::Uuid, _>(event.event_id())
             .bind::<diesel::sql_types::Text, _>(event.aggregate_id())
@@ -168,7 +171,10 @@ impl EventStore for PostgresEventStore {
         aggregate_id: &str,
         from_version: u64,
     ) -> AppResult<Vec<serde_json::Value>> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         #[derive(QueryableByName)]
@@ -183,14 +189,17 @@ impl EventStore for PostgresEventStore {
             FROM event_store
             WHERE aggregate_id = $1 AND aggregate_version >= $2
             ORDER BY aggregate_version ASC
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(aggregate_id)
         .bind::<diesel::sql_types::BigInt, _>(from_version as i64)
         .load::<EventData>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to load events for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to load events for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Event load failed: {}", e))
         })?;
 
@@ -202,7 +211,10 @@ impl EventStore for PostgresEventStore {
         aggregate_id: &str,
         until_version: u64,
     ) -> AppResult<Vec<serde_json::Value>> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         #[derive(QueryableByName)]
@@ -217,15 +229,17 @@ impl EventStore for PostgresEventStore {
             FROM event_store
             WHERE aggregate_id = $1 AND aggregate_version <= $2
             ORDER BY aggregate_version ASC
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(aggregate_id)
         .bind::<diesel::sql_types::BigInt, _>(until_version as i64)
         .load::<EventData>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to load events for aggregate {} until version {}: {}",
-                aggregate_id, until_version, e);
+            error!(
+                "Failed to load events for aggregate {} until version {}: {}",
+                aggregate_id, until_version, e
+            );
             AppError::database_error(format!("Event load failed: {}", e))
         })?;
 
@@ -233,7 +247,10 @@ impl EventStore for PostgresEventStore {
     }
 
     async fn get_aggregate_version(&self, aggregate_id: &str) -> AppResult<Option<u64>> {
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         #[derive(QueryableByName)]
@@ -247,13 +264,16 @@ impl EventStore for PostgresEventStore {
             SELECT MAX(aggregate_version) as max_version
             FROM event_store
             WHERE aggregate_id = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(aggregate_id)
         .get_result::<MaxVersion>(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to get aggregate version for {}: {}", aggregate_id, e);
+            error!(
+                "Failed to get aggregate version for {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Version query failed: {}", e))
         })?;
 
@@ -271,7 +291,10 @@ impl EventStore for PostgresEventStore {
             return Ok(());
         }
 
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         // Get event count at this version
@@ -291,7 +314,7 @@ impl EventStore for PostgresEventStore {
                 snapshot_data = $4,
                 event_count_at_snapshot = $5,
                 created_at = NOW()
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(aggregate_id)
         .bind::<diesel::sql_types::Text, _>(aggregate_type)
@@ -301,11 +324,17 @@ impl EventStore for PostgresEventStore {
         .execute(&mut conn)
         .await
         .map_err(|e| {
-            error!("Failed to save snapshot for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to save snapshot for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Snapshot save failed: {}", e))
         })?;
 
-        info!("Snapshot saved for aggregate {} at version {}", aggregate_id, version);
+        info!(
+            "Snapshot saved for aggregate {} at version {}",
+            aggregate_id, version
+        );
         Ok(())
     }
 
@@ -317,7 +346,10 @@ impl EventStore for PostgresEventStore {
             return Ok(None);
         }
 
-        let mut conn = self.pool.get().await
+        let mut conn = self
+            .pool
+            .get()
+            .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
         #[derive(QueryableByName)]
@@ -333,14 +365,17 @@ impl EventStore for PostgresEventStore {
             SELECT aggregate_version, snapshot_data
             FROM aggregate_snapshots
             WHERE aggregate_id = $1
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(aggregate_id)
         .get_result::<SnapshotData>(&mut conn)
         .await
         .optional()
         .map_err(|e| {
-            error!("Failed to load snapshot for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to load snapshot for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Snapshot load failed: {}", e))
         })?;
 

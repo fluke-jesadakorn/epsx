@@ -2,25 +2,27 @@
 // Implements PlanRepositoryPort using Diesel and PostgreSQL
 // Maps 'Plan' aggregate to 'plans' table (where plan_type = 'subscription')
 
+use crate::domain::subscription_management::Price;
 use crate::prelude::*;
 use async_trait::async_trait;
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
-use crate::domain::subscription_management::Price;
-use tracing::error;
-use std::str::FromStr;
+use diesel_async::RunQueryDsl;
 use rust_decimal::Decimal;
+use std::str::FromStr;
+use tracing::error;
 
 use std::collections::HashMap;
 
 use crate::domain::subscription_management::{
     aggregates::Plan,
-    value_objects::PlanId,
     repository_ports::{PlanRepositoryPort, PlanSearchCriteria},
+    value_objects::PlanId,
 };
+use crate::infrastructure::adapters::repositories::database_types::{
+    PermissionRow, PlanPermissionRow,
+};
+use crate::infrastructure::models::plan::{NewPlanDb, PlanDb};
 use crate::schemas::primary::plans;
-use crate::infrastructure::models::plan::{PlanDb, NewPlanDb};
-use crate::infrastructure::adapters::repositories::database_types::{PermissionRow, PlanPermissionRow};
 
 #[derive(Clone)]
 pub struct PostgresPlanRepositoryAdapter {
@@ -60,7 +62,9 @@ impl PostgresPlanRepositoryAdapter {
 
         let mut map: HashMap<uuid::Uuid, Vec<String>> = HashMap::new();
         for row in rows {
-            map.entry(row.plan_id).or_default().push(row.permission_string);
+            map.entry(row.plan_id)
+                .or_default()
+                .push(row.permission_string);
         }
         Ok(map)
     }
@@ -92,14 +96,18 @@ impl PostgresPlanRepositoryAdapter {
 
     /// Map DB row to Plan aggregate with pre-fetched permissions
     fn map_row_to_plan(row: PlanDb, permissions: Vec<String>) -> AppResult<Plan> {
-        use crate::domain::subscription_management::aggregates::plan::LoadPlanParams;
         use crate::domain::permission_management::PlanId;
+        use crate::domain::subscription_management::aggregates::plan::LoadPlanParams;
         use crate::domain::subscription_management::value_objects::BillingCycle;
 
         let id_val = PlanId::from_uuid(row.id);
         let plan_id = PlanId::from_uuid(row.id);
 
-        let billing_cycle = match row.billing_cycle.unwrap_or_else(|| "monthly".to_string()).as_str() {
+        let billing_cycle = match row
+            .billing_cycle
+            .unwrap_or_else(|| "monthly".to_string())
+            .as_str()
+        {
             "monthly" => BillingCycle::Monthly,
             "yearly" => BillingCycle::Yearly,
             "one_time" | "lifetime" => BillingCycle::Lifetime,
@@ -107,8 +115,10 @@ impl PostgresPlanRepositoryAdapter {
         };
 
         let price_val = Price::new(
-            row.price.and_then(|p| Decimal::from_str(&p.to_string()).ok()).unwrap_or(Decimal::ZERO),
-            row.currency.unwrap_or("USD".to_string())
+            row.price
+                .and_then(|p| Decimal::from_str(&p.to_string()).ok())
+                .unwrap_or(Decimal::ZERO),
+            row.currency.unwrap_or("USD".to_string()),
         )?;
 
         Ok(Plan::reconstruct(LoadPlanParams {
@@ -175,18 +185,12 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         }
 
         if let Some(search_term) = &criteria.search_term {
-             let pattern = format!("%{}%", search_term);
-             let p = pattern.clone();
-             query = query.filter(
-                 plans::name.ilike(pattern)
-                     .or(plans::description.ilike(p))
-             );
+            let pattern = format!("%{}%", search_term);
+            let p = pattern.clone();
+            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
         }
 
-        query = query.order((
-            plans::tier_level.asc(),
-            plans::price.asc(),
-        ));
+        query = query.order((plans::tier_level.asc(), plans::price.asc()));
 
         if let Some(limit_val) = criteria.limit {
             query = query.limit(limit_val);
@@ -201,8 +205,8 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             .load::<PlanDb>(&mut conn)
             .await
             .map_err(|e| {
-                 error!("Failed to find plans: {}", e);
-                 AppError::database_error(e.to_string())
+                error!("Failed to find plans: {}", e);
+                AppError::database_error(e.to_string())
             })?;
 
         // Batch-fetch all permissions in a single query (avoids N+1)
@@ -221,41 +225,44 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     async fn save(&self, plan: &Plan) -> AppResult<()> {
         let mut conn = self.db_pool.conn().await?;
 
-        let price_bd = Some(bigdecimal::BigDecimal::from_str(&plan.price().amount().to_string()).unwrap_or_default());
+        let price_bd = Some(
+            bigdecimal::BigDecimal::from_str(&plan.price().amount().to_string())
+                .unwrap_or_default(),
+        );
         let currency_str = Some(plan.price().currency().to_string());
         let billing_cycle_str = Some(plan.billing_cycle().to_string());
-        
+
         let new_plan = NewPlanDb {
-             id: *plan.id().value(),
-             name: plan.name().to_string(),
-             slug: plan.name().to_lowercase().replace(" ", "-"),
-             description: plan.description().to_string(),
-             plan_type: "subscription".to_string(),
-             plan_metadata: serde_json::json!({
-                 "permissions": plan.permissions
-             }),
-             price: price_bd,
-             currency: currency_str,
-             billing_cycle: billing_cycle_str,
-             is_active: plan.is_active(),
-             is_promoted: plan.is_promoted(),
-             tier_level: plan.tier_level(),
-             max_members: None,
-             auto_assign_enabled: Some(false),
-             assignment_rules: None,
-             created_at: plan.created_at(),
-             updated_at: plan.updated_at(),
-             created_by: None,
-             last_modified_by: None,
-             grace_period_hours: 0,
-             rate_limit_per_minute: 0,
-             rate_limit_per_hour: 0,
-             rate_limit_per_day: 0,
-             burst_capacity: 0,
-             is_public: true, // Default to public for subscription plans
-             plan_category: "base".to_string(),
-             plan_group: "personal".to_string(),
-             is_system: false,
+            id: *plan.id().value(),
+            name: plan.name().to_string(),
+            slug: plan.name().to_lowercase().replace(" ", "-"),
+            description: plan.description().to_string(),
+            plan_type: "subscription".to_string(),
+            plan_metadata: serde_json::json!({
+                "permissions": plan.permissions
+            }),
+            price: price_bd,
+            currency: currency_str,
+            billing_cycle: billing_cycle_str,
+            is_active: plan.is_active(),
+            is_promoted: plan.is_promoted(),
+            tier_level: plan.tier_level(),
+            max_members: None,
+            auto_assign_enabled: Some(false),
+            assignment_rules: None,
+            created_at: plan.created_at(),
+            updated_at: plan.updated_at(),
+            created_by: None,
+            last_modified_by: None,
+            grace_period_hours: 0,
+            rate_limit_per_minute: 0,
+            rate_limit_per_hour: 0,
+            rate_limit_per_day: 0,
+            burst_capacity: 0,
+            is_public: true, // Default to public for subscription plans
+            plan_category: "base".to_string(),
+            plan_group: "personal".to_string(),
+            is_system: false,
         };
 
         // 1. Upsert Plan
@@ -283,31 +290,31 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             })?;
 
         // 2. Handle Permissions
-         use crate::schemas::primary::plan_permissions;
-         
-         diesel::delete(plan_permissions::table)
+        use crate::schemas::primary::plan_permissions;
+
+        diesel::delete(plan_permissions::table)
             .filter(plan_permissions::plan_id.eq(plan.id().value()))
             .execute(&mut conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
-         for perm_str in &plan.permissions {
-             let parts: Vec<&str> = perm_str.split(':').collect();
-             if parts.len() >= 3 {
+        for perm_str in &plan.permissions {
+            let parts: Vec<&str> = perm_str.split(':').collect();
+            if parts.len() >= 3 {
                 use diesel::QueryableByName;
-                 #[derive(QueryableByName)]
-                 struct IdResult {
-                     #[diesel(sql_type = diesel::sql_types::Uuid)]
-                     id: uuid::Uuid,
-                 }
-                 let query = r#"
+                #[derive(QueryableByName)]
+                struct IdResult {
+                    #[diesel(sql_type = diesel::sql_types::Uuid)]
+                    id: uuid::Uuid,
+                }
+                let query = r#"
                     INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
                     VALUES ($1, $2, $3, $4, 'manual')
                     ON CONFLICT (permission_string) DO UPDATE
                     SET platform = EXCLUDED.platform
                     RETURNING id
                 "#;
-                 let perm_id = diesel::sql_query(query)
+                let perm_id = diesel::sql_query(query)
                     .bind::<diesel::sql_types::Text, _>(perm_str)
                     .bind::<diesel::sql_types::Text, _>(parts[0])
                     .bind::<diesel::sql_types::Text, _>(parts[1])
@@ -317,19 +324,19 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                     .map(|result| result.id)
                     .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                 diesel::sql_query(
+                diesel::sql_query(
                     r#"
                     INSERT INTO plan_permissions (plan_id, permission_id)
                     VALUES ($1, $2)
-                    "#
+                    "#,
                 )
                 .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
                 .bind::<diesel::sql_types::Uuid, _>(perm_id)
                 .execute(&mut conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
-             }
-         }
+            }
+        }
         Ok(())
     }
 
@@ -358,15 +365,12 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         if let Some(is_active) = criteria.is_active {
             query = query.filter(plans::is_active.eq(is_active));
         }
-        
-         // ... same filters ...
-         if let Some(search_term) = &criteria.search_term {
-             let pattern = format!("%{}%", search_term);
-             let p = pattern.clone();
-             query = query.filter(
-                 plans::name.ilike(pattern)
-                     .or(plans::description.ilike(p))
-             );
+
+        // ... same filters ...
+        if let Some(search_term) = &criteria.search_term {
+            let pattern = format!("%{}%", search_term);
+            let p = pattern.clone();
+            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
         }
 
         let count = query
@@ -384,13 +388,15 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         self.find_all(PlanSearchCriteria {
             is_active: Some(true),
             ..Default::default()
-        }).await
+        })
+        .await
     }
 
     async fn find_promoted(&self) -> AppResult<Vec<Plan>> {
-         self.find_all(PlanSearchCriteria {
+        self.find_all(PlanSearchCriteria {
             is_promoted: Some(true),
             ..Default::default()
-        }).await
+        })
+        .await
     }
 }

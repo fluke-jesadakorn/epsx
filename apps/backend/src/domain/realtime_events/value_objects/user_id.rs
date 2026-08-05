@@ -15,29 +15,29 @@ impl UserId {
         if id.is_empty() {
             return Err(UserIdError::Empty);
         }
-        
+
         if id.len() > 100 {
             return Err(UserIdError::TooLong);
         }
-        
+
         // Validate format - can be numeric ID or Firebase UID
         if !Self::is_valid_format(&id) {
             return Err(UserIdError::InvalidFormat);
         }
-        
+
         Ok(Self(id))
     }
-    
+
     /// Create from numeric user ID
     pub fn from_numeric(id: i32) -> Self {
         Self(id.to_string())
     }
-    
+
     /// Create from Firebase UID
     pub fn from_firebase_uid(uid: String) -> Result<Self, UserIdError> {
         Self::new(uid)
     }
-    
+
     /// Get the user ID as string
     pub fn as_str(&self) -> &str {
         &self.0
@@ -47,24 +47,28 @@ impl UserId {
     pub fn is_numeric(&self) -> bool {
         self.0.parse::<i32>().is_ok()
     }
-    
+
     /// Check if this is a Firebase UID format
     pub fn is_firebase_uid(&self) -> bool {
         self.0.len() >= 20 && !self.is_numeric()
     }
-    
+
     /// Validate user ID format
     fn is_valid_format(id: &str) -> bool {
         // Allow numeric IDs (legacy)
         if id.parse::<i32>().is_ok() {
             return true;
         }
-        
+
         // Allow Firebase UID format (alphanumeric with some special chars)
-        if id.len() >= 10 && id.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '-') {
+        if id.len() >= 10
+            && id
+                .chars()
+                .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        {
             return true;
         }
-        
+
         false
     }
 }
@@ -86,10 +90,10 @@ impl From<crate::domain::wallet_management::value_objects::UserId> for UserId {
 pub enum UserIdError {
     #[error("User ID cannot be empty")]
     Empty,
-    
+
     #[error("User ID is too long (max 100 characters)")]
     TooLong,
-    
+
     #[error("Invalid user ID format")]
     InvalidFormat,
 }
@@ -97,7 +101,7 @@ pub enum UserIdError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_numericuser_id() {
         let wallet_address = UserId::from_numeric(123);
@@ -105,7 +109,7 @@ mod tests {
         assert!(wallet_address.is_numeric());
         assert!(!wallet_address.is_firebase_uid());
     }
-    
+
     #[test]
     fn test_firebase_uid() {
         let uid = "abcd1234efgh5678ijkl9012mnop3456qrst7890";
@@ -114,12 +118,12 @@ mod tests {
         assert!(!wallet_address.is_numeric());
         assert!(wallet_address.is_firebase_uid());
     }
-    
+
     #[test]
     fn test_invaliduser_id() {
         let result = UserId::new("".to_string());
         assert!(matches!(result, Err(UserIdError::Empty)));
-        
+
         let long_id = "a".repeat(101);
         let result = UserId::new(long_id);
         assert!(matches!(result, Err(UserIdError::TooLong)));

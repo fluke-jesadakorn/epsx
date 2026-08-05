@@ -12,6 +12,7 @@
 
 use axum::{
     extract::{Request, State},
+    http::{header, HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
 };
 use epsx_bff::session::AccessVerification;
@@ -39,8 +40,13 @@ use epsx_dioxus_ui::pages::admin_pages::news::{
 };
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
     ADMIN_NOTIFICATIONS_DATA_PARAM, ADMIN_NOTIFICATIONS_EMPTY, ADMIN_NOTIFICATIONS_FORBIDDEN,
-    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY,
-    ADMIN_NOTIFICATIONS_STATE_PARAM, ADMIN_NOTIFICATIONS_UNAVAILABLE,
+    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN,
+    ADMIN_NOTIFICATIONS_METRICS_MALFORMED, ADMIN_NOTIFICATIONS_METRICS_PARAM,
+    ADMIN_NOTIFICATIONS_METRICS_READY, ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM,
+    ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE, ADMIN_NOTIFICATIONS_PAGE_PARAM,
+    ADMIN_NOTIFICATIONS_READY, ADMIN_NOTIFICATIONS_SEND_ACCEPTED, ADMIN_NOTIFICATIONS_SEND_ERROR,
+    ADMIN_NOTIFICATIONS_SEND_STATE_PARAM, ADMIN_NOTIFICATIONS_STATE_PARAM,
+    ADMIN_NOTIFICATIONS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
     decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
@@ -63,7 +69,8 @@ use super::dashboard_user_status_adapter::{
 use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
 use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
 use super::notification_admin_adapter::{
-    load_admin_notifications, AdminNotificationLoad, AdminNotificationQuery,
+    load_admin_notification_metrics, load_admin_notifications, AdminNotificationLoad,
+    AdminNotificationMetricsLoad, AdminNotificationQuery,
 };
 use super::wallet_stats_adapter::{
     load_admin_wallet_stats, AdminWalletStatsLoad, AdminWalletStatsQuery,
@@ -240,6 +247,30 @@ fn record_admin_notification_load(
     );
 }
 
+fn record_admin_notification_metrics_load(
+    params: &mut HashMap<String, String>,
+    load: AdminNotificationMetricsLoad,
+) {
+    params.remove(ADMIN_NOTIFICATIONS_METRICS_PARAM);
+    let state = match load {
+        AdminNotificationMetricsLoad::Ready(metrics) => {
+            params.insert(
+                ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+                serde_json::to_string(&metrics)
+                    .expect("the typed notification metrics projection is serializable"),
+            );
+            ADMIN_NOTIFICATIONS_METRICS_READY
+        }
+        AdminNotificationMetricsLoad::Forbidden => ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN,
+        AdminNotificationMetricsLoad::Unavailable => ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE,
+        AdminNotificationMetricsLoad::Malformed => ADMIN_NOTIFICATIONS_METRICS_MALFORMED,
+    };
+    params.insert(
+        ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
 fn record_admin_audit_load(
     params: &mut HashMap<String, String>,
     query: &AdminAuditQuery,
@@ -294,6 +325,60 @@ fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> R
         .into_response()
 }
 
+/// Consume the short-lived POST/redirect/GET notification feedback only when
+/// the query state is paired with the HttpOnly cookie issued by the form
+/// handler. Query input alone can never manufacture a success banner.
+fn consume_notification_send_flash(
+    headers: &HeaderMap,
+    query: &str,
+) -> (Option<&'static str>, bool) {
+    let cookie_prefix = format!("{}=", super::ADMIN_NOTIFICATION_FLASH_COOKIE);
+    let cookie_state = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| {
+            value.split(';').find_map(|part| {
+                let part = part.trim();
+                part.strip_prefix(&cookie_prefix)
+                    .filter(|state| matches!(*state, "accepted" | "error"))
+            })
+        });
+    let cookie_present = headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|value| {
+            value
+                .split(';')
+                .any(|part| part.trim().strip_prefix(&cookie_prefix).is_some())
+        });
+
+    let mut query_state = None;
+    let mut valid_query = true;
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key == "send" {
+            if query_state.is_some() || !matches!(value.as_ref(), "accepted" | "error") {
+                valid_query = false;
+            } else {
+                query_state = Some(if value == "accepted" {
+                    ADMIN_NOTIFICATIONS_SEND_ACCEPTED
+                } else {
+                    ADMIN_NOTIFICATIONS_SEND_ERROR
+                });
+            }
+        }
+    }
+
+    let state = valid_query.then_some((query_state, cookie_state)).and_then(
+        |(query_state, cookie_state)| match (query_state, cookie_state) {
+            (Some(query_state), Some(cookie_state)) if query_state == cookie_state => {
+                Some(query_state)
+            }
+            _ => None,
+        },
+    );
+    (state, cookie_present)
+}
+
 fn record_payment_intent_load(
     params: &mut HashMap<String, String>,
     result: Result<serde_json::Value, ()>,
@@ -346,12 +431,33 @@ fn is_dashboard_user_status_route(route_path: &str) -> bool {
     matches!(route_path, "/" | "/index")
 }
 
+/// The responsive capture harness uses `?__design_bypass=1` for authenticated
+/// admin states. Honor it only for local-cookie requests and only as a
+/// UI-only fixture; it never creates a bearer token or changes backend policy.
+fn design_bypass_requested(
+    query: &str,
+    environment: epsx_bff::cookies::CookieEnvironment,
+) -> bool {
+    if environment != epsx_bff::cookies::CookieEnvironment::Local {
+        return false;
+    }
+
+    url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| {
+        key == "__design_bypass"
+            && matches!(
+                value.trim().to_ascii_lowercase().as_str(),
+                "1" | "true" | "yes" | "on"
+            )
+    })
+}
+
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
     let raw_query = parts.uri.query().map(str::to_string);
     let query = raw_query.clone().unwrap_or_default();
     let headers = parts.headers.clone();
+    let design_bypass = design_bypass_requested(&query, state.cookie_environment);
 
     // Resolve only a cryptographically verified canonical cookie/bearer user.
     // Permissions are backend-issued and remain verbatim; the admin UI does no
@@ -359,6 +465,11 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let access_verification =
         auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment)
             .await;
+    // Local visual-test fixture only: it supplies authenticated admin shell
+    // state without a bearer token, so no synthetic identity reaches an
+    // upstream data service.
+    let dev_bypass_user = auth::dev_bypass_ui_user(Some(56));
+    let design_bypass_user = auth::design_bypass_ui_user(design_bypass, Some(56));
     let recover_session = access_verification.permits_refresh_recovery()
         && auth::refresh_token(&headers, state.cookie_environment).is_some();
     let (verified_access_token, user) = match access_verification {
@@ -366,7 +477,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             (Some(token), Some(auth::ui_user(user, None)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
-            (None, None)
+            (None, design_bypass_user.or(dev_bypass_user))
         }
     };
 
@@ -375,6 +486,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // represented as an authoritative empty list.
     let mut params = HashMap::new();
     let route_path = strip_single_admin_prefix(&path).unwrap_or(path.as_str());
+    let mut notification_send_flash_clear = false;
+    if route_path == "/notifications/manage" {
+        let (state, clear_cookie) = consume_notification_send_flash(&headers, &query);
+        notification_send_flash_clear = clear_cookie;
+        if let Some(state) = state {
+            params.insert(
+                ADMIN_NOTIFICATIONS_SEND_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
+        }
+    }
     // The root dashboard has one narrow backend-owned status snapshot. The
     // loader runs only after this BFF has verified the exact admin audience;
     // signed-out requests and repeated admin prefixes cannot contact it.
@@ -558,6 +680,19 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 );
             }
         }
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load =
+                    load_admin_notification_metrics(&state.notification, &request_context).await;
+                record_admin_notification_metrics_load(&mut params, load);
+            }
+            None => record_admin_notification_metrics_load(
+                &mut params,
+                AdminNotificationMetricsLoad::Unavailable,
+            ),
+        }
     }
     // Audit records are loaded only from the extracted analytics service's
     // exact redacted admin feed. The legacy monolith route exposes sensitive
@@ -738,7 +873,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         ),
     );
 
-    private_admin_html_response(status, doc)
+    let mut response = private_admin_html_response(status, doc);
+    if notification_send_flash_clear {
+        response.headers_mut().append(
+            header::SET_COOKIE,
+            HeaderValue::from_static(
+                "epsx.admin.notification_send=; Path=/notifications; Max-Age=0; HttpOnly; SameSite=Lax",
+            ),
+        );
+    }
+    response
 }
 
 /// Keep security-sensitive dynamic chat, news, wallet, and plan references out
@@ -854,7 +998,9 @@ mod tests {
         pages::admin_pages::audit_log::{AdminAuditList, AdminAuditSummary},
         pages::admin_pages::media::{AdminMediaList, AdminMediaObject},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
-        pages::admin_pages::notifications::{AdminNotificationList, AdminNotificationSummary},
+        pages::admin_pages::notifications::{
+            AdminNotificationList, AdminNotificationMetrics, AdminNotificationSummary,
+        },
         pages::admin_pages::wallet_wallets::AdminWalletStatsSummary,
         pages::PageContext,
     };
@@ -873,6 +1019,28 @@ mod tests {
             // test helper just plugs in a default.
             wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
         }
+    }
+
+    #[test]
+    fn design_bypass_query_is_local_only_and_truthy() {
+        use epsx_bff::cookies::CookieEnvironment;
+
+        assert!(design_bypass_requested(
+            "__design_bypass=1",
+            CookieEnvironment::Local
+        ));
+        assert!(design_bypass_requested(
+            "theme=dark&__design_bypass=true",
+            CookieEnvironment::Local
+        ));
+        assert!(!design_bypass_requested(
+            "__design_bypass=0",
+            CookieEnvironment::Local
+        ));
+        assert!(!design_bypass_requested(
+            "__design_bypass=1",
+            CookieEnvironment::Production
+        ));
     }
 
     fn payment_payload(items: Vec<serde_json::Value>, total: i64) -> serde_json::Value {
@@ -953,6 +1121,30 @@ mod tests {
             total,
             limit: 20,
             offset: 20,
+        }
+    }
+
+    fn admin_notification_metrics() -> AdminNotificationMetrics {
+        AdminNotificationMetrics {
+            queue_depth: 2,
+            queue_age_seconds: Some(1),
+            suppressed: 0,
+            retry_wait: 0,
+            terminal_failed: 0,
+            dead_lettered: 0,
+            provider_accepted: 1,
+            attempting: 0,
+            channel_outcomes: std::collections::BTreeMap::from([(String::from("in_app"), 2)]),
+            provider_events: 1,
+            delivery_attempts: 1,
+            replay_cursors: 1,
+            replay_cursor_age_seconds: Some(1),
+            active_streams: 1,
+            stream_connections_total: 1,
+            stream_reconnects_total: 0,
+            stream_replayed_events_total: 0,
+            stream_lag_seconds: Some(1),
+            stream_query_failures_total: 0,
         }
     }
 
@@ -1039,6 +1231,41 @@ mod tests {
             .render(body, None, None, None)
         };
         dioxus_ssr::render_element(body)
+    }
+
+    #[test]
+    fn notification_send_flash_requires_matching_cookie_and_query() {
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("epsx.admin.notification_send=accepted"),
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted&page=1"),
+            (Some(ADMIN_NOTIFICATIONS_SEND_ACCEPTED), true)
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=error"),
+            (None, true)
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted&send=accepted"),
+            (None, true)
+        );
+
+        headers.insert(
+            header::COOKIE,
+            HeaderValue::from_static("epsx.admin.notification_send=unexpected"),
+        );
+        assert_eq!(
+            consume_notification_send_flash(&headers, "send=accepted"),
+            (None, true)
+        );
+        let empty = HeaderMap::new();
+        assert_eq!(
+            consume_notification_send_flash(&empty, "send=accepted"),
+            (None, false)
+        );
     }
 
     #[test]
@@ -1699,6 +1926,44 @@ mod tests {
         ] {
             assert!(stored["items"][0].get(forbidden).is_none(), "{forbidden}");
         }
+    }
+
+    #[test]
+    fn admin_notification_metrics_load_records_bounded_observations_or_explicit_failure() {
+        let mut ready = HashMap::from([(
+            ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+            "stale-metrics".to_string(),
+        )]);
+        record_admin_notification_metrics_load(
+            &mut ready,
+            AdminNotificationMetricsLoad::Ready(admin_notification_metrics()),
+        );
+        assert_eq!(
+            ready
+                .get(ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_METRICS_READY)
+        );
+        let stored: serde_json::Value =
+            serde_json::from_str(ready.get(ADMIN_NOTIFICATIONS_METRICS_PARAM).unwrap()).unwrap();
+        assert_eq!(stored["queue_depth"], 2);
+        assert_eq!(stored["channel_outcomes"]["in_app"], 2);
+
+        let mut failed = HashMap::from([(
+            ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+            "stale-metrics".to_string(),
+        )]);
+        record_admin_notification_metrics_load(
+            &mut failed,
+            AdminNotificationMetricsLoad::Malformed,
+        );
+        assert_eq!(
+            failed
+                .get(ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ADMIN_NOTIFICATIONS_METRICS_MALFORMED)
+        );
+        assert!(!failed.contains_key(ADMIN_NOTIFICATIONS_METRICS_PARAM));
     }
 
     #[test]

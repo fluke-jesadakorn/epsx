@@ -1,13 +1,13 @@
 use axum::{
     extract::{Path, Query, State},
     http::{header, StatusCode},
-    response::{IntoResponse, Response, Redirect},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
 use serde::Deserialize;
 use tracing::error;
 
-use crate::infrastructure::models::news::{NewsArticleDb, NewsListResponse, NewsListQuery};
+use crate::infrastructure::models::news::{NewsArticleDb, NewsListQuery, NewsListResponse};
 use crate::infrastructure::repositories::NewsRepository;
 use crate::infrastructure::storage::Bucket;
 use crate::web::{auth::AppState, responses::UnifiedApiResponse};
@@ -25,9 +25,12 @@ pub async fn list_public_news(
     let limit = query.limit.unwrap_or(10).clamp(1, 100);
 
     match NewsRepository::list_published(&app_state.db_pool, page, limit).await {
-        Ok((articles, total)) => {
-            Ok(Json(UnifiedApiResponse::success(NewsListResponse { articles, total, page, limit })))
-        }
+        Ok((articles, total)) => Ok(Json(UnifiedApiResponse::success(NewsListResponse {
+            articles,
+            total,
+            page,
+            limit,
+        }))),
         Err(e) => {
             error!("Failed to list public news: {}", e);
             Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))
@@ -38,10 +41,17 @@ pub async fn list_public_news(
 pub async fn get_public_news(
     State(app_state): State<AppState>,
     Path(slug): Path<String>,
-) -> Result<Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>, Json<UnifiedApiResponse<()>>> {
+) -> Result<
+    Json<UnifiedApiResponse<crate::infrastructure::models::news::NewsArticleDb>>,
+    Json<UnifiedApiResponse<()>>,
+> {
     match NewsRepository::get_by_slug(&app_state.db_pool, &slug).await {
         Ok(Some(article)) => Ok(Json(UnifiedApiResponse::success(article))),
-        Ok(None) => Err(Json(UnifiedApiResponse::error(404, "Not found", "Article not found"))),
+        Ok(None) => Err(Json(UnifiedApiResponse::error(
+            404,
+            "Not found",
+            "Article not found",
+        ))),
         Err(e) => {
             error!("Failed to get public news article: {}", e);
             Err(Json(UnifiedApiResponse::error(500, "Database error", &e)))

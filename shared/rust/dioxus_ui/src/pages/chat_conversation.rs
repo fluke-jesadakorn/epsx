@@ -17,7 +17,7 @@ use super::{PageContext, PageMeta};
 const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Support conversation unavailable");
+    let meta = PageMeta::app("Support conversation");
     let route_reference =
         bounded_route_reference(ctx.param("id").map(String::as_str).unwrap_or(""));
 

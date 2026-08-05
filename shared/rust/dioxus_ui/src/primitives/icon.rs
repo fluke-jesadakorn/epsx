@@ -8,7 +8,19 @@ pub fn Icon(name: String, size: Option<u32>, class_name: Option<String>) -> Elem
     let cls = class_name.unwrap_or_default();
     let sz_str = s.to_string();
     let svg = epsx_templates::lucide(&name, &sz_str, &cls);
-    rsx! { span { class: "epsx-icon", dangerous_inner_html: "{svg}" } }
+    // `.epsx-icon` is also used by the legacy EPSX brand mark and has a
+    // 2rem default box in the shared template stylesheet. Lucide callers,
+    // however, pass an explicit pixel size and should not inherit that
+    // brand-mark box (it makes 14px icons render as 32px layout items).
+    // Keep the shared class for existing styling, but make the requested
+    // size authoritative on the component wrapper itself.
+    rsx! {
+        span {
+            class: "epsx-icon",
+            style: "width: {s}px; height: {s}px;",
+            dangerous_inner_html: "{svg}"
+        }
+    }
 }
 
 /// Square icon-only button. Wraps a single lucide icon in a button
@@ -39,7 +51,10 @@ pub fn IconButton(
     let kind = kind.unwrap_or(ButtonKind::Ghost);
     let ic_size = icon_size.unwrap_or(16);
     let aria = aria_label.clone().unwrap_or_else(|| name.clone());
-    let title_attr = title.clone().or_else(|| aria_label.clone()).unwrap_or_default();
+    let title_attr = title
+        .clone()
+        .or_else(|| aria_label.clone())
+        .unwrap_or_default();
 
     let mut cls = "btn btn-icon".to_string();
     cls.push(' ');
@@ -59,9 +74,16 @@ pub fn IconButton(
     });
     // size-class for Icon (sized by .btn-icon; do nothing here)
     let _ = ButtonSize::Icon;
-    if loading.unwrap_or(false) { cls.push_str(" btn-loading"); }
-    if disabled.unwrap_or(false) { cls.push_str(" disabled"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if loading.unwrap_or(false) {
+        cls.push_str(" btn-loading");
+    }
+    if disabled.unwrap_or(false) {
+        cls.push_str(" disabled");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     if let Some(url) = href {
         rsx! {

@@ -3,17 +3,16 @@ use crate::prelude::*;
 use rust_decimal::Decimal;
 use uuid::Uuid;
 
-use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 use crate::domain::payment::value_objects::{
-    PaymentId, PaymentAmount, PaymentMethod, CryptoAddress, TransactionHash,
-    PaymentReference
+    CryptoAddress, PaymentAmount, PaymentId, PaymentMethod, PaymentReference, TransactionHash,
 };
+use crate::domain::shared_kernel::aggregate_root::AggregateBase;
 use crate::domain::wallet_management::value_objects::WalletAddress;
 
 // Import types from separate modules
-use super::payment_status::PaymentStatus;
-use super::payment_metadata::PaymentMetadata;
 use super::payment_details::{CryptoPaymentDetails, FiatPaymentDetails};
+use super::payment_metadata::PaymentMetadata;
+use super::payment_status::PaymentStatus;
 
 /// Payment Aggregate Root
 /// Manages the complete payment lifecycle from creation to completion
@@ -48,8 +47,9 @@ impl Payment {
         let method = PaymentMethod::new(
             crate::domain::payment::value_objects::PaymentMethodType::Crypto,
             crate::domain::payment::value_objects::Currency::USDT,
-            Some(crate::domain::payment::value_objects::Network::BinanceSmartChain)
-        ).map_err(|_| PaymentError::PaymentMethodUnavailable)?;
+            Some(crate::domain::payment::value_objects::Network::BinanceSmartChain),
+        )
+        .map_err(|_| PaymentError::PaymentMethodUnavailable)?;
 
         Ok(Self {
             id,
@@ -124,7 +124,10 @@ impl Payment {
             crate::domain::payment::value_objects::PaymentMethodType::Crypto => {
                 self.crypto_details = Some(CryptoPaymentDetails::new(
                     self.method.currency().clone(),
-                    self.method.network().expect("Crypto method must have network").clone(),
+                    self.method
+                        .network()
+                        .expect("Crypto method must have network")
+                        .clone(),
                 ));
             }
         }
@@ -132,16 +135,36 @@ impl Payment {
     }
 
     // Getters
-    pub fn id(&self) -> &PaymentId { &self.id }
-    pub fn wallet_address(&self) -> &WalletAddress { &self.wallet_address }
-    pub fn reference(&self) -> &PaymentReference { &self.reference }
-    pub fn amount(&self) -> &PaymentAmount { &self.amount }
-    pub fn method(&self) -> &PaymentMethod { &self.method }
-    pub fn status(&self) -> &PaymentStatus { &self.status }
-    pub fn metadata(&self) -> &PaymentMetadata { &self.metadata }
-    pub fn metadata_mut(&mut self) -> &mut PaymentMetadata { &mut self.metadata }
-    pub fn crypto_details(&self) -> Option<&CryptoPaymentDetails> { self.crypto_details.as_ref() }
-    pub fn fiat_details(&self) -> Option<&FiatPaymentDetails> { self.fiat_details.as_ref() }
+    pub fn id(&self) -> &PaymentId {
+        &self.id
+    }
+    pub fn wallet_address(&self) -> &WalletAddress {
+        &self.wallet_address
+    }
+    pub fn reference(&self) -> &PaymentReference {
+        &self.reference
+    }
+    pub fn amount(&self) -> &PaymentAmount {
+        &self.amount
+    }
+    pub fn method(&self) -> &PaymentMethod {
+        &self.method
+    }
+    pub fn status(&self) -> &PaymentStatus {
+        &self.status
+    }
+    pub fn metadata(&self) -> &PaymentMetadata {
+        &self.metadata
+    }
+    pub fn metadata_mut(&mut self) -> &mut PaymentMetadata {
+        &mut self.metadata
+    }
+    pub fn crypto_details(&self) -> Option<&CryptoPaymentDetails> {
+        self.crypto_details.as_ref()
+    }
+    pub fn fiat_details(&self) -> Option<&FiatPaymentDetails> {
+        self.fiat_details.as_ref()
+    }
 
     /// Get plan ID (subscription/permission group ID)
     pub fn plan_id(&self) -> String {

@@ -8,12 +8,8 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use utoipa::ToSchema;
 
-use crate::web::{
-    auth::AppState,
-    middleware::OpenIDUserContext,
-    responses::UnifiedApiResponse,
-};
 use crate::schemas::primary::user_watchlist;
+use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
 
 // ============================================================================
 // TYPES
@@ -65,10 +61,14 @@ pub async fn get_watchlist(
     Extension(ctx): Extension<OpenIDUserContext>,
 ) -> Result<Json<UnifiedApiResponse<WatchlistResponse>>, Json<UnifiedApiResponse<()>>> {
     match fetch_watchlist(&app_state.db_pool, &ctx.wallet_address).await {
-        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols }))),
+        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+            symbols,
+        }))),
         Err(e) => {
             error!("Failed to fetch watchlist: {}", e);
-            Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols: vec![] })))
+            Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+                symbols: vec![],
+            })))
         }
     }
 }
@@ -81,12 +81,20 @@ pub async fn add_to_watchlist(
 ) -> Result<Json<UnifiedApiResponse<WatchlistResponse>>, Json<UnifiedApiResponse<()>>> {
     let symbol = body.symbol.to_uppercase().trim().to_string();
     if symbol.is_empty() || symbol.len() > 20 {
-        return Err(Json(UnifiedApiResponse::error(400, "Invalid symbol", "Symbol must be 1-20 characters")));
+        return Err(Json(UnifiedApiResponse::error(
+            400,
+            "Invalid symbol",
+            "Symbol must be 1-20 characters",
+        )));
     }
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("DB connection error: {}", e);
-        Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect"))
+        Json(UnifiedApiResponse::error(
+            500,
+            "Database error",
+            "Failed to connect",
+        ))
     })?;
 
     let entry = NewWatchlistEntry {
@@ -103,16 +111,24 @@ pub async fn add_to_watchlist(
         .await
         .map_err(|e| {
             error!("Failed to add to watchlist: {}", e);
-            Json(UnifiedApiResponse::error(500, "Database error", &e.to_string()))
+            Json(UnifiedApiResponse::error(
+                500,
+                "Database error",
+                &e.to_string(),
+            ))
         })?;
 
     info!("Added {} to watchlist for {}", symbol, ctx.wallet_address);
 
     match fetch_watchlist(&app_state.db_pool, &ctx.wallet_address).await {
-        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols }))),
+        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+            symbols,
+        }))),
         Err(e) => {
             error!("Failed to fetch watchlist after add: {}", e);
-            Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols: vec![symbol] })))
+            Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+                symbols: vec![symbol],
+            })))
         }
     }
 }
@@ -127,7 +143,11 @@ pub async fn remove_from_watchlist(
 
     let mut conn = app_state.db_pool.get().await.map_err(|e| {
         error!("DB connection error: {}", e);
-        Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect"))
+        Json(UnifiedApiResponse::error(
+            500,
+            "Database error",
+            "Failed to connect",
+        ))
     })?;
 
     diesel::delete(
@@ -139,16 +159,27 @@ pub async fn remove_from_watchlist(
     .await
     .map_err(|e| {
         error!("Failed to remove from watchlist: {}", e);
-        Json(UnifiedApiResponse::error(500, "Database error", &e.to_string()))
+        Json(UnifiedApiResponse::error(
+            500,
+            "Database error",
+            &e.to_string(),
+        ))
     })?;
 
-    info!("Removed {} from watchlist for {}", symbol, ctx.wallet_address);
+    info!(
+        "Removed {} from watchlist for {}",
+        symbol, ctx.wallet_address
+    );
 
     match fetch_watchlist(&app_state.db_pool, &ctx.wallet_address).await {
-        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols }))),
+        Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+            symbols,
+        }))),
         Err(e) => {
             error!("Failed to fetch watchlist after remove: {}", e);
-            Ok(Json(UnifiedApiResponse::success(WatchlistResponse { symbols: vec![] })))
+            Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
+                symbols: vec![],
+            })))
         }
     }
 }

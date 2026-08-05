@@ -16,21 +16,130 @@ use dioxus::prelude::*;
 // ─────────────────────────────────────────────────────────────────────────
 
 #[component]
-pub fn DashboardShell(current_path: String, page_title: String, user: Option<User>, children: Element) -> Element {
+pub fn DashboardShell(
+    current_path: String,
+    page_title: String,
+    user: Option<User>,
+    children: Element,
+) -> Element {
     let items = vec![
-        SidebarItem { id: "dashboard".into(), label: "Dashboard".into(), href: "/".into(), icon: "layout-dashboard".into(), badge: None, active_paths: vec!["/".into()], ..Default::default() },
-        SidebarItem { id: "analytics".into(), label: "Analytics".into(), href: "/analytics".into(), icon: "chart-line".into(), badge: None, active_paths: vec!["/analytics".into()], ..Default::default() },
-        SidebarItem { id: "audit-log".into(), label: "Audit Log".into(), href: "/audit-log".into(), icon: "history".into(), badge: None, active_paths: vec!["/audit-log".into()], ..Default::default() },
-        SidebarItem { id: "wallets".into(), label: "Wallets".into(), href: "/wallet-management/wallets".into(), icon: "wallet".into(), badge: None, active_paths: vec!["/wallet-management".into()], ..Default::default() },
-        SidebarItem { id: "credits".into(), label: "Credits".into(), href: "/wallet-management/credits".into(), icon: "credit-card".into(), badge: None, active_paths: vec!["/wallet-management/credits".into()], ..Default::default() },
-        SidebarItem { id: "access".into(), label: "Access".into(), href: "/wallet-management/access".into(), icon: "key".into(), badge: None, active_paths: vec!["/wallet-management/access".into()], ..Default::default() },
-        SidebarItem { id: "payments".into(), label: "Payments".into(), href: "/payments".into(), icon: "credit-card".into(), badge: None, active_paths: vec!["/payments".into()], ..Default::default() },
-        SidebarItem { id: "chat".into(), label: "Chat".into(), href: "/chat".into(), icon: "message-circle".into(), badge: None, active_paths: vec!["/chat".into()], ..Default::default() },
-        SidebarItem { id: "notifications".into(), label: "Notifications".into(), href: "/notifications/manage".into(), icon: "bell".into(), badge: None, active_paths: vec!["/notifications".into()], ..Default::default() },
-        SidebarItem { id: "news".into(), label: "News".into(), href: "/news".into(), icon: "newspaper".into(), badge: None, active_paths: vec!["/news".into()], ..Default::default() },
-        SidebarItem { id: "media".into(), label: "Media".into(), href: "/media".into(), icon: "file-text".into(), badge: None, active_paths: vec!["/media".into()], ..Default::default() },
-        SidebarItem { id: "developer".into(), label: "Developer".into(), href: "/developer-portal".into(), icon: "code".into(), badge: None, active_paths: vec!["/developer-portal".into()], ..Default::default() },
-        SidebarItem { id: "settings".into(), label: "Settings".into(), href: "/settings".into(), icon: "settings".into(), badge: None, active_paths: vec!["/settings".into()], ..Default::default() },
+        SidebarItem {
+            id: "dashboard".into(),
+            label: "Dashboard".into(),
+            href: "/".into(),
+            icon: "layout-dashboard".into(),
+            badge: None,
+            active_paths: vec!["/".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "analytics".into(),
+            label: "Analytics".into(),
+            href: "/analytics".into(),
+            icon: "chart-line".into(),
+            badge: None,
+            active_paths: vec!["/analytics".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "audit-log".into(),
+            label: "Audit Log".into(),
+            href: "/audit-log".into(),
+            icon: "history".into(),
+            badge: None,
+            active_paths: vec!["/audit-log".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "wallets".into(),
+            label: "Wallets".into(),
+            href: "/wallet-management/wallets".into(),
+            icon: "wallet".into(),
+            badge: None,
+            active_paths: vec!["/wallet-management".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "credits".into(),
+            label: "Credits".into(),
+            href: "/wallet-management/credits".into(),
+            icon: "credit-card".into(),
+            badge: None,
+            active_paths: vec!["/wallet-management/credits".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "access".into(),
+            label: "Access".into(),
+            href: "/wallet-management/access".into(),
+            icon: "key".into(),
+            badge: None,
+            active_paths: vec!["/wallet-management/access".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "payments".into(),
+            label: "Payments".into(),
+            href: "/payments".into(),
+            icon: "credit-card".into(),
+            badge: None,
+            active_paths: vec!["/payments".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "chat".into(),
+            label: "Chat".into(),
+            href: "/chat".into(),
+            icon: "message-circle".into(),
+            badge: None,
+            active_paths: vec!["/chat".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "notifications".into(),
+            label: "Notifications".into(),
+            href: "/notifications/manage".into(),
+            icon: "bell".into(),
+            badge: None,
+            active_paths: vec!["/notifications".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "news".into(),
+            label: "News".into(),
+            href: "/news".into(),
+            icon: "newspaper".into(),
+            badge: None,
+            active_paths: vec!["/news".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "media".into(),
+            label: "Media".into(),
+            href: "/media".into(),
+            icon: "file-text".into(),
+            badge: None,
+            active_paths: vec!["/media".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "developer".into(),
+            label: "Developer".into(),
+            href: "/developer-portal".into(),
+            icon: "code".into(),
+            badge: None,
+            active_paths: vec!["/developer-portal".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "settings".into(),
+            label: "Settings".into(),
+            href: "/settings".into(),
+            icon: "settings".into(),
+            badge: None,
+            active_paths: vec!["/settings".into()],
+            ..Default::default()
+        },
     ];
     rsx! {
         div { class: "admin-shell",
@@ -48,7 +157,9 @@ pub fn DashboardShell(current_path: String, page_title: String, user: Option<Use
                         }
                     }
                 }
-                main { class: "admin-content", {children} }
+                // The document shell owns the single semantic `<main>`
+                // landmark; this is only the scroll/content region.
+                div { class: "admin-content", {children} }
             }
         }
     }
@@ -57,15 +168,57 @@ pub fn DashboardShell(current_path: String, page_title: String, user: Option<Use
 #[component]
 pub fn DeveloperShell(current_path: String, children: Element) -> Element {
     let items = vec![
-        SidebarItem { id: "overview".into(), label: "Overview".into(), href: "/developer".into(), icon: "home".into(), badge: None, active_paths: vec!["/developer".into()], ..Default::default() },
-        SidebarItem { id: "api-keys".into(), label: "API Keys".into(), href: "/developer".into(), icon: "key".into(), badge: None, active_paths: vec!["/developer".into()], ..Default::default() },
-        SidebarItem { id: "usage".into(), label: "Usage".into(), href: "/developer/usage".into(), icon: "chart-line".into(), badge: None, active_paths: vec!["/developer/usage".into()], ..Default::default() },
-        SidebarItem { id: "docs".into(), label: "Docs".into(), href: "/developer/docs".into(), icon: "book".into(), badge: None, active_paths: vec!["/developer/docs".into()], ..Default::default() },
+        SidebarItem {
+            id: "overview".into(),
+            label: "Overview".into(),
+            href: "/developer".into(),
+            icon: "home".into(),
+            badge: None,
+            active_paths: vec!["/developer".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "api-keys".into(),
+            label: "API Keys".into(),
+            href: "/developer".into(),
+            icon: "key".into(),
+            badge: None,
+            active_paths: vec!["/developer".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "usage".into(),
+            label: "Usage".into(),
+            href: "/developer/usage".into(),
+            icon: "chart-line".into(),
+            badge: None,
+            active_paths: vec!["/developer/usage".into()],
+            ..Default::default()
+        },
+        SidebarItem {
+            id: "docs".into(),
+            label: "Docs".into(),
+            href: "/developer/docs".into(),
+            icon: "book".into(),
+            badge: None,
+            active_paths: vec!["/developer/docs".into()],
+            ..Default::default()
+        },
     ];
     rsx! {
         div { class: "developer-shell",
-            AdminSidebar { current_path, is_authenticated: false, items: Some(items) }
-            main { class: "developer-main", {children} }
+            // The source developer layout collapses its sidebar on mobile;
+            // the page keeps its compact Developer Menu/API Keys toolbar in
+            // the main column at those widths.
+            AdminSidebar {
+                current_path,
+                is_authenticated: false,
+                items: Some(items),
+                class_name: Some("developer-shell-sidebar hidden lg:flex".to_string()),
+            }
+            // The document shell owns the single semantic `<main>`
+            // landmark; this is only the scroll/content region.
+            div { class: "developer-main", {children} }
         }
     }
 }
@@ -130,7 +283,9 @@ pub fn MainLayout(
 
                 // Content frame: scrollable main + thin footer.
                 div { class: "flex-1 flex flex-col min-h-0 overflow-hidden",
-                    main { class: "flex-1 overflow-y-auto overflow-x-hidden p-0",
+                    // The outer page shell owns the document's single
+                    // `<main>` landmark. This is only the scroll region.
+                    div { class: "flex-1 overflow-y-auto overflow-x-hidden p-0",
                         {children}
                     }
                     AdminFooter {}
@@ -168,7 +323,9 @@ pub fn AuthLayout(
 ) -> Element {
     // Resolve no-layout path overrides.
     let no_layout_paths = no_layout_paths.unwrap_or_else(default_no_layout_paths);
-    let is_no_layout = no_layout_paths.iter().any(|p| current_path == *p || current_path.starts_with(p));
+    let is_no_layout = no_layout_paths
+        .iter()
+        .any(|p| current_path == *p || current_path.starts_with(p));
     if is_no_layout {
         return rsx! { Fragment { {children} } };
     }
@@ -236,13 +393,19 @@ impl ServerUser {
     /// Convert into a domain `User` for the header. Uses `id` as the
     /// address (admin chrome only ever shows the short form).
     pub fn to_user(&self) -> Option<User> {
-        if self.id.is_empty() { return None; }
+        if self.id.is_empty() {
+            return None;
+        }
         Some(User {
             id: self.id.clone(),
             address: self.id.clone(),
             chain_id: "56".to_string(),
             roles: vec![self.role.clone()],
-            email: if self.email.is_empty() { None } else { Some(self.email.clone()) },
+            email: if self.email.is_empty() {
+                None
+            } else {
+                Some(self.email.clone())
+            },
             ..Default::default()
         })
     }
@@ -293,7 +456,11 @@ impl AdminLayout {
         is_production: Option<bool>,
     ) -> Element {
         match self {
-            AdminLayout::Main { current_path, is_authenticated, user } => rsx! {
+            AdminLayout::Main {
+                current_path,
+                is_authenticated,
+                user,
+            } => rsx! {
                 MainLayout {
                     current_path,
                     is_authenticated,
@@ -304,7 +471,13 @@ impl AdminLayout {
                     {children}
                 }
             },
-            AdminLayout::Auth { current_path, server_user, is_authenticated, is_gated, no_layout_paths } => rsx! {
+            AdminLayout::Auth {
+                current_path,
+                server_user,
+                is_authenticated,
+                is_gated,
+                no_layout_paths,
+            } => rsx! {
                 AuthLayout {
                     current_path,
                     server_user,

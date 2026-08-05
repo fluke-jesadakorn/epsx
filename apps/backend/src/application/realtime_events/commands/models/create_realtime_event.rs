@@ -1,6 +1,6 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
-use crate::domain::realtime_events::value_objects::{EventPayload, EventId, UserId};
+use crate::domain::realtime_events::value_objects::{EventId, EventPayload, UserId};
+use crate::prelude::*;
 
 /// Command to create a new realtime event
 #[derive(Debug, Clone)]

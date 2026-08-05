@@ -1,6 +1,6 @@
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
-use serde::{Serialize, Deserialize};
 
 // ============================================================================
 // NOTIFICATION WINDOW CONSTANTS
@@ -40,7 +40,7 @@ impl ScheduleInfo {
     /// Create scheduled delivery
     pub fn scheduled(scheduled_at: DateTime<Utc>) -> Result<Self, String> {
         let now = Utc::now();
-        
+
         if scheduled_at <= now {
             return Err("Scheduled time must be in the future".to_string());
         }
@@ -105,7 +105,7 @@ impl ScheduleInfo {
     /// Set expiry time
     pub fn set_expires_at(&mut self, expires_at: DateTime<Utc>) -> Result<(), String> {
         let now = Utc::now();
-        
+
         if expires_at <= now {
             return Err("Expiry time must be in the future".to_string());
         }
@@ -216,7 +216,7 @@ impl ScheduleInfo {
     /// Get current status
     pub fn status(&self) -> ScheduleStatus {
         let now = Utc::now();
-        
+
         if self.is_expired() {
             return ScheduleStatus::Expired;
         }
@@ -277,7 +277,7 @@ impl ScheduleInfo {
     /// Get suggested delivery window
     pub fn suggested_delivery_window(&self) -> DeliveryWindow {
         let now = Utc::now();
-        
+
         match self.schedule_type {
             ScheduleType::Immediate => DeliveryWindow {
                 start: now,
@@ -392,7 +392,11 @@ impl Display for ScheduleInfo {
         match self.schedule_type {
             ScheduleType::Immediate => {
                 if let Some(expires_at) = self.expires_at {
-                    write!(f, "Immediate (expires {})", expires_at.format("%Y-%m-%d %H:%M UTC"))
+                    write!(
+                        f,
+                        "Immediate (expires {})",
+                        expires_at.format("%Y-%m-%d %H:%M UTC")
+                    )
                 } else {
                     write!(f, "Immediate")
                 }
@@ -400,9 +404,12 @@ impl Display for ScheduleInfo {
             ScheduleType::Scheduled => {
                 if let Some(scheduled_at) = self.scheduled_at {
                     if let Some(expires_at) = self.expires_at {
-                        write!(f, "Scheduled {} (expires {})", 
+                        write!(
+                            f,
+                            "Scheduled {} (expires {})",
                             scheduled_at.format("%Y-%m-%d %H:%M UTC"),
-                            expires_at.format("%Y-%m-%d %H:%M UTC"))
+                            expires_at.format("%Y-%m-%d %H:%M UTC")
+                        )
                     } else {
                         write!(f, "Scheduled {}", scheduled_at.format("%Y-%m-%d %H:%M UTC"))
                     }
@@ -431,7 +438,7 @@ mod tests {
     fn test_scheduled_future() {
         let future_time = Utc::now() + Duration::hours(1);
         let schedule = ScheduleInfo::scheduled(future_time).unwrap();
-        
+
         assert_eq!(schedule.schedule_type(), &ScheduleType::Scheduled);
         assert!(!schedule.is_ready_to_send());
         assert!(schedule.is_scheduled());
@@ -458,7 +465,7 @@ mod tests {
     fn test_with_expiry() {
         let expiry_time = Utc::now() + Duration::hours(2);
         let schedule = ScheduleInfo::with_expiry(expiry_time).unwrap();
-        
+
         assert_eq!(schedule.expires_at(), Some(expiry_time));
         assert!(schedule.is_ready_to_send());
         assert!(!schedule.is_expired());
@@ -468,9 +475,9 @@ mod tests {
     fn test_scheduled_with_expiry() {
         let scheduled_time = Utc::now() + Duration::hours(1);
         let expiry_time = Utc::now() + Duration::hours(2);
-        
+
         let schedule = ScheduleInfo::scheduled_with_expiry(scheduled_time, expiry_time).unwrap();
-        
+
         assert_eq!(schedule.scheduled_at(), Some(scheduled_time));
         assert_eq!(schedule.expires_at(), Some(expiry_time));
         assert!(!schedule.is_ready_to_send()); // Not yet time to send
@@ -481,7 +488,7 @@ mod tests {
     fn test_invalid_expiry() {
         let scheduled_time = Utc::now() + Duration::hours(2);
         let expiry_time = Utc::now() + Duration::hours(1); // Before scheduled
-        
+
         let result = ScheduleInfo::scheduled_with_expiry(scheduled_time, expiry_time);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("after scheduled time"));
@@ -491,10 +498,10 @@ mod tests {
     fn test_expired_notification() {
         let past_expiry = Utc::now() - Duration::minutes(1);
         let mut schedule = ScheduleInfo::immediate();
-        
+
         // Set expiry in the past (bypassing validation for testing)
         schedule.expires_at = Some(past_expiry);
-        
+
         assert!(schedule.is_expired());
         assert!(!schedule.is_ready_to_send());
         assert_eq!(schedule.status(), ScheduleStatus::Expired);
@@ -504,12 +511,12 @@ mod tests {
     fn test_time_until_calculations() {
         let scheduled_time = Utc::now() + Duration::hours(1);
         let expiry_time = Utc::now() + Duration::hours(2);
-        
+
         let schedule = ScheduleInfo::scheduled_with_expiry(scheduled_time, expiry_time).unwrap();
-        
+
         let time_until_scheduled = schedule.time_until_scheduled().unwrap();
         let time_until_expiry = schedule.time_until_expiry().unwrap();
-        
+
         assert!(time_until_scheduled <= Duration::hours(1));
         assert!(time_until_expiry <= Duration::hours(2));
         assert!(time_until_expiry > time_until_scheduled);
@@ -519,11 +526,11 @@ mod tests {
     fn test_priority_adjustment() {
         let immediate = ScheduleInfo::immediate();
         assert!(immediate.timing_priority_adjustment() > 0);
-        
+
         let far_future = Utc::now() + Duration::hours(5);
         let scheduled = ScheduleInfo::scheduled(far_future).unwrap();
         assert_eq!(scheduled.timing_priority_adjustment(), 0);
-        
+
         let soon = Utc::now() + Duration::minutes(2);
         let scheduled_soon = ScheduleInfo::scheduled(soon).unwrap();
         assert!(scheduled_soon.timing_priority_adjustment() > 0);
@@ -533,7 +540,7 @@ mod tests {
     fn test_delivery_window() {
         let schedule = ScheduleInfo::immediate();
         let window = schedule.suggested_delivery_window();
-        
+
         assert!(window.duration() <= Duration::minutes(5));
         assert!(window.is_current() || window.start <= Utc::now());
     }
@@ -542,7 +549,7 @@ mod tests {
     fn test_status() {
         let immediate = ScheduleInfo::immediate();
         assert_eq!(immediate.status(), ScheduleStatus::ReadyToSend);
-        
+
         let future_time = Utc::now() + Duration::hours(1);
         let scheduled = ScheduleInfo::scheduled(future_time).unwrap();
         assert_eq!(scheduled.status(), ScheduleStatus::Scheduled);

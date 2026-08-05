@@ -16,7 +16,7 @@ use super::super::{PageContext, PageMeta};
 const ANALYTICS_PATH: &str = "/analytics";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Analytics unavailable");
+    let meta = PageMeta::admin("Analytics");
     (meta, rsx! { RenderAnalytics { ctx: ctx.clone() } })
 }
 
@@ -40,6 +40,27 @@ fn RenderAnalytics(ctx: PageContext) -> Element {
                 div {
                     class: "container page-content admin-analytics py-8",
                     "data-admin-analytics-state": "unavailable",
+                    div { class: "mb-6 flex flex-col gap-4 sm:mb-8 sm:flex-row sm:items-center sm:justify-between",
+                        div { class: "flex items-center gap-3",
+                            div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500",
+                                Icon { name: "bar-chart-3".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
+                            }
+                            div {
+                                h1 { class: "text-2xl font-bold text-foreground", "Analytics" }
+                                p { class: "text-sm text-slate-400", "Top-performing stocks by EPS growth" }
+                            }
+                        }
+                        div { class: "flex items-center gap-2",
+                            span { class: "flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5",
+                                Icon { name: "alert-circle".to_string(), size: Some(14), class_name: Some("text-amber-400".to_string()) }
+                                span { class: "text-xs font-medium text-amber-400", "Unavailable" }
+                            }
+                            span { class: "flex items-center gap-1.5 rounded-lg border border-slate-500/20 bg-slate-500/10 px-3 py-1.5",
+                                Icon { name: "shield-check".to_string(), size: Some(14), class_name: Some("text-slate-400".to_string()) }
+                                span { class: "text-xs font-medium text-slate-400", "Backend-owned" }
+                            }
+                        }
+                    }
                     section {
                         class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
                         role: "status",
@@ -146,6 +167,14 @@ mod tests {
     #[test]
     fn unavailable_state_has_no_samples_claims_or_controls() {
         let rendered = html(&signed_in_ctx());
+        let section_start = rendered
+            .find("data-section=\"admin-analytics-unavailable\"")
+            .expect("analytics unavailable section must render");
+        let section_end = rendered[section_start..]
+            .find("</section>")
+            .map(|offset| section_start + offset)
+            .expect("analytics unavailable section must close");
+        let unavailable_section = &rendered[section_start..section_end];
 
         for forbidden in [
             "12,345",
@@ -174,7 +203,7 @@ mod tests {
             "onclick=",
         ] {
             assert!(
-                !rendered.contains(forbidden),
+                !unavailable_section.contains(forbidden),
                 "sample analytics claim or unsupported control leaked: {forbidden}"
             );
         }

@@ -69,7 +69,9 @@ pub fn ReenableWalletModal(
     if !is_open {
         return rsx! { Fragment {} };
     }
-    let mut cls = "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm".to_string();
+    let mut cls =
+        "fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            .to_string();
     if let Some(extra) = class_name {
         if !extra.is_empty() {
             cls.push(' ');
@@ -77,7 +79,11 @@ pub fn ReenableWalletModal(
         }
     }
     let addr_short = if wallet_address.len() > 16 {
-        format!("{}...{}", &wallet_address[..10], &wallet_address[wallet_address.len() - 6..])
+        format!(
+            "{}...{}",
+            &wallet_address[..10],
+            &wallet_address[wallet_address.len() - 6..]
+        )
     } else {
         wallet_address.clone()
     };
@@ -233,15 +239,13 @@ mod tests {
     fn test_reenable_wallet_modal_renders_green_header() {
         fn render() -> Element {
             rsx! {
-            ReenableWalletModal {
-                wallet_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                ReenableWalletModal {
+                    wallet_address: "0x1234567890abcdef1234567890abcdef12345678".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -266,15 +270,13 @@ mod tests {
     fn test_reenable_wallet_modal_closed_returns_empty() {
         fn render() -> Element {
             rsx! {
-            ReenableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(false),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                ReenableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(false),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -299,14 +301,14 @@ mod tests {
                 affected_platforms: vec![DisablePlatform::Analytics, DisablePlatform::Pay],
             };
             rsx! {
-            ReenableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                disable_info: Some(info),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                ReenableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    disable_info: Some(info),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                }
             }
-        }
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -339,15 +341,13 @@ mod tests {
     fn test_reenable_wallet_modal_renders_4_platforms() {
         fn render() -> Element {
             rsx! {
-            ReenableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                ReenableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -364,15 +364,13 @@ mod tests {
     fn test_reenable_wallet_modal_renders_2_behavior_flags() {
         fn render() -> Element {
             rsx! {
-            ReenableWalletModal {
-                wallet_address: "0x1234".to_string(),
-                is_open: Some(true),
-                on_close: EventHandler::new(|_: MouseEvent| {}),
-                on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                ReenableWalletModal {
+                    wallet_address: "0x1234".to_string(),
+                    is_open: Some(true),
+                    on_close: EventHandler::new(|_: MouseEvent| {}),
+                    on_confirm: EventHandler::new(|_: ReenableWalletData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);

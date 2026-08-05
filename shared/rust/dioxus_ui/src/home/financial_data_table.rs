@@ -27,9 +27,11 @@ pub fn FinancialDataTable(
     #[props(default = Vec::new())] rows: Vec<FinancialDataRow>,
     /// Optional click handler for a row. The TS source uses this
     /// to navigate to the asset detail page.
-    #[props(default = None)] on_row_click: Option<EventHandler<String>>,
+    #[props(default = None)]
+    on_row_click: Option<EventHandler<String>>,
     /// Optional class names appended to the wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
     rsx! {
@@ -99,7 +101,5 @@ mod tests {
     }
 
     #[test]
-    fn financial_data_table_smoke() {
-        
-    }
+    fn financial_data_table_smoke() {}
 }

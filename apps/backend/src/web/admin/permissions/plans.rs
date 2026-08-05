@@ -6,22 +6,22 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use bigdecimal::BigDecimal;
+use chrono::{DateTime, Utc};
 use diesel_async::RunQueryDsl;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
-use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
-use crate::web::auth::AppState;
-use crate::web::responses::{AdminResponse, create_pagination};
 use crate::domain::permission_management::{
-    PlanSlug, PermissionString, Plan, PlanId,
     aggregates::plan::{CreatePlanParams, UpdatePlanParams},
     repository_ports::PlanRepositoryPort,
+    PermissionString, Plan, PlanId, PlanSlug,
 };
 use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
+use crate::web::auth::AppState;
+use crate::web::responses::{create_pagination, AdminResponse};
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -109,8 +109,16 @@ impl PlanResponse {
             slug: plan.slug().as_str().to_string(),
             description: plan.description().to_string(),
             plan_type: plan.plan_type().to_string(),
-            permissions: plan.permissions().iter().map(|p| p.as_str().to_string()).collect(),
-            price: plan.price().to_string().parse::<BigDecimal>().unwrap_or_else(|_| BigDecimal::from(0)),
+            permissions: plan
+                .permissions()
+                .iter()
+                .map(|p| p.as_str().to_string())
+                .collect(),
+            price: plan
+                .price()
+                .to_string()
+                .parse::<BigDecimal>()
+                .unwrap_or_else(|_| BigDecimal::from(0)),
             currency: plan.currency().to_string(),
             billing_cycle: plan.billing_cycle().to_string(),
             is_active: plan.is_active(),
@@ -124,7 +132,11 @@ impl PlanResponse {
             member_count,
             is_public: plan.is_public(),
             is_system_plan: plan.is_system(),
-            default_expiry_days: plan.metadata().get("default_expiry_days").and_then(|v| v.as_i64()).map(|v| v as i32),
+            default_expiry_days: plan
+                .metadata()
+                .get("default_expiry_days")
+                .and_then(|v| v.as_i64())
+                .map(|v| v as i32),
             grace_period_hours: plan.grace_period_hours(),
             plan_category: plan.plan_category().as_str().to_string(),
             plan_group: plan.plan_group().as_str().to_string(),
@@ -140,7 +152,6 @@ pub struct ListPlansQuery {
     pub is_active: Option<bool>,
     pub plan_group: Option<String>,
 }
-
 
 // ============================================================================
 // HANDLERS
@@ -164,7 +175,9 @@ pub struct ListPlansQuery {
 )]
 pub async fn create_plan(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(req): Json<CreatePlanRequest>,
 ) -> impl IntoResponse {
@@ -183,13 +196,15 @@ pub async fn create_plan(
     };
 
     // Parse permissions into domain objects
-    let permissions: Vec<PermissionString> = req.permissions
+    let permissions: Vec<PermissionString> = req
+        .permissions
         .iter()
         .filter_map(|p| PermissionString::new(p.clone()).ok())
         .collect();
 
     // Convert BigDecimal to f64 for domain model
-    let price_f64 = req.price
+    let price_f64 = req
+        .price
         .as_ref()
         .and_then(|bd| bd.to_string().parse::<f64>().ok())
         .unwrap_or(0.0);
@@ -212,8 +227,14 @@ pub async fn create_plan(
         metadata: req.plan_metadata.clone(),
         is_public: req.is_public,
         grace_period_hours: None,
-        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
-        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
+        plan_category: req
+            .plan_category
+            .as_deref()
+            .and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
+        plan_group: req
+            .plan_group
+            .as_deref()
+            .and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
     }) {
         Ok(g) => g,
         Err(e) => {
@@ -227,17 +248,28 @@ pub async fn create_plan(
     if let Err(e) = app_state.plan_repo.save(&plan).await {
         let error_string = e.to_string();
         tracing::error!("Failed to save permission plan: {}", error_string);
-        
+
         // Check for duplicate key constraint violation
         if error_string.contains("duplicate key") || error_string.contains("unique constraint") {
             if error_string.contains("plans_name_key") {
-                return AdminResponse::conflict(&format!("A permission plan with the name '{}' already exists", req.name)).into_response();
+                return AdminResponse::conflict(&format!(
+                    "A permission plan with the name '{}' already exists",
+                    req.name
+                ))
+                .into_response();
             } else if error_string.contains("plans_slug_key") {
-                return AdminResponse::conflict(&format!("A permission plan with the slug '{}' already exists", req.slug)).into_response();
+                return AdminResponse::conflict(&format!(
+                    "A permission plan with the slug '{}' already exists",
+                    req.slug
+                ))
+                .into_response();
             }
-            return AdminResponse::conflict("A permission plan with this name or slug already exists").into_response();
+            return AdminResponse::conflict(
+                "A permission plan with this name or slug already exists",
+            )
+            .into_response();
         }
-        
+
         return AdminResponse::server_error("Failed to create plan").into_response();
     }
 
@@ -255,11 +287,18 @@ pub async fn create_plan(
         let _ = plan.update(update_params);
     }
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("plan", "create", "plan")
-        .id(&plan.id().to_string())
-        .after(serde_json::json!({ "name": plan.name(), "slug": plan.slug().as_str() })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("plan", "create", "plan")
+            .id(&plan.id().to_string())
+            .after(serde_json::json!({ "name": plan.name(), "slug": plan.slug().as_str() })),
+    );
 
-    AdminResponse::created(PlanResponse::from_plan(&plan, 0), "Permission plan created successfully").into_response()
+    AdminResponse::created(
+        PlanResponse::from_plan(&plan, 0),
+        "Permission plan created successfully",
+    )
+    .into_response()
 }
 
 /// Get a permission plan by ID
@@ -408,7 +447,7 @@ pub async fn list_plans(
 
     // Fetch member counts for these plans
     let plan_ids: Vec<Uuid> = domain_plans.iter().map(|g| *g.id().value()).collect();
-    
+
     let member_counts: HashMap<Uuid, i64> = if !plan_ids.is_empty() {
         match app_state.db_pool.get().await {
             Ok(mut conn) => {
@@ -433,7 +472,7 @@ pub async fn list_plans(
                         HashMap::new()
                     }
                 }
-            },
+            }
             Err(e) => {
                 tracing::error!("Failed to get database connection for counts: {}", e);
                 HashMap::new() // Fallback to 0 counts on error
@@ -444,11 +483,13 @@ pub async fn list_plans(
     };
 
     // Convert domain models to response DTOs
-    let plans: Vec<PlanResponse> = domain_plans.iter()
+    let plans: Vec<PlanResponse> = domain_plans
+        .iter()
         .map(|plan| {
             let count = member_counts.get(plan.id().value()).unwrap_or(&0);
             PlanResponse::from_plan(plan, *count as i32)
-        }).collect();
+        })
+        .collect();
 
     let pagination = create_pagination(pg.page, pg.limit, total as u64);
     AdminResponse::success_with_pagination(plans, pagination).into_response()
@@ -476,21 +517,29 @@ pub async fn list_plans(
 )]
 pub async fn update_plan(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
     Json(req): Json<UpdatePlanRequest>,
 ) -> impl IntoResponse {
-    use epsx_contracts::constants::{FREE_PLAN_ID, is_system_admin_plan};
+    use epsx_contracts::constants::{is_system_admin_plan, FREE_PLAN_ID};
 
     // Check for constant Free Plan locking
     if plan_id == FREE_PLAN_ID && req.price.is_some() {
-        return AdminResponse::bad_request("Price of the Free Plan is locked and cannot be modified").into_response();
+        return AdminResponse::bad_request(
+            "Price of the Free Plan is locked and cannot be modified",
+        )
+        .into_response();
     }
 
     // System admin plans: block name/slug/category/group changes
-    if is_system_admin_plan(&plan_id) && (req.name.is_some() || req.plan_category.is_some() || req.plan_group.is_some()) {
-        return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized").into_response();
+    if is_system_admin_plan(&plan_id)
+        && (req.name.is_some() || req.plan_category.is_some() || req.plan_group.is_some())
+    {
+        return AdminResponse::forbidden("System admin plans cannot be renamed or recategorized")
+            .into_response();
     }
     // Block updates to constant Free Plan
     // if plan_id == epsx_contracts::constants::FREE_PLAN_ID {
@@ -517,13 +566,16 @@ pub async fn update_plan(
 
     // Parse permissions if provided
     let permissions = req.permissions.map(|perms| {
-        perms.iter()
+        perms
+            .iter()
             .filter_map(|p| PermissionString::new(p.clone()).ok())
             .collect()
     });
 
     // Convert BigDecimal to f64 if provided
-    let price_f64 = req.price.as_ref()
+    let price_f64 = req
+        .price
+        .as_ref()
         .and_then(|bd| bd.to_string().parse::<f64>().ok());
 
     // Build update parameters
@@ -542,14 +594,23 @@ pub async fn update_plan(
         metadata: req.plan_metadata,
         is_public: req.is_public,
         grace_period_hours: req.grace_period_hours,
-        plan_category: req.plan_category.as_deref().and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
-        plan_group: req.plan_group.as_deref().and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
+        plan_category: req
+            .plan_category
+            .as_deref()
+            .and_then(|s| crate::domain::permission_management::PlanCategory::parse(s).ok()),
+        plan_group: req
+            .plan_group
+            .as_deref()
+            .and_then(|s| crate::domain::permission_management::PlanGroup::parse(s).ok()),
     };
 
     // If default_expiry_days is provided, merge it into metadata
     let mut update_params = update_params;
     if let Some(days) = req.default_expiry_days {
-        let mut metadata = update_params.metadata.clone().unwrap_or_else(|| plan.metadata().clone());
+        let mut metadata = update_params
+            .metadata
+            .clone()
+            .unwrap_or_else(|| plan.metadata().clone());
         if let Some(obj) = metadata.as_object_mut() {
             obj.insert("default_expiry_days".to_string(), serde_json::json!(days));
         }
@@ -584,9 +645,12 @@ pub async fn update_plan(
     };
 
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("plan", "update", "plan")
-        .id(&plan_id)
-        .after(serde_json::json!({ "name": saved_plan.name() })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("plan", "update", "plan")
+            .id(&plan_id)
+            .after(serde_json::json!({ "name": saved_plan.name() })),
+    );
 
     AdminResponse::success(PlanResponse::from_plan(&saved_plan, 0)).into_response()
 }
@@ -612,7 +676,9 @@ pub async fn update_plan(
 )]
 pub async fn delete_plan(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(plan_id): Path<String>,
 ) -> impl IntoResponse {
@@ -638,9 +704,15 @@ pub async fn delete_plan(
     match app_state.plan_repo.delete(&plan_id_obj).await {
         Ok(_) => {
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("plan", "delete", "plan").id(&plan_id));
-            AdminResponse::success_with_message(serde_json::json!({"deleted": true}), "Plan deleted successfully").into_response()
-        },
+            app_state
+                .audit
+                .log(ctx, AuditEntry::new("plan", "delete", "plan").id(&plan_id));
+            AdminResponse::success_with_message(
+                serde_json::json!({"deleted": true}),
+                "Plan deleted successfully",
+            )
+            .into_response()
+        }
         Err(e) => {
             tracing::error!("Failed to delete plan: {}", e);
             AdminResponse::server_error("Failed to delete plan").into_response()
@@ -690,7 +762,7 @@ pub async fn get_plan_members(
     }
 
     let members: Vec<String> = match diesel::sql_query(
-        "SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $1"
+        "SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .load::<WalletAddress>(&mut conn)
@@ -703,7 +775,8 @@ pub async fn get_plan_members(
         }
     };
 
-    AdminResponse::success(serde_json::json!({"members": members, "count": members.len()})).into_response()
+    AdminResponse::success(serde_json::json!({"members": members, "count": members.len()}))
+        .into_response()
 }
 
 /// Get permissions of a permission plan
@@ -746,7 +819,8 @@ pub async fn get_plan_permissions(
     };
 
     // Extract permissions from the plan
-    let permissions: Vec<String> = plan.permissions()
+    let permissions: Vec<String> = plan
+        .permissions()
         .iter()
         .map(|p| p.as_str().to_string())
         .collect();
@@ -756,7 +830,8 @@ pub async fn get_plan_permissions(
         "plan_name": plan.name().to_string(),
         "permissions": permissions,
         "count": permissions.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Get assignments for a permission plan
@@ -818,7 +893,7 @@ pub async fn get_plan_assignments(
     }
 
     let total = match diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1"
+        "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .get_result::<Count>(&mut conn)
@@ -837,7 +912,7 @@ pub async fn get_plan_assignments(
          FROM wallet_plan_assignments 
          WHERE plan_id = $1 
          ORDER BY created_at DESC 
-         LIMIT $2 OFFSET $3"
+         LIMIT $2 OFFSET $3",
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)

@@ -141,16 +141,19 @@ pub fn ExportDialog(
     let mut include_metadata = use_signal(|| true);
     let mut include_quarterly = use_signal(|| true);
 
-    let formats = available_formats.unwrap_or_else(|| {
-        vec![ExportFormat::Csv, ExportFormat::Json, ExportFormat::Parquet]
-    });
+    let formats = available_formats
+        .unwrap_or_else(|| vec![ExportFormat::Csv, ExportFormat::Json, ExportFormat::Parquet]);
     let scopes = available_scopes.unwrap_or_else(|| {
-        vec![ExportScope::Current, ExportScope::Filtered, ExportScope::Full]
+        vec![
+            ExportScope::Current,
+            ExportScope::Filtered,
+            ExportScope::Full,
+        ]
     });
 
     let title_str = title.unwrap_or_else(|| "Export Data".to_string());
-    let filename_placeholder_str = filename_placeholder
-        .unwrap_or_else(|| "Leave empty for auto-generated name".to_string());
+    let filename_placeholder_str =
+        filename_placeholder.unwrap_or_else(|| "Leave empty for auto-generated name".to_string());
 
     // Stable id for the dialog panel so test assertions can target it.
     let panel_id = "export-dialog-panel".to_string();

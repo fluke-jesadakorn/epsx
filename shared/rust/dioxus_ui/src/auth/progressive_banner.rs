@@ -27,31 +27,41 @@ use dioxus::prelude::*;
 pub fn ProgressiveAuthBanner(
     /// Optional feature name (e.g. "your dashboard") shown in the
     /// banner copy. Kept from Wave 1.
-    #[props(default = None)] feature: Option<String>,
+    #[props(default = None)]
+    feature: Option<String>,
     /// Override for the banner headline. When set, replaces the
     /// auto-generated "Sign in to <feature>" copy.
-    #[props(default = None)] message: Option<String>,
+    #[props(default = None)]
+    message: Option<String>,
     /// Sub-line below the headline. Default text matches Wave 1.
-    #[props(default = None)] description: Option<String>,
+    #[props(default = None)]
+    description: Option<String>,
     /// CTA label. Defaults to "Sign in".
-    #[props(default = None)] cta_label: Option<String>,
+    #[props(default = None)]
+    cta_label: Option<String>,
     /// Click handler for the CTA. When set, the CTA becomes a
     /// button; when unset, the CTA is an anchor tag pointing to
     /// `href` (default `/auth`).
-    #[props(default = None)] on_click: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_click: Option<EventHandler<MouseEvent>>,
     /// Href for the CTA when `on_click` is unset. Defaults to
     /// `/auth`.
-    #[props(default = None)] href: Option<String>,
+    #[props(default = None)]
+    href: Option<String>,
     /// Show the dismiss button. Defaults to `false`. The dismiss
     /// button is only rendered when `on_dismiss` is also set.
-    #[props(default = false)] dismissible: bool,
+    #[props(default = false)]
+    dismissible: bool,
     /// Fired when the user clicks the dismiss button. When unset,
     /// the dismiss button is hidden even if `dismissible` is true.
-    #[props(default = None)] on_dismiss: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_dismiss: Option<EventHandler<MouseEvent>>,
     /// Override for the leading icon. Defaults to "info".
-    #[props(default = None)] icon: Option<String>,
+    #[props(default = None)]
+    icon: Option<String>,
     /// Extra class names for the banner wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let icon_val = icon.unwrap_or_else(|| "info".to_string());
     let cta_label_val = cta_label.unwrap_or_else(|| "Sign in".to_string());

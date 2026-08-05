@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::resource_management::commands::{
-    IncrementResourceUsageCommand, IncrementResourceUsageResponse
+    IncrementResourceUsageCommand, IncrementResourceUsageResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::resource_management::repository_ports::UserResourceUsageRepository;
+use crate::prelude::*;
 
 /// Handler for incrementing resource usage
 pub struct IncrementResourceUsageCommandHandler<R: UserResourceUsageRepository> {
@@ -22,20 +22,31 @@ impl<R: UserResourceUsageRepository + Send + Sync> CommandHandler<IncrementResou
 where
     R::Error: std::fmt::Display,
 {
-    async fn handle(&self, command: IncrementResourceUsageCommand) -> ApplicationResult<IncrementResourceUsageResponse> {
+    async fn handle(
+        &self,
+        command: IncrementResourceUsageCommand,
+    ) -> ApplicationResult<IncrementResourceUsageResponse> {
         // 1. Retrieve or create usage aggregate
-        let mut usage = self.usage_repository
+        let mut usage = self
+            .usage_repository
             .get_user_usage(&command.wallet_address, "default")
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("usage", command.wallet_address.clone()))?;
 
         // 2. Increment usage
-        usage.increment_usage(command.resource_type.clone(), command.amount)
+        usage
+            .increment_usage(command.resource_type.clone(), command.amount)
             .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
 
-        let current_usage = *usage.current_usage().get(&command.resource_type).unwrap_or(&0);
-        let quota_limit = *usage.quota_limits().get(&command.resource_type).unwrap_or(&0);
+        let current_usage = *usage
+            .current_usage()
+            .get(&command.resource_type)
+            .unwrap_or(&0);
+        let quota_limit = *usage
+            .quota_limits()
+            .get(&command.resource_type)
+            .unwrap_or(&0);
         let usage_percentage = usage.get_usage_percentage(&command.resource_type);
         let limit_exceeded = usage.is_limit_exceeded(&command.resource_type);
 

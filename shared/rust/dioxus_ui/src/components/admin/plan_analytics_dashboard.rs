@@ -160,9 +160,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-analytics-card"), "PlanAnalyticsCard must render container class. Got: {html}");
-        assert!(html.contains("Total Plans"), "PlanAnalyticsCard must render title. Got: {html}");
-        assert!(html.contains("12"), "PlanAnalyticsCard must render value. Got: {html}");
+        assert!(
+            html.contains("plan-analytics-card"),
+            "PlanAnalyticsCard must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Total Plans"),
+            "PlanAnalyticsCard must render title. Got: {html}"
+        );
+        assert!(
+            html.contains("12"),
+            "PlanAnalyticsCard must render value. Got: {html}"
+        );
     }
 
     /// `PlanAnalyticsGrid` renders 4 cards.
@@ -174,9 +183,20 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-analytics-grid"), "PlanAnalyticsGrid must render container class. Got: {html}");
-        for label in &["Total Plans", "Active Plans", "System Plans", "Avg Permissions"] {
-            assert!(html.contains(label), "PlanAnalyticsGrid must render `{label}` card. Got: {html}");
+        assert!(
+            html.contains("plan-analytics-grid"),
+            "PlanAnalyticsGrid must render container class. Got: {html}"
+        );
+        for label in &[
+            "Total Plans",
+            "Active Plans",
+            "System Plans",
+            "Avg Permissions",
+        ] {
+            assert!(
+                html.contains(label),
+                "PlanAnalyticsGrid must render `{label}` card. Got: {html}"
+            );
         }
     }
 
@@ -189,8 +209,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-analytics-empty-state"), "PlanAnalyticsEmptyState must render container class. Got: {html}");
-        assert!(html.contains("No plans found"), "PlanAnalyticsEmptyState must render message. Got: {html}");
+        assert!(
+            html.contains("plan-analytics-empty-state"),
+            "PlanAnalyticsEmptyState must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("No plans found"),
+            "PlanAnalyticsEmptyState must render message. Got: {html}"
+        );
     }
 
     /// `PlanAnalyticsDashboard` with loading=true renders skeletons.
@@ -202,12 +228,21 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("animate-pulse"), "PlanAnalyticsDashboard loading must animate. Got: {html}");
+        assert!(
+            html.contains("animate-pulse"),
+            "PlanAnalyticsDashboard loading must animate. Got: {html}"
+        );
         for i in 0..4 {
-            assert!(html.contains(&format!("plan-analytics-skel-{i}")), "PlanAnalyticsDashboard must render skeleton {i}. Got: {html}");
+            assert!(
+                html.contains(&format!("plan-analytics-skel-{i}")),
+                "PlanAnalyticsDashboard must render skeleton {i}. Got: {html}"
+            );
         }
         // No grid when loading
-        assert!(!html.contains("Total Plans"), "PlanAnalyticsDashboard loading must omit cards. Got: {html}");
+        assert!(
+            !html.contains("Total Plans"),
+            "PlanAnalyticsDashboard loading must omit cards. Got: {html}"
+        );
     }
 
     /// `PlanAnalyticsDashboard` with `total_plans == 0` shows empty state.
@@ -219,7 +254,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("plan-analytics-empty-state"), "PlanAnalyticsDashboard with 0 plans must show empty state. Got: {html}");
+        assert!(
+            html.contains("plan-analytics-empty-state"),
+            "PlanAnalyticsDashboard with 0 plans must show empty state. Got: {html}"
+        );
     }
 
     /// `PlanAnalyticsDashboard` with data shows the grid.
@@ -231,8 +269,17 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Plan Analytics"), "PlanAnalyticsDashboard must render header. Got: {html}");
-        assert!(html.contains("plan-analytics-grid"), "PlanAnalyticsDashboard must render grid. Got: {html}");
-        assert!(!html.contains("plan-analytics-empty-state"), "PlanAnalyticsDashboard with data must omit empty state. Got: {html}");
+        assert!(
+            html.contains("Plan Analytics"),
+            "PlanAnalyticsDashboard must render header. Got: {html}"
+        );
+        assert!(
+            html.contains("plan-analytics-grid"),
+            "PlanAnalyticsDashboard must render grid. Got: {html}"
+        );
+        assert!(
+            !html.contains("plan-analytics-empty-state"),
+            "PlanAnalyticsDashboard with data must omit empty state. Got: {html}"
+        );
     }
 }

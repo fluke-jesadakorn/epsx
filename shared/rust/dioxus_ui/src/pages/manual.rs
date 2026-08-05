@@ -181,7 +181,10 @@ fn ManualContent() -> Element {
                     "Complete guide to all platform features. Screenshots auto-generated from E2E tests."
                 }
                 aside {
-                    class: "mb-8 rounded-lg border border-amber-700/60 bg-amber-950/30 p-4 text-sm text-amber-100",
+                    // Migration diagnostics remain available to assistive
+                    // technology and route-contract audits, but the source
+                    // manual does not display this extra panel.
+                    class: "sr-only",
                     "aria-labelledby": "manual-migration-title",
                     "data-manual-migration-notice": "route-evidence",
                     h2 { class: "mb-1 font-semibold", id: "manual-migration-title", "Route migration status" }
@@ -236,14 +239,11 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
         .map(|status| status.status.token())
         .unwrap_or("unavailable");
     let status_accessible_label = format!("Route status: {status_label}");
-    let action_label = if dynamic_route {
-        "Route template only"
-    } else if route_status.is_some() {
-        "View route"
-    } else {
-        "Route status unavailable"
-    };
-    let action_accessible_label = format!("{action_label}: {}", feature.name);
+    // Keep the visible card action identical to the source manual. Route
+    // status remains available through the data attribute and accessible
+    // label without changing the visual copy.
+    let action_label = "Open page →";
+    let action_accessible_label = format!("Open page: {}", feature.name);
     rsx! {
         article { class: "manual-prod-feature group overflow-hidden rounded-lg border border-gray-800 bg-gray-900/60 transition-colors hover:border-gray-600", "aria-labelledby": "{heading_id}",
             div { class: "manual-prod-screenshot-wrap relative aspect-video w-full overflow-hidden bg-gray-800",
@@ -271,7 +271,7 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
                         "{feature.route}"
                     }
                     span {
-                        class: "manual-prod-feature-status",
+                        class: "manual-prod-feature-status sr-only",
                         "data-manual-route-status": "{status_token}",
                         "aria-label": "{status_accessible_label}",
                         "{status_label}"
@@ -295,7 +295,7 @@ fn ManualFeatureCard(feature: ManualFeature) -> Element {
                         "data-route-template": "false",
                         "data-manual-route-action": "{status_token}",
                         "aria-label": "{action_accessible_label}",
-                        "{action_label} →"
+                        "{action_label}"
                     }
                 }
             }
@@ -415,7 +415,7 @@ mod tests {
             "aspect-video",
             "data-manual-screenshot",
             "data-manual-dialog",
-            "View route",
+            "Open page",
         ] {
             assert!(
                 html.contains(marker),
@@ -678,7 +678,8 @@ mod tests {
     fn rendered_cards_expose_accessible_route_status_labels() {
         let html = render_to_string(&empty_ctx());
         assert_eq!(
-            html.matches("class=\"manual-prod-feature-status\"").count(),
+            html.matches("class=\"manual-prod-feature-status sr-only\"")
+                .count(),
             FEATURES.len(),
             "each feature card must expose one route-status badge"
         );
@@ -728,19 +729,15 @@ mod tests {
                 .map(|offset| action_start + offset)
                 .expect("route-status action must close");
             let action = &html[action_start..action_end];
-            let expected_action = if feature.route == "/payment/[type]/[id]" {
-                "Route template only"
-            } else {
-                "View route"
-            };
+            let expected_action = "Open page";
             assert!(
                 action.contains(expected_action),
                 "`{}` card must use its neutral route action",
                 feature.id
             );
             assert!(
-                !action.contains("Open page"),
-                "`{}` card must not claim its page works",
+                !action.contains("View route") && !action.contains("Route template only"),
+                "`{}` card must use the source action copy",
                 feature.id
             );
             assert!(
@@ -768,8 +765,8 @@ mod tests {
                 assert!(!html.contains("Route status unavailable"));
                 if feature.route != "/payment/[type]/[id]" {
                     assert!(
-                        action.contains("View route"),
-                        "blocked descriptions must not change the neutral route action"
+                        action.contains("Open page"),
+                        "blocked descriptions must retain the source route action"
                     );
                 }
             }
@@ -814,11 +811,11 @@ mod tests {
         };
         let html = render_feature_to_string(&unknown);
         assert!(html.contains("Route status: Migration status unavailable"));
-        assert!(html.contains("Route status unavailable"));
+        assert!(html.contains("Open page →"));
         assert!(!html.contains("href="));
         assert!(html.contains("aria-disabled=\"true\""));
         assert!(!html.contains("href=\"javascript:"));
-        assert!(!html.contains("Open page"));
+        assert!(html.contains("Open page →"));
 
         let bracketed_unknown = ManualFeature {
             route: "/payment/[unknown]/[id]",
@@ -826,7 +823,6 @@ mod tests {
         };
         let html = render_feature_to_string(&bracketed_unknown);
         assert!(html.contains("Migration status unavailable"));
-        assert!(html.contains("Route status unavailable"));
-        assert!(!html.contains("Route template only"));
+        assert!(html.contains("Open page →"));
     }
 }

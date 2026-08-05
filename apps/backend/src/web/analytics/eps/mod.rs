@@ -2,30 +2,34 @@
 // Breaks down 1,865-line God Object into focused modules with clear domain boundaries
 
 // Public modules - each handles a specific domain
-pub mod types;         // Data Transfer Objects and API structures
-pub mod rankings;      // Core EPS rankings business logic
-pub mod metadata;      // Country and sector data management
-pub mod cache;         // Cache management and caching logic
-pub mod enhancement;   // WebSocket data enhancement
-pub mod transform;     // Data transformation and formatting
-pub mod errors;        // EPS-specific error handling
+pub mod cache; // Cache management and caching logic
+pub mod enhancement; // WebSocket data enhancement
+pub mod errors;
+pub mod metadata; // Country and sector data management
+pub mod rankings; // Core EPS rankings business logic
+pub mod transform; // Data transformation and formatting
+pub mod types; // Data Transfer Objects and API structures // EPS-specific error handling
 
 // Internal modules for transform decomposition
-mod quarterly;         // Quarterly data generation logic
-mod date_metrics;      // Date utilities and metrics
-mod estimate;          // Next quarter estimation
-mod system;            // System mode and config utilities
+mod date_metrics; // Date utilities and metrics
+mod estimate; // Next quarter estimation
+mod quarterly; // Quarterly data generation logic
+mod system; // System mode and config utilities
 
 // Re-export key types for easy access
+pub use metadata::{
+    get_all_valid_countries, get_available_countries, get_filter_options, get_sectors_by_country,
+};
+pub use rankings::{
+    convert_screening_result_to_eps_ranking, get_eps_rankings, is_valid_eps_for_ranking,
+};
 pub use types::*;
-pub use rankings::{get_eps_rankings, convert_screening_result_to_eps_ranking, is_valid_eps_for_ranking};
-pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};
 // wave12(track-b) option b: deleted get_cache_stats and force_cache_refresh
 // (dead routes, see audit-analytics §7d and ROADMAP §4 wave-12 precondition #5).
 pub use cache::get_unified_analytics_rankings_cached;
 pub use enhancement::enhance_with_websocket_data;
-pub use transform::{transform_ranking_to_unified_format, transform_unified_to_card_format};
 pub use errors::*;
+pub use transform::{transform_ranking_to_unified_format, transform_unified_to_card_format};
 
 #[cfg(test)]
 mod tests {

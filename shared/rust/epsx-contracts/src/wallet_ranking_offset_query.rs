@@ -43,10 +43,7 @@ pub trait WalletRankingOffsetQuery: Send + Sync {
     /// The caller passes a lowercased, EIP-55-checksummed or
     /// plain-hex wallet address; the adapter is responsible for
     /// any further normalization.
-    async fn get_wallet_ranking_offset(
-        &self,
-        wallet: &str,
-    ) -> AppResult<RankingOffset>;
+    async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset>;
 }
 
 #[cfg(test)]

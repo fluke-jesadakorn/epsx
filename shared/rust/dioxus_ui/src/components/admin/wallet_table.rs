@@ -45,8 +45,7 @@ pub fn WalletTable(
     /// Optional extra classes appended to the outer wrapper.
     class_name: Option<String>,
 ) -> Element {
-    let mut cls =
-        "w-full overflow-auto rounded-xl border border-border/60 bg-card".to_string();
+    let mut cls = "w-full overflow-auto rounded-xl border border-border/60 bg-card".to_string();
     if let Some(extra) = class_name {
         if !extra.is_empty() {
             cls.push(' ');
@@ -130,19 +129,17 @@ mod tests {
     fn test_wallet_table_renders_all_columns() {
         fn render() -> Element {
             rsx! {
-            WalletTable {
-                wallets: sample_wallets(),
-                selected_addresses: vec![],
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                WalletTable {
+                    wallets: sample_wallets(),
+                    selected_addresses: vec![],
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -154,8 +151,14 @@ mod tests {
                 || html.contains("Wallet & Label"),
             "Wallet & Label column should render. Got: {html}"
         );
-        assert!(html.contains("Plan"), "Plan column should render. Got: {html}");
-        assert!(html.contains("Status"), "Status column should render. Got: {html}");
+        assert!(
+            html.contains("Plan"),
+            "Plan column should render. Got: {html}"
+        );
+        assert!(
+            html.contains("Status"),
+            "Status column should render. Got: {html}"
+        );
         assert!(
             html.contains("Actions"),
             "Actions column should render. Got: {html}"
@@ -167,19 +170,17 @@ mod tests {
     fn test_wallet_table_renders_rows_for_each_wallet() {
         fn render() -> Element {
             rsx! {
-            WalletTable {
-                wallets: sample_wallets(),
-                selected_addresses: vec![],
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                WalletTable {
+                    wallets: sample_wallets(),
+                    selected_addresses: vec![],
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -193,8 +194,14 @@ mod tests {
             html.contains("0xbbbb"),
             "Second wallet address should render. Got: {html}"
         );
-        assert!(html.contains("Premium"), "First plan should render. Got: {html}");
-        assert!(html.contains("Basic"), "Second plan should render. Got: {html}");
+        assert!(
+            html.contains("Premium"),
+            "First plan should render. Got: {html}"
+        );
+        assert!(
+            html.contains("Basic"),
+            "Second plan should render. Got: {html}"
+        );
     }
 
     /// Empty list → "No wallets found" empty state.
@@ -202,19 +209,17 @@ mod tests {
     fn test_wallet_table_empty_state() {
         fn render() -> Element {
             rsx! {
-            WalletTable {
-                wallets: vec![],
-                selected_addresses: vec![],
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
+                WalletTable {
+                    wallets: vec![],
+                    selected_addresses: vec![],
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);
@@ -231,20 +236,18 @@ mod tests {
     fn test_wallet_table_propagates_class_name() {
         fn render() -> Element {
             rsx! {
-            WalletTable {
-                wallets: sample_wallets(),
-                selected_addresses: vec![],
-                on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
-                on_view: EventHandler::new(|_: WalletRowData| {}),
-                on_manage: EventHandler::new(|_: WalletRowData| {}),
-                on_disable: EventHandler::new(|_: WalletRowData| {}),
-                on_enable: EventHandler::new(|_: WalletRowData| {}),
-                on_edit: EventHandler::new(|_: WalletRowData| {}),
-                class_name: Some("mt-4".to_string()),
+                WalletTable {
+                    wallets: sample_wallets(),
+                    selected_addresses: vec![],
+                    on_select_wallet: EventHandler::new(|_: (String, bool)| {}),
+                    on_view: EventHandler::new(|_: WalletRowData| {}),
+                    on_manage: EventHandler::new(|_: WalletRowData| {}),
+                    on_disable: EventHandler::new(|_: WalletRowData| {}),
+                    on_enable: EventHandler::new(|_: WalletRowData| {}),
+                    on_edit: EventHandler::new(|_: WalletRowData| {}),
+                    class_name: Some("mt-4".to_string()),
+                }
             }
-        }
-        
-
         }
 
         let mut vdom = dioxus::prelude::VirtualDom::new(render);

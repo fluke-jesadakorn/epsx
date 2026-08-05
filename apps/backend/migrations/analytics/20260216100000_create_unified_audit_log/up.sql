@@ -33,3 +33,6 @@ CREATE INDEX IF NOT EXISTS idx_ual_created_at ON infra_logs.unified_audit_log (c
 CREATE INDEX IF NOT EXISTS idx_ual_actor ON infra_logs.unified_audit_log (actor);
 CREATE INDEX IF NOT EXISTS idx_ual_category ON infra_logs.unified_audit_log (category);
 CREATE INDEX IF NOT EXISTS idx_ual_resource ON infra_logs.unified_audit_log (resource_type, resource_id);
+
+-- Diesel records applied migrations in public.__diesel_schema_migrations.
+RESET search_path;

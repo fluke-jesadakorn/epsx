@@ -1,10 +1,10 @@
-use axum::{extract::State, response::IntoResponse};
-use tracing::info;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use crate::web::auth::AppState;
 use crate::web::responses::wrappers::AdminResponse;
+use axum::{extract::State, response::IntoResponse};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use serde::Serialize;
+use tracing::info;
 
 #[derive(Debug, Serialize)]
 pub struct AdminAnalyticsDashboardResponse {
@@ -176,7 +176,7 @@ async fn fetch_developer_stats(app_state: &AppState) -> Result<serde_json::Value
     let result = diesel::sql_query(
         "SELECT COUNT(*)::bigint as total_api_keys,
                 COUNT(*) FILTER (WHERE status = 'active')::bigint as active_api_keys
-         FROM api_keys"
+         FROM api_keys",
     )
     .get_result::<DevStats>(&mut conn)
     .await

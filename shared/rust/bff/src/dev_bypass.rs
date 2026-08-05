@@ -110,6 +110,19 @@ pub fn dev_bypass_user() -> Option<AuthUser> {
     }
 }
 
+/// Returns the same local visual identity for the design-capture query
+/// bypass. The caller must first verify that the request is running in the
+/// local cookie environment and that the query value is an explicitly
+/// supported truthy value. Keeping the identity in this module ensures the
+/// frontend and admin BFFs cannot drift to different capture users.
+pub fn design_bypass_user(enabled: bool) -> Option<AuthUser> {
+    if enabled && !is_dev_force_unauth_enabled() {
+        Some(dev_user())
+    } else {
+        None
+    }
+}
+
 /// Returns true if the bypass is enabled. Useful for emitting a
 /// one-line startup banner in main() so it's obvious in process logs
 /// when the bypass is hot. Caller controls the log level.

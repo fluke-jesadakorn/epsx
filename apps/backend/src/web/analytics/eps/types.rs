@@ -1,8 +1,8 @@
 // DTOs and Request/Response Structures for EPS Analytics
 // Focused module handling all data transfer objects and API structures
 
-use serde::{Deserialize, Serialize};
 use crate::domain::market_analytics::domain_services::eps_cache_service::CacheStats;
+use serde::{Deserialize, Serialize};
 
 /// Query parameters for EPS rankings endpoint
 #[derive(Debug, Deserialize)]
@@ -19,8 +19,8 @@ pub struct EPSRankingQueryParams {
 /// Access information for rank-based permissions
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct AccessInfo {
-    pub min_accessible_rank: i32,  // Minimum rank user can access
-    pub locked_ranks_count: i32,    // How many ranks are locked (same as min_accessible_rank - 1)
+    pub min_accessible_rank: i32, // Minimum rank user can access
+    pub locked_ranks_count: i32,  // How many ranks are locked (same as min_accessible_rank - 1)
 }
 
 /// API response structure matching frontend pattern
@@ -28,7 +28,7 @@ pub struct AccessInfo {
 pub struct EPSRankingsApiResponse {
     pub data: Vec<crate::domain::shared_kernel::entities::eps_growth::EPSRanking>,
     pub pagination: EPSPaginationResponse,
-    pub access_info: AccessInfo,  // User's access level information
+    pub access_info: AccessInfo, // User's access level information
 }
 
 /// Pagination response structure
@@ -48,8 +48,8 @@ pub struct EPSPaginationResponse {
 /// Country data with display name and API value
 #[derive(Debug, Serialize, utoipa::ToSchema)]
 pub struct CountryData {
-    pub value: String,      // API value (lowercase)
-    pub label: String,      // Display name (proper capitalization)
+    pub value: String, // API value (lowercase)
+    pub label: String, // Display name (proper capitalization)
 }
 
 /// Countries list response
@@ -118,7 +118,7 @@ pub struct QuarterlyData {
     pub date: chrono::DateTime<chrono::Utc>,
     pub price: f64,
     pub eps: f64,
-    pub eps_growth: f64, // Growth factor percentage
+    pub eps_growth: f64,   // Growth factor percentage
     pub price_growth: f64, // Price growth percentage
     pub volume: Option<i64>,
 }
@@ -201,70 +201,70 @@ pub struct SymbolCardData {
     pub symbol: String,
     pub company_name: Option<String>, // NEW: Company name for display
     pub latest_date: String,
-    pub value: f64,                    // Current price
-    pub active_status: String,         // Active or Non Active based on surplus
+    pub value: f64,            // Current price
+    pub active_status: String, // Active or Non Active based on surplus
     pub quarterly_performance: Vec<QuarterlyPerformanceData>,
     pub next_quarter_estimate: Option<NextQuarterEstimate>, // NEW: Next quarter EPS estimate
-    pub eps_quarterly: Option<EPSQuarterlyData>, // NEW: 4-Quarter EPS data structure
-    pub next_earnings_date: Option<i64>, // Unix timestamp from TradingView (raw)
-    pub last_earnings_date: Option<i64>, // Unix timestamp from TradingView (raw)
+    pub eps_quarterly: Option<EPSQuarterlyData>,            // NEW: 4-Quarter EPS data structure
+    pub next_earnings_date: Option<i64>,                    // Unix timestamp from TradingView (raw)
+    pub last_earnings_date: Option<i64>,                    // Unix timestamp from TradingView (raw)
     // Frontend-ready formatted fields (calculated by backend)
     pub next_earnings_date_formatted: Option<String>, // "Nov 18, 2025"
     pub days_until_next_earnings: Option<i32>,        // 185
     pub progress_percentage: Option<f64>,             // 0-100 for progress bar
     // Top-level fields for frontend (derived from quarterly_performance[0])
-    pub current_eps: Option<f64>,      // From quarterly_performance[0].eps
-    pub growth_factor: Option<f64>,    // From quarterly_performance[0].eps_growth
-    pub price_current: Option<f64>,    // From quarterly_performance[0].price
+    pub current_eps: Option<f64>,   // From quarterly_performance[0].eps
+    pub growth_factor: Option<f64>, // From quarterly_performance[0].eps_growth
+    pub price_current: Option<f64>, // From quarterly_performance[0].price
 }
 
 /// 4-Quarter EPS Data Structure matching frontend expectations
 #[derive(Debug, Serialize, Deserialize, Clone, utoipa::ToSchema)]
 pub struct EPSQuarterlyData {
-    pub eps_q_minus_2: Option<f64>,        // Q-2 (2 quarters ago)
-    pub eps_q_minus_1: Option<f64>,        // Q-1 (1 quarter ago) 
-    pub eps_q_current: Option<f64>,        // Q0 (current quarter)
-    pub eps_q_next_estimate: Option<f64>,  // Q+1 (next quarter estimate)
-    
+    pub eps_q_minus_2: Option<f64>,       // Q-2 (2 quarters ago)
+    pub eps_q_minus_1: Option<f64>,       // Q-1 (1 quarter ago)
+    pub eps_q_current: Option<f64>,       // Q0 (current quarter)
+    pub eps_q_next_estimate: Option<f64>, // Q+1 (next quarter estimate)
+
     // Quarter dates for EPS reporting
     pub eps_q_minus_2_date: Option<String>,
-    pub eps_q_minus_1_date: Option<String>, 
+    pub eps_q_minus_1_date: Option<String>,
     pub eps_q_current_date: Option<String>,
     pub eps_q_next_estimate_date: Option<String>,
-    
+
     // Growth calculations
-    pub qoq_growth_current: Option<f64>,   // Q0 vs Q-1 growth percentage
-    pub yoy_growth_current: Option<f64>,   // Q0 vs Q-4 growth (if available)
-    pub trend_direction: Option<String>,   // "UP", "DOWN", "FLAT"
-    pub avg_growth_rate: Option<f64>,      // Average growth rate across available quarters
+    pub qoq_growth_current: Option<f64>, // Q0 vs Q-1 growth percentage
+    pub yoy_growth_current: Option<f64>, // Q0 vs Q-4 growth (if available)
+    pub trend_direction: Option<String>, // "UP", "DOWN", "FLAT"
+    pub avg_growth_rate: Option<f64>,    // Average growth rate across available quarters
     pub consistency_score: Option<String>, // "HIGH", "MEDIUM", "LOW" - earnings consistency
 }
 
 /// Quarterly performance data for the card dashboard
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct QuarterlyPerformanceData {
-    pub quarter: String,      // "Q1", "Q0", etc. OR "Announced Jul 25, 2024" 
-    pub date: String,         // "Aug 8, 2025"
+    pub quarter: String, // "Q1", "Q0", etc. OR "Announced Jul 25, 2024"
+    pub date: String,    // "Aug 8, 2025"
     pub price: f64,
     pub eps: f64,
-    pub eps_growth: f64,      // EPS % growth
-    pub price_growth: f64,    // Price % growth
+    pub eps_growth: f64,   // EPS % growth
+    pub price_growth: f64, // Price % growth
     // NEW: Enhanced announcement date fields
-    pub announcement_date: Option<String>,     // "Est. Oct 24, 2025" or "Announced Jul 25, 2024"
-    pub announcement_timestamp: Option<i64>,   // Raw timestamp for calculations
-    pub is_estimated: bool,                    // true if future/estimated, false if past/announced
+    pub announcement_date: Option<String>, // "Est. Oct 24, 2025" or "Announced Jul 25, 2024"
+    pub announcement_timestamp: Option<i64>, // Raw timestamp for calculations
+    pub is_estimated: bool,                // true if future/estimated, false if past/announced
 }
 
 /// Next quarter EPS estimate data
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct NextQuarterEstimate {
-    pub quarter: String,                       // "2025-Q4"
-    pub estimated_eps: f64,                    // 3.85
-    pub announcement_date: String,             // "Est. Oct 24, 2025"
-    pub announcement_timestamp: i64,           // Raw timestamp
-    pub days_until_announcement: i32,          // 45 (calculated days from now)
-    pub estimated_price_target: Option<f64>,  // Optional price target based on EPS
-    pub confidence: String,                    // "High", "Medium", "Low" based on data quality
+    pub quarter: String,                     // "2025-Q4"
+    pub estimated_eps: f64,                  // 3.85
+    pub announcement_date: String,           // "Est. Oct 24, 2025"
+    pub announcement_timestamp: i64,         // Raw timestamp
+    pub days_until_announcement: i32,        // 45 (calculated days from now)
+    pub estimated_price_target: Option<f64>, // Optional price target based on EPS
+    pub confidence: String,                  // "High", "Medium", "Low" based on data quality
 }
 
 /// Metadata for card dashboard
@@ -278,12 +278,18 @@ pub struct CardDashboardMetadata {
 
 /// Convert from DDD market analytics to API response
 impl EPSRankingsApiResponse {
-    pub fn from_ddd_ranking_entry(ranking_entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry, rank: u32, page: i32, limit: i32, total: i64) -> Self {
+    pub fn from_ddd_ranking_entry(
+        ranking_entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry,
+        rank: u32,
+        page: i32,
+        limit: i32,
+        total: i64,
+    ) -> Self {
         let total_pages = ((total as f64) / (limit as f64)).ceil() as i32;
-        
+
         // Convert DDD RankingEntry to legacy EPSRanking for API compatibility
         let legacy_ranking = Self::convert_ddd_entry_to_legacy_ranking(ranking_entry, rank);
-        
+
         Self {
             data: vec![legacy_ranking],
             pagination: EPSPaginationResponse {
@@ -295,16 +301,16 @@ impl EPSRankingsApiResponse {
                 has_prev: page > 1,
             },
             access_info: AccessInfo {
-                min_accessible_rank: 0,  // Default: full access for DDD rankings
+                min_accessible_rank: 0, // Default: full access for DDD rankings
                 locked_ranks_count: 0,
             },
         }
     }
-    
+
     /// Convert DDD RankingEntry to legacy EPSRanking for API compatibility
     fn convert_ddd_entry_to_legacy_ranking(
-        entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry, 
-        rank: u32
+        entry: crate::domain::market_analytics::aggregates::eps_ranking::RankingEntry,
+        rank: u32,
     ) -> crate::domain::shared_kernel::entities::eps_growth::EPSRanking {
         crate::domain::shared_kernel::entities::eps_growth::EPSRanking::from_eps_data(
             crate::domain::shared_kernel::entities::eps_growth::EPSGrowthData {
@@ -315,16 +321,16 @@ impl EPSRankingsApiResponse {
                 exchange: "NASDAQ".to_string(), // Default exchange
                 current_eps: Some(entry.eps_value.value()),
                 growth_factor: Some(entry.growth_factor.percentage()),
-                price_current: None, // Not available from entry
-                market_cap: None, // Would need to be calculated or provided
-                volume: None, // Not available from entry
+                price_current: None,              // Not available from entry
+                market_cap: None,                 // Would need to be calculated or provided
+                volume: None,                     // Not available from entry
                 ranking_score: Some(rank as f64), // Use rank as score
                 created_at: None,
                 updated_at: None,
                 next_earnings_date: None,
                 last_earnings_date: None,
             },
-            Some(rank as i32)
+            Some(rank as i32),
         )
     }
 }

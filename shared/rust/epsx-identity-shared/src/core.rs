@@ -15,7 +15,7 @@
 
 pub mod permissions;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 pub type AppResult<T> = std::result::Result<T, AppError>;

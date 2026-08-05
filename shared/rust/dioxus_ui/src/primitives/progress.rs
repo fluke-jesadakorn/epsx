@@ -29,7 +29,10 @@ pub fn Progress(
     };
     cls.push(' ');
     cls.push_str(height_cls);
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     rsx! {
         div { class: "w-full",

@@ -7,7 +7,6 @@
 /// - `DescriptionList` / `DescriptionItem` — a `<dl>` for
 ///   key-value pairs (e.g. settings panels, profile fields,
 ///   metadata).
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;
@@ -48,10 +47,7 @@ pub fn ListItem(
 
 /// A vertical list of items.
 #[component]
-pub fn List(
-    children: Element,
-    #[props(default = None)] class: Option<String>,
-) -> Element {
+pub fn List(children: Element, #[props(default = None)] class: Option<String>) -> Element {
     let mut cls = "list flex flex-col gap-0.5".to_string();
     if let Some(c) = class {
         cls.push(' ');
@@ -65,10 +61,7 @@ pub fn List(
 /// A key-value item in a `DescriptionList`. Renders a `<div>`
 /// with the term on the left and the description on the right.
 #[component]
-pub fn DescriptionItem(
-    term: String,
-    description: String,
-) -> Element {
+pub fn DescriptionItem(term: String, description: String) -> Element {
     rsx! {
         div { class: "description-item grid grid-cols-3 gap-2 py-2 border-b border-border last:border-b-0",
             dt { class: "description-term text-sm font-medium text-muted-foreground", "{term}" }
@@ -116,7 +109,8 @@ mod tests {
     fn description_item_grid_3_columns() {
         // The description item uses `grid grid-cols-3` so the term
         // takes 1/3 of the width and the description takes 2/3.
-        let base = "description-item grid grid-cols-3 gap-2 py-2 border-b border-border last:border-b-0";
+        let base =
+            "description-item grid grid-cols-3 gap-2 py-2 border-b border-border last:border-b-0";
         assert!(base.contains("grid-cols-3"));
     }
 }

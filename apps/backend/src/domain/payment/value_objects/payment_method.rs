@@ -1,6 +1,6 @@
 use epsx_contracts::value_object::ValueObjectError;
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::{self, Display};
 
 pub use epsx_contracts::value_objects::payments::{Currency, Network};
@@ -34,7 +34,7 @@ impl PaymentMethod {
         if network.is_none() {
             return Err(PaymentMethodError::NetworkRequired(method_type));
         }
-        
+
         let network = network.as_ref().unwrap();
         if !currency.supported_networks().contains(network) {
             return Err(PaymentMethodError::UnsupportedNetwork {
@@ -119,15 +119,19 @@ impl PaymentMethod {
             PaymentMethodType::Crypto => PaymentInstructions::Crypto {
                 currency: self.currency.clone(),
                 network: self.network.clone().unwrap(),
-                estimated_confirmations: self.network.as_ref().map(|n| match n {
-                    Network::Ethereum => 12,
-                    Network::Binance => 20,
-                    Network::Tron => 20,
-                    Network::Arbitrum => 1,
-                    Network::Polygon => 50,
-                    Network::Bitcoin => 6,
-                    Network::BinanceSmartChain => 20,
-                }).unwrap_or(1),
+                estimated_confirmations: self
+                    .network
+                    .as_ref()
+                    .map(|n| match n {
+                        Network::Ethereum => 12,
+                        Network::Binance => 20,
+                        Network::Tron => 20,
+                        Network::Arbitrum => 1,
+                        Network::Polygon => 50,
+                        Network::Bitcoin => 6,
+                        Network::BinanceSmartChain => 20,
+                    })
+                    .unwrap_or(1),
             },
         }
     }
@@ -141,8 +145,9 @@ impl PaymentMethod {
             ));
         }
 
-        if config.processing_fee_rate < rust_decimal::Decimal::ZERO 
-            || config.processing_fee_rate > rust_decimal::Decimal::ONE {
+        if config.processing_fee_rate < rust_decimal::Decimal::ZERO
+            || config.processing_fee_rate > rust_decimal::Decimal::ONE
+        {
             return Err(PaymentMethodError::InvalidConfiguration(
                 "Processing fee rate must be between 0 and 1".to_string(),
             ));
@@ -162,11 +167,14 @@ pub enum PaymentMethodType {
 
 impl std::str::FromStr for PaymentMethodType {
     type Err = ValueObjectError;
-    
+
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
             "crypto" | "cryptocurrency" => Ok(PaymentMethodType::Crypto),
-            _ => Err(ValueObjectError::InvalidFormat(format!("Only crypto payments are supported. Got: {}", s))),
+            _ => Err(ValueObjectError::InvalidFormat(format!(
+                "Only crypto payments are supported. Got: {}",
+                s
+            ))),
         }
     }
 }
@@ -183,8 +191,12 @@ impl PaymentMethodType {
     pub fn supported_currencies(&self) -> Vec<Currency> {
         match self {
             PaymentMethodType::Crypto => vec![
-                Currency::USDT, Currency::USDC, Currency::ETH, 
-                Currency::BTC, Currency::BNB, Currency::TRX
+                Currency::USDT,
+                Currency::USDC,
+                Currency::ETH,
+                Currency::BTC,
+                Currency::BNB,
+                Currency::TRX,
             ],
         }
     }
@@ -197,7 +209,7 @@ impl PaymentMethodType {
     /// Get default processing time in seconds (Web3-only)
     pub fn default_processing_time(&self) -> u32 {
         match self {
-            PaymentMethodType::Crypto => 600,        // 10 minutes (depends on network)
+            PaymentMethodType::Crypto => 600, // 10 minutes (depends on network)
         }
     }
 }
@@ -224,7 +236,6 @@ pub struct PaymentMethodConfig {
 impl PaymentMethodConfig {
     /// Create default configuration for method and currency
     pub fn default_for_method(method_type: &PaymentMethodType, currency: &Currency) -> Self {
-        
         use rust_decimal_macros::dec;
 
         let (min_amount, max_amount, fee_rate) = match (method_type, currency) {
@@ -235,7 +246,7 @@ impl PaymentMethodConfig {
             (PaymentMethodType::Crypto, Currency::BTC) => (dec!(0.001), dec!(10), dec!(0.00)),
             (PaymentMethodType::Crypto, Currency::BNB) => (dec!(0.1), dec!(1000), dec!(0.00)),
             (PaymentMethodType::Crypto, Currency::TRX) => (dec!(100), dec!(1000000), dec!(0.00)),
-            
+
             // Fallback for any other crypto
             _ => (dec!(1), dec!(10000), dec!(0.00)),
         };
@@ -285,7 +296,11 @@ impl PaymentInstructions {
     /// Get user-friendly instructions text (Web3-only)
     pub fn instructions_text(&self) -> String {
         match self {
-            PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
+            PaymentInstructions::Crypto {
+                currency,
+                network,
+                estimated_confirmations,
+            } => {
                 format!(
                     "Send {} via {} network using your Web3 wallet. Payment will be confirmed after {} network confirmations. \
                      Please ensure you're using the correct network to avoid loss of funds.",
@@ -300,14 +315,18 @@ impl PaymentInstructions {
     /// Get estimated processing time in seconds (Web3-only)
     pub fn estimated_processing_time(&self) -> u32 {
         match self {
-            PaymentInstructions::Crypto { network, estimated_confirmations, .. } => {
+            PaymentInstructions::Crypto {
+                network,
+                estimated_confirmations,
+                ..
+            } => {
                 let block_time = match network {
-                    Network::Ethereum => 15,     // ~15 seconds per block
-                    Network::Binance => 3,       // ~3 seconds per block
-                    Network::Tron => 3,          // ~3 seconds per block
-                    Network::Arbitrum => 1,      // ~1 second per block
-                    Network::Polygon => 2,       // ~2 seconds per block
-                    Network::Bitcoin => 600,     // ~10 minutes per block
+                    Network::Ethereum => 15,         // ~15 seconds per block
+                    Network::Binance => 3,           // ~3 seconds per block
+                    Network::Tron => 3,              // ~3 seconds per block
+                    Network::Arbitrum => 1,          // ~1 second per block
+                    Network::Polygon => 2,           // ~2 seconds per block
+                    Network::Bitcoin => 600,         // ~10 minutes per block
                     Network::BinanceSmartChain => 3, // ~3 seconds per block
                 };
                 block_time * estimated_confirmations
@@ -364,7 +383,8 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(method.method_type(), &PaymentMethodType::Crypto);
         assert_eq!(method.currency(), &Currency::USDT);
@@ -379,9 +399,12 @@ mod tests {
             Currency::ETH,
             None, // Missing network
         );
-        
+
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentMethodError::NetworkRequired(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            PaymentMethodError::NetworkRequired(_)
+        ));
     }
 
     #[test]
@@ -392,9 +415,12 @@ mod tests {
             Currency::USD,
             Some(Network::Ethereum),
         );
-        
+
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentMethodError::UnsupportedCurrency { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            PaymentMethodError::UnsupportedCurrency { .. }
+        ));
     }
 
     #[test]
@@ -405,9 +431,12 @@ mod tests {
             Currency::BTC,
             Some(Network::Ethereum),
         );
-        
+
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentMethodError::UnsupportedNetwork { .. }));
+        assert!(matches!(
+            result.unwrap_err(),
+            PaymentMethodError::UnsupportedNetwork { .. }
+        ));
     }
 
     #[test]
@@ -416,7 +445,8 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
 
         let config = method.configuration();
         assert!(config.is_enabled);
@@ -431,7 +461,8 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(method.is_amount_valid(dec!(50))); // Within range
         assert!(!method.is_amount_valid(dec!(1))); // Below minimum
@@ -444,7 +475,8 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(crypto_method.display_name(), "USDT (ethereum)");
     }
 
@@ -454,11 +486,16 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
 
         let instructions = method.get_instructions();
         match &instructions {
-            PaymentInstructions::Crypto { currency, network, estimated_confirmations } => {
+            PaymentInstructions::Crypto {
+                currency,
+                network,
+                estimated_confirmations,
+            } => {
                 assert_eq!(*currency, Currency::USDT);
                 assert_eq!(*network, Network::Ethereum);
                 assert_eq!(*estimated_confirmations, 12);
@@ -479,7 +516,8 @@ mod tests {
             PaymentMethodType::Crypto,
             Currency::USDT,
             Some(Network::Ethereum),
-        ).unwrap();
+        )
+        .unwrap();
 
         // Invalid config: min >= max
         let invalid_config = PaymentMethodConfig {
@@ -493,7 +531,10 @@ mod tests {
 
         let result = method.update_config(invalid_config);
         assert!(result.is_err());
-        assert!(matches!(result.unwrap_err(), PaymentMethodError::InvalidConfiguration(_)));
+        assert!(matches!(
+            result.unwrap_err(),
+            PaymentMethodError::InvalidConfiguration(_)
+        ));
     }
 
     #[test]
@@ -509,7 +550,7 @@ mod tests {
             network: Network::Ethereum,
             estimated_confirmations: 12,
         };
-        
+
         let processing_time = crypto_instructions.estimated_processing_time();
         assert_eq!(processing_time, 15 * 12); // 15 seconds * 12 confirmations
     }

@@ -210,9 +210,7 @@ mod tests {
     #[test]
     fn admin_assign_sets_active_and_started_at() {
         let cmd = CreateSubscriptionCommand::admin_assign(
-            WalletAddress::from_trusted(
-                "0x000000000000000000000000000000000000abc2".to_string(),
-            ),
+            WalletAddress::from_trusted("0x000000000000000000000000000000000000abc2".to_string()),
             Uuid::new_v4(),
             Utc::now() + chrono::Duration::days(30),
             true,

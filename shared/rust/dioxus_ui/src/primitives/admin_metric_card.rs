@@ -57,10 +57,18 @@ impl MetricTrend {
     pub fn badge_kind(&self, is_up_good: bool) -> crate::BadgeKind {
         match self {
             MetricTrend::Up(_) => {
-                if is_up_good { crate::BadgeKind::Success } else { crate::BadgeKind::Danger }
+                if is_up_good {
+                    crate::BadgeKind::Success
+                } else {
+                    crate::BadgeKind::Danger
+                }
             }
             MetricTrend::Down(_) => {
-                if is_up_good { crate::BadgeKind::Danger } else { crate::BadgeKind::Success }
+                if is_up_good {
+                    crate::BadgeKind::Danger
+                } else {
+                    crate::BadgeKind::Success
+                }
             }
             MetricTrend::Flat => crate::BadgeKind::Outline,
         }
@@ -134,7 +142,11 @@ pub fn AdminMetricCard(
             pts.iter()
                 .enumerate()
                 .map(|(i, v)| {
-                    let x = if n > 1 { (i as f32) * (200.0 / (n as f32 - 1.0)) } else { 0.0 };
+                    let x = if n > 1 {
+                        (i as f32) * (200.0 / (n as f32 - 1.0))
+                    } else {
+                        0.0
+                    };
                     let y = 40.0 - ((v - min_v) / range) * 40.0;
                     format!("{:.1},{:.1}", x, y)
                 })

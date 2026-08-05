@@ -1,12 +1,8 @@
 use chrono::{DateTime, Utc};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 use crate::application::shared::{
-    Query, 
-    ApplicationResult, 
-    PaginationParams, 
-    SortParams, 
-    ValidationUtils
+    ApplicationResult, PaginationParams, Query, SortParams, ValidationUtils,
 };
 use epsx_contracts::value_objects::UserId;
 // use crate::domain::wallet_management::value_objects::Email; // REMOVED - Web3-first uses wallet addresses
@@ -25,25 +21,25 @@ pub struct SearchWalletsQuery {
 
     /// Filter by users who have specific permissions
     pub has_permissions: Vec<String>,
-    
+
     /// Filter by users created after this date
     pub created_after: Option<DateTime<Utc>>,
-    
+
     /// Filter by users created before this date
     pub created_before: Option<DateTime<Utc>>,
-    
+
     /// Filter by users who logged in after this date
     pub last_login_after: Option<DateTime<Utc>>,
-    
+
     /// Pagination parameters
     pub pagination: PaginationParams,
-    
+
     /// Sorting parameters
     pub sort: Option<SortParams>,
-    
+
     /// Whether to include user statistics
     pub include_stats: bool,
-    
+
     /// Query metadata
     pub requested_by: Option<String>,
     pub correlation_id: Option<String>,
@@ -54,10 +50,10 @@ pub struct SearchWalletsQuery {
 pub struct SearchWalletsResponse {
     /// Users that matched the search criteria
     pub users: Vec<WalletSummary>,
-    
+
     /// Pagination information
     pub pagination: PaginationResult,
-    
+
     /// Search metadata
     pub search_metadata: SearchMetadata,
 }
@@ -95,41 +91,43 @@ pub struct SearchMetadata {
 
 impl Query for SearchWalletsQuery {
     type Response = SearchWalletsResponse;
-    
+
     fn validate(&self) -> ApplicationResult<()> {
         // Validate pagination parameters
         self.pagination.validate()?;
-        
+
         // Validate date ranges
-        if let (Some(created_after), Some(created_before)) = (self.created_after, self.created_before) {
+        if let (Some(created_after), Some(created_before)) =
+            (self.created_after, self.created_before)
+        {
             if created_after >= created_before {
                 return Err(crate::application::ApplicationError::validation(
                     "date_range",
-                    "created_after must be before created_before"
+                    "created_after must be before created_before",
                 ));
             }
         }
-        
+
         // Validate search term length if provided
         if let Some(ref search_term) = self.search_term {
             if let Some(error) = ValidationUtils::length("search_term", search_term, 2, 100) {
                 return Err(crate::application::ApplicationError::validation(
                     &error.field,
-                    &error.message
+                    &error.message,
                 ));
             }
         }
-        
+
         // Validate permissions format
         for permission in &self.has_permissions {
             if permission.split(':').count() < 3 {
                 return Err(crate::application::ApplicationError::validation(
                     "has_permissions",
-                    format!("Invalid permission format: {}", permission)
+                    format!("Invalid permission format: {}", permission),
                 ));
             }
         }
-        
+
         Ok(())
     }
 }
@@ -170,48 +168,48 @@ impl SearchWalletsQuery {
         self.is_active = Some(is_active);
         self
     }
-    
+
     /// Filter by users who have specific permissions
     pub fn with_permissions(mut self, permissions: Vec<String>) -> Self {
         self.has_permissions = permissions;
         self
     }
-    
+
     /// Set date range filter
     pub fn with_date_range(
-        mut self, 
-        created_after: Option<DateTime<Utc>>, 
-        created_before: Option<DateTime<Utc>>
+        mut self,
+        created_after: Option<DateTime<Utc>>,
+        created_before: Option<DateTime<Utc>>,
     ) -> Self {
         self.created_after = created_after;
         self.created_before = created_before;
         self
     }
-    
+
     /// Set pagination parameters
     pub fn with_pagination(mut self, page: u32, page_size: u32) -> Self {
         self.pagination = PaginationParams::new(page, page_size);
         self
     }
-    
+
     /// Set sorting parameters
     pub fn with_sort(mut self, sort: SortParams) -> Self {
         self.sort = Some(sort);
         self
     }
-    
+
     /// Include statistics in the response
     pub fn with_stats(mut self) -> Self {
         self.include_stats = true;
         self
     }
-    
+
     /// Set who requested this query (for audit)
     pub fn requested_by(mut self, wallet_address: String) -> Self {
         self.requested_by = Some(wallet_address);
         self
     }
-    
+
     /// Set correlation ID for tracing
     pub fn with_correlation_id(mut self, correlation_id: String) -> Self {
         self.correlation_id = Some(correlation_id);
@@ -230,7 +228,7 @@ impl PaginationResult {
         let total_pages = ((total_count as f64) / (page_size as f64)).ceil() as u32;
         let has_next = page < total_pages;
         let has_previous = page > 1;
-        
+
         Self {
             page,
             page_size,
@@ -245,24 +243,23 @@ impl PaginationResult {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn search_users_query_validation_success() {
         let query = SearchWalletsQuery::new();
         assert!(query.validate().is_ok());
     }
-    
+
     #[test]
     fn search_users_query_validation_invalid_date_range() {
         let now = Utc::now();
         let future = now + chrono::Duration::hours(1);
-        
-        let query = SearchWalletsQuery::new()
-            .with_date_range(Some(future), Some(now));
-        
+
+        let query = SearchWalletsQuery::new().with_date_range(Some(future), Some(now));
+
         assert!(query.validate().is_err());
     }
-    
+
     #[test]
     fn search_users_query_builder_pattern() {
         let query = SearchWalletsQuery::new()
@@ -272,7 +269,7 @@ mod tests {
             .with_sort(SortParams::desc("created_at"))
             .with_stats()
             .requested_by("admin_user".to_string());
-        
+
         assert_eq!(query.search_term, Some("test".to_string()));
         assert_eq!(query.is_active, Some(true));
         assert_eq!(query.pagination.page, 2);
@@ -281,11 +278,11 @@ mod tests {
         assert!(query.include_stats);
         assert_eq!(query.requested_by, Some("admin_user".to_string()));
     }
-    
+
     #[test]
     fn pagination_result_calculation() {
         let result = PaginationResult::new(2, 10, 95);
-        
+
         assert_eq!(result.page, 2);
         assert_eq!(result.total_pages, 10);
         assert!(result.has_next);

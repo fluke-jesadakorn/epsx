@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.3-notification-publisher",
+  "route": "POST /api/v1/notification/publish",
+  "audience": "epsx-notification-publisher",
+  "permission": "internal:notifications:publish",
+  "subjectPolicy": "verified internal subject must be svc:-prefixed and bounded; service identity provisioning remains a deployment responsibility",
+  "request": {
+    "required": [
+      "event_id",
+      "event_type",
+      "aggregate_id",
+      "idempotency_key",
+      "recipient_wallet_address",
+      "notification_type",
+      "priority",
+      "title",
+      "message"
+    ],
+    "optional": ["data", "action_url", "expires_at", "plan_id"],
+    "limits": {
+      "event_id": 128,
+      "event_type": 100,
+      "aggregate_id": 128,
+      "idempotency_key": 255,
+      "title": 512,
+      "message": 16384,
+      "action_url": 2048,
+      "action_url_policy": "relative paths only; protocol-relative, scheme-bearing, backslash, whitespace, and control-character values are rejected",
+      "expires_at": "optional RFC3339 timestamp strictly in the future and no more than 365 days ahead",
+      "plan_id": "optional non-nil UUID; requires recipient_wallet_address=all and is resolved only against active, unexpired memberships"
+    },
+    "owner": "recipient_wallet_address is normalized and validated by the Rust service; publisher identity never selects the owner. A plan_id selects active memberships server-side and must use recipient_wallet_address=all.",
+    "expiryPropagation": "expires_at is preserved by the shared Rust NotificationPort, HTTP adapter, in-process legacy adapter, durable row, and realtime payload; both adapters enforce the same future/365-day bound",
+    "identity_policy": "event_id and idempotency_key are producer-owned, stable across retries, bounded, and reject whitespace/control characters; verified internal subject must be svc:-prefixed"
+  },
+  "success": {
+    "status": 202,
+    "body": "{event_id,status:accepted}",
+    "durability": "one transaction inserts request idempotency, inbox receipt, and pending outbox event; concrete wallet targets materialize one in-app notification and channel job, plan targets expand bounded active memberships into deterministic per-wallet rows/jobs, while broadcast targets materialize one deterministic recipient=all row"
+  },
+  "targeting": {
+    "concrete_wallet": "normalized wallet is materialized as one durable in-app channel job",
+    "plan": "plan_id is resolved against active, unexpired wallet_plan_assignments in one bounded read-only core query (maximum 10,000 recipients) through the explicitly configured NOTIFICATION_PLAN_DATABASE_URL, then each bounded wallet's persisted channel/quiet-hour policy is read from the notification store; without either read boundary the request fails closed. Each wallet receives a deterministic notification/job",
+    "broadcast": "one deterministic recipient=all row is durable for owner replay; provider fanout remains server-side resolver work and is not caller-controlled",
+    "eventTypeTargetCompatibility": "notification.send requires a concrete wallet; notification.broadcast requires recipient_wallet_address=all; a domain event may use recipient_wallet_address=all only with a server-resolved plan_id. Domain event prefixes remain publisher-owned and may use only targets authorized by their service contract."
+  },
+  "errors": {
+    "400": "invalid or oversized payload",
+    "401": "missing or invalid bearer",
+    "403": "wrong audience or missing internal:notifications:publish",
+    "409": "idempotency key or event identity reused with a different request hash",
+    "503": "database/transaction unavailable"
+  },
+  "cutover": {
+    "adapter": "NOTIFICATION_ADAPTER=remote (case-insensitive; unknown values fail closed)",
+    "endpoint": "NOTIFICATION_SERVICE_URL",
+    "credential": "NOTIFICATION_SERVICE_TOKEN",
+    "default": "in-process adapter remains selected until N3 reconciliation and rollout approval"
+  },
+  "status": "implemented-static-and-unit-tested",
+  "producerIdentity": {
+    "adapterMethod": "NotificationPort::send_with_event_id_retry / broadcast_with_event_id_retry",
+    "migratedSources": ["payment", "permission", "chat", "subscription-expiry"],
+    "retryRule": "one bounded 25ms retry is attempted only for classified infrastructure failures and always reuses the source-derived event_id; validation, authorization, conflict, and other permanent failures return immediately",
+    "sourceAudit": "cargo xtask notification-producer-audit --strict requires every migrated producer call site to use the retrying event-id method; adapter implementations remain the direct send_with_event_id boundary",
+    "cutoverGap": "producer transactional outboxes, durable process-crash recovery, service identity provisioning, and remote/staging replay remain deployment gates"
+  },
+  "productionReady": false
+}

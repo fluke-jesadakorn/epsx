@@ -44,11 +44,7 @@ pub fn ToastViewport(children: Element) -> Element {
 /// Single admin toast card. Renders a styled card with the
 /// `admin-toast` class plus the variant-specific border accent.
 #[component]
-pub fn Toast(
-    variant: Option<String>,
-    class_name: Option<String>,
-    children: Element,
-) -> Element {
+pub fn Toast(variant: Option<String>, class_name: Option<String>, children: Element) -> Element {
     let variant = variant.unwrap_or_else(|| "default".to_string());
     let variant_cls = match variant.as_str() {
         "success" => "border-emerald-500/30",
@@ -145,12 +141,18 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Saved"), "toast should render title text. Got: {html}");
+        assert!(
+            html.contains("Saved"),
+            "toast should render title text. Got: {html}"
+        );
         assert!(
             html.contains("Changes applied"),
             "toast should render description text. Got: {html}"
         );
-        assert!(html.contains("admin-toast"), "toast should expose the admin-toast class. Got: {html}");
+        assert!(
+            html.contains("admin-toast"),
+            "toast should expose the admin-toast class. Got: {html}"
+        );
     }
 
     /// The `variant` slot changes the toast border accent.

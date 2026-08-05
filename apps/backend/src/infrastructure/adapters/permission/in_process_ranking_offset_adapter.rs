@@ -27,10 +27,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use epsx_contracts::errors::AppError;
+use epsx_contracts::errors::AppResult;
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
-use epsx_contracts::errors::AppResult;
-use epsx_contracts::errors::AppError;
 use epsx_identity_shared::prelude::AppError as InProcessAppError;
 
 use crate::auth::UnifiedPermissionService;
@@ -48,10 +48,7 @@ impl InProcessWalletRankingOffsetAdapter {
 
 #[async_trait]
 impl WalletRankingOffsetQuery for InProcessWalletRankingOffsetAdapter {
-    async fn get_wallet_ranking_offset(
-        &self,
-        wallet: &str,
-    ) -> AppResult<RankingOffset> {
+    async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset> {
         // The underlying service lowercases the wallet internally;
         // we forward the call as-is. Returning the i32 and
         // converting via `RankingOffset::from` keeps the adapter
@@ -77,9 +74,7 @@ fn shared_app_error_to_port(err: InProcessAppError) -> AppError {
         Shared::ValidationError(_) | Shared::ValidationField { .. } => {
             AppError::validation_error(message)
         }
-        Shared::AuthenticationError(_) => {
-            AppError::authentication_error(message)
-        }
+        Shared::AuthenticationError(_) => AppError::authentication_error(message),
         Shared::AuthorizationError(_) => AppError::forbidden(message),
         Shared::ConfigurationError(_) => AppError::configuration_error(message),
         Shared::NetworkError(_) => AppError::network_error(message),

@@ -4,9 +4,8 @@
 //! Includes all endpoints: public, user, and admin management.
 
 use utoipa::{
-    OpenApi,
-    Modify,
     openapi::security::{HttpAuthScheme, HttpBuilder, SecurityScheme},
+    Modify, OpenApi,
 };
 
 /// Admin OpenAPI documentation

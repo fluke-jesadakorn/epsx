@@ -6,21 +6,21 @@
 
 use axum::{extract::State, response::Json, Extension};
 
+use bigdecimal::BigDecimal;
 use diesel::result::OptionalExtension;
 use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
-use bigdecimal::BigDecimal;
-use std::str::FromStr;
 
 use crate::{
+    infrastructure::database::get_payments_pool,
     prelude::*,
     web::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
-    infrastructure::database::get_payments_pool,
 };
 
 // ============================================================================
@@ -80,7 +80,7 @@ pub async fn submit_transaction_handler(
 
     // H5: Rate limit — max 10 payment submissions per wallet per minute
     {
-        use crate::web::middleware::rate_limiter::{UnifiedRateLimiter, RateLimitConfig, ClientId};
+        use crate::web::middleware::rate_limiter::{ClientId, RateLimitConfig, UnifiedRateLimiter};
         let limiter = UnifiedRateLimiter::new(_app_state.cache.clone());
         let config = RateLimitConfig {
             requests_per_minute: Some(10),
@@ -88,7 +88,10 @@ pub async fn submit_transaction_handler(
             requests_per_day: Some(200),
         };
         let client = ClientId::User(wallet_address.clone().into());
-        match limiter.check_client_rate_limit(&client, "/api/payments/submit", "POST", &config).await {
+        match limiter
+            .check_client_rate_limit(&client, "/api/payments/submit", "POST", &config)
+            .await
+        {
             Ok(result) if !result.allowed => {
                 return Err(UnifiedErrorResponse::new(
                     429,
@@ -114,8 +117,9 @@ pub async fn submit_transaction_handler(
     }
 
     // Parse plan_id as UUID
-    let plan_uuid = Uuid::parse_str(&payload.plan_id)
-        .map_err(|_| UnifiedErrorResponse::new(400, "Invalid plan ID", "Plan ID must be a valid UUID"))?;
+    let plan_uuid = Uuid::parse_str(&payload.plan_id).map_err(|_| {
+        UnifiedErrorResponse::new(400, "Invalid plan ID", "Plan ID must be a valid UUID")
+    })?;
 
     // Parse expected_amount: accept both f64 and string
     let amount_str = match &payload.expected_amount {
@@ -161,17 +165,30 @@ pub async fn submit_transaction_handler(
     // the wave-11 schema cutover (integration gate step 4) the JOIN
     // runs single-pool on the payments schema.
     let payment_repo = _app_state.payment_repo.as_ref().ok_or_else(|| {
-        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
+        error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
         UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized")
     })?;
-    let wallet_address_vo = crate::domain::wallet_management::value_objects::WalletAddress::new(wallet_address.clone())
-        .map_err(|e| UnifiedErrorResponse::new(400, "Invalid wallet", format!("Wallet address is invalid: {}", e)))?;
+    let wallet_address_vo =
+        crate::domain::wallet_management::value_objects::WalletAddress::new(wallet_address.clone())
+            .map_err(|e| {
+                UnifiedErrorResponse::new(
+                    400,
+                    "Invalid wallet",
+                    format!("Wallet address is invalid: {}", e),
+                )
+            })?;
     let plan_info = payment_repo
         .validate_submit_tx(plan_uuid, &wallet_address_vo)
         .await
         .map_err(|e| {
             error!("Failed to validate plan via PaymentRepositoryPort: {}", e);
-            UnifiedErrorResponse::new(500, "Database error", format!("Failed to verify plan: {}", e))
+            UnifiedErrorResponse::new(
+                500,
+                "Database error",
+                format!("Failed to verify plan: {}", e),
+            )
         })?;
 
     // C5: Check plan eligibility
@@ -193,12 +210,18 @@ pub async fn submit_transaction_handler(
 
     // C3: Validate amount matches plan price (allow 5% tolerance for rounding & promotion edge cases)
     // Check both base price and promotional price (if promotion is active)
-    let base_price = BigDecimal::from_str(&plan_info.plan_price)
-        .map_err(|_| UnifiedErrorResponse::new(500, "Database error", "Plan price format invalid"))?;
+    let base_price = BigDecimal::from_str(&plan_info.plan_price).map_err(|_| {
+        UnifiedErrorResponse::new(500, "Database error", "Plan price format invalid")
+    })?;
     let effective_price_decimal = BigDecimal::from_str(&plan_info.effective_price).ok();
-    let effective_price = plan_info.plan_metadata.get("promotion")
+    let effective_price = plan_info
+        .plan_metadata
+        .get("promotion")
         .and_then(|promo_val| {
-            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(promo_val.clone()).ok()
+            serde_json::from_value::<crate::domain::subscription_management::promotion::Promotion>(
+                promo_val.clone(),
+            )
+            .ok()
         })
         .map(|promo| {
             let bp = base_price.to_string().parse::<f64>().unwrap_or(0.0);
@@ -209,11 +232,13 @@ pub async fn submit_transaction_handler(
 
     let price_to_validate = effective_price.as_ref().unwrap_or(&base_price);
     let price_diff = (&payment_amount - price_to_validate).abs();
-    let tolerance = price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
+    let tolerance =
+        price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
     if price_diff > tolerance && *price_to_validate > 0 {
         // Also check against base price in case promotion just expired
         let base_diff = (&payment_amount - &base_price).abs();
-        let base_tolerance = &base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
+        let base_tolerance =
+            &base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0)); // 5% tolerance
         if base_diff > base_tolerance && base_price > 0 {
             error!(
                 "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}, tolerance={}%",
@@ -235,7 +260,11 @@ pub async fn submit_transaction_handler(
 
     let mut conn = payments_pool.get().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
-        UnifiedErrorResponse::new(500, "Database error", "Cannot establish database connection")
+        UnifiedErrorResponse::new(
+            500,
+            "Database error",
+            "Cannot establish database connection",
+        )
     })?;
 
     // Atomic dedup check — the UNIQUE constraint on transaction_hash prevents races.
@@ -258,7 +287,10 @@ pub async fn submit_transaction_handler(
     .optional();
 
     if let Ok(Some(row)) = existing {
-        info!("Transaction already submitted: {} (status={})", row.payment_reference, row.status);
+        info!(
+            "Transaction already submitted: {} (status={})",
+            row.payment_reference, row.status
+        );
         return Ok(Json(SubmitTransactionResponse {
             success: true,
             message: "Transaction already being monitored".to_string(),
@@ -401,15 +433,15 @@ pub async fn submit_transaction_handler(
         match result {
             Ok(_) => { /* insert succeeded or already exists */ }
             Err(e) => {
-                // If it's a unique violation on transaction_hash, it means another user 
-                // (or the same one) already submitted it. We gracefully handle this 
-                // by returning success for the *calling* user, but the tx_monitor 
+                // If it's a unique violation on transaction_hash, it means another user
+                // (or the same one) already submitted it. We gracefully handle this
+                // by returning success for the *calling* user, but the tx_monitor
                 // will only validate the row where the on-chain from == wallet_address.
-                // NOTE: If the DB has a strict UNIQUE constraint on (transaction_hash), 
+                // NOTE: If the DB has a strict UNIQUE constraint on (transaction_hash),
                 // `ON CONFLICT DO NOTHING` prevents an error.
-                // We'll query to see if THIS user has a row. If they don't, 
+                // We'll query to see if THIS user has a row. If they don't,
                 // the attacker successfully locked the row using the UNIQUE constraint.
-                // To truly fix this at the DB level, the unique constraint must be on 
+                // To truly fix this at the DB level, the unique constraint must be on
                 // (transaction_hash, wallet_address), OR transaction_hash can't be unique.
                 // Assuming standard unique constraint, the fallback is:
                 let dup: Option<DedupRow> = diesel::sql_query(
@@ -433,13 +465,15 @@ pub async fn submit_transaction_handler(
                             transaction_hash: payload.transaction_hash,
                         }),
                     }));
-                } else if format!("{}", e).contains("duplicate key") || format!("{}", e).contains("Unique violation") {
+                } else if format!("{}", e).contains("duplicate key")
+                    || format!("{}", e).contains("Unique violation")
+                {
                     // Attack scenario: Attacker submitted it first. The UNIQUE constraint blocked the legitimate user.
                     // If a transaction hash already exists for a different wallet, we MUST NOT gracefully adopt it
                     // by overwriting the wallet address, as that allows an attacker to hijack a pending payment.
                     // We return a 409 Conflict indicating it's already in progress.
                     warn!("Transaction hash {} already exists for a different wallet. Preventing overwrite DoS.", payload.transaction_hash);
-                    
+
                     return Err(UnifiedErrorResponse::new(
                         409,
                         "Transaction Conflict",
@@ -499,7 +533,11 @@ pub async fn submit_transaction_handler(
 
         let now = chrono::Utc::now();
         if let Some(existing) = existing_assign {
-            let base = if existing.is_active && existing.expires_at > now { existing.expires_at } else { now };
+            let base = if existing.is_active && existing.expires_at > now {
+                existing.expires_at
+            } else {
+                now
+            };
             let new_expiry = base + chrono::Duration::days(30);
             diesel::sql_query(
                 r#"
@@ -514,7 +552,10 @@ pub async fn submit_transaction_handler(
             .execute(&mut conn)
             .await
             .ok();
-            info!("Extended/reactivated plan {} for wallet {} via credits until {}", plan_uuid, wallet_address, new_expiry);
+            info!(
+                "Extended/reactivated plan {} for wallet {} via credits until {}",
+                plan_uuid, wallet_address, new_expiry
+            );
         } else {
             let new_expiry = now + chrono::Duration::days(30);
             diesel::sql_query(
@@ -534,7 +575,10 @@ pub async fn submit_transaction_handler(
             .execute(&mut conn)
             .await
             .ok();
-            info!("Created plan assignment for wallet {} → plan {} via credits (expires: {})", wallet_address, plan_uuid, new_expiry);
+            info!(
+                "Created plan assignment for wallet {} → plan {} via credits (expires: {})",
+                wallet_address, plan_uuid, new_expiry
+            );
         }
     }
 
@@ -554,15 +598,19 @@ pub async fn submit_transaction_handler(
             use epsx_contracts::notification_port::SendNotificationRequest;
             if let Some(port) = notif_state.notification_port.as_ref() {
                 let _ = port
-                    .send(SendNotificationRequest {
-                        recipient_wallet_address: notif_wallet.clone(),
-                        notification_type: "payment".to_string(),
-                        priority: "normal".to_string(),
-                        title: "Payment Confirmed".to_string(),
-                        message: "Your payment has been confirmed".to_string(),
-                        data: Some(serde_json::json!({ "payment_reference": notif_ref })),
-                        action_url: None,
-                    })
+                    .send_with_event_id_retry(
+                        &format!("payment.confirmed:{notif_ref}"),
+                        SendNotificationRequest {
+                            recipient_wallet_address: notif_wallet.clone(),
+                            notification_type: "payment".to_string(),
+                            priority: "normal".to_string(),
+                            title: "Payment Confirmed".to_string(),
+                            message: "Your payment has been confirmed".to_string(),
+                            data: Some(serde_json::json!({ "payment_reference": notif_ref })),
+                            action_url: None,
+                            expires_at: None,
+                        },
+                    )
                     .await;
             } else {
                 tracing::warn!(

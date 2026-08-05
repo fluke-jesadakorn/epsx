@@ -6,13 +6,14 @@ The notification service no longer creates tables or indexes during startup and 
 default templates or demo notifications before serving. Startup connects to `epsx_notification`,
 runs one read-only exact-schema compatibility query, loads every active template without swallowing
 query or registration failures, and only then initializes provider state and binds the listener.
-All 19 application SQL relation references name `public.templates` or `public.notifications`
-explicitly.
+All 47 production runtime relation references name their notification tables with an explicit
+`public.` qualification.
 
-This package changes no route, authorization policy, delivery truth, provider/job behavior,
-template strictness, BFF, user/admin UI, publisher adapter, Kubernetes resource, or production
-state. It does not authorize database access, migration execution, Redis, SMTP, browser/network
-access, deployment, cutover, or production use.
+The A3.11 schema-boundary change itself changes no route, authorization policy, delivery truth,
+provider/job behavior, template strictness, BFF, user/admin UI, publisher adapter, Kubernetes
+resource, or production state. Later A11 execution batches build on the additive tables described
+below. This document does not authorize database access, migration execution, Redis, SMTP,
+browser/network access, deployment, cutover, or production use.
 
 ## Exact runtime delta
 
@@ -28,7 +29,7 @@ two tables and two indexes. It also calls both startup seed functions and binds 
 | Startup seed calls | 2 | 0 | -2 |
 | Startup seed write sites | 2 functions | 0 | removed |
 | Swallowed startup template-load errors | query + registrations | 0 | fail closed |
-| Public-qualified application relations | 0 | 19 | +19 |
+| Public-qualified application relations | 0 | 21 | +21 |
 
 The `sent_at` bind now uses `Some(chrono::Utc::now())`, matching the runtime
 `Option<DateTime<Utc>>` model and PostgreSQL `TIMESTAMPTZ(6)`. This is a type-boundary correction,
@@ -70,6 +71,19 @@ transaction control, foreign key, or check constraint. The `down.sql` body raise
 exception instead of pretending a destructive table drop is safe. That refusal prevents accidental
 data loss; it is not a recovery or rollback plan.
 
+The follow-on `20260723120000_add_notification_lifecycle_foundation` migration is deliberately
+outside this exact 26-column compatibility contract. It adds the first lifecycle tables used by
+the next execution batches (template versions, preferences, inbox/outbox, channel jobs, attempts,
+dead letters, replay cursors, and push subscriptions) without altering `templates` or
+`notifications`. The ordered `20260723130000_add_notification_idempotency_provider_events`
+migration adds request idempotency, provider-event reconciliation, and independent engagement
+rows; request idempotency is keyed by verified principal, event type, and idempotency key.
+The ordered `20260723140000_add_notification_lifecycle_constraints` migration adds guarded
+channel, identity, normalized-owner, and JSON-object checks without rewriting rows.
+Their Rust-native audit is static and additive only; startup now checks that all twelve
+relations are present, but no database upgrade, legacy backfill, ledger adoption, or reconciliation
+has been executed. Those remain separate A11 STOPs.
+
 The pre-existing root remains a STOP. The renamed/consolidated baseline requires ledger-adoption
 review, and `20260613000000_drop_notification_subscriptions/up.sql` still contains a destructive
 `DROP TABLE ... CASCADE`. A3.11 neither edits nor excuses that history.
@@ -84,12 +98,14 @@ The additive migration defines 26 columns. Fourteen are effectively non-null: tw
 | `public.templates` | 9 | `id` PK; `name` unique | constraint-backed PK and unique indexes |
 | `public.notifications` | 17 | `id` PK | `idx_notif_user(user_id ASC, created_at DESC)`; `idx_notif_status(status ASC)` |
 
-There are exactly three relation key constraints and five total indexes. There are no foreign keys
-or check constraints. Inbound foreign keys from any schema are rejected too; absence is a complete
-inbound-and-outbound inventory, not an outbound-only observation.
+The fresh two-table migration has exactly three relation key constraints and five total indexes.
+After the additive lifecycle migrations, startup additionally requires the eight reviewed
+`ON DELETE RESTRICT` foreign keys and three reviewed CHECK constraints; any extra or altered
+relation constraint is rejected. The inventory is complete in both inbound and outbound
+directions, not an outbound-only observation.
 
-The compatibility query is exactly 20,887 bytes with SHA-256
-`8733c2fd595ad6ea319dc83a5d9ece2adad0e78008a134b129faae6fcdea190e`. It reads only
+The compatibility query is exactly 23,624 bytes with SHA-256
+`0486b3ad1a89414b62a87f40487f695cbb99c43e09a72ccd47e222642c204a3c`. It reads only
 `information_schema` and `pg_catalog`, returns one boolean through `query_scalar`, and verifies:
 
 1. both names resolve in `public` to ordinary permanent, non-partitioned tables using default
@@ -100,8 +116,8 @@ The compatibility query is exactly 20,887 bytes with SHA-256
 3. exactly the two primary keys and `templates.name` unique key, all validated, enforced when that
    catalog field is exposed, non-deferrable, initially immediate, local, non-inheritable, without
    PostgreSQL 18 `WITHOUT OVERLAPS` period semantics, and constraint-index-backed;
-4. an empty complete FK inventory, empty CHECK inventory, and no exclusion or other relation
-   constraints;
+4. exactly the eight reviewed lifecycle foreign keys and three reviewed lifecycle CHECK
+   constraints, with no exclusion or other relation constraints;
 5. PostgreSQL 18-style NOT NULL constraint rows as either absent on older catalog versions or the
    exact fourteen-column set when exposed;
 6. exactly five live, valid, ready, immediate B-tree indexes with no partial predicate, expression,

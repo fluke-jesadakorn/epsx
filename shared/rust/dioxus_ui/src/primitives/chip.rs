@@ -10,7 +10,6 @@
 /// - `ChipRemovable` — a label with a close button (the
 ///   canonical filter-chip pattern).
 /// - `ChipGroup` — a horizontal row of chips.
-
 use super::icon::Icon;
 
 use dioxus::prelude::*;
@@ -89,10 +88,7 @@ pub fn ChipRemovable(
 
 /// A horizontal row of chips.
 #[component]
-pub fn ChipGroup(
-    children: Element,
-    #[props(default = None)] class: Option<String>,
-) -> Element {
+pub fn ChipGroup(children: Element, #[props(default = None)] class: Option<String>) -> Element {
     let mut cls = "chip-group flex flex-wrap items-center gap-1.5".to_string();
     if let Some(c) = class {
         cls.push(' ');

@@ -10,7 +10,7 @@ impl EventChannel {
     pub fn new(channel: String) -> Self {
         Self(channel)
     }
-    
+
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -24,7 +24,7 @@ impl SubscriptionTopic {
     pub fn new(topic: String) -> Self {
         Self(topic)
     }
-    
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

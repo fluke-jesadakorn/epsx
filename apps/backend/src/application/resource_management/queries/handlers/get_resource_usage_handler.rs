@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::resource_management::queries::{
-    GetResourceUsageQuery, GetResourceUsageResponse
+    GetResourceUsageQuery, GetResourceUsageResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::resource_management::repository_ports::UserResourceUsageRepository;
+use crate::prelude::*;
 
 /// Handler for getting resource usage
 pub struct GetResourceUsageQueryHandler<R: UserResourceUsageRepository> {
@@ -22,9 +22,13 @@ impl<R: UserResourceUsageRepository + Send + Sync> QueryHandler<GetResourceUsage
 where
     R::Error: std::fmt::Display,
 {
-    async fn handle(&self, query: GetResourceUsageQuery) -> ApplicationResult<GetResourceUsageResponse> {
+    async fn handle(
+        &self,
+        query: GetResourceUsageQuery,
+    ) -> ApplicationResult<GetResourceUsageResponse> {
         // 1. Retrieve usage data
-        let usage = self.usage_repository
+        let usage = self
+            .usage_repository
             .get_user_usage(&query.wallet_address, &query.access_context)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?

@@ -9,19 +9,16 @@
 
 use dioxus::prelude::*;
 
-pub mod news_list;
 pub mod news_detail;
+pub mod news_list;
 
-pub use news_list::{NewsList, NewsListItem};
 pub use news_detail::{NewsDetail, NewsDetailItem};
+pub use news_list::{NewsList, NewsListItem};
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn news_module_re_exports_resolve() {
-        
-        
-    }
+    fn news_module_re_exports_resolve() {}
 }

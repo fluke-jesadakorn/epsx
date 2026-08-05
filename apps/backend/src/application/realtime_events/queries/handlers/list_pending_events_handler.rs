@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::realtime_events::queries::{
-    ListPendingEventsQuery, ListPendingEventsResponse, PendingEventSummary
+    ListPendingEventsQuery, ListPendingEventsResponse, PendingEventSummary,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::realtime_events::EventRepositoryPort;
+use crate::prelude::*;
 
 /// Handler for listing pending events
 pub struct ListPendingEventsQueryHandler {
@@ -18,28 +18,36 @@ impl ListPendingEventsQueryHandler {
 
 #[async_trait]
 impl QueryHandler<ListPendingEventsQuery> for ListPendingEventsQueryHandler {
-    async fn handle(&self, query: ListPendingEventsQuery) -> ApplicationResult<ListPendingEventsResponse> {
+    async fn handle(
+        &self,
+        query: ListPendingEventsQuery,
+    ) -> ApplicationResult<ListPendingEventsResponse> {
         // 1. Retrieve pending events
-        let events = self.event_repository
+        let events = self
+            .event_repository
             .find_pending_events(query.limit)
             .await
             .map_err(ApplicationError::infrastructure)?;
 
         // 2. Map to summaries
-        let summaries: Vec<PendingEventSummary> = events.iter().map(|event| {
-            PendingEventSummary {
+        let summaries: Vec<PendingEventSummary> = events
+            .iter()
+            .map(|event| PendingEventSummary {
                 event_id: event.id().to_string(),
                 channel: event.channel().to_string(),
                 target_user_count: event.target_users().len(),
                 priority: format!("{:?}", event.priority()),
                 delivery_attempts: event.delivery_attempts(),
                 created_at: event.created_at(),
-            }
-        }).collect();
+            })
+            .collect();
 
         let count = summaries.len();
 
         // 3. Return response
-        Ok(ListPendingEventsResponse { events: summaries, count })
+        Ok(ListPendingEventsResponse {
+            events: summaries,
+            count,
+        })
     }
 }

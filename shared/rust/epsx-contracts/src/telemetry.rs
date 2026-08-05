@@ -1,12 +1,11 @@
 // kernel extraction wave9 — moved verbatim from apps/backend/src/core/telemetry.rs
 // Comprehensive telemetry system for logging, metrics, and tracing
-use std::collections::HashMap;
 use chrono::{DateTime, Utc};
+use std::collections::HashMap;
 use uuid::Uuid;
 
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::time::Duration;
-
 
 /// Structured logging context
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,27 +38,27 @@ impl LogContext {
             metadata: HashMap::new(),
         }
     }
-    
+
     pub fn with_user_id(mut self, wallet_address: String) -> Self {
         self.wallet_address = Some(wallet_address);
         self
     }
-    
+
     pub fn with_request_id(mut self, request_id: String) -> Self {
         self.request_id = request_id;
         self
     }
-    
+
     pub fn with_duration(mut self, duration: Duration) -> Self {
         self.duration = Some(duration);
         self
     }
-    
+
     pub fn with_error(mut self, error: String) -> Self {
         self.error = Some(error);
         self
     }
-    
+
     pub fn with_metadata(mut self, key: String, value: serde_json::Value) -> Self {
         self.metadata.insert(key, value);
         self

@@ -110,13 +110,10 @@ pub async fn list_subscriptions_admin_handler(
     let mut items = Vec::new();
     if let Some(wallet) = query.search.as_ref().filter(|s| !s.is_empty()) {
         let wallet_vo = WalletAddress::from_trusted(wallet.clone());
-        let subs = port
-            .list_for_wallet(&wallet_vo)
-            .await
-            .map_err(|e| {
-                tracing::error!("SubscriptionRepositoryPort::list_for_wallet failed: {}", e);
-                StatusCode::INTERNAL_SERVER_ERROR
-            })?;
+        let subs = port.list_for_wallet(&wallet_vo).await.map_err(|e| {
+            tracing::error!("SubscriptionRepositoryPort::list_for_wallet failed: {}", e);
+            StatusCode::INTERNAL_SERVER_ERROR
+        })?;
         items.extend(subs);
     } else {
         // No search filter — wave-11 has no
@@ -210,13 +207,10 @@ pub async fn list_subscriptions_admin_handler(
 }
 
 fn get_port(state: &AppState) -> Result<Arc<dyn SubscriptionRepositoryPort>, StatusCode> {
-    state
-        .subscription_repository_port
-        .clone()
-        .ok_or_else(|| {
-            tracing::error!("subscription_repository_port is not wired in AppState");
-            StatusCode::SERVICE_UNAVAILABLE
-        })
+    state.subscription_repository_port.clone().ok_or_else(|| {
+        tracing::error!("subscription_repository_port is not wired in AppState");
+        StatusCode::SERVICE_UNAVAILABLE
+    })
 }
 
 // ============================================================================

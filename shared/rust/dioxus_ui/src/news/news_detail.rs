@@ -62,7 +62,5 @@ mod tests {
     }
 
     #[test]
-    fn news_detail_smoke() {
-        
-    }
+    fn news_detail_smoke() {}
 }

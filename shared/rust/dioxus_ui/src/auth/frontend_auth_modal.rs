@@ -22,13 +22,17 @@ use dioxus::prelude::*;
 pub fn FrontendAuthModal(
     /// Forwarded to `AuthModal::open`. Defaults to `false`
     /// (modal closed in SSR).
-    #[props(default = false)] open: bool,
+    #[props(default = false)]
+    open: bool,
     /// Fired when the user dismisses the modal.
-    #[props(default = None)] on_close: Option<EventHandler<MouseEvent>>,
+    #[props(default = None)]
+    on_close: Option<EventHandler<MouseEvent>>,
     /// Fired after a successful auth.
-    #[props(default = None)] on_success: Option<EventHandler<()>>,
+    #[props(default = None)]
+    on_success: Option<EventHandler<()>>,
     /// Optional list of wallets to show.
-    #[props(default = None)] wallets: Option<Vec<WalletInfo>>,
+    #[props(default = None)]
+    wallets: Option<Vec<WalletInfo>>,
 ) -> Element {
     rsx! {
         AuthModal {
@@ -54,6 +58,5 @@ mod tests {
         // The TS source reads `showSignInModal` from context and
         // defaults to `false`. The Dioxus port uses the `open`
         // prop which defaults to `false`.
-        
     }
 }

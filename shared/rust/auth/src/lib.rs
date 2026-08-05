@@ -22,7 +22,9 @@ impl AuthUser {
     }
 
     pub fn is_editor(&self) -> bool {
-        self.roles.iter().any(|r| r == "admin" || r == "editor" || r == "content_manager")
+        self.roles
+            .iter()
+            .any(|r| r == "admin" || r == "editor" || r == "content_manager")
     }
 
     pub fn is_merchant(&self) -> bool {
@@ -85,10 +87,16 @@ pub enum AuthError {
 impl axum::response::IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let (status, msg) = match self {
-            AuthError::Missing => (StatusCode::UNAUTHORIZED, "Missing Authorization".to_string()),
+            AuthError::Missing => (
+                StatusCode::UNAUTHORIZED,
+                "Missing Authorization".to_string(),
+            ),
             AuthError::InvalidToken(_) => (StatusCode::UNAUTHORIZED, "Invalid token".to_string()),
             AuthError::Forbidden => (StatusCode::FORBIDDEN, "Forbidden".to_string()),
-            AuthError::Service(_) => (StatusCode::INTERNAL_SERVER_ERROR, "Auth service error".to_string()),
+            AuthError::Service(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "Auth service error".to_string(),
+            ),
         };
         (status, axum::Json(serde_json::json!({ "error": msg }))).into_response()
     }
@@ -100,7 +108,10 @@ where
 {
     type Rejection = AuthError;
 
-    async fn from_request_parts(parts: &mut axum::http::request::Parts, _state: &S) -> Result<Self, Self::Rejection> {
+    async fn from_request_parts(
+        parts: &mut axum::http::request::Parts,
+        _state: &S,
+    ) -> Result<Self, Self::Rejection> {
         if let Some(_token) = JwtAuth::extract_bearer(&parts.headers) {
             // Token is verified by the middleware before this extractor runs
         }

@@ -125,11 +125,17 @@ mod tests {
         // All four orb classes are present — guards the full visual
         // structure (orange/blue/purple/green) from being silently
         // stripped by a refactor.
-        for orb in &["marketing-orb-orange", "marketing-orb-blue", "marketing-orb-purple", "marketing-orb-green"] {
+        for orb in &[
+            "marketing-orb-orange",
+            "marketing-orb-blue",
+            "marketing-orb-purple",
+            "marketing-orb-green",
+        ] {
             assert!(
                 html.contains(orb),
                 "MarketingBackground must render orb class '{}'. Got: {}",
-                orb, html
+                orb,
+                html
             );
         }
     }

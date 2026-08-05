@@ -14,17 +14,29 @@ mod tests {
         ];
 
         // Exact match
-        assert!(UnifiedWeb3AuthService::has_permission(&permissions, "admin:users:read"));
-        
+        assert!(UnifiedWeb3AuthService::has_permission(
+            &permissions,
+            "admin:users:read"
+        ));
+
         // Wildcard match
-        assert!(UnifiedWeb3AuthService::has_permission(&permissions, "epsx:analytics:view"));
+        assert!(UnifiedWeb3AuthService::has_permission(
+            &permissions,
+            "epsx:analytics:view"
+        ));
 
         // No match
-        assert!(!UnifiedWeb3AuthService::has_permission(&permissions, "admin:users:write"));
-        
+        assert!(!UnifiedWeb3AuthService::has_permission(
+            &permissions,
+            "admin:users:write"
+        ));
+
         // Testing super admin separately
         let super_perms = vec!["*:*".to_string()];
-        assert!(UnifiedWeb3AuthService::has_permission(&super_perms, "any:permission:check"));
+        assert!(UnifiedWeb3AuthService::has_permission(
+            &super_perms,
+            "any:permission:check"
+        ));
     }
 
     // Verify UnifiedWeb3AuthService::is_admin logic

@@ -22,8 +22,7 @@
 use dioxus::prelude::*;
 
 use epsx_dioxus_ui::payment::{
-    CurrentAccessCard, CurrentAccessInfo, UnifiedPaymentFlow,
-    UpgradeBanner, UpgradeUrgency,
+    CurrentAccessCard, CurrentAccessInfo, UnifiedPaymentFlow, UpgradeBanner, UpgradeUrgency,
 };
 
 use crate::state::payment_wizard_state::PaymentWizardState;
@@ -31,14 +30,25 @@ use crate::state::payment_wizard_state::PaymentWizardState;
 #[component]
 pub fn PayCheckoutForm(state: PaymentWizardState) -> Element {
     // Derive display values from the URL params (with safe defaults).
-    let amount = state.params.amount.clone().unwrap_or_else(|| "0.00".to_string());
-    let currency = state.params.currency.clone().unwrap_or_else(|| "USDT".to_string());
+    let amount = state
+        .params
+        .amount
+        .clone()
+        .unwrap_or_else(|| "0.00".to_string());
+    let currency = state
+        .params
+        .currency
+        .clone()
+        .unwrap_or_else(|| "USDT".to_string());
     let chain_label = match state.params.chain_id.as_deref() {
         Some("56") | None => "BSC (BEP-20)",
         Some("97") => "BSC Testnet",
         Some(other) => other,
     };
-    let description = state.params.description.clone()
+    let description = state
+        .params
+        .description
+        .clone()
         .unwrap_or_else(|| "Complete your payment on BSC".to_string());
 
     // Map the wizard state into the visual stepper.

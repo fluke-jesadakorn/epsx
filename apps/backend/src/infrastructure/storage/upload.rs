@@ -1,7 +1,7 @@
 use uuid::Uuid;
 
-use super::types::{Bucket, UploadResult};
 use super::s3_client::S3Storage;
+use super::types::{Bucket, UploadResult};
 
 const MAX_FILE_SIZE: usize = 100 * 1024 * 1024; // 100 MB
 const MAX_IMG_DIMENSION: u32 = 2000;
@@ -16,12 +16,42 @@ struct FileType {
 }
 
 static ALLOWED_TYPES: &[FileType] = &[
-    FileType { ext: "jpg",  mime: "image/jpeg",       magic: &[0xFF, 0xD8, 0xFF], is_image: true },
-    FileType { ext: "jpeg", mime: "image/jpeg",       magic: &[0xFF, 0xD8, 0xFF], is_image: true },
-    FileType { ext: "png",  mime: "image/png",        magic: &[0x89, 0x50, 0x4E, 0x47], is_image: true },
-    FileType { ext: "gif",  mime: "image/gif",        magic: b"GIF8", is_image: true },
-    FileType { ext: "webp", mime: "image/webp",       magic: b"RIFF", is_image: true },
-    FileType { ext: "pdf",  mime: "application/pdf",  magic: b"%PDF", is_image: false },
+    FileType {
+        ext: "jpg",
+        mime: "image/jpeg",
+        magic: &[0xFF, 0xD8, 0xFF],
+        is_image: true,
+    },
+    FileType {
+        ext: "jpeg",
+        mime: "image/jpeg",
+        magic: &[0xFF, 0xD8, 0xFF],
+        is_image: true,
+    },
+    FileType {
+        ext: "png",
+        mime: "image/png",
+        magic: &[0x89, 0x50, 0x4E, 0x47],
+        is_image: true,
+    },
+    FileType {
+        ext: "gif",
+        mime: "image/gif",
+        magic: b"GIF8",
+        is_image: true,
+    },
+    FileType {
+        ext: "webp",
+        mime: "image/webp",
+        magic: b"RIFF",
+        is_image: true,
+    },
+    FileType {
+        ext: "pdf",
+        mime: "application/pdf",
+        magic: b"%PDF",
+        is_image: false,
+    },
 ];
 
 fn ext_from_name(name: &str) -> &str {
@@ -30,7 +60,9 @@ fn ext_from_name(name: &str) -> &str {
 
 fn detect_type(bytes: &[u8], claimed_ext: &str) -> Option<&'static FileType> {
     let ext_lower = claimed_ext.to_lowercase();
-    ALLOWED_TYPES.iter().find(|t| t.ext == ext_lower && bytes.starts_with(t.magic))
+    ALLOWED_TYPES
+        .iter()
+        .find(|t| t.ext == ext_lower && bytes.starts_with(t.magic))
 }
 
 /// Process and upload a file to S3
@@ -63,7 +95,9 @@ pub async fn upload_file(
         // Upload thumbnail
         let thumb_key = format!("{}_thumb.{}", key_base, ft.ext);
         let tu = if let Some(thumb_bytes) = thumb {
-            let url = storage.put_object(bucket, &thumb_key, thumb_bytes, ft.mime).await?;
+            let url = storage
+                .put_object(bucket, &thumb_key, thumb_bytes, ft.mime)
+                .await?;
             Some(url)
         } else {
             None
@@ -75,7 +109,9 @@ pub async fn upload_file(
     };
 
     let size = processed_bytes.len();
-    let url = storage.put_object(bucket, &key, processed_bytes, ft.mime).await?;
+    let url = storage
+        .put_object(bucket, &key, processed_bytes, ft.mime)
+        .await?;
 
     Ok(UploadResult {
         key,
@@ -102,13 +138,17 @@ fn process_image(bytes: &[u8], mime: &str) -> Result<Vec<u8>, String> {
     }
 
     // Resize proportionally
-    let resized = img.resize(MAX_IMG_DIMENSION, MAX_IMG_DIMENSION, image::imageops::FilterType::Lanczos3);
+    let resized = img.resize(
+        MAX_IMG_DIMENSION,
+        MAX_IMG_DIMENSION,
+        image::imageops::FilterType::Lanczos3,
+    );
 
     match mime {
         "image/jpeg" => encode_jpeg(&resized, JPEG_QUALITY),
         "image/png" => encode_png(&resized),
         "image/webp" => Ok(bytes.to_vec()), // webp encoding not in image crate defaults
-        "image/gif" => Ok(bytes.to_vec()),   // gif resize is lossy, skip
+        "image/gif" => Ok(bytes.to_vec()),  // gif resize is lossy, skip
         _ => Ok(bytes.to_vec()),
     }
 }
@@ -135,13 +175,15 @@ fn generate_thumbnail(bytes: &[u8], ext: &str) -> Result<Option<Vec<u8>>, String
 fn encode_jpeg(img: &image::DynamicImage, quality: u8) -> Result<Vec<u8>, String> {
     let mut buf = std::io::Cursor::new(Vec::new());
     let encoder = image::codecs::jpeg::JpegEncoder::new_with_quality(&mut buf, quality);
-    img.write_with_encoder(encoder).map_err(|e| format!("JPEG encode error: {}", e))?;
+    img.write_with_encoder(encoder)
+        .map_err(|e| format!("JPEG encode error: {}", e))?;
     Ok(buf.into_inner())
 }
 
 fn encode_png(img: &image::DynamicImage) -> Result<Vec<u8>, String> {
     let mut buf = std::io::Cursor::new(Vec::new());
     let encoder = image::codecs::png::PngEncoder::new(&mut buf);
-    img.write_with_encoder(encoder).map_err(|e| format!("PNG encode error: {}", e))?;
+    img.write_with_encoder(encoder)
+        .map_err(|e| format!("PNG encode error: {}", e))?;
     Ok(buf.into_inner())
 }

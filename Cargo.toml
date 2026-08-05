@@ -36,6 +36,7 @@ members = [
     "apps/analytics",
     "apps/pay",
     "apps/preview",
+    "xtask",
 ]
 
 [workspace.dependencies]

@@ -254,6 +254,7 @@ pub async fn send_message(
             let notif_state = app_state.clone();
             let notif_content = body.content.chars().take(100).collect::<String>();
             let notif_conv_id = id;
+            let notif_msg_id = msg.id;
             let notif_subject = conv.subject.clone();
             let notif_agent = conv.assigned_agent.clone();
             tokio::spawn(async move {
@@ -264,25 +265,37 @@ pub async fn send_message(
                 if let Some(port) = notif_state.notification_port.as_ref() {
                     if let Some(agent) = notif_agent {
                         let _ = port
-                            .send(SendNotificationRequest {
-                                recipient_wallet_address: agent,
-                                notification_type: "chat".to_string(),
-                                priority: "normal".to_string(),
-                                title: format!("New message: {}", notif_subject),
-                                message: notif_content.clone(),
-                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                                action_url: Some("/chat".to_string()),
-                            })
+                            .send_with_event_id_retry(
+                                &format!("chat.message:{notif_msg_id}"),
+                                SendNotificationRequest {
+                                    recipient_wallet_address: agent,
+                                    notification_type: "chat".to_string(),
+                                    priority: "normal".to_string(),
+                                    title: format!("New message: {}", notif_subject),
+                                    message: notif_content.clone(),
+                                    data: Some(
+                                        serde_json::json!({ "conversation_id": notif_conv_id }),
+                                    ),
+                                    action_url: Some("/chat".to_string()),
+                                    expires_at: None,
+                                },
+                            )
                             .await;
                     } else {
                         let _ = port
-                            .broadcast(BroadcastNotificationRequest {
-                                notification_type: "chat".to_string(),
-                                priority: "normal".to_string(),
-                                title: format!("New message: {}", notif_subject),
-                                message: notif_content.clone(),
-                                data: Some(serde_json::json!({ "conversation_id": notif_conv_id })),
-                            })
+                            .broadcast_with_event_id_retry(
+                                &format!("chat.message:{notif_msg_id}"),
+                                BroadcastNotificationRequest {
+                                    notification_type: "chat".to_string(),
+                                    priority: "normal".to_string(),
+                                    title: format!("New message: {}", notif_subject),
+                                    message: notif_content.clone(),
+                                    data: Some(
+                                        serde_json::json!({ "conversation_id": notif_conv_id }),
+                                    ),
+                                    expires_at: None,
+                                },
+                            )
                             .await;
                     }
                 } else {
@@ -541,7 +554,9 @@ pub async fn chat_stream(
         .validate_access_token(&token)
         .await
         .map_err(|_| {
-            epsx_contracts::errors::AppError::unauthorized("Invalid or expired authentication token")
+            epsx_contracts::errors::AppError::unauthorized(
+                "Invalid or expired authentication token",
+            )
         })?;
     let wallet_address = claims.wallet_address.to_lowercase();
 

@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Command;
+use crate::prelude::*;
 
 /// Command to create a notification for a topic (broadcast)
 #[derive(Debug, Clone)]

@@ -8,15 +8,10 @@
 //! single SQL query (with the `plans` JOIN done inline on the
 //! payments side).
 
-use axum::{
-    extract::State,
-    response::Json,
-};
-use tracing::{info, error};
+use axum::{extract::State, response::Json};
+use tracing::{error, info};
 
-use crate::{
-    web::middleware::UnifiedErrorResponse,
-};
+use crate::web::middleware::UnifiedErrorResponse;
 
 use super::types::*;
 
@@ -32,15 +27,25 @@ pub async fn admin_get_payment_analytics_handler(
     // call. The window is the last-30-days default that the
     // previous handler used.
     let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
-        error!("PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete");
-        Json(UnifiedErrorResponse::new(500, "Internal error", "Payment service is not initialized"))
+        error!(
+            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
+        );
+        Json(UnifiedErrorResponse::new(
+            500,
+            "Internal error",
+            "Payment service is not initialized",
+        ))
     })?;
     let rollup = payment_repo
         .get_analytics_rollup(AnalyticsWindow::Last30Days)
         .await
         .map_err(|e| {
             error!("Failed to get analytics rollup: {}", e);
-            Json(UnifiedErrorResponse::new(500, "Query failed", format!("Failed to load analytics: {}", e)))
+            Json(UnifiedErrorResponse::new(
+                500,
+                "Query failed",
+                format!("Failed to load analytics: {}", e),
+            ))
         })?;
 
     // Convert the port DTOs to the response DTOs.

@@ -13,13 +13,10 @@ use serde::Serialize;
 use tracing::info;
 
 use crate::{
-    prelude::*,
-    infrastructure::database::get_payments_pool,
     infrastructure::blockchain::tx_monitor_service::reprocess_payment_tx,
-    web::{
-        auth::AppState,
-        middleware::UnifiedErrorResponse,
-    },
+    infrastructure::database::get_payments_pool,
+    prelude::*,
+    web::{auth::AppState, middleware::UnifiedErrorResponse},
 };
 
 // ============================================================================
@@ -73,7 +70,11 @@ pub async fn admin_reprocess_payment_handler(
     Path(tx_hash): Path<String>,
 ) -> Result<Json<ReprocessResponse>, Json<UnifiedErrorResponse>> {
     if !tx_hash.starts_with("0x") || tx_hash.len() != 66 {
-        return Err(UnifiedErrorResponse::json(400, "Invalid transaction hash", "Must be 66 chars starting with 0x"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Invalid transaction hash",
+            "Must be 66 chars starting with 0x",
+        ));
     }
 
     info!("Admin reprocess requested for tx: {}", tx_hash);
@@ -89,7 +90,11 @@ pub async fn admin_reprocess_payment_handler(
     })?;
 
     let mut conn = payments_pool.get().await.map_err(|e| {
-        UnifiedErrorResponse::json(500, "Database error", format!("Cannot get connection: {}", e))
+        UnifiedErrorResponse::json(
+            500,
+            "Database error",
+            format!("Cannot get connection: {}", e),
+        )
     })?;
 
     #[derive(diesel::QueryableByName)]
@@ -113,7 +118,11 @@ pub async fn admin_reprocess_payment_handler(
     .ok();
 
     let Some(state) = state else {
-        return Err(UnifiedErrorResponse::json(404, "Transaction not found", "No payment record for this tx hash"));
+        return Err(UnifiedErrorResponse::json(
+            404,
+            "Transaction not found",
+            "No payment record for this tx hash",
+        ));
     };
 
     let success = reprocess_err.is_none() && state.status == "confirmed";
@@ -148,7 +157,11 @@ pub async fn admin_payment_events_handler(
     Path(tx_hash): Path<String>,
 ) -> Result<Json<PaymentEventsResponse>, Json<UnifiedErrorResponse>> {
     if !tx_hash.starts_with("0x") || tx_hash.len() != 66 {
-        return Err(UnifiedErrorResponse::json(400, "Invalid transaction hash", "Must be 66 chars starting with 0x"));
+        return Err(UnifiedErrorResponse::json(
+            400,
+            "Invalid transaction hash",
+            "Must be 66 chars starting with 0x",
+        ));
     }
 
     let payments_pool = get_payments_pool().await.map_err(|e| {
@@ -156,7 +169,11 @@ pub async fn admin_payment_events_handler(
     })?;
 
     let mut conn = payments_pool.get().await.map_err(|e| {
-        UnifiedErrorResponse::json(500, "Database error", format!("Cannot get connection: {}", e))
+        UnifiedErrorResponse::json(
+            500,
+            "Database error",
+            format!("Cannot get connection: {}", e),
+        )
     })?;
 
     #[derive(diesel::QueryableByName)]
@@ -192,15 +209,23 @@ pub async fn admin_payment_events_handler(
     .await
     .unwrap_or_default();
 
-    let events = rows.into_iter().map(|r| PaymentEventEntry {
-        action: r.action,
-        old_status: r.old_status,
-        new_status: r.new_status,
-        reason: r.reason,
-        performed_by: r.performed_by,
-        metadata: r.metadata.unwrap_or(serde_json::Value::Object(serde_json::Map::new())),
-        created_at: r.created_at,
-    }).collect();
+    let events = rows
+        .into_iter()
+        .map(|r| PaymentEventEntry {
+            action: r.action,
+            old_status: r.old_status,
+            new_status: r.new_status,
+            reason: r.reason,
+            performed_by: r.performed_by,
+            metadata: r
+                .metadata
+                .unwrap_or(serde_json::Value::Object(serde_json::Map::new())),
+            created_at: r.created_at,
+        })
+        .collect();
 
-    Ok(Json(PaymentEventsResponse { success: true, data: events }))
+    Ok(Json(PaymentEventsResponse {
+        success: true,
+        data: events,
+    }))
 }

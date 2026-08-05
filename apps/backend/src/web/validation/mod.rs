@@ -1,24 +1,24 @@
 // Comprehensive input validation for all HTTP handlers
 // Split into focused modules for better organization
 
-pub mod validators;
+pub mod constants;
+pub mod core_validators;
 pub mod middleware;
 pub mod request_dtos;
-pub mod types;
-pub mod sanitizers;
-pub mod core_validators;
 pub mod request_validator;
-pub mod constants;
+pub mod sanitizers;
+pub mod types;
+pub mod validators;
 
 // Re-exports for backward compatibility
-pub use validators::*;
+pub use constants::{limits, patterns};
+pub use core_validators::*;
 pub use middleware::*;
 pub use request_dtos::*;
-pub use types::*;
-pub use sanitizers::*;
-pub use core_validators::*;
 pub use request_validator::RequestValidator;
-pub use constants::{patterns, limits};
+pub use sanitizers::*;
+pub use types::*;
+pub use validators::*;
 
 #[cfg(test)]
 mod tests {
@@ -64,7 +64,10 @@ mod tests {
     fn test_sanitize_string() {
         let input = "<script>alert('xss')</script>";
         let sanitized = sanitize_string(input);
-        assert_eq!(sanitized, "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;");
+        assert_eq!(
+            sanitized,
+            "&lt;script&gt;alert(&#x27;xss&#x27;)&lt;/script&gt;"
+        );
     }
 
     #[test]
@@ -98,7 +101,10 @@ mod tests {
     #[test]
     fn test_validation_error_response() {
         let mut fields = HashMap::new();
-        fields.insert("email".to_string(), vec!["Invalid email format".to_string()]);
+        fields.insert(
+            "email".to_string(),
+            vec!["Invalid email format".to_string()],
+        );
 
         let error = ValidationErrorResponse::new("Validation failed".to_string(), fields);
         assert_eq!(error.error, "validation_error");

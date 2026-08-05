@@ -24,8 +24,8 @@
 use dioxus::prelude::*;
 
 use epsx_dioxus_ui::payment::{
-    ChainVerificationCard, ChainVerificationStatus, PaymentFlowSteps,
-    PaymentFlowStep, PaymentFlowStepsState,
+    ChainVerificationCard, ChainVerificationStatus, PaymentFlowStep, PaymentFlowSteps,
+    PaymentFlowStepsState,
 };
 
 #[component]

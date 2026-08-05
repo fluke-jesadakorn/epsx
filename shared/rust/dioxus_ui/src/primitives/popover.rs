@@ -39,11 +39,7 @@ use dioxus::prelude::*;
 /// a controlled `open` signal — the trigger toggles it, and the
 /// content only renders when `open` is true.
 #[component]
-pub fn Popover(
-    open: bool,
-    on_open_change: EventHandler<bool>,
-    children: Element,
-) -> Element {
+pub fn Popover(open: bool, on_open_change: EventHandler<bool>, children: Element) -> Element {
     let mut internal_open = use_signal(|| open);
     // Sync controlled → internal so the click handler reads the
     // latest value.

@@ -36,11 +36,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use epsx_contracts::permission_authority_port::{
-    GrantPermissionRequest, Permission, PermissionAuthorityPort,
-    RevokePermissionRequest,
-};
 use epsx_contracts::errors::{AppError, AppResult};
+use epsx_contracts::permission_authority_port::{
+    GrantPermissionRequest, Permission, PermissionAuthorityPort, RevokePermissionRequest,
+};
 use epsx_contracts::value_objects::UserId;
 
 // In-process AppError lives in epsx_identity_shared (the crate that
@@ -65,10 +64,7 @@ impl InProcessPermissionAuthorityAdapter {
 
 #[async_trait]
 impl PermissionAuthorityPort for InProcessPermissionAuthorityAdapter {
-    async fn grant_permission(
-        &self,
-        req: GrantPermissionRequest,
-    ) -> AppResult<()> {
+    async fn grant_permission(&self, req: GrantPermissionRequest) -> AppResult<()> {
         // The in-process request is a 1:1 mirror of the port DTO;
         // we keep the two types distinct so the future HTTP / gRPC
         // adapter can have its own serde-friendly DTO without
@@ -95,10 +91,7 @@ impl PermissionAuthorityPort for InProcessPermissionAuthorityAdapter {
             .map(|_| ())
     }
 
-    async fn revoke_permission(
-        &self,
-        req: RevokePermissionRequest,
-    ) -> AppResult<()> {
+    async fn revoke_permission(&self, req: RevokePermissionRequest) -> AppResult<()> {
         let in_process_req = crate::auth::RevokePermissionRequest {
             wallet_address: req.wallet_address,
             permission_string: req.permission_string,
@@ -111,10 +104,7 @@ impl PermissionAuthorityPort for InProcessPermissionAuthorityAdapter {
             .map_err(shared_app_error_to_port)
     }
 
-    async fn get_user_permissions(
-        &self,
-        user_id: &UserId,
-    ) -> AppResult<Vec<Permission>> {
+    async fn get_user_permissions(&self, user_id: &UserId) -> AppResult<Vec<Permission>> {
         let details = self
             .service
             .get_wallet_permissions(user_id.as_str())
@@ -139,9 +129,7 @@ fn shared_app_error_to_port(err: InProcessAppError) -> AppError {
         Shared::ValidationError(_) | Shared::ValidationField { .. } => {
             AppError::validation_error(message)
         }
-        Shared::AuthenticationError(_) => {
-            AppError::authentication_error(message)
-        }
+        Shared::AuthenticationError(_) => AppError::authentication_error(message),
         Shared::AuthorizationError(_) => AppError::forbidden(message),
         Shared::ConfigurationError(_) => AppError::configuration_error(message),
         Shared::NetworkError(_) => AppError::network_error(message),
@@ -158,9 +146,7 @@ fn shared_app_error_to_port(err: InProcessAppError) -> AppError {
     }
 }
 
-fn permission_detail_to_dto(
-    d: crate::auth::PermissionDetail,
-) -> Permission {
+fn permission_detail_to_dto(d: crate::auth::PermissionDetail) -> Permission {
     Permission {
         permission_string: d.permission_string,
         permission_id: Some(d.permission_id.to_string()),

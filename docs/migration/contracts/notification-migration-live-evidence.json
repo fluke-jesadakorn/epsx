@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "databaseClass": "local-scratch-only",
+  "cleanMigrationLedgerRows": 11,
+  "legacyRowsBeforeUpgrade": 1,
+  "legacyRowsAfterUpgrade": 1,
+  "targetTables": 16,
+  "legacySchemaChecksum": "b66c0d1ec5408bb2a52f827a44b72de4",
+  "targetSchemaChecksum": "d6125718c627a231acc6a31aba29c572",
+  "recoveryRows": 1,
+  "recoverySchemaChecksum": "d6125718c627a231acc6a31aba29c572",
+  "constraintsVerified": true,
+  "expiryFilterVerified": true,
+  "productionReady": false
+}

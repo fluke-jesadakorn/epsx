@@ -196,11 +196,11 @@ impl NotificationTopic {
     /// Check if topic matches notification type and priority
     pub fn is_suitable_for_notification(&self, notification_type: &str, _priority: &str) -> bool {
         match self.category {
-            TopicCategory::System => notification_type == "system",
-            TopicCategory::Security => notification_type == "security",
-            TopicCategory::Administrative => notification_type == "admin",
-            TopicCategory::Marketing => notification_type == "marketing",
-            TopicCategory::Feature => notification_type == "feature",
+            TopicCategory::System => notification_type.eq_ignore_ascii_case("system"),
+            TopicCategory::Security => notification_type.eq_ignore_ascii_case("security"),
+            TopicCategory::Administrative => notification_type.eq_ignore_ascii_case("admin"),
+            TopicCategory::Marketing => notification_type.eq_ignore_ascii_case("marketing"),
+            TopicCategory::Feature => notification_type.eq_ignore_ascii_case("feature"),
             TopicCategory::General => true, // General topics accept all notifications
             TopicCategory::UserSegment => true,
         }

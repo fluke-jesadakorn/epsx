@@ -1,6 +1,6 @@
-use crate::prelude::*;
 use crate::domain::permission_management::PlanId;
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 
 /// Plan Assignment Entity
 /// Represents the assignment of a wallet to a permission plan

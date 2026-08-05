@@ -28,8 +28,8 @@ mod tests {
     };
     use tower::ServiceExt;
 
-    use crate::web::middleware::perm_guard;
     use crate::web::middleware::bearer_middleware::OpenIDUserContext;
+    use crate::web::middleware::perm_guard;
 
     /// Stub handler that just returns 200. We use a stub for the
     /// route-registration tests because the real handler takes

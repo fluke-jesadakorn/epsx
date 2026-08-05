@@ -18,7 +18,7 @@ const DEVELOPER_PORTAL_PATH: &str = "/developer-portal";
 /// `/developer-portal` is session-gated only. Authorization, credential
 /// ownership, plan access, and feature availability remain backend concerns.
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Developer portal unavailable");
+    let meta = PageMeta::admin("Developer portal");
 
     // Legacy query and hydration parameters are intentionally ignored. Only a
     // future backend-owned response may create credential or usage state.

@@ -3,7 +3,7 @@
 //! Database models for wallet_users table using Diesel ORM
 
 use chrono::{DateTime, Utc};
-use diesel::{Queryable, Selectable, Insertable, AsChangeset};
+use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use serde::Deserialize;
 
 /// Diesel Queryable model for wallet_users table

@@ -2,19 +2,19 @@
 
 use dioxus::prelude::*;
 
-pub mod navbar;
-pub mod footer;
-pub mod sidebar;
-pub mod shell;
-pub mod page_header;
 pub mod breadcrumbs;
+pub mod footer;
+pub mod navbar;
+pub mod page_header;
+pub mod shell;
+pub mod sidebar;
 // === wave2-chrome-track-a === new module (admin header)
 pub mod header;
 // === wave2-chrome-track-b === new modules (frontend nav cluster)
+pub mod mobile_nav;
+pub mod nav_actions;
 pub mod nav_config;
 pub mod navbar_skeleton;
-pub mod nav_actions;
-pub mod mobile_nav;
 // === wave6b-admin-pages-depth-track-a === new module (AdminShell primitive)
 //
 // `<AdminShell>` is the shared admin chrome (sidebar + breadcrumb header
@@ -49,19 +49,19 @@ pub mod main_layout;
 // changes to `layout.rs` are required from Track B).
 pub mod marketing_bg;
 
-pub use navbar::*;
-pub use footer::*;
-pub use sidebar::*;
-pub use shell::*;
-pub use page_header::*;
 pub use breadcrumbs::*;
+pub use footer::*;
+pub use navbar::*;
+pub use page_header::*;
+pub use shell::*;
+pub use sidebar::*;
 // === wave2-chrome-track-a === re-export (admin header)
 pub use header::*;
 // === wave2-chrome-track-b === re-exports (frontend nav cluster)
+pub use mobile_nav::*;
+pub use nav_actions::*;
 pub use nav_config::*;
 pub use navbar_skeleton::*;
-pub use nav_actions::*;
-pub use mobile_nav::*;
 // === wave3a-wiring-track-a ===
 // Intentionally NOT re-exporting `main_layout::*` globally — see
 // the comment on the `pub mod main_layout;` line above.

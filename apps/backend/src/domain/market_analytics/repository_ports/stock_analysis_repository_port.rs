@@ -1,5 +1,5 @@
+use crate::domain::market_analytics::{Country, MarketSector, StockAnalysis, StockSymbol};
 use crate::prelude::*;
-use crate::domain::market_analytics::{StockAnalysis, StockSymbol, MarketSector, Country};
 
 /// Search criteria for stock analyses
 #[derive(Debug, Clone, Default)]
@@ -28,7 +28,10 @@ pub trait StockAnalysisRepositoryPort: Send + Sync {
     async fn find_by_symbol(&self, symbol: &StockSymbol) -> AppResult<Option<StockAnalysis>>;
 
     /// List stock analyses with optional filtering
-    async fn find_all(&self, criteria: StockAnalysisSearchCriteria) -> AppResult<Vec<StockAnalysis>>;
+    async fn find_all(
+        &self,
+        criteria: StockAnalysisSearchCriteria,
+    ) -> AppResult<Vec<StockAnalysis>>;
 
     /// Save (create or update) a stock analysis
     async fn save(&self, analysis: &StockAnalysis) -> AppResult<()>;
@@ -52,5 +55,9 @@ pub trait StockAnalysisRepositoryPort: Send + Sync {
     async fn find_by_sector(&self, sector: &MarketSector) -> AppResult<Vec<StockAnalysis>>;
 
     /// Get growth leaders (growth > threshold)
-    async fn find_growth_leaders(&self, min_growth: f64, limit: u32) -> AppResult<Vec<StockAnalysis>>;
+    async fn find_growth_leaders(
+        &self,
+        min_growth: f64,
+        limit: u32,
+    ) -> AppResult<Vec<StockAnalysis>>;
 }

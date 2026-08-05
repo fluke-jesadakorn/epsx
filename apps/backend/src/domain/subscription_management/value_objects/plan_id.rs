@@ -59,4 +59,3 @@ impl From<Uuid> for PlanId {
         Self(uuid)
     }
 }
-

@@ -10,14 +10,21 @@
 use crate::prelude::*;
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, RunQueryDsl};
-use tracing::{info, error, debug, warn};
+use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use super::event_store::EventStore;
 
 /// Callback type for saving aggregate state with Diesel
 /// This allows repositories to provide their own save logic
-pub type AggregateSaveFn = Box<dyn for<'a> Fn(&'a mut diesel_async::AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>> + Send + Sync>;
+pub type AggregateSaveFn = Box<
+    dyn for<'a> Fn(
+            &'a mut diesel_async::AsyncPgConnection,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = AppResult<()>> + Send + 'a>,
+        > + Send
+        + Sync,
+>;
 
 /// Parameters for save_with_events operation
 pub struct SaveWithEventsParams<F> {
@@ -90,9 +97,7 @@ impl TransactionalOutbox {
 
         info!(
             "Appending {} events for aggregate {} (type: {})",
-            event_count,
-            aggregate_id,
-            aggregate_type
+            event_count, aggregate_id, aggregate_type
         );
 
         let event_store = Arc::clone(&self.event_store);
@@ -114,7 +119,8 @@ impl TransactionalOutbox {
 
                 // 2. Save events to outbox (for async publishing)
                 for event in &events {
-                    let event_json_str = event.to_json()
+                    let event_json_str = event
+                        .to_json()
                         .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
                     let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
@@ -129,7 +135,7 @@ impl TransactionalOutbox {
                             event_type,
                             event_payload
                         ) VALUES ($1, $2, $3, $4, $5)
-                        "#
+                        "#,
                     )
                     .bind::<diesel::sql_types::Uuid, _>(event.event_id())
                     .bind::<diesel::sql_types::Text, _>(&agg_id)
@@ -157,8 +163,7 @@ impl TransactionalOutbox {
 
         info!(
             "Successfully appended {} events for aggregate {}",
-            event_count,
-            aggregate_id
+            event_count, aggregate_id
         );
 
         Ok(())
@@ -226,7 +231,8 @@ impl TransactionalOutbox {
 
                 // 3. Save events to outbox (for async publishing)
                 for event in &events {
-                    let event_json_str = event.to_json()
+                    let event_json_str = event
+                        .to_json()
                         .map_err(|_| diesel::result::Error::RollbackTransaction)?;
 
                     let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
@@ -241,7 +247,7 @@ impl TransactionalOutbox {
                             event_type,
                             event_payload
                         ) VALUES ($1, $2, $3, $4, $5)
-                        "#
+                        "#,
                     )
                     .bind::<diesel::sql_types::Uuid, _>(event.event_id())
                     .bind::<diesel::sql_types::Text, _>(&agg_id)
@@ -269,8 +275,7 @@ impl TransactionalOutbox {
 
         info!(
             "Atomic save successful: {} events for aggregate {}",
-            event_count,
-            agg_id_clone
+            event_count, agg_id_clone
         );
 
         Ok(())
@@ -322,7 +327,7 @@ impl TransactionalOutbox {
             ORDER BY sequence_number ASC
             LIMIT $1
             FOR UPDATE SKIP LOCKED
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::BigInt, _>(batch_size)
         .load::<OutboxEventRow>(&mut conn)
@@ -364,7 +369,7 @@ impl TransactionalOutbox {
             UPDATE outbox_events
             SET processed = true, processed_at = NOW()
             WHERE id = ANY($1)
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::BigInt>, _>(event_ids)
         .execute(&mut conn)
@@ -401,7 +406,7 @@ impl TransactionalOutbox {
                 last_error = $2,
                 next_retry_at = NOW() + ($3 || ' seconds')::interval
             WHERE id = $4
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Integer, _>(retry_count)
         .bind::<diesel::sql_types::Text, _>(error_message)
@@ -452,7 +457,7 @@ impl TransactionalOutbox {
                 COUNT(*) FILTER (WHERE retry_count >= 10) as failed_count,
                 MAX(sequence_number) as max_sequence
             FROM outbox_events
-            "#
+            "#,
         )
         .get_result::<StatsRow>(&mut conn)
         .await

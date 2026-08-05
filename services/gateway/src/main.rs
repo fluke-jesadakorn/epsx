@@ -1,4 +1,5 @@
 use clap::{Parser, ValueEnum};
+use epsx_gateway::policy::{NOTIFICATION_PROVIDER_AUDIENCE, NOTIFICATION_PUBLISHER_AUDIENCE};
 use epsx_gateway::{build_http_client, build_router, AppState, GatewayUrls};
 use epsx_service_auth::{JwksVerifier, JwksVerifierConfig};
 use std::{net::SocketAddr, sync::Arc, time::Duration};
@@ -59,7 +60,10 @@ async fn main() {
         Duration::from_secs(5 * 60),
         production,
     )
-    .expect("OIDC_ISSUER and OIDC_JWKS_URL must be valid URLs");
+    .expect("OIDC_ISSUER and OIDC_JWKS_URL must be valid URLs")
+    .with_additional_audience(NOTIFICATION_PUBLISHER_AUDIENCE)
+    .and_then(|config| config.with_additional_audience(NOTIFICATION_PROVIDER_AUDIENCE))
+    .expect("notification service audiences must be valid");
     let verifier = Arc::new(JwksVerifier::new(verifier_config, client.clone()));
 
     let state = AppState::new(

@@ -8,4 +8,6 @@
 
 pub mod eps_ranking_service;
 
-pub use eps_ranking_service::{EPSRankingService, EPSRankingParams, EPSRepository, CountryValidator, PermissionParser};
+pub use eps_ranking_service::{
+    CountryValidator, EPSRankingParams, EPSRankingService, EPSRepository, PermissionParser,
+};

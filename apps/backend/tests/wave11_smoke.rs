@@ -15,14 +15,32 @@ use std::sync::Arc;
 //    `_assert_object_safe` functions prove object-safety at
 //    compile time; this is the runtime mirror for the 5 new
 //    wave-11 ports.
-fn _assert_payment_repo_object_safe(_: &dyn epsx::domain::payment::repository_ports::PaymentRepositoryPort) {}
-fn _assert_credit_repo_object_safe(_: &dyn epsx::domain::payment::repository_ports::CreditRepositoryPort) {}
-fn _assert_payment_context_object_safe(_: &dyn epsx::domain::payment::repository_ports::PaymentContextRepositoryPort) {}
-fn _assert_subscription_object_safe(_: &dyn epsx::domain::payment::repository_ports::SubscriptionRepositoryPort) {}
+fn _assert_payment_repo_object_safe(
+    _: &dyn epsx::domain::payment::repository_ports::PaymentRepositoryPort,
+) {
+}
+fn _assert_credit_repo_object_safe(
+    _: &dyn epsx::domain::payment::repository_ports::CreditRepositoryPort,
+) {
+}
+fn _assert_payment_context_object_safe(
+    _: &dyn epsx::domain::payment::repository_ports::PaymentContextRepositoryPort,
+) {
+}
+fn _assert_subscription_object_safe(
+    _: &dyn epsx::domain::payment::repository_ports::SubscriptionRepositoryPort,
+) {
+}
 fn _assert_notification_object_safe(_: &dyn epsx_contracts::notification_port::NotificationPort) {}
-fn _assert_permission_authority_object_safe(_: &dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort) {}
+fn _assert_permission_authority_object_safe(
+    _: &dyn epsx_contracts::permission_authority_port::PermissionAuthorityPort,
+) {
+}
 fn _assert_pubsub_object_safe(_: &dyn epsx_contracts::pubsub_port::PubsubPort) {}
-fn _assert_wallet_ranking_offset_object_safe(_: &dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery) {}
+fn _assert_wallet_ranking_offset_object_safe(
+    _: &dyn epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery,
+) {
+}
 
 // 2. PaymentRowWithPlanName round-trips through serde. The
 //    DTO travels over the future HTTP boundary, so a serde
@@ -59,8 +77,7 @@ fn payment_row_with_plan_name_round_trips_through_serde() {
     };
 
     let json = serde_json::to_string(&original).expect("serialize");
-    let parsed: PaymentRowWithPlanName =
-        serde_json::from_str(&json).expect("deserialize");
+    let parsed: PaymentRowWithPlanName = serde_json::from_str(&json).expect("deserialize");
     assert_eq!(parsed.payment_reference, original.payment_reference);
     assert_eq!(parsed.plan_name, original.plan_name);
     assert_eq!(parsed.amount, original.amount);
@@ -72,24 +89,25 @@ fn payment_row_with_plan_name_round_trips_through_serde() {
 //    the publisher without panicking on construction.
 #[test]
 fn three_r8_orphan_events_construct_and_dispatch() {
+    use chrono::Utc;
     use epsx::domain::permission_management::events::{
         PlanDeletedEvent, WalletAssignedToPlanEvent, WalletRemovedFromPlanEvent,
     };
     use epsx::domain::shared_kernel::domain_event::DomainEvent;
-    use chrono::Utc;
 
     let plan_id = uuid::Uuid::new_v4().to_string();
     let wallet = "0xtest".to_string();
     let now = Utc::now();
-    let plan_deleted = PlanDeletedEvent::new(
-        "test-aggregate".to_string(), 1, plan_id.clone(), now,
-    );
+    let plan_deleted = PlanDeletedEvent::new("test-aggregate".to_string(), 1, plan_id.clone(), now);
     let wallet_assigned = WalletAssignedToPlanEvent::new(
-        "test-aggregate".to_string(), 1, plan_id.clone(), wallet.clone(), now,
+        "test-aggregate".to_string(),
+        1,
+        plan_id.clone(),
+        wallet.clone(),
+        now,
     );
-    let wallet_removed = WalletRemovedFromPlanEvent::new(
-        "test-aggregate".to_string(), 1, plan_id, wallet, now,
-    );
+    let wallet_removed =
+        WalletRemovedFromPlanEvent::new("test-aggregate".to_string(), 1, plan_id, wallet, now);
 
     // The 3 events must each be a `dyn DomainEvent`-compatible
     // trait object — the EventPublisherPort takes `Box<dyn

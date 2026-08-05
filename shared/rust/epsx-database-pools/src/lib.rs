@@ -30,13 +30,13 @@
 //!   - The `DieselServerlessConfig`, `AllPoolsHealth`, `DieselPoolStats`
 //!     types — backend-shaped configuration and observability structs.
 
+use async_trait::async_trait;
+use deadpool::managed::{Manager, Pool, RecycleError, RecycleResult};
 use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use deadpool::managed::{Manager, Pool, RecycleResult, RecycleError};
-use tracing::{debug, error};
-use tokio_postgres_rustls::MakeRustlsConnect;
 use rustls::ClientConfig;
 use std::str::FromStr;
-use async_trait::async_trait;
+use tokio_postgres_rustls::MakeRustlsConnect;
+use tracing::{debug, error};
 
 /// Custom Error type for the Connection Manager
 #[derive(Debug, thiserror::Error)]
@@ -72,17 +72,23 @@ impl Manager for TlsConnectionManager {
 
         let connect_timeout = std::time::Duration::from_secs(5);
 
-        debug!("Connecting to database (SSL Mode: {:?})...", config.get_ssl_mode());
+        debug!(
+            "Connecting to database (SSL Mode: {:?})...",
+            config.get_ssl_mode()
+        );
 
         let client = match config.get_ssl_mode() {
             tokio_postgres::config::SslMode::Disable => {
-                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tokio_postgres::NoTls))
-                    .await
-                    .map_err(|_| ManagerError::Config("Database connection timed out".to_string()))?
-                    .map_err(|e| {
-                        error!("Connection error: {:?}", e);
-                        ManagerError::Connection(e)
-                    })?;
+                let (client, connection) =
+                    tokio::time::timeout(connect_timeout, config.connect(tokio_postgres::NoTls))
+                        .await
+                        .map_err(|_| {
+                            ManagerError::Config("Database connection timed out".to_string())
+                        })?
+                        .map_err(|e| {
+                            error!("Connection error: {:?}", e);
+                            ManagerError::Connection(e)
+                        })?;
 
                 tokio::spawn(async move {
                     if let Err(e) = connection.await {
@@ -93,20 +99,25 @@ impl Manager for TlsConnectionManager {
             }
             _ => {
                 let root_store = rustls::RootCertStore::from_iter(
-                    webpki_roots::TLS_SERVER_ROOTS.iter().cloned()
+                    webpki_roots::TLS_SERVER_ROOTS.iter().cloned(),
                 );
                 let client_config = ClientConfig::builder()
                     .with_root_certificates(root_store)
                     .with_no_client_auth();
                 let tls = MakeRustlsConnect::new(client_config);
 
-                let (client, connection) = tokio::time::timeout(connect_timeout, config.connect(tls))
-                    .await
-                    .map_err(|_| ManagerError::Config("Database connection timed out during TLS handshake".to_string()))?
-                    .map_err(|e| {
-                        error!("TLS Connection error: {:?}", e);
-                        ManagerError::Connection(e)
-                    })?;
+                let (client, connection) =
+                    tokio::time::timeout(connect_timeout, config.connect(tls))
+                        .await
+                        .map_err(|_| {
+                            ManagerError::Config(
+                                "Database connection timed out during TLS handshake".to_string(),
+                            )
+                        })?
+                        .map_err(|e| {
+                            error!("TLS Connection error: {:?}", e);
+                            ManagerError::Connection(e)
+                        })?;
 
                 tokio::spawn(async move {
                     if let Err(e) = connection.await {
@@ -147,13 +158,18 @@ pub type TlsPool = Pool<TlsConnectionManager>;
 #[async_trait]
 pub trait PoolExt {
     /// Get a connection from the pool, mapping errors to `AppError`.
-    async fn conn(&self) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>>;
+    async fn conn(
+        &self,
+    ) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>>;
 }
 
 #[async_trait]
 impl PoolExt for TlsPool {
-    async fn conn(&self) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>> {
-        self.get().await
+    async fn conn(
+        &self,
+    ) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>> {
+        self.get()
+            .await
             .map_err(|e| epsx_contracts::errors::AppError::database_error(e.to_string()))
     }
 }

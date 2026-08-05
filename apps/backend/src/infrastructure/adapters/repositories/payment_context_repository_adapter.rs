@@ -13,7 +13,7 @@ use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -114,13 +114,15 @@ impl PaymentContextRepositoryAdapter {
     pub async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
-        info!("Saving payment context: {} ({})", context.name, context.slug);
+        info!(
+            "Saving payment context: {} ({})",
+            context.name, context.slug
+        );
 
         let result = diesel::insert_into(payment_contexts::table)
             .values(&context)
@@ -140,11 +142,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn find_by_id(&self, id: Uuid) -> AppResult<Option<PaymentContextDb>> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         debug!("Finding payment context by ID: {}", id);
 
@@ -165,11 +166,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn find_by_slug(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         debug!("Finding payment context by slug: {}", slug);
 
@@ -193,11 +193,10 @@ impl PaymentContextRepositoryAdapter {
     ) -> AppResult<Vec<PaymentContextDb>> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         debug!("Finding all payment contexts with criteria: {:?}", criteria);
 
@@ -225,10 +224,13 @@ impl PaymentContextRepositoryAdapter {
 
         query = query.order(payment_contexts::created_at.desc());
 
-        let results = query.load::<PaymentContextDb>(&mut conn).await.map_err(|e| {
-            error!("Failed to find payment contexts: {}", e);
-            AppError::database_error(format!("Failed to find payment contexts: {}", e))
-        })?;
+        let results = query
+            .load::<PaymentContextDb>(&mut conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find payment contexts: {}", e);
+                AppError::database_error(format!("Failed to find payment contexts: {}", e))
+            })?;
 
         info!("Found {} payment contexts", results.len());
         Ok(results)
@@ -242,11 +244,10 @@ impl PaymentContextRepositoryAdapter {
     ) -> AppResult<PaymentContextDb> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         info!("Updating payment context: {}", id);
 
@@ -268,11 +269,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn soft_delete(&self, id: Uuid) -> AppResult<()> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         warn!("Soft deleting payment context: {}", id);
 
@@ -296,11 +296,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn increment_usage(&self, id: Uuid) -> AppResult<PaymentContextDb> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         info!("Incrementing usage for payment context: {}", id);
 
@@ -328,11 +327,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn count(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         let mut query = payment_contexts::table.into_boxed();
 
@@ -364,11 +362,10 @@ impl PaymentContextRepositoryAdapter {
     pub async fn find_expired(&self) -> AppResult<Vec<PaymentContextDb>> {
         use crate::schemas::payments::payment_contexts;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
+        let mut conn =
+            self.db_pool.get().await.map_err(|e| {
+                AppError::database_error(format!("Failed to get connection: {}", e))
+            })?;
 
         let now = Utc::now();
 
@@ -476,8 +473,8 @@ pub fn is_context_usable(context: &PaymentContextDb) -> bool {
 /// Compute link hash for smart contract verification
 pub fn compute_link_hash(slug: &str) -> String {
     // Simple hash for now - proper keccak256 would need sha3 crate
-    use std::hash::{Hash, Hasher};
     use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
     let mut hasher = DefaultHasher::new();
     slug.hash(&mut hasher);
     format!("0x{:064x}", hasher.finish())

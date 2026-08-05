@@ -5,15 +5,7 @@ pub mod diesel_connection_manager;
 
 // Re-export Diesel types
 pub use diesel_connection_manager::{
-    DieselConnectionManager,
-    DieselServerlessConfig,
-    DieselPoolStats,
-    PoolExt,
-    get_diesel_pool,
-    get_analytics_pool,
-    get_notifications_pool,
-    get_payments_pool,
-    diesel_health_check,
-    diesel_health_check_all,
-    AllPoolsHealth,
+    diesel_health_check, diesel_health_check_all, get_analytics_pool, get_diesel_pool,
+    get_notifications_pool, get_payments_pool, AllPoolsHealth, DieselConnectionManager,
+    DieselPoolStats, DieselServerlessConfig, PoolExt,
 };

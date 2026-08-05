@@ -2,9 +2,9 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
-use uuid::Uuid;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use uuid::Uuid;
 
 use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
@@ -15,13 +15,17 @@ use crate::web::responses::AdminResponse;
 /// DELETE /admin/permissions/assignments/:assignment_id
 pub async fn remove_assignment(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(assignment_id): Path<String>,
 ) -> impl IntoResponse {
     let assignment_uuid = match Uuid::parse_str(&assignment_id) {
         Ok(id) => id,
-        Err(_) => return AdminResponse::bad_request("Invalid assignment ID format").into_response(),
+        Err(_) => {
+            return AdminResponse::bad_request("Invalid assignment ID format").into_response()
+        }
     };
 
     let mut conn = match app_state.db_pool.get().await {
@@ -50,7 +54,7 @@ pub async fn remove_assignment(
     .ok();
 
     match diesel::sql_query(
-        "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1"
+        "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
     .execute(&mut conn)
@@ -58,8 +62,10 @@ pub async fn remove_assignment(
     {
         Ok(rows) if rows > 0 => {
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(ctx, AuditEntry::new("plan_assignment", "delete", "plan")
-                .id(&assignment_id));
+            app_state.audit.log(
+                ctx,
+                AuditEntry::new("plan_assignment", "delete", "plan").id(&assignment_id),
+            );
 
             // Invalidate cached permissions so next request gets live DB permissions
             if let Some(ref info) = info {
@@ -74,15 +80,22 @@ pub async fn remove_assignment(
                     use epsx_contracts::notification_port::SendNotificationRequest;
                     if let Some(port) = notif_state.notification_port.as_ref() {
                         let _ = port
-                            .send(SendNotificationRequest {
-                                recipient_wallet_address: info.wallet_address.clone(),
-                                notification_type: "permission".to_string(),
-                                priority: "normal".to_string(),
-                                title: "Plan Removed".to_string(),
-                                message: format!("Your {} plan has been removed", info.plan_name),
-                                data: Some(serde_json::json!({ "plan_name": info.plan_name })),
-                                action_url: Some("/plans".to_string()),
-                            })
+                            .send_with_event_id_retry(
+                                &format!("permission.assignment.removed:{assignment_id}"),
+                                SendNotificationRequest {
+                                    recipient_wallet_address: info.wallet_address.clone(),
+                                    notification_type: "permission".to_string(),
+                                    priority: "normal".to_string(),
+                                    title: "Plan Removed".to_string(),
+                                    message: format!(
+                                        "Your {} plan has been removed",
+                                        info.plan_name
+                                    ),
+                                    data: Some(serde_json::json!({ "plan_name": info.plan_name })),
+                                    action_url: Some("/plans".to_string()),
+                                    expires_at: None,
+                                },
+                            )
                             .await;
                     } else {
                         tracing::warn!(
@@ -96,9 +109,10 @@ pub async fn remove_assignment(
 
             AdminResponse::success_with_message(
                 serde_json::json!({"deleted": true}),
-                "Assignment removed successfully"
-            ).into_response()
-        },
+                "Assignment removed successfully",
+            )
+            .into_response()
+        }
         Ok(_) => AdminResponse::not_found("Assignment").into_response(),
         Err(e) => {
             tracing::error!("Failed to remove assignment: {}", e);

@@ -9,15 +9,16 @@ use axum::{
     Extension,
 };
 use serde::{Deserialize, Serialize};
-use tracing::{info, error};
+use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{
-    CreateApiKeyRequest, RevokeApiKeyRequest,
-    CreateModuleRequest, UpdateModuleRequest, ModuleAccessRequest,
-    DeveloperPortalStats, UsageService,
+    CreateApiKeyRequest, CreateModuleRequest, DeveloperPortalStats, ModuleAccessRequest,
+    RevokeApiKeyRequest, UpdateModuleRequest, UsageService,
 };
-use crate::infrastructure::adapters::repositories::developer_portal::{ApiKeyRepository, ModuleRepository};
+use crate::infrastructure::adapters::repositories::developer_portal::{
+    ApiKeyRepository, ModuleRepository,
+};
 use crate::infrastructure::database::get_analytics_pool;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::web::auth::AppState;
@@ -132,12 +133,14 @@ pub async fn list_api_keys_handler(
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     // If wallet filter is provided, use list_by_wallet, otherwise use list_all
     let result = if let Some(wallet) = &query.wallet {
-        repo.list_by_wallet(wallet, query.limit, query.offset, query.status.as_deref()).await
+        repo.list_by_wallet(wallet, query.limit, query.offset, query.status.as_deref())
+            .await
     } else {
-        repo.list_all(query.limit, query.offset, query.status.as_deref()).await
+        repo.list_all(query.limit, query.offset, query.status.as_deref())
+            .await
     };
 
     match result {
@@ -154,7 +157,9 @@ pub async fn list_api_keys_handler(
 /// POST /api/admin/developer-portal/api-keys
 pub async fn create_api_key_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Json(body): Json<CreateApiKeyBody>,
 ) -> impl IntoResponse {
@@ -171,13 +176,15 @@ pub async fn create_api_key_handler(
     };
 
     // Convert module access
-    let allowed_modules: Vec<ModuleAccessRequest> = body.allowed_modules.iter().map(|m| {
-        ModuleAccessRequest {
+    let allowed_modules: Vec<ModuleAccessRequest> = body
+        .allowed_modules
+        .iter()
+        .map(|m| ModuleAccessRequest {
             module_id: Uuid::parse_str(&m.module_id).unwrap_or_default(),
             access_level: m.access_level.clone(),
             custom_quotas: m.custom_quotas.clone(),
-        }
-    }).collect();
+        })
+        .collect();
 
     let request = CreateApiKeyRequest {
         client_name: body.client_name.clone(),
@@ -185,7 +192,11 @@ pub async fn create_api_key_handler(
         client_contact_email: body.client_contact_email.clone(),
         wallet_address: body.wallet_address.clone(),
         allowed_modules,
-        plan_ids: body.plan_ids.clone().unwrap_or_default().into_iter()
+        plan_ids: body
+            .plan_ids
+            .clone()
+            .unwrap_or_default()
+            .into_iter()
             .filter_map(|id| Uuid::parse_str(&id).ok())
             .collect(),
         permissions: body.permissions.clone().unwrap_or_default(),
@@ -202,17 +213,20 @@ pub async fn create_api_key_handler(
 
             // Audit log - NEVER log the actual API key value
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            state.audit.log(ctx, AuditEntry::new("api_key", "create", "developer")
-                .id(&response.api_key.id.to_string())
-                .after(serde_json::json!({
-                    "client_name": body.client_name,
-                    "wallet_address": body.wallet_address,
-                    "rate_limit_per_minute": body.rate_limit_per_minute,
-                    "rate_limit_per_day": body.rate_limit_per_day,
-                    "plan_ids": body.plan_ids,
-                    "permissions": body.permissions,
-                    "expires_at": body.expires_at,
-                })));
+            state.audit.log(
+                ctx,
+                AuditEntry::new("api_key", "create", "developer")
+                    .id(&response.api_key.id.to_string())
+                    .after(serde_json::json!({
+                        "client_name": body.client_name,
+                        "wallet_address": body.wallet_address,
+                        "rate_limit_per_minute": body.rate_limit_per_minute,
+                        "rate_limit_per_day": body.rate_limit_per_day,
+                        "plan_ids": body.plan_ids,
+                        "permissions": body.permissions,
+                        "expires_at": body.expires_at,
+                    })),
+            );
 
             UnifiedApiResponse::success(response)
         }
@@ -230,10 +244,16 @@ pub async fn get_api_key_handler(
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
+        Err(_) => {
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
+        }
     };
 
     match repo.get_by_id(uuid).await {
@@ -249,7 +269,9 @@ pub async fn get_api_key_handler(
 /// POST /api/admin/developer-portal/api-keys/:id/revoke
 pub async fn revoke_api_key_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Extension(admin_wallet): Extension<String>,
     Path(id): Path<String>,
@@ -260,7 +282,13 @@ pub async fn revoke_api_key_handler(
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
+        Err(_) => {
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
+        }
     };
 
     let request = RevokeApiKeyRequest {
@@ -274,12 +302,15 @@ pub async fn revoke_api_key_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            state.audit.log(ctx, AuditEntry::new("api_key", "revoke", "developer")
-                .id(&uuid.to_string())
-                .after(serde_json::json!({
-                    "reason": body.reason,
-                    "revoked_by": admin_wallet,
-                })));
+            state.audit.log(
+                ctx,
+                AuditEntry::new("api_key", "revoke", "developer")
+                    .id(&uuid.to_string())
+                    .after(serde_json::json!({
+                        "reason": body.reason,
+                        "revoked_by": admin_wallet,
+                    })),
+            );
 
             UnifiedApiResponse::success(api_key)
         }
@@ -294,7 +325,9 @@ pub async fn revoke_api_key_handler(
 /// Update the expiration date of an API key
 pub async fn update_expiration_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Extension(admin_wallet): Extension<String>,
     Path(id): Path<String>,
@@ -305,14 +338,26 @@ pub async fn update_expiration_handler(
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
+        Err(_) => {
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
+        }
     };
 
     // Parse expires_at if provided
     let expires_at = if let Some(expires_str) = &body.expires_at {
         match chrono::DateTime::parse_from_rfc3339(expires_str) {
             Ok(dt) => Some(dt.with_timezone(&chrono::Utc)),
-            Err(_) => return UnifiedApiResponse::error(400, "Invalid date format", "expires_at must be in ISO 8601 format"),
+            Err(_) => {
+                return UnifiedApiResponse::error(
+                    400,
+                    "Invalid date format",
+                    "expires_at must be in ISO 8601 format",
+                )
+            }
         }
     } else {
         None // Null means remove expiration
@@ -320,16 +365,22 @@ pub async fn update_expiration_handler(
 
     match repo.update_expiration(uuid, expires_at).await {
         Ok(api_key) => {
-            info!("Admin {} updated API key {} expiration to {:?}", admin_wallet, uuid, expires_at);
+            info!(
+                "Admin {} updated API key {} expiration to {:?}",
+                admin_wallet, uuid, expires_at
+            );
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            state.audit.log(ctx, AuditEntry::new("api_key", "update", "developer")
-                .id(&uuid.to_string())
-                .after(serde_json::json!({
-                    "expires_at": body.expires_at,
-                    "updated_by": admin_wallet,
-                })));
+            state.audit.log(
+                ctx,
+                AuditEntry::new("api_key", "update", "developer")
+                    .id(&uuid.to_string())
+                    .after(serde_json::json!({
+                        "expires_at": body.expires_at,
+                        "updated_by": admin_wallet,
+                    })),
+            );
 
             UnifiedApiResponse::success(api_key)
         }
@@ -348,17 +399,18 @@ pub async fn list_expiring_keys_handler(
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ApiKeyRepository::new(pool);
-    
+
     let days = query.days.unwrap_or(7); // Default to 7 days
-    
-    match repo.list_expiring_keys(days, query.limit, query.offset).await {
-        Ok((api_keys, total)) => {
-            UnifiedApiResponse::success(ExpiringKeysResponse {
-                api_keys,
-                total,
-                days_ahead: days,
-            })
-        }
+
+    match repo
+        .list_expiring_keys(days, query.limit, query.offset)
+        .await
+    {
+        Ok((api_keys, total)) => UnifiedApiResponse::success(ExpiringKeysResponse {
+            api_keys,
+            total,
+            days_ahead: days,
+        }),
         Err(e) => {
             error!("Failed to list expiring API keys: {}", e);
             UnifiedApiResponse::server_error(&e.to_string())
@@ -377,8 +429,11 @@ pub async fn list_modules_handler(
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ModuleRepository::new(pool);
-    
-    match repo.list(query.status.as_deref(), query.category.as_deref()).await {
+
+    match repo
+        .list(query.status.as_deref(), query.category.as_deref())
+        .await
+    {
         Ok(response) => UnifiedApiResponse::success(response),
         Err(e) => {
             error!("Failed to list modules: {}", e);
@@ -394,10 +449,16 @@ pub async fn get_module_handler(
 ) -> impl IntoResponse {
     let pool = *state.db_pool;
     let repo = ModuleRepository::new(pool);
-    
+
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
+        Err(_) => {
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
+        }
     };
 
     match repo.get_by_id(uuid).await {
@@ -413,7 +474,9 @@ pub async fn get_module_handler(
 /// POST /api/admin/developer-portal/modules
 pub async fn create_module_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Json(body): Json<CreateModuleBody>,
 ) -> impl IntoResponse {
@@ -437,15 +500,18 @@ pub async fn create_module_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            state.audit.log(ctx, AuditEntry::new("module", "create", "developer")
-                .id(&module.id.to_string())
-                .after(serde_json::json!({
-                    "name": body.name,
-                    "display_name": body.display_name,
-                    "category": body.category,
-                    "base_path": body.base_path,
-                    "default_rate_limit": body.default_rate_limit,
-                })));
+            state.audit.log(
+                ctx,
+                AuditEntry::new("module", "create", "developer")
+                    .id(&module.id.to_string())
+                    .after(serde_json::json!({
+                        "name": body.name,
+                        "display_name": body.display_name,
+                        "category": body.category,
+                        "base_path": body.base_path,
+                        "default_rate_limit": body.default_rate_limit,
+                    })),
+            );
 
             UnifiedApiResponse::success(module)
         }
@@ -459,7 +525,9 @@ pub async fn create_module_handler(
 /// PUT /api/admin/developer-portal/modules/:id
 pub async fn update_module_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Path(id): Path<String>,
     Json(body): Json<UpdateModuleBody>,
@@ -469,7 +537,13 @@ pub async fn update_module_handler(
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
-        Err(_) => return UnifiedApiResponse::error(400, "Invalid UUID", "The provided ID is not a valid UUID"),
+        Err(_) => {
+            return UnifiedApiResponse::error(
+                400,
+                "Invalid UUID",
+                "The provided ID is not a valid UUID",
+            )
+        }
     };
 
     let request = UpdateModuleRequest {
@@ -487,14 +561,17 @@ pub async fn update_module_handler(
 
             // Audit log
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            state.audit.log(ctx, AuditEntry::new("module", "update", "developer")
-                .id(&uuid.to_string())
-                .after(serde_json::json!({
-                    "display_name": body.display_name,
-                    "description": body.description,
-                    "status": body.status,
-                    "default_rate_limit": body.default_rate_limit,
-                })));
+            state.audit.log(
+                ctx,
+                AuditEntry::new("module", "update", "developer")
+                    .id(&uuid.to_string())
+                    .after(serde_json::json!({
+                        "display_name": body.display_name,
+                        "description": body.description,
+                        "status": body.status,
+                        "default_rate_limit": body.default_rate_limit,
+                    })),
+            );
 
             UnifiedApiResponse::success(module)
         }
@@ -510,9 +587,7 @@ pub async fn update_module_handler(
 // ============================================================================
 
 /// GET /api/admin/developer-portal/stats
-pub async fn get_stats_handler(
-    State(state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn get_stats_handler(State(state): State<AppState>) -> impl IntoResponse {
     let core_pool = *state.db_pool;
     let api_key_repo = ApiKeyRepository::new(core_pool);
     let module_repo = ModuleRepository::new(core_pool);
@@ -522,28 +597,43 @@ pub async fn get_stats_handler(
         Ok(result) => result,
         Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
     };
-    
-    let active_count = all_keys.iter().filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Active).count() as i64;
-    let revoked_count = all_keys.iter().filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Revoked).count() as i64;
-    let expired_count = all_keys.iter().filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Expired).count() as i64;
+
+    let active_count = all_keys
+        .iter()
+        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Active)
+        .count() as i64;
+    let revoked_count = all_keys
+        .iter()
+        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Revoked)
+        .count() as i64;
+    let expired_count = all_keys
+        .iter()
+        .filter(|k| k.status == crate::domain::developer_portal::ApiKeyStatus::Expired)
+        .count() as i64;
 
     // Get module counts
     let modules = match module_repo.list(None, None).await {
         Ok(result) => result,
         Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
     };
-    
-    let active_modules = modules.modules.iter().filter(|m| m.status == crate::domain::developer_portal::ModuleStatus::Active).count() as i64;
+
+    let active_modules = modules
+        .modules
+        .iter()
+        .filter(|m| m.status == crate::domain::developer_portal::ModuleStatus::Active)
+        .count() as i64;
 
     // Get usage statistics from analytics database
-    let (total_requests_today, total_requests_this_month, top_modules_by_usage) = 
+    let (total_requests_today, total_requests_this_month, top_modules_by_usage) =
         match get_analytics_pool().await {
             Ok(analytics_pool) => {
                 let usage_service = UsageService::new(core_pool, analytics_pool);
-                
+
                 let today = usage_service.get_requests_today().await.unwrap_or(0);
                 let month = usage_service.get_requests_this_month().await.unwrap_or(0);
-                let top_modules = usage_service.get_top_modules_by_usage(5).await
+                let top_modules = usage_service
+                    .get_top_modules_by_usage(5)
+                    .await
                     .unwrap_or_default()
                     .into_iter()
                     .map(|m| crate::domain::developer_portal::ModuleUsageStats {
@@ -553,7 +643,7 @@ pub async fn get_stats_handler(
                         unique_api_keys: 0, // Would require additional query to calculate
                     })
                     .collect();
-                    
+
                 (today, month, top_modules)
             }
             Err(e) => {

@@ -15,8 +15,7 @@ fn main() {
         return;
     }
 
-    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR")
-        .unwrap_or_else(|_| ".".to_string());
+    let manifest_dir = std::env::var("CARGO_MANIFEST_DIR").unwrap_or_else(|_| ".".to_string());
 
     let mut cmd = Command::new("bun");
     cmd.args(["run", "build:css"]).current_dir(&manifest_dir);

@@ -40,12 +40,15 @@ pub fn PermissionsDisplay(
     /// "Connect Your Wallet" empty state.
     permissions: UserPermissionsSnapshot,
     /// `"compact"`, `"detailed"` (default), or `"card"`.
-    #[props(default = "detailed".to_string())] variant: String,
+    #[props(default = "detailed".to_string())]
+    variant: String,
     /// Whether to render the "Permissions" header on the
     /// card/detailed variant. Ignored in compact variant.
-    #[props(default = true)] show_header: bool,
+    #[props(default = true)]
+    show_header: bool,
     /// Class names appended to the outer wrapper.
-    #[props(default = None)] class_name: Option<String>,
+    #[props(default = None)]
+    class_name: Option<String>,
 ) -> Element {
     let cls = class_name.clone().unwrap_or_default();
     if !permissions.is_authenticated {
@@ -182,7 +185,5 @@ mod tests {
     }
 
     #[test]
-    fn permissions_display_signature_accepts_snapshot() {
-        
-    }
+    fn permissions_display_signature_accepts_snapshot() {}
 }

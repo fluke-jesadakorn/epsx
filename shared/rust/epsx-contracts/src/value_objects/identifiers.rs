@@ -2,8 +2,8 @@
 // Import-path adjustment: `crate::domain::shared_kernel::value_object::*` →
 // `crate::value_object::*`; the inner `user_id` re-export becomes
 // `super::user_id::UserId` (the file is at `super::user_id` now).
-use serde::{Deserialize, Serialize};
 use crate::value_object::{ValueObject, ValueObjectError};
+use serde::{Deserialize, Serialize};
 
 // Re-export commonly used identifiers
 pub use super::user_id::UserId;
@@ -24,16 +24,20 @@ impl StockSymbol {
 
 impl ValueObject for StockSymbol {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("Stock symbol cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Stock symbol cannot be empty".to_string(),
+            ));
         }
-        
+
         if self.0.len() > 10 {
-            return Err(ValueObjectError::InvalidFormat("Stock symbol too long (max 10 chars)".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Stock symbol too long (max 10 chars)".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }
@@ -76,17 +80,21 @@ impl NotificationId {
 
 impl ValueObject for NotificationId {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("Notification ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Notification ID cannot be empty".to_string(),
+            ));
         }
-        
+
         // Basic UUID format validation
         if self.0.len() < 8 {
-            return Err(ValueObjectError::InvalidFormat("Notification ID must be at least 8 characters".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Notification ID must be at least 8 characters".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }
@@ -117,17 +125,21 @@ impl ConnectionId {
 
 impl ValueObject for ConnectionId {
     type Error = ValueObjectError;
-    
+
     fn validate(&self) -> Result<(), Self::Error> {
         if self.0.is_empty() {
-            return Err(ValueObjectError::Required("Connection ID cannot be empty".to_string()));
+            return Err(ValueObjectError::Required(
+                "Connection ID cannot be empty".to_string(),
+            ));
         }
-        
+
         // Basic UUID format validation
         if self.0.len() < 8 {
-            return Err(ValueObjectError::InvalidFormat("Connection ID must be at least 8 characters".to_string()));
+            return Err(ValueObjectError::InvalidFormat(
+                "Connection ID must be at least 8 characters".to_string(),
+            ));
         }
-        
+
         Ok(())
     }
 }

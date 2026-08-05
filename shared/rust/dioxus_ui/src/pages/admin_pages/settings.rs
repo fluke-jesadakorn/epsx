@@ -9,13 +9,14 @@
 use dioxus::prelude::*;
 
 use crate::auth::AuthGate;
+use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::layout::admin_shell::AdminShell;
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::admin("Settings unavailable");
+    let meta = PageMeta::admin("Settings");
     (meta, rsx! { RenderSettings { ctx: ctx.clone() } })
 }
 
@@ -39,6 +40,13 @@ fn RenderSettings(ctx: PageContext) -> Element {
                 div {
                     class: "container page-content admin-settings py-8",
                     "data-admin-settings-state": "unavailable",
+                    PageHeader {
+                        title: "Settings Nexus".to_string(),
+                        subtitle: Some("Universal configuration interface for security, appearance, and system protocols".to_string()),
+                        icon: Some("settings".to_string()),
+                        gradient: Some(PageGradient::Warning),
+                        centered: Some(true),
+                    }
                     div { class: "grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(18rem,0.8fr)]",
                         section {
                             class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",

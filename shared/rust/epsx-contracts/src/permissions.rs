@@ -38,9 +38,9 @@ pub fn has_permission(user_permissions: &[String], required: &str) -> bool {
 /// Check if permission set contains admin privileges.
 /// True for: `admin:*:*`, `admin:dashboard:view`, `*:*`, `*:*:*`
 pub fn is_admin(user_permissions: &[String]) -> bool {
-    user_permissions.iter().any(|p| {
-        p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*" || p == "*:*:*"
-    })
+    user_permissions
+        .iter()
+        .any(|p| p == "admin:*:*" || p == "admin:dashboard:view" || p == "*:*" || p == "*:*:*")
 }
 
 /// Check if any of the required permissions are satisfied.
@@ -171,13 +171,19 @@ mod tests {
     #[test]
     fn has_any_one_matches() {
         let perms = vec!["epsx:analytics:read".into()];
-        assert!(has_any_permission(&perms, &["admin:users:manage", "epsx:analytics:read"]));
+        assert!(has_any_permission(
+            &perms,
+            &["admin:users:manage", "epsx:analytics:read"]
+        ));
     }
 
     #[test]
     fn has_any_none_match() {
         let perms = vec!["epsx:analytics:read".into()];
-        assert!(!has_any_permission(&perms, &["admin:users:manage", "epsx:export:csv"]));
+        assert!(!has_any_permission(
+            &perms,
+            &["admin:users:manage", "epsx:export:csv"]
+        ));
     }
 
     // ── permission_platform ─────────────────────────────────────

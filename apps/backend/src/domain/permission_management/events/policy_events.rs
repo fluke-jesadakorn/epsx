@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
+use crate::prelude::*;
 use uuid::Uuid;
 
 /// Event emitted when a policy is created
@@ -29,16 +29,30 @@ impl PolicyCreatedEvent {
 }
 
 impl DomainEvent for PolicyCreatedEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PolicyCreated" }
-    fn aggregate_type(&self) -> &'static str { "Policy" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "PolicyCreated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Policy"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }
 
 /// Event emitted when a policy is updated
@@ -50,7 +64,12 @@ pub struct PolicyUpdatedEvent {
 }
 
 impl PolicyUpdatedEvent {
-    pub fn new(aggregate_id: String, aggregate_version: u64, policy_id: String, updated_at: DateTime<Utc>) -> Self {
+    pub fn new(
+        aggregate_id: String,
+        aggregate_version: u64,
+        policy_id: String,
+        updated_at: DateTime<Utc>,
+    ) -> Self {
         Self {
             metadata: EventMetadata::new(aggregate_id, aggregate_version),
             policy_id,
@@ -60,14 +79,28 @@ impl PolicyUpdatedEvent {
 }
 
 impl DomainEvent for PolicyUpdatedEvent {
-    fn event_id(&self) -> Uuid { self.metadata.event_id }
-    fn event_type(&self) -> &'static str { "PolicyUpdated" }
-    fn aggregate_type(&self) -> &'static str { "Policy" }
-    fn occurred_at(&self) -> DateTime<Utc> { self.metadata.occurred_at }
-    fn aggregate_version(&self) -> u64 { self.metadata.aggregate_version }
-    fn aggregate_id(&self) -> String { self.metadata.aggregate_id.clone() }
+    fn event_id(&self) -> Uuid {
+        self.metadata.event_id
+    }
+    fn event_type(&self) -> &'static str {
+        "PolicyUpdated"
+    }
+    fn aggregate_type(&self) -> &'static str {
+        "Policy"
+    }
+    fn occurred_at(&self) -> DateTime<Utc> {
+        self.metadata.occurred_at
+    }
+    fn aggregate_version(&self) -> u64 {
+        self.metadata.aggregate_version
+    }
+    fn aggregate_id(&self) -> String {
+        self.metadata.aggregate_id.clone()
+    }
     fn to_json(&self) -> Result<String, Box<dyn std::error::Error>> {
         Ok(serde_json::to_string(self)?)
     }
-    fn as_any(&self) -> &dyn std::any::Any { self }
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
 }

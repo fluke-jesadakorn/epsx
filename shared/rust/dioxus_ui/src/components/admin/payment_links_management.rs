@@ -16,8 +16,8 @@
 //! Each component gets a colocated `#[cfg(test)] mod tests` block
 //! with smoke render + key prop handling.
 
-use dioxus::prelude::*;
 use crate::primitives::icon::Icon;
+use dioxus::prelude::*;
 
 // ============================================================================
 // Data shape
@@ -234,9 +234,18 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-header-row"), "PaymentLinksHeaderRow must render container class. Got: {html}");
-        assert!(html.contains("All Payment Links"), "PaymentLinksHeaderRow must render title. Got: {html}");
-        assert!(html.contains("5 links"), "PaymentLinksHeaderRow must render count. Got: {html}");
+        assert!(
+            html.contains("payment-links-header-row"),
+            "PaymentLinksHeaderRow must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("All Payment Links"),
+            "PaymentLinksHeaderRow must render title. Got: {html}"
+        );
+        assert!(
+            html.contains("5 links"),
+            "PaymentLinksHeaderRow must render count. Got: {html}"
+        );
     }
 
     /// `PaymentLinksTable` renders the 6 column headers + a row.
@@ -248,16 +257,40 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-table"), "PaymentLinksTable must render container class. Got: {html}");
+        assert!(
+            html.contains("payment-links-table"),
+            "PaymentLinksTable must render container class. Got: {html}"
+        );
         for col in &["Slug", "Context", "Amount", "Uses", "Status", "Actions"] {
-            assert!(html.contains(col), "PaymentLinksTable must render `{col}` header. Got: {html}");
+            assert!(
+                html.contains(col),
+                "PaymentLinksTable must render `{col}` header. Got: {html}"
+            );
         }
-        assert!(html.contains("pro-plan-monthly"), "PaymentLinksTable must render slug. Got: {html}");
-        assert!(html.contains("Pro Plan Monthly"), "PaymentLinksTable must render name. Got: {html}");
-        assert!(html.contains("29.00 USDT"), "PaymentLinksTable must render formatted amount. Got: {html}");
-        assert!(html.contains("12 / 100"), "PaymentLinksTable must render uses / max_uses. Got: {html}");
-        assert!(html.contains("Active"), "PaymentLinksTable must render Active status. Got: {html}");
-        assert!(html.contains("bg-success/10"), "PaymentLinksTable active must use success class. Got: {html}");
+        assert!(
+            html.contains("pro-plan-monthly"),
+            "PaymentLinksTable must render slug. Got: {html}"
+        );
+        assert!(
+            html.contains("Pro Plan Monthly"),
+            "PaymentLinksTable must render name. Got: {html}"
+        );
+        assert!(
+            html.contains("29.00 USDT"),
+            "PaymentLinksTable must render formatted amount. Got: {html}"
+        );
+        assert!(
+            html.contains("12 / 100"),
+            "PaymentLinksTable must render uses / max_uses. Got: {html}"
+        );
+        assert!(
+            html.contains("Active"),
+            "PaymentLinksTable must render Active status. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-success/10"),
+            "PaymentLinksTable active must use success class. Got: {html}"
+        );
     }
 
     /// `PaymentLinksTable` with inactive link shows Inactive.
@@ -271,8 +304,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("Inactive"), "PaymentLinksTable inactive must show Inactive. Got: {html}");
-        assert!(html.contains("bg-muted"), "PaymentLinksTable inactive must use muted class. Got: {html}");
+        assert!(
+            html.contains("Inactive"),
+            "PaymentLinksTable inactive must show Inactive. Got: {html}"
+        );
+        assert!(
+            html.contains("bg-muted"),
+            "PaymentLinksTable inactive must use muted class. Got: {html}"
+        );
     }
 
     /// `PaymentLinksTable` with unlimited max_uses shows just the count.
@@ -286,7 +325,10 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("12</td>") || html.contains(">12<"), "PaymentLinksTable must render uses count alone when max_uses is None. Got: {html}");
+        assert!(
+            html.contains("12</td>") || html.contains(">12<"),
+            "PaymentLinksTable must render uses count alone when max_uses is None. Got: {html}"
+        );
     }
 
     /// `PaymentLinksTable` with empty links renders headers but no rows.
@@ -298,8 +340,14 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-table"), "PaymentLinksTable empty must render container. Got: {html}");
-        assert!(!html.contains("payment-links-table-row"), "PaymentLinksTable empty must omit rows. Got: {html}");
+        assert!(
+            html.contains("payment-links-table"),
+            "PaymentLinksTable empty must render container. Got: {html}"
+        );
+        assert!(
+            !html.contains("payment-links-table-row"),
+            "PaymentLinksTable empty must omit rows. Got: {html}"
+        );
     }
 
     /// `PaymentLinksMobileCards` renders the mobile card layout.
@@ -311,10 +359,22 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-mobile-cards"), "PaymentLinksMobileCards must render container class. Got: {html}");
-        assert!(html.contains("Amount"), "PaymentLinksMobileCards must render Amount label. Got: {html}");
-        assert!(html.contains("Uses"), "PaymentLinksMobileCards must render Uses label. Got: {html}");
-        assert!(html.contains("29.00 USDT"), "PaymentLinksMobileCards must render amount. Got: {html}");
+        assert!(
+            html.contains("payment-links-mobile-cards"),
+            "PaymentLinksMobileCards must render container class. Got: {html}"
+        );
+        assert!(
+            html.contains("Amount"),
+            "PaymentLinksMobileCards must render Amount label. Got: {html}"
+        );
+        assert!(
+            html.contains("Uses"),
+            "PaymentLinksMobileCards must render Uses label. Got: {html}"
+        );
+        assert!(
+            html.contains("29.00 USDT"),
+            "PaymentLinksMobileCards must render amount. Got: {html}"
+        );
     }
 
     /// `PaymentLinksMobileCards` with empty links renders empty body.
@@ -326,6 +386,9 @@ mod tests {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();
         let html = dioxus_ssr::render(&vdom);
-        assert!(html.contains("payment-links-mobile-cards"), "PaymentLinksMobileCards empty must render container. Got: {html}");
+        assert!(
+            html.contains("payment-links-mobile-cards"),
+            "PaymentLinksMobileCards empty must render container. Got: {html}"
+        );
     }
 }

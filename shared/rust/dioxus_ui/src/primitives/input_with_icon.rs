@@ -6,8 +6,8 @@
 //! dedicated component for callers that prefer the shadcn-style
 //! separate symbol.
 
-use super::input::{Input, InputKind};
 use super::icon::Icon;
+use super::input::{Input, InputKind};
 
 use dioxus::prelude::*;
 

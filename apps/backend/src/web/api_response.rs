@@ -1,10 +1,10 @@
-use serde::{Serialize, Deserialize};
-use utoipa::ToSchema;
 use axum::{
+    http::StatusCode,
     response::{IntoResponse, Response},
     Json,
-    http::StatusCode,
 };
+use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
 #[derive(Debug, Serialize, Deserialize, ToSchema, Clone)]
 pub struct ApiResponse<T> {
@@ -40,8 +40,9 @@ pub struct ApiMeta {
     pub timestamp: String,
 }
 
-impl<T> ApiResponse<T> 
-where T: Serialize 
+impl<T> ApiResponse<T>
+where
+    T: Serialize,
 {
     pub fn success(data: T) -> Self {
         Self {
@@ -87,21 +88,21 @@ impl<T: Serialize> IntoResponse for ApiResponse<T> {
             StatusCode::OK
         } else {
             // Map error codes to status codes if needed, defaulting to 400 or 500
-            // For now, let's assume the caller will specific status via tuple if needed, 
-            // OR we can derive it. 
-            // Simpler: Just return 200 OK with success: false in body? 
+            // For now, let's assume the caller will specific status via tuple if needed,
+            // OR we can derive it.
+            // Simpler: Just return 200 OK with success: false in body?
             // NO, RESTful principles say use proper status codes.
             // But we can't store StatusCode in ApiResponse (it's for body).
             // We usually return (StatusCode, Json(ApiResponse)).
             // This IntoResponse impl defaults to 200, which is risky for errors.
             // Let's remove IntoResponse impl or make it smart.
             // Actually, usually we return `(StatusCode, Json(response))`.
-            StatusCode::OK 
+            StatusCode::OK
         };
-        
+
         // If it's an error, we might want a different default status, but let's leave it to handlers.
         // Or we can check error.code.
-        
+
         (status, Json(self)).into_response()
     }
 }

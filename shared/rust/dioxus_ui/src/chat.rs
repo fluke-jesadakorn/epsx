@@ -39,7 +39,6 @@ pub mod chat_status_badge;
 pub mod chat_topic_selector;
 pub mod chat_widget;
 
-pub use message_bubble::{Attachment, Message, MessageBubble};
 pub use chat_bubble::ChatBubble;
 pub use chat_conversation_list::{ChatConversationList, ConversationSummary};
 pub use chat_header::{ChatHeader, ChatHeaderData};
@@ -50,3 +49,4 @@ pub use chat_panel::ChatPanel;
 pub use chat_status_badge::{ChatStatusBadge, ChatStatusKind};
 pub use chat_topic_selector::{ChatTopic, ChatTopicSelector};
 pub use chat_widget::ChatWidget;
+pub use message_bubble::{Attachment, Message, MessageBubble};

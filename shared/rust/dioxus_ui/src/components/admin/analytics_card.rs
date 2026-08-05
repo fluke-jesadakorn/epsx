@@ -89,11 +89,7 @@ impl AnalyticsIconName {
 /// Inline SVG icon for the analytics dashboard. Looks up the
 /// lucide path via `epsx_templates::lucide_icon`.
 #[component]
-pub fn AnalyticsIcon(
-    name: String,
-    class_name: Option<String>,
-    size: Option<usize>,
-) -> Element {
+pub fn AnalyticsIcon(name: String, class_name: Option<String>, size: Option<usize>) -> Element {
     let size = size.unwrap_or(24);
     let icon = AnalyticsIconName::from_str(&name);
     let lucide_name = icon.lucide_name();
@@ -193,9 +189,8 @@ pub fn AnalyticsStatsCard(
     rank: Option<usize>,
     class_name: Option<String>,
 ) -> Element {
-    let status_color = AnalyticsStatusColor::from_str(
-        &status_color.unwrap_or_else(|| "purple".to_string()),
-    );
+    let status_color =
+        AnalyticsStatusColor::from_str(&status_color.unwrap_or_else(|| "purple".to_string()));
     let trend = AnalyticsTrend::from_str(&trend.unwrap_or_else(|| "neutral".to_string()));
     let trend_value = trend_value.unwrap_or_default();
 
@@ -209,7 +204,9 @@ pub fn AnalyticsStatsCard(
     // values for SSR (the prod page uses Math.random() which is
     // bad for SSR stability — we use a hash of the title to keep
     // the output reproducible).
-    let title_hash: u32 = title.bytes().fold(0u32, |a, b| a.wrapping_mul(31).wrapping_add(b as u32));
+    let title_hash: u32 = title
+        .bytes()
+        .fold(0u32, |a, b| a.wrapping_mul(31).wrapping_add(b as u32));
     let days_left = 1 + (title_hash % 90) as usize;
     let progress_pct = 10 + ((90 - days_left) as f32 / 90.0 * 80.0) as usize;
 
@@ -226,7 +223,11 @@ pub fn AnalyticsStatsCard(
             }
             out.push(c);
         }
-        if n < 0 { format!("-{}", out.chars().rev().collect::<String>()) } else { out.chars().rev().collect() }
+        if n < 0 {
+            format!("-{}", out.chars().rev().collect::<String>())
+        } else {
+            out.chars().rev().collect()
+        }
     } else {
         value.clone()
     };
@@ -330,7 +331,11 @@ pub fn AnalyticsSummaryCard(
             }
             out.push(c);
         }
-        if n < 0 { format!("-{}", out.chars().rev().collect::<String>()) } else { out.chars().rev().collect() }
+        if n < 0 {
+            format!("-{}", out.chars().rev().collect::<String>())
+        } else {
+            out.chars().rev().collect()
+        }
     } else {
         value.clone()
     };
@@ -359,9 +364,8 @@ pub fn AnalyticsUserCard(
     avatar_label: Option<String>,
     class_name: Option<String>,
 ) -> Element {
-    let avatar_label = avatar_label.unwrap_or_else(|| {
-        address.chars().take(2).collect::<String>().to_uppercase()
-    });
+    let avatar_label =
+        avatar_label.unwrap_or_else(|| address.chars().take(2).collect::<String>().to_uppercase());
     let mut cls = "group relative w-full overflow-hidden rounded-[24px] border border-border/20 bg-white/60 dark:bg-[#0f172a]/60 p-1 transition-all duration-300 hover:border-[#7645d9]/30 hover:shadow-2xl hover:shadow-[#7645d9]/10".to_string();
     if let Some(c) = class_name {
         cls.push(' ');
@@ -372,7 +376,14 @@ pub fn AnalyticsUserCard(
     let truncated = if address.len() > 12 {
         let chars: Vec<char> = address.chars().collect();
         let head: String = chars.iter().take(6).collect();
-        let tail: String = chars.iter().rev().take(6).collect::<Vec<_>>().into_iter().rev().collect();
+        let tail: String = chars
+            .iter()
+            .rev()
+            .take(6)
+            .collect::<Vec<_>>()
+            .into_iter()
+            .rev()
+            .collect();
         format!("{head}…{tail}")
     } else {
         address.clone()
@@ -494,12 +505,30 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Active Sessions"), "StatsCard should render title. Got: {html}");
-        assert!(html.contains("12,345"), "StatsCard should render comma-separated value. Got: {html}");
-        assert!(html.contains("Live"), "StatsCard should render subtitle. Got: {html}");
-        assert!(html.contains("+12%"), "StatsCard should render trend_value. Got: {html}");
-        assert!(html.contains("Rank #3"), "StatsCard should render rank. Got: {html}");
-        assert!(html.contains("PURPLE"), "StatsCard should render status pill text. Got: {html}");
+        assert!(
+            html.contains("Active Sessions"),
+            "StatsCard should render title. Got: {html}"
+        );
+        assert!(
+            html.contains("12,345"),
+            "StatsCard should render comma-separated value. Got: {html}"
+        );
+        assert!(
+            html.contains("Live"),
+            "StatsCard should render subtitle. Got: {html}"
+        );
+        assert!(
+            html.contains("+12%"),
+            "StatsCard should render trend_value. Got: {html}"
+        );
+        assert!(
+            html.contains("Rank #3"),
+            "StatsCard should render rank. Got: {html}"
+        );
+        assert!(
+            html.contains("PURPLE"),
+            "StatsCard should render status pill text. Got: {html}"
+        );
         assert!(
             html.contains("width:"),
             "StatsCard should render the progress bar with explicit width. Got: {html}"
@@ -517,9 +546,18 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("Total Volume"), "SummaryCard should render title. Got: {html}");
-        assert!(html.contains("987,654"), "SummaryCard should render comma-separated value. Got: {html}");
-        assert!(html.contains("Last 30 days"), "SummaryCard should render subtitle. Got: {html}");
+        assert!(
+            html.contains("Total Volume"),
+            "SummaryCard should render title. Got: {html}"
+        );
+        assert!(
+            html.contains("987,654"),
+            "SummaryCard should render comma-separated value. Got: {html}"
+        );
+        assert!(
+            html.contains("Last 30 days"),
+            "SummaryCard should render subtitle. Got: {html}"
+        );
     }
 
     /// `AnalyticsUserCard` truncates the address to first 6 + "…" +
@@ -538,9 +576,18 @@ mod tests {
             html.contains("0x1234") && html.contains("345678"),
             "AnalyticsUserCard should truncate address. Got: {html}"
         );
-        assert!(html.contains("…"), "AnalyticsUserCard should use ellipsis. Got: {html}");
-        assert!(html.contains("Premium"), "AnalyticsUserCard should render plan. Got: {html}");
-        assert!(html.contains("View Details"), "AnalyticsUserCard should render View Details action. Got: {html}");
+        assert!(
+            html.contains("…"),
+            "AnalyticsUserCard should use ellipsis. Got: {html}"
+        );
+        assert!(
+            html.contains("Premium"),
+            "AnalyticsUserCard should render plan. Got: {html}"
+        );
+        assert!(
+            html.contains("View Details"),
+            "AnalyticsUserCard should render View Details action. Got: {html}"
+        );
     }
 
     /// `AnalyticsUserCard` accepts an explicit `avatar_label`.
@@ -563,11 +610,15 @@ mod tests {
     /// The status color enum maps to the right gradient classes.
     #[test]
     fn test_status_color_classes() {
-        assert!(AnalyticsStatusColor::Green.classes().contains("emerald-500"));
+        assert!(AnalyticsStatusColor::Green
+            .classes()
+            .contains("emerald-500"));
         assert!(AnalyticsStatusColor::Red.classes().contains("red-500"));
         assert!(AnalyticsStatusColor::Blue.classes().contains("blue-500"));
         assert!(AnalyticsStatusColor::Yellow.classes().contains("amber-500"));
-        assert!(AnalyticsStatusColor::Purple.classes().contains("purple-500"));
+        assert!(AnalyticsStatusColor::Purple
+            .classes()
+            .contains("purple-500"));
     }
 
     /// The trend enum maps to the right pill colors.

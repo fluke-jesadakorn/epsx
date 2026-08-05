@@ -1,7 +1,7 @@
 // Notification request/response types
+use crate::web::notifications::{NotificationPriority, NotificationType};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use crate::web::notifications::{NotificationType, NotificationPriority};
 
 // ============================================================================
 // REQUEST TYPES

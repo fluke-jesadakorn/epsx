@@ -16,9 +16,10 @@
 //! contracts are frozen.
 
 use axum::{
-    extract::{Path as AxPath, Query, RawQuery, State},
-    http::{header, HeaderValue, StatusCode},
-    response::{IntoResponse, Response},
+    body::Body,
+    extract::{Path as AxPath, Query, RawQuery, Request, State},
+    http::{header, HeaderValue, Method, StatusCode},
+    response::{IntoResponse, Redirect, Response},
     Json,
 };
 use chrono::{DateTime, NaiveDate};
@@ -35,7 +36,9 @@ use epsx_bff::{
     },
 };
 use epsx_client::{ClientError, RequestContext, ServiceClient};
+use futures::{StreamExt, TryStreamExt};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 use super::AppState;
 
@@ -573,7 +576,7 @@ pub async fn refresh_token(
             return refresh_response(
                 safe_error(status, "refresh_not_rotated"),
                 RefreshDisposition::Preserve,
-            )
+            );
         }
         RefreshDisposition::Clear => {
             let (status, code) = if rejected {
@@ -603,7 +606,7 @@ pub async fn refresh_token(
                 &state,
                 StatusCode::UNAUTHORIZED,
                 "refresh_rejected",
-            )
+            );
         }
     };
     let response = establish_session(&state, exchange, None, true).await;
@@ -672,7 +675,11 @@ pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderM
     let claims = match state.verifier.verify(&token).await {
         Ok(claims) => claims,
         Err(_) => {
-            return clear_session_response(&state, StatusCode::UNAUTHORIZED, "invalid_access_token")
+            return clear_session_response(
+                &state,
+                StatusCode::UNAUTHORIZED,
+                "invalid_access_token",
+            );
         }
     };
     let url = auth_url(&state, PROFILE_PATH);
@@ -751,12 +758,8 @@ fn session_establishment_error(
 
 fn clear_session_response(state: &AppState, status: StatusCode, code: &'static str) -> Response {
     try_clear_session_response(status, code, |headers| {
-        append_clear_session_cookies(
-            headers,
-            state.cookie_environment,
-            CookieClient::Frontend,
-        )
-        .is_ok()
+        append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Frontend)
+            .is_ok()
     })
     .unwrap_or_else(|error| error)
 }
@@ -767,12 +770,8 @@ fn clear_refresh_session_response(
     code: &'static str,
 ) -> Response {
     match try_clear_session_response(status, code, |headers| {
-        append_clear_session_cookies(
-            headers,
-            state.cookie_environment,
-            CookieClient::Frontend,
-        )
-        .is_ok()
+        append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Frontend)
+            .is_ok()
     }) {
         Ok(response) => refresh_response(response, RefreshDisposition::Clear),
         Err(error) => error,
@@ -812,8 +811,237 @@ async fn verified_bearer_and_user(
         .ok_or_else(|| safe_error(StatusCode::UNAUTHORIZED, "invalid_access_token"))
 }
 
+const WATCHLIST_PATH: &str = "/api/users/watchlist";
+const WATCHLIST_BODY_MAX: usize = 4 * 1024;
+
+#[derive(Debug, Deserialize)]
+struct UpstreamWatchlistEnvelope {
+    success: bool,
+    data: Option<epsx_dioxus_ui::pages::analytics::WatchlistData>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct WatchlistMutationRequest {
+    symbol: String,
+}
+
+pub(crate) fn decode_watchlist_response(
+    value: serde_json::Value,
+) -> Result<epsx_dioxus_ui::pages::analytics::WatchlistData, ()> {
+    let envelope = serde_json::from_value::<UpstreamWatchlistEnvelope>(value).map_err(|_| ())?;
+    if !envelope.success {
+        return Err(());
+    }
+    envelope.data.ok_or(())?.validated()
+}
+
+fn private_watchlist_response(mut response: Response) -> Response {
+    mark_session_no_store(&mut response);
+    response
+}
+
+fn watchlist_success_response(
+    watchlist: epsx_dioxus_ui::pages::analytics::WatchlistData,
+) -> Response {
+    private_watchlist_response(
+        Json(serde_json::json!({
+            "success": true,
+            "data": watchlist,
+            "error": null
+        }))
+        .into_response(),
+    )
+}
+
+fn verified_watchlist_context(token: String) -> RequestContext {
+    let mut context = RequestContext::new();
+    context.auth_token = Some(token);
+    context
+}
+
+fn watchlist_upstream_error() -> Response {
+    private_watchlist_response(safe_error(
+        StatusCode::SERVICE_UNAVAILABLE,
+        "watchlist_upstream_unavailable",
+    ))
+}
+
+fn watchlist_malformed_error() -> Response {
+    private_watchlist_response(safe_error(
+        StatusCode::BAD_GATEWAY,
+        "watchlist_upstream_malformed",
+    ))
+}
+
+fn watchlist_result(value: serde_json::Value) -> Response {
+    match decode_watchlist_response(value) {
+        Ok(watchlist) => watchlist_success_response(watchlist),
+        Err(()) => watchlist_malformed_error(),
+    }
+}
+
+pub async fn watchlist_get(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    match state
+        .wallet
+        .get_with_ctx(WATCHLIST_PATH, &verified_watchlist_context(token))
+        .await
+    {
+        Ok(value) => watchlist_result(value),
+        Err(_) => watchlist_upstream_error(),
+    }
+}
+
+pub async fn watchlist_post(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !watchlist_mutation_origin_allowed(&parts.headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    let body = match axum::body::to_bytes(body, WATCHLIST_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return private_watchlist_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "watchlist_body_too_large",
+            ));
+        }
+    };
+    let request = match serde_json::from_slice::<WatchlistMutationRequest>(&body) {
+        Ok(request) => request,
+        Err(_) => {
+            return private_watchlist_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_watchlist_symbol",
+            ));
+        }
+    };
+    let symbol = match epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(&request.symbol)
+    {
+        Some(symbol) => symbol,
+        None => {
+            return private_watchlist_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_watchlist_symbol",
+            ));
+        }
+    };
+    let context = verified_watchlist_context(token);
+    match state
+        .wallet
+        .post_with_ctx(
+            WATCHLIST_PATH,
+            &serde_json::json!({ "symbol": symbol }),
+            &context,
+        )
+        .await
+    {
+        Ok(value) => watchlist_result(value),
+        Err(_) => watchlist_upstream_error(),
+    }
+}
+
+pub async fn watchlist_delete(
+    State(state): State<AppState>,
+    AxPath(raw_symbol): AxPath<String>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !watchlist_mutation_origin_allowed(&headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    let symbol = match epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(&raw_symbol) {
+        Some(symbol) => symbol,
+        None => {
+            return private_watchlist_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_watchlist_symbol",
+            ));
+        }
+    };
+    let path = format!("{WATCHLIST_PATH}/{symbol}");
+    match state
+        .wallet
+        .delete_with_ctx(&path, &verified_watchlist_context(token))
+        .await
+    {
+        Ok(value) => watchlist_result(value),
+        Err(_) => watchlist_upstream_error(),
+    }
+}
+
+#[cfg(test)]
+mod watchlist_contract_tests {
+    use super::*;
+
+    #[test]
+    fn watchlist_decoder_accepts_only_successful_valid_owner_scoped_symbols() {
+        let decoded = decode_watchlist_response(serde_json::json!({
+            "success": true,
+            "data": {"symbols": ["aapl", "BRK.B", "AAPL"]},
+            "error": null,
+            "meta": {"timestamp": "2026-07-27T00:00:00Z"}
+        }))
+        .unwrap();
+        assert_eq!(decoded.symbols, vec!["AAPL", "BRK.B"]);
+
+        for malformed in [
+            serde_json::json!({"symbols": ["AAPL"]}),
+            serde_json::json!({"success": false, "data": {"symbols": ["AAPL"]}}),
+            serde_json::json!({"success": true, "data": {"symbols": ["../AAPL"]}}),
+            serde_json::json!({"success": true, "data": {"symbols": "AAPL"}}),
+            serde_json::json!({"success": true, "data": {"symbols": ["AAPL"], "owner": "other"}}),
+        ] {
+            assert!(decode_watchlist_response(malformed).is_err());
+        }
+    }
+
+    #[test]
+    fn watchlist_symbols_are_bounded_and_canonical() {
+        for accepted in ["aapl", "BRK.B", "BTC-USD", "2317"] {
+            assert!(
+                epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(accepted).is_some()
+            );
+        }
+        for rejected in [
+            "",
+            "../AAPL",
+            "AAPL/USD",
+            "AAPL value",
+            "💥",
+            "ABCDEFGHIJKLMNOPQRSTU",
+        ] {
+            assert!(
+                epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(rejected).is_none()
+            );
+        }
+    }
+}
+
 const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;
 const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
+pub(crate) const NOTIFICATION_SSR_PAGE_SIZE: u16 = 20;
+pub(crate) const NOTIFICATION_SSR_MAX_PAGE: u32 =
+    (NOTIFICATION_LIST_OFFSET_MAX / NOTIFICATION_SSR_PAGE_SIZE as u32) + 1;
 // The list endpoint returns at most 100 rows. A 2 MiB cap leaves roughly
 // 20 KiB per row for the body and JSON data while preventing a chunked
 // upstream response from forcing unbounded BFF allocation. The unread
@@ -822,15 +1050,127 @@ const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
 const NOTIFICATION_LIST_BODY_MAX: usize = 2 * 1024 * 1024;
 const NOTIFICATION_UNREAD_BODY_MAX: usize = 4 * 1024;
 const NOTIFICATION_UNREAD_JS_SAFE_MAX: u64 = 9_007_199_254_740_991;
+const NOTIFICATION_PREFERENCES_BODY_MAX: usize = 64 * 1024;
+const NOTIFICATION_PREFERENCES_RESPONSE_MAX: usize = 128 * 1024;
+const NOTIFICATION_BULK_MUTATION_BODY_MAX: usize = 4 * 1024;
+const NOTIFICATION_PREFERENCES_FORM_MAX: usize = 64 * 1024;
+pub(crate) const NOTIFICATION_PREFERENCES_FLASH_COOKIE: &str =
+    "epsx.notification_preferences_flash";
+const NOTIFICATION_ID_MAX: usize = 128;
+const NOTIFICATION_RECIPIENT_MAX: usize = 2 * 1024;
+const NOTIFICATION_SUBJECT_MAX: usize = 512;
+const NOTIFICATION_BODY_MAX: usize = 16 * 1024;
+const NOTIFICATION_ERROR_MAX: usize = 1 * 1024;
+const NOTIFICATION_TITLE_MAX: usize = 512;
+const NOTIFICATION_TYPE_MAX: usize = 64;
+const NOTIFICATION_PRIORITY_MAX: usize = 32;
+const NOTIFICATION_ACTION_URL_MAX: usize = 2 * 1024;
+const NOTIFICATION_DATA_MAX: usize = 64 * 1024;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct NotificationListQuery {
     limit: Option<u16>,
     offset: Option<u32>,
     status: Option<String>,
+    notification_type: Option<String>,
+    priority: Option<String>,
+    start_date: Option<String>,
+    end_date: Option<String>,
 }
 
 impl NotificationListQuery {
+    /// Build the fixed, owner-scoped page used by `/notifications` SSR.
+    ///
+    /// The browser selects only a canonical page number. Page size, offset,
+    /// and owner are not caller-controlled: size is frozen to the development
+    /// source's 20 rows and offset is derived here.
+    pub(crate) fn for_ssr_page(page: u32) -> Option<Self> {
+        Self::for_ssr_page_and_status(page, None)
+    }
+
+    /// Build a fixed owner-scoped SSR page with the bounded status filter.
+    pub(crate) fn for_ssr_page_and_status(page: u32, status: Option<&str>) -> Option<Self> {
+        Self::for_ssr_page_and_filters(page, status, None, None)
+    }
+
+    /// Build a fixed owner-scoped SSR page with the source-compatible status,
+    /// type, and priority filters. The caller supplies canonical values only;
+    /// this final boundary still rejects whitespace/control/unbounded values
+    /// before an upstream request is possible.
+    pub(crate) fn for_ssr_page_and_filters(
+        page: u32,
+        status: Option<&str>,
+        notification_type: Option<&str>,
+        priority: Option<&str>,
+    ) -> Option<Self> {
+        Self::for_ssr_page_and_filters_and_dates(
+            page,
+            status,
+            notification_type,
+            priority,
+            None,
+            None,
+        )
+    }
+
+    /// Build a fixed owner-scoped SSR page with every bounded source filter.
+    /// Dates remain source-owned RFC3339 instants and are never interpreted by
+    /// the UI; they are validated here before the upstream request is built.
+    pub(crate) fn for_ssr_page_and_filters_and_dates(
+        page: u32,
+        status: Option<&str>,
+        notification_type: Option<&str>,
+        priority: Option<&str>,
+        start_date: Option<&str>,
+        end_date: Option<&str>,
+    ) -> Option<Self> {
+        if status.is_some_and(|status| !matches!(status, "read" | "unread")) {
+            return None;
+        }
+        let valid_filter = |value: Option<&str>, max: usize| {
+            value.is_none_or(|value| {
+                !value.is_empty()
+                    && value.len() <= max
+                    && !value
+                        .chars()
+                        .any(|character| character.is_control() || character.is_whitespace())
+            })
+        };
+        if !valid_filter(notification_type, NOTIFICATION_TYPE_MAX)
+            || !valid_filter(priority, NOTIFICATION_PRIORITY_MAX)
+        {
+            return None;
+        }
+        let valid_date = |value: Option<&str>| {
+            value.is_none_or(|value| {
+                value.len() <= 64 && DateTime::parse_from_rfc3339(value).is_ok()
+            })
+        };
+        if !valid_date(start_date) || !valid_date(end_date) {
+            return None;
+        }
+        if let (Some(start), Some(end)) = (start_date, end_date) {
+            if DateTime::parse_from_rfc3339(start).ok()? > DateTime::parse_from_rfc3339(end).ok()? {
+                return None;
+            }
+        }
+        let offset = page
+            .checked_sub(1)?
+            .checked_mul(u32::from(NOTIFICATION_SSR_PAGE_SIZE))?;
+        if offset > NOTIFICATION_LIST_OFFSET_MAX {
+            return None;
+        }
+        Some(Self {
+            limit: Some(NOTIFICATION_SSR_PAGE_SIZE),
+            offset: Some(offset),
+            status: status.map(str::to_string),
+            notification_type: notification_type.map(str::to_string),
+            priority: priority.map(str::to_string),
+            start_date: start_date.map(str::to_string),
+            end_date: end_date.map(str::to_string),
+        })
+    }
+
     fn from_raw_query(raw: Option<&str>) -> Result<Self, ()> {
         let Some(raw) = raw.filter(|raw| !raw.is_empty()) else {
             return Ok(Self::default());
@@ -838,6 +1178,7 @@ impl NotificationListQuery {
         let url =
             reqwest::Url::parse(&format!("https://frontend.invalid/?{raw}")).map_err(|_| ())?;
         let mut query = Self::default();
+        let mut page = None;
         let mut seen = std::collections::HashSet::new();
         for (key, value) in url.query_pairs() {
             let key = key.as_ref();
@@ -845,6 +1186,13 @@ impl NotificationListQuery {
                 return Err(());
             }
             match key {
+                "page" => {
+                    let value: u32 = value.parse().map_err(|_| ())?;
+                    if value == 0 {
+                        return Err(());
+                    }
+                    page = Some(value);
+                }
                 "limit" => {
                     let value: u16 = value.parse().map_err(|_| ())?;
                     if !(1..=NOTIFICATION_LIST_LIMIT_MAX).contains(&value) {
@@ -860,33 +1208,136 @@ impl NotificationListQuery {
                     query.offset = Some(value);
                 }
                 "status" => {
-                    if !matches!(value.as_ref(), "pending" | "sent" | "failed") {
+                    if !matches!(
+                        value.as_ref(),
+                        "pending" | "sent" | "failed" | "suppressed" | "read" | "unread" | "all"
+                    ) {
                         return Err(());
                     }
                     query.status = Some(value.into_owned());
                 }
+                "type" | "notification_type" => {
+                    if query.notification_type.is_some() {
+                        return Err(());
+                    }
+                    if value.is_empty()
+                        || value.len() > NOTIFICATION_TYPE_MAX
+                        || value
+                            .chars()
+                            .any(|character| character.is_control() || character.is_whitespace())
+                    {
+                        return Err(());
+                    }
+                    query.notification_type = Some(value.into_owned());
+                }
+                "priority" => {
+                    if value.is_empty()
+                        || value.len() > NOTIFICATION_PRIORITY_MAX
+                        || value
+                            .chars()
+                            .any(|character| character.is_control() || character.is_whitespace())
+                    {
+                        return Err(());
+                    }
+                    query.priority = Some(value.into_owned());
+                }
+                "start_date" | "end_date" => {
+                    if value.len() > 64 || DateTime::parse_from_rfc3339(value.as_ref()).is_err() {
+                        return Err(());
+                    }
+                    if key == "start_date" {
+                        query.start_date = Some(value.into_owned());
+                    } else {
+                        query.end_date = Some(value.into_owned());
+                    }
+                }
                 _ => return Err(()),
             }
+        }
+        if page.is_some() && query.offset.is_some() {
+            return Err(());
+        }
+        if let Some(page) = page {
+            let page_size = u32::from(query.limit.unwrap_or(NOTIFICATION_SSR_PAGE_SIZE));
+            query.offset = Some(
+                page.checked_sub(1)
+                    .and_then(|value| value.checked_mul(page_size))
+                    .filter(|offset| *offset <= NOTIFICATION_LIST_OFFSET_MAX)
+                    .ok_or(())?,
+            );
+        }
+        if query
+            .start_date
+            .as_deref()
+            .zip(query.end_date.as_deref())
+            .is_some_and(|(start, end)| {
+                DateTime::parse_from_rfc3339(start).ok() > DateTime::parse_from_rfc3339(end).ok()
+            })
+        {
+            return Err(());
         }
         Ok(query)
     }
 
-    fn upstream_suffix(&self) -> String {
-        let mut fields = Vec::new();
+    pub(crate) fn upstream_suffix(&self) -> String {
+        let mut url = reqwest::Url::parse("https://frontend.invalid/").expect("static URL");
+        let mut fields = url.query_pairs_mut();
         if let Some(limit) = self.limit {
-            fields.push(format!("limit={limit}"));
+            fields.append_pair("limit", &limit.to_string());
         }
         if let Some(offset) = self.offset {
-            fields.push(format!("offset={offset}"));
+            fields.append_pair("offset", &offset.to_string());
         }
         if let Some(status) = &self.status {
-            fields.push(format!("status={status}"));
+            fields.append_pair("status", status);
         }
-        if fields.is_empty() {
-            String::new()
+        if let Some(notification_type) = &self.notification_type {
+            fields.append_pair("type", notification_type);
+        }
+        if let Some(priority) = &self.priority {
+            fields.append_pair("priority", priority);
+        }
+        if let Some(start_date) = &self.start_date {
+            fields.append_pair("start_date", start_date);
+        }
+        if let Some(end_date) = &self.end_date {
+            fields.append_pair("end_date", end_date);
+        }
+        drop(fields);
+        if let Some(query) = url.query() {
+            if query.is_empty() {
+                String::new()
+            } else {
+                format!("?{query}")
+            }
         } else {
-            format!("?{}", fields.join("&"))
+            String::new()
         }
+    }
+
+    pub(crate) fn upstream_unread_suffix(&self) -> String {
+        let mut url = reqwest::Url::parse("https://frontend.invalid/").expect("static URL");
+        let mut fields = url.query_pairs_mut();
+        if let Some(status) = &self.status {
+            fields.append_pair("status", status);
+        }
+        if let Some(notification_type) = &self.notification_type {
+            fields.append_pair("type", notification_type);
+        }
+        if let Some(priority) = &self.priority {
+            fields.append_pair("priority", priority);
+        }
+        if let Some(start_date) = &self.start_date {
+            fields.append_pair("start_date", start_date);
+        }
+        if let Some(end_date) = &self.end_date {
+            fields.append_pair("end_date", end_date);
+        }
+        drop(fields);
+        url.query()
+            .filter(|query| !query.is_empty())
+            .map(|query| format!("?{query}"))
+            .unwrap_or_default()
     }
 }
 
@@ -955,6 +1406,8 @@ struct NotificationWire {
     #[serde(default)]
     read_at: RequiredNullable<DateTime<chrono::Utc>>,
     #[serde(default)]
+    clicked_at: RequiredNullable<DateTime<chrono::Utc>>,
+    #[serde(default)]
     title: RequiredNullable<String>,
     #[serde(default)]
     notification_type: RequiredNullable<String>,
@@ -962,6 +1415,8 @@ struct NotificationWire {
     priority: RequiredNullable<String>,
     #[serde(default)]
     action_url: RequiredNullable<String>,
+    #[serde(default)]
+    expires_at: RequiredNullable<DateTime<chrono::Utc>>,
 }
 
 impl NotificationListWire {
@@ -970,24 +1425,68 @@ impl NotificationListWire {
         if self.total < 0 || self.items.len() > limit || self.total < self.items.len() as i64 {
             return Err(());
         }
-        // The service's unfiltered count describes the same owner query as the
-        // unfiltered page. Require an exact page cardinality so a split count /
-        // row read cannot turn contradictory data into an authoritative empty
-        // state. The current service count is deliberately not filter-aware,
-        // so status-filtered pages retain only the conservative bounds above.
-        if query.status.is_none() {
-            let offset = u64::from(query.offset.unwrap_or(0));
-            let remaining = (self.total as u64).saturating_sub(offset);
-            let expected = remaining.min(limit as u64) as usize;
-            if self.items.len() != expected {
-                return Err(());
-            }
+        // The service count describes the same owner, broadcast, expiry, and
+        // optional-status predicate as the row query. Require exact page
+        // cardinality so a split count/row read cannot become an authoritative
+        // empty or partial page.
+        let offset = u64::from(query.offset.unwrap_or(0));
+        let remaining = (self.total as u64).saturating_sub(offset);
+        let expected = remaining.min(limit as u64) as usize;
+        if self.items.len() != expected {
+            return Err(());
         }
         for item in &self.items {
-            if !item
-                .user_id
+            if !bounded_notification_text(&item.id, NOTIFICATION_ID_MAX, false)
+                || !bounded_notification_text(&item.channel, 32, false)
+                || !bounded_notification_text(&item.recipient, NOTIFICATION_RECIPIENT_MAX, false)
+                || !bounded_notification_text(&item.status, 32, false)
+                || !bounded_notification_text(&item.body, NOTIFICATION_BODY_MAX, true)
+                || item
+                    .data
+                    .as_ref()?
+                    .is_some_and(|data| notification_json_size(data) > NOTIFICATION_DATA_MAX)
+            {
+                return Err(());
+            }
+            let owner_matches = item.user_id.as_ref()?.is_some_and(|user_id| {
+                bounded_notification_text(user_id, NOTIFICATION_ID_MAX, false)
+                    && user_id.eq_ignore_ascii_case(owner)
+            });
+            let broadcast_matches = item.user_id.as_ref()?.is_none()
+                && item.recipient.eq_ignore_ascii_case("all")
+                && item.channel != "";
+            if !owner_matches && !broadcast_matches {
+                return Err(());
+            }
+            if item
+                .template_id
                 .as_ref()?
-                .is_some_and(|user_id| user_id.eq_ignore_ascii_case(owner))
+                .is_some_and(|value| !bounded_notification_text(value, NOTIFICATION_ID_MAX, false))
+                || item.subject.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_SUBJECT_MAX, true)
+                })
+                || item.error.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_ERROR_MAX, true)
+                })
+                || item.title.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_TITLE_MAX, true)
+                })
+                || item.notification_type.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_TYPE_MAX, true)
+                        || value.chars().any(char::is_whitespace)
+                })
+                || item.priority.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_PRIORITY_MAX, true)
+                        || value.chars().any(char::is_whitespace)
+                })
+                || item.action_url.as_ref()?.is_some_and(|value| {
+                    !bounded_notification_text(value, NOTIFICATION_ACTION_URL_MAX, true)
+                        || !valid_legacy_action_url(value)
+                })
+                || item
+                    .expires_at
+                    .as_ref()?
+                    .is_some_and(|value| *value <= item.created_at)
             {
                 return Err(());
             }
@@ -997,13 +1496,25 @@ impl NotificationListWire {
             item.error.as_ref()?;
             item.sent_at.as_ref()?;
             item.read_at.as_ref()?;
+            item.clicked_at.as_ref()?;
             item.title.as_ref()?;
             item.notification_type.as_ref()?;
             item.priority.as_ref()?;
             item.action_url.as_ref()?;
+            item.expires_at.as_ref()?;
         }
         Ok(())
     }
+}
+
+fn bounded_notification_text(value: &str, max_bytes: usize, allow_empty: bool) -> bool {
+    (allow_empty || !value.is_empty())
+        && value.len() <= max_bytes
+        && !value.chars().any(char::is_control)
+}
+
+fn notification_json_size(value: &serde_json::Value) -> usize {
+    serde_json::to_vec(value).map_or(usize::MAX, |encoded| encoded.len())
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1058,7 +1569,7 @@ pub(crate) async fn load_owner_notifications(
         Err(_) => {
             return NotificationListLoadOutcome::Unavailable(
                 NotificationListUnavailable::Dependency,
-            )
+            );
         }
     };
     if !response.status().is_success() {
@@ -1077,7 +1588,7 @@ pub(crate) async fn load_owner_notifications(
         Err(NotificationBodyReadError::Transport) => {
             return NotificationListLoadOutcome::Unavailable(
                 NotificationListUnavailable::Dependency,
-            )
+            );
         }
     };
     let payload = match serde_json::from_slice::<NotificationListWire>(&body) {
@@ -1165,10 +1676,23 @@ pub(crate) async fn load_notification_unread_count(
     bearer: &str,
     request_id: &NotificationRequestId,
 ) -> NotificationUnreadLoadOutcome {
+    load_notification_unread_count_with_query(client, bearer, request_id, None).await
+}
+
+pub(crate) async fn load_notification_unread_count_with_query(
+    client: &ServiceClient,
+    bearer: &str,
+    request_id: &NotificationRequestId,
+    query: Option<&NotificationListQuery>,
+) -> NotificationUnreadLoadOutcome {
     let url = format!(
         "{}/api/v1/notification/unread-count",
-        client.base_url().trim_end_matches('/')
+        client.base_url().trim_end_matches('/'),
     );
+    let url = match query.map(NotificationListQuery::upstream_unread_suffix) {
+        Some(suffix) => format!("{url}{suffix}"),
+        None => url,
+    };
     let response = match client
         .auth_client()
         .get(url)
@@ -1194,10 +1718,10 @@ pub(crate) async fn load_notification_unread_count(
     let body = match read_notification_body_limited(response, NOTIFICATION_UNREAD_BODY_MAX).await {
         Ok(body) => body,
         Err(NotificationBodyReadError::TooLarge) => {
-            return NotificationUnreadLoadOutcome::Malformed
+            return NotificationUnreadLoadOutcome::Malformed;
         }
         Err(NotificationBodyReadError::Transport) => {
-            return NotificationUnreadLoadOutcome::DependencyUnavailable
+            return NotificationUnreadLoadOutcome::DependencyUnavailable;
         }
     };
     match serde_json::from_slice::<NotificationUnreadCount>(&body) {
@@ -1309,6 +1833,843 @@ async fn notifications_api_inner(
     }
 }
 
+// ---------------------------------------------------------------------------
+// Development-branch notification compatibility adapter
+// ---------------------------------------------------------------------------
+// Keep the source `/api/notifications` contract at the BFF boundary while
+// `/api/v1/notifications` remains the canonical Rust contract.  These
+// projections are owner-bound, bounded, and fail closed on malformed target
+// data; they never forward a caller-controlled owner selector to the service.
+
+#[derive(Debug, Serialize)]
+struct LegacyNotification {
+    id: String,
+    wallet_address: String,
+    notification_type: String,
+    title: String,
+    message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    data: Option<serde_json::Value>,
+    priority: String,
+    timestamp: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expires_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    read_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    clicked_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    delivered_at: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action_url: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    image_url: Option<String>,
+    read: bool,
+}
+
+#[derive(Debug, Serialize)]
+struct LegacyNotificationsData {
+    notifications: Vec<LegacyNotification>,
+    total_count: u64,
+    unread_count: u64,
+    page: u32,
+    limit: u16,
+    total_pages: u64,
+}
+
+#[derive(Debug, Serialize)]
+struct LegacyNotificationsResponse {
+    success: bool,
+    data: LegacyNotificationsData,
+    api_version: &'static str,
+    access_level: &'static str,
+}
+
+fn legacy_notification_type(value: Option<&str>) -> String {
+    match value {
+        Some(value)
+            if matches!(
+                value,
+                "system"
+                    | "security"
+                    | "permission"
+                    | "wallet_management"
+                    | "wallet"
+                    | "payment"
+                    | "general"
+                    | "announcement"
+                    | "advertisement"
+                    | "chat"
+            ) =>
+        {
+            value.to_string()
+        }
+        _ => "system".to_string(),
+    }
+}
+
+fn legacy_notification_priority(value: Option<&str>) -> String {
+    match value {
+        Some(value) if matches!(value, "low" | "normal" | "high" | "critical" | "urgent") => {
+            value.to_string()
+        }
+        _ => "normal".to_string(),
+    }
+}
+
+fn target_notification_id_from_legacy(value: &str) -> String {
+    uuid::Uuid::parse_str(value)
+        .map(|id| format!("0x{}", id.simple()))
+        .unwrap_or_else(|_| value.to_string())
+}
+
+fn legacy_notification_id(value: &str) -> Option<String> {
+    if let Ok(id) = uuid::Uuid::parse_str(value) {
+        return Some(id.to_string());
+    }
+    let raw = value.strip_prefix("0x")?;
+    if raw.len() != 32 || !raw.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    uuid::Uuid::parse_str(raw).ok().map(|id| id.to_string())
+}
+
+fn required_nullable_ref<T>(value: &RequiredNullable<T>) -> Option<&T> {
+    match value {
+        RequiredNullable::Present(value) => value.as_ref(),
+        RequiredNullable::Missing => None,
+    }
+}
+
+fn valid_legacy_action_url(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= NOTIFICATION_ACTION_URL_MAX
+        && value.starts_with('/')
+        && !value.starts_with("//")
+        && !value.contains('\\')
+        && !value.contains("://")
+        && value
+            .chars()
+            .all(|character| !character.is_control() && !character.is_whitespace())
+}
+
+fn valid_legacy_image_url(value: &str) -> bool {
+    if value.is_empty()
+        || value.len() > NOTIFICATION_ACTION_URL_MAX
+        || value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+        || value.contains('\\')
+        || value.starts_with("//")
+    {
+        return false;
+    }
+    if value.starts_with('/') {
+        return true;
+    }
+    reqwest::Url::parse(value).is_ok_and(|url| {
+        url.scheme() == "https"
+            && url.host_str().is_some()
+            && url.username().is_empty()
+            && url.password().is_none()
+    })
+}
+
+fn legacy_notification_from_wire(
+    item: &NotificationWire,
+    owner: &str,
+) -> Option<LegacyNotification> {
+    let id = legacy_notification_id(&item.id)?;
+    let wallet_address = required_nullable_ref(&item.user_id)
+        .map(|value| value.to_string())
+        .or_else(|| {
+            if item.recipient.eq_ignore_ascii_case("all") {
+                Some(owner.to_string())
+            } else {
+                Some(item.recipient.clone())
+            }
+        })?;
+    let title = required_nullable_ref(&item.title)
+        .or_else(|| required_nullable_ref(&item.subject))
+        .filter(|value| !value.is_empty())
+        .cloned()
+        .unwrap_or_else(|| "Notification".to_string());
+    let message = if item.body.is_empty() {
+        title.clone()
+    } else {
+        item.body.clone()
+    };
+    if title.is_empty()
+        || title.chars().count() > 200
+        || title.chars().any(char::is_control)
+        || message.is_empty()
+        || message.chars().count() > 1_000
+        || message.chars().any(char::is_control)
+    {
+        return None;
+    }
+    let data = match required_nullable_ref(&item.data) {
+        Some(value) if value.is_object() => match serde_json::to_value(value) {
+            Ok(value) => Some(value),
+            Err(_) => return None,
+        },
+        Some(_) => return None,
+        None => None,
+    };
+    let image_url = match data.as_ref().and_then(|value| value.get("image_url")) {
+        Some(value) => {
+            let value = value.as_str()?;
+            if !valid_legacy_image_url(value) {
+                return None;
+            }
+            Some(value.to_owned())
+        }
+        None => None,
+    };
+    let action_url = required_nullable_ref(&item.action_url).cloned();
+    if action_url
+        .as_deref()
+        .is_some_and(|value| !valid_legacy_action_url(value))
+    {
+        return None;
+    }
+    let read_at = required_nullable_ref(&item.read_at).map(DateTime::to_rfc3339);
+    Some(LegacyNotification {
+        id,
+        wallet_address,
+        notification_type: legacy_notification_type(
+            required_nullable_ref(&item.notification_type).map(String::as_str),
+        ),
+        title,
+        message,
+        data,
+        priority: legacy_notification_priority(
+            required_nullable_ref(&item.priority).map(String::as_str),
+        ),
+        timestamp: item.created_at.to_rfc3339(),
+        expires_at: required_nullable_ref(&item.expires_at).map(DateTime::to_rfc3339),
+        read_at: read_at.clone(),
+        clicked_at: required_nullable_ref(&item.clicked_at).map(DateTime::to_rfc3339),
+        // `sent_at` records target/provider acceptance, not end-user delivery.
+        // Keep the source field absent until a provider-delivered event is
+        // durably reconciled; acceptance must never be presented as delivery.
+        delivered_at: None,
+        action_url,
+        image_url,
+        read: read_at.is_some(),
+    })
+}
+
+fn legacy_notification_query(
+    raw_query: Option<&str>,
+    owner: &str,
+) -> Result<(NotificationListQuery, u32, u16), ()> {
+    let Some(raw_query) = raw_query.filter(|value| !value.is_empty()) else {
+        return Ok((NotificationListQuery::default(), 1, 50));
+    };
+    let url =
+        reqwest::Url::parse(&format!("https://frontend.invalid/?{raw_query}")).map_err(|_| ())?;
+    let mut normalized = url::form_urlencoded::Serializer::new(String::new());
+    let mut saw_wallet = false;
+    for (key, value) in url.query_pairs() {
+        if key == "wallet_address" {
+            if saw_wallet || !value.eq_ignore_ascii_case(owner) {
+                return Err(());
+            }
+            saw_wallet = true;
+            continue;
+        }
+        normalized.append_pair(&key, &value);
+    }
+    let query_string = normalized.finish();
+    let query = NotificationListQuery::from_raw_query(
+        (!query_string.is_empty()).then_some(query_string.as_str()),
+    )?;
+    let limit = query.limit.unwrap_or(50);
+    let offset = query.offset.unwrap_or(0);
+    let page = offset / u32::from(limit) + 1;
+    Ok((query, page, limit))
+}
+
+fn legacy_notification_error(status: StatusCode, code: &'static str) -> Response {
+    private_notification_response(safe_error(status, code))
+}
+
+pub async fn legacy_notifications_api(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    raw_query: RawQuery,
+) -> Response {
+    let (token, user) = match verified_bearer_and_user(&state, &headers).await {
+        Ok(session) => session,
+        Err(response) => return response,
+    };
+    let (query, page, limit) =
+        match legacy_notification_query(raw_query.0.as_deref(), &user.wallet_address) {
+            Ok(query) => query,
+            Err(()) => {
+                return legacy_notification_error(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_notification_query",
+                );
+            }
+        };
+    let request_id = notification_request_id(&headers);
+    let list = load_owner_notifications(
+        state.notification.as_ref(),
+        &token,
+        &user.wallet_address,
+        &query,
+        &request_id,
+    )
+    .await;
+    let unread = load_notification_unread_count_with_query(
+        state.notification.as_ref(),
+        &token,
+        &request_id,
+        Some(&query),
+    )
+    .await;
+    let payload = match list {
+        NotificationListLoadOutcome::Ready(value) | NotificationListLoadOutcome::Empty(value) => {
+            match serde_json::from_value::<NotificationListWire>(value) {
+                Ok(value) => value,
+                Err(_) => {
+                    return legacy_notification_error(
+                        StatusCode::BAD_GATEWAY,
+                        "malformed_notification_response",
+                    );
+                }
+            }
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Unauthorized) => {
+            return legacy_notification_error(
+                StatusCode::UNAUTHORIZED,
+                "notification_upstream_unauthorized",
+            );
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::Dependency) => {
+            return legacy_notification_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_upstream_unavailable",
+            );
+        }
+        NotificationListLoadOutcome::Unavailable(NotificationListUnavailable::UpstreamFailed)
+        | NotificationListLoadOutcome::Malformed => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_response",
+            );
+        }
+    };
+    let unread_count = match unread {
+        NotificationUnreadLoadOutcome::Ready(count) => count,
+        NotificationUnreadLoadOutcome::DependencyUnavailable => {
+            return legacy_notification_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_upstream_unavailable",
+            );
+        }
+        NotificationUnreadLoadOutcome::UpstreamFailed
+        | NotificationUnreadLoadOutcome::Malformed => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_response",
+            );
+        }
+    };
+    let notifications = match payload
+        .items
+        .iter()
+        .map(|item| legacy_notification_from_wire(item, &user.wallet_address))
+        .collect::<Option<Vec<_>>>()
+    {
+        Some(items) => items,
+        None => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "legacy_notification_projection_failed",
+            );
+        }
+    };
+    let total_count = payload.total as u64;
+    let total_pages = if total_count == 0 {
+        0
+    } else {
+        total_count.div_ceil(u64::from(limit))
+    };
+    private_notification_response(
+        Json(LegacyNotificationsResponse {
+            success: true,
+            data: LegacyNotificationsData {
+                notifications,
+                total_count,
+                unread_count,
+                page,
+                limit,
+                total_pages,
+            },
+            api_version: "v1",
+            access_level: "auth",
+        })
+        .into_response(),
+    )
+}
+
+pub async fn legacy_notification_unread_count(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let request_id = notification_request_id(&headers);
+    match load_notification_unread_count(state.notification.as_ref(), &token, &request_id).await {
+        NotificationUnreadLoadOutcome::Ready(count) => private_notification_response(
+            Json(serde_json::json!({"unread_count": count})).into_response(),
+        ),
+        NotificationUnreadLoadOutcome::DependencyUnavailable => legacy_notification_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "notification_upstream_unavailable",
+        ),
+        NotificationUnreadLoadOutcome::UpstreamFailed
+        | NotificationUnreadLoadOutcome::Malformed => {
+            legacy_notification_error(StatusCode::BAD_GATEWAY, "malformed_notification_response")
+        }
+    }
+}
+
+async fn legacy_mutation_response(response: Response, message: &'static str) -> Response {
+    let status = response.status();
+    if status.is_success() {
+        return private_notification_response(
+            Json(serde_json::json!({"success": true, "message": message})).into_response(),
+        );
+    }
+    legacy_notification_error(status, "notification_mutation_failed")
+}
+
+pub async fn legacy_notification_read(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    legacy_mutation_response(
+        notification_read(
+            State(state),
+            headers,
+            AxPath(target_notification_id_from_legacy(&id)),
+        )
+        .await,
+        "Notification marked as read",
+    )
+    .await
+}
+
+pub async fn legacy_notification_unread(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    legacy_mutation_response(
+        notification_unread(
+            State(state),
+            headers,
+            AxPath(target_notification_id_from_legacy(&id)),
+        )
+        .await,
+        "Notification marked as unread",
+    )
+    .await
+}
+
+pub async fn legacy_notification_acknowledge(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    legacy_mutation_response(
+        notification_acknowledge(
+            State(state),
+            headers,
+            AxPath(target_notification_id_from_legacy(&id)),
+        )
+        .await,
+        "Notification acknowledged",
+    )
+    .await
+}
+
+pub async fn legacy_notification_delete(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    legacy_mutation_response(
+        notification_delete(
+            State(state),
+            headers,
+            AxPath(target_notification_id_from_legacy(&id)),
+        )
+        .await,
+        "Notification deleted successfully",
+    )
+    .await
+}
+
+pub async fn legacy_notification_mark_all(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    legacy_bulk_mutation(
+        state,
+        headers,
+        "/api/v1/notification/mark-all-read",
+        "marked",
+        "updated_count",
+    )
+    .await
+}
+
+pub async fn legacy_notification_clear_all(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    legacy_bulk_mutation(
+        state,
+        headers,
+        "/api/v1/notification/clear-all",
+        "deleted",
+        "deleted_count",
+    )
+    .await
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyQuietHours {
+    enabled: bool,
+    start_time: String,
+    end_time: String,
+    #[serde(default)]
+    timezone: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyPreferencesPatch {
+    #[serde(default)]
+    email_enabled: Option<bool>,
+    #[serde(default)]
+    push_enabled: Option<bool>,
+    #[serde(default)]
+    sms_enabled: Option<bool>,
+    #[serde(default)]
+    types: Option<serde_json::Value>,
+    #[serde(default)]
+    priority_filter: Option<String>,
+    #[serde(default)]
+    quiet_hours: Option<LegacyQuietHours>,
+    #[serde(default)]
+    timezone: Option<String>,
+}
+
+fn legacy_preferences_projection(
+    preferences: &NotificationPreferencesResponse,
+) -> serde_json::Value {
+    let channel = |name: &str| {
+        preferences
+            .channels
+            .get(name)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    };
+    let quiet_hours = preferences.quiet_hours.as_ref().and_then(|value| {
+        let object = value.as_object()?;
+        let enabled = object.get("enabled")?.as_bool()?;
+        let start = object.get("start")?.as_str()?;
+        let end = object.get("end")?.as_str()?;
+        Some(serde_json::json!({
+            "enabled": enabled,
+            "start_time": start,
+            "end_time": end,
+            "timezone": preferences.timezone.as_deref().unwrap_or("UTC"),
+        }))
+    });
+    let type_enabled = |name: &str| {
+        preferences
+            .channels
+            .get("types")
+            .and_then(|value| value.get(name))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true)
+    };
+    let types = serde_json::json!({
+        "system": type_enabled("system"),
+        "security": type_enabled("security"),
+        "permission": type_enabled("permission"),
+        "wallet_management": type_enabled("wallet_management"),
+        "wallet": type_enabled("wallet"),
+        "payment": type_enabled("payment"),
+        "general": type_enabled("general"),
+        "announcement": type_enabled("announcement"),
+        "advertisement": type_enabled("advertisement"),
+        "chat": type_enabled("chat"),
+    });
+    let priority_filter = preferences
+        .channels
+        .get("priority_filter")
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| valid_legacy_notification_priority(value))
+        .unwrap_or("normal");
+    serde_json::json!({
+        "email_enabled": channel("email"),
+        "push_enabled": channel("push"),
+        "sms_enabled": false,
+        "types": types,
+        "priority_filter": priority_filter,
+        "quiet_hours": quiet_hours,
+    })
+}
+
+pub async fn legacy_notification_preferences_get(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let request_id = notification_request_id(&headers);
+    match load_notification_preferences(state.notification.as_ref(), &token, &request_id).await {
+        NotificationPreferencesLoadOutcome::Ready(value) => {
+            match serde_json::from_value::<NotificationPreferencesResponse>(value) {
+                Ok(preferences) => private_notification_response(
+                    Json(serde_json::json!({
+                        "success": true,
+                        "data": legacy_preferences_projection(&preferences),
+                        "api_version": "v1",
+                        "access_level": "auth",
+                    }))
+                    .into_response(),
+                ),
+                Err(_) => legacy_notification_error(
+                    StatusCode::BAD_GATEWAY,
+                    "malformed_notification_preferences_response",
+                ),
+            }
+        }
+        NotificationPreferencesLoadOutcome::Error(NotificationPreferencesLoadError::Malformed) => {
+            legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_preferences_response",
+            )
+        }
+        NotificationPreferencesLoadOutcome::Error(
+            NotificationPreferencesLoadError::DependencyUnavailable,
+        ) => legacy_notification_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "notification_preferences_upstream_unavailable",
+        ),
+        NotificationPreferencesLoadOutcome::Error(
+            NotificationPreferencesLoadError::UpstreamFailed,
+        ) => {
+            legacy_notification_error(StatusCode::BAD_GATEWAY, "notification_preferences_rejected")
+        }
+    }
+}
+
+pub async fn legacy_notification_preferences_put(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return legacy_notification_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        );
+    }
+    let body = match axum::body::to_bytes(body, NOTIFICATION_PREFERENCES_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_preferences_body_too_large",
+            );
+        }
+    };
+    let patch = match serde_json::from_slice::<LegacyPreferencesPatch>(&body) {
+        Ok(patch) => patch,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            );
+        }
+    };
+    // SMS is not a target channel.  A false legacy value is harmless and can
+    // be accepted, while an attempt to enable it fails closed rather than
+    // claiming unsupported delivery semantics.
+    if patch.sms_enabled == Some(true) {
+        return legacy_notification_error(
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "legacy_notification_preferences_unsupported",
+        );
+    }
+    let (token, _) = match verified_bearer_and_user(&state, &parts.headers).await {
+        Ok(session) => session,
+        Err(response) => return response,
+    };
+    let request_id = notification_request_id(&parts.headers);
+    let current =
+        match load_notification_preferences(state.notification.as_ref(), &token, &request_id).await
+        {
+            NotificationPreferencesLoadOutcome::Ready(value) => {
+                match serde_json::from_value::<NotificationPreferencesResponse>(value) {
+                    Ok(value) => value,
+                    Err(_) => {
+                        return legacy_notification_error(
+                            StatusCode::BAD_GATEWAY,
+                            "malformed_notification_preferences_response",
+                        );
+                    }
+                }
+            }
+            NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::DependencyUnavailable,
+            ) => {
+                return legacy_notification_error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "notification_preferences_upstream_unavailable",
+                );
+            }
+            NotificationPreferencesLoadOutcome::Error(_) => {
+                return legacy_notification_error(
+                    StatusCode::BAD_GATEWAY,
+                    "notification_preferences_rejected",
+                );
+            }
+        };
+    let current_channel = |name: &str| {
+        current
+            .channels
+            .get(name)
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(false)
+    };
+    let current_type = |name: &str| {
+        current
+            .channels
+            .get("types")
+            .and_then(|value| value.get(name))
+            .and_then(serde_json::Value::as_bool)
+            .unwrap_or(true)
+    };
+    let types = match patch.types {
+        Some(value) if valid_legacy_type_preferences(&value) => value,
+        Some(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            );
+        }
+        None => serde_json::json!({
+            "system": current_type("system"),
+            "security": current_type("security"),
+            "permission": current_type("permission"),
+            "wallet_management": current_type("wallet_management"),
+            "wallet": current_type("wallet"),
+            "payment": current_type("payment"),
+            "general": current_type("general"),
+            "announcement": current_type("announcement"),
+            "advertisement": current_type("advertisement"),
+            "chat": current_type("chat"),
+        }),
+    };
+    let priority_filter = match patch.priority_filter {
+        Some(value) if valid_legacy_notification_priority(&value) => value,
+        Some(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            );
+        }
+        None => current
+            .channels
+            .get("priority_filter")
+            .and_then(serde_json::Value::as_str)
+            .filter(|value| valid_legacy_notification_priority(value))
+            .unwrap_or("normal")
+            .to_owned(),
+    };
+    let quiet_timezone = patch
+        .quiet_hours
+        .as_ref()
+        .and_then(|value| value.timezone.clone());
+    let quiet_hours = match patch.quiet_hours {
+        Some(value)
+            if valid_clock(&value.start_time)
+                && valid_clock(&value.end_time)
+                && value
+                    .timezone
+                    .as_deref()
+                    .is_none_or(|timezone| !timezone.is_empty() && timezone.len() <= 64) =>
+        {
+            Some(serde_json::json!({
+                "enabled": value.enabled,
+                "start": value.start_time,
+                "end": value.end_time,
+            }))
+        }
+        Some(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            );
+        }
+        None => current.quiet_hours.clone(),
+    };
+    let timezone = patch
+        .timezone
+        .or(quiet_timezone)
+        .or(current.timezone.clone());
+    let target = NotificationPreferencesRequest {
+        channels: serde_json::json!({
+            "email": patch.email_enabled.unwrap_or_else(|| current_channel("email")),
+            "in_app": current_channel("in_app"),
+            "push": patch.push_enabled.unwrap_or_else(|| current_channel("push")),
+            "types": types,
+            "priority_filter": priority_filter,
+        }),
+        quiet_hours,
+        timezone,
+    };
+    let body = match serde_json::to_vec(&target) {
+        Ok(body) => Body::from(body),
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            );
+        }
+    };
+    let response =
+        notification_preferences_put(State(state), Request::from_parts(parts, body)).await;
+    if response.status().is_success() {
+        private_notification_response(
+            Json(serde_json::json!({
+                "success": true,
+                "message": "Notification preferences updated",
+            }))
+            .into_response(),
+        )
+    } else {
+        legacy_notification_error(response.status(), "notification_preferences_rejected")
+    }
+}
+
 pub async fn notification_unread_count(
     state: State<AppState>,
     headers: axum::http::HeaderMap,
@@ -1353,20 +2714,28 @@ pub async fn notification_read(
     headers: axum::http::HeaderMap,
     AxPath(id): AxPath<String>,
 ) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
     let token = match verified_bearer(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return response,
     };
     let url = format!(
         "{}/api/v1/notification/{}/read",
-        state.api_url.trim_end_matches('/'),
+        state.notification_url.trim_end_matches('/'),
         id
     );
+    let request_id = notification_request_id(&headers);
     match state
         .notification
         .clone_for_bearer()
         .post(&url)
         .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -1381,25 +2750,260 @@ pub async fn notification_read(
     }
 }
 
+fn legacy_bulk_count(body: &[u8], target_key: &'static str) -> Result<u64, ()> {
+    let value = serde_json::from_slice::<serde_json::Value>(body).map_err(|_| ())?;
+    let object = value.as_object().ok_or(())?;
+    if object.len() != 1 {
+        return Err(());
+    }
+    object
+        .get(target_key)
+        .and_then(serde_json::Value::as_u64)
+        .ok_or(())
+}
+
+async fn legacy_bulk_mutation(
+    state: AppState,
+    headers: axum::http::HeaderMap,
+    target_path: &'static str,
+    target_key: &'static str,
+    source_key: &'static str,
+) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return legacy_notification_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        );
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let request_id = notification_request_id(&headers);
+    let url = format!(
+        "{}{target_path}",
+        state.notification_url.trim_end_matches('/')
+    );
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .post(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_mutation_unavailable",
+            );
+        }
+    };
+    if response.status() != StatusCode::OK {
+        return legacy_notification_error(response.status(), "notification_mutation_failed");
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return legacy_notification_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_mutation_response",
+        );
+    }
+    let body =
+        match read_notification_body_limited(response, NOTIFICATION_BULK_MUTATION_BODY_MAX).await {
+            Ok(body) => body,
+            Err(_) => {
+                return legacy_notification_error(
+                    StatusCode::BAD_GATEWAY,
+                    "malformed_notification_mutation_response",
+                );
+            }
+        };
+    let count = match legacy_bulk_count(&body, target_key) {
+        Ok(count) => count,
+        Err(()) => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_mutation_response",
+            );
+        }
+    };
+    let mut payload = serde_json::Map::new();
+    payload.insert("success".into(), serde_json::Value::Bool(true));
+    payload.insert(source_key.into(), serde_json::json!(count));
+    private_notification_response(Json(serde_json::Value::Object(payload)).into_response())
+}
+
+pub async fn notification_unread(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/{}/unread",
+        state.notification_url.trim_end_matches('/'),
+        id
+    );
+    let request_id = notification_request_id(&headers);
+    match state
+        .notification
+        .clone_for_bearer()
+        .post(&url)
+        .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn notification_acknowledge(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/{}/acknowledge",
+        state.notification_url.trim_end_matches('/'),
+        id
+    );
+    let request_id = notification_request_id(&headers);
+    match state
+        .notification
+        .clone_for_bearer()
+        .put(&url)
+        .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
+    }
+}
+
+async fn notification_engagement_event(
+    state: AppState,
+    headers: axum::http::HeaderMap,
+    id: String,
+    event: &'static str,
+) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/{}/{}",
+        state.notification_url.trim_end_matches('/'),
+        id,
+        event
+    );
+    let request_id = notification_request_id(&headers);
+    match state
+        .notification
+        .clone_for_bearer()
+        .post(&url)
+        .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+    {
+        Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
+    }
+}
+
+pub async fn notification_click(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    notification_engagement_event(state, headers, id, "click").await
+}
+
+pub async fn notification_dismiss(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    AxPath(id): AxPath<String>,
+) -> Response {
+    notification_engagement_event(state, headers, id, "dismiss").await
+}
+
 pub async fn notification_delete(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
     AxPath(id): AxPath<String>,
 ) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
     let token = match verified_bearer(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return response,
     };
     let url = format!(
         "{}/api/v1/notification/{}",
-        state.api_url.trim_end_matches('/'),
+        state.notification_url.trim_end_matches('/'),
         id
     );
+    let request_id = notification_request_id(&headers);
     match state
         .notification
         .clone_for_bearer()
         .delete(&url)
         .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
         .send()
         .await
     {
@@ -1417,19 +3021,27 @@ pub async fn notification_mark_all(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
     let token = match verified_bearer(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return response,
     };
     let url = format!(
         "{}/api/v1/notification/mark-all-read",
-        state.api_url.trim_end_matches('/')
+        state.notification_url.trim_end_matches('/')
     );
+    let request_id = notification_request_id(&headers);
     match state
         .notification
         .clone_for_bearer()
         .post(&url)
         .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -1448,19 +3060,27 @@ pub async fn notification_clear_all(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Response {
+    if !notification_mutation_origin_allowed(&headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
     let token = match verified_bearer(&state, &headers).await {
         Ok(token) => token,
         Err(response) => return response,
     };
     let url = format!(
         "{}/api/v1/notification/clear-all",
-        state.api_url.trim_end_matches('/')
+        state.notification_url.trim_end_matches('/')
     );
+    let request_id = notification_request_id(&headers);
     match state
         .notification
         .clone_for_bearer()
         .post(&url)
         .bearer_auth(&token)
+        .header("x-request-id", request_id.0.as_str())
         .json(&serde_json::json!({}))
         .send()
         .await
@@ -1472,6 +3092,1543 @@ pub async fn notification_clear_all(
             Json(serde_json::json!({"error": "upstream"})),
         )
             .into_response(),
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationPreferencesRequest {
+    channels: serde_json::Value,
+    #[serde(default)]
+    quiet_hours: Option<serde_json::Value>,
+    #[serde(default)]
+    timezone: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationPreferencesResponse {
+    channels: serde_json::Value,
+    quiet_hours: Option<serde_json::Value>,
+    timezone: Option<String>,
+    updated_at: Option<DateTime<chrono::Utc>>,
+}
+
+fn parse_notification_preferences_form(body: &[u8]) -> Result<NotificationPreferencesRequest, ()> {
+    let mut fields = BTreeMap::new();
+    for (key, value) in url::form_urlencoded::parse(body) {
+        if key.len() > 64
+            || value.len() > 256
+            || fields
+                .insert(key.into_owned(), value.into_owned())
+                .is_some()
+        {
+            return Err(());
+        }
+    }
+    const ALLOWED: &[&str] = &[
+        "email",
+        "in_app",
+        "push",
+        "quiet_enabled",
+        "quiet_start",
+        "quiet_end",
+        "timezone",
+    ];
+    if fields.keys().any(|key| !ALLOWED.contains(&key.as_str())) {
+        return Err(());
+    }
+    let bool_field = |name: &str| match fields.get(name).map(String::as_str) {
+        Some("true") => Ok(true),
+        Some("false") => Ok(false),
+        _ => Err(()),
+    };
+    let email = bool_field("email")?;
+    let in_app = bool_field("in_app")?;
+    let push = bool_field("push")?;
+    let quiet_enabled = bool_field("quiet_enabled")?;
+    let quiet_start = fields.get("quiet_start").ok_or(())?.clone();
+    let quiet_end = fields.get("quiet_end").ok_or(())?.clone();
+    let timezone = fields
+        .get("timezone")
+        .cloned()
+        .filter(|value| !value.is_empty());
+    let request = NotificationPreferencesRequest {
+        channels: serde_json::json!({
+            "email": email,
+            "in_app": in_app,
+            "push": push,
+        }),
+        quiet_hours: Some(serde_json::json!({
+            "enabled": quiet_enabled,
+            "start": quiet_start,
+            "end": quiet_end,
+        })),
+        timezone,
+    };
+    validate_notification_preferences(&request)?;
+    Ok(request)
+}
+
+fn same_origin_preferences_form(headers: &axum::http::HeaderMap) -> bool {
+    let Some(origin) = headers
+        .get(header::ORIGIN)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return false;
+    };
+    let Some(host) = headers
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+    else {
+        return false;
+    };
+    let origin_host = origin
+        .strip_prefix("https://")
+        .or_else(|| origin.strip_prefix("http://"))
+        .and_then(|value| value.split('/').next())
+        .unwrap_or("");
+    if origin_host.is_empty() || origin_host != host {
+        return false;
+    }
+    headers
+        .get("sec-fetch-site")
+        .and_then(|value| value.to_str().ok())
+        .is_none_or(|value| matches!(value, "same-origin" | "same-site"))
+}
+
+/// Cookie-backed browser mutations must originate from this BFF. Explicit
+/// bearer callers remain supported for non-browser integrations; their
+/// cryptographic token is still verified before any upstream request.
+fn notification_mutation_origin_allowed(headers: &axum::http::HeaderMap) -> bool {
+    headers.contains_key(header::AUTHORIZATION) || same_origin_preferences_form(headers)
+}
+
+fn watchlist_mutation_origin_allowed(headers: &axum::http::HeaderMap) -> bool {
+    headers.contains_key(header::AUTHORIZATION) || same_origin_preferences_form(headers)
+}
+
+fn validate_notification_preferences(request: &NotificationPreferencesRequest) -> Result<(), ()> {
+    let bounded_object = |value: &serde_json::Value| {
+        value.is_object()
+            && serde_json::to_vec(value)
+                .is_ok_and(|encoded| encoded.len() <= NOTIFICATION_PREFERENCES_BODY_MAX)
+    };
+    if !bounded_object(&request.channels)
+        || !valid_channel_preferences(&request.channels)
+        || request
+            .quiet_hours
+            .as_ref()
+            .is_some_and(|value| !bounded_object(value) || !valid_quiet_hours(value))
+        || request.timezone.as_deref().is_some_and(|value| {
+            value.is_empty() || value.chars().count() > 64 || value.chars().any(char::is_control)
+        })
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+fn valid_channel_preferences(value: &serde_json::Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object.iter().all(|(key, value)| match key.as_str() {
+        "email" | "in_app" | "push" => value.is_boolean(),
+        "types" => valid_legacy_type_preferences(value),
+        "priority_filter" => value
+            .as_str()
+            .is_some_and(valid_legacy_notification_priority),
+        _ => false,
+    })
+}
+
+const LEGACY_NOTIFICATION_TYPES: &[&str] = &[
+    "system",
+    "security",
+    "permission",
+    "wallet_management",
+    "wallet",
+    "payment",
+    "general",
+    "announcement",
+    "advertisement",
+    "chat",
+];
+
+fn valid_legacy_type_preferences(value: &serde_json::Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    object
+        .iter()
+        .all(|(key, value)| LEGACY_NOTIFICATION_TYPES.contains(&key.as_str()) && value.is_boolean())
+}
+
+fn valid_legacy_notification_priority(value: &str) -> bool {
+    matches!(value, "low" | "normal" | "high" | "critical" | "urgent")
+}
+
+fn valid_clock(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 5
+        || bytes[2] != b':'
+        || !bytes[0].is_ascii_digit()
+        || !bytes[1].is_ascii_digit()
+        || !bytes[3].is_ascii_digit()
+        || !bytes[4].is_ascii_digit()
+    {
+        return false;
+    }
+    let hour = (bytes[0] - b'0') * 10 + bytes[1] - b'0';
+    let minute = (bytes[3] - b'0') * 10 + bytes[4] - b'0';
+    hour < 24 && minute < 60
+}
+
+fn valid_quiet_hours(value: &serde_json::Value) -> bool {
+    let Some(object) = value.as_object() else {
+        return false;
+    };
+    let Some(start) = object.get("start").and_then(serde_json::Value::as_str) else {
+        return false;
+    };
+    let Some(end) = object.get("end").and_then(serde_json::Value::as_str) else {
+        return false;
+    };
+    valid_clock(start)
+        && valid_clock(end)
+        && object.iter().all(|(key, value)| {
+            matches!(key.as_str(), "start" | "end" | "enabled")
+                && (matches!(key.as_str(), "start" | "end") && value.is_string()
+                    || key == "enabled" && value.is_boolean())
+        })
+}
+
+fn notification_preferences_upstream_error(status: StatusCode) -> Response {
+    match status {
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+            safe_error(status, "notification_preferences_unauthorized")
+        }
+        StatusCode::BAD_REQUEST => {
+            safe_error(StatusCode::BAD_REQUEST, "invalid_notification_preferences")
+        }
+        _ if status.is_client_error() => {
+            safe_error(StatusCode::BAD_GATEWAY, "notification_preferences_rejected")
+        }
+        _ => safe_error(
+            StatusCode::BAD_GATEWAY,
+            "notification_preferences_upstream_failed",
+        ),
+    }
+}
+
+async fn read_notification_preferences_response(
+    response: reqwest::Response,
+) -> Result<NotificationPreferencesResponse, Response> {
+    if response.status() != StatusCode::OK {
+        return Err(notification_preferences_upstream_error(response.status()));
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_preferences_response",
+        ));
+    }
+    let body = read_notification_body_limited(response, NOTIFICATION_PREFERENCES_RESPONSE_MAX)
+        .await
+        .map_err(|error| match error {
+            NotificationBodyReadError::TooLarge => safe_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_preferences_response",
+            ),
+            NotificationBodyReadError::Transport => safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_preferences_upstream_unavailable",
+            ),
+        })?;
+    let preferences =
+        serde_json::from_slice::<NotificationPreferencesResponse>(&body).map_err(|_| {
+            safe_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_preferences_response",
+            )
+        })?;
+    if !validate_notification_preferences(&NotificationPreferencesRequest {
+        channels: preferences.channels.clone(),
+        quiet_hours: preferences.quiet_hours.clone(),
+        timezone: preferences.timezone.clone(),
+    })
+    .is_ok()
+    {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_preferences_response",
+        ));
+    }
+    Ok(preferences)
+}
+
+fn notification_preferences_form_redirect(state: &'static str) -> Response {
+    let state = match state {
+        "saved" => "saved",
+        "error" => "error",
+        _ => "error",
+    };
+    let location = match state {
+        "saved" => "/account?preferences=saved",
+        "error" => "/account?preferences=error",
+        _ => unreachable!("flash state is normalized above"),
+    };
+    let mut response = Redirect::to(location).into_response();
+    let cookie = format!(
+        "{}={state}; Path=/account; Max-Age=30; HttpOnly; SameSite=Lax",
+        NOTIFICATION_PREFERENCES_FLASH_COOKIE
+    );
+    response.headers_mut().append(
+        header::SET_COOKIE,
+        HeaderValue::from_str(&cookie).expect("flash cookie value is static and valid"),
+    );
+    response
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum NotificationPreferencesLoadError {
+    DependencyUnavailable,
+    UpstreamFailed,
+    Malformed,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum NotificationPreferencesLoadOutcome {
+    Ready(serde_json::Value),
+    Error(NotificationPreferencesLoadError),
+}
+
+/// Load the authenticated owner's preferences for SSR. This deliberately
+/// shares the exact response DTO and validation used by the BFF route, so a
+/// malformed or owner-service failure can never become an empty/default UI.
+pub(crate) async fn load_notification_preferences(
+    client: &ServiceClient,
+    bearer: &str,
+    request_id: &NotificationRequestId,
+) -> NotificationPreferencesLoadOutcome {
+    let url = format!(
+        "{}/api/v1/notification/preferences",
+        client.base_url().trim_end_matches('/')
+    );
+    let response = match client
+        .auth_client()
+        .get(url)
+        .bearer_auth(bearer)
+        .header("x-request-id", request_id.0.as_str())
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::DependencyUnavailable,
+            );
+        }
+    };
+    if !response.status().is_success() {
+        return NotificationPreferencesLoadOutcome::Error(
+            if response.status().is_server_error()
+                || matches!(response.status().as_u16(), 408 | 425 | 429)
+            {
+                NotificationPreferencesLoadError::DependencyUnavailable
+            } else {
+                NotificationPreferencesLoadError::UpstreamFailed
+            },
+        );
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return NotificationPreferencesLoadOutcome::Error(
+            NotificationPreferencesLoadError::Malformed,
+        );
+    }
+    let body = match read_notification_body_limited(response, NOTIFICATION_PREFERENCES_RESPONSE_MAX)
+        .await
+    {
+        Ok(body) => body,
+        Err(NotificationBodyReadError::TooLarge | NotificationBodyReadError::Transport) => {
+            return NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::Malformed,
+            );
+        }
+    };
+    let preferences = match serde_json::from_slice::<NotificationPreferencesResponse>(&body) {
+        Ok(preferences)
+            if validate_notification_preferences(&NotificationPreferencesRequest {
+                channels: preferences.channels.clone(),
+                quiet_hours: preferences.quiet_hours.clone(),
+                timezone: preferences.timezone.clone(),
+            })
+            .is_ok() =>
+        {
+            preferences
+        }
+        Ok(_) | Err(_) => {
+            return NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::Malformed,
+            );
+        }
+    };
+    match serde_json::to_value(preferences) {
+        Ok(value) => NotificationPreferencesLoadOutcome::Ready(value),
+        Err(_) => {
+            NotificationPreferencesLoadOutcome::Error(NotificationPreferencesLoadError::Malformed)
+        }
+    }
+}
+
+pub async fn notification_preferences_get(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let request_id = notification_request_id(&headers);
+    let url = format!(
+        "{}/api/v1/notification/preferences",
+        state.notification_url.trim_end_matches('/')
+    );
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .get(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_preferences_upstream_unavailable",
+            ));
+        }
+    };
+    match read_notification_preferences_response(response).await {
+        Ok(preferences) => private_notification_response(Json(preferences).into_response()),
+        Err(response) => private_notification_response(response),
+    }
+}
+
+pub async fn notification_preferences_put(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let body = match axum::body::to_bytes(body, NOTIFICATION_PREFERENCES_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_preferences_body_too_large",
+            ));
+        }
+    };
+    let preferences = match serde_json::from_slice::<NotificationPreferencesRequest>(&body) {
+        Ok(preferences) if validate_notification_preferences(&preferences).is_ok() => preferences,
+        _ => {
+            return private_notification_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_preferences",
+            ));
+        }
+    };
+    let request_id = notification_request_id(&parts.headers);
+    let url = format!(
+        "{}/api/v1/notification/preferences",
+        state.notification_url.trim_end_matches('/')
+    );
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .put(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .json(&preferences)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_preferences_upstream_unavailable",
+            ));
+        }
+    };
+    match read_notification_preferences_response(response).await {
+        Ok(preferences) => private_notification_response(Json(preferences).into_response()),
+        Err(response) => private_notification_response(response),
+    }
+}
+
+/// Same-origin HTML form adapter for the Rust/Dioxus account settings view.
+/// The JSON BFF remains the canonical API; this route only translates a
+/// bounded browser form into that exact DTO and redirects back to SSR so the
+/// saved value is re-read from the notification service.
+pub async fn notification_preferences_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_preferences_origin_rejected",
+        );
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let content_type = parts
+        .headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !content_type.split(';').next().is_some_and(|value| {
+        value
+            .trim()
+            .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+    }) {
+        return safe_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "notification_preferences_form_content_type",
+        );
+    }
+    let body = match axum::body::to_bytes(body, NOTIFICATION_PREFERENCES_FORM_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_preferences_form_too_large",
+            );
+        }
+    };
+    let preferences = match parse_notification_preferences_form(&body) {
+        Ok(preferences) => preferences,
+        Err(_) => return notification_preferences_form_redirect("error"),
+    };
+    let request_id = notification_request_id(&parts.headers);
+    let url = format!(
+        "{}/api/v1/notification/preferences",
+        state.notification_url.trim_end_matches('/')
+    );
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .put(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .json(&preferences)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return notification_preferences_form_redirect("error"),
+    };
+    if read_notification_preferences_response(response)
+        .await
+        .is_ok()
+    {
+        notification_preferences_form_redirect("saved")
+    } else {
+        notification_preferences_form_redirect("error")
+    }
+}
+
+pub async fn notification_stream(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/stream",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&headers);
+    let mut request = state
+        .notification
+        .clone_for_bearer()
+        .get(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(
+            header::ACCEPT,
+            HeaderValue::from_static("text/event-stream"),
+        );
+    if let Some(last_event_id) = headers.get("last-event-id") {
+        request = request.header("last-event-id", last_event_id);
+    }
+    let response = match request.send().await {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_stream_unavailable",
+            ));
+        }
+    };
+    if response.status() != StatusCode::OK {
+        let status = response.status();
+        return private_notification_response(match status {
+            StatusCode::UNAUTHORIZED
+            | StatusCode::FORBIDDEN
+            | StatusCode::GONE
+            | StatusCode::TOO_MANY_REQUESTS => safe_error(status, "notification_stream_rejected"),
+            _ => safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_stream_unavailable",
+            ),
+        });
+    }
+    let stream = response
+        .bytes_stream()
+        .map_err(|error| std::io::Error::other(error.to_string()));
+    let mut proxied = Response::new(Body::from_stream(stream));
+    *proxied.status_mut() = StatusCode::OK;
+    proxied.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/event-stream; charset=utf-8"),
+    );
+    proxied.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    proxied.headers_mut().insert(
+        header::VARY,
+        HeaderValue::from_static("Cookie, Authorization, Last-Event-ID"),
+    );
+    proxied
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacySseTargetNotification {
+    id: String,
+    title: Option<String>,
+    body: String,
+    notification_type: Option<String>,
+    priority: Option<String>,
+    data: Option<serde_json::Value>,
+    action_url: Option<String>,
+    #[serde(rename = "read_at")]
+    _read_at: Option<DateTime<chrono::Utc>>,
+    created_at: DateTime<chrono::Utc>,
+    #[serde(default)]
+    expires_at: Option<DateTime<chrono::Utc>>,
+}
+
+fn legacy_stream_query(raw_query: Option<&str>, owner: &str) -> Result<(), &'static str> {
+    let Some(raw_query) = raw_query.filter(|value| !value.is_empty()) else {
+        return Ok(());
+    };
+    let url = reqwest::Url::parse(&format!("https://frontend.invalid/?{raw_query}"))
+        .map_err(|_| "invalid_notification_stream_query")?;
+    let mut seen = std::collections::HashSet::new();
+    for (key, value) in url.query_pairs() {
+        if !seen.insert(key.to_string()) {
+            return Err("invalid_notification_stream_query");
+        }
+        match key.as_ref() {
+            "wallet_address" if value.eq_ignore_ascii_case(owner) => {}
+            // The target stream currently has no query-level type/priority
+            // predicate. Do not silently ignore source filters; callers get
+            // an explicit versioned boundary until the service adds one.
+            "types" | "priority" => {
+                return Err("legacy_notification_stream_filters_unsupported");
+            }
+            _ => return Err("invalid_notification_stream_query"),
+        }
+    }
+    Ok(())
+}
+
+fn legacy_sse_notification_payload(
+    target: LegacySseTargetNotification,
+    owner: &str,
+) -> Option<(String, serde_json::Value)> {
+    let id = legacy_notification_id(&target.id)?;
+    let title = target
+        .title
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Notification".to_string());
+    let message = if target.body.is_empty() {
+        title.clone()
+    } else {
+        target.body
+    };
+    if title.chars().count() > 200
+        || title.chars().any(char::is_control)
+        || message.is_empty()
+        || message.chars().count() > 1_000
+        || message.chars().any(char::is_control)
+    {
+        return None;
+    }
+    let data = match target.data {
+        Some(value) if value.is_object() => Some(value),
+        Some(_) => return None,
+        None => None,
+    };
+    let action_url = target.action_url;
+    if action_url
+        .as_deref()
+        .is_some_and(|value| !valid_legacy_action_url(value))
+    {
+        return None;
+    }
+    let payload = serde_json::json!({
+        "id": id,
+        "wallet_address": owner,
+        "notification_type": legacy_notification_type(target.notification_type.as_deref()),
+        "title": title,
+        "message": message,
+        "data": data,
+        "priority": legacy_notification_priority(target.priority.as_deref()),
+        "timestamp": target.created_at,
+        "expires_at": target.expires_at,
+    });
+    Some((payload["id"].as_str()?.to_string(), payload))
+}
+
+fn next_sse_frame(buffer: &[u8]) -> Option<(String, usize)> {
+    let lf = buffer.windows(2).position(|window| window == b"\n\n");
+    let crlf = buffer.windows(4).position(|window| window == b"\r\n\r\n");
+    let (index, delimiter_len) = match (lf, crlf) {
+        (Some(lf), Some(crlf)) if crlf < lf => (crlf, 4),
+        (Some(lf), _) => (lf, 2),
+        (None, Some(crlf)) => (crlf, 4),
+        (None, None) => return None,
+    };
+    let frame = String::from_utf8(buffer[..index].to_vec()).ok()?;
+    Some((frame, index + delimiter_len))
+}
+
+fn transform_legacy_sse_frame(frame: &str, owner: &str) -> Option<String> {
+    let mut event = "message";
+    let mut source_id = None;
+    let mut data_lines = Vec::new();
+    for line in frame.lines() {
+        let line = line.strip_suffix('\r').unwrap_or(line);
+        if line.starts_with(':') {
+            continue;
+        }
+        if let Some(value) = line.strip_prefix("event:") {
+            event = value.trim_start();
+        } else if let Some(value) = line.strip_prefix("id:") {
+            source_id = Some(value.trim_start().to_string());
+        } else if let Some(value) = line.strip_prefix("data:") {
+            data_lines.push(value.strip_prefix(' ').unwrap_or(value).to_string());
+        }
+    }
+    if event == "ping" || (event == "message" && data_lines == ["ping".to_string()]) {
+        return Some("event: ping\ndata: ping\n\n".to_string());
+    }
+    if !matches!(event, "message" | "notification") || data_lines.is_empty() {
+        return None;
+    }
+    let target =
+        serde_json::from_str::<LegacySseTargetNotification>(&data_lines.join("\n")).ok()?;
+    if source_id.as_deref() != Some(target.id.as_str()) {
+        return None;
+    }
+    let (id, payload) = legacy_sse_notification_payload(target, owner)?;
+    // A target cursor is deliberately not trusted as a source UUID. Only
+    // UUID-compatible target IDs are emitted, so reconnect can map the source
+    // Last-Event-ID back to the exact target cursor without a stateful table.
+    Some(format!(
+        "id: {id}\nevent: notification\ndata: {}\n\n",
+        serde_json::to_string(&payload).ok()?
+    ))
+}
+
+/// Development-compatible SSE projection. The target stream is never passed
+/// through raw: target `body/created_at/0x` fields are translated to the source
+/// `message/timestamp/UUID` contract, and malformed or non-UUID events are
+/// dropped rather than presented as a plausible source notification.
+pub async fn legacy_notification_stream(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    raw_query: RawQuery,
+) -> Response {
+    let (token, user) = match verified_bearer_and_user(&state, &headers).await {
+        Ok(session) => session,
+        Err(response) => return response,
+    };
+    let owner = user.wallet_address.to_ascii_lowercase();
+    if let Err(code) = legacy_stream_query(raw_query.0.as_deref(), &owner) {
+        return legacy_notification_error(StatusCode::UNPROCESSABLE_ENTITY, code);
+    }
+    let target_cursor = match headers
+        .get("last-event-id")
+        .map(|value| value.to_str())
+        .transpose()
+    {
+        Ok(Some(value)) if !value.is_empty() => {
+            let Ok(uuid) = uuid::Uuid::parse_str(value) else {
+                return legacy_notification_error(StatusCode::BAD_REQUEST, "invalid_last_event_id");
+            };
+            Some(format!("0x{}", uuid.simple()))
+        }
+        Ok(Some(_)) => {
+            return legacy_notification_error(StatusCode::BAD_REQUEST, "invalid_last_event_id");
+        }
+        Ok(None) => None,
+        Err(_) => {
+            return legacy_notification_error(StatusCode::BAD_REQUEST, "invalid_last_event_id");
+        }
+    };
+    let url = format!(
+        "{}/api/v1/notification/stream",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&headers);
+    let mut upstream = state
+        .notification
+        .clone_for_bearer()
+        .get(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(
+            header::ACCEPT,
+            HeaderValue::from_static("text/event-stream"),
+        );
+    if let Some(cursor) = target_cursor {
+        upstream = upstream.header("last-event-id", cursor);
+    }
+    let response = match upstream.send().await {
+        Ok(response) => response,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_stream_unavailable",
+            );
+        }
+    };
+    if response.status() != StatusCode::OK {
+        let status = response.status();
+        return legacy_notification_error(status, "notification_stream_rejected");
+    }
+    let owner_for_stream = owner.clone();
+    let upstream = response.bytes_stream();
+    let stream = futures::stream::unfold(
+        (upstream, Vec::<u8>::new(), owner_for_stream),
+        |(mut upstream, mut buffer, owner)| async move {
+            loop {
+                if let Some((frame, consumed)) = next_sse_frame(&buffer) {
+                    buffer.drain(..consumed);
+                    if let Some(mapped) = transform_legacy_sse_frame(&frame, &owner) {
+                        return Some((
+                            Ok::<String, std::io::Error>(mapped),
+                            (upstream, buffer, owner),
+                        ));
+                    }
+                    continue;
+                }
+                match upstream.next().await {
+                    Some(Ok(chunk)) => buffer.extend_from_slice(chunk.as_ref()),
+                    Some(Err(error)) => {
+                        return Some((
+                            Err(std::io::Error::other(error.to_string())),
+                            (upstream, Vec::new(), owner),
+                        ));
+                    }
+                    None => return None,
+                }
+            }
+        },
+    );
+    let mut proxied = Response::new(Body::from_stream(stream));
+    *proxied.status_mut() = StatusCode::OK;
+    proxied.headers_mut().insert(
+        header::CONTENT_TYPE,
+        HeaderValue::from_static("text/event-stream; charset=utf-8"),
+    );
+    proxied.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    proxied.headers_mut().insert(
+        header::VARY,
+        HeaderValue::from_static("Cookie, Authorization, Last-Event-ID"),
+    );
+    proxied
+}
+
+const NOTIFICATION_STREAM_ACK_BODY_MAX: usize = 4 * 1024;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationStreamAckRequest {
+    event_id: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationStreamAckResponse {
+    ok: bool,
+    event_id: String,
+}
+
+fn valid_notification_stream_cursor(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && !value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+}
+
+fn notification_stream_ack_upstream_error(status: StatusCode) -> Response {
+    match status {
+        StatusCode::BAD_REQUEST
+        | StatusCode::UNAUTHORIZED
+        | StatusCode::FORBIDDEN
+        | StatusCode::NOT_FOUND
+        | StatusCode::GONE
+        | StatusCode::TOO_MANY_REQUESTS => safe_error(status, "notification_stream_ack_rejected"),
+        _ => safe_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "notification_stream_ack_unavailable",
+        ),
+    }
+}
+
+async fn read_notification_stream_ack_response(
+    response: reqwest::Response,
+    expected_event_id: &str,
+) -> Result<NotificationStreamAckResponse, Response> {
+    if response.status() != StatusCode::OK {
+        return Err(notification_stream_ack_upstream_error(response.status()));
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_stream_ack_response",
+        ));
+    }
+    let body = read_notification_body_limited(response, NOTIFICATION_STREAM_ACK_BODY_MAX)
+        .await
+        .map_err(|_| {
+            safe_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_stream_ack_response",
+            )
+        })?;
+    let payload = serde_json::from_slice::<NotificationStreamAckResponse>(&body).map_err(|_| {
+        safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_stream_ack_response",
+        )
+    })?;
+    if !payload.ok || payload.event_id != expected_event_id {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_stream_ack_response",
+        ));
+    }
+    Ok(payload)
+}
+
+pub async fn notification_stream_ack(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let body = match axum::body::to_bytes(body, NOTIFICATION_STREAM_ACK_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_stream_ack_body_too_large",
+            ));
+        }
+    };
+    let payload = match serde_json::from_slice::<NotificationStreamAckRequest>(&body) {
+        Ok(payload) if valid_notification_stream_cursor(&payload.event_id) => payload,
+        _ => {
+            return private_notification_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_stream_ack_request",
+            ));
+        }
+    };
+    let expected_event_id = payload.event_id.clone();
+    let url = format!(
+        "{}/api/v1/notification/stream/ack",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&parts.headers);
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .post(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .json(&payload)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_stream_ack_unavailable",
+            ));
+        }
+    };
+    match read_notification_stream_ack_response(response, &expected_event_id).await {
+        Ok(payload) => private_notification_response(Json(payload).into_response()),
+        Err(response) => private_notification_response(response),
+    }
+}
+
+const NOTIFICATION_PUSH_BODY_MAX: usize = 8 * 1024;
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationPushRequest {
+    endpoint: String,
+    p256dh: String,
+    auth: String,
+    #[serde(default)]
+    user_agent: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationPushUnsubscribeRequest {
+    endpoint: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct NotificationPushResponse {
+    enabled: bool,
+    subscribed: bool,
+    public_key: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    subscription_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    created_at: Option<String>,
+}
+
+fn valid_notification_push_response(payload: &NotificationPushResponse) -> bool {
+    payload.enabled == payload.public_key.is_some()
+        && (payload.enabled || !payload.subscribed)
+        && payload
+            .subscription_id
+            .as_deref()
+            .is_none_or(|_| payload.subscribed)
+        && payload
+            .created_at
+            .as_deref()
+            .is_none_or(|_| payload.subscribed)
+        && payload.subscription_id.as_deref().is_none_or(|value| {
+            !value.is_empty() && value.len() <= 128 && !value.chars().any(char::is_control)
+        })
+        && payload
+            .created_at
+            .as_deref()
+            .is_none_or(|value| value.len() <= 64 && DateTime::parse_from_rfc3339(value).is_ok())
+        && payload.public_key.as_deref().is_none_or(|key| {
+            !key.is_empty()
+                && key.len() <= 256
+                && !key
+                    .chars()
+                    .any(|character| character.is_control() || character.is_whitespace())
+        })
+}
+
+fn validate_notification_push_request(request: &NotificationPushRequest) -> Result<(), ()> {
+    let endpoint = reqwest::Url::parse(&request.endpoint).map_err(|_| ())?;
+    if endpoint.scheme() != "https"
+        || !endpoint.username().is_empty()
+        || endpoint.password().is_some()
+        || endpoint.query().is_some()
+        || endpoint.fragment().is_some()
+        || request.endpoint.len() > 2048
+        || request.p256dh.is_empty()
+        || request.auth.is_empty()
+        || request.p256dh.len() > 256
+        || request.auth.len() > 256
+        || !request
+            .p256dh
+            .bytes()
+            .chain(request.auth.bytes())
+            .all(|byte| {
+                byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'+' | b'/' | b'=')
+            })
+        || request.user_agent.as_deref().is_some_and(|user_agent| {
+            user_agent.is_empty()
+                || user_agent.len() > 512
+                || user_agent.chars().any(char::is_control)
+        })
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+fn validate_notification_push_endpoint(endpoint: &str) -> Result<(), ()> {
+    let parsed = reqwest::Url::parse(endpoint).map_err(|_| ())?;
+    if parsed.scheme() != "https"
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.query().is_some()
+        || parsed.fragment().is_some()
+        || endpoint.len() > 2048
+    {
+        return Err(());
+    }
+    Ok(())
+}
+
+async fn read_notification_push_response(
+    response: reqwest::Response,
+) -> Result<NotificationPushResponse, Response> {
+    if response.status() != StatusCode::OK {
+        return Err(notification_preferences_upstream_error(response.status()));
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_push_response",
+        ));
+    }
+    let body = read_notification_body_limited(response, NOTIFICATION_PUSH_BODY_MAX)
+        .await
+        .map_err(|_| {
+            safe_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_push_response",
+            )
+        })?;
+    let payload = serde_json::from_slice::<NotificationPushResponse>(&body).map_err(|_| {
+        safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_push_response",
+        )
+    })?;
+    if !valid_notification_push_response(&payload) {
+        return Err(safe_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_push_response",
+        ));
+    }
+    Ok(payload)
+}
+
+pub async fn notification_push_status(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/push",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&headers);
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .get(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_push_unavailable",
+            ));
+        }
+    };
+    match read_notification_push_response(response).await {
+        Ok(payload) => private_notification_response(Json(payload).into_response()),
+        Err(response) => private_notification_response(response),
+    }
+}
+
+async fn notification_push_mutation(
+    State(state): State<AppState>,
+    request: Request,
+    method: Method,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return private_notification_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let body = match axum::body::to_bytes(body, NOTIFICATION_PUSH_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_push_body_too_large",
+            ));
+        }
+    };
+    let payload = if method == Method::DELETE {
+        match serde_json::from_slice::<NotificationPushUnsubscribeRequest>(&body) {
+            Ok(payload) if validate_notification_push_endpoint(&payload.endpoint).is_ok() => {
+                match serde_json::to_value(payload) {
+                    Ok(payload) => payload,
+                    Err(_) => {
+                        return private_notification_response(safe_error(
+                            StatusCode::BAD_REQUEST,
+                            "invalid_notification_push_request",
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return private_notification_response(safe_error(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_notification_push_request",
+                ));
+            }
+        }
+    } else {
+        match serde_json::from_slice::<NotificationPushRequest>(&body) {
+            Ok(payload) if validate_notification_push_request(&payload).is_ok() => {
+                match serde_json::to_value(payload) {
+                    Ok(payload) => payload,
+                    Err(_) => {
+                        return private_notification_response(safe_error(
+                            StatusCode::BAD_REQUEST,
+                            "invalid_notification_push_request",
+                        ));
+                    }
+                }
+            }
+            _ => {
+                return private_notification_response(safe_error(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_notification_push_request",
+                ));
+            }
+        }
+    };
+    let url = format!(
+        "{}/api/v1/notification/push",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&parts.headers);
+    let mut upstream = state.notification.clone_for_bearer().request(method, url);
+    upstream = upstream
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .json(&payload);
+    let response = match upstream.send().await {
+        Ok(response) => response,
+        Err(_) => {
+            return private_notification_response(safe_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_push_unavailable",
+            ));
+        }
+    };
+    match read_notification_push_response(response).await {
+        Ok(result) => private_notification_response(Json(result).into_response()),
+        Err(response) => private_notification_response(response),
+    }
+}
+
+pub async fn notification_push_subscribe(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    notification_push_mutation(State(state), request, Method::PUT).await
+}
+
+pub async fn notification_push_unsubscribe(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    notification_push_mutation(State(state), request, Method::DELETE).await
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyPushKeys {
+    p256dh: String,
+    auth: String,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyPushSubscription {
+    endpoint: String,
+    keys: LegacyPushKeys,
+    #[serde(default)]
+    user_agent: Option<String>,
+    #[serde(default)]
+    device_type: Option<String>,
+}
+
+#[derive(Clone, Copy)]
+enum LegacyPushResponseKind {
+    Status,
+    Subscribe,
+    Unsubscribe,
+}
+
+fn legacy_push_source_data(
+    payload: &NotificationPushResponse,
+    kind: LegacyPushResponseKind,
+) -> Option<serde_json::Value> {
+    match kind {
+        // The development client reads status from response.data.data.
+        LegacyPushResponseKind::Status => Some(serde_json::json!({
+            "data": {
+                "subscribed": payload.subscribed,
+                "subscription_id": payload.subscription_id,
+                "created_at": payload.created_at,
+            }
+        })),
+        // The development client treats subscribe as a durable subscription
+        // record, so do not claim success when the target omitted its stable
+        // identity or creation timestamp.
+        LegacyPushResponseKind::Subscribe => Some(serde_json::json!({
+            "subscription_id": payload.subscription_id.as_ref()?,
+            "active": payload.subscribed,
+            "created_at": payload.created_at.as_ref()?,
+        })),
+        // Unsubscribe is an action result in the source contract, not a
+        // status DTO. The target route is owner-wide and already returns the
+        // post-revocation state; expose only the source action result.
+        LegacyPushResponseKind::Unsubscribe => Some(serde_json::json!({
+            "success": true,
+            "message": if payload.subscribed {
+                "Push subscription remains active"
+            } else {
+                "Push notifications unsubscribed"
+            },
+        })),
+    }
+}
+
+async fn legacy_push_response(
+    response: Response,
+    operation: &'static str,
+    kind: LegacyPushResponseKind,
+) -> Response {
+    let status = response.status();
+    if !status.is_success() {
+        return legacy_notification_error(status, operation);
+    }
+    let body = match axum::body::to_bytes(response.into_body(), NOTIFICATION_PUSH_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_push_response",
+            );
+        }
+    };
+    let payload = match serde_json::from_slice::<NotificationPushResponse>(&body) {
+        Ok(payload) if valid_notification_push_response(&payload) => payload,
+        _ => {
+            return legacy_notification_error(
+                StatusCode::BAD_GATEWAY,
+                "malformed_notification_push_response",
+            );
+        }
+    };
+    let Some(data) = legacy_push_source_data(&payload, kind) else {
+        return legacy_notification_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_notification_push_response",
+        );
+    };
+    private_notification_response(
+        Json(serde_json::json!({
+            "success": true,
+            "data": data,
+            "api_version": "v1",
+            "access_level": "auth",
+        }))
+        .into_response(),
+    )
+}
+
+pub async fn legacy_notification_push_status(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    legacy_push_response(
+        notification_push_status(State(state), headers).await,
+        "notification_push_rejected",
+        LegacyPushResponseKind::Status,
+    )
+    .await
+}
+
+pub async fn legacy_notification_push_subscribe(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return legacy_notification_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        );
+    }
+    let body = match axum::body::to_bytes(body, NOTIFICATION_PUSH_BODY_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "notification_push_body_too_large",
+            );
+        }
+    };
+    let source = match serde_json::from_slice::<LegacyPushSubscription>(&body) {
+        Ok(source)
+            if source
+                .device_type
+                .as_deref()
+                .is_none_or(|value| matches!(value, "desktop" | "mobile" | "tablet")) =>
+        {
+            source
+        }
+        _ => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_push_request",
+            );
+        }
+    };
+    let target = NotificationPushRequest {
+        endpoint: source.endpoint,
+        p256dh: source.keys.p256dh,
+        auth: source.keys.auth,
+        user_agent: source.user_agent,
+    };
+    if validate_notification_push_request(&target).is_err() {
+        return legacy_notification_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_notification_push_request",
+        );
+    }
+    let target_body = match serde_json::to_vec(&target) {
+        Ok(body) => Body::from(body),
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_notification_push_request",
+            );
+        }
+    };
+    legacy_push_response(
+        notification_push_mutation(
+            State(state),
+            Request::from_parts(parts, target_body),
+            Method::PUT,
+        )
+        .await,
+        "notification_push_rejected",
+        LegacyPushResponseKind::Subscribe,
+    )
+    .await
+}
+
+pub async fn legacy_notification_push_unsubscribe(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, _body) = request.into_parts();
+    if !notification_mutation_origin_allowed(&parts.headers) {
+        return legacy_notification_error(
+            StatusCode::FORBIDDEN,
+            "notification_mutation_origin_rejected",
+        );
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
+    let url = format!(
+        "{}/api/v1/notification/push/unsubscribe",
+        state.notification_url.trim_end_matches('/')
+    );
+    let request_id = notification_request_id(&parts.headers);
+    let response = match state
+        .notification
+        .clone_for_bearer()
+        .delete(url)
+        .bearer_auth(token)
+        .header("x-request-id", request_id.0)
+        .header(header::ACCEPT, HeaderValue::from_static("application/json"))
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return legacy_notification_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "notification_push_unavailable",
+            );
+        }
+    };
+    match read_notification_push_response(response).await {
+        Ok(payload) => {
+            legacy_push_response(
+                private_notification_response(Json(payload).into_response()),
+                "notification_push_rejected",
+                LegacyPushResponseKind::Unsubscribe,
+            )
+            .await
+        }
+        Err(response) => legacy_notification_error(response.status(), "notification_push_rejected"),
     }
 }
 
@@ -1948,7 +5105,7 @@ pub(crate) async fn load_news_list(
         Err(()) => {
             return NewsListLoadOutcome::Error {
                 code: "invalid_news_query".to_string(),
-            }
+            };
         }
     };
     let value = match client.get_plain(NEWS_LIST_PATH).await {
@@ -1956,7 +5113,7 @@ pub(crate) async fn load_news_list(
         Err(error) => {
             return NewsListLoadOutcome::Error {
                 code: news_dependency_error(error),
-            }
+            };
         }
     };
     let articles = match parse_news_list(value) {
@@ -1964,7 +5121,7 @@ pub(crate) async fn load_news_list(
         Err(()) => {
             return NewsListLoadOutcome::Error {
                 code: "malformed_content_response".to_string(),
-            }
+            };
         }
     };
     let needle = normalized.q.to_lowercase();
@@ -2031,7 +5188,7 @@ pub(crate) async fn load_news_post(client: &ServiceClient, slug: &str) -> NewsDe
         Err(error) => {
             return NewsDetailLoadOutcome::Error {
                 code: news_dependency_error(error),
-            }
+            };
         }
     };
     match parse_news_detail(value, slug) {
@@ -2542,10 +5699,12 @@ mod notification_contract_tests {
             "sent_at": "2026-07-22T00:00:00Z",
             "created_at": "2026-07-22T00:00:00Z",
             "read_at": null,
+            "clicked_at": null,
             "title": "Title",
             "notification_type": "system",
             "priority": "normal",
-            "action_url": null
+            "action_url": null,
+            "expires_at": null
         })
     }
 
@@ -2561,6 +5720,22 @@ mod notification_contract_tests {
             query.upstream_suffix(),
             "?limit=100&offset=1000000&status=sent"
         );
+        let source_query = NotificationListQuery::from_raw_query(Some(
+            "page=2&limit=10&type=payment&priority=high&status=unread&start_date=2026-07-01T00:00:00Z&end_date=2026-07-31T23:59:59Z",
+        ))
+        .unwrap();
+        assert_eq!(source_query.offset, Some(10));
+        assert_eq!(source_query.notification_type.as_deref(), Some("payment"));
+        assert_eq!(source_query.priority.as_deref(), Some("high"));
+        assert_eq!(source_query.status.as_deref(), Some("unread"));
+        assert!(source_query.upstream_suffix().contains("type=payment"));
+        assert!(source_query
+            .upstream_suffix()
+            .contains("start_date=2026-07-01T00%3A00%3A00Z"));
+        assert_eq!(
+            source_query.upstream_unread_suffix(),
+            "?status=unread&type=payment&priority=high&start_date=2026-07-01T00%3A00%3A00Z&end_date=2026-07-31T23%3A59%3A59Z"
+        );
 
         for invalid in [
             "user_id=0xother",
@@ -2570,9 +5745,11 @@ mod notification_contract_tests {
             "limit=-1",
             "offset=-1",
             "offset=1000001",
-            "status=read",
             "status=sent&status=failed",
+            "type=payment&notification_type=security",
             "limit=1&limit=2",
+            "page=2&offset=20",
+            "start_date=2026-08-01T00:00:00Z&end_date=2026-07-01T00:00:00Z",
             "unknown=value",
         ] {
             assert!(
@@ -2580,6 +5757,276 @@ mod notification_contract_tests {
                 "query must fail closed: {invalid}"
             );
         }
+    }
+
+    #[test]
+    fn legacy_query_is_owner_bound_and_preserves_source_pagination() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let (query, page, limit) = legacy_notification_query(
+            Some("page=2&limit=10&type=payment&wallet_address=0x1111111111111111111111111111111111111111"),
+            owner,
+        )
+        .expect("same owner selector should be accepted by the compatibility adapter");
+        assert_eq!(page, 2);
+        assert_eq!(limit, 10);
+        assert_eq!(query.offset, Some(10));
+        assert_eq!(query.notification_type.as_deref(), Some("payment"));
+        assert!(legacy_notification_query(
+            Some("wallet_address=0x2222222222222222222222222222222222222222"),
+            owner,
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn legacy_projection_round_trips_target_ids_and_has_explicit_defaults() {
+        let value = serde_json::json!({
+            "id": "0x00000000000000000000000000000001",
+            "user_id": "0x1111111111111111111111111111111111111111",
+            "channel": "in_app",
+            "recipient": "0x1111111111111111111111111111111111111111",
+            "template_id": null,
+            "subject": null,
+            "body": "Body",
+            "data": {"kind": "migration", "image_url": "/images/notification.png"},
+            "status": "sent",
+            "error": null,
+            "sent_at": "2026-07-22T00:00:00Z",
+            "created_at": "2026-07-22T00:00:00Z",
+            "read_at": null,
+            "clicked_at": "2026-07-29T00:00:00Z",
+            "title": null,
+            "notification_type": null,
+            "priority": null,
+            "action_url": null,
+            "expires_at": "2026-07-30T00:00:00Z"
+        });
+        let wire: NotificationWire = serde_json::from_value(value).unwrap();
+        let projected =
+            legacy_notification_from_wire(&wire, "0x1111111111111111111111111111111111111111")
+                .unwrap();
+        assert_eq!(projected.id, "00000000-0000-0000-0000-000000000001");
+        assert_eq!(projected.notification_type, "system");
+        assert_eq!(projected.priority, "normal");
+        assert_eq!(projected.title, "Notification");
+        assert_eq!(
+            projected.expires_at.as_deref(),
+            Some("2026-07-30T00:00:00+00:00")
+        );
+        assert_eq!(
+            projected.clicked_at.as_deref(),
+            Some("2026-07-29T00:00:00+00:00")
+        );
+        assert!(projected.delivered_at.is_none());
+        assert_eq!(
+            projected.image_url.as_deref(),
+            Some("/images/notification.png")
+        );
+        assert!(!projected.read);
+        assert_eq!(target_notification_id_from_legacy(&projected.id), wire.id);
+    }
+
+    #[test]
+    fn legacy_projection_rejects_unsafe_data_image_urls() {
+        let value = serde_json::json!({
+            "id": "0x00000000000000000000000000000001",
+            "user_id": "0x1111111111111111111111111111111111111111",
+            "channel": "in_app",
+            "recipient": "0x1111111111111111111111111111111111111111",
+            "body": "Body",
+            "data": {"image_url": "javascript:alert(1)"},
+            "status": "sent",
+            "created_at": "2026-07-22T00:00:00Z"
+        });
+        let wire: NotificationWire = serde_json::from_value(value).unwrap();
+        assert!(
+            legacy_notification_from_wire(&wire, "0x1111111111111111111111111111111111111111")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn legacy_sse_projection_translates_target_frames_and_drops_unsafe_ids() {
+        let target_id = "0x00000000000000000000000000000001";
+        let frame = format!(
+            "id: {target_id}\nevent: notification\ndata: {{\"id\":\"{target_id}\",\"title\":\"Title\",\"body\":\"Body\",\"notification_type\":\"payment\",\"priority\":\"high\",\"data\":{{\"kind\":\"test\"}},\"action_url\":null,\"read_at\":null,\"created_at\":\"2026-07-22T00:00:00Z\",\"expires_at\":\"2026-07-30T00:00:00Z\"}}"
+        );
+        let projected =
+            transform_legacy_sse_frame(&frame, "0x1111111111111111111111111111111111111111")
+                .expect("UUID-compatible target event should project");
+        assert!(projected.contains("event: notification"));
+        assert!(projected.contains("00000000-0000-0000-0000-000000000001"));
+        assert!(
+            projected.contains("\"wallet_address\":\"0x1111111111111111111111111111111111111111\"")
+        );
+        assert!(projected.contains("\"message\":\"Body\""));
+        assert!(projected.contains("\"expires_at\":\"2026-07-30T00:00:00Z\""));
+
+        assert_eq!(
+            transform_legacy_sse_frame("event: ping\ndata: ping", "0xowner"),
+            Some("event: ping\ndata: ping\n\n".to_string())
+        );
+        assert_eq!(
+            transform_legacy_sse_frame("data: ping", "0xowner"),
+            Some("event: ping\ndata: ping\n\n".to_string())
+        );
+        let unsafe_id = frame.replace(
+            target_id,
+            "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        );
+        assert!(transform_legacy_sse_frame(&unsafe_id, "0xowner").is_none());
+        let mismatched = frame.replacen(
+            &format!("id: {target_id}"),
+            "id: 0x00000000000000000000000000000002",
+            1,
+        );
+        assert!(transform_legacy_sse_frame(&mismatched, "0xowner").is_none());
+    }
+
+    #[test]
+    fn legacy_stream_query_binds_owner_and_rejects_unimplemented_filters() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        assert!(legacy_stream_query(None, owner).is_ok());
+        assert!(legacy_stream_query(
+            Some("wallet_address=0x1111111111111111111111111111111111111111"),
+            owner
+        )
+        .is_ok());
+        assert_eq!(
+            legacy_stream_query(
+                Some("wallet_address=0x2222222222222222222222222222222222222222"),
+                owner
+            ),
+            Err("invalid_notification_stream_query")
+        );
+        assert_eq!(
+            legacy_stream_query(Some("priority=high"), owner),
+            Err("legacy_notification_stream_filters_unsupported")
+        );
+        assert_eq!(
+            legacy_stream_query(Some("wallet_address=0x1111111111111111111111111111111111111111&wallet_address=0x1111111111111111111111111111111111111111"), owner),
+            Err("invalid_notification_stream_query")
+        );
+    }
+
+    #[test]
+    fn legacy_bulk_mutation_counts_require_the_exact_target_envelope() {
+        assert_eq!(legacy_bulk_count(br#"{"marked":7}"#, "marked"), Ok(7));
+        assert_eq!(legacy_bulk_count(br#"{"deleted":3}"#, "deleted"), Ok(3));
+        for (body, key) in [
+            (br#"{}"#.as_slice(), "marked"),
+            (br#"{"marked":-1}"#.as_slice(), "marked"),
+            (br#"{"marked":7,"extra":true}"#.as_slice(), "marked"),
+            (br#"{"deleted":3}"#.as_slice(), "marked"),
+            (br#"not-json"#.as_slice(), "deleted"),
+        ] {
+            assert!(legacy_bulk_count(body, key).is_err());
+        }
+    }
+
+    #[test]
+    fn legacy_preferences_projection_keeps_target_channels_and_marks_unmapped_fields() {
+        let preferences = NotificationPreferencesResponse {
+            channels: serde_json::json!({"email": true, "in_app": true, "push": false}),
+            quiet_hours: Some(serde_json::json!({
+                "enabled": true,
+                "start": "22:00",
+                "end": "07:00"
+            })),
+            timezone: Some("Asia/Bangkok".to_string()),
+            updated_at: None,
+        };
+        let value = legacy_preferences_projection(&preferences);
+        assert_eq!(value["email_enabled"], true);
+        assert_eq!(value["push_enabled"], false);
+        assert_eq!(value["quiet_hours"]["start_time"], "22:00");
+        assert_eq!(value["quiet_hours"]["timezone"], "Asia/Bangkok");
+        assert_eq!(value["sms_enabled"], false);
+    }
+
+    #[test]
+    fn legacy_preferences_projection_round_trips_type_and_priority_policy() {
+        let preferences = NotificationPreferencesResponse {
+            channels: serde_json::json!({
+                "email": true,
+                "in_app": true,
+                "push": false,
+                "types": {"payment": false, "system": true},
+                "priority_filter": "high"
+            }),
+            quiet_hours: None,
+            timezone: None,
+            updated_at: None,
+        };
+        let value = legacy_preferences_projection(&preferences);
+        assert_eq!(value["types"]["payment"], false);
+        assert_eq!(value["types"]["system"], true);
+        assert_eq!(value["types"]["chat"], true);
+        assert_eq!(value["priority_filter"], "high");
+        assert!(valid_channel_preferences(&preferences.channels));
+        assert!(!valid_channel_preferences(
+            &serde_json::json!({"types": {"unknown": true}})
+        ));
+    }
+
+    #[test]
+    fn fixed_ssr_pages_derive_only_bounded_source_sized_offsets() {
+        for (page, offset) in [
+            (1, 0),
+            (2, 20),
+            (NOTIFICATION_SSR_MAX_PAGE, NOTIFICATION_LIST_OFFSET_MAX),
+        ] {
+            let query = NotificationListQuery::for_ssr_page(page).expect("bounded SSR page");
+            assert_eq!(query.limit, Some(NOTIFICATION_SSR_PAGE_SIZE));
+            assert_eq!(query.offset, Some(offset));
+            assert_eq!(query.status, None);
+            assert_eq!(
+                query.upstream_suffix(),
+                format!("?limit={NOTIFICATION_SSR_PAGE_SIZE}&offset={offset}")
+            );
+        }
+        assert!(NotificationListQuery::for_ssr_page(0).is_none());
+        assert!(NotificationListQuery::for_ssr_page(NOTIFICATION_SSR_MAX_PAGE + 1).is_none());
+        let filtered = NotificationListQuery::for_ssr_page_and_filters(
+            3,
+            Some("unread"),
+            Some("payment"),
+            Some("critical"),
+        )
+        .expect("bounded owner filters");
+        assert_eq!(
+            filtered.upstream_suffix(),
+            "?limit=20&offset=40&status=unread&type=payment&priority=critical"
+        );
+        let dated = NotificationListQuery::for_ssr_page_and_filters_and_dates(
+            2,
+            Some("read"),
+            Some("wallet_management"),
+            Some("urgent"),
+            Some("2026-01-01T00:00:00Z"),
+            Some("2026-01-31T23:59:59Z"),
+        )
+        .expect("bounded source date filters");
+        assert_eq!(
+            dated.upstream_suffix(),
+            "?limit=20&offset=20&status=read&type=wallet_management&priority=urgent&start_date=2026-01-01T00%3A00%3A00Z&end_date=2026-01-31T23%3A59%3A59Z"
+        );
+        assert!(NotificationListQuery::for_ssr_page_and_filters(
+            1,
+            None,
+            Some("payment type"),
+            None,
+        )
+        .is_none());
+        assert!(NotificationListQuery::for_ssr_page_and_filters_and_dates(
+            1,
+            None,
+            None,
+            None,
+            Some("2026-02-01T00:00:00Z"),
+            Some("2026-01-01T00:00:00Z"),
+        )
+        .is_none());
     }
 
     #[test]
@@ -2632,6 +6079,93 @@ mod notification_contract_tests {
     }
 
     #[test]
+    fn list_rows_reject_unbounded_or_unsafe_field_values() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let query = NotificationListQuery {
+            limit: Some(1),
+            ..NotificationListQuery::default()
+        };
+        for (field, value) in [
+            (
+                "id",
+                serde_json::Value::String("x".repeat(NOTIFICATION_ID_MAX + 1)),
+            ),
+            (
+                "recipient",
+                serde_json::Value::String("x".repeat(NOTIFICATION_RECIPIENT_MAX + 1)),
+            ),
+            (
+                "subject",
+                serde_json::Value::String("x".repeat(NOTIFICATION_SUBJECT_MAX + 1)),
+            ),
+            (
+                "body",
+                serde_json::Value::String("x".repeat(NOTIFICATION_BODY_MAX + 1)),
+            ),
+            (
+                "title",
+                serde_json::Value::String("x".repeat(NOTIFICATION_TITLE_MAX + 1)),
+            ),
+            (
+                "error",
+                serde_json::Value::String("x".repeat(NOTIFICATION_ERROR_MAX + 1)),
+            ),
+            (
+                "action_url",
+                serde_json::Value::String("/safe\\\\unsafe".to_string()),
+            ),
+        ] {
+            let mut row = notification(owner);
+            row.as_object_mut()
+                .unwrap()
+                .insert(field.to_string(), value);
+            let payload = serde_json::from_value::<NotificationListWire>(
+                serde_json::json!({"items": [row], "total": 1}),
+            )
+            .unwrap();
+            assert!(
+                payload.validate(owner, &query).is_err(),
+                "field must remain bounded and safe: {field}"
+            );
+        }
+
+        for unsafe_url in [
+            "https://evil.example/",
+            "javascript:alert(1)",
+            "//evil.example",
+        ] {
+            let mut row = notification(owner);
+            row["action_url"] = serde_json::json!(unsafe_url);
+            let payload = serde_json::from_value::<NotificationListWire>(
+                serde_json::json!({"items": [row], "total": 1}),
+            )
+            .unwrap();
+            assert!(
+                payload.validate(owner, &query).is_err(),
+                "unsafe action URL must fail closed: {unsafe_url}"
+            );
+        }
+
+        let mut oversized_data = notification(owner);
+        oversized_data["data"] = serde_json::json!({
+            "payload": "x".repeat(NOTIFICATION_DATA_MAX)
+        });
+        let payload = serde_json::from_value::<NotificationListWire>(
+            serde_json::json!({"items": [oversized_data], "total": 1}),
+        )
+        .unwrap();
+        assert!(payload.validate(owner, &query).is_err());
+
+        let mut invalid_priority = notification(owner);
+        invalid_priority["priority"] = serde_json::json!("high priority");
+        let payload = serde_json::from_value::<NotificationListWire>(
+            serde_json::json!({"items": [invalid_priority], "total": 1}),
+        )
+        .unwrap();
+        assert!(payload.validate(owner, &query).is_err());
+    }
+
+    #[test]
     fn unfiltered_page_cardinality_must_agree_with_total() {
         let owner = "0x1111111111111111111111111111111111111111";
         let contradictory = serde_json::from_value::<NotificationListWire>(serde_json::json!({
@@ -2647,18 +6181,93 @@ mod notification_contract_tests {
             limit: Some(1),
             offset: Some(2),
             status: None,
+            ..NotificationListQuery::default()
         };
         assert!(contradictory.validate(owner, &past_end).is_ok());
 
-        // The current service reports an unfiltered total for a filtered row
-        // query. Until that service contract is repaired, do not pretend the
-        // filtered page can be checked against the global total.
+        let second_page = NotificationListQuery::for_ssr_page(2).unwrap();
+        let final_row = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+            "items": [notification(owner)],
+            "total": 21
+        }))
+        .unwrap();
+        assert!(final_row.validate(owner, &second_page).is_ok());
+        let missing_final_row = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+            "items": [],
+            "total": 21
+        }))
+        .unwrap();
+        assert!(missing_final_row.validate(owner, &second_page).is_err());
+
+        // Status-filtered totals are now scoped to the same service predicate,
+        // so the BFF applies the same exact cardinality check.
         let filtered = NotificationListQuery {
             limit: Some(1),
             offset: None,
             status: Some("sent".to_string()),
+            ..NotificationListQuery::default()
         };
-        assert!(contradictory.validate(owner, &filtered).is_ok());
+        assert!(contradictory.validate(owner, &filtered).is_err());
+
+        let broadcast = serde_json::json!({
+            "id": "broadcast-1",
+            "user_id": null,
+            "channel": "in_app",
+            "recipient": "all",
+            "template_id": null,
+            "subject": null,
+            "body": "Maintenance notice",
+            "data": null,
+            "status": "sent",
+            "error": null,
+            "sent_at": "2026-07-22T00:00:00Z",
+            "created_at": "2026-07-22T00:00:00Z",
+            "read_at": null,
+            "clicked_at": null,
+            "title": "Maintenance",
+            "notification_type": "announcement",
+            "priority": "normal",
+            "action_url": null,
+            "expires_at": null
+        });
+        let payload = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+            "items": [broadcast],
+            "total": 1
+        }))
+        .unwrap();
+        let one_row_query = NotificationListQuery {
+            limit: Some(1),
+            ..NotificationListQuery::default()
+        };
+        assert!(payload.validate(owner, &one_row_query).is_ok());
+
+        let foreign_null_owner = serde_json::json!({
+            "id": "foreign-1",
+            "user_id": null,
+            "channel": "in_app",
+            "recipient": "0x2222222222222222222222222222222222222222",
+            "template_id": null,
+            "subject": null,
+            "body": "Not a broadcast",
+            "data": null,
+            "status": "sent",
+            "error": null,
+            "sent_at": null,
+            "created_at": "2026-07-22T00:00:00Z",
+            "read_at": null,
+            "clicked_at": null,
+            "title": "Foreign",
+            "notification_type": "system",
+            "priority": "normal",
+            "action_url": null,
+            "expires_at": null
+        });
+        let payload = serde_json::from_value::<NotificationListWire>(serde_json::json!({
+            "items": [foreign_null_owner],
+            "total": 1
+        }))
+        .unwrap();
+        assert!(payload.validate(owner, &one_row_query).is_err());
     }
 
     #[test]
@@ -2680,6 +6289,289 @@ mod notification_contract_tests {
             assert!(serde_json::from_value::<NotificationUnreadCount>(malformed).is_err());
         }
     }
+
+    #[test]
+    fn preferences_and_push_payloads_are_bounded_and_fail_closed() {
+        let valid_preferences = NotificationPreferencesRequest {
+            channels: serde_json::json!({"email": true, "in_app": false}),
+            quiet_hours: Some(serde_json::json!({"start": "22:00", "end": "07:00"})),
+            timezone: Some("Asia/Bangkok".into()),
+        };
+        assert!(validate_notification_preferences(&valid_preferences).is_ok());
+        for invalid in [
+            NotificationPreferencesRequest {
+                channels: serde_json::json!([]),
+                quiet_hours: None,
+                timezone: None,
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"email": "yes"}),
+                quiet_hours: None,
+                timezone: None,
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"webhook": true}),
+                quiet_hours: None,
+                timezone: None,
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"email": true}),
+                quiet_hours: Some(serde_json::json!("22:00")),
+                timezone: None,
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"email": true}),
+                quiet_hours: Some(serde_json::json!({"start": "25:00", "end": "07:00"})),
+                timezone: None,
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"email": true}),
+                quiet_hours: None,
+                timezone: Some("UTC\nInjected".into()),
+            },
+            NotificationPreferencesRequest {
+                channels: serde_json::json!({"payload": "x".repeat(NOTIFICATION_PREFERENCES_BODY_MAX)}),
+                quiet_hours: None,
+                timezone: None,
+            },
+        ] {
+            assert!(validate_notification_preferences(&invalid).is_err());
+        }
+
+        let valid_push = NotificationPushRequest {
+            endpoint: "https://push.example.test/subscription".into(),
+            p256dh: "key_123".into(),
+            auth: "auth_123".into(),
+            user_agent: Some("browser".into()),
+        };
+        assert!(validate_notification_push_request(&valid_push).is_ok());
+        for invalid in [
+            NotificationPushRequest {
+                endpoint: "http://push.example.test/subscription".into(),
+                ..valid_push.clone()
+            },
+            NotificationPushRequest {
+                endpoint: "https://user:password@push.example.test/subscription".into(),
+                ..valid_push.clone()
+            },
+            NotificationPushRequest {
+                endpoint: "https://push.example.test/subscription?token=secret".into(),
+                ..valid_push.clone()
+            },
+            NotificationPushRequest {
+                p256dh: "not allowed!*".into(),
+                ..valid_push.clone()
+            },
+            NotificationPushRequest {
+                user_agent: Some("browser\nforged".into()),
+                ..valid_push.clone()
+            },
+        ] {
+            assert!(validate_notification_push_request(&invalid).is_err());
+        }
+        assert!(
+            validate_notification_push_endpoint("https://push.example.test/subscription").is_ok()
+        );
+        assert!(validate_notification_push_endpoint(
+            "https://push.example.test/subscription?token=secret"
+        )
+        .is_err());
+        assert!(valid_notification_push_response(
+            &NotificationPushResponse {
+                enabled: true,
+                subscribed: true,
+                public_key: Some("B".repeat(65)),
+                subscription_id: None,
+                created_at: None,
+            }
+        ));
+        let unavailable_push = serde_json::to_value(NotificationPushResponse {
+            enabled: false,
+            subscribed: false,
+            public_key: None,
+            subscription_id: None,
+            created_at: None,
+        })
+        .expect("push status should serialize");
+        let mut unavailable_keys = unavailable_push
+            .as_object()
+            .unwrap()
+            .keys()
+            .collect::<Vec<_>>();
+        unavailable_keys.sort();
+        assert_eq!(
+            unavailable_keys,
+            vec!["enabled", "public_key", "subscribed"]
+        );
+        for invalid in [
+            NotificationPushResponse {
+                enabled: false,
+                subscribed: true,
+                public_key: None,
+                subscription_id: None,
+                created_at: None,
+            },
+            NotificationPushResponse {
+                enabled: true,
+                subscribed: false,
+                public_key: None,
+                subscription_id: None,
+                created_at: None,
+            },
+            NotificationPushResponse {
+                enabled: true,
+                subscribed: false,
+                public_key: Some("key with spaces".into()),
+                subscription_id: None,
+                created_at: None,
+            },
+        ] {
+            assert!(!valid_notification_push_response(&invalid));
+        }
+    }
+
+    #[test]
+    fn legacy_push_projection_preserves_source_operation_shapes() {
+        let payload = NotificationPushResponse {
+            enabled: true,
+            subscribed: true,
+            public_key: Some("B".repeat(65)),
+            subscription_id: Some("push_abc".into()),
+            created_at: Some("2026-07-22T00:00:00Z".into()),
+        };
+        let status = legacy_push_source_data(&payload, LegacyPushResponseKind::Status).unwrap();
+        assert_eq!(status["data"]["subscribed"], true);
+        assert_eq!(status["data"]["subscription_id"], "push_abc");
+
+        let subscribe =
+            legacy_push_source_data(&payload, LegacyPushResponseKind::Subscribe).unwrap();
+        assert_eq!(subscribe["active"], true);
+        assert_eq!(subscribe["subscription_id"], "push_abc");
+        assert_eq!(subscribe["created_at"], "2026-07-22T00:00:00Z");
+
+        let unsubscribe =
+            legacy_push_source_data(&payload, LegacyPushResponseKind::Unsubscribe).unwrap();
+        assert_eq!(unsubscribe["success"], true);
+        assert!(unsubscribe["message"].as_str().unwrap().contains("active"));
+
+        let incomplete = NotificationPushResponse {
+            subscription_id: None,
+            created_at: None,
+            ..payload
+        };
+        assert!(legacy_push_source_data(&incomplete, LegacyPushResponseKind::Status).is_some());
+        assert!(legacy_push_source_data(&incomplete, LegacyPushResponseKind::Subscribe).is_none());
+    }
+
+    #[test]
+    fn notification_preferences_form_maps_only_the_exact_bounded_fields() {
+        let request = parse_notification_preferences_form(
+            b"email=true&in_app=false&push=true&quiet_enabled=true&quiet_start=22%3A00&quiet_end=07%3A00&timezone=Asia%2FBangkok",
+        )
+        .expect("canonical form should map");
+        assert_eq!(
+            request.channels,
+            serde_json::json!({"email": true, "in_app": false, "push": true})
+        );
+        assert_eq!(
+            request.quiet_hours,
+            Some(serde_json::json!({
+                "enabled": true,
+                "start": "22:00",
+                "end": "07:00"
+            }))
+        );
+        assert_eq!(request.timezone.as_deref(), Some("Asia/Bangkok"));
+
+        for invalid in [
+            "email=true&in_app=false&push=true&quiet_enabled=true&quiet_start=22%3A00",
+            "email=true&email=false&in_app=false&push=true&quiet_enabled=true&quiet_start=22%3A00&quiet_end=07%3A00",
+            "email=true&in_app=false&push=true&quiet_enabled=1&quiet_start=22%3A00&quiet_end=07%3A00",
+            "email=true&in_app=false&push=true&quiet_enabled=true&quiet_start=25%3A00&quiet_end=07%3A00",
+            "email=true&in_app=false&push=true&quiet_enabled=true&quiet_start=22%3A00&quiet_end=07%3A00&unknown=x",
+        ] {
+            assert!(
+                parse_notification_preferences_form(invalid.as_bytes()).is_err(),
+                "form must fail closed: {invalid}"
+            );
+        }
+    }
+
+    #[test]
+    fn notification_preferences_form_requires_same_origin_headers() {
+        let mut headers = axum::http::HeaderMap::new();
+        assert!(!same_origin_preferences_form(&headers));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://epsx.test"),
+        );
+        headers.insert(header::HOST, HeaderValue::from_static("epsx.test"));
+        assert!(same_origin_preferences_form(&headers));
+        headers.insert("sec-fetch-site", HeaderValue::from_static("cross-site"));
+        assert!(!same_origin_preferences_form(&headers));
+        headers.insert("sec-fetch-site", HeaderValue::from_static("same-origin"));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://evil.test"),
+        );
+        assert!(!same_origin_preferences_form(&headers));
+    }
+
+    #[test]
+    fn cookie_backed_notification_mutations_require_same_origin_but_bearer_callers_remain_supported(
+    ) {
+        let mut headers = axum::http::HeaderMap::new();
+        assert!(!notification_mutation_origin_allowed(&headers));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://epsx.test"),
+        );
+        headers.insert(header::HOST, HeaderValue::from_static("epsx.test"));
+        assert!(notification_mutation_origin_allowed(&headers));
+        headers.insert(
+            header::ORIGIN,
+            HeaderValue::from_static("https://evil.test"),
+        );
+        assert!(!notification_mutation_origin_allowed(&headers));
+        headers.remove(header::ORIGIN);
+        headers.insert(
+            header::AUTHORIZATION,
+            HeaderValue::from_static("Bearer verified-token"),
+        );
+        assert!(notification_mutation_origin_allowed(&headers));
+    }
+
+    #[test]
+    fn notification_preferences_form_redirect_sets_a_short_lived_matching_flash() {
+        for (state, location) in [
+            ("saved", "/account?preferences=saved"),
+            ("error", "/account?preferences=error"),
+            ("unexpected", "/account?preferences=error"),
+        ] {
+            let response = notification_preferences_form_redirect(state);
+            assert_eq!(response.status(), StatusCode::SEE_OTHER);
+            assert_eq!(
+                response
+                    .headers()
+                    .get(header::LOCATION)
+                    .and_then(|value| value.to_str().ok()),
+                Some(location)
+            );
+            let cookie = response
+                .headers()
+                .get(header::SET_COOKIE)
+                .and_then(|value| value.to_str().ok())
+                .expect("form redirect must issue a flash cookie");
+            let expected_state = if state == "saved" { "saved" } else { "error" };
+            assert!(cookie.contains(&format!(
+                "{NOTIFICATION_PREFERENCES_FLASH_COOKIE}={expected_state}"
+            )));
+            assert!(cookie.contains("Path=/account"));
+            assert!(cookie.contains("Max-Age=30"));
+            assert!(cookie.contains("HttpOnly"));
+            assert!(cookie.contains("SameSite=Lax"));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -2688,7 +6580,7 @@ mod auth_session_tests {
     use axum::{
         body::Body,
         http::{header, HeaderMap, HeaderValue},
-        routing::{delete, get, post},
+        routing::{delete, get, post, put},
         Router,
     };
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
@@ -2895,6 +6787,7 @@ mod auth_session_tests {
             verifier: Arc::new(epsx_bff::session::JwksVerifier::with_http(verifier).unwrap()),
             cookie_environment: epsx_bff::cookies::CookieEnvironment::Local,
             api_url: base_url.to_string(),
+            notification_url: base_url.to_string(),
             demo_login_enabled: false,
         }
     }
@@ -2953,10 +6846,12 @@ mod auth_session_tests {
                 "sent_at": "2026-07-22T00:00:00Z",
                 "created_at": "2026-07-22T00:00:00Z",
                 "read_at": null,
+                "clicked_at": null,
                 "title": "Title",
                 "notification_type": "system",
                 "priority": "normal",
-                "action_url": null
+                "action_url": null,
+                "expires_at": null
             }],
             "total": 1
         })
@@ -3439,6 +7334,16 @@ mod auth_session_tests {
         let observations = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
         let list_observations = observations.clone();
         let unread_observations = observations.clone();
+        let read_observations = observations.clone();
+        let read_expected_token = access_token.clone();
+        let unread_mutation_observations = observations.clone();
+        let unread_mutation_expected_token = access_token.clone();
+        let ack_observations = observations.clone();
+        let ack_expected_token = access_token.clone();
+        let click_observations = observations.clone();
+        let click_expected_token = access_token.clone();
+        let dismiss_observations = observations.clone();
+        let dismiss_expected_token = access_token.clone();
         let router = Router::new()
             .route(
                 JWKS_PATH,
@@ -3483,7 +7388,14 @@ mod auth_session_tests {
                         {
                             return StatusCode::UNAUTHORIZED.into_response();
                         }
-                        Json(notification_payload(TEST_WALLET)).into_response()
+                        let mut payload = notification_payload(TEST_WALLET);
+                        // This request asks for offset=2.  Model a
+                        // snapshot with three matching rows so the single
+                        // returned row is the final page item rather than
+                        // an impossible row at offset two of a one-row
+                        // result set.
+                        payload["total"] = json!(3);
+                        Json(payload).into_response()
                     }
                 }),
             )
@@ -3527,10 +7439,172 @@ mod auth_session_tests {
                         Json(json!({"count": 7})).into_response()
                     }
                 }),
+            )
+            .route(
+                "/api/v1/notification/notification-id/read",
+                post(move |headers: HeaderMap| {
+                    let observations = read_observations.clone();
+                    let expected_token = read_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "read",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({
+                            "id": "notification-id",
+                            "read_at": "2026-07-24T00:00:00Z"
+                        }))
+                        .into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/notification-id/unread",
+                post(move |headers: HeaderMap| {
+                    let observations = unread_mutation_observations.clone();
+                    let expected_token = unread_mutation_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "unread-mutation",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        StatusCode::NO_CONTENT.into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/notification-id/click",
+                post(move |headers: HeaderMap| {
+                    let observations = click_observations.clone();
+                    let expected_token = click_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "click",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"id": "notification-id", "event": "clicked"})).into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/notification-id/dismiss",
+                post(move |headers: HeaderMap| {
+                    let observations = dismiss_observations.clone();
+                    let expected_token = dismiss_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "dismiss",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"id": "notification-id", "event": "dismissed"})).into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/notification-id/acknowledge",
+                put(move |headers: HeaderMap| {
+                    let observations = ack_observations.clone();
+                    let expected_token = ack_expected_token.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "acknowledge",
+                            "authorization": headers
+                                .get(header::AUTHORIZATION)
+                                .and_then(|value| value.to_str().ok()),
+                            "request_id": headers
+                                .get("x-request-id")
+                                .and_then(|value| value.to_str().ok()),
+                            "cookie": headers
+                                .get(header::COOKIE)
+                                .and_then(|value| value.to_str().ok()),
+                        }));
+                        if headers
+                            .get(header::AUTHORIZATION)
+                            .and_then(|value| value.to_str().ok())
+                            != Some(format!("Bearer {expected_token}").as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({
+                            "id": "notification-id",
+                            "acknowledged_at": "2026-07-24T00:00:00Z"
+                        }))
+                        .into_response()
+                    }
+                }),
             );
         let base_url = spawn_mock(router).await;
         let app_state = state(&base_url);
+        let parsed_base_url = url::Url::parse(&base_url).unwrap();
+        let form_host = format!(
+            "{}:{}",
+            parsed_base_url.host_str().unwrap(),
+            parsed_base_url.port().unwrap()
+        );
         let mut headers = request_headers(&format!("epsx.frontend.access_token={access_token}"));
+        headers.insert(header::HOST, HeaderValue::from_str(&form_host).unwrap());
+        headers.insert(header::ORIGIN, HeaderValue::from_str(&base_url).unwrap());
+        headers.insert("sec-fetch-site", HeaderValue::from_static("same-origin"));
         headers.insert(
             "x-request-id",
             HeaderValue::from_static("22222222-2222-4222-8222-222222222222"),
@@ -3553,12 +7627,57 @@ mod auth_session_tests {
         .await;
         assert_eq!(list.status(), StatusCode::OK);
         assert_private_notification_response(&list);
-        assert_eq!(response_json(list).await["total"], 1);
+        assert_eq!(response_json(list).await["total"], 3);
 
         let unread = notification_unread_count(State(app_state.clone()), headers.clone()).await;
         assert_eq!(unread.status(), StatusCode::OK);
         assert_private_notification_response(&unread);
         assert_eq!(response_json(unread).await, json!({"count": 7}));
+
+        let read = notification_read(
+            State(app_state.clone()),
+            headers.clone(),
+            AxPath("notification-id".to_string()),
+        )
+        .await;
+        assert_eq!(read.status(), StatusCode::OK);
+        assert_eq!(response_json(read).await, json!({"ok": true}));
+
+        let unread_mutation = notification_unread(
+            State(app_state.clone()),
+            headers.clone(),
+            AxPath("notification-id".to_string()),
+        )
+        .await;
+        assert_eq!(unread_mutation.status(), StatusCode::OK);
+        assert_eq!(response_json(unread_mutation).await, json!({"ok": true}));
+
+        let acknowledged = notification_acknowledge(
+            State(app_state.clone()),
+            headers.clone(),
+            AxPath("notification-id".to_string()),
+        )
+        .await;
+        assert_eq!(acknowledged.status(), StatusCode::OK);
+        assert_eq!(response_json(acknowledged).await, json!({"ok": true}));
+
+        let clicked = notification_click(
+            State(app_state.clone()),
+            headers.clone(),
+            AxPath("notification-id".to_string()),
+        )
+        .await;
+        assert_eq!(clicked.status(), StatusCode::OK);
+        assert_eq!(response_json(clicked).await, json!({"ok": true}));
+
+        let dismissed = notification_dismiss(
+            State(app_state.clone()),
+            headers.clone(),
+            AxPath("notification-id".to_string()),
+        )
+        .await;
+        assert_eq!(dismissed.status(), StatusCode::OK);
+        assert_eq!(response_json(dismissed).await, json!({"ok": true}));
 
         headers.insert("x-request-id", HeaderValue::from_static("not-a-request-id"));
         let unread_with_generated_request_id =
@@ -3571,7 +7690,7 @@ mod auth_session_tests {
         );
 
         let observations = observations.lock().unwrap();
-        assert_eq!(observations.len(), 3);
+        assert_eq!(observations.len(), 8);
         assert_eq!(observations[0]["endpoint"], "list");
         assert_eq!(observations[0]["query"], "limit=25&offset=2&status=sent");
         assert_eq!(
@@ -3591,7 +7710,12 @@ mod auth_session_tests {
             .unwrap()
             .contains("user_id"));
 
-        for unread_observation in &observations[1..] {
+        let unread_observations: Vec<_> = observations
+            .iter()
+            .filter(|observation| observation["endpoint"] == "unread")
+            .collect();
+        assert_eq!(unread_observations.len(), 2);
+        for unread_observation in unread_observations.iter().copied() {
             assert_eq!(unread_observation["endpoint"], "unread");
             assert_eq!(
                 unread_observation["authorization"],
@@ -3604,12 +7728,55 @@ mod auth_session_tests {
             assert!(unread_observation["cookie"].is_null());
         }
         assert_eq!(
-            observations[1]["request_id"],
+            unread_observations[0]["request_id"],
             "22222222-2222-4222-8222-222222222222"
         );
-        let generated_request_id = observations[2]["request_id"].as_str().unwrap();
+        let generated_request_id = unread_observations[1]["request_id"].as_str().unwrap();
         assert_ne!(generated_request_id, "not-a-request-id");
         assert!(uuid::Uuid::parse_str(generated_request_id).is_ok());
+        for endpoint in ["read", "unread-mutation"] {
+            let observation = observations
+                .iter()
+                .find(|observation| observation["endpoint"] == endpoint)
+                .expect("legacy mutation alias must reach the service");
+            assert_eq!(
+                observation["authorization"],
+                format!("Bearer {access_token}")
+            );
+            assert_eq!(
+                observation["request_id"],
+                "22222222-2222-4222-8222-222222222222"
+            );
+            assert!(observation["cookie"].is_null());
+        }
+        let acknowledge_observation = observations
+            .iter()
+            .find(|observation| observation["endpoint"] == "acknowledge")
+            .expect("acknowledge request must reach the service");
+        assert_eq!(
+            acknowledge_observation["authorization"],
+            format!("Bearer {access_token}")
+        );
+        assert_eq!(
+            acknowledge_observation["request_id"],
+            "22222222-2222-4222-8222-222222222222"
+        );
+        assert!(acknowledge_observation["cookie"].is_null());
+        for endpoint in ["click", "dismiss"] {
+            let observation = observations
+                .iter()
+                .find(|observation| observation["endpoint"] == endpoint)
+                .expect("engagement request must reach the service");
+            assert_eq!(
+                observation["authorization"],
+                format!("Bearer {access_token}")
+            );
+            assert_eq!(
+                observation["request_id"],
+                "22222222-2222-4222-8222-222222222222"
+            );
+            assert!(observation["cookie"].is_null());
+        }
     }
 
     #[tokio::test]
@@ -3701,6 +7868,451 @@ mod auth_session_tests {
         assert_eq!(
             response_json(malformed).await["error"],
             "malformed_notification_response"
+        );
+    }
+
+    #[tokio::test]
+    async fn notification_preferences_push_and_stream_forward_only_verified_context() {
+        let key = TestKey::generate();
+        let access_token = key.access_token(&[]);
+        let expected_authorization = format!("Bearer {access_token}");
+        let jwks = Jwks {
+            keys: vec![key.jwk.clone()],
+        };
+        let observations = Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+        let preference_get_observations = observations.clone();
+        let preference_put_observations = observations.clone();
+        let push_get_observations = observations.clone();
+        let push_put_observations = observations.clone();
+        let push_delete_observations = observations.clone();
+        let stream_observations = observations.clone();
+        let stream_ack_observations = observations.clone();
+        let expected_for_preferences = expected_authorization.clone();
+        let expected_for_preference_put = expected_authorization.clone();
+        let expected_for_push_get = expected_authorization.clone();
+        let expected_for_push_put = expected_authorization.clone();
+        let expected_for_push_delete = expected_authorization.clone();
+        let expected_for_stream = expected_authorization.clone();
+        let expected_for_stream_ack = expected_authorization.clone();
+        let router = Router::new()
+            .route(
+                JWKS_PATH,
+                get(move || {
+                    let jwks = jwks.clone();
+                    async move { Json(jwks) }
+                }),
+            )
+            .route(
+                "/api/v1/notification/preferences",
+                get(move |headers: HeaderMap| {
+                    let observations = preference_get_observations.clone();
+                    let expected = expected_for_preferences.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "preferences-get",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                            "cookie": headers.get(header::COOKIE).and_then(|v| v.to_str().ok()),
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({
+                            "channels": {"email": true, "in_app": true, "push": false},
+                            "quiet_hours": null,
+                            "timezone": "UTC",
+                            "updated_at": null
+                        }))
+                        .into_response()
+                    }
+                })
+                .put(move |headers: HeaderMap, Json(body): Json<Value>| {
+                    let observations = preference_put_observations.clone();
+                    let expected = expected_for_preference_put.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "preferences-put",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                            "body": body,
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({
+                            "channels": {"email": false, "in_app": true, "push": false},
+                            "quiet_hours": {"start": "22:00", "end": "07:00"},
+                            "timezone": "Asia/Bangkok",
+                            "updated_at": null
+                        }))
+                        .into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/push",
+                get(move |headers: HeaderMap| {
+                    let observations = push_get_observations.clone();
+                    let expected = expected_for_push_get.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "push-get",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"enabled": true, "subscribed": false, "public_key": "B".repeat(65)}))
+                            .into_response()
+                    }
+                })
+                .put(move |headers: HeaderMap, Json(body): Json<Value>| {
+                    let observations = push_put_observations.clone();
+                    let expected = expected_for_push_put.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "push-put",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                            "body": body,
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"enabled": true, "subscribed": true, "public_key": "B".repeat(65)}))
+                            .into_response()
+                    }
+                })
+                .delete(move |headers: HeaderMap, Json(body): Json<Value>| {
+                    let observations = push_delete_observations.clone();
+                    let expected = expected_for_push_delete.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "push-delete",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                            "body": body,
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Json(json!({"enabled": true, "subscribed": false, "public_key": "B".repeat(65)}))
+                            .into_response()
+                    }
+                }),
+            )
+            .route(
+                "/api/v1/notification/stream",
+                get(move |headers: HeaderMap| {
+                    let observations = stream_observations.clone();
+                    let expected = expected_for_stream.clone();
+                    async move {
+                        observations.lock().unwrap().push(json!({
+                            "endpoint": "stream",
+                            "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                            "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                            "last_event_id": headers.get("last-event-id").and_then(|v| v.to_str().ok()),
+                        }));
+                        if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                            != Some(expected.as_str())
+                        {
+                            return StatusCode::UNAUTHORIZED.into_response();
+                        }
+                        Response::builder()
+                            .status(StatusCode::OK)
+                            .header(header::CONTENT_TYPE, "text/event-stream")
+                            .body(Body::from("event: ready\\nid: 1\\ndata: {}\\n\\n"))
+                            .unwrap()
+                    }
+                }),
+            );
+        let router = router.route(
+            "/api/v1/notification/stream/ack",
+            post(move |headers: HeaderMap, Json(body): Json<Value>| {
+                let observations = stream_ack_observations.clone();
+                let expected = expected_for_stream_ack.clone();
+                async move {
+                    observations.lock().unwrap().push(json!({
+                        "endpoint": "stream-ack",
+                        "authorization": headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok()),
+                        "request_id": headers.get("x-request-id").and_then(|v| v.to_str().ok()),
+                        "body": body,
+                    }));
+                    if headers.get(header::AUTHORIZATION).and_then(|v| v.to_str().ok())
+                        != Some(expected.as_str())
+                    {
+                        return StatusCode::UNAUTHORIZED.into_response();
+                    }
+                    Json(json!({"ok": true, "event_id": "cursor-1"})).into_response()
+                }
+            }),
+        );
+        let base_url = spawn_mock(router).await;
+        let app_state = state(&base_url);
+        let cookie = format!("epsx.frontend.access_token={access_token}");
+        let parsed_base_url = url::Url::parse(&base_url).unwrap();
+        let form_host = format!(
+            "{}:{}",
+            parsed_base_url.host_str().unwrap(),
+            parsed_base_url.port().unwrap()
+        );
+        let mut headers = request_headers(&cookie);
+        headers.insert(
+            "x-request-id",
+            HeaderValue::from_static("33333333-3333-4333-8333-333333333333"),
+        );
+        headers.insert("last-event-id", HeaderValue::from_static("cursor-1"));
+
+        let preferences =
+            notification_preferences_get(State(app_state.clone()), headers.clone()).await;
+        assert_eq!(preferences.status(), StatusCode::OK);
+        assert_private_notification_response(&preferences);
+        assert_eq!(response_json(preferences).await["timezone"], "UTC");
+
+        let put_request = Request::builder()
+            .method("PUT")
+            .uri("/api/v1/notifications/preferences")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, &base_url)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-request-id", "33333333-3333-4333-8333-333333333333")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                r#"{"channels":{"email":false,"in_app":true},"quiet_hours":null,"timezone":"Asia/Bangkok"}"#,
+            ))
+            .unwrap();
+        let preferences_put =
+            notification_preferences_put(State(app_state.clone()), put_request).await;
+        assert_eq!(preferences_put.status(), StatusCode::OK);
+        assert_private_notification_response(&preferences_put);
+        assert_eq!(
+            response_json(preferences_put).await["timezone"],
+            "Asia/Bangkok"
+        );
+
+        let form_request = Request::builder()
+            .method("POST")
+            .uri("/account/notification-preferences")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, &base_url)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-request-id", "33333333-3333-4333-8333-333333333333")
+            .header(
+                header::CONTENT_TYPE,
+                "application/x-www-form-urlencoded;charset=UTF-8",
+            )
+            .body(Body::from(
+                "email=false&in_app=true&push=false&quiet_enabled=true&quiet_start=22%3A00&quiet_end=07%3A00&timezone=Asia%2FBangkok",
+            ))
+            .unwrap();
+        let form_response =
+            notification_preferences_form(State(app_state.clone()), form_request).await;
+        assert_eq!(form_response.status(), StatusCode::SEE_OTHER);
+        assert_eq!(
+            form_response.headers().get(header::LOCATION),
+            Some(&HeaderValue::from_static("/account?preferences=saved"))
+        );
+        assert_eq!(
+            form_response
+                .headers()
+                .get(header::SET_COOKIE)
+                .and_then(|value| value.to_str().ok())
+                .map(|value| value.contains("epsx.notification_preferences_flash=saved")),
+            Some(true)
+        );
+
+        let rejected_form = Request::builder()
+            .method("POST")
+            .uri("/account/notification-preferences")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, "https://foreign.example")
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .body(Body::from(
+                "email=true&in_app=true&push=false&quiet_enabled=false&quiet_start=22%3A00&quiet_end=07%3A00",
+            ))
+            .unwrap();
+        let rejected_response =
+            notification_preferences_form(State(app_state.clone()), rejected_form).await;
+        assert_eq!(rejected_response.status(), StatusCode::FORBIDDEN);
+
+        let push_status = notification_push_status(State(app_state.clone()), headers.clone()).await;
+        assert_eq!(push_status.status(), StatusCode::OK);
+        assert_private_notification_response(&push_status);
+        assert_eq!(response_json(push_status).await["enabled"], true);
+
+        let push_body = r#"{"endpoint":"https://push.example.test/subscription","p256dh":"key_123","auth":"auth_123","user_agent":"browser"}"#;
+        let push_put_request = Request::builder()
+            .method("PUT")
+            .uri("/api/v1/notifications/push")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, &base_url)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-request-id", "33333333-3333-4333-8333-333333333333")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(push_body))
+            .unwrap();
+        let push_put =
+            notification_push_subscribe(State(app_state.clone()), push_put_request).await;
+        assert_eq!(push_put.status(), StatusCode::OK);
+        assert_private_notification_response(&push_put);
+        assert_eq!(response_json(push_put).await["subscribed"], true);
+
+        let push_delete_request = Request::builder()
+            .method("DELETE")
+            .uri("/api/v1/notifications/push")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, &base_url)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-request-id", "33333333-3333-4333-8333-333333333333")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(
+                r#"{"endpoint":"https://push.example.test/subscription"}"#,
+            ))
+            .unwrap();
+        let push_delete =
+            notification_push_unsubscribe(State(app_state.clone()), push_delete_request).await;
+        assert_eq!(push_delete.status(), StatusCode::OK);
+        assert_private_notification_response(&push_delete);
+        assert_eq!(response_json(push_delete).await["subscribed"], false);
+
+        let stream = notification_stream(State(app_state), headers).await;
+        assert_eq!(stream.status(), StatusCode::OK);
+        assert_eq!(
+            stream.headers().get(header::CONTENT_TYPE),
+            Some(&HeaderValue::from_static(
+                "text/event-stream; charset=utf-8"
+            ))
+        );
+        assert_eq!(
+            stream.headers().get(header::CACHE_CONTROL),
+            Some(&HeaderValue::from_static("private, no-store"))
+        );
+        assert_eq!(
+            stream.headers().get(header::VARY),
+            Some(&HeaderValue::from_static(
+                "Cookie, Authorization, Last-Event-ID"
+            ))
+        );
+
+        let ack_request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/notifications/stream/ack")
+            .header(header::COOKIE, &cookie)
+            .header(header::HOST, &form_host)
+            .header(header::ORIGIN, &base_url)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-request-id", "33333333-3333-4333-8333-333333333333")
+            .header(header::CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"event_id":"cursor-1"}"#))
+            .unwrap();
+        let acknowledged = notification_stream_ack(State(state(&base_url)), ack_request).await;
+        assert_eq!(acknowledged.status(), StatusCode::OK);
+        assert_private_notification_response(&acknowledged);
+        assert_eq!(response_json(acknowledged).await["event_id"], "cursor-1");
+
+        let observations = observations.lock().unwrap();
+        assert_eq!(observations.len(), 8);
+        for observation in observations.iter() {
+            assert_eq!(observation["authorization"], expected_authorization);
+            assert_eq!(
+                observation["request_id"],
+                "33333333-3333-4333-8333-333333333333"
+            );
+        }
+        assert_eq!(observations[6]["last_event_id"], "cursor-1");
+        assert_eq!(observations[7]["endpoint"], "stream-ack");
+        assert_eq!(observations[7]["body"]["event_id"], "cursor-1");
+        assert_eq!(observations[1]["body"]["timezone"], "Asia/Bangkok");
+        assert_eq!(observations[2]["body"]["timezone"], "Asia/Bangkok");
+        assert_eq!(
+            observations[4]["body"]["endpoint"],
+            "https://push.example.test/subscription"
+        );
+        assert_eq!(
+            observations[5]["body"]["endpoint"],
+            "https://push.example.test/subscription"
+        );
+    }
+
+    #[tokio::test]
+    async fn ssr_notification_preferences_loader_is_strict_and_failure_typed() {
+        let ready_router = Router::new().route(
+            "/api/v1/notification/preferences",
+            get(|| async {
+                Json(json!({
+                    "channels": {"email": true, "in_app": false},
+                    "quiet_hours": {"start": "22:00", "end": "07:00"},
+                    "timezone": "UTC",
+                    "updated_at": null
+                }))
+            }),
+        );
+        let ready = load_notification_preferences(
+            &notification_client(&spawn_mock(ready_router).await, Duration::from_secs(1)),
+            "verified-bearer",
+            &test_notification_request_id(),
+        )
+        .await;
+        assert!(
+            matches!(ready, NotificationPreferencesLoadOutcome::Ready(value) if value["timezone"] == "UTC")
+        );
+
+        let malformed_router = Router::new().route(
+            "/api/v1/notification/preferences",
+            get(|| async {
+                Json(json!({
+                    "channels": {"webhook": true},
+                    "quiet_hours": null,
+                    "timezone": "UTC",
+                    "updated_at": null
+                }))
+            }),
+        );
+        let malformed = load_notification_preferences(
+            &notification_client(&spawn_mock(malformed_router).await, Duration::from_secs(1)),
+            "verified-bearer",
+            &test_notification_request_id(),
+        )
+        .await;
+        assert_eq!(
+            malformed,
+            NotificationPreferencesLoadOutcome::Error(NotificationPreferencesLoadError::Malformed)
+        );
+
+        let unavailable_router = Router::new().route(
+            "/api/v1/notification/preferences",
+            get(|| async { StatusCode::SERVICE_UNAVAILABLE }),
+        );
+        let unavailable = load_notification_preferences(
+            &notification_client(
+                &spawn_mock(unavailable_router).await,
+                Duration::from_secs(1),
+            ),
+            "verified-bearer",
+            &test_notification_request_id(),
+        )
+        .await;
+        assert_eq!(
+            unavailable,
+            NotificationPreferencesLoadOutcome::Error(
+                NotificationPreferencesLoadError::DependencyUnavailable
+            )
         );
     }
 

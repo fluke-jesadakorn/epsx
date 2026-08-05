@@ -1,11 +1,20 @@
 use axum::http::Method;
 
+pub const NOTIFICATION_PUBLISHER_AUDIENCE: &str = "epsx-notification-publisher";
+pub const NOTIFICATION_PUBLISH_PERMISSION: &str = "internal:notifications:publish";
+pub const NOTIFICATION_PROVIDER_AUDIENCE: &str = "epsx-notification-provider";
+pub const NOTIFICATION_PROVIDER_EVENTS_PERMISSION: &str = "internal:notifications:provider-events";
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AccessPolicy {
     Public,
     CredentialExchange,
     Authenticated,
     Permission(&'static str),
+    AudiencePermission {
+        audience: &'static str,
+        permission: &'static str,
+    },
     InternalOnly,
     Blocked,
 }
@@ -100,20 +109,49 @@ pub fn classify(method: &Method, path: &str) -> AccessPolicy {
 
         // Notifications. Owner filtering remains a downstream requirement.
         (&Method::GET | &Method::POST, ["api", "v1", "notification", "templates"])
+        | (&Method::POST, ["api", "v1", "notification", "templates", _, "preview" | "rollback"])
+        | (&Method::GET, ["api", "v1", "notification", "templates", _, "audit"])
         | (&Method::GET | &Method::DELETE, ["api", "v1", "notification", "templates", _])
         | (&Method::POST, ["api", "v1", "notification", "send"]) => {
             AccessPolicy::Permission("admin:notifications:manage")
         }
-        (&Method::GET, ["api", "v1", "notification", "admin", "list"]) => {
+        (&Method::GET, ["api", "v1", "notification", "admin", "list" | "metrics"]) => {
+            AccessPolicy::Permission("admin:notifications:manage")
+        }
+        (&Method::POST, ["api", "v1", "notification", "provider-events"]) => {
+            AccessPolicy::AudiencePermission {
+                audience: NOTIFICATION_PROVIDER_AUDIENCE,
+                permission: NOTIFICATION_PROVIDER_EVENTS_PERMISSION,
+            }
+        }
+        (&Method::POST, ["api", "v1", "notification", "publish"]) => {
+            AccessPolicy::AudiencePermission {
+                audience: NOTIFICATION_PUBLISHER_AUDIENCE,
+                permission: NOTIFICATION_PUBLISH_PERMISSION,
+            }
+        }
+        (&Method::GET, ["api", "v1", "notification", "provider-events"]) => AccessPolicy::Blocked,
+        (&Method::GET, ["api", "v1", "notification", "publish"]) => AccessPolicy::Blocked,
+        (
+            &Method::HEAD | &Method::PUT | &Method::DELETE,
+            ["api", "v1", "notification", "provider-events" | "publish"],
+        ) => AccessPolicy::Blocked,
+        (&Method::POST, ["api", "v1", "notification", "admin", "dead-letters", _, "redrive"]) => {
             AccessPolicy::Permission("admin:notifications:manage")
         }
         (&Method::GET, ["api", "v1", "notification", "list"])
         | (&Method::GET, ["api", "v1", "notification", "unread-count"])
+        | (&Method::GET | &Method::PUT, ["api", "v1", "notification", "preferences"])
+        | (&Method::GET, ["api", "v1", "notification", "stream"])
+        | (&Method::POST, ["api", "v1", "notification", "stream", "ack"])
+        | (&Method::GET | &Method::PUT | &Method::DELETE, ["api", "v1", "notification", "push"])
         | (&Method::POST, ["api", "v1", "notification", "mark-all-read"])
         | (&Method::POST, ["api", "v1", "notification", "clear-all"])
         | (&Method::GET | &Method::DELETE, ["api", "v1", "notification", _])
         | (&Method::POST, ["api", "v1", "notification", _, "read"])
-        | (&Method::POST, ["api", "v1", "notification", _, "unread"]) => {
+        | (&Method::POST, ["api", "v1", "notification", _, "unread"])
+        | (&Method::POST, ["api", "v1", "notification", _, "click" | "dismiss"])
+        | (&Method::PUT, ["api", "v1", "notification", _, "acknowledge"]) => {
             AccessPolicy::Authenticated
         }
 
@@ -277,6 +315,11 @@ mod tests {
             (
                 Method::POST,
                 "/api/v1/notification/abc/read",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::PUT,
+                "/api/v1/notification/abc/acknowledge",
                 AccessPolicy::Authenticated,
             ),
             (
@@ -554,7 +597,7 @@ mod tests {
             (Method::GET, "/api/v1/portfolio/0xabc", AccessPolicy::Public),
             (Method::GET, "/api/v1/plans", AccessPolicy::Public),
             (Method::GET, "/api/v1/rankings", AccessPolicy::Public),
-            // notification (14 routes)
+            // notification (30 routes)
             (
                 Method::GET,
                 "/api/v1/notification/templates",
@@ -577,6 +620,21 @@ mod tests {
             ),
             (
                 Method::POST,
+                "/api/v1/notification/templates/123/preview",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/templates/123/rollback",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/templates/123/audit",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::POST,
                 "/api/v1/notification/send",
                 AccessPolicy::Permission("admin:notifications:manage"),
             ),
@@ -587,12 +645,73 @@ mod tests {
             ),
             (
                 Method::GET,
+                "/api/v1/notification/admin/metrics",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/provider-events",
+                AccessPolicy::AudiencePermission {
+                    audience: NOTIFICATION_PROVIDER_AUDIENCE,
+                    permission: NOTIFICATION_PROVIDER_EVENTS_PERMISSION,
+                },
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/publish",
+                AccessPolicy::AudiencePermission {
+                    audience: NOTIFICATION_PUBLISHER_AUDIENCE,
+                    permission: NOTIFICATION_PUBLISH_PERMISSION,
+                },
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/admin/dead-letters/job-1/redrive",
+                AccessPolicy::Permission("admin:notifications:manage"),
+            ),
+            (
+                Method::GET,
                 "/api/v1/notification/list",
                 AccessPolicy::Authenticated,
             ),
             (
                 Method::GET,
                 "/api/v1/notification/unread-count",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/preferences",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::PUT,
+                "/api/v1/notification/preferences",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/stream",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/stream/ack",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::GET,
+                "/api/v1/notification/push",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::PUT,
+                "/api/v1/notification/push",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::DELETE,
+                "/api/v1/notification/push",
                 AccessPolicy::Authenticated,
             ),
             (
@@ -613,6 +732,21 @@ mod tests {
             (
                 Method::POST,
                 "/api/v1/notification/123/unread",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/123/click",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::POST,
+                "/api/v1/notification/123/dismiss",
+                AccessPolicy::Authenticated,
+            ),
+            (
+                Method::PUT,
+                "/api/v1/notification/123/acknowledge",
                 AccessPolicy::Authenticated,
             ),
             (
@@ -712,6 +846,12 @@ mod tests {
             (Method::GET, "/api/v1/content/%2e%2e/site"),
             (Method::POST, "/api/v1/notification/admin/list"),
             (Method::HEAD, "/api/v1/notification/admin/list"),
+            (Method::POST, "/api/v1/notification/admin/metrics"),
+            (Method::HEAD, "/api/v1/notification/admin/metrics"),
+            (Method::GET, "/api/v1/notification/provider-events"),
+            (Method::PUT, "/api/v1/notification/provider-events"),
+            (Method::GET, "/api/v1/notification/publish"),
+            (Method::PUT, "/api/v1/notification/publish"),
             (Method::GET, "/api/v1/notification/admin/list/extra"),
             (Method::GET, "/api/v1/notification/admin%2flist"),
             (Method::GET, "/api/v1/notification/admin/%6cist"),

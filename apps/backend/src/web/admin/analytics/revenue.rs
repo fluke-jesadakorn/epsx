@@ -1,14 +1,14 @@
+use super::types::*;
+use crate::web::auth::AppState;
+use crate::web::responses::wrappers::AdminResponse;
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use tracing::{error, info};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::web::auth::AppState;
-use crate::web::responses::wrappers::AdminResponse;
-use super::types::*;
+use tracing::{error, info};
 
 /**
  * Get revenue analytics
@@ -38,13 +38,16 @@ pub async fn get_revenue_analytics_handler(
     let total_revenue = match diesel::sql_query(
         "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
          INNER JOIN plans pg ON wga.plan_id = pg.id
-         WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
     )
     .get_result::<RevenueResult>(&mut conn)
     .await
     {
-        Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-        Err(_) => 0.0
+        Ok(result) => result
+            .revenue
+            .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+            .unwrap_or(0.0),
+        Err(_) => 0.0,
     };
 
     // Calculate monthly recurring revenue (only monthly/yearly subscriptions)
@@ -58,13 +61,16 @@ pub async fn get_revenue_analytics_handler(
         ), 0.0) as revenue FROM wallet_plan_assignments wga
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'
-         AND pg.billing_cycle IN ('monthly', 'yearly')"
+         AND pg.billing_cycle IN ('monthly', 'yearly')",
     )
     .get_result::<RevenueResult>(&mut conn)
     .await
     {
-        Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-        Err(_) => 0.0
+        Ok(result) => result
+            .revenue
+            .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+            .unwrap_or(0.0),
+        Err(_) => 0.0,
     };
 
     #[derive(QueryableByName)]
@@ -92,18 +98,24 @@ pub async fn get_revenue_analytics_handler(
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          GROUP BY pg.id, pg.name
-         ORDER BY revenue DESC"
+         ORDER BY revenue DESC",
     )
     .load::<TierRevenueRow>(&mut conn)
     .await
     {
-        Ok(results) => results.into_iter().map(|row| TierRevenue {
-            tier_name: row.tier_name,
-            revenue: row.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            subscriber_count: row.subscriber_count.unwrap_or(0) as i32,
-            average_revenue_per_user: row.average_revenue_per_user.unwrap_or(0.0),
-        }).collect(),
-        Err(_) => Vec::new()
+        Ok(results) => results
+            .into_iter()
+            .map(|row| TierRevenue {
+                tier_name: row.tier_name,
+                revenue: row
+                    .revenue
+                    .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                    .unwrap_or(0.0),
+                subscriber_count: row.subscriber_count.unwrap_or(0) as i32,
+                average_revenue_per_user: row.average_revenue_per_user.unwrap_or(0.0),
+            })
+            .collect(),
+        Err(_) => Vec::new(),
     };
 
     #[derive(QueryableByName)]
@@ -116,39 +128,39 @@ pub async fn get_revenue_analytics_handler(
     let active_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
          INNER JOIN plans pg ON wga.plan_id = pg.id
-         WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
+         WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
     )
     .get_result::<CountResult>(&mut conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
-        Err(_) => 0
+        Err(_) => 0,
     };
 
     let new_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'
-         AND wga.created_at >= NOW() - INTERVAL '30 days'"
+         AND wga.created_at >= NOW() - INTERVAL '30 days'",
     )
     .get_result::<CountResult>(&mut conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
-        Err(_) => 0
+        Err(_) => 0,
     };
 
     let cancelled_subscriptions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments wga
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = false AND pg.plan_type = 'subscription'
-         AND wga.updated_at >= NOW() - INTERVAL '30 days'"
+         AND wga.updated_at >= NOW() - INTERVAL '30 days'",
     )
     .get_result::<CountResult>(&mut conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
-        Err(_) => 0
+        Err(_) => 0,
     };
 
     let subscription_churn_rate = if active_subscriptions > 0 {
@@ -177,7 +189,7 @@ pub async fn get_revenue_analytics_handler(
           AND pg.plan_type = 'subscription'
         GROUP BY DATE_TRUNC('day', wga.created_at)
         ORDER BY trend_date ASC
-        "#
+        "#,
     )
     .load::<RevenueTrendRow>(&mut conn)
     .await
@@ -186,8 +198,12 @@ pub async fn get_revenue_analytics_handler(
             .into_iter()
             .map(|row| TimeSeriesPoint {
                 timestamp: row.trend_date.unwrap_or_else(Utc::now),
-                value: row.daily_revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-                label: row.trend_date
+                value: row
+                    .daily_revenue
+                    .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                    .unwrap_or(0.0),
+                label: row
+                    .trend_date
                     .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
@@ -218,5 +234,6 @@ pub async fn get_revenue_analytics_handler(
     };
 
     info!("Admin: Successfully retrieved revenue analytics");
-    AdminResponse::success_with_message(response, "Revenue analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(response, "Revenue analytics retrieved successfully")
+        .into_response()
 }

@@ -10,9 +10,7 @@ use crate::chat::message_bubble::{Message, MessageBubble};
 use dioxus::prelude::*;
 
 #[component]
-pub fn ChatMessageList(
-    #[props(default = Vec::new())] messages: Vec<Message>,
-) -> Element {
+pub fn ChatMessageList(#[props(default = Vec::new())] messages: Vec<Message>) -> Element {
     rsx! {
         div { class: "chat-message-list p-4 space-y-3 overflow-y-auto max-h-[60vh]",
             for m in messages.iter() {
@@ -32,7 +30,5 @@ mod tests {
     use super::*;
 
     #[test]
-    fn chat_message_list_smoke() {
-        
-    }
+    fn chat_message_list_smoke() {}
 }

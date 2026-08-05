@@ -14,10 +14,14 @@ pub struct CryptoAddress {
 
 impl CryptoAddress {
     /// Create new crypto address with validation
-    pub fn new(address: String, network: Network, currency: Currency) -> Result<Self, CryptoAddressError> {
+    pub fn new(
+        address: String,
+        network: Network,
+        currency: Currency,
+    ) -> Result<Self, CryptoAddressError> {
         // Validate address format based on network
         Self::validate_address_format(&address, &network)?;
-        
+
         // Validate currency is supported on network
         if !Self::is_currency_supported_on_network(&currency, &network) {
             return Err(CryptoAddressError::CurrencyNotSupportedOnNetwork {
@@ -51,9 +55,11 @@ impl CryptoAddress {
     /// Get address in checksum format (for Ethereum-like networks)
     pub fn checksum_address(&self) -> String {
         match self.network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
-                Self::to_checksum_address(&self.address)
-            }
+            Network::Ethereum
+            | Network::Binance
+            | Network::Arbitrum
+            | Network::Polygon
+            | Network::BinanceSmartChain => Self::to_checksum_address(&self.address),
             Network::Tron => self.address.clone(), // TRON uses different format
             Network::Bitcoin => self.address.clone(), // Bitcoin uses different format
         }
@@ -69,7 +75,11 @@ impl CryptoAddress {
     /// Get address type
     pub fn address_type(&self) -> AddressType {
         match self.network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
+            Network::Ethereum
+            | Network::Binance
+            | Network::Arbitrum
+            | Network::Polygon
+            | Network::BinanceSmartChain => {
                 if self.address.starts_with("0x") {
                     AddressType::Externally
                 } else {
@@ -84,7 +94,10 @@ impl CryptoAddress {
                 }
             }
             Network::Bitcoin => {
-                if self.address.starts_with('1') || self.address.starts_with('3') || self.address.starts_with("bc1") {
+                if self.address.starts_with('1')
+                    || self.address.starts_with('3')
+                    || self.address.starts_with("bc1")
+                {
                     AddressType::Externally
                 } else {
                     AddressType::Invalid
@@ -98,7 +111,11 @@ impl CryptoAddress {
         let is_mainnet = std::env::var("BLOCKCHAIN_NETWORK")
             .unwrap_or_default()
             .eq_ignore_ascii_case("mainnet");
-        let bsc_explorer = if is_mainnet { "https://bscscan.com/address/" } else { "https://testnet.bscscan.com/address/" };
+        let bsc_explorer = if is_mainnet {
+            "https://bscscan.com/address/"
+        } else {
+            "https://testnet.bscscan.com/address/"
+        };
         let base_url = match self.network {
             Network::Ethereum => "https://etherscan.io/address/",
             Network::Binance => bsc_explorer,
@@ -115,9 +132,11 @@ impl CryptoAddress {
     /// Validate address format based on network
     fn validate_address_format(address: &str, network: &Network) -> Result<(), CryptoAddressError> {
         match network {
-            Network::Ethereum | Network::Binance | Network::Arbitrum | Network::Polygon | Network::BinanceSmartChain => {
-                Self::validate_ethereum_address(address)
-            }
+            Network::Ethereum
+            | Network::Binance
+            | Network::Arbitrum
+            | Network::Polygon
+            | Network::BinanceSmartChain => Self::validate_ethereum_address(address),
             Network::Tron => Self::validate_tron_address(address),
             Network::Bitcoin => Self::validate_bitcoin_address(address),
         }
@@ -183,7 +202,8 @@ impl CryptoAddress {
     /// Validate Bitcoin address (Base58 encoded, multiple formats)
     fn validate_bitcoin_address(address: &str) -> Result<(), CryptoAddressError> {
         // Bitcoin addresses can be 25-34 characters long depending on type
-        if address.len() < 25 || address.len() > 62 { // Including bech32 which can be longer
+        if address.len() < 25 || address.len() > 62 {
+            // Including bech32 which can be longer
             return Err(CryptoAddressError::InvalidLength {
                 address: address.to_string(),
                 expected: 34, // Typical length
@@ -237,7 +257,7 @@ impl CryptoAddress {
         // Simple checksum implementation (in production, use proper keccak256)
         let addr_lower = address.to_lowercase();
         let hex_part = &addr_lower[2..];
-        
+
         let mut checksum = String::from("0x");
         for (i, c) in hex_part.chars().enumerate() {
             if c.is_ascii_digit() {
@@ -252,7 +272,7 @@ impl CryptoAddress {
                 }
             }
         }
-        
+
         checksum
     }
 }
@@ -325,7 +345,7 @@ impl PaymentAddress {
         } else {
             let addr = self.crypto_address.address();
             if addr.len() > 10 {
-                format!("{}...{}", &addr[0..6], &addr[addr.len()-4..])
+                format!("{}...{}", &addr[0..6], &addr[addr.len() - 4..])
             } else {
                 addr.to_string()
             }
@@ -361,7 +381,10 @@ pub enum CryptoAddressError {
     InvalidCharacters { address: String, expected: String },
 
     #[error("Currency {currency} not supported on network {network}")]
-    CurrencyNotSupportedOnNetwork { currency: Currency, network: Network },
+    CurrencyNotSupportedOnNetwork {
+        currency: Currency,
+        network: Network,
+    },
 
     #[error("Address verification failed")]
     VerificationFailed,
@@ -377,11 +400,8 @@ mod tests {
     #[test]
     fn test_ethereum_address_validation() {
         let valid_eth_addr = "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43";
-        let crypto_addr = CryptoAddress::new(
-            valid_eth_addr.to_string(),
-            Network::Ethereum,
-            Currency::ETH,
-        );
+        let crypto_addr =
+            CryptoAddress::new(valid_eth_addr.to_string(), Network::Ethereum, Currency::ETH);
         assert!(crypto_addr.is_ok());
 
         let addr = crypto_addr.unwrap();
@@ -393,18 +413,14 @@ mod tests {
     #[test]
     fn test_invalid_ethereum_address() {
         let invalid_addresses = vec![
-            "742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43", // Missing 0x
+            "742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43",  // Missing 0x
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f4", // Too short
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f433", // Too long
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5g43", // Invalid character 'g'
         ];
 
         for addr in invalid_addresses {
-            let result = CryptoAddress::new(
-                addr.to_string(),
-                Network::Ethereum,
-                Currency::ETH,
-            );
+            let result = CryptoAddress::new(addr.to_string(), Network::Ethereum, Currency::ETH);
             assert!(result.is_err(), "Should be invalid: {}", addr);
         }
     }
@@ -412,11 +428,8 @@ mod tests {
     #[test]
     fn test_tron_address_validation() {
         let valid_tron_addr = "TLyqzVGLV1srkB7dToTAEqgDSfPtXRJZYH";
-        let crypto_addr = CryptoAddress::new(
-            valid_tron_addr.to_string(),
-            Network::Tron,
-            Currency::TRX,
-        );
+        let crypto_addr =
+            CryptoAddress::new(valid_tron_addr.to_string(), Network::Tron, Currency::TRX);
         assert!(crypto_addr.is_ok());
 
         let addr = crypto_addr.unwrap();
@@ -449,12 +462,13 @@ mod tests {
             "0x742d35cc3681d452bc9a4d0c99d2db8b4e8b5f43".to_string(),
             Network::Ethereum,
             Currency::ETH,
-        ).unwrap();
+        )
+        .unwrap();
 
         let checksum = addr.checksum_address();
         assert!(checksum.starts_with("0x"));
         assert_eq!(checksum.len(), 42);
-        
+
         // Should have mixed case (simplified checksum)
         assert!(checksum.chars().any(|c| c.is_ascii_uppercase()));
         assert!(checksum.chars().any(|c| c.is_ascii_lowercase()));
@@ -466,7 +480,8 @@ mod tests {
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43".to_string(),
             Network::Ethereum,
             Currency::ETH,
-        ).unwrap();
+        )
+        .unwrap();
 
         let url = addr.explorer_url();
         assert!(url.starts_with("https://etherscan.io/address/0x"));
@@ -478,12 +493,10 @@ mod tests {
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43".to_string(),
             Network::Ethereum,
             Currency::ETH,
-        ).unwrap();
+        )
+        .unwrap();
 
-        let mut payment_addr = PaymentAddress::new(
-            crypto_addr,
-            Some("My Wallet".to_string()),
-        );
+        let mut payment_addr = PaymentAddress::new(crypto_addr, Some("My Wallet".to_string()));
 
         assert_eq!(payment_addr.label(), Some("My Wallet"));
         assert!(!payment_addr.is_verified());
@@ -501,13 +514,12 @@ mod tests {
             "0x742d35Cc3681d452bC9a4D0c99D2DB8b4E8B5f43".to_string(),
             Network::Ethereum,
             Currency::ETH,
-        ).unwrap();
+        )
+        .unwrap();
 
         // With label
-        let labeled_addr = PaymentAddress::new(
-            crypto_addr.clone(),
-            Some("Trading Wallet".to_string()),
-        );
+        let labeled_addr =
+            PaymentAddress::new(crypto_addr.clone(), Some("Trading Wallet".to_string()));
         let display = labeled_addr.display_name();
         assert!(display.contains("Trading Wallet"));
 

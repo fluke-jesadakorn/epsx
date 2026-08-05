@@ -11,7 +11,10 @@ pub fn build_content_security_policy() -> String {
 
     let mut csp_parts = vec![
         "default-src 'self'".to_string(),
-        format!("connect-src 'self' {} wss://data.tradingview.com https://api.tradingview.com", origins_str),
+        format!(
+            "connect-src 'self' {} wss://data.tradingview.com https://api.tradingview.com",
+            origins_str
+        ),
         "font-src 'self' data: https://fonts.gstatic.com".to_string(),
         "img-src 'self' data: https: blob:".to_string(),
         "script-src 'none'".to_string(),
@@ -63,7 +66,8 @@ pub fn build_permissions_policy() -> String {
         "usb=()",
         "web-share=(self)",
         "xr-spatial-tracking=()",
-    ].join(", ")
+    ]
+    .join(", ")
 }
 
 /// Additional security headers for API responses
@@ -95,7 +99,7 @@ pub fn api_security_headers() -> Vec<(HeaderName, HeaderValue)> {
 /// Security headers for OIDC endpoints
 pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
     let mut headers = api_security_headers();
-    
+
     // Additional OIDC-specific headers
     headers.extend([
         (
@@ -107,14 +111,14 @@ pub fn oidc_security_headers() -> Vec<(HeaderName, HeaderValue)> {
             HeaderValue::from_static("no-referrer"),
         ),
     ]);
-    
+
     headers
 }
 
 /// Security headers for admin endpoints
 pub fn admin_security_headers() -> Vec<(HeaderName, HeaderValue)> {
     let mut headers = api_security_headers();
-    
+
     // Additional admin-specific headers
     headers.extend([
         (
@@ -126,7 +130,7 @@ pub fn admin_security_headers() -> Vec<(HeaderName, HeaderValue)> {
             HeaderValue::from_static("none"),
         ),
     ]);
-    
+
     headers
 }
 
@@ -154,12 +158,10 @@ mod tests {
     fn test_api_security_headers() {
         let headers = api_security_headers();
         assert!(!headers.is_empty());
-        
+
         // Check for essential security headers
-        let header_names: Vec<&str> = headers.iter()
-            .map(|(name, _)| name.as_str())
-            .collect();
-        
+        let header_names: Vec<&str> = headers.iter().map(|(name, _)| name.as_str()).collect();
+
         assert!(header_names.contains(&"x-content-type-options"));
         assert!(header_names.contains(&"x-frame-options"));
         assert!(header_names.contains(&"cache-control"));
@@ -169,12 +171,13 @@ mod tests {
     fn test_oidc_security_headers() {
         let headers = oidc_security_headers();
         assert!(!headers.is_empty());
-        
+
         // OIDC endpoints should have no-referrer policy
-        let referrer_policy = headers.iter()
+        let referrer_policy = headers
+            .iter()
             .find(|(name, _)| name.as_str() == "referrer-policy")
             .map(|(_, value)| value.to_str().unwrap_or(""));
-        
+
         assert_eq!(referrer_policy, Some("no-referrer"));
     }
 
@@ -182,12 +185,13 @@ mod tests {
     fn test_admin_security_headers() {
         let headers = admin_security_headers();
         assert!(!headers.is_empty());
-        
+
         // Admin endpoints should have comprehensive robot exclusion
-        let robots_tag = headers.iter()
+        let robots_tag = headers
+            .iter()
             .find(|(name, _)| name.as_str() == "x-robots-tag")
             .map(|(_, value)| value.to_str().unwrap_or(""));
-        
+
         assert!(robots_tag.unwrap_or("").contains("noindex"));
         assert!(robots_tag.unwrap_or("").contains("nofollow"));
     }

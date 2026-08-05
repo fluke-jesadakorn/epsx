@@ -23,9 +23,7 @@
 //! migration is verified.
 
 use epsx_contracts::errors::{AppError, AppResult};
-use epsx_contracts::notification_port::{
-    BroadcastNotificationRequest, SendNotificationRequest,
-};
+use epsx_contracts::notification_port::{BroadcastNotificationRequest, SendNotificationRequest};
 
 use crate::infrastructure::adapters::notification::in_process_adapter::InProcessNotificationAdapter;
 use crate::web::auth::AppState;
@@ -70,18 +68,20 @@ impl NotificationService {
         data: Option<serde_json::Value>,
         action_url: Option<String>,
     ) -> Result<String, AppError> {
-        let port = app_state
-            .notification_port
-            .as_ref()
-            .ok_or_else(|| AppError::configuration_error("notification_port not initialized in AppState"))?;
+        let port = app_state.notification_port.as_ref().ok_or_else(|| {
+            AppError::configuration_error("notification_port not initialized in AppState")
+        })?;
         port.send(SendNotificationRequest {
             recipient_wallet_address: recipient_wallet_address.to_string(),
-            notification_type: InProcessNotificationAdapter::format_notification_type_tag(notification_type),
+            notification_type: InProcessNotificationAdapter::format_notification_type_tag(
+                notification_type,
+            ),
             priority: InProcessNotificationAdapter::format_notification_priority_tag(priority),
             title: title.to_string(),
             message: message.to_string(),
             data,
             action_url,
+            expires_at: None,
         })
         .await
     }
@@ -98,16 +98,18 @@ impl NotificationService {
         message: &str,
         data: Option<serde_json::Value>,
     ) -> Result<String, AppError> {
-        let port = app_state
-            .notification_port
-            .as_ref()
-            .ok_or_else(|| AppError::configuration_error("notification_port not initialized in AppState"))?;
+        let port = app_state.notification_port.as_ref().ok_or_else(|| {
+            AppError::configuration_error("notification_port not initialized in AppState")
+        })?;
         port.broadcast(BroadcastNotificationRequest {
-            notification_type: InProcessNotificationAdapter::format_notification_type_tag(notification_type),
+            notification_type: InProcessNotificationAdapter::format_notification_type_tag(
+                notification_type,
+            ),
             priority: InProcessNotificationAdapter::format_notification_priority_tag(priority),
             title: title.to_string(),
             message: message.to_string(),
             data,
+            expires_at: None,
         })
         .await
         .map(|_| "ok".to_string())
@@ -139,7 +141,10 @@ mod tests {
             "expected Err when NOTIFICATIONS_DATABASE_URL is unset"
         );
         let err = result.unwrap_err();
-        assert_eq!(err.kind, epsx_contracts::errors::ErrorKind::ConfigurationError);
+        assert_eq!(
+            err.kind,
+            epsx_contracts::errors::ErrorKind::ConfigurationError
+        );
         assert!(
             err.message.contains("NOTIFICATIONS_DATABASE_URL"),
             "error message should name the missing env var, got: {}",

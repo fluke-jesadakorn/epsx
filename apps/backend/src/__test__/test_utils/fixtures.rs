@@ -1,13 +1,13 @@
 // Test Data Fixtures for Diesel
 // Provides common test data scenarios using Diesel
 
-use diesel::prelude::*;
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
 use anyhow::Result;
+use chrono::{DateTime, Utc};
+use diesel::prelude::*;
+use uuid::Uuid;
 
-use crate::schemas::primary::*;
 use crate::schemas::notifications::wallet_notifications;
+use crate::schemas::primary::*;
 
 /// Test fixture builder for Web3 authentication nonces
 pub struct Web3NonceFixture {
@@ -39,13 +39,14 @@ impl Web3NonceFixture {
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(web3_auth_nonces::table)
-            .values((
+            diesel::insert_into(web3_auth_nonces::table).values((
                 web3_auth_nonces::nonce.eq(&self.nonce),
                 web3_auth_nonces::wallet_address.eq(&self.wallet_address),
                 web3_auth_nonces::expires_at.eq(&self.expires_at),
-            )), conn)
-            .await?;
+            )),
+            conn,
+        )
+        .await?;
 
         Ok(())
     }
@@ -62,7 +63,10 @@ impl Default for WalletUserFixture {
     fn default() -> Self {
         let now = Utc::now();
         Self {
-            wallet_address: format!("0xtest{}", &uuid::Uuid::new_v4().to_string().replace("-", "")[..40]),
+            wallet_address: format!(
+                "0xtest{}",
+                &uuid::Uuid::new_v4().to_string().replace("-", "")[..40]
+            ),
             created_at: now,
             updated_at: now,
         }
@@ -83,18 +87,18 @@ impl WalletUserFixture {
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(wallet_users::table)
-            .values((
+            diesel::insert_into(wallet_users::table).values((
                 wallet_users::wallet_address.eq(&self.wallet_address),
                 wallet_users::created_at.eq(&self.created_at),
                 wallet_users::updated_at.eq(&self.updated_at),
-            )), conn)
-            .await?;
+            )),
+            conn,
+        )
+        .await?;
 
         Ok(())
     }
 }
-
 
 /// Test fixture builder for notifications
 pub struct NotificationFixture {
@@ -110,7 +114,10 @@ impl Default for NotificationFixture {
     fn default() -> Self {
         Self {
             id: Uuid::new_v4(),
-            recipient_wallet_address: format!("0x{}", uuid::Uuid::new_v4().to_string().replace("-", "")),
+            recipient_wallet_address: format!(
+                "0x{}",
+                uuid::Uuid::new_v4().to_string().replace("-", "")
+            ),
             title: "Test Notification".to_string(),
             body: "This is a test notification".to_string(),
             notification_type: "info".to_string(),
@@ -135,16 +142,17 @@ impl NotificationFixture {
     /// Insert the fixture into the database
     pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
         diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(wallet_notifications::table)
-            .values((
+            diesel::insert_into(wallet_notifications::table).values((
                 wallet_notifications::id.eq(&self.id),
                 wallet_notifications::recipient_wallet_address.eq(&self.recipient_wallet_address),
                 wallet_notifications::title.eq(&self.title),
                 wallet_notifications::body.eq(&self.body),
                 wallet_notifications::notification_type.eq(&self.notification_type),
                 wallet_notifications::created_at.eq(&self.created_at),
-            )), conn)
-            .await?;
+            )),
+            conn,
+        )
+        .await?;
 
         Ok(())
     }
@@ -169,7 +177,6 @@ impl TestScenarios {
 
         Ok((wallet_fixture, nonce_fixture))
     }
-
 
     /// Create notification scenario for a user
     pub async fn create_notification_scenario(

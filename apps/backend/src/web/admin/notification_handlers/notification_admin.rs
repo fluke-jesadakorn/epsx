@@ -1,6 +1,6 @@
 // Admin notification handlers
 use axum::{
-    extract::{State, Path, Query},
+    extract::{Path, Query, State},
     http::HeaderMap,
     response::IntoResponse,
     Json,
@@ -8,20 +8,33 @@ use axum::{
 use chrono::Utc;
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
+use url::Url;
 
+use super::super::notification_query_helper::NotificationQueryFilter;
+use super::super::wallet_notification_repository::WalletNotificationRepository;
+use super::notification_types::*;
 use crate::{
     infrastructure::services::audit_service::{AuditCtx, AuditEntry},
+    prelude::TlsPool,
     web::auth::AppState,
     web::notifications::SSENotification,
 };
 use epsx_contracts::errors::{AppError, ErrorKind};
-use super::notification_types::*;
-use super::super::notification_query_helper::NotificationQueryFilter;
-use super::super::wallet_notification_repository::WalletNotificationRepository;
 
 // ============================================================================
 // ADMIN HANDLERS
 // ============================================================================
+
+async fn require_notifications_pool() -> Result<&'static TlsPool, AppError> {
+    crate::infrastructure::database::get_notifications_pool()
+        .await
+        .map_err(|error| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Notifications database unavailable: {error}"),
+            )
+        })
+}
 
 /// Send notification to specific user, plan, or broadcast
 #[utoipa::path(
@@ -39,22 +52,50 @@ use super::super::wallet_notification_repository::WalletNotificationRepository;
 )]
 pub async fn send_notification_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Json(request): Json<SendNotificationRequest>,
 ) -> Result<impl IntoResponse, AppError> {
     // Validate request
-    if request.title.trim().is_empty() {
+    if !valid_notification_text(&request.title, 300) {
         return Err(AppError::new(
             ErrorKind::ValidationError,
-            "Notification title cannot be empty".to_string(),
+            "Notification title must be non-empty, control-free, and at most 300 characters"
+                .to_string(),
         ));
     }
 
-    if request.message.trim().is_empty() {
+    if !valid_notification_text(&request.message, 10_000) {
         return Err(AppError::new(
             ErrorKind::ValidationError,
-            "Notification message cannot be empty".to_string(),
+            "Notification message must be non-empty, control-free, and at most 10000 characters"
+                .to_string(),
+        ));
+    }
+
+    if request
+        .action_url
+        .as_deref()
+        .is_some_and(|url| !valid_notification_url(url))
+    {
+        return Err(AppError::new(
+            ErrorKind::ValidationError,
+            "action_url must be a bounded relative path or HTTPS URL without credentials"
+                .to_string(),
+        ));
+    }
+
+    if request
+        .image_url
+        .as_deref()
+        .is_some_and(|url| !valid_notification_url(url))
+    {
+        return Err(AppError::new(
+            ErrorKind::ValidationError,
+            "image_url must be a bounded relative path or HTTPS URL without credentials"
+                .to_string(),
         ));
     }
 
@@ -71,8 +112,12 @@ pub async fn send_notification_handler(
             wallet_address: String,
         }
 
-        let mut conn = app_state.db_pool.get().await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+        let mut conn = app_state.db_pool.get().await.map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to get database connection: {}", e),
+            )
+        })?;
 
         let plan_members = diesel::sql_query(
             r#"
@@ -80,12 +125,17 @@ pub async fn send_notification_handler(
             FROM wallet_plan_assignments wga
             INNER JOIN plans pg ON wga.plan_id = pg.id
             WHERE pg.slug = $1 AND wga.is_active = true
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(&plan)
         .load::<PlanMemberRow>(&mut conn)
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch plan members: {}", e)))?
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch plan members: {}", e),
+            )
+        })?
         .into_iter()
         .map(|r| r.wallet_address)
         .collect::<Vec<String>>();
@@ -111,11 +161,7 @@ pub async fn send_notification_handler(
 
     // Use repository for database operations
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-        std::sync::Arc::new(p)
-    } else {
-        app_state.db_pool.clone()
-    };
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
     let repo = WalletNotificationRepository::new(notifications_pool);
 
     // Track total subscribers across all recipients
@@ -155,7 +201,8 @@ pub async fn send_notification_handler(
             request.expires_at,
             request.action_url.clone(),
             request.image_url.clone(),
-        ).await?;
+        )
+        .await?;
 
         // Publish via PubsubPort (if available)
         if let Some(pubsub) = &app_state.pubsub {
@@ -209,7 +256,8 @@ pub async fn send_notification_handler(
                 request.expires_at,
                 request.action_url.clone(),
                 request.image_url.clone(),
-            ).await?;
+            )
+            .await?;
 
             // Publish via PubsubPort (if available)
             if let Some(pubsub) = &app_state.pubsub {
@@ -223,7 +271,7 @@ pub async fn send_notification_handler(
                 pubsub.publish(&channel, &payload).await?;
                 total_subscriber_count += 1;
             } else {
-                tracing::warn!("PubsubPort not available for {} - notification saved to database but not broadcast in real-time", wallet_address);
+                tracing::warn!("PubsubPort not available - notification saved to database but not broadcast in real-time");
             }
 
             // Update delivery attempt
@@ -233,25 +281,31 @@ pub async fn send_notification_handler(
 
     // Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("notification", "create", "notification")
-        .id(&notification_ids.join(","))
-        .after(serde_json::json!({
-            "title": request.title,
-            "message": request.message,
-            "notification_type": request.notification_type,
-            "priority": request.priority,
-            "broadcast": request.broadcast,
-            "recipient_wallet_address": request.recipient_wallet_address,
-            "recipient_plan": request.recipient_plan,
-            "recipients_count": total_subscriber_count,
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("notification", "create", "notification")
+            .id(&notification_ids.join(","))
+            .after(serde_json::json!({
+                "notification_type": request.notification_type,
+                "priority": request.priority,
+                "broadcast": request.broadcast,
+                "recipients_count": total_subscriber_count,
+                "title_chars": request.title.chars().count(),
+                "message_chars": request.message.chars().count(),
+                "has_action_url": request.action_url.is_some(),
+                "has_image_url": request.image_url.is_some(),
+            })),
+    );
 
     // Build response
     let delivery_message = if app_state.pubsub.is_some() {
         if is_broadcast {
             "Broadcast notification sent successfully via Redis".to_string()
         } else {
-            format!("Notifications sent to {} recipients via Redis", wallet_addresses.len())
+            format!(
+                "Notifications sent to {} recipients via Redis",
+                wallet_addresses.len()
+            )
         }
     } else {
         "Notification(s) saved to database (Redis unavailable - no real-time broadcast)".to_string()
@@ -276,6 +330,66 @@ pub async fn send_notification_handler(
     };
 
     Ok(Json(response))
+}
+
+fn valid_notification_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_notification_url(value: &str) -> bool {
+    if value.is_empty()
+        || value.len() > 2_048
+        || value
+            .chars()
+            .any(|character| character.is_control() || character.is_whitespace())
+        || value.contains('\\')
+    {
+        return false;
+    }
+
+    if value.starts_with('/') {
+        return !value.starts_with("//");
+    }
+
+    let Ok(parsed) = Url::parse(value) else {
+        return false;
+    };
+    parsed.scheme().eq_ignore_ascii_case("https")
+        && parsed.host_str().is_some()
+        && parsed.username().is_empty()
+        && parsed.password().is_none()
+}
+
+#[cfg(test)]
+mod privacy_tests {
+    use super::{valid_notification_text, valid_notification_url};
+
+    #[test]
+    fn notification_text_is_bounded_and_control_free() {
+        assert!(valid_notification_text("Payment complete", 300));
+        assert!(!valid_notification_text("   ", 300));
+        assert!(!valid_notification_text("line\nbreak", 300));
+        assert!(!valid_notification_text(&"x".repeat(301), 300));
+    }
+
+    #[test]
+    fn notification_urls_allow_relative_or_https_without_credentials() {
+        assert!(valid_notification_url("/notifications/evt-1"));
+        assert!(valid_notification_url(
+            "https://cdn.example/notification.png"
+        ));
+        assert!(!valid_notification_url("//evil.example/notification.png"));
+        assert!(!valid_notification_url(
+            "http://cdn.example/notification.png"
+        ));
+        assert!(!valid_notification_url(
+            "https://user:secret@cdn.example/notification.png"
+        ));
+        assert!(!valid_notification_url("javascript:alert(1)"));
+        assert!(!valid_notification_url("/notifications\\evt-1"));
+    }
 }
 
 /// Get all notifications (admin view with filters)
@@ -320,32 +434,33 @@ pub async fn get_all_notifications_handler(
     }
 
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-        std::sync::Arc::new(p)
-    } else {
-        app_state.db_pool.clone()
-    };
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
     let repo = WalletNotificationRepository::new(notifications_pool);
 
     // Fetch notifications
-    let records = repo.find_with_filters(&filter, pg.limit as i64, pg.offset).await?;
+    let records = repo
+        .find_with_filters(&filter, pg.limit as i64, pg.offset)
+        .await?;
 
-    let notifications: Vec<NotificationDto> = records.into_iter().map(|r| NotificationDto {
-        id: r.id.to_string(),
-        wallet_address: r.wallet_address,
-        notification_type: r.notification_type,
-        title: r.title,
-        message: r.message,
-        data: r.data,
-        priority: r.priority,
-        timestamp: r.timestamp,
-        expires_at: r.expires_at,
-        read_at: r.read_at,
-        clicked_at: r.clicked_at,
-        delivered_at: r.delivered_at,
-        action_url: r.action_url,
-        image_url: r.image_url,
-    }).collect();
+    let notifications: Vec<NotificationDto> = records
+        .into_iter()
+        .map(|r| NotificationDto {
+            id: r.id.to_string(),
+            wallet_address: r.wallet_address,
+            notification_type: r.notification_type,
+            title: r.title,
+            message: r.message,
+            data: r.data,
+            priority: r.priority,
+            timestamp: r.timestamp,
+            expires_at: r.expires_at,
+            read_at: r.read_at,
+            clicked_at: r.clicked_at,
+            delivered_at: r.delivered_at,
+            action_url: r.action_url,
+            image_url: r.image_url,
+        })
+        .collect();
 
     // Get total count
     let total_count = repo.count_with_filters(&filter).await?;
@@ -388,13 +503,13 @@ pub async fn get_notification_stats_handler(
     State(app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
     // Get notifications database connection
-    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-        std::sync::Arc::new(p)
-    } else {
-        app_state.db_pool.clone()
-    };
-    let mut conn = notifications_pool.get().await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let mut conn = notifications_pool.get().await.map_err(|e| {
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to get database connection: {}", e),
+        )
+    })?;
 
     #[derive(QueryableByName)]
     struct CountRow {
@@ -403,11 +518,18 @@ pub async fn get_notification_stats_handler(
     }
 
     // Get total notifications count (exclude soft-deleted)
-    let total_count: i64 = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'")
-        .get_result::<CountRow>(&mut conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count notifications: {}", e)))?
-        .count;
+    let total_count: i64 = diesel::sql_query(
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
+    )
+    .get_result::<CountRow>(&mut conn)
+    .await
+    .map_err(|e| {
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to count notifications: {}", e),
+        )
+    })?
+    .count;
 
     // Get notifications sent today (exclude soft-deleted)
     let today_count: i64 = diesel::sql_query(
@@ -483,12 +605,17 @@ pub async fn get_notification_stats_handler(
 
     // Calculate read rate (exclude soft-deleted)
     let read_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'"
+        "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'",
     )
-        .get_result::<CountRow>(&mut conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count read notifications: {}", e)))?
-        .count;
+    .get_result::<CountRow>(&mut conn)
+    .await
+    .map_err(|e| {
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to count read notifications: {}", e),
+        )
+    })?
+    .count;
 
     let read_rate = if total_count > 0 {
         (read_count as f64) / (total_count as f64)
@@ -498,15 +625,15 @@ pub async fn get_notification_stats_handler(
 
     // Calculate click rate (Not tracked in new schema, defaulting to 0)
     let clicked_count: i64 = 0;
-/*
-    let clicked_count: i64 = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
-    )
-        .get_result::<CountRow>(&mut conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?
-        .count;
-*/
+    /*
+        let clicked_count: i64 = diesel::sql_query(
+            "SELECT COUNT(*) as count FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
+        )
+            .get_result::<CountRow>(&mut conn)
+            .await
+            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?
+            .count;
+    */
 
     let click_rate = if total_count > 0 {
         (clicked_count as f64) / (total_count as f64)
@@ -534,11 +661,16 @@ pub async fn get_notification_stats_handler(
         GROUP BY hour
         ORDER BY hour DESC
         LIMIT 10
-        "#
+        "#,
     )
-        .load::<RecentActivityRow>(&mut conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get recent activity: {}", e)))?;
+    .load::<RecentActivityRow>(&mut conn)
+    .await
+    .map_err(|e| {
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to get recent activity: {}", e),
+        )
+    })?;
 
     let recent_activity: Vec<RecentActivity> = recent_activity_records
         .into_iter()
@@ -590,30 +722,39 @@ pub async fn get_notification_stats_handler(
 )]
 pub async fn delete_admin_notification_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: HeaderMap,
     Path(notification_id): Path<String>,
 ) -> Result<impl IntoResponse, AppError> {
-    let notif_uuid = uuid::Uuid::parse_str(&notification_id)
-        .map_err(|e| AppError::new(ErrorKind::ValidationError, format!("Invalid notification ID: {}", e)))?;
+    let notif_uuid = uuid::Uuid::parse_str(&notification_id).map_err(|e| {
+        AppError::new(
+            ErrorKind::ValidationError,
+            format!("Invalid notification ID: {}", e),
+        )
+    })?;
 
     // Get notifications database connection
-    let notifications_pool = if let Ok(p) = crate::infrastructure::database::get_notifications_pool().await {
-        std::sync::Arc::new(p)
-    } else {
-        app_state.db_pool.clone()
-    };
-    let mut conn = notifications_pool.get().await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get database connection: {}", e)))?;
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let mut conn = notifications_pool.get().await.map_err(|e| {
+        AppError::new(
+            ErrorKind::DatabaseError,
+            format!("Failed to get database connection: {}", e),
+        )
+    })?;
 
     // Hard delete for admin
-    let rows_affected = diesel::sql_query(
-        "DELETE FROM wallet_notifications WHERE id = $1"
-    )
-    .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-    .execute(&mut conn)
-    .await
-    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
+    let rows_affected = diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
+        .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
+        .execute(&mut conn)
+        .await
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to delete notification: {}", e),
+            )
+        })?;
 
     if rows_affected == 0 {
         return Err(AppError::new(
@@ -624,11 +765,14 @@ pub async fn delete_admin_notification_handler(
 
     // Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    app_state.audit.log(ctx, AuditEntry::new("notification", "delete", "notification")
-        .id(&notification_id)
-        .after(serde_json::json!({
-            "deleted": true,
-        })));
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("notification", "delete", "notification")
+            .id(&notification_id)
+            .after(serde_json::json!({
+                "deleted": true,
+            })),
+    );
 
     Ok(Json(serde_json::json!({
         "success": true,

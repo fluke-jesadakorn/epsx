@@ -15,7 +15,13 @@ pub fn Form(
     #[props(default = None)] class_name: Option<String>,
     children: Element,
 ) -> Element {
-    let cls = format!("form{}", class_name.as_ref().map(|c| format!(" {}", c)).unwrap_or_default());
+    let cls = format!(
+        "form{}",
+        class_name
+            .as_ref()
+            .map(|c| format!(" {}", c))
+            .unwrap_or_default()
+    );
     rsx! {
         form {
             class: "{cls}",
@@ -40,7 +46,10 @@ pub fn Label(
     children: Element,
 ) -> Element {
     let mut cls = "label".to_string();
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         label { class: "{cls}", r#for: html_for.as_deref().unwrap_or(""),
             {children}
@@ -88,7 +97,10 @@ pub fn FormSection(
     children: Element,
 ) -> Element {
     let mut cls = "form-section space-y-4".to_string();
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         section { class: "{cls}",
             if title.is_some() || description.is_some() {
@@ -116,7 +128,10 @@ pub fn FormRow(
 ) -> Element {
     let cols = columns.max(1).to_string();
     let mut cls = format!("form-row grid grid-cols-1 gap-4 md:grid-cols-{cols}");
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         div { class: "{cls}", {children} }
     }
@@ -136,7 +151,10 @@ pub fn InputGroup(
     children: Element,
 ) -> Element {
     let mut cls = "input-group space-y-2".to_string();
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         div { class: "{cls}",
             if let Some(l) = &label {
@@ -166,13 +184,17 @@ pub fn RadioGroup(
     name: String,
     options: Vec<(String, String)>,
     /// Currently-selected value. None = no selection.
-    #[props(default = None)] value: Option<String>,
+    #[props(default = None)]
+    value: Option<String>,
     /// Label rendered above the group.
-    #[props(default = None)] label: Option<String>,
+    #[props(default = None)]
+    label: Option<String>,
     /// Inline help text.
-    #[props(default = None)] help: Option<String>,
+    #[props(default = None)]
+    help: Option<String>,
     /// Error message — also flips `aria-invalid` on the group.
-    #[props(default = None)] error: Option<String>,
+    #[props(default = None)]
+    error: Option<String>,
     #[props(default = false)] required: bool,
     #[props(default = false)] disabled: bool,
     #[props(default = None)] class_name: Option<String>,
@@ -180,7 +202,10 @@ pub fn RadioGroup(
 ) -> Element {
     let group_id = format!("radio-{}", name);
     let mut cls = "radio-group space-y-2".to_string();
-    if let Some(c) = &class_name { cls.push(' '); cls.push_str(c); }
+    if let Some(c) = &class_name {
+        cls.push(' ');
+        cls.push_str(c);
+    }
     rsx! {
         div { class: "{cls}",
             role: "radiogroup",

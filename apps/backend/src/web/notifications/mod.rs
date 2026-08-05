@@ -1,23 +1,17 @@
 // Redis-based notification system with database persistence
 // Uses Redis pub/sub for real-time delivery + PostgreSQL for offline queue
 
-pub mod sse_handlers;
 pub mod offline_queue;
+pub mod sse_handlers;
 
 #[cfg(test)]
 mod tests;
 
 pub use sse_handlers::{
-    SSENotification,
-    NotificationType,
-    NotificationPriority,
-    sse_notifications_handler,
+    sse_notifications_handler, NotificationPriority, NotificationType, SSENotification,
 };
 
 pub use offline_queue::{
-    fetch_queued_notifications,
-    mark_as_delivered,
-    mark_as_acknowledged,
-    cleanup_old_notifications,
-    get_notification_stats,
+    cleanup_old_notifications, fetch_queued_notifications, get_notification_stats,
+    mark_as_acknowledged, mark_as_delivered,
 };

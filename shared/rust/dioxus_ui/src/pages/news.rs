@@ -228,60 +228,73 @@ fn NewsPageBody(outcome: NewsListOutcome, retry_href: String) -> Element {
     };
 
     rsx! {
-        div { class: "container page-content news-page",
-            header { class: "mb-12 text-center news-header",
-                div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
-                    Icon { name: "newspaper".to_string(), size: Some(14) }
-                    " EPSX Platform"
-                }
-                h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
-                    "News & " span { class: "gradient-text-cool", "Updates" }
-                }
-                p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
-                    "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
-                }
-                if let Some(total) = total {
-                    p { class: "mt-3 text-sm text-muted-foreground/60",
-                        {
-                            let noun = if total == 1 { "article" } else { "articles" };
-                            format!("{total} {noun}")
+        // Keep the public news route on the same full-width dark frame as
+        // the production page. The responsive inner padding is intentionally
+        // owned by this wrapper so the header and featured card share the
+        // exact 16px desktop edge used by the source composition.
+        div { class: "relative min-h-screen bg-slate-950",
+            div { class: "relative z-10 mx-auto max-w-7xl px-4 py-12 sm:py-16",
+                div { class: "page-content news-page w-full",
+                    header { class: "mb-12 text-center news-header",
+                        div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
+                            Icon { name: "newspaper".to_string(), size: Some(14) }
+                            " EPSX Platform"
+                        }
+                        h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
+                            "News & " span { class: "gradient-text-cool", "Updates" }
+                        }
+                        p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
+                            "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
+                        }
+                        if let Some(total) = total {
+                            p { class: "mt-3 text-sm text-muted-foreground/60",
+                                {
+                                    let noun = if total == 1 { "article" } else { "articles" };
+                                    format!("{total} {noun}")
+                                }
+                            }
                         }
                     }
+                    // The current production composition exposes filtering via
+                    // query-string links rather than a persistent toolbar. Keep
+                    // the validated form in the SSR tree for keyboard and
+                    // assistive-technology users without adding a visible row
+                    // that shifts the featured article below the fold.
+                    div { class: "sr-only", NewsFilters { initial_query: query.clone(), initial_category: category.clone() } }
+                    match outcome {
+                        NewsListOutcome::Ready {
+                            articles,
+                            total,
+                            page,
+                            total_pages,
+                            query,
+                            category,
+                            ..
+                        } => rsx! {
+                            NewsList {
+                                posts: articles,
+                                total,
+                                page,
+                                total_pages,
+                                query,
+                                category,
+                            }
+                        },
+                        NewsListOutcome::Empty { total, page, total_pages, query, category, .. } => rsx! {
+                            NewsEmptyState {
+                                filtered: !query.is_empty() || category != "all",
+                                page,
+                                total,
+                                total_pages,
+                                query,
+                                category,
+                            }
+                        },
+                        NewsListOutcome::Error { code } => rsx! {
+                            NewsErrorState { code, retry_href }
+                        },
+                    }
                 }
-            }
-            NewsFilters { initial_query: query.clone(), initial_category: category.clone() }
-            match outcome {
-                NewsListOutcome::Ready {
-                    articles,
-                    total,
-                    page,
-                    total_pages,
-                    query,
-                    category,
-                    ..
-                } => rsx! {
-                    NewsList {
-                        posts: articles,
-                        total,
-                        page,
-                        total_pages,
-                        query,
-                        category,
-                    }
-                },
-                NewsListOutcome::Empty { total, page, total_pages, query, category, .. } => rsx! {
-                    NewsEmptyState {
-                        filtered: !query.is_empty() || category != "all",
-                        page,
-                        total,
-                        total_pages,
-                        query,
-                        category,
-                    }
-                },
-                NewsListOutcome::Error { code } => rsx! {
-                    NewsErrorState { code, retry_href }
-                },
             }
         }
     }

@@ -1,6 +1,6 @@
-use crate::prelude::*;
-use crate::domain::permission_management::{PlanId, entities::PlanAssignment};
+use crate::domain::permission_management::{entities::PlanAssignment, PlanId};
 use crate::domain::wallet_management::WalletAddress;
+use crate::prelude::*;
 
 /// Repository port for plan assignment operations
 #[async_trait]

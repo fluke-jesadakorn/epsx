@@ -4,15 +4,16 @@
 # Cloudflare Tunnel (running on the host) can reach them through
 # the port-bridge LaunchAgent (`com.epsx.pay-port-bridge`).
 #
-# Allocation follows the prod 30000-30099 pattern:
-#   - 30082 = epsx-pay-svc (backend service, port 8103)
-#   - 30083 = epsx-pay-bff (Dioxus SSR BFF, port 3002)
+# Allocation follows the prod 30000-30099 pattern and stays distinct from
+# the staging overlay's 30082/30083 pair:
+#   - 30084 = epsx-pay-svc (backend service, port 8103)
+#   - 30085 = epsx-pay-bff (Dioxus SSR BFF, port 3002)
 #
-# The port-bridge LaunchAgent listens on 4747 + 4748 on the host
-# and forwards to 30082 + 30083 on the colima VM's eth0 IP
+# The port-bridge LaunchAgent listens on 4751 + 4752 on the host
+# and forwards to 30084 + 30085 on the colima VM's eth0 IP
 # (192.168.5.3). The Cloudflare Tunnel config
 # (infrastructure/cloudflare/cloudflared-config.prod.yml) routes
-# `pay.epsx.io` → http://localhost:4747 (→ 30082 → epsx-pay-svc:8103).
+# `pay.epsx.io` → http://localhost:4752 (→ 30085 → epsx-pay-bff:3002).
 #
 # The NodePort assignments for `api.epsx.io` (30080) and
 # `admin.epsx.io` (30001) are unchanged. The new NodePorts do
@@ -29,7 +30,7 @@ spec:
     - name: http
       port: 8103
       targetPort: 8103
-      nodePort: 30082
+      nodePort: 30084
 ---
 apiVersion: v1
 kind: Service
@@ -41,4 +42,4 @@ spec:
     - name: http
       port: 3002
       targetPort: 3002
-      nodePort: 30083
+      nodePort: 30085

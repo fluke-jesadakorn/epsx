@@ -29,11 +29,11 @@ impl WalletAddress {
     pub fn new(value: impl Into<String>) -> Result<Self, WalletAddressError> {
         let value = value.into();
         Self::validate_address(&value)?;
-        
+
         // Normalize to lowercase checksummed format
         let address = Address::from_str(&value)
             .map_err(|_| WalletAddressError::InvalidFormat(value.clone()))?;
-        
+
         Ok(Self {
             value: format!("{:?}", address).to_lowercase(),
         })
@@ -73,12 +73,13 @@ impl WalletAddress {
     pub fn is_valid(&self) -> bool {
         Self::validate_address(&self.value).is_ok()
     }
-    
+
     /// Convert to UserId for compatibility with legacy session system
     /// In Web3-first architecture, wallet address IS the user ID
     pub fn to_user_id(&self) -> epsx_contracts::value_objects::UserId {
-        epsx_contracts::value_objects::UserId::from_string(self.value.clone())
-            .expect("Valid WalletAddress should always convert to UserId - this is a programming error")
+        epsx_contracts::value_objects::UserId::from_string(self.value.clone()).expect(
+            "Valid WalletAddress should always convert to UserId - this is a programming error",
+        )
     }
 
     fn validate_address(value: &str) -> Result<(), WalletAddressError> {
@@ -174,7 +175,7 @@ mod tests {
     fn zero_address_detection() {
         let zero_addr = WalletAddress::new("0x0000000000000000000000000000000000000000").unwrap();
         assert!(zero_addr.is_zero());
-        
+
         let normal_addr = WalletAddress::new("0x742d35Cc6634C0532925a3b8D369D7763F3c45c6").unwrap();
         assert!(!normal_addr.is_zero());
     }

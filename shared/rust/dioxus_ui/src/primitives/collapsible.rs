@@ -31,8 +31,11 @@ pub fn CollapsibleRoot(
     let is_open = open.unwrap_or(*internal.read());
     let extra = class_name.unwrap_or_default();
     let cls = if extra.is_empty() {
-        if is_open { "collapsible collapsible-open".to_string() }
-        else { "collapsible".to_string() }
+        if is_open {
+            "collapsible collapsible-open".to_string()
+        } else {
+            "collapsible".to_string()
+        }
     } else {
         format!("collapsible {extra}")
     };

@@ -3,54 +3,46 @@
 // It encapsulates all business rules related to wallet lifecycle and access control
 
 pub mod aggregates;
+pub mod domain_services;
 pub mod entities;
-pub mod value_objects;
 pub mod events;
 pub mod repository_ports;
-pub mod domain_services;
+pub mod value_objects;
 
 // Re-export key types for easy access
 // Web3 wallet user types (primary)
-pub use aggregates::{WalletUser, WalletMetadata};
+pub use aggregates::{WalletMetadata, WalletUser};
 
 pub use value_objects::{
-    WalletAddress, // Primary Web3 wallet identity
     Permission,    // Enhanced for Web3 permission system
+    WalletAddress, // Primary Web3 wallet identity
 };
 
 // Re-export shared kernel value objects
-pub use epsx_contracts::value_objects::{UserId, SessionId};
+pub use epsx_contracts::value_objects::{SessionId, UserId};
 
 pub use events::{
+    WalletPermissionsUpdatedEvent,
+    WalletUserActivatedEvent,
     // Web3 wallet events
     WalletUserCreatedEvent,
-    WalletUserActivatedEvent,
     WalletUserDeactivatedEvent,
-    WalletPermissionsUpdatedEvent,
-
 };
 
 pub use repository_ports::{
+    WalletUserAnalyticsPort,
     // Web3 wallet repository ports
     WalletUserRepositoryPort,
-    WalletUserAnalyticsPort,
     WalletUserSearchCriteria,
     WalletUserSearchResult,
     WalletUserStatistics,
     Web3Analytics,
     // Session repository ports
-
 };
 
 // Web3 wallet permission services
 pub use domain_services::{
-    WalletPermissionService,
-    Web3PermissionContext,
-    Web3ValidationResult,
+    HasChainAccessSpecification, HasWalletPlatformAccessSpecification, IsWalletAdminSpecification,
+    PermissionSyncResult, WalletPermissionService, Web3PermissionContext, Web3ValidationResult,
     Web3ValidationType,
-    PermissionSyncResult,
-    IsWalletAdminSpecification,
-    HasWalletPlatformAccessSpecification,
-    HasChainAccessSpecification,
-
 };

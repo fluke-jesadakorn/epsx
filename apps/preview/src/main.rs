@@ -6,7 +6,7 @@ use axum::{
     Json, Router,
 };
 use epsx_client::ServiceClient;
-use epsx_templates::{page_shell_with_body_class, theme_toggle_button, logo};
+use epsx_templates::{logo, page_shell_with_body_class, theme_toggle_button};
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -28,10 +28,16 @@ async fn main() {
     epsx_observability::Observability::init("bff-preview");
 
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://localhost:8080".to_string());
-    let port: u16 = std::env::var("PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3003);
+    let port: u16 = std::env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(3003);
     let host = std::env::var("HOST").unwrap_or_else(|_| "0.0.0.0".to_string());
 
-    let cfg = epsx_client::ClientConfig { base_url: api_url.clone(), timeout: std::time::Duration::from_secs(30) };
+    let cfg = epsx_client::ClientConfig {
+        base_url: api_url.clone(),
+        timeout: std::time::Duration::from_secs(30),
+    };
     let state = AppState {
         content: Arc::new(ServiceClient::new(cfg)),
         api_url,
@@ -50,16 +56,26 @@ async fn main() {
     axum::serve(listener, app).await.unwrap();
 }
 
-async fn api_health() -> &'static str { "ok" }
+async fn api_health() -> &'static str {
+    "ok"
+}
 
 async fn preview_json(
     axum::extract::State(state): axum::extract::State<AppState>,
     AxPath(slug): AxPath<String>,
     Query(q): Query<PreviewQuery>,
 ) -> Result<Response, StatusCode> {
-    let slug = if slug.is_empty() { "home".to_string() } else { slug };
+    let slug = if slug.is_empty() {
+        "home".to_string()
+    } else {
+        slug
+    };
     let path = format!("/api/v1/content/pages/{}", slug);
-    let mut page = state.content.get_plain(&path).await.map_err(|_| StatusCode::BAD_GATEWAY)?;
+    let mut page = state
+        .content
+        .get_plain(&path)
+        .await
+        .map_err(|_| StatusCode::BAD_GATEWAY)?;
 
     if let Some(session) = q.edit_session {
         page["preview_session"] = serde_json::json!(session);
@@ -75,15 +91,23 @@ async fn preview_html(
     AxPath(slug): AxPath<String>,
     Query(q): Query<PreviewQuery>,
 ) -> Result<Response, StatusCode> {
-    let slug = if slug.is_empty() { "home".to_string() } else { slug };
+    let slug = if slug.is_empty() {
+        "home".to_string()
+    } else {
+        slug
+    };
     let path = format!("/api/v1/content/pages/{}", slug);
     let page = state.content.get_plain(&path).await.map_err(|e| {
         tracing::warn!("Failed to load page {}: {}", slug, e);
         StatusCode::NOT_FOUND
     })?;
 
-    let title = page.get("title").and_then(|v| v.as_str()).unwrap_or("Untitled");
-    let blocks_str = page.get("blocks_json")
+    let title = page
+        .get("title")
+        .and_then(|v| v.as_str())
+        .unwrap_or("Untitled");
+    let blocks_str = page
+        .get("blocks_json")
         .and_then(|v| v.as_str())
         .or_else(|| page.get("blocks").and_then(|v| v.as_str()))
         .unwrap_or("[]");
@@ -116,12 +140,23 @@ async fn preview_html(
   <i data-lucide="eye"></i> PREVIEW MODE{session}
 </div>
 <div style="padding-top:6rem;">{body}</div>"##,
-        session = if session.is_empty() { String::new() } else { format!(" — session {}", session) },
+        session = if session.is_empty() {
+            String::new()
+        } else {
+            format!(" — session {}", session)
+        },
         body = body,
     );
 
     let full_title = format!("{} (Preview)", title);
-    let shell = page_shell_with_body_class(&full_title, "Page preview", &nav, &main_body, false, "page-bg");
+    let shell = page_shell_with_body_class(
+        &full_title,
+        "Page preview",
+        &nav,
+        &main_body,
+        false,
+        "page-bg",
+    );
     let html = format!("{}\n<style>{}</style>", shell, theme_css);
     Ok(Html(html).into_response())
 }
@@ -148,20 +183,34 @@ async fn preview_index() -> Response {
   <a href="/" class="btn btn-gradient btn-lg"><i data-lucide="home"></i> Back to Home</a>
 </div>
 </section>"##;
-    let shell = page_shell_with_body_class("EPSX Preview", "Page preview server", &nav, body, false, "page-bg");
+    let shell = page_shell_with_body_class(
+        "EPSX Preview",
+        "Page preview server",
+        &nav,
+        body,
+        false,
+        "page-bg",
+    );
     Html(shell).into_response()
 }
 
 fn theme_to_css(theme: &serde_json::Value) -> String {
     let mut css = String::new();
-    if let Some(colors) = theme.get("colors_json").and_then(|v| v.as_object())
-        .or_else(|| theme.get("colors").and_then(|v| v.as_object())) {
+    if let Some(colors) = theme
+        .get("colors_json")
+        .and_then(|v| v.as_object())
+        .or_else(|| theme.get("colors").and_then(|v| v.as_object()))
+    {
         for (k, v) in colors {
             let v = v.as_str().unwrap_or("");
             css.push_str(&format!("--{}: {};", k, v));
         }
     }
-    if !css.is_empty() { format!(":root{{{}}}", css) } else { String::new() }
+    if !css.is_empty() {
+        format!(":root{{{}}}", css)
+    } else {
+        String::new()
+    }
 }
 
 fn render_blocks(blocks_json: &str) -> String {

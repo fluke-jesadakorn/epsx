@@ -1,14 +1,14 @@
+use super::types::*;
+use crate::web::auth::AppState;
+use crate::web::responses::wrappers::AdminResponse;
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
-use chrono::{Utc, Duration};
-use tracing::{error, info};
+use chrono::{Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::RunQueryDsl;
-use crate::web::auth::AppState;
-use crate::web::responses::wrappers::AdminResponse;
-use super::types::*;
+use tracing::{error, info};
 
 /**
  * Get user analytics
@@ -49,7 +49,7 @@ pub async fn get_user_analytics_handler(
         "SELECT
             COUNT(*)::bigint as total_users,
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users
-         FROM wallet_users"
+         FROM wallet_users",
     )
     .get_result::<UserCounts>(&mut conn)
     .await
@@ -167,5 +167,6 @@ pub async fn get_user_analytics_handler(
     };
 
     info!("Admin: Successfully retrieved user analytics");
-    AdminResponse::success_with_message(response, "User analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(response, "User analytics retrieved successfully")
+        .into_response()
 }

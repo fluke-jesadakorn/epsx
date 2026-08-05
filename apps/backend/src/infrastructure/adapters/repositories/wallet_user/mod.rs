@@ -1,9 +1,9 @@
 // Wallet User Repository Adapter — directory module
 // WalletUserRepositoryAdapter implements all three ports split across submodules
 
+pub mod analytics;
 pub mod mutations;
 pub mod queries;
-pub mod analytics;
 
 use crate::prelude::*;
 

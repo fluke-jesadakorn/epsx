@@ -88,7 +88,7 @@
       "file": "apps/backend/src/web/admin/routes.rs",
       "anchors": [
         "let dashboard_user_status = Router::new()",
-        ".route(\"/dashboard/user-status\", get(admin_dashboard_user_status_handler))",
+        ".route(\n            \"/dashboard/user-status\",\n            get(admin_dashboard_user_status_handler),\n        )",
         ".layer(from_fn_with_state(\"admin:dashboard:view\", perm_guard))",
         ".layer(from_fn(require_exact_admin_audience));",
         ".merge(dashboard_user_status)"
@@ -196,7 +196,7 @@
     {
       "file": "services/notification/src/lib.rs",
       "anchors": [
-        "(&Method::GET, [\"admin\", \"list\"]) => AccessPolicy::NotificationsAdmin",
+        "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin",
         "principal.audience != ADMIN_AUDIENCE",
         "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)"
       ],

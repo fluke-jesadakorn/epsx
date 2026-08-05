@@ -44,7 +44,9 @@ pub enum CheckoutVariant {
 }
 
 impl Default for CheckoutVariant {
-    fn default() -> Self { Self::Gradient }
+    fn default() -> Self {
+        Self::Gradient
+    }
 }
 
 #[derive(Props, Clone, PartialEq)]
@@ -90,7 +92,10 @@ pub struct CheckoutButtonProps {
 #[component]
 pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
     // Derive the token symbol (fall back to currency).
-    let token = props.token.clone().unwrap_or_else(|| props.currency.clone());
+    let token = props
+        .token
+        .clone()
+        .unwrap_or_else(|| props.currency.clone());
     let chain_label = match props.chain_id.as_str() {
         "56" => "BSC (BEP-20)",
         "97" => "BSC Testnet",
@@ -106,7 +111,10 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
         CheckoutVariant::Solid =>
             "checkout-button checkout-button-solid w-full py-4 rounded-xl font-bold text-base transition-all duration-300 bg-orange-500 text-white hover:bg-orange-600",
     };
-    let final_class = props.class.clone().unwrap_or_else(|| base_class.to_string());
+    let final_class = props
+        .class
+        .clone()
+        .unwrap_or_else(|| base_class.to_string());
 
     // Build the POST body.
     let body_json = serde_json::json!({

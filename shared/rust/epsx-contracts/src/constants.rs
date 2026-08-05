@@ -101,7 +101,7 @@ pub const MIN_RECOVERY_TIME: i64 = DAY;
 pub const RECOVERY_TIME_HOURS: u32 = 24;
 
 // ============================================================================
-// PERMISSION & USER LIMIT CONSTANTS  
+// PERMISSION & USER LIMIT CONSTANTS
 // ============================================================================
 
 /// Hours in a day for limit calculations
@@ -174,10 +174,7 @@ pub const FREE_PLAN_TIER_LEVEL: i32 = 0;
 pub const FREE_PLAN_RANKINGS_LIMIT: i32 = 5;
 
 /// Free Plan default permissions - these are always granted to all users
-pub const FREE_PLAN_DEFAULT_PERMISSIONS: &[&str] = &[
-    "analytics:basic",
-    "markets:view",
-];
+pub const FREE_PLAN_DEFAULT_PERMISSIONS: &[&str] = &["analytics:basic", "markets:view"];
 
 // ============================================================================
 // SYSTEM ADMIN PLAN CONSTANTS
@@ -195,11 +192,8 @@ pub const SUPPORT_PLAN_ID: &str = "00000000-0000-0000-0001-000000000003";
 pub const SUPPORT_PLAN_NAME: &str = "Support";
 pub const SUPPORT_PLAN_SLUG: &str = "support";
 
-pub const SYSTEM_ADMIN_PLAN_IDS: [&str; 3] = [
-    SUPER_ADMIN_PLAN_ID,
-    MODERATOR_PLAN_ID,
-    SUPPORT_PLAN_ID,
-];
+pub const SYSTEM_ADMIN_PLAN_IDS: [&str; 3] =
+    [SUPER_ADMIN_PLAN_ID, MODERATOR_PLAN_ID, SUPPORT_PLAN_ID];
 
 pub const SUPER_ADMIN_WALLET: &str = "0x9dd4db1aa7826a94e479f3387a464772f1e2c4b7";
 

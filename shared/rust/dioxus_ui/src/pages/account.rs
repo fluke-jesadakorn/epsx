@@ -2,10 +2,10 @@
 //!
 //! The page preserves the development UI's section composition while only
 //! presenting claims available from the verified local session. Unsupported
-//! profile statistics, credit balance, access details, and preferences fail
-//! closed as unavailable; they are never inferred from missing or partial
-//! compatibility payloads. Payment history retains its separate strict,
-//! owner-scoped read contract.
+//! profile statistics, credit balance, and access details fail closed as
+//! unavailable; owner preferences use a separate strict SSR read and also fail
+//! closed on missing or partial compatibility payloads. Payment history retains
+//! its separate strict, owner-scoped read contract.
 
 use crate::primitives::*;
 
@@ -19,10 +19,22 @@ use crate::components::account::{
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
 use crate::layout::main_layout::MainLayout;
+use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
+use serde::Deserialize;
+use std::collections::BTreeMap;
 
 const ACCOUNT_PATH: &str = "/account";
 const ACCOUNT_SIGN_IN_PATH: &str = "/auth?return_url=%2Faccount";
+pub const ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM: &str =
+    "data_account_notification_preferences";
+pub const ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM: &str =
+    "data_account_notification_preferences_state";
+pub const ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM: &str =
+    "data_account_notification_preferences_form_state";
+const ACCOUNT_NOTIFICATION_PREFERENCES_READY: &str = "ready";
+const ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE: &str = "unavailable";
+const ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED: &str = "malformed";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Account");
@@ -34,39 +46,55 @@ fn RenderAccount(ctx: PageContext) -> Element {
     let session_user = ctx.user.clone();
     let payment_history_address = ctx.user.as_ref().map(|user| user.address.clone());
     let payment_history_load = payment_history_load(&ctx);
+    let notification_preferences_load = notification_preferences_load(&ctx);
+    let notification_preferences_form_state = notification_preferences_form_state(&ctx);
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            div { class: "container page-content account-settings-page",
-                "data-section": "account-page",
-                // 1. Hero
-                AccountSettingsHero {}
-                // 2. 4 stat cards
-                div { class: "mt-8",
-                    AccountStatsRow { user: session_user.clone() }
+            div { class: "account-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 px-3 pb-20 sm:px-6",
+                style: "background: linear-gradient(135deg, #111827 0%, #581c87 48%, #111827 100%);",
+                div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
+                    div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl" }
+                    div { class: "absolute right-32 top-40 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-lg" }
+                    div { class: "absolute bottom-32 left-1/3 h-28 w-28 rounded-full bg-gradient-to-r from-orange-400/15 to-yellow-500/15 blur-xl" }
                 }
-                // 3. 3 quick-action cards
-                div { class: "mt-8",
-                    AccountQuickActions {}
-                }
-                // 4. Access & Plans
-                div { class: "mt-8",
-                    AccessAndPlansSection {}
-                }
-                // 5. Transaction History
-                div { class: "mt-8",
-                    PaymentHistorySection {
-                        address: payment_history_address,
-                        load: payment_history_load,
+                // Match the source account frame: the page owns the 1.5rem
+                // outer inset, while the content frame contributes another
+                // 1.5rem and starts 1.5rem below the sticky header.
+                div { class: "page-content account-settings-page relative z-10 px-6 pt-6",
+                    "data-section": "account-page",
+                    // 1. Hero
+                    AccountSettingsHero {}
+                    // 2. 4 stat cards
+                    div { class: "mt-8",
+                        AccountStatsRow { user: session_user.clone() }
                     }
-                }
-                // 6. Notification Preferences
-                div { class: "mt-8",
-                    NotificationPreferencesSection { signed_in: session_user.is_some() }
-                }
-                // 7. Privacy & Data Security banner
-                div { class: "mt-8",
-                    PrivacyBannerSection {}
+                    // 3. 3 quick-action cards
+                    div { class: "mt-12",
+                        AccountQuickActions {}
+                    }
+                    // 4. Access & Plans
+                    div { class: "mt-12",
+                        AccessAndPlansSection {}
+                    }
+                    // 5. Transaction History
+                    div { class: "mt-8",
+                        PaymentHistorySection {
+                            address: payment_history_address,
+                            load: payment_history_load,
+                        }
+                    }
+                    // 6. Notification Preferences
+                    div { class: "mt-8",
+                        NotificationPreferencesSection {
+                            load: notification_preferences_load,
+                            form_state: notification_preferences_form_state,
+                        }
+                    }
+                    // 7. Privacy & Data Security banner
+                    div { class: "mt-8",
+                        PrivacyBannerSection {}
+                    }
                 }
             }
         }
@@ -81,15 +109,15 @@ fn RenderAccount(ctx: PageContext) -> Element {
 #[component]
 fn AccountSettingsHero() -> Element {
     rsx! {
-        div { class: "account-settings-hero text-center mb-12",
+        div { class: "account-settings-hero text-center mb-6 sm:mb-12",
             "data-section": "account-settings-hero",
-            h1 { class: "text-4xl sm:text-5xl font-bold flex items-center justify-center gap-3",
+            h1 { class: "text-3xl sm:text-5xl font-bold flex items-center justify-center gap-2 sm:gap-3",
                 span { class: "text-foreground", "👤" }
                 span { class: "bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent",
                     "Account Settings"
                 }
             }
-            p { class: "mt-4 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto font-medium",
+            p { class: "mt-3 sm:mt-4 text-sm sm:text-lg text-slate-300 max-w-2xl mx-auto font-medium",
                 "Manage your account access, payments, and preferences with ease"
             }
         }
@@ -119,9 +147,9 @@ fn AccountStatsRow(user: Option<User>) -> Element {
             aria_label: "Account summary",
             // Current wallet: only the owner carried by the verified session.
             div {
-                class: "account-stat-wallet card card-glass p-5 sm:p-6 shadow-xl border-2 border-blue-300/50",
+                class: "account-stat-wallet card card-glass p-3 sm:p-6 shadow-xl border-2 border-blue-300/50",
                 "data-account-stat-state": if wallet.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
-                div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
+                div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "👛" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-blue-200 bg-blue-50/50 text-blue-600",
                         if wallet.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
@@ -144,9 +172,9 @@ fn AccountStatsRow(user: Option<User>) -> Element {
             }
             // Membership date requires an authoritative profile read.
             div {
-                class: "account-stat-member card card-glass p-5 sm:p-6 shadow-xl border-2 border-green-300/50",
+                class: "account-stat-member card card-glass p-3 sm:p-6 shadow-xl border-2 border-green-300/50",
                 "data-account-stat-state": "unavailable",
-                div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
+                div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "📅" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-slate-300/50 bg-secondary text-muted-foreground",
                         "Unavailable"
@@ -159,10 +187,10 @@ fn AccountStatsRow(user: Option<User>) -> Element {
             }
             // Credit authority is unresolved; link to its truthful detail page.
             a {
-                class: "account-stat-balance card card-glass p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block",
+                class: "account-stat-balance card card-glass p-3 sm:p-6 shadow-xl border-2 border-orange-300/50 block",
                 "data-account-stat-state": "unavailable",
                 href: "/account/credits",
-                div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
+                div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "💰" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-orange-200 bg-orange-50/50 text-orange-600",
                         "Unavailable"
@@ -171,14 +199,17 @@ fn AccountStatsRow(user: Option<User>) -> Element {
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Available Balance" }
                     div { class: "text-lg font-bold text-muted-foreground", "Not available" }
-                    div { class: "text-xs text-orange-500", "View credit status →" }
+                    // Keep the truthful navigation affordance available to
+                    // assistive technology without adding a fourth visible
+                    // line that changes the source card's height.
+                    div { class: "sr-only", "View credit status →" }
                 }
             }
             // Authentication method: shown only when the session identifies it.
             div {
-                class: "account-stat-method card card-glass p-5 sm:p-6 shadow-xl border-2 border-purple-300/50",
+                class: "account-stat-method card card-glass p-3 sm:p-6 shadow-xl border-2 border-purple-300/50",
                 "data-account-stat-state": if auth_method.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
-                div { class: "flex items-center justify-between mb-4 text-2xl sm:text-3xl",
+                div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "🛡️" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-purple-200 bg-purple-50/50 text-purple-600",
                         if auth_method.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
@@ -222,7 +253,7 @@ fn AccountQuickActions() -> Element {
         div { class: "account-quick-actions grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6",
             // Support Center
             a { class: "block group", href: "/contact",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 hover:scale-105 transition-all duration-300",
+                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 hover:scale-105 transition-all duration-300",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 blur-sm opacity-60" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         span { class: "text-xl", "🛟" }
@@ -241,7 +272,7 @@ fn AccountQuickActions() -> Element {
             }
             // Privacy Control
             a { class: "block group", href: "/privacy",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-green-300/50 hover:scale-105 transition-all duration-300",
+                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-green-300/50 hover:scale-105 transition-all duration-300",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 blur-sm opacity-60" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         span { class: "text-xl", "🔒" }
@@ -260,7 +291,7 @@ fn AccountQuickActions() -> Element {
             }
             // Recent Activity
             a { class: "block group", href: "/notifications",
-                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 hover:scale-105 transition-all duration-300",
+                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 hover:scale-105 transition-all duration-300",
                     div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 blur-sm opacity-60" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
                         span { class: "text-xl", "🔔" }
@@ -291,16 +322,16 @@ fn AccountQuickActions() -> Element {
 #[component]
 fn AccessAndPlansSection() -> Element {
     rsx! {
-        div { class: "account-access-plans card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50",
+        div { class: "account-access-plans card card-glass p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50",
             "data-section": "account-access-plans",
-            div { class: "flex items-center gap-3 mb-8",
+            div { class: "flex items-center gap-3 mb-4 sm:mb-8",
                 div { class: "p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl",
                     Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-indigo-600 dark:text-indigo-400".to_string()) }
                 }
                 h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Access & Plans" }
             }
             div {
-                class: "p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10",
+                class: "p-3 sm:p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10",
                 "data-access-state": "unavailable",
                 role: "alert",
                 div { class: "flex items-center gap-3",
@@ -327,7 +358,7 @@ fn PaymentHistorySection(address: Option<String>, load: PaymentHistoryLoad) -> E
         PaymentHistoryTab {
             address,
             load,
-            class: Some("account-payment-history".to_string()),
+            class: Some("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50".to_string()),
         }
     }
 }
@@ -378,12 +409,134 @@ fn payment_history_load(ctx: &PageContext) -> PaymentHistoryLoad {
 
 // ----- 6. Notification Preferences ---------------------------------------------
 
-/// Source-like notification categories without fabricated values or mutation.
-/// Until an owner-scoped read/write contract exists, authenticated users see
-/// an explicit unavailable state and signed-out users receive a native return
-/// link. There are deliberately no inputs, signals, or success messages.
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct NotificationQuietHours {
+    start: String,
+    end: String,
+    #[serde(default)]
+    enabled: Option<bool>,
+}
+
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+struct NotificationPreferencesPayload {
+    channels: BTreeMap<String, bool>,
+    quiet_hours: Option<NotificationQuietHours>,
+    timezone: Option<String>,
+    updated_at: Option<DateTime<Utc>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum NotificationPreferencesLoad {
+    SignedOut,
+    Ready(NotificationPreferencesPayload),
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum NotificationPreferencesFormState {
+    None,
+    Saved,
+    Error,
+}
+
+fn notification_preferences_form_state(ctx: &PageContext) -> NotificationPreferencesFormState {
+    match ctx
+        .params
+        .get(ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some("saved") => NotificationPreferencesFormState::Saved,
+        Some("error") => NotificationPreferencesFormState::Error,
+        _ => NotificationPreferencesFormState::None,
+    }
+}
+
+fn valid_preference_clock(value: &str) -> bool {
+    let bytes = value.as_bytes();
+    if bytes.len() != 5
+        || bytes[2] != b':'
+        || !bytes[0].is_ascii_digit()
+        || !bytes[1].is_ascii_digit()
+        || !bytes[3].is_ascii_digit()
+        || !bytes[4].is_ascii_digit()
+    {
+        return false;
+    }
+    let hour = (bytes[0] - b'0') * 10 + bytes[1] - b'0';
+    let minute = (bytes[3] - b'0') * 10 + bytes[4] - b'0';
+    hour < 24 && minute < 60
+}
+
+fn valid_notification_preferences(payload: &NotificationPreferencesPayload) -> bool {
+    payload
+        .channels
+        .keys()
+        .all(|key| matches!(key.as_str(), "email" | "in_app" | "push"))
+        && payload.quiet_hours.as_ref().is_none_or(|quiet| {
+            valid_preference_clock(&quiet.start) && valid_preference_clock(&quiet.end)
+        })
+        && payload.timezone.as_deref().is_none_or(|timezone| {
+            !timezone.is_empty() && timezone.len() <= 64 && !timezone.chars().any(char::is_control)
+        })
+}
+
+fn notification_preferences_load(ctx: &PageContext) -> NotificationPreferencesLoad {
+    if ctx.user.is_none() {
+        return NotificationPreferencesLoad::SignedOut;
+    }
+    match ctx
+        .params
+        .get(ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ACCOUNT_NOTIFICATION_PREFERENCES_READY) => {
+            let Some(payload) = ctx
+                .params
+                .get(ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str::<NotificationPreferencesPayload>(raw).ok())
+            else {
+                return NotificationPreferencesLoad::Malformed;
+            };
+            if valid_notification_preferences(&payload) {
+                NotificationPreferencesLoad::Ready(payload)
+            } else {
+                NotificationPreferencesLoad::Malformed
+            }
+        }
+        Some(ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED) => NotificationPreferencesLoad::Malformed,
+        Some(ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE) | None => {
+            NotificationPreferencesLoad::Unavailable
+        }
+        Some(_) => NotificationPreferencesLoad::Malformed,
+    }
+}
+
+/// Owner-scoped preferences are rendered only after the strict SSR read has
+/// succeeded. The native form is a bounded server-side adapter; it does not
+/// claim browser push permission or provider delivery outcome.
 #[component]
-fn NotificationPreferencesSection(signed_in: bool) -> Element {
+fn NotificationPreferencesSection(
+    load: NotificationPreferencesLoad,
+    form_state: NotificationPreferencesFormState,
+) -> Element {
+    let signed_in = !matches!(&load, NotificationPreferencesLoad::SignedOut);
+    let ready = match &load {
+        NotificationPreferencesLoad::Ready(payload) => Some(payload),
+        _ => None,
+    };
+    let state = match &load {
+        NotificationPreferencesLoad::SignedOut => "signed-out",
+        NotificationPreferencesLoad::Ready(_) => "ready",
+        NotificationPreferencesLoad::Unavailable => "unavailable",
+        NotificationPreferencesLoad::Malformed => "malformed",
+    };
+    let alert = matches!(
+        &load,
+        NotificationPreferencesLoad::Unavailable | NotificationPreferencesLoad::Malformed
+    );
     rsx! {
         div { class: "account-notification-prefs card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50",
             "data-section": "account-notification-prefs",
@@ -396,10 +549,10 @@ fn NotificationPreferencesSection(signed_in: bool) -> Element {
             div { class: "grid lg:grid-cols-12 gap-8",
                 div { class: "lg:col-span-4 space-y-4",
                     p { class: "text-slate-300 text-base leading-relaxed",
-                        if signed_in {
-                            "Saved notification choices cannot be read or changed right now."
-                        } else {
-                            "Sign in before viewing wallet-owned notification preferences."
+                        match ready {
+                            Some(_) => "Saved notification choices are shown below. Submit the bounded form to update wallet-owned delivery settings.",
+                            None if signed_in => "Saved notification choices could not be loaded from the notification service.",
+                            None => "Sign in before viewing wallet-owned notification preferences.",
                         }
                     }
                     div { class: "flex flex-col gap-3 pt-2",
@@ -413,47 +566,112 @@ fn NotificationPreferencesSection(signed_in: bool) -> Element {
                 div { class: "lg:col-span-8",
                     div {
                         class: "rounded-2xl border-2 border-purple-200/50 bg-purple-500/5 p-5",
-                        "data-preferences-state": if signed_in { "unavailable" } else { "signed-out" },
-                        role: if signed_in { "alert" } else { "status" },
+                        "data-preferences-state": state,
+                        role: if alert { "alert" } else { "status" },
                         div { class: "flex items-start gap-3",
                             Icon {
-                                name: if signed_in { "alert-circle".to_string() } else { "lock".to_string() },
+                                name: if ready.is_some() { "check-circle".to_string() } else if signed_in { "alert-circle".to_string() } else { "lock".to_string() },
                                 size: Some(22),
                                 class_name: Some("mt-0.5 text-purple-400".to_string()),
                             }
                             div { class: "min-w-0 flex-1",
                                 h3 { class: "font-semibold text-foreground",
-                                    if signed_in {
-                                        "Notification preferences are unavailable"
-                                    } else {
-                                        "Sign in to view notification preferences"
+                                    match ready {
+                                        Some(_) => "Notification preferences loaded",
+                                        None if signed_in && alert => "Notification preferences are unavailable",
+                                        None if signed_in => "Notification preferences are unavailable",
+                                        None => "Sign in to view notification preferences",
                                     }
                                 }
                                 p { class: "mt-1 text-sm leading-6 text-muted-foreground",
-                                    if signed_in {
-                                        "No saved values were loaded, and no changes can be made from this read-only view."
-                                    } else {
-                                        "Preferences are private to the wallet that owns them."
+                                    match form_state {
+                                        NotificationPreferencesFormState::Saved if ready.is_some() => "Preferences saved. The values below were reloaded from the notification service.".to_string(),
+                                        NotificationPreferencesFormState::Saved => "Preferences were submitted, but the notification service values could not be reloaded.".to_string(),
+                                        NotificationPreferencesFormState::Error => "Preferences could not be saved. Review the bounded fields and try again.".to_string(),
+                                        NotificationPreferencesFormState::None => match ready {
+                                        Some(payload) => match payload.updated_at {
+                                            Some(updated_at) => "Last saved at ".to_string() + &updated_at.to_rfc3339(),
+                                            None => "Saved values are shown; the service did not provide a save timestamp.".to_string(),
+                                        },
+                                        None if signed_in => "No saved values were loaded, and no changes can be made until the service is available.".to_string(),
+                                        None => "Preferences are private to the wallet that owns them.".to_string(),
+                                        },
+                                    }
+                                }
+                                if let Some(payload) = ready {
+                                    if let Some(timezone) = payload.timezone.as_deref() {
+                                        p { class: "mt-1 text-xs text-muted-foreground", "Timezone: {timezone}" }
                                     }
                                 }
                                 div { class: "mt-4 flex flex-wrap gap-3",
-                                    if signed_in {
+                                    if signed_in && ready.is_none() {
                                         a { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
-                                    } else {
+                                    } else if !signed_in {
                                         a { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
                                     }
                                 }
                             }
                         }
                     }
-                    if signed_in {
-                        ul { class: "mt-4 grid gap-3 sm:grid-cols-2", aria_label: "Preference categories",
-                            PreferenceReadOnlyRow { icon: "💹", label: "Analytics Alerts", description: "Price movements and portfolio alerts" }
-                            PreferenceReadOnlyRow { icon: "🛡️", label: "Security Alerts", description: "Authentication and security warnings" }
-                            PreferenceReadOnlyRow { icon: "👤", label: "Account Updates", description: "Account profile updates" }
-                            PreferenceReadOnlyRow { icon: "⚙️", label: "System Status", description: "Maintenance and feature notices" }
-                            PreferenceReadOnlyRow { icon: "🎁", label: "Promotions", description: "News and special offers" }
-                        }
+                    if let Some(payload) = ready {
+                        NotificationPreferencesForm { payload: payload.clone() }
+                    }
+                    NotificationPushSection { signed_in }
+                }
+            }
+        }
+    }
+}
+
+/// Browser push is an optional capability of the notification service. The
+/// server-rendered control starts disabled and makes no provider-delivery
+/// claim; the authenticated account runtime enables it only after the strict
+/// push-status contract and an explicit browser permission gesture succeed.
+#[component]
+fn NotificationPushSection(signed_in: bool) -> Element {
+    let state = if signed_in { "checking" } else { "signed-out" };
+    rsx! {
+        div {
+            class: "mt-5 rounded-2xl border border-border bg-card p-5",
+            "data-section": "account-browser-push",
+            "data-epsx-notification-push": "true",
+            "data-push-state": state,
+            h3 { class: "font-semibold text-foreground", "Browser notifications" }
+            p {
+                class: "mt-1 text-sm leading-6 text-muted-foreground",
+                "data-push-status": "true",
+                aria_live: "polite",
+                if signed_in {
+                    "Checking whether browser push is available…"
+                } else {
+                    "Sign in to check browser notification availability."
+                }
+            }
+            p {
+                class: "mt-1 text-xs leading-5 text-muted-foreground",
+                "Browser permission and subscription status are shown here; this does not confirm provider delivery."
+            }
+            div { class: "mt-4 flex flex-wrap gap-3",
+                if signed_in {
+                    button {
+                        r#type: "button",
+                        class: "btn btn-sm btn-primary",
+                        "data-push-action": "enable",
+                        disabled: true,
+                        "Enable browser notifications"
+                    }
+                    button {
+                        r#type: "button",
+                        class: "btn btn-sm btn-outline",
+                        "data-push-action": "disable",
+                        hidden: true,
+                        "Disable browser notifications"
+                    }
+                } else {
+                    a {
+                        class: "btn btn-sm btn-outline",
+                        href: ACCOUNT_SIGN_IN_PATH,
+                        "Sign in"
                     }
                 }
             }
@@ -462,22 +680,64 @@ fn NotificationPreferencesSection(signed_in: bool) -> Element {
 }
 
 #[component]
-fn PreferenceReadOnlyRow(
-    icon: &'static str,
-    label: &'static str,
-    description: &'static str,
-) -> Element {
+fn NotificationPreferencesForm(payload: NotificationPreferencesPayload) -> Element {
+    let email_enabled = payload.channels.get("email").copied().unwrap_or(false);
+    let in_app_enabled = payload.channels.get("in_app").copied().unwrap_or(false);
+    let push_enabled = payload.channels.get("push").copied().unwrap_or(false);
+    let quiet = payload.quiet_hours.as_ref();
+    let quiet_enabled = quiet.and_then(|value| value.enabled).unwrap_or(false);
+    let quiet_start = quiet.map(|value| value.start.as_str()).unwrap_or("22:00");
+    let quiet_end = quiet.map(|value| value.end.as_str()).unwrap_or("07:00");
+    let timezone = payload.timezone.as_deref().unwrap_or("UTC");
     rsx! {
-        li { class: "preference-read-only-row flex items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4",
-            div { class: "flex min-w-0 gap-3",
-                span { class: "text-xl", aria_hidden: "true", "{icon}" }
-                div {
-                    p { class: "font-semibold text-foreground", "{label}" }
-                    p { class: "text-xs text-muted-foreground", "{description}" }
+        form {
+            class: "mt-4 grid gap-5 rounded-2xl border border-border bg-card p-5",
+            method: "post",
+            action: "/account/notification-preferences",
+            "data-preferences-form": "true",
+            aria_label: "Notification preference settings",
+            div { class: "grid gap-4 sm:grid-cols-3",
+                PreferenceSelect { name: "email", label: "Email Alerts", enabled: email_enabled }
+                PreferenceSelect { name: "in_app", label: "In-app Alerts", enabled: in_app_enabled }
+                PreferenceSelect { name: "push", label: "Push Alerts", enabled: push_enabled }
+            }
+            div { class: "grid gap-4 sm:grid-cols-2",
+                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                    span { "Quiet hours" }
+                    select { name: "quiet_enabled", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground",
+                        option { value: "true", selected: quiet_enabled, "Enabled" }
+                        option { value: "false", selected: !quiet_enabled, "Disabled" }
+                    }
+                }
+                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                    span { "Timezone" }
+                    input { name: "timezone", value: timezone, maxlength: "64", autocomplete: "off", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
+                }
+                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                    span { "Quiet start" }
+                    input { type: "time", name: "quiet_start", value: quiet_start, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
+                }
+                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                    span { "Quiet end" }
+                    input { type: "time", name: "quiet_end", value: quiet_end, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
                 }
             }
-            span { class: "shrink-0 rounded-full border border-border px-2 py-1 text-xs text-muted-foreground",
-                "Not loaded"
+            div { class: "flex items-center justify-between gap-4 pt-1",
+                p { class: "text-xs text-muted-foreground", "Changes apply to future owner-bound notification delivery." }
+                button { type: "submit", class: "btn btn-sm btn-primary", "Save preferences" }
+            }
+        }
+    }
+}
+
+#[component]
+fn PreferenceSelect(name: &'static str, label: &'static str, enabled: bool) -> Element {
+    rsx! {
+        label { class: "grid gap-2 text-sm font-medium text-foreground",
+            span { "{label}" }
+            select { name, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground",
+                option { value: "true", selected: enabled, "Enabled" }
+                option { value: "false", selected: !enabled, "Disabled" }
             }
         }
     }
@@ -656,6 +916,11 @@ mod tests {
                 html
             );
         }
+        assert!(
+            html.contains("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50"),
+            "transaction history must retain the source card frame. Got: {}",
+            html
+        );
     }
 
     #[test]
@@ -782,15 +1047,19 @@ mod tests {
     }
 
     #[test]
-    fn preferences_are_explicitly_read_only_without_fake_mutation() {
-        let html =
-            dioxus_ssr::render_element(rsx! { NotificationPreferencesSection { signed_in: true } });
+    fn unavailable_preferences_fail_closed_without_mutation_controls() {
+        let html = dioxus_ssr::render_element(rsx! { NotificationPreferencesSection {
+            load: NotificationPreferencesLoad::Unavailable,
+            form_state: NotificationPreferencesFormState::None,
+        } });
 
         assert!(html.contains("data-preferences-state=\"unavailable\""));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("No saved values were loaded"));
-        assert_eq!(html.matches("Not loaded").count(), 5);
         assert!(html.contains("href=\"/account\">Retry</a>"));
+        assert!(html.contains("data-epsx-notification-push=\"true\""));
+        assert!(html.contains("data-push-state=\"checking\""));
+        assert!(html.contains("Enable browser notifications"));
         for fake_mutation in [
             "<input",
             "type=\"checkbox\"",
@@ -809,16 +1078,106 @@ mod tests {
 
     #[test]
     fn signed_out_preferences_use_status_and_native_return_link() {
-        let html = dioxus_ssr::render_element(
-            rsx! { NotificationPreferencesSection { signed_in: false } },
-        );
+        let html = dioxus_ssr::render_element(rsx! { NotificationPreferencesSection {
+            load: NotificationPreferencesLoad::SignedOut,
+            form_state: NotificationPreferencesFormState::None,
+        } });
 
         assert!(html.contains("data-preferences-state=\"signed-out\""));
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("Sign in to view notification preferences"));
         assert!(html.contains("href=\"/auth?return_url=%2Faccount\">Sign in</a>"));
+        assert!(html.contains("data-push-state=\"signed-out\""));
+        assert!(html.contains("Sign in to check browser notification availability."));
         assert!(!html.contains("preference-read-only-row"));
         assert!(!html.contains("<input"));
+    }
+
+    #[test]
+    fn loaded_preferences_render_a_bounded_native_form_without_client_mutation() {
+        let payload = NotificationPreferencesPayload {
+            channels: BTreeMap::from([
+                ("email".to_string(), true),
+                ("in_app".to_string(), false),
+                ("push".to_string(), true),
+            ]),
+            quiet_hours: Some(NotificationQuietHours {
+                start: "22:00".to_string(),
+                end: "07:00".to_string(),
+                enabled: Some(true),
+            }),
+            timezone: Some("Asia/Bangkok".to_string()),
+            updated_at: Some(
+                "2026-07-24T00:00:00Z"
+                    .parse::<DateTime<Utc>>()
+                    .expect("valid fixture timestamp"),
+            ),
+        };
+        let html = dioxus_ssr::render_element(rsx! {
+            NotificationPreferencesSection {
+                load: NotificationPreferencesLoad::Ready(payload),
+                form_state: NotificationPreferencesFormState::None,
+            }
+        });
+
+        assert!(html.contains("data-preferences-state=\"ready\""));
+        assert!(html.contains("Notification preferences loaded"));
+        assert!(html.contains("Email Alerts"));
+        assert!(html.contains("Enabled"));
+        assert!(html.contains("In-app Alerts"));
+        assert!(html.contains("Disabled"));
+        assert!(html.contains("name=\"quiet_start\""));
+        assert!(html.contains("value=\"22:00\""));
+        assert!(html.contains("name=\"quiet_end\""));
+        assert!(html.contains("value=\"07:00\""));
+        assert!(html.contains("Asia/Bangkok"));
+        assert!(html.contains("data-preferences-form=\"true\""));
+        assert!(html.contains("action=\"/account/notification-preferences\""));
+        assert!(html.contains("name=\"email\""));
+        assert!(html.contains("name=\"quiet_start\""));
+        assert!(html.contains("Save preferences"));
+        assert!(html.contains("data-epsx-notification-push=\"true\""));
+        assert!(html.contains("disabled"));
+        assert!(html.contains("Browser permission and subscription status are shown here"));
+        assert!(!html.contains("onchange"));
+    }
+
+    #[test]
+    fn preference_projection_rejects_unknown_channels_and_invalid_quiet_hours() {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM.to_string(),
+            ACCOUNT_NOTIFICATION_PREFERENCES_READY.to_string(),
+        );
+        for payload in [
+            serde_json::json!({
+                "channels": {"webhook": true},
+                "quiet_hours": null,
+                "timezone": "UTC",
+                "updated_at": null
+            }),
+            serde_json::json!({
+                "channels": {"email": true},
+                "quiet_hours": {"start": "25:00", "end": "07:00"},
+                "timezone": "UTC",
+                "updated_at": null
+            }),
+            serde_json::json!({
+                "channels": {"email": true},
+                "quiet_hours": null,
+                "timezone": "UTC\nforged",
+                "updated_at": null
+            }),
+        ] {
+            ctx.params.insert(
+                ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM.to_string(),
+                payload.to_string(),
+            );
+            assert_eq!(
+                notification_preferences_load(&ctx),
+                NotificationPreferencesLoad::Malformed
+            );
+        }
     }
 
     #[test]

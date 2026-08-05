@@ -1,18 +1,14 @@
 use crate::web::api_response::ApiResponse;
-use serde::Serialize;
-use utoipa::ToSchema;
-use diesel::QueryableByName;
-use serde_json::json;
-use bigdecimal::BigDecimal;
-use std::str::FromStr;
-use axum::{
-    extract::State,
-    http::StatusCode,
-    Json,
-};
 use crate::web::auth::AppState;
+use axum::{extract::State, http::StatusCode, Json};
+use bigdecimal::BigDecimal;
+use diesel::QueryableByName;
 use diesel_async::RunQueryDsl;
 use epsx_contracts::constants::*;
+use serde::Serialize;
+use serde_json::json;
+use std::str::FromStr;
+use utoipa::ToSchema;
 use uuid::Uuid;
 
 #[derive(Serialize, ToSchema)]
@@ -35,12 +31,17 @@ pub struct SeedPlansResponse {
         (status = 500, description = "Internal server error")
     )
 )]
-pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (StatusCode, Json<ApiResponse<SeedPlansResponse>>) {
+pub async fn seed_subscription_plans(
+    State(app_state): State<AppState>,
+) -> (StatusCode, Json<ApiResponse<SeedPlansResponse>>) {
     if crate::config::env::is_production() {
         tracing::warn!("Seed endpoint called in production — rejecting");
         return (
             StatusCode::FORBIDDEN,
-            Json(ApiResponse::error("FORBIDDEN", "Plan seeding is disabled in production"))
+            Json(ApiResponse::error(
+                "FORBIDDEN",
+                "Plan seeding is disabled in production",
+            )),
         );
     }
 
@@ -52,7 +53,10 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
             tracing::error!("Failed to get database connection: {}", e);
             return (
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(ApiResponse::error("DB_CONNECTION_ERROR", "Failed to connect to database"))
+                Json(ApiResponse::error(
+                    "DB_CONNECTION_ERROR",
+                    "Failed to connect to database",
+                )),
             );
         }
     };
@@ -100,10 +104,20 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     // Helper: insert/upsert a plan by slug
     async fn upsert_plan(
         conn: &mut diesel_async::AsyncPgConnection,
-        name: &str, slug: &str, desc: &str, plan_type: &str,
-        meta: &serde_json::Value, price: &str, billing: &str,
-        promoted: bool, order: i32, tier: i32,
-        rpm: i32, rph: i32, rpd: i32, burst: i32,
+        name: &str,
+        slug: &str,
+        desc: &str,
+        plan_type: &str,
+        meta: &serde_json::Value,
+        price: &str,
+        billing: &str,
+        promoted: bool,
+        order: i32,
+        tier: i32,
+        rpm: i32,
+        rph: i32,
+        rpd: i32,
+        burst: i32,
     ) -> Result<usize, diesel::result::Error> {
         diesel::sql_query(
             r#"INSERT INTO plans (
@@ -147,7 +161,24 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         "ranking_offset": 5, "rankings_limit": 5,
         "promotion": { "enabled": true, "type": "percentage", "value": 80.0, "price": 1.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
-    let one_day_res = upsert_plan(&mut conn, "One Day Plan", "one-day", "24-hour trial access to explore the platform", "subscription", &one_day_meta, "5.00", "one_time", false, 1, 0, 60, 1000, 10000, 10).await;
+    let one_day_res = upsert_plan(
+        &mut conn,
+        "One Day Plan",
+        "one-day",
+        "24-hour trial access to explore the platform",
+        "subscription",
+        &one_day_meta,
+        "5.00",
+        "one_time",
+        false,
+        1,
+        0,
+        60,
+        1000,
+        10000,
+        10,
+    )
+    .await;
 
     // 2. Starter Plan
     let starter_meta = json!({
@@ -155,7 +186,24 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         "ranking_offset": 1, "rankings_limit": 25,
         "promotion": { "enabled": true, "type": "percentage", "value": 90.0, "price": 9.9, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
-    let starter_res = upsert_plan(&mut conn, "Starter Plan", "starter", "Advanced analytics for individual investors and traders", "subscription", &starter_meta, "99.00", "one_time", false, 2, 1, 120, 3000, 50000, 20).await;
+    let starter_res = upsert_plan(
+        &mut conn,
+        "Starter Plan",
+        "starter",
+        "Advanced analytics for individual investors and traders",
+        "subscription",
+        &starter_meta,
+        "99.00",
+        "one_time",
+        false,
+        2,
+        1,
+        120,
+        3000,
+        50000,
+        20,
+    )
+    .await;
 
     // 3. Life Time
     let lifetime_meta = json!({
@@ -163,7 +211,24 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         "ranking_offset": 0, "rankings_limit": -1,
         "promotion": { "enabled": true, "type": "percentage", "value": 50.0, "price": 4999.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
-    let lifetime_res = upsert_plan(&mut conn, "Life Time", "lifetime", "Full platform access with lifetime membership", "subscription", &lifetime_meta, "9999.00", "lifetime", true, 3, 3, 300, 10000, 200000, 50).await;
+    let lifetime_res = upsert_plan(
+        &mut conn,
+        "Life Time",
+        "lifetime",
+        "Full platform access with lifetime membership",
+        "subscription",
+        &lifetime_meta,
+        "9999.00",
+        "lifetime",
+        true,
+        3,
+        3,
+        300,
+        10000,
+        200000,
+        50,
+    )
+    .await;
 
     // 4. Company Plan
     let company_meta = json!({
@@ -171,7 +236,24 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         "ranking_offset": 0, "rankings_limit": -1,
         "promotion": { "enabled": true, "type": "percentage", "value": 57.0, "price": 2999.0, "start_date": "", "end_date": "2026-04-04T05:00:00Z" }
     });
-    let company_res = upsert_plan(&mut conn, "Company Plan", "company", "Complete solutions for professional teams and institutions", "subscription", &company_meta, "6999.00", "one_time", false, 4, 4, 1000, 50000, 1000000, 200).await;
+    let company_res = upsert_plan(
+        &mut conn,
+        "Company Plan",
+        "company",
+        "Complete solutions for professional teams and institutions",
+        "subscription",
+        &company_meta,
+        "6999.00",
+        "one_time",
+        false,
+        4,
+        4,
+        1000,
+        50000,
+        1000000,
+        200,
+    )
+    .await;
 
     // 5. API Personal
     let api_meta = json!({
@@ -179,14 +261,48 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         "ranking_offset": 1, "rankings_limit": -1,
         "promotion": { "enabled": true, "type": "percentage", "value": 75.0, "price": 999.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
-    let api_res = upsert_plan(&mut conn, "API Personal", "api-personal", "Integrate our powerful API into your systems", "subscription", &api_meta, "3999.00", "one_time", false, 5, 2, 300, 10000, 100000, 50).await;
+    let api_res = upsert_plan(
+        &mut conn,
+        "API Personal",
+        "api-personal",
+        "Integrate our powerful API into your systems",
+        "subscription",
+        &api_meta,
+        "3999.00",
+        "one_time",
+        false,
+        5,
+        2,
+        300,
+        10000,
+        100000,
+        50,
+    )
+    .await;
 
     // 6. Custom
     let custom_meta = json!({
         "features": ["Custom feature set & permissions", "Dedicated support & SLA", "Volume-based pricing", "Custom API rate limits", "White-label options", "Priority onboarding"],
         "contact_sales": true
     });
-    let custom_res = upsert_plan(&mut conn, "Custom", "custom", "Tailored solutions for partners, corporate, and enterprise needs", "manual", &custom_meta, "0.00", "pay_per_use", false, 6, 5, 1000, 50000, 1000000, 200).await;
+    let custom_res = upsert_plan(
+        &mut conn,
+        "Custom",
+        "custom",
+        "Tailored solutions for partners, corporate, and enterprise needs",
+        "manual",
+        &custom_meta,
+        "0.00",
+        "pay_per_use",
+        false,
+        6,
+        5,
+        1000,
+        50000,
+        1000000,
+        200,
+    )
+    .await;
 
     // Seed plan permissions
     async fn seed_perms(
@@ -195,7 +311,10 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         perms: &[&str],
     ) -> Result<(), String> {
         #[derive(QueryableByName)]
-        struct GId { #[diesel(sql_type = diesel::sql_types::Uuid)] id: uuid::Uuid }
+        struct GId {
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            id: uuid::Uuid,
+        }
 
         let plan_id = diesel::sql_query("SELECT id FROM plans WHERE slug = $1")
             .bind::<diesel::sql_types::Text, _>(slug)
@@ -225,19 +344,23 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
             .map_err(|e| format!("Failed to insert perm {}: {}", p_str, e))?;
 
             #[derive(QueryableByName)]
-            struct PId { #[diesel(sql_type = diesel::sql_types::Uuid)] id: uuid::Uuid }
+            struct PId {
+                #[diesel(sql_type = diesel::sql_types::Uuid)]
+                id: uuid::Uuid,
+            }
 
-            let perm_id = diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
-                .bind::<diesel::sql_types::Text, _>(p_str)
-                .get_result::<PId>(conn)
-                .await
-                .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?
-                .id;
+            let perm_id =
+                diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
+                    .bind::<diesel::sql_types::Text, _>(p_str)
+                    .get_result::<PId>(conn)
+                    .await
+                    .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?
+                    .id;
 
             diesel::sql_query(
                 r#"INSERT INTO plan_permissions (id, plan_id, permission_id, granted_at)
                 VALUES (gen_random_uuid(), $1, $2, NOW())
-                ON CONFLICT DO NOTHING"#
+                ON CONFLICT DO NOTHING"#,
             )
             .bind::<diesel::sql_types::Uuid, _>(plan_id)
             .bind::<diesel::sql_types::Uuid, _>(perm_id)
@@ -249,19 +372,82 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     }
 
     // Seed permissions per plan (matching CLAUDE.md)
-    let free_seed = seed_perms(&mut conn, "free", &["epsx:rankings:view:5", "epsx:rankings:offset:100"]).await;
-    let one_day_seed = seed_perms(&mut conn, "one-day", &["epsx:analytics:view", "epsx:trading:basic"]).await;
-    let starter_seed = seed_perms(&mut conn, "starter", &["epsx:analytics:view", "epsx:analytics:advanced", "epsx:trading:basic", "epsx:alerts:create"]).await;
-    let lifetime_seed = seed_perms(&mut conn, "lifetime", &["epsx:analytics:view", "epsx:analytics:advanced", "epsx:trading:basic", "epsx:trading:pro", "epsx:api:read"]).await;
-    let company_seed = seed_perms(&mut conn, "company", &["epsx:analytics:view", "epsx:analytics:advanced", "epsx:trading:basic", "epsx:trading:pro", "epsx:trading:advanced", "epsx:api:read", "epsx:api:write", "epsx:data:export", "epsx:notifications:manage"]).await;
-    let api_seed = seed_perms(&mut conn, "api-personal", &["epsx:analytics:view", "epsx:api:read", "epsx:data:export"]).await;
+    let free_seed = seed_perms(
+        &mut conn,
+        "free",
+        &["epsx:rankings:view:5", "epsx:rankings:offset:100"],
+    )
+    .await;
+    let one_day_seed = seed_perms(
+        &mut conn,
+        "one-day",
+        &["epsx:analytics:view", "epsx:trading:basic"],
+    )
+    .await;
+    let starter_seed = seed_perms(
+        &mut conn,
+        "starter",
+        &[
+            "epsx:analytics:view",
+            "epsx:analytics:advanced",
+            "epsx:trading:basic",
+            "epsx:alerts:create",
+        ],
+    )
+    .await;
+    let lifetime_seed = seed_perms(
+        &mut conn,
+        "lifetime",
+        &[
+            "epsx:analytics:view",
+            "epsx:analytics:advanced",
+            "epsx:trading:basic",
+            "epsx:trading:pro",
+            "epsx:api:read",
+        ],
+    )
+    .await;
+    let company_seed = seed_perms(
+        &mut conn,
+        "company",
+        &[
+            "epsx:analytics:view",
+            "epsx:analytics:advanced",
+            "epsx:trading:basic",
+            "epsx:trading:pro",
+            "epsx:trading:advanced",
+            "epsx:api:read",
+            "epsx:api:write",
+            "epsx:data:export",
+            "epsx:notifications:manage",
+        ],
+    )
+    .await;
+    let api_seed = seed_perms(
+        &mut conn,
+        "api-personal",
+        &["epsx:analytics:view", "epsx:api:read", "epsx:data:export"],
+    )
+    .await;
 
-    if let Err(e) = free_seed { tracing::error!("Error seeding Free Plan perms: {}", e); }
-    if let Err(e) = one_day_seed { tracing::error!("Error seeding One Day Plan perms: {}", e); }
-    if let Err(e) = starter_seed { tracing::error!("Error seeding Starter Plan perms: {}", e); }
-    if let Err(e) = lifetime_seed { tracing::error!("Error seeding Lifetime Plan perms: {}", e); }
-    if let Err(e) = company_seed { tracing::error!("Error seeding Company Plan perms: {}", e); }
-    if let Err(e) = api_seed { tracing::error!("Error seeding API Personal Plan perms: {}", e); }
+    if let Err(e) = free_seed {
+        tracing::error!("Error seeding Free Plan perms: {}", e);
+    }
+    if let Err(e) = one_day_seed {
+        tracing::error!("Error seeding One Day Plan perms: {}", e);
+    }
+    if let Err(e) = starter_seed {
+        tracing::error!("Error seeding Starter Plan perms: {}", e);
+    }
+    if let Err(e) = lifetime_seed {
+        tracing::error!("Error seeding Lifetime Plan perms: {}", e);
+    }
+    if let Err(e) = company_seed {
+        tracing::error!("Error seeding Company Plan perms: {}", e);
+    }
+    if let Err(e) = api_seed {
+        tracing::error!("Error seeding API Personal Plan perms: {}", e);
+    }
 
     // Deactivate old plan slugs that no longer exist
     let _ = diesel::sql_query(
@@ -272,13 +458,41 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
     let mut inserted = 0;
     let mut errors = Vec::new();
 
-    if free_res.is_ok() { inserted += 1; } else { errors.push("Free Plan".into()); }
-    if one_day_res.is_ok() { inserted += 1; } else { errors.push("One Day Plan".into()); }
-    if starter_res.is_ok() { inserted += 1; } else { errors.push("Starter Plan".into()); }
-    if lifetime_res.is_ok() { inserted += 1; } else { errors.push("Life Time".into()); }
-    if company_res.is_ok() { inserted += 1; } else { errors.push("Company Plan".into()); }
-    if api_res.is_ok() { inserted += 1; } else { errors.push("API Personal".into()); }
-    if custom_res.is_ok() { inserted += 1; } else { errors.push("Custom".into()); }
+    if free_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("Free Plan".into());
+    }
+    if one_day_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("One Day Plan".into());
+    }
+    if starter_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("Starter Plan".into());
+    }
+    if lifetime_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("Life Time".into());
+    }
+    if company_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("Company Plan".into());
+    }
+    if api_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("API Personal".into());
+    }
+    if custom_res.is_ok() {
+        inserted += 1;
+    } else {
+        errors.push("Custom".into());
+    }
 
     #[derive(QueryableByName)]
     struct CountRow {
@@ -286,13 +500,12 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
         count: i64,
     }
 
-    let total_plans = diesel::sql_query(
-        "SELECT COUNT(*) as count FROM plans WHERE is_active = true"
-    )
-    .get_result::<CountRow>(&mut conn)
-    .await
-    .map(|r| r.count)
-    .unwrap_or(0);
+    let total_plans =
+        diesel::sql_query("SELECT COUNT(*) as count FROM plans WHERE is_active = true")
+            .get_result::<CountRow>(&mut conn)
+            .await
+            .map(|r| r.count)
+            .unwrap_or(0);
 
     tracing::info!("Seeded {} plans. Total active: {}", inserted, total_plans);
 
@@ -302,6 +515,6 @@ pub async fn seed_subscription_plans(State(app_state): State<AppState>) -> (Stat
             plans_inserted: inserted,
             total_plans,
             errors,
-        }))
+        })),
     )
 }

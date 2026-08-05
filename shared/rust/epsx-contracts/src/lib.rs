@@ -24,15 +24,15 @@
 
 #![allow(clippy::needless_return)]
 
-pub mod errors;
-pub mod permissions;
 pub mod constants;
+pub mod errors;
+pub mod notification_port;
+pub mod permissions;
+pub mod pubsub_port;
 pub mod telemetry;
 pub mod traits;
 pub mod value_object;
 pub mod value_objects;
-pub mod notification_port;
-pub mod pubsub_port;
 // wave11(track-c): `DomainEvent` / `DomainEventBus` / `EventMetadata` lifted
 // to the crate root (ROADMAP §5 R7). The 19 application command handlers being
 // migrated to `EventPublisherPort` use this path; the `traits::domain_event`
@@ -64,8 +64,8 @@ pub use value_object::{ValueObject, ValueObjectError};
 // SendNotificationRequest, BroadcastNotificationRequest};` instead of
 // reaching into the `notification_port` submodule.
 pub use notification_port::{
-    BroadcastNotificationRequest, NotificationPort, NotificationPriorityTag,
-    NotificationTypeTag, SendNotificationRequest,
+    BroadcastNotificationRequest, NotificationPort, NotificationPriorityTag, NotificationTypeTag,
+    SendNotificationRequest,
 };
 
 // Re-export the `DomainEvent` trait + `DomainEventBus` + helpers at the

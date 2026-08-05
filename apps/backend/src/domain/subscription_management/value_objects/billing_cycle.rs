@@ -2,8 +2,7 @@ use crate::prelude::*;
 use std::str::FromStr;
 
 /// Billing cycle value object
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 pub enum BillingCycle {
     #[default]
     PayPerUse,
@@ -50,7 +49,10 @@ impl FromStr for BillingCycle {
             "quarterly" => Ok(BillingCycle::Quarterly),
             "yearly" | "annual" => Ok(BillingCycle::Yearly),
             "lifetime" => Ok(BillingCycle::Lifetime),
-            _ => Err(AppError::validation_error(format!("Invalid billing cycle: {}", s))),
+            _ => Err(AppError::validation_error(format!(
+                "Invalid billing cycle: {}",
+                s
+            ))),
         }
     }
 }
@@ -60,4 +62,3 @@ impl std::fmt::Display for BillingCycle {
         write!(f, "{}", self.as_str())
     }
 }
-

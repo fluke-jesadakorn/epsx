@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::domain::subscription_management::{Plan, PlanId};
+use crate::prelude::*;
 
 /// Search criteria for plans
 #[derive(Debug, Clone, Default)]

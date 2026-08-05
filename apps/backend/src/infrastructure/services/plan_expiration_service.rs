@@ -16,16 +16,14 @@
 //! not expose a "check for existing" method (and should not — the
 //! audit's R3 scope is *delivery*, not admin / read paths).
 
-use std::sync::Arc;
 use diesel_async::RunQueryDsl;
+use std::sync::Arc;
 use tokio::time::{sleep, Duration};
-use tracing::{info, warn, error};
+use tracing::{error, info, warn};
 use uuid::Uuid;
 
 use crate::prelude::TlsPool;
-use crate::web::notifications::{
-    cleanup_old_notifications,
-};
+use crate::web::notifications::cleanup_old_notifications;
 use epsx_contracts::notification_port::{NotificationPort, SendNotificationRequest};
 use epsx_contracts::pubsub_port::PubsubPort;
 
@@ -87,7 +85,10 @@ impl PlanExpirationService {
     pub fn start(self) -> tokio::task::JoinHandle<()> {
         let svc = Arc::new(self);
         tokio::spawn(async move {
-            info!("PlanExpirationService started (poll interval: {}s)", svc.config.poll_interval_secs);
+            info!(
+                "PlanExpirationService started (poll interval: {}s)",
+                svc.config.poll_interval_secs
+            );
             svc.run_loop().await;
         })
     }
@@ -122,7 +123,10 @@ impl PlanExpirationService {
             None => return Ok(()), // No notification DB, skip
         };
 
-        let mut db_conn = self.db_pool.get().await
+        let mut db_conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| format!("DB pool error: {}", e))?;
 
         for &days in &self.config.notification_days {
@@ -156,7 +160,7 @@ impl PlanExpirationService {
                   AND wpa.expires_at IS NOT NULL
                   AND wpa.expires_at > NOW()
                   AND wpa.expires_at <= NOW() + ($1 || ' days')::INTERVAL
-                "#
+                "#,
             )
             .bind::<diesel::sql_types::Text, _>(days.to_string())
             .load(&mut db_conn)
@@ -165,9 +169,17 @@ impl PlanExpirationService {
 
             for row in &rows {
                 let dedup_key = format!("plan_expiry_{}d_{}", days, row.plan_id);
+                // The dedup query is scoped by wallet, but the notification
+                // event identity is also used by the remote adapter's inbox.
+                // Include the canonical recipient in that identity so two
+                // wallets on the same plan cannot conflict on a retry.
+                let event_id = plan_expiry_event_id(days, row.plan_id, &row.wallet_address);
 
                 // Check idempotency: skip if notification already sent
-                if self.notification_exists(notif_pool, &row.wallet_address, &dedup_key).await {
+                if self
+                    .notification_exists(notif_pool, &row.wallet_address, &dedup_key)
+                    .await
+                {
                     continue;
                 }
 
@@ -189,27 +201,28 @@ impl PlanExpirationService {
                 // NOTIFICATIONS_DATABASE_URL is unset).
                 if let Some(port) = self.notification_port.as_ref() {
                     let res = port
-                        .send(SendNotificationRequest {
-                            recipient_wallet_address: row.wallet_address.clone(),
-                            notification_type: "payment".to_string(),
-                            priority: "high".to_string(),
-                            title: title.clone(),
-                            message: message.clone(),
-                            data: Some(serde_json::json!({
-                                "dedup_key": dedup_key,
-                                "plan_id": row.plan_id.to_string(),
-                                "plan_name": row.plan_name,
-                                "days_remaining": row.days_left,
-                                "action": "renew",
-                            })),
-                            action_url: Some("/plans".to_string()),
-                        })
+                        .send_with_event_id_retry(
+                            &event_id,
+                            SendNotificationRequest {
+                                recipient_wallet_address: row.wallet_address.clone(),
+                                notification_type: "payment".to_string(),
+                                priority: "high".to_string(),
+                                title: title.clone(),
+                                message: message.clone(),
+                                data: Some(serde_json::json!({
+                                    "dedup_key": dedup_key,
+                                    "plan_id": row.plan_id.to_string(),
+                                    "plan_name": row.plan_name,
+                                    "days_remaining": row.days_left,
+                                    "action": "renew",
+                                })),
+                                action_url: Some("/plans".to_string()),
+                                expires_at: None,
+                            },
+                        )
                         .await;
                     if let Err(e) = res {
-                        warn!(
-                            "Failed to publish plan-expiry notification via port: {}",
-                            e
-                        );
+                        warn!("Failed to publish plan-expiry notification via port: {}", e);
                         continue;
                     }
                 } else {
@@ -221,20 +234,20 @@ impl PlanExpirationService {
                     // is the bug the audit flagged.
                     warn!(
                         "notification_port not wired in PlanExpirationService; \
-                         skipping plan-expiry notification for wallet={}",
-                        row.wallet_address
+                         skipping plan-expiry notification"
                     );
                     continue;
                 }
 
-                info!(
-                    "Sent {}d expiry notification: wallet={}, plan={}",
-                    days, row.wallet_address, row.plan_name
-                );
+                info!("Sent {}d expiry notification", days);
             }
 
             if !rows.is_empty() {
-                info!("Checked {}d window: {} expiring assignments", days, rows.len());
+                info!(
+                    "Checked {}d window: {} expiring assignments",
+                    days,
+                    rows.len()
+                );
             }
         }
 
@@ -262,7 +275,7 @@ impl PlanExpirationService {
               AND notification_type = 'payment'
               AND data_payload->>'dedup_key' = $2
               AND status != 'deleted'
-            "#
+            "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet)
         .bind::<diesel::sql_types::Text, _>(dedup_key)
@@ -275,7 +288,10 @@ impl PlanExpirationService {
 
     /// Deactivate expired assignments, respecting grace_period_hours
     async fn cleanup_expired_assignments(&self) -> Result<(), String> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self
+            .db_pool
+            .get()
+            .await
             .map_err(|e| format!("DB pool error: {}", e))?;
 
         let affected = diesel::sql_query(
@@ -298,5 +314,34 @@ impl PlanExpirationService {
         }
 
         Ok(())
+    }
+}
+
+fn plan_expiry_event_id(days: i64, plan_id: Uuid, wallet_address: &str) -> String {
+    format!(
+        "subscription.expiry:plan_expiry_{}d_{}:{}",
+        days,
+        plan_id,
+        wallet_address.trim().to_ascii_lowercase()
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plan_expiry_event_id;
+    use uuid::Uuid;
+
+    #[test]
+    fn plan_expiry_event_identity_is_wallet_scoped_and_canonical() {
+        let plan = Uuid::nil();
+        let first = plan_expiry_event_id(7, plan, "  0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA  ");
+        let same_wallet =
+            plan_expiry_event_id(7, plan, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+        let other_wallet =
+            plan_expiry_event_id(7, plan, "0xbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
+        assert_eq!(first, same_wallet);
+        assert_ne!(first, other_wallet);
+        assert!(first.ends_with("0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"));
     }
 }

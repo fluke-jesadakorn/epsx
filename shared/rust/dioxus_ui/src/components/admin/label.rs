@@ -34,11 +34,7 @@ use dioxus::prelude::*;
 /// `html_for` matches Radix's `<Label htmlFor="…">` prop and is
 /// rendered as the standard `<label for="…">` HTML attribute.
 #[component]
-pub fn Label(
-    html_for: Option<String>,
-    class_name: Option<String>,
-    children: Element,
-) -> Element {
+pub fn Label(html_for: Option<String>, class_name: Option<String>, children: Element) -> Element {
     rsx! {
         label {
             r#for: html_for.clone().unwrap_or_default(),
@@ -68,7 +64,10 @@ mod tests {
             }
         };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("<label"), "label should render <label> element");
+        assert!(
+            html.contains("<label"),
+            "label should render <label> element"
+        );
         assert!(
             html.contains("for=\"email-input\""),
             "label should propagate `html_for` to `for` attribute. Got: {html}"
@@ -98,7 +97,13 @@ mod tests {
     fn test_label_renders_without_html_for() {
         let el = rsx! { Label { "Display only" } };
         let html = dioxus_ssr::render_element(el);
-        assert!(html.contains("<label"), "label should render <label> element");
-        assert!(html.contains("Display only"), "label should render children");
+        assert!(
+            html.contains("<label"),
+            "label should render <label> element"
+        );
+        assert!(
+            html.contains("Display only"),
+            "label should render children"
+        );
     }
 }

@@ -1,9 +1,9 @@
-pub mod user;
-pub mod auth_modal;
-pub mod auth_gate;
-pub mod wallet_button;
-pub mod progressive_banner;
 pub mod access_denied;
+pub mod auth_gate;
+pub mod auth_modal;
+pub mod progressive_banner;
+pub mod user;
+pub mod wallet_button;
 // === wave40-t2 domain subdirs port ===
 // 11 NEW auth components ported from
 // `apps-old/frontend/components/auth/`:
@@ -33,19 +33,19 @@ pub mod progressive_auth_banner;
 pub mod wallet_connect_auth;
 pub mod wallet_connection_modal;
 
-pub use user::*;
-pub use auth_modal::*;
-pub use auth_gate::*;
-pub use wallet_button::*;
-pub use progressive_banner::*;
 pub use access_denied::*;
 pub use analytics_auth_wrapper::AnalyticsAuthWrapper;
 pub use api_key_manager::{ApiKey, ApiKeyManager, ApiKeyScope};
+pub use auth_gate::*;
+pub use auth_modal::*;
 pub use connected_wallet_dropdown::ConnectedWalletDropdown;
 pub use frontend_auth_gate::FrontendAuthGate;
 pub use frontend_auth_modal::FrontendAuthModal;
 pub use global_auth_guard::GlobalAuthGuard;
 pub use permissions_display::{PermissionsDisplay, UserPermissionsSnapshot};
 pub use progressive_auth_banner::ProgressiveAuthBannerLegacy;
+pub use progressive_banner::*;
+pub use user::*;
+pub use wallet_button::*;
 pub use wallet_connect_auth::WalletConnectAuth;
 pub use wallet_connection_modal::WalletConnectionModal;

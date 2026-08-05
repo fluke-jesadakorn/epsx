@@ -2,7 +2,7 @@
 // Focused module handling error conversion and EPS-specific error responses
 
 use axum::{http::StatusCode, response::Json};
-use tracing::{warn, error};
+use tracing::{error, warn};
 
 use epsx_contracts::errors::AppError as KernelAppError;
 
@@ -19,7 +19,9 @@ pub struct AppError(pub KernelAppError);
 
 impl std::ops::Deref for AppError {
     type Target = KernelAppError;
-    fn deref(&self) -> &KernelAppError { &self.0 }
+    fn deref(&self) -> &KernelAppError {
+        &self.0
+    }
 }
 
 impl std::fmt::Debug for AppError {
@@ -56,7 +58,7 @@ pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value
                     "error": "validation_error",
                     "message": error.message,
                     "code": "EPS_VALIDATION_FAILED"
-                }))
+                })),
             )
         }
         ErrorKind::DatabaseError => {
@@ -67,7 +69,7 @@ pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value
                     "error": "database_error",
                     "message": "Internal server error",
                     "code": "EPS_DATABASE_ERROR"
-                }))
+                })),
             )
         }
         ErrorKind::ExternalServiceError => {
@@ -78,7 +80,7 @@ pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value
                     "error": "external_service_error",
                     "message": "External service temporarily unavailable",
                     "code": "EPS_EXTERNAL_SERVICE_ERROR"
-                }))
+                })),
             )
         }
         ErrorKind::ConfigurationError => {
@@ -89,7 +91,7 @@ pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value
                     "error": "configuration_error",
                     "message": "Service configuration error",
                     "code": "EPS_CONFIGURATION_ERROR"
-                }))
+                })),
             )
         }
         _ => {
@@ -100,7 +102,7 @@ pub fn to_axum_response(error: &AppError) -> (StatusCode, Json<serde_json::Value
                     "error": "internal_error",
                     "message": "An unexpected error occurred",
                     "code": "EPS_INTERNAL_ERROR"
-                }))
+                })),
             )
         }
     }
@@ -140,7 +142,10 @@ impl From<EPSError> for AppError {
             EPSError::CacheOperationFailed(_) => ErrorKind::DatabaseError,
             EPSError::DataTransformationFailed(_) => ErrorKind::ValidationError,
         };
-        AppError(epsx_contracts::errors::AppError::new(kind, error.to_string()))
+        AppError(epsx_contracts::errors::AppError::new(
+            kind,
+            error.to_string(),
+        ))
     }
 }
 

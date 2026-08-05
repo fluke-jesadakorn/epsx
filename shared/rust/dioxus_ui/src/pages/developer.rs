@@ -29,7 +29,7 @@ use super::PageContext;
 use super::PageMeta;
 use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::{DeveloperShell, PageHeader};
+use crate::layout::PageHeader;
 use dioxus::prelude::*;
 use std::sync::OnceLock;
 
@@ -104,7 +104,11 @@ fn endpoint_categories() -> Vec<EndpointCategory> {
         ("premium".into(), "120/min".into()),
         ("enterprise".into(), "600/min".into()),
     ];
-    let bearer = ("Authorization".to_string(), true, "Bearer <api_key>".to_string());
+    let bearer = (
+        "Authorization".to_string(),
+        true,
+        "Bearer <api_key>".to_string(),
+    );
     let optional_bearer = (
         "Authorization".to_string(),
         false,
@@ -319,7 +323,9 @@ fn code_snippet(endpoint: &EndpointDef, language: &str) -> String {
             ];
             let request = match endpoint.method.as_str() {
                 "POST" => "res = requests.post(url, headers=headers, json={\"ticker\": \"AAPL\"})",
-                "DELETE" => "res = requests.delete(url, headers=headers, params={\"ticker\": \"AAPL\"})",
+                "DELETE" => {
+                    "res = requests.delete(url, headers=headers, params={\"ticker\": \"AAPL\"})"
+                }
                 _ => "res = requests.get(url, headers=headers)",
             };
             lines.push(request.to_string());
@@ -359,33 +365,63 @@ fn pretty_response(response: &str) -> String {
 fn DeveloperOverviewUnavailable() -> Element {
     rsx! {
         section {
-            class: "developer-overview-unavailable rounded-2xl border border-border/20 bg-card p-8 shadow-xl",
+            class: "developer-overview-unavailable rounded-2xl border border-white/70 bg-black/20 p-5 shadow-xl sm:p-8",
             "data-section": "developer-overview-unavailable",
             role: "status",
             "aria-live": "polite",
             "aria-labelledby": "developer-overview-unavailable-title",
-            div { class: "mx-auto max-w-2xl text-center",
-                div { class: "mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted",
-                    Icon { name: "code".to_string(), size: Some(24) }
+            div { class: "flex flex-wrap items-center justify-between gap-3 border-b border-white/60 pb-4",
+                a { class: "inline-flex items-center gap-2 rounded-2xl border border-white/70 px-4 py-2 text-purple-300", href: "/developer/docs",
+                    "Developer Menu"
+                    Icon { name: "chevron-right".to_string(), size: Some(16) }
                 }
-                h2 {
-                    id: "developer-overview-unavailable-title",
-                    class: "text-xl font-bold text-foreground",
-                    "Developer tools unavailable"
+                span { class: "rounded-2xl border border-white/70 px-5 py-2 text-sm font-medium text-white", "API Keys" }
+            }
+            h2 { id: "developer-overview-unavailable-title", class: "sr-only", "Developer tools unavailable" }
+            p { class: "sr-only",
+                "API key and plan management are not available right now. No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."
+            }
+            div { class: "mt-8 grid gap-4 sm:grid-cols-2",
+                DeveloperMetricPreview { label: "API Access", value: "Unavailable", accent: "text-amber-400" }
+                DeveloperMetricPreview { label: "Rate Limit", value: "Unavailable", accent: "text-blue-400" }
+                DeveloperMetricPreview { label: "Total Usage", value: "Not projected", accent: "text-purple-400" }
+                DeveloperMetricPreview { label: "Expires", value: "Not projected", accent: "text-emerald-400" }
+            }
+            section { class: "mt-6 rounded-2xl border border-white/70 p-5 sm:p-8",
+                div { class: "rounded-2xl border border-white/70 p-5 text-center",
+                    span { class: "inline-flex rounded-full bg-purple-600 px-4 py-1 text-sm font-semibold text-white", "Plan state unavailable" }
+                    p { class: "mt-4 text-lg text-white", "API key generation remains unavailable until the backend plan contract is verified." }
                 }
-                p { class: "mt-3 text-sm text-muted-foreground",
-                    "API key and plan management are not available right now. No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."
+                div { class: "mt-8 rounded-2xl border border-white/70 p-5 sm:p-8",
+                    div { class: "flex items-center justify-between gap-3 border-b border-white/70 pb-4",
+                        h3 { class: "text-2xl font-bold text-white", "Your API Keys" }
+                        span { class: "text-sm text-slate-300", "Unavailable" }
+                    }
+                    p { class: "py-16 text-center text-lg text-slate-300", "No API key data is available yet." }
                 }
-                nav {
-                    class: "mt-6 flex flex-wrap justify-center gap-3",
-                    "aria-label": "Developer page actions",
-                    a {
-                        class: "btn btn-outline",
-                        href: "/developer/docs",
-                        "Read API documentation"
+                aside { class: "mt-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5 text-blue-300",
+                    h3 { class: "text-xl font-semibold", "Security Best Practices" }
+                    ul { class: "mt-3 list-disc space-y-1 pl-5",
+                        li { "Never commit API keys to version control" }
+                        li { "Use environment variables for key storage" }
+                        li { "Rotate keys regularly for production apps" }
+                        li { "Revoke unused keys promptly" }
                     }
                 }
             }
+            nav { class: "sr-only mt-6", aria_label: "Developer page actions",
+                a { href: "/developer/docs", "Read API documentation" }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperMetricPreview(label: &'static str, value: &'static str, accent: &'static str) -> Element {
+    rsx! {
+        article { class: "rounded-2xl border border-white/70 bg-black/10 p-5 sm:p-7",
+            p { class: "text-base font-medium text-white", "{label}" }
+            p { class: "mt-5 text-3xl font-bold {accent}", "{value}" }
         }
     }
 }
@@ -444,13 +480,18 @@ fn DeveloperUsageUnavailable() -> Element {
 /// `DeveloperOverviewBody` — authentication-only overview state.
 #[component]
 fn DeveloperOverviewBody(ctx: PageContext) -> Element {
+    let can_preview = ctx.user.is_some() || ctx.wallet.address.is_some();
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("the developer portal".to_string()),
-                return_url: Some(ctx.path.clone()),
-                DeveloperShell { current_path: ctx.path.clone(),
+            if can_preview {
+                div { class: "container page-content",
+                    DeveloperOverviewUnavailable {}
+                }
+            } else {
+                AuthGate {
+                    user: ctx.user.clone(),
+                    feature: Some("the developer portal".to_string()),
+                    return_url: Some(ctx.path.clone()),
                     div { class: "container page-content space-y-6",
                         PageHeader {
                             title: "Developer portal".to_string(),
@@ -474,15 +515,13 @@ fn DeveloperUsageBody(ctx: PageContext) -> Element {
                 user: ctx.user.clone(),
                 feature: Some("API usage".to_string()),
                 return_url: Some(ctx.path.clone()),
-                DeveloperShell { current_path: ctx.path.clone(),
-                    div { class: "developer-usage-prod container page-content space-y-6",
-                        PageHeader {
-                            title: "API usage".to_string(),
-                            description: Some("Usage reporting is not currently available.".to_string()),
-                            icon: Some("chart-line".to_string()),
-                        }
-                        DeveloperUsageUnavailable {}
+                div { class: "developer-usage-prod container page-content space-y-6",
+                    PageHeader {
+                        title: "API usage".to_string(),
+                        description: Some("Usage reporting is not currently available.".to_string()),
+                        icon: Some("chart-line".to_string()),
                     }
+                    DeveloperUsageUnavailable {}
                 }
             }
         }
@@ -523,9 +562,10 @@ pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
     meta.keywords = Some("stock analytics,financial data,EPSX,market insights".to_string());
     let categories = cached_endpoint_categories();
 
-    (meta, rsx! {
-        MainLayout { ctx: ctx.clone(),
-            DeveloperShell { current_path: ctx.path.clone(),
+    (
+        meta,
+        rsx! {
+            MainLayout { ctx: ctx.clone(),
                 div {
                     class: "developer-docs-page container page-content",
                     "data-docs-source-baseline": DEVELOPER_DOCS_SOURCE_BASELINE,
@@ -534,54 +574,54 @@ pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
                         "data-section": "developer-docs",
                         DocsSidebar { categories: categories.clone() }
                         div { class: "min-w-0 flex-1 space-y-8",
-                            // Hero
-                            div { class: "developer-docs-hero mb-8",
-                                div { class: "h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" }
-                                h1 { class: "mt-3 text-3xl font-bold text-foreground", "API Reference" }
-                                p { class: "mt-2 text-muted-foreground",
-                                    "Pinned migration reference for reviewing endpoint, schema, and example structure."
+                                // Hero
+                                div { class: "developer-docs-hero mb-8",
+                                    div { class: "h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" }
+                                    h1 { class: "mt-3 text-3xl font-bold text-foreground", "API Reference" }
+                                    p { class: "mt-2 text-muted-foreground",
+                                        "Pinned migration reference for reviewing endpoint, schema, and example structure."
+                                    }
                                 }
-                            }
-                            aside {
-                                class: "developer-docs-reference-warning rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5",
-                                "data-docs-reference-warning": "true",
-                                role: "note",
-                                "aria-labelledby": "developer-docs-reference-warning-title",
-                                h2 {
-                                    id: "developer-docs-reference-warning-title",
-                                    class: "text-base font-semibold text-foreground",
-                                    "Pinned migration reference"
+                                aside {
+                                    class: "developer-docs-reference-warning rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5",
+                                    "data-docs-reference-warning": "true",
+                                    role: "note",
+                                    "aria-labelledby": "developer-docs-reference-warning-title",
+                                    h2 {
+                                        id: "developer-docs-reference-warning-title",
+                                        class: "text-base font-semibold text-foreground",
+                                        "Pinned migration reference"
+                                    }
+                                    p { class: "mt-2 text-sm text-muted-foreground",
+                                        "Endpoint, authentication, tier, rate-limit, schema, and example content below comes from the pinned migration source "
+                                        code { class: "font-mono text-xs", "{DEVELOPER_DOCS_SOURCE_BASELINE}" }
+                                        ". It is not a verified production contract. Do not use real credentials."
+                                    }
                                 }
-                                p { class: "mt-2 text-sm text-muted-foreground",
-                                    "Endpoint, authentication, tier, rate-limit, schema, and example content below comes from the pinned migration source "
-                                    code { class: "font-mono text-xs", "{DEVELOPER_DOCS_SOURCE_BASELINE}" }
-                                    ". It is not a verified production contract. Do not use real credentials."
+                                // Auth guide card
+                                div { class: "developer-docs-auth-card rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
+                                    h3 { class: "text-sm font-semibold text-foreground", "Authentication" }
+                                    p { class: "mt-1 text-sm text-muted-foreground",
+                                        "The pinned reference shows an "
+                                        code { class: "rounded bg-background px-1.5 py-0.5 text-xs", "Authorization: Bearer <token>" }
+                                        " header. Accepted credential types and middleware behavior are not verified here."
+                                    }
+                                    pre { class: "developer-docs-curl mt-3 rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
+                                        "curl -H \"Authorization: Bearer YOUR_API_KEY\" https://api.example.invalid/api/analytics/rankings"
+                                    }
                                 }
-                            }
-                            // Auth guide card
-                            div { class: "developer-docs-auth-card rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                                h3 { class: "text-sm font-semibold text-foreground", "Authentication" }
-                                p { class: "mt-1 text-sm text-muted-foreground",
-                                    "The pinned reference shows an "
-                                    code { class: "rounded bg-background px-1.5 py-0.5 text-xs", "Authorization: Bearer <token>" }
-                                    " header. Accepted credential types and middleware behavior are not verified here."
+                                // Endpoint sections
+                                div { class: "space-y-10",
+                                    for cat in categories.iter() {
+                                        EndpointSection { category: cat.clone() }
+                                    }
                                 }
-                                pre { class: "developer-docs-curl mt-3 rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
-                                    "curl -H \"Authorization: Bearer YOUR_API_KEY\" https://api.example.invalid/api/analytics/rankings"
-                                }
-                            }
-                            // Endpoint sections
-                            div { class: "space-y-10",
-                                for cat in categories.iter() {
-                                    EndpointSection { category: cat.clone() }
-                                }
-                            }
                         }
                     }
                 }
             }
-        }
-    })
+        },
+    )
 }
 
 /// `DocsSidebar` — left rail with category links + a quick-start
@@ -1178,7 +1218,12 @@ mod tests {
         // 4 category titles from ENDPOINT_CATEGORIES. The `&` is
         // HTML-encoded by dioxus_ssr as `&#38;`, so we check for
         // the encoded form for "Portfolio & Watchlist".
-        for title in &["Authentication", "Analytics", "Portfolio &#38; Watchlist", "User"] {
+        for title in &[
+            "Authentication",
+            "Analytics",
+            "Portfolio &#38; Watchlist",
+            "User",
+        ] {
             assert!(
                 html.contains(title),
                 "docs page should render category title `{title}`. Got (truncated): {}",
@@ -1201,7 +1246,10 @@ mod tests {
             "docs page should render the quick-start sidebar card"
         );
         assert_eq!(html.matches("docs-endpoint-card rounded-2xl").count(), 10);
-        assert_eq!(html.matches("data-docs-endpoint-toggle=\"true\"").count(), 10);
+        assert_eq!(
+            html.matches("data-docs-endpoint-toggle=\"true\"").count(),
+            10
+        );
         assert_eq!(html.matches("docs-endpoint-card-params").count(), 3);
         assert_eq!(html.matches("docs-endpoint-card-rate-limits").count(), 10);
         assert_eq!(html.matches("data-docs-code-tab=").count(), 30);
@@ -1209,8 +1257,15 @@ mod tests {
         assert_eq!(html.matches("data-docs-copy-code=\"true\"").count(), 10);
         assert_eq!(html.matches("data-docs-copy-response=\"true\"").count(), 10);
         assert_eq!(html.matches("docs-response-panel").count(), 10);
-        assert_eq!(html.matches("data-docs-reference-warning=\"true\"").count(), 1);
-        assert_eq!(html.matches("data-docs-live-request-notice=\"true\"").count(), 10);
+        assert_eq!(
+            html.matches("data-docs-reference-warning=\"true\"").count(),
+            1
+        );
+        assert_eq!(
+            html.matches("data-docs-live-request-notice=\"true\"")
+                .count(),
+            10
+        );
         assert_eq!(html.matches("role=\"note\"").count(), 11);
         assert!(html.contains("It is not a verified production contract."));
         assert!(html.contains("Do not use real credentials."));
@@ -1306,9 +1361,7 @@ mod tests {
                     assert!(panel.contains(r#"role="tabpanel""#));
                     assert!(panel.contains(r#"tabindex="0""#));
                     assert!(panel.contains(&format!(r#"aria-labelledby="{tab_id}""#)));
-                    assert!(panel.contains(&format!(
-                        r#"data-docs-code-panel="{language}""#
-                    )));
+                    assert!(panel.contains(&format!(r#"data-docs-code-panel="{language}""#)));
                     assert_eq!(panel.contains(" hidden"), !selected);
                     assert_eq!(html.matches(&format!(r#"id="{tab_id}""#)).count(), 1);
                     assert_eq!(html.matches(&format!(r#"id="{panel_id}""#)).count(), 1);
@@ -1374,9 +1427,7 @@ mod tests {
                         )
                     };
                     assert!(button.contains(&format!(r#"aria-label="{accessible_name}""#)));
-                    assert!(button.contains(&format!(
-                        r#"aria-describedby="{status_id}""#
-                    )));
+                    assert!(button.contains(&format!(r#"aria-describedby="{status_id}""#)));
                     assert!(button.contains(&format!(
                         r#"data-copy-success-message="Copied {kind} example for {} {} to clipboard.""#,
                         endpoint.method, endpoint.path,
@@ -1394,15 +1445,10 @@ mod tests {
                     assert!(status.contains(r#"aria-live="polite""#));
                     assert!(status.contains(r#"aria-atomic="true""#));
                     assert!(html.contains(&format!("<{status}></span>")));
+                    assert_eq!(html.matches(&format!(r#"id="{status_id}""#)).count(), 1);
                     assert_eq!(
-                        html.matches(&format!(r#"id="{status_id}""#)).count(),
-                        1
-                    );
-                    assert_eq!(
-                        html.matches(&format!(
-                            r#"data-copy-status-target="{status_id}""#
-                        ))
-                        .count(),
+                        html.matches(&format!(r#"data-copy-status-target="{status_id}""#))
+                            .count(),
                         1
                     );
                     assert_eq!(
@@ -1433,17 +1479,29 @@ mod tests {
         assert_eq!(cats.len(), 4, "expected 4 endpoint categories");
         let auth = cats.iter().find(|c| c.id == "auth").expect("auth category");
         assert_eq!(auth.title, "Authentication");
-        assert!(auth.endpoints.iter().any(|e| e.path == "/api/auth/session/verify"));
+        assert!(auth
+            .endpoints
+            .iter()
+            .any(|e| e.path == "/api/auth/session/verify"));
         // Auth category has 1 endpoint, Analytics has 4, Portfolio has 3, User has 2.
-        let analytics = cats.iter().find(|c| c.id == "analytics").expect("analytics category");
+        let analytics = cats
+            .iter()
+            .find(|c| c.id == "analytics")
+            .expect("analytics category");
         assert_eq!(analytics.endpoints.len(), 4);
-        let portfolio = cats.iter().find(|c| c.id == "portfolio").expect("portfolio category");
+        let portfolio = cats
+            .iter()
+            .find(|c| c.id == "portfolio")
+            .expect("portfolio category");
         assert_eq!(portfolio.endpoints.len(), 3);
         let user = cats.iter().find(|c| c.id == "user").expect("user category");
         assert_eq!(user.endpoints.len(), 2);
         // Total = 1 + 4 + 3 + 2 = 10 in the pinned source.
         let total: usize = cats.iter().map(|c| c.endpoints.len()).sum();
-        assert_eq!(total, 10, "endpoint catalog must keep the exact pinned endpoint count");
+        assert_eq!(
+            total, 10,
+            "endpoint catalog must keep the exact pinned endpoint count"
+        );
 
         // param() helper unit-check.
         let p = EndpointParam::param("ticker", "string", true, "test");

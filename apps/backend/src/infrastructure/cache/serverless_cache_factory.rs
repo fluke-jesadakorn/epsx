@@ -1,11 +1,11 @@
 // Serverless Cache Factory - Redis-Only Caching for Serverless Environments
 // Eliminates memory cache fallbacks that are incompatible with serverless
 
-use std::sync::Arc;
 use anyhow::Result;
-use tracing::{info, error};
+use std::sync::Arc;
+use tracing::{error, info};
 
-use crate::infrastructure::cache::{Cache, RedisCache, CacheConfig};
+use crate::infrastructure::cache::{Cache, CacheConfig, RedisCache};
 
 /// Serverless-specific cache factory - NO memory cache fallbacks
 pub struct ServerlessCacheFactory;
@@ -13,18 +13,20 @@ pub struct ServerlessCacheFactory;
 impl ServerlessCacheFactory {
     /// Create Redis cache for serverless - FAILS if Redis unavailable
     pub async fn redis_only() -> Result<Box<dyn Cache>> {
-        let redis_cache = Self::create_redis_cache().await
+        let redis_cache = Self::create_redis_cache()
+            .await
             .map_err(|e| anyhow::anyhow!("Redis is REQUIRED for serverless deployment: {}", e))?;
-        
+
         info!("Serverless Redis cache initialized (no fallback)");
         Ok(Box::new(redis_cache))
     }
 
     /// Create Redis cache as Arc for serverless - FAILS if Redis unavailable
     pub async fn redis_only_arc() -> Result<Arc<dyn Cache>> {
-        let redis_cache = Self::create_redis_cache().await
+        let redis_cache = Self::create_redis_cache()
+            .await
             .map_err(|e| anyhow::anyhow!("Redis is REQUIRED for serverless deployment: {}", e))?;
-        
+
         info!("Serverless Redis cache (Arc) initialized (no fallback)");
         Ok(Arc::new(redis_cache))
     }
@@ -33,27 +35,33 @@ impl ServerlessCacheFactory {
     pub async fn redis_with_url(redis_url: String) -> Result<Arc<dyn Cache>> {
         let pool_size = Self::get_serverless_pool_size();
         let config = Self::get_serverless_cache_config();
-        
-        let redis_cache = RedisCache::new(redis_url.clone(), pool_size, config).await
+
+        let redis_cache = RedisCache::new(redis_url.clone(), pool_size, config)
+            .await
             .map_err(|e| anyhow::anyhow!("Failed to connect to Redis at {}: {}", redis_url, e))?;
-        
-        info!("Serverless Redis cache created with custom URL: {}", redis_url);
+
+        info!(
+            "Serverless Redis cache created with custom URL: {}",
+            redis_url
+        );
         Ok(Arc::new(redis_cache))
     }
 
     /// Create Redis cache with environment configuration
     async fn create_redis_cache() -> Result<RedisCache> {
-        let redis_url = std::env::var("REDIS_URL")
-            .map_err(|_| anyhow::anyhow!("REDIS_URL environment variable is required for serverless"))?;
-        
+        let redis_url = std::env::var("REDIS_URL").map_err(|_| {
+            anyhow::anyhow!("REDIS_URL environment variable is required for serverless")
+        })?;
+
         let pool_size = Self::get_serverless_pool_size();
         let config = Self::get_serverless_cache_config();
-        
+
         info!("Connecting to Redis for serverless cache: {}", redis_url);
         info!("   Pool size: {}", pool_size);
         info!("   Default TTL: {}s", config.default_ttl);
-        
-        RedisCache::new(redis_url, pool_size, config).await
+
+        RedisCache::new(redis_url, pool_size, config)
+            .await
             .map_err(|e| anyhow::anyhow!("Redis connection failed: {}", e))
     }
 
@@ -103,10 +111,10 @@ impl ServerlessCacheFactory {
     pub fn validate_serverless_config() -> Result<ServerlessCacheConfig> {
         let redis_url = std::env::var("REDIS_URL")
             .map_err(|_| anyhow::anyhow!("REDIS_URL is required for serverless caching"))?;
-        
+
         let pool_size = Self::get_serverless_pool_size();
         let cache_config = Self::get_serverless_cache_config();
-        
+
         Ok(ServerlessCacheConfig {
             redis_url,
             pool_size,
@@ -133,9 +141,7 @@ impl ServerlessCacheConfig {
     pub fn display(&self) -> String {
         format!(
             "Redis: {}, Pool: {}, TTL: {}s",
-            self.redis_url,
-            self.pool_size,
-            self.cache_config.default_ttl
+            self.redis_url, self.pool_size, self.cache_config.default_ttl
         )
     }
 }
@@ -149,4 +155,3 @@ pub async fn get_serverless_cache() -> Result<Arc<dyn Cache>> {
 pub async fn serverless_cache_health_check() -> bool {
     ServerlessCacheFactory::health_check().await
 }
-

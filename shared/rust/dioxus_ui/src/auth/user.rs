@@ -18,7 +18,9 @@ pub enum AuthMethod {
 }
 
 impl Default for AuthMethod {
-    fn default() -> Self { Self::Unknown }
+    fn default() -> Self {
+        Self::Unknown
+    }
 }
 
 /// Existing user shape — extended with the optional auth metadata
@@ -49,15 +51,25 @@ pub struct User {
 }
 
 impl User {
-    pub fn is_authed(&self) -> bool { !self.id.is_empty() }
+    pub fn is_authed(&self) -> bool {
+        !self.id.is_empty()
+    }
 
     pub fn short_address(&self) -> String {
-        if self.address.len() < 10 { return self.address.clone(); }
-        format!("{}…{}", &self.address[..6], &self.address[self.address.len()-4..])
+        if self.address.len() < 10 {
+            return self.address.clone();
+        }
+        format!(
+            "{}…{}",
+            &self.address[..6],
+            &self.address[self.address.len() - 4..]
+        )
     }
 
     pub fn is_admin(&self) -> bool {
-        self.roles.iter().any(|r| r == "admin" || r == "super_admin" || r == "Admin")
+        self.roles
+            .iter()
+            .any(|r| r == "admin" || r == "super_admin" || r == "Admin")
     }
 
     pub fn has_permission(&self, p: &str) -> bool {
@@ -99,7 +111,9 @@ impl User {
     /// Returns `true` when the user has the given role (case-insensitive,
     /// exact match). Empty / unknown role tags never match.
     pub fn has_role(&self, role: &str) -> bool {
-        if role.is_empty() { return false; }
+        if role.is_empty() {
+            return false;
+        }
         self.roles.iter().any(|r| r.eq_ignore_ascii_case(role))
     }
 
@@ -107,7 +121,9 @@ impl User {
     /// Empty input list returns `false` (consistent with the
     /// "any-permission" pattern used elsewhere in the app).
     pub fn has_any_role(&self, roles: &[&str]) -> bool {
-        if roles.is_empty() { return false; }
+        if roles.is_empty() {
+            return false;
+        }
         roles.iter().any(|r| self.has_role(r))
     }
 
@@ -116,9 +132,13 @@ impl User {
     /// a generic "Guest" placeholder. Never returns an empty string.
     pub fn display_name_or_fallback(&self) -> String {
         if let Some(n) = &self.display_name {
-            if !n.is_empty() { return n.clone(); }
+            if !n.is_empty() {
+                return n.clone();
+            }
         }
-        if !self.address.is_empty() { return self.short_address(); }
+        if !self.address.is_empty() {
+            return self.short_address();
+        }
         if let Some(email) = &self.email {
             if let Some(at) = email.find('@') {
                 return email[..at].to_string();
@@ -140,7 +160,11 @@ impl User {
             AuthMethod::OAuth => "shield".to_string(),
             AuthMethod::Demo => "user".to_string(),
             AuthMethod::Unknown => {
-                if self.is_authed() { "user".to_string() } else { "user".to_string() }
+                if self.is_authed() {
+                    "user".to_string()
+                } else {
+                    "user".to_string()
+                }
             }
         }
     }
@@ -287,7 +311,10 @@ mod perm_match_tests {
     #[test]
     fn three_seg_no_match() {
         assert!(!permission_matches("admin:users:read", "admin:users:write"));
-        assert!(!permission_matches("admin:users:read", "epsx:analytics:read"));
+        assert!(!permission_matches(
+            "admin:users:read",
+            "epsx:analytics:read"
+        ));
     }
 
     #[test]

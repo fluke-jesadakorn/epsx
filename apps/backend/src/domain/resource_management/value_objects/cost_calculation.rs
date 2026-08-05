@@ -80,15 +80,15 @@ impl CostCalculation {
 
     fn recalculate_total(&mut self) {
         let mut total = self.base_cost.amount;
-        
+
         for cost in self.usage_costs.values() {
             total += cost.amount;
         }
-        
+
         for cost in self.overage_costs.values() {
             total += cost.amount;
         }
-        
+
         self.total_cost = Money {
             amount: total,
             currency: self.base_cost.currency.clone(),
@@ -109,7 +109,7 @@ impl Money {
         if self.currency != other.currency {
             return Err("Cannot add money with different currencies".to_string());
         }
-        
+
         Ok(Money {
             amount: self.amount + other.amount,
             currency: self.currency.clone(),
@@ -127,18 +127,14 @@ impl Money {
 impl PricingModel {
     pub fn calculate_cost(&self, quantity: i64) -> Money {
         match &self.pricing_type {
-            PricingType::PerUnit => {
-                Money {
-                    amount: self.base_price.amount * quantity as f64,
-                    currency: self.base_price.currency.clone(),
-                }
+            PricingType::PerUnit => Money {
+                amount: self.base_price.amount * quantity as f64,
+                currency: self.base_price.currency.clone(),
             },
             PricingType::Flat => self.base_price.clone(),
-            PricingType::PayPerUse => {
-                Money {
-                    amount: self.base_price.amount * quantity as f64,
-                    currency: self.base_price.currency.clone(),
-                }
+            PricingType::PayPerUse => Money {
+                amount: self.base_price.amount * quantity as f64,
+                currency: self.base_price.currency.clone(),
             },
             PricingType::Tiered(tiers) => {
                 let mut total_cost = 0.0;

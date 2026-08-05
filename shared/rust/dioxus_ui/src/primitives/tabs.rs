@@ -62,11 +62,17 @@ pub fn Tabs(
     /// `"tabs-default"` for backwards compat. When multiple
     /// `Tabs` instances live on the same page they should pass
     /// distinct ids to avoid cross-talk.
-    #[props(default = "tabs-default".to_string())] group_id: String,
+    #[props(default = "tabs-default".to_string())]
+    group_id: String,
 ) -> Element {
     let mut cls = "tabs".to_string();
-    if vertical { cls.push_str(" tabs-vertical"); }
-    if let Some(c) = class_name { cls.push(' '); cls.push_str(&c); }
+    if vertical {
+        cls.push_str(" tabs-vertical");
+    }
+    if let Some(c) = class_name {
+        cls.push(' ');
+        cls.push_str(&c);
+    }
 
     // The Dioxus `on_select` callback is still wired for any
     // future hydration path; under SSR it's a no-op. The

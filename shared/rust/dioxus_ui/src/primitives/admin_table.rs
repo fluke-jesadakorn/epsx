@@ -87,7 +87,12 @@ impl<T: Clone + PartialEq + std::fmt::Debug + 'static> PartialEq for AdminTableC
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum AdminTableAlign { Left, #[default] Center, Right }
+pub enum AdminTableAlign {
+    Left,
+    #[default]
+    Center,
+    Right,
+}
 
 impl AdminTableAlign {
     fn cls(self) -> &'static str {
@@ -140,7 +145,8 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
     #[props(default = None)] caption: Option<String>,
     /// Override the action column. When set, the default
     /// Edit / Delete / Revoke button row is hidden.
-    #[props(default = None)] actions: Option<Element>,
+    #[props(default = None)]
+    actions: Option<Element>,
 ) -> Element {
     let mut filter = use_signal(String::new);
     let mut page = use_signal(|| 0usize);
@@ -175,7 +181,11 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
     let cur_page = (*page.read()).min(total_pages.saturating_sub(1));
     let start = cur_page * page_size;
     let end = (start + page_size).min(total);
-    let page_rows: Vec<T> = if total == 0 { Vec::new() } else { filtered[start..end].to_vec() };
+    let page_rows: Vec<T> = if total == 0 {
+        Vec::new()
+    } else {
+        filtered[start..end].to_vec()
+    };
 
     let align_cls = |a: AdminTableAlign| -> &'static str { a.cls() };
 
@@ -416,32 +426,63 @@ mod tests {
     #[test]
     fn admin_table_renders_column_headers() {
         let rows = vec![
-            TestRow { id: "1".into(), name: "Alpha".into(), amount: 100 },
-            TestRow { id: "2".into(), name: "Beta".into(), amount: 200 },
+            TestRow {
+                id: "1".into(),
+                name: "Alpha".into(),
+                amount: 100,
+            },
+            TestRow {
+                id: "2".into(),
+                name: "Beta".into(),
+                amount: 200,
+            },
         ];
         let html = render_admin_table(rows, Some("Test table".to_string()));
-        assert!(html.contains("Name"), "AdminTable must render column header 'Name'. Got: {html}");
-        assert!(html.contains("Amount"), "AdminTable must render column header 'Amount'. Got: {html}");
-        assert!(html.contains("Test table"), "AdminTable must render the caption. Got: {html}");
+        assert!(
+            html.contains("Name"),
+            "AdminTable must render column header 'Name'. Got: {html}"
+        );
+        assert!(
+            html.contains("Amount"),
+            "AdminTable must render column header 'Amount'. Got: {html}"
+        );
+        assert!(
+            html.contains("Test table"),
+            "AdminTable must render the caption. Got: {html}"
+        );
     }
 
     /// Empty rows produce the empty-state message and don't crash.
     #[test]
     fn admin_table_renders_empty_state() {
         let html = render_admin_table(vec![], None);
-        assert!(html.contains("No data"), "AdminTable empty state must render 'No data'. Got: {html}");
+        assert!(
+            html.contains("No data"),
+            "AdminTable empty state must render 'No data'. Got: {html}"
+        );
     }
 
     /// Action column is present (Edit / Delete / Revoke buttons) when
     /// no `actions` override slot is given.
     #[test]
     fn admin_table_renders_action_column() {
-        let rows = vec![
-            TestRow { id: "1".into(), name: "Alpha".into(), amount: 100 },
-        ];
+        let rows = vec![TestRow {
+            id: "1".into(),
+            name: "Alpha".into(),
+            amount: 100,
+        }];
         let html = render_admin_table(rows, None);
-        assert!(html.contains("admin-table-action-edit"), "AdminTable must render Edit action button. Got: {html}");
-        assert!(html.contains("admin-table-action-delete"), "AdminTable must render Delete action button. Got: {html}");
-        assert!(html.contains("admin-table-action-revoke"), "AdminTable must render Revoke action button. Got: {html}");
+        assert!(
+            html.contains("admin-table-action-edit"),
+            "AdminTable must render Edit action button. Got: {html}"
+        );
+        assert!(
+            html.contains("admin-table-action-delete"),
+            "AdminTable must render Delete action button. Got: {html}"
+        );
+        assert!(
+            html.contains("admin-table-action-revoke"),
+            "AdminTable must render Revoke action button. Got: {html}"
+        );
     }
 }

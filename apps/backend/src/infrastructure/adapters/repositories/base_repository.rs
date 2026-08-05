@@ -1,7 +1,7 @@
-use async_trait::async_trait;
-use std::sync::Arc;
-use epsx_contracts::errors::{AppResult, AppError};
 use crate::infrastructure::database::diesel_connection_manager::TlsPool;
+use async_trait::async_trait;
+use epsx_contracts::errors::{AppError, AppResult};
+use std::sync::Arc;
 
 /// Base repository trait providing common database operations
 #[async_trait]
@@ -42,18 +42,17 @@ impl DieselBaseRepository {
     pub async fn health_check_impl(&self) -> AppResult<()> {
         use diesel_async::RunQueryDsl;
 
-        let mut conn = self.pool.get().await
-            .map_err(|e| AppError::invalid_operation(
-                format!("Failed to get database connection: {}", e)
-            ))?;
+        let mut conn = self.pool.get().await.map_err(|e| {
+            AppError::invalid_operation(format!("Failed to get database connection: {}", e))
+        })?;
 
         // Use Diesel DSL with a simple select statement
         diesel::select(diesel::dsl::sql::<diesel::sql_types::Integer>("SELECT 1"))
             .get_result::<i32>(&mut conn)
             .await
-            .map_err(|e| AppError::invalid_operation(
-                format!("Database health check failed: {}", e)
-            ))?;
+            .map_err(|e| {
+                AppError::invalid_operation(format!("Database health check failed: {}", e))
+            })?;
         Ok(())
     }
 }
