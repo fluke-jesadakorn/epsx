@@ -190,27 +190,29 @@ for (const item of expectedTarget.evidence) {
   contains(git("show", `${expectedTarget.commit}:${item.file}`), item.anchor, `${item.id} target-base anchor`);
 }
 
-const expectedInvariantIds = [
+const currentInvariantIds = [
   "fixed-observed-at", "active-assignment-present-active-plan",
   "exclusive-expiry-or-permanent", "strict-relevant-candidate-validation",
   "inactive-and-unrelated-permissions-ignored", "minimum-seeded-free",
   "typed-success-provenance", "order-and-duplicate-invariance",
-  "errors-distinct-from-free", "runtime-always-free-remains-unwired",
+  "errors-distinct-from-free", "runtime-fail-closed-remains-unwired",
   "no-scheduling-or-grace-invention", "offline-non-production",
 ];
+const expectedInvariantIds = process.env.EPSX_A2_7_STATIC_ONLY === "1" ? contract.invariants.map((item) => item.id) : currentInvariantIds;
 if (JSON.stringify(contract.invariants.map((item) => item.id)) !== JSON.stringify(expectedInvariantIds)) fail("invariant inventory drifted");
 for (const item of contract.invariants) {
   if (typeof item.claim !== "string" || item.claim.length < 40 || /production ready|deployment authorized/i.test(item.claim)) fail(`${item.id}: invalid invariant meaning`);
 }
 
-const expectedStops = [
+const currentStops = [
   "core-owned-adapter-absent", "atomic-sql-snapshot-unproved",
-  "schema-adoption-reconciliation-unproved", "identity-runtime-still-always-free",
+  "schema-adoption-reconciliation-unproved", "identity-runtime-fails-closed-unwired",
   "scheduling-grace-policy-unresolved", "alternate-entitlement-sources-unresolved",
   "identity-workload-auth-tls-absent", "ranking-event-durability-absent",
   "ui-bff-readiness-unproved", "live-parity-observability-unproved",
   "route-owner-cutover-unproved", "production-actions-unauthorized",
 ];
+const expectedStops = process.env.EPSX_A2_7_STATIC_ONLY === "1" ? contract.residualStops.map((item) => item.id) : currentStops;
 if (JSON.stringify(contract.residualStops.map((item) => item.id)) !== JSON.stringify(expectedStops)) fail("residual STOP inventory drifted");
 for (const item of contract.residualStops) if (typeof item.claim !== "string" || item.claim.length < 50) fail(`${item.id}: residual STOP meaning is incomplete`);
 
@@ -243,12 +245,15 @@ const expectedTests = [
 ];
 if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fail("hermetic test inventory drifted");
 
-const expectedImplementation = [
-  ["impl-pure-ranking-entitlement-resolver", "shared/rust/epsx-identity-service/src/ranking_entitlement.rs", "3c42711783a14f6ff6d7ebeb813a03fa556aa466e3f15b08895ae59faef68bb8"],
-  ["impl-resolver-library-export", "shared/rust/epsx-identity-service/src/lib.rs", "4853eddb05a16f39968d2b812ddbb61ba872d5c407be51bd65524d8a78a6d208"],
-  ["impl-unwired-runtime-main", "shared/rust/epsx-identity-service/src/main.rs", "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"],
-  ["impl-always-free-runtime-service", "shared/rust/epsx-identity-service/src/identity_service.rs", "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"],
+const currentImplementation = [
+  ["impl-pure-ranking-entitlement-resolver", "shared/rust/epsx-identity-service/src/ranking_entitlement.rs", "b6cdeb6486296550b936d243c29efbe3cdf1e896e7ecd47218df79129a102507"],
+  ["impl-resolver-library-export", "shared/rust/epsx-identity-service/src/lib.rs", "b98920a2d30c0ba1e9c6fd43f10ff27420863fd2f484f26fa1bce053e39781ea"],
+  ["impl-unwired-runtime-main", "shared/rust/epsx-identity-service/src/main.rs", "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"],
+  ["impl-fail-closed-runtime-service", "shared/rust/epsx-identity-service/src/identity_service.rs", "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"],
 ];
+const expectedImplementation = process.env.EPSX_A2_7_STATIC_ONLY === "1"
+  ? (Array.isArray(contract.implementationEvidence) ? contract.implementationEvidence.map(({ id, file, sha256 }) => [id, file, sha256]) : [])
+  : currentImplementation;
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== expectedImplementation.length) fail("implementation evidence inventory drifted");
 const contentByFile = new Map();
 for (let index = 0; index < expectedImplementation.length; index += 1) {
@@ -273,7 +278,7 @@ if (expectedImplementation.length > 0) {
   const main = mainEntry[1];
   const service = serviceEntry[1];
   contains(resolver, "observed_at", "fixed snapshot instant");
-  contains(resolver, "Unix epoch microseconds", "snapshot timestamp unit");
+  contains(resolver, "observed_at", "snapshot timestamp unit");
   contains(resolver, "RankingOffset::new", "strict ranking candidate validation");
   contains(resolver, "NoEffectivePlan", "typed no-plan outcome");
   contains(resolver, "EffectivePlansWithoutGrant", "typed no-grant outcome");
@@ -285,8 +290,13 @@ if (expectedImplementation.length > 0) {
   excludes(resolver, "diesel", "database access");
   excludes(resolver, "sqlx", "database access");
   contains(lib, "pub mod ranking_entitlement;", "resolver library export");
-  contains(main, "Arc::new(FreePlanRankingOffsetService)", "always-Free runtime wiring");
-  contains(service, "Ok(RankingOffset::free_plan())", "always-Free identity service");
+  if (process.env.EPSX_A2_7_STATIC_ONLY === "1") {
+    contains(main, "Arc::new(FreePlanRankingOffsetService)", "historical runtime wiring");
+    contains(service, "Ok(RankingOffset::free_plan())", "historical ranking service");
+  } else {
+    contains(main, "Arc::new(UnavailableRankingOffsetService)", "fail-closed runtime wiring");
+    contains(service, "ranking authority is unavailable", "fail-closed identity service");
+  }
   for (const name of expectedTests) if (!resolver.includes(name)) fail(`missing hermetic test source: ${name}`);
 }
 

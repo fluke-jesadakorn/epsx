@@ -31,7 +31,7 @@ pub enum WalletStatusKind {
 impl WalletStatusKind {
     /// Resolve a status string. Unknown values fall back to
     /// `Active` (matches prod: `?? STATUS_CONFIG.active`).
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "active" => WalletStatusKind::Active,
             "disabled" => WalletStatusKind::Disabled,
@@ -82,7 +82,7 @@ pub fn WalletStatusBadge(
     /// Optional extra classes appended to the root pill.
     class_name: Option<String>,
 ) -> Element {
-    let kind = WalletStatusKind::from_str(&status);
+    let kind = WalletStatusKind::from_name(&status);
     let base = "px-3 py-1 border font-medium";
     let kind_cls = kind.classes();
     let mut cls = format!("{base} {kind_cls}");

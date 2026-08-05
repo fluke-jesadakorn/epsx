@@ -46,11 +46,28 @@
 //! (timeout → fall back to free-plan offset) can trigger.
 
 use async_trait::async_trait;
-use epsx_contracts::errors::{AppError, AppResult};
+use epsx_contracts::errors::{AppError, AppResult, ErrorKind};
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use tonic::Status;
 use tracing::{info, instrument};
+
+/// Fail-closed ranking authority used by the standalone binary until its
+/// verified, database-backed entitlement adapter is wired. Returning a
+/// synthetic free-plan offset would turn an authority outage into a false
+/// entitlement decision.
+#[derive(Debug, Default, Clone, Copy)]
+pub struct UnavailableRankingOffsetService;
+
+#[async_trait]
+impl WalletRankingOffsetQuery for UnavailableRankingOffsetService {
+    async fn get_wallet_ranking_offset(&self, _wallet: &str) -> AppResult<RankingOffset> {
+        Err(AppError::new(
+            ErrorKind::ServiceUnavailable,
+            "ranking authority is unavailable",
+        ))
+    }
+}
 
 // The generated gRPC types live in `$OUT_DIR/identity.rs` and
 // are included via `tonic::include_proto!` in `main.rs` — but the
@@ -94,6 +111,7 @@ pub fn map_app_error_to_status(err: AppError) -> Status {
     match err.kind {
         ErrorKind::ValidationError => Status::invalid_argument(err.message),
         ErrorKind::AggregateNotFound => Status::not_found(err.message),
+        ErrorKind::ServiceUnavailable => Status::unavailable("ranking authority unavailable"),
         // All other error kinds (DB, internal, external) collapse
         // to `internal` so we don't leak infra details to the
         // gRPC client. The correlation_id stays in the server log
@@ -102,7 +120,7 @@ pub fn map_app_error_to_status(err: AppError) -> Status {
             tracing::error!(
                 correlation_id = %err.correlation_id,
                 kind = ?err.kind,
-                "FreePlanRankingOffsetService: internal error"
+                "ranking authority: internal error"
             );
             Status::internal("internal error")
         }

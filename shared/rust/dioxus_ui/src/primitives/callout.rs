@@ -177,6 +177,7 @@ mod tests {
         let unique: std::collections::HashSet<&str> = classes.iter().copied().collect();
         // Info and Neutral both use "info" — but the 4 primary tones
         // are all distinct.
+        assert_eq!(unique.len(), 4);
         assert!(classes.contains(&"info"));
         assert!(classes.contains(&"check-circle"));
         assert!(classes.contains(&"alert-triangle"));

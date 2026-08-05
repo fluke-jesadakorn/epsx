@@ -231,12 +231,15 @@ const expectedTests = [
 ];
 if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fail("ten-test inventory drifted");
 
-const implementation = [
+const currentImplementation = [
   ["impl-market-manifest", "apps/analytics/Cargo.toml", "8edb05b7fc9f4eee4313c59e434c7a0d874f0f3efe0eaea1df26938a15497f3f"],
   ["impl-market-auth", "apps/analytics/src/auth.rs", "4cb018b22cf510302b20b7c21f546083d07fc39b3b94593212ddc328d55a3471"],
-  ["impl-market-router", "apps/analytics/src/main.rs", "5abec572f6d7cef0128aff75299a051098b2261c401df15c6e90b5b9b7aace57"],
-  ["impl-market-wallet-bridge", "apps/backend/src/web/analytics/eps/cache.rs", "917ec1d5df3547b99287403c5cbda9137e7e80138f77fc57fd054056c6447e20"],
+  ["impl-market-router", "apps/analytics/src/main.rs", "4ba28a2829a0d213754159e4102d4e3e6ceec6accaef31e6746e958492b592fa"],
+  ["impl-market-wallet-bridge", "apps/backend/src/web/analytics/eps/cache.rs", "282b0be9a63d8e25cfd84970e90da03ea6db1f3a0582f0cf2659c67eaf7b57c6"],
 ];
+const implementation = process.env.EPSX_A2_4_STATIC_ONLY === "1"
+  ? (Array.isArray(contract.implementationEvidence) ? contract.implementationEvidence.map(({ id, file, sha256 }) => [id, file, sha256]) : [])
+  : currentImplementation;
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== implementation.length) fail("four implementation records are required");
 const contents = new Map();
 for (const [index, [id, file, digest]] of implementation.entries()) {

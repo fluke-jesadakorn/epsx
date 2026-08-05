@@ -798,6 +798,12 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
 
     match (method, segments.as_slice()) {
         (&Method::GET, ["admin", "list" | "metrics"]) => AccessPolicy::NotificationsAdmin,
+        (&Method::POST, ["admin", id, "read"]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
+        (&Method::DELETE, ["admin", id]) if safe_notification_id(id) => {
+            AccessPolicy::NotificationsAdmin
+        }
         (&Method::POST, ["admin", "dead-letters", id, "redrive"]) if safe_notification_id(id) => {
             AccessPolicy::NotificationsAdmin
         }
@@ -820,6 +826,7 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
         | (&Method::GET, ["stream"])
         | (&Method::POST, ["stream", "ack"])
         | (&Method::GET | &Method::PUT | &Method::DELETE, ["push"])
+        | (&Method::DELETE, ["push", "unsubscribe"])
         | (&Method::POST, ["mark-all-read" | "clear-all"]) => AccessPolicy::Owner,
         (&Method::GET | &Method::DELETE, [id]) if safe_notification_id(id) => AccessPolicy::Owner,
         (&Method::POST, [id, "read" | "unread"]) if safe_notification_id(id) => AccessPolicy::Owner,
@@ -832,8 +839,10 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
 }
 
 fn safe_notification_id(id: &str) -> bool {
-    !id.is_empty()
-        && !matches!(id, "." | "..")
+    (1..=66).contains(&id.len())
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
         && !matches!(
             id,
             "templates"
@@ -842,10 +851,12 @@ fn safe_notification_id(id: &str) -> bool {
                 | "unread-count"
                 | "mark-all-read"
                 | "clear-all"
+                | "admin"
                 | "acknowledge"
                 | "click"
                 | "dismiss"
                 | "provider-events"
+                | "dead-letters"
         )
 }
 
@@ -1257,6 +1268,7 @@ mod tests {
             (Method::GET, "/api/v1/notification/push"),
             (Method::PUT, "/api/v1/notification/push"),
             (Method::DELETE, "/api/v1/notification/push"),
+            (Method::DELETE, "/api/v1/notification/push/unsubscribe"),
             (Method::POST, "/api/v1/notification/mark-all-read"),
             (Method::POST, "/api/v1/notification/clear-all"),
             (Method::GET, "/api/v1/notification/notification-id"),
@@ -1279,8 +1291,8 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
-        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 36);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 38);
+        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 38);
 
         for bearer in [None, Some("invalid"), Some("other-audience")] {
             let expected = if bearer == Some("other-audience") {
@@ -1297,7 +1309,7 @@ mod tests {
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 36);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 38);
     }
 
     #[tokio::test]
@@ -1305,6 +1317,11 @@ mod tests {
         let routes = [
             (Method::GET, "/api/v1/notification/admin/list"),
             (Method::GET, "/api/v1/notification/admin/metrics"),
+            (
+                Method::POST,
+                "/api/v1/notification/admin/notification-1/read",
+            ),
+            (Method::DELETE, "/api/v1/notification/admin/notification-1"),
             (
                 Method::POST,
                 "/api/v1/notification/admin/dead-letters/job-1/redrive",
@@ -1340,7 +1357,11 @@ mod tests {
                 );
             }
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 33);
+        assert_eq!(
+            downstream.hits.load(Ordering::SeqCst),
+            routes.len() * 3,
+            "every approved admin route must reach downstream for each accepted permission form"
+        );
 
         for bearer in [
             None,
@@ -1364,7 +1385,7 @@ mod tests {
                 expected
             );
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 33);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), routes.len() * 3);
     }
 
     #[tokio::test]
@@ -1533,6 +1554,8 @@ mod tests {
             (Method::GET, "/api/v1/notification/admin/list/extra"),
             (Method::GET, "/api/v1/notification/admin%2flist"),
             (Method::GET, "/api/v1/notification/admin/%6cist"),
+            (Method::POST, "/api/v1/notification/admin/bad%2fid/read"),
+            (Method::DELETE, "/api/v1/notification/admin/bad%2fid"),
             (Method::DELETE, "/api/v1/notification/templates"),
             (Method::GET, "/api/v1/notification/templates/a/b"),
             (Method::GET, "/api/v1/notification/templates/.."),

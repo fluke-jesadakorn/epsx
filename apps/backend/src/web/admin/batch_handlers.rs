@@ -28,17 +28,37 @@ pub async fn admin_dashboard_summary_handler(
         fetch_perm_system_stats(&app_state),
     );
 
+    let wallet_stats = match wallet_stats {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!("admin dashboard wallet snapshot unavailable: {error}");
+            return crate::web::responses::UnifiedApiResponse::<()>::error(
+                503,
+                "Dashboard unavailable",
+                "The wallet snapshot could not be read from the authoritative database",
+            )
+            .into_response();
+        }
+    };
+    let permission_stats = match perm_stats {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!("admin dashboard permission snapshot unavailable: {error}");
+            return crate::web::responses::UnifiedApiResponse::<()>::error(
+                503,
+                "Dashboard unavailable",
+                "The permission snapshot could not be read from the authoritative database",
+            )
+            .into_response();
+        }
+    };
+
     let response = AdminDashboardSummaryResponse {
-        wallet_stats: wallet_stats.unwrap_or_else(
-            |_| serde_json::json!({ "total": 0, "active": 0, "today_connections": 0 }),
-        ),
-        permission_stats: perm_stats
-            .unwrap_or_else(|_| serde_json::json!({ "total": 0, "pending_notifications": 0 })),
-        system_health: serde_json::json!({
-            "health_percentage": 99.9,
-            "uptime": "99.9%",
-            "avg_response_time": "120ms",
-        }),
+        wallet_stats,
+        permission_stats,
+        // No synthetic health percentage, uptime, latency, or alert claim is
+        // emitted. A separate operational health contract owns those fields.
+        system_health: serde_json::json!({ "state": "unavailable" }),
     };
 
     AdminResponse::success_with_message(response, "Dashboard summary retrieved").into_response()
@@ -92,7 +112,6 @@ async fn fetch_perm_system_stats(app_state: &AppState) -> Result<serde_json::Val
 
     Ok(serde_json::json!({
         "total": result.total,
-        "pending_notifications": 0,
     }))
 }
 
@@ -117,15 +136,48 @@ pub async fn admin_notification_overview_handler(
 ) -> axum::response::Response {
     info!("Admin: Getting notification overview batch");
     let limit = query.limit.unwrap_or(20);
+    if !(1..=100).contains(&limit) {
+        return crate::web::responses::UnifiedApiResponse::<()>::error(
+            400,
+            "Invalid notification overview query",
+            "limit must be between 1 and 100",
+        )
+        .into_response();
+    }
 
     let (notifications, stats) = tokio::join!(
         fetch_notifications(&app_state, limit),
         fetch_notification_stats(&app_state),
     );
 
+    let notifications = match notifications {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!("admin notification overview unavailable: {error}");
+            return crate::web::responses::UnifiedApiResponse::<()>::error(
+                503,
+                "Notification overview unavailable",
+                "The notification inventory could not be read from the authoritative database",
+            )
+            .into_response();
+        }
+    };
+    let stats = match stats {
+        Ok(value) => value,
+        Err(error) => {
+            tracing::error!("admin notification statistics unavailable: {error}");
+            return crate::web::responses::UnifiedApiResponse::<()>::error(
+                503,
+                "Notification overview unavailable",
+                "The notification statistics could not be read from the authoritative database",
+            )
+            .into_response();
+        }
+    };
+
     let response = NotificationOverviewResponse {
-        notifications: notifications.unwrap_or_else(|_| serde_json::json!([])),
-        stats: stats.unwrap_or_else(|_| serde_json::json!({ "total": 0, "unread": 0 })),
+        notifications,
+        stats,
     };
 
     AdminResponse::success_with_message(response, "Notification overview retrieved").into_response()
@@ -185,7 +237,6 @@ async fn fetch_notification_stats(app_state: &AppState) -> Result<serde_json::Va
     Ok(serde_json::json!({
         "total": result.total,
         "today": result.today,
-        "unread": 0,
     }))
 }
 
@@ -217,11 +268,26 @@ pub async fn wallet_access_summary_handler(
         fetch_wallet_plan_assignments(&app_state, &wallet_address),
     );
 
-    let response = WalletAccessSummaryResponse {
-        available_permissions: avail_perms.unwrap_or_default(),
-        available_plans: avail_plans.unwrap_or_else(|_| serde_json::json!([])),
-        wallet_permissions: wallet_perms.unwrap_or_default(),
-        wallet_assignments: wallet_assignments.unwrap_or_else(|_| serde_json::json!([])),
+    let response = match (avail_perms, avail_plans, wallet_perms, wallet_assignments) {
+        (
+            Ok(available_permissions),
+            Ok(available_plans),
+            Ok(wallet_permissions),
+            Ok(wallet_assignments),
+        ) => WalletAccessSummaryResponse {
+            available_permissions,
+            available_plans,
+            wallet_permissions,
+            wallet_assignments,
+        },
+        _ => {
+            return crate::web::responses::UnifiedApiResponse::<()>::error(
+                503,
+                "Wallet access unavailable",
+                "The wallet access snapshot could not be read from authoritative stores",
+            )
+            .into_response();
+        }
     };
 
     AdminResponse::success_with_message(response, "Wallet access summary retrieved").into_response()

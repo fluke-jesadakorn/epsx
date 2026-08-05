@@ -21,13 +21,14 @@ use crate::feedback::toast::ToastProvider;
 
 use dioxus::prelude::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum ToasterPosition {
     TopLeft,
     TopCenter,
     TopRight,
     BottomLeft,
     BottomCenter,
+    #[default]
     BottomRight,
 }
 
@@ -41,12 +42,6 @@ impl ToasterPosition {
             ToasterPosition::BottomCenter => "toast-container toast-container-bottom-center",
             ToasterPosition::BottomRight => "toast-container toast-container-bottom-right",
         }
-    }
-}
-
-impl Default for ToasterPosition {
-    fn default() -> Self {
-        ToasterPosition::BottomRight
     }
 }
 

@@ -81,7 +81,6 @@ pub fn SectionFooter(#[props(default = None)] class: Option<String>, children: E
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn section_renders_with_default_classes() {

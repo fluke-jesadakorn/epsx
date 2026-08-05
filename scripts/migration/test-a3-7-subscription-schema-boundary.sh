@@ -9,7 +9,7 @@ temp_dir=$(mktemp -d "${TMPDIR:-/tmp}/epsx-a3-7-subscription-schema.XXXXXX")
 trap 'rm -rf -- "$temp_dir"' EXIT HUP INT TERM
 
 "$verify" --mode integrity >"$temp_dir/integrity.out" 2>&1
-grep -q "subscription runtime DDL 2→0, one 844-byte migration pinned, two 10-column tables and 20 Rust response fields verified" "$temp_dir/integrity.out"
+grep -q "subscription runtime DDL 2→0, baseline plus additive plan-state migration pinned, and response fields verified" "$temp_dir/integrity.out"
 grep -q "no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran" "$temp_dir/integrity.out"
 
 set +e
@@ -30,7 +30,7 @@ bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
 if (report.developmentMapping.candidateServicePresent !== false || report.developmentMapping.status !== "blocked") process.exit(1);
-if (report.runtimeRust.files !== 2 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -2) process.exit(1);
+if (report.runtimeRust.files !== 3 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -2) process.exit(1);
 if (report.runtimeRust.qualifiedRelationOccurrences["public.subscription_plans"] !== 3) process.exit(1);
 if (report.runtimeRust.qualifiedRelationOccurrences["public.subscriptions"] !== 4) process.exit(1);
 if (report.models.responseFields !== 20 || report.models.nullableResponseFields !== 11 || report.models.requestFields !== 11) process.exit(1);

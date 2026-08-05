@@ -79,7 +79,8 @@ impl Identity for AuthenticatedRankingGrpcService {
         request: Request<GetWalletRankingOffsetRequest>,
     ) -> Result<Response<GetWalletRankingOffsetResponse>, Status> {
         // Authenticate before reading, validating, or querying for the wallet.
-        let bearer = parse_bearer(request.metadata())?;
+        let bearer = parse_bearer(request.metadata())
+            .map_err(|_| Status::unauthenticated(AUTHENTICATION_REQUIRED))?;
         let workload = self
             .authorizer
             .authorize(bearer)
@@ -92,7 +93,8 @@ impl Identity for AuthenticatedRankingGrpcService {
             return Err(Status::permission_denied(CALLER_FORBIDDEN));
         }
 
-        let normalized_wallet = normalize_evm_wallet(&request.get_ref().wallet)?;
+        let normalized_wallet = normalize_evm_wallet(&request.get_ref().wallet)
+            .map_err(|_| Status::invalid_argument(INVALID_WALLET))?;
         let offset = self
             .query
             .get_wallet_ranking_offset(&normalized_wallet)
@@ -105,31 +107,31 @@ impl Identity for AuthenticatedRankingGrpcService {
     }
 }
 
-fn parse_bearer(metadata: &MetadataMap) -> Result<&str, Status> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InvalidBearer;
+
+fn parse_bearer(metadata: &MetadataMap) -> Result<&str, InvalidBearer> {
     let mut values = metadata.get_all("authorization").iter();
-    let value = values
-        .next()
-        .ok_or_else(|| Status::unauthenticated(AUTHENTICATION_REQUIRED))?;
+    let value = values.next().ok_or(InvalidBearer)?;
     if values.next().is_some() {
-        return Err(Status::unauthenticated(AUTHENTICATION_REQUIRED));
+        return Err(InvalidBearer);
     }
 
-    let value = value
-        .to_str()
-        .map_err(|_| Status::unauthenticated(AUTHENTICATION_REQUIRED))?;
-    let bearer = value
-        .strip_prefix("Bearer ")
-        .ok_or_else(|| Status::unauthenticated(AUTHENTICATION_REQUIRED))?;
+    let value = value.to_str().map_err(|_| InvalidBearer)?;
+    let bearer = value.strip_prefix("Bearer ").ok_or(InvalidBearer)?;
     if bearer.is_empty() || bearer.bytes().any(|byte| byte.is_ascii_whitespace()) {
-        return Err(Status::unauthenticated(AUTHENTICATION_REQUIRED));
+        return Err(InvalidBearer);
     }
     Ok(bearer)
 }
 
-fn normalize_evm_wallet(wallet: &str) -> Result<String, Status> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct InvalidWallet;
+
+fn normalize_evm_wallet(wallet: &str) -> Result<String, InvalidWallet> {
     let bytes = wallet.as_bytes();
     if bytes.len() != 42 || &bytes[..2] != b"0x" || !bytes[2..].iter().all(u8::is_ascii_hexdigit) {
-        return Err(Status::invalid_argument(INVALID_WALLET));
+        return Err(InvalidWallet);
     }
     Ok(wallet.to_ascii_lowercase())
 }

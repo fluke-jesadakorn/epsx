@@ -1,19 +1,177 @@
-//! Strict read-only adapter for the backend-owned admin notification list.
+//! Strict adapter for backend-owned admin notification reads and mutations.
 //!
 //! This adapter deliberately projects only bounded delivery metadata. Message
-//! bodies, recipients, users, arbitrary data, error details, read state, and
-//! action payloads never cross the admin BFF boundary.
+//! bodies, recipients, users, arbitrary data, error details, and action payloads
+//! never cross the admin BFF boundary; lifecycle calls carry only validated IDs.
 
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
-    decode_admin_notification_metrics, AdminNotificationList, AdminNotificationMetrics,
+    decode_admin_notification_create_result, decode_admin_notification_metrics,
+    AdminNotificationCreateResult, AdminNotificationList, AdminNotificationMetrics,
     AdminNotificationSummary,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const ADMIN_NOTIFICATION_LIMIT: i64 = 20;
 const MAX_ADMIN_NOTIFICATION_PAGE: i64 = 50_001;
 const MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES: usize = 256 * 1024;
 const MAX_ADMIN_NOTIFICATION_METRICS_RESPONSE_BYTES: usize = 32 * 1024;
+const MAX_NOTIFICATION_SEND_BODY_BYTES: usize = 32 * 1024;
+const MAX_NOTIFICATION_SEND_TEXT_CHARS: usize = 16_384;
+const MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS: usize = 56;
+const MAX_NOTIFICATION_ID_CHARS: usize = 66;
+
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct AdminNotificationSendRequest {
+    pub(crate) user_id: Option<String>,
+    pub(crate) channel: String,
+    pub(crate) recipient: String,
+    pub(crate) template_id: Option<String>,
+    pub(crate) subject: Option<String>,
+    pub(crate) body: Option<String>,
+    pub(crate) data: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNotificationSendResult {
+    Ready(AdminNotificationCreateResult),
+    Forbidden,
+    Conflict,
+    Invalid,
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendNotificationSendResponse {
+    id: String,
+    status: String,
+    delivered: bool,
+    #[serde(rename = "error")]
+    _error: Option<String>,
+    request_id: String,
+}
+
+fn bounded_send_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_send_request(request: &AdminNotificationSendRequest) -> bool {
+    matches!(request.channel.as_str(), "email" | "in_app")
+        && bounded_send_text(&request.recipient, 255)
+        && request
+            .user_id
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 66))
+        && request
+            .template_id
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 66))
+        && request
+            .subject
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, 255))
+        && request
+            .body
+            .as_deref()
+            .is_none_or(|value| bounded_send_text(value, MAX_NOTIFICATION_SEND_TEXT_CHARS))
+        && (request.template_id.is_some() || request.body.is_some())
+        && request.data.as_ref().is_none_or(|data| {
+            data.is_object()
+                && serde_json::to_vec(data)
+                    .map(|bytes| bytes.len() <= MAX_NOTIFICATION_SEND_BODY_BYTES)
+                    .unwrap_or(false)
+        })
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (1..=MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn project_send_response(response: BackendNotificationSendResponse) -> AdminNotificationSendResult {
+    let value = serde_json::json!({
+        "id": response.id,
+        "status": response.status,
+        "delivered": response.delivered,
+        "request_id": response.request_id,
+    });
+    match decode_admin_notification_create_result(value) {
+        Some(result) => AdminNotificationSendResult::Ready(result),
+        None => AdminNotificationSendResult::Malformed,
+    }
+}
+
+pub(crate) async fn send_admin_notification(
+    client: &epsx_client::ServiceClient,
+    request: &AdminNotificationSendRequest,
+    idempotency_key: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationSendResult {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNotificationSendResult::Unavailable;
+    };
+    if !valid_send_request(request) || !valid_idempotency_key(idempotency_key) {
+        return AdminNotificationSendResult::Invalid;
+    }
+
+    let url = format!(
+        "{}/api/v1/notification/send",
+        client.base_url().trim_end_matches('/')
+    );
+    let response = match client
+        .clone_for_bearer()
+        .post(url)
+        .header("x-request-id", ctx.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .bearer_auth(token)
+        .json(request)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNotificationSendResult::Unavailable,
+    };
+
+    let status = response.status();
+    if status == reqwest::StatusCode::FORBIDDEN {
+        return AdminNotificationSendResult::Forbidden;
+    }
+    if status == reqwest::StatusCode::CONFLICT {
+        return AdminNotificationSendResult::Conflict;
+    }
+    if matches!(
+        status,
+        reqwest::StatusCode::BAD_REQUEST
+            | reqwest::StatusCode::NOT_FOUND
+            | reqwest::StatusCode::PAYLOAD_TOO_LARGE
+            | reqwest::StatusCode::UNPROCESSABLE_ENTITY
+    ) {
+        return AdminNotificationSendResult::Invalid;
+    }
+    if !status.is_success() {
+        return AdminNotificationSendResult::Unavailable;
+    }
+
+    let body =
+        match read_response_body_limited(response, MAX_ADMIN_NOTIFICATION_RESPONSE_BYTES).await {
+            Ok(body) => body,
+            Err(()) => return AdminNotificationSendResult::Unavailable,
+        };
+    match serde_json::from_slice::<BackendNotificationSendResponse>(&body) {
+        Ok(response) => project_send_response(response),
+        Err(_) => AdminNotificationSendResult::Malformed,
+    }
+}
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct AdminNotificationQuery {
@@ -110,10 +268,7 @@ impl AdminNotificationQuery {
         if let Some(wallet_address) = self.wallet_address.as_deref() {
             query.append_pair("wallet_address", wallet_address);
         }
-        format!(
-            "/api/v1/notification/admin/list?{}",
-            query.finish()
-        )
+        format!("/api/v1/notification/admin/list?{}", query.finish())
     }
 }
 
@@ -149,6 +304,92 @@ fn parse_admin_wallet_address(value: &str) -> Result<String, ()> {
         && normalized[2..].bytes().all(|byte| byte.is_ascii_hexdigit()))
     .then_some(normalized)
     .ok_or(())
+}
+
+pub(crate) fn valid_admin_notification_id(value: &str) -> bool {
+    (1..=MAX_NOTIFICATION_ID_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum AdminNotificationMutationResult {
+    Ready,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+async fn admin_notification_mutation(
+    client: &epsx_client::ServiceClient,
+    method: reqwest::Method,
+    path: String,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return AdminNotificationMutationResult::Unavailable;
+    };
+    let response = match client
+        .clone_for_bearer()
+        .request(
+            method,
+            format!("{}{}", client.base_url().trim_end_matches('/'), path),
+        )
+        .header("x-request-id", ctx.request_id.to_string())
+        .bearer_auth(token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => return AdminNotificationMutationResult::Unavailable,
+    };
+    match response.status() {
+        reqwest::StatusCode::FORBIDDEN => AdminNotificationMutationResult::Forbidden,
+        status if status.is_success() => AdminNotificationMutationResult::Ready,
+        reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::NOT_FOUND => {
+            AdminNotificationMutationResult::Malformed
+        }
+        _ => AdminNotificationMutationResult::Unavailable,
+    }
+}
+
+pub(crate) async fn mark_admin_notification_read(
+    client: &epsx_client::ServiceClient,
+    id: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    if !valid_admin_notification_id(id) {
+        return AdminNotificationMutationResult::Malformed;
+    }
+    admin_notification_mutation(
+        client,
+        reqwest::Method::POST,
+        format!("/api/v1/notification/admin/{id}/read"),
+        ctx,
+    )
+    .await
+}
+
+pub(crate) async fn delete_admin_notification(
+    client: &epsx_client::ServiceClient,
+    id: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminNotificationMutationResult {
+    if !valid_admin_notification_id(id) {
+        return AdminNotificationMutationResult::Malformed;
+    }
+    admin_notification_mutation(
+        client,
+        reqwest::Method::DELETE,
+        format!("/api/v1/notification/admin/{id}"),
+        ctx,
+    )
+    .await
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -335,15 +576,14 @@ fn classify_admin_notification_payload(
     if payload.items.is_empty() && payload.total > 0 && payload.offset < payload.total {
         return AdminNotificationLoad::Malformed;
     }
-    if !payload.items.is_empty() {
-        if payload.offset >= payload.total
+    if !payload.items.is_empty()
+        && (payload.offset >= payload.total
             || i64::try_from(payload.items.len())
                 .ok()
                 .and_then(|items| payload.offset.checked_add(items))
-                .is_none_or(|end| end > payload.total)
-        {
-            return AdminNotificationLoad::Malformed;
-        }
+                .is_none_or(|end| end > payload.total))
+    {
+        return AdminNotificationLoad::Malformed;
     }
 
     let Some(items) = payload
@@ -510,7 +750,9 @@ fn days_in_month(year: u32, month: u32) -> u32 {
     match month {
         1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
         4 | 6 | 9 | 11 => 30,
-        2 if year % 400 == 0 || (year % 4 == 0 && year % 100 != 0) => 29,
+        2 if year.is_multiple_of(400) || (year.is_multiple_of(4) && !year.is_multiple_of(100)) => {
+            29
+        }
         2 => 28,
         _ => 0,
     }
@@ -570,6 +812,71 @@ mod tests {
             "sent_at": "2026-07-22T03:04:05.123Z",
             "created_at": "2026-07-21T03:04:05+07:00"
         })
+    }
+
+    fn send_request() -> AdminNotificationSendRequest {
+        AdminNotificationSendRequest {
+            user_id: Some("0xrecipient".into()),
+            channel: "in_app".into(),
+            recipient: "0xrecipient".into(),
+            template_id: None,
+            subject: Some("Migration update".into()),
+            body: Some("The migration is ready.".into()),
+            data: Some(json!({"source": "admin"})),
+        }
+    }
+
+    #[test]
+    fn send_adapter_validates_bounded_input_and_idempotency_keys() {
+        assert!(valid_send_request(&send_request()));
+        assert!(valid_idempotency_key("admin.send.2026-07-22_01"));
+
+        let mut invalid = send_request();
+        invalid.channel = "sms".into();
+        assert!(!valid_send_request(&invalid));
+        invalid = send_request();
+        invalid.body = None;
+        invalid.template_id = None;
+        assert!(!valid_send_request(&invalid));
+        invalid = send_request();
+        invalid.data = Some(json!(["private"]));
+        assert!(!valid_send_request(&invalid));
+        assert!(!valid_idempotency_key("contains space"));
+        assert!(!valid_idempotency_key(
+            &"x".repeat(MAX_NOTIFICATION_IDEMPOTENCY_KEY_CHARS + 1)
+        ));
+    }
+
+    #[test]
+    fn send_adapter_projects_only_safe_success_fields() {
+        let result = project_send_response(BackendNotificationSendResponse {
+            id: "idem_admin-send-01".into(),
+            status: "sent".into(),
+            delivered: true,
+            _error: Some("smtp details must not cross the BFF".into()),
+            request_id: "request-01".into(),
+        });
+        assert_eq!(
+            result,
+            AdminNotificationSendResult::Ready(AdminNotificationCreateResult {
+                id: "idem_admin-send-01".into(),
+                status: "sent".into(),
+                delivered: true,
+                request_id: "request-01".into(),
+            })
+        );
+    }
+
+    #[test]
+    fn send_adapter_rejects_malformed_backend_acknowledgements() {
+        let result = project_send_response(BackendNotificationSendResponse {
+            id: "random-id".into(),
+            status: "sent".into(),
+            delivered: true,
+            _error: None,
+            request_id: "request-01".into(),
+        });
+        assert_eq!(result, AdminNotificationSendResult::Malformed);
     }
 
     fn payload(items: Vec<Value>, total: i64, offset: i64) -> Value {

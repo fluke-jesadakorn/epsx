@@ -107,8 +107,8 @@
       "claim": "The new module contains no listener, server builder, socket, channel, endpoint, connector, HTTP client or TLS implementation."
     },
     {
-      "id": "runtime-always-free-unchanged",
-      "claim": "Production main and the existing identity service remain byte-identical and still construct and return the always-Free legacy shim."
+      "id": "runtime-fail-closed-unwired",
+      "claim": "Production main and the existing identity service fail closed for ranking authority requests until the authenticated entitlement adapter is wired."
     },
     {
       "id": "analytics-client-metadata-absent",
@@ -143,12 +143,12 @@
     {
       "id": "unchanged-identity-main",
       "file": "shared/rust/epsx-identity-service/src/main.rs",
-      "sha256": "e3b9980bf99434d67c3276b7dec329ba9453b226e72992d390f11c03bfaa78bc"
+      "sha256": "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"
     },
     {
-      "id": "unchanged-always-free-service",
+      "id": "unchanged-fail-closed-service",
       "file": "shared/rust/epsx-identity-service/src/identity_service.rs",
-      "sha256": "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"
+      "sha256": "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"
     },
     {
       "id": "unchanged-entitlement-resolver",
@@ -173,12 +173,12 @@
     {
       "id": "unchanged-workspace-lock",
       "file": "Cargo.lock",
-      "sha256": "ac9b2fd8b3e723a4fa1e708dc519eba50c4b068bbeea0a80e299566c7abfdcfe"
+      "sha256": "47f08101d842d66800ecc7a50ce220bf3854f7cca27345fe62d69de184379883"
     },
     {
       "id": "unchanged-core-snapshot-adapter",
       "file": "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs",
-      "sha256": "f8a05e0e7262604afb2f096b58a7bf1a029bbb81db3b2b9f1b82566dc0b0696d"
+      "sha256": "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"
     },
     {
       "id": "unchanged-shared-snapshot-contract",
@@ -304,8 +304,8 @@
       "claim": "The A2.8 store adapter remains unwired and its adopted schema, index decision, query plan and populated reconciliation remain unproved."
     },
     {
-      "id": "runtime-still-always-free-legacy-shim",
-      "claim": "Production main remains unauthenticated and still constructs FreePlanRankingOffsetService; A2.10 is exported but unwired."
+      "id": "runtime-fail-closed-until-authority-wired",
+      "claim": "Production main remains unauthenticated for the ranking RPC and rejects authority requests until the authenticated entitlement adapter is wired; A2.10 remains exported but unwired."
     },
     {
       "id": "owner-delegation-binding-absent",

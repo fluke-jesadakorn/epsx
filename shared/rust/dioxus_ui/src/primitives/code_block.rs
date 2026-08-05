@@ -72,7 +72,6 @@ pub fn CodeHeader(label: String, code: String) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn code_block_class_uses_mono_font() {

@@ -7,7 +7,7 @@ use axum::{
         sse::{Event, KeepAlive, Sse},
         IntoResponse, Response,
     },
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
@@ -15,15 +15,9 @@ use clap::{Parser, ValueEnum};
 use epsx_notification::{
     build_auth_verifier, canonical_owner, delivery::DeliveryWorker, protect_router,
     verify_lifecycle_schema_compatibility, verify_schema_compatibility,
+    NOTIFICATIONS_MANAGE_PERMISSION,
 };
-#[cfg(test)]
-use epsx_notification::{
-    NOTIFICATIONS_MANAGE_PERMISSION, NOTIFICATION_PUBLISHER_AUDIENCE,
-    NOTIFICATION_PUBLISH_PERMISSION,
-};
-use epsx_service_auth::VerifiedPrincipal;
-#[cfg(test)]
-use epsx_service_auth::{ADMIN_AUDIENCE, FRONTEND_AUDIENCE};
+use epsx_service_auth::{VerifiedPrincipal, ADMIN_AUDIENCE};
 use futures::StreamExt;
 use handlebars::Handlebars;
 use hmac::{Hmac, Mac};
@@ -358,6 +352,101 @@ struct SendNotificationResponse {
     status: String,
     delivered: bool,
     error: Option<String>,
+    request_id: String,
+}
+
+const MAX_IDEMPOTENCY_KEY_CHARS: usize = 56;
+const MAX_RECIPIENT_CHARS: usize = 255;
+const MAX_SUBJECT_CHARS: usize = 255;
+const MAX_BODY_CHARS: usize = 16_384;
+const MAX_DATA_BYTES: usize = 32 * 1024;
+
+fn bounded_control_free(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (1..=MAX_IDEMPOTENCY_KEY_CHARS).contains(&value.chars().count())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+fn request_id(headers: &HeaderMap) -> String {
+    headers
+        .get("x-request-id")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| bounded_control_free(value, 128))
+        .map(str::to_string)
+        .unwrap_or_else(|| Uuid::new_v4().to_string())
+}
+
+fn idempotent_notification_id(key: &str) -> String {
+    format!("idem_{key}")
+}
+
+#[derive(FromRow)]
+struct SendNotificationRecord {
+    id: String,
+    user_id: Option<String>,
+    channel: String,
+    recipient: String,
+    template_id: Option<String>,
+    subject: Option<String>,
+    body: String,
+    data: Option<serde_json::Value>,
+    status: String,
+    error: Option<String>,
+    expires_at: Option<chrono::DateTime<chrono::Utc>>,
+}
+
+fn send_response_status(status: &str) -> (&'static str, bool) {
+    match status {
+        "sent" => ("sent", true),
+        "pending" | "queued" => ("pending", false),
+        _ => ("failed", false),
+    }
+}
+
+fn response_from_existing(
+    notification: &SendNotificationRecord,
+    request_id: String,
+) -> SendNotificationResponse {
+    let (status, delivered) = send_response_status(&notification.status);
+    SendNotificationResponse {
+        id: notification.id.clone(),
+        status: status.to_string(),
+        delivered,
+        error: notification.error.clone(),
+        request_id,
+    }
+}
+
+fn same_send_request(
+    notification: &SendNotificationRecord,
+    request: &SendNotificationRequest,
+    subject: &str,
+    body: &str,
+) -> bool {
+    notification.user_id == request.user_id
+        && notification.channel == request.channel
+        && notification.recipient == request.recipient
+        && notification.template_id == request.template_id
+        && notification.subject.as_deref().unwrap_or_default() == subject
+        && notification.body == body
+        && notification.data == request.data
+        && notification.expires_at == request.expires_at
+}
+
+fn require_admin_notifications(principal: &VerifiedPrincipal) -> Result<(), StatusCode> {
+    if principal.audience != ADMIN_AUDIENCE
+        || !principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)
+    {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    Ok(())
 }
 
 #[derive(Serialize, Deserialize)]
@@ -518,12 +607,18 @@ impl AdminNotificationQuery {
     }
 }
 
-fn parse_admin_decimal(value: &str, range: std::ops::RangeInclusive<i64>) -> Result<i64, StatusCode> {
+fn parse_admin_decimal(
+    value: &str,
+    range: std::ops::RangeInclusive<i64>,
+) -> Result<i64, StatusCode> {
     if value.is_empty() || !value.bytes().all(|byte| byte.is_ascii_digit()) {
         return Err(StatusCode::BAD_REQUEST);
     }
     let value = value.parse::<i64>().map_err(|_| StatusCode::BAD_REQUEST)?;
-    range.contains(&value).then_some(value).ok_or(StatusCode::BAD_REQUEST)
+    range
+        .contains(&value)
+        .then_some(value)
+        .ok_or(StatusCode::BAD_REQUEST)
 }
 
 #[derive(Debug, FromRow)]
@@ -563,7 +658,9 @@ struct AdminNotificationListResponse {
 }
 
 const ADMIN_NOTIFICATION_LIST_SQL: &str = concat!(
-    "SELECT id, title, subject, channel, status, notification_type, priority, sent_at, created_at FROM public.notifications n WHERE ($3::text IS NULL OR $3 = 'all' OR ($3 = 'read' AND (n.read_",
+    "SELECT id, title, subject, channel, CASE WHEN n.read_",
+    "at IS NOT NULL OR EXISTS (SELECT 1 FROM public.notification_engagement projection_engagement WHERE projection_engagement.notification_id = n.id AND projection_engagement.read_",
+    "at IS NOT NULL) THEN 'read' ELSE status END AS status, notification_type, priority, sent_at, created_at FROM public.notifications n WHERE ($3::text IS NULL OR $3 = 'all' OR ($3 = 'read' AND (n.read_",
     "at IS NOT NULL OR EXISTS (SELECT 1 FROM public.notification_engagement filter_engagement WHERE filter_engagement.notification_id = n.id AND filter_engagement.",
     "read_",
     "at IS NOT NULL))) OR ($3 = 'unread' AND n.read_",
@@ -666,8 +763,10 @@ fn template_image_urls_are_safe(body: &str) -> bool {
             return false;
         }
         let content_start = value_start + 1;
-        let Some(relative_end) = lower[content_start..]
+        let Some(relative_end) = lower
             .as_bytes()
+            .get(content_start..)
+            .expect("content start was derived from the same string")
             .iter()
             .position(|candidate| *candidate == quote)
         else {
@@ -736,8 +835,10 @@ fn template_link_urls_are_safe(body: &str) -> bool {
             return false;
         }
         let content_start = value_start + 1;
-        let Some(relative_end) = lower[content_start..]
+        let Some(relative_end) = lower
             .as_bytes()
+            .get(content_start..)
+            .expect("content start was derived from the same string")
             .iter()
             .position(|candidate| *candidate == quote)
         else {
@@ -1189,7 +1290,7 @@ fn project_admin_notification(row: AdminNotificationRow) -> Option<AdminNotifica
         || !safe_lower_ascii_token(&row.channel, 20)
         || !matches!(
             row.status.as_str(),
-            "pending" | "sent" | "failed" | "suppressed" | "expired"
+            "pending" | "sent" | "failed" | "suppressed" | "expired" | "read"
         )
         || row
             .notification_type
@@ -1416,6 +1517,14 @@ async fn main() {
             "/api/v1/notification/admin/list",
             get(list_admin_notifications),
         )
+        .route(
+            "/api/v1/notification/admin/{id}/read",
+            post(admin_mark_read),
+        )
+        .route(
+            "/api/v1/notification/admin/{id}",
+            delete(admin_delete_notification),
+        )
         .route("/api/v1/notification/admin/metrics", get(admin_metrics))
         .route(
             "/api/v1/notification/admin/dead-letters/{id}/redrive",
@@ -1608,15 +1717,17 @@ async fn run_delivery_worker(state: AppState) {
                             ))) => {
                                 let (status, error, message_id) = send_push(
                                     &state,
-                                    &job.id,
-                                    &vapid_key_id,
-                                    &endpoint,
-                                    &p256dh,
-                                    &auth,
-                                    title.as_deref().unwrap_or("EPSX notification"),
-                                    &body,
-                                    data.as_ref(),
-                                    action_url.as_deref(),
+                                    PushDelivery {
+                                        job_id: &job.id,
+                                        vapid_key_id: &vapid_key_id,
+                                        endpoint: &endpoint,
+                                        p256dh: &p256dh,
+                                        auth: &auth,
+                                        title: title.as_deref().unwrap_or("EPSX notification"),
+                                        body: &body,
+                                        data: data.as_ref(),
+                                        action_url: action_url.as_deref(),
+                                    },
                                 )
                                 .await;
                                 if status == "sent" {
@@ -2808,15 +2919,14 @@ fn validate_publish_request(request: &PublishNotificationRequest) -> Result<(), 
     if request.plan_id.is_some_and(|plan_id| plan_id.is_nil()) {
         return Err(StatusCode::BAD_REQUEST);
     }
-    if request.plan_id.is_some() {
-        if request.recipient_wallet_address != "all"
+    if request.plan_id.is_some()
+        && (request.recipient_wallet_address != "all"
             || matches!(
                 request.event_type.as_str(),
                 "notification.send" | "notification.broadcast"
-            )
-        {
-            return Err(StatusCode::BAD_REQUEST);
-        }
+            ))
+    {
+        return Err(StatusCode::BAD_REQUEST);
     }
     Ok(())
 }
@@ -3925,15 +4035,23 @@ async fn delete_template(
 
 async fn send_notification(
     State(state): State<AppState>,
-    Extension(_principal): Extension<VerifiedPrincipal>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    headers: HeaderMap,
     Json(mut req): Json<SendNotificationRequest>,
 ) -> Result<Response, StatusCode> {
+    require_admin_notifications(&principal)?;
     if let Some(user_id) = req.user_id.as_mut() {
         *user_id = user_id.trim().to_ascii_lowercase();
     }
     req.recipient = req.recipient.trim().to_string();
     validate_send_request(&req)?;
-    let id = format!("0x{}", Uuid::new_v4().simple());
+    let request_id = request_id(&headers);
+    let idempotency_key = headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| valid_idempotency_key(value))
+        .ok_or(StatusCode::BAD_REQUEST)?;
+    let id = idempotent_notification_id(idempotency_key);
     let owner_id = req.user_id.as_deref().map(str::to_ascii_lowercase);
     let (subject, body) = if let Some(template_id) = &req.template_id {
         let template: Option<Template> = sqlx::query_as::<_, Template>(
@@ -3959,12 +4077,18 @@ async fn send_notification(
             .map_err(|_| StatusCode::BAD_REQUEST)?;
         (t.subject, rendered)
     } else {
-        (req.subject.clone(), req.body.clone().unwrap_or_default())
+        (
+            req.subject.clone(),
+            req.body.clone().ok_or(StatusCode::BAD_REQUEST)?,
+        )
     };
 
     let subject_str = subject.clone().unwrap_or_default();
     let body_str = body.clone();
     let delivery_policy = load_delivery_preference_policy(&state.db, owner_id.as_deref()).await?;
+    let suppressed = !channel_preference_enabled(&delivery_policy.channels, &req.channel);
+    let stored_status = if suppressed { "suppressed" } else { "pending" };
+    let stored_error = suppressed.then_some("channel_disabled_by_preference");
     let payload = serde_json::json!({
         "notification_id": &id,
         "channel": &req.channel,
@@ -3975,72 +4099,32 @@ async fn send_notification(
         "data": &req.data,
         "expires_at": &req.expires_at,
     });
-    if !channel_preference_enabled(&delivery_policy.channels, &req.channel) {
-        let mut transaction = state
-            .db
-            .begin()
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        sqlx::query(
-            "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'suppressed', $9)",
-        )
-        .bind(&id)
-        .bind(&owner_id)
-        .bind(&req.channel)
-        .bind(&req.recipient)
-        .bind(&req.template_id)
-        .bind(&subject_str)
-        .bind(&body_str)
-        .bind(req.data.clone())
-        .bind("channel_disabled_by_preference")
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        if let Some(expires_at) = req.expires_at {
-            sqlx::query(
-                "INSERT INTO public.notification_expirations (notification_id, expires_at) VALUES ($1, $2)",
-            )
-            .bind(&id)
-            .bind(expires_at)
-            .execute(&mut *transaction)
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        }
-        sqlx::query(
-            "INSERT INTO public.notification_outbox (event_id, event_type, aggregate_id, payload) VALUES ($1, 'notification.send', $2, $3)",
-        )
-        .bind(&id)
-        .bind(owner_id.as_deref().unwrap_or(&req.recipient))
-        .bind(&payload)
-        .execute(&mut *transaction)
-        .await
-        .map_err(|_| StatusCode::CONFLICT)?;
-        transaction
-            .commit()
-            .await
-            .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-        if let Some(owner) = owner_id.as_deref() {
-            let channel = realtime_wallet_channel(owner);
-            publish_realtime_wakeup(&state, &channel, &id).await;
-        }
-        return Ok((
-            StatusCode::ACCEPTED,
-            Json(SendNotificationResponse {
-                id,
-                status: "suppressed".to_string(),
-                delivered: false,
-                error: Some("channel_disabled_by_preference".to_string()),
-            }),
-        )
-            .into_response());
-    }
     let mut transaction = state
         .db
         .begin()
         .await
         .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
-    sqlx::query(
-        "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')",
+
+    let existing = sqlx::query_as::<_, SendNotificationRecord>(
+        "SELECT n.id, n.user_id, n.channel, n.recipient, n.template_id, n.subject, n.body, n.data, n.status, n.error, x.expires_at FROM public.notifications n LEFT JOIN public.notification_expirations x ON x.notification_id = n.id WHERE n.id = $1",
+    )
+    .bind(&id)
+    .fetch_optional(&mut *transaction)
+    .await
+    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    if let Some(existing) = existing {
+        if !same_send_request(&existing, &req, &subject_str, &body_str) {
+            return Err(StatusCode::CONFLICT);
+        }
+        return Ok((
+            StatusCode::ACCEPTED,
+            Json(response_from_existing(&existing, request_id)),
+        )
+            .into_response());
+    }
+
+    let claimed = sqlx::query(
+        "INSERT INTO public.notifications (id, user_id, channel, recipient, template_id, subject, body, data, status, error) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (id) DO NOTHING",
     )
     .bind(&id)
     .bind(&owner_id)
@@ -4050,9 +4134,30 @@ async fn send_notification(
     .bind(&subject_str)
     .bind(&body_str)
     .bind(req.data.clone())
+    .bind(stored_status)
+    .bind(stored_error)
     .execute(&mut *transaction)
     .await
-    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+    .rows_affected();
+    if claimed == 0 {
+        let existing = sqlx::query_as::<_, SendNotificationRecord>(
+            "SELECT n.id, n.user_id, n.channel, n.recipient, n.template_id, n.subject, n.body, n.data, n.status, n.error, x.expires_at FROM public.notifications n LEFT JOIN public.notification_expirations x ON x.notification_id = n.id WHERE n.id = $1",
+        )
+        .bind(&id)
+        .fetch_optional(&mut *transaction)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?
+        .ok_or(StatusCode::CONFLICT)?;
+        if !same_send_request(&existing, &req, &subject_str, &body_str) {
+            return Err(StatusCode::CONFLICT);
+        }
+        return Ok((
+            StatusCode::ACCEPTED,
+            Json(response_from_existing(&existing, request_id)),
+        )
+            .into_response());
+    }
     if let Some(expires_at) = req.expires_at {
         sqlx::query(
             "INSERT INTO public.notification_expirations (notification_id, expires_at) VALUES ($1, $2)",
@@ -4072,19 +4177,21 @@ async fn send_notification(
     .execute(&mut *transaction)
     .await
     .map_err(|_| StatusCode::CONFLICT)?;
-    sqlx::query(
-        "INSERT INTO public.notification_channel_jobs (id, source_event_id, notification_id, channel, recipient, idempotency_key, available_at) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()))",
-    )
-    .bind(format!("{}:{}", id, req.channel))
-    .bind(&id)
-    .bind(&id)
-    .bind(&req.channel)
-    .bind(&req.recipient)
-    .bind(&id)
-    .bind(delivery_policy.quiet_until)
-    .execute(&mut *transaction)
-    .await
-    .map_err(|_| StatusCode::CONFLICT)?;
+    if !suppressed {
+        sqlx::query(
+            "INSERT INTO public.notification_channel_jobs (id, source_event_id, notification_id, channel, recipient, idempotency_key, available_at) VALUES ($1, $2, $3, $4, $5, $6, COALESCE($7, NOW()))",
+        )
+        .bind(format!("{}:{}", id, req.channel))
+        .bind(&id)
+        .bind(&id)
+        .bind(&req.channel)
+        .bind(&req.recipient)
+        .bind(&id)
+        .bind(delivery_policy.quiet_until)
+        .execute(&mut *transaction)
+        .await
+        .map_err(|_| StatusCode::CONFLICT)?;
+    }
     transaction
         .commit()
         .await
@@ -4094,13 +4201,15 @@ async fn send_notification(
         publish_realtime_wakeup(&state, &channel, &id).await;
     }
 
+    let (response_status, delivered) = send_response_status(stored_status);
     Ok((
         StatusCode::ACCEPTED,
         Json(SendNotificationResponse {
             id,
-            status: "queued".to_string(),
-            delivered: false,
-            error: None,
+            status: response_status.to_string(),
+            delivered,
+            error: stored_error.map(str::to_string),
+            request_id,
         }),
     )
         .into_response())
@@ -4193,19 +4302,23 @@ fn email_provider_unavailable() -> (String, Option<String>, bool, Option<String>
 /// retries and state transitions; this function only performs encryption,
 /// VAPID signing, and one bounded provider call. Endpoint identifiers and
 /// payload contents are deliberately absent from logs and error text.
+struct PushDelivery<'a> {
+    job_id: &'a str,
+    vapid_key_id: &'a str,
+    endpoint: &'a str,
+    p256dh: &'a str,
+    auth: &'a str,
+    title: &'a str,
+    body: &'a str,
+    data: Option<&'a serde_json::Value>,
+    action_url: Option<&'a str>,
+}
+
 async fn send_push(
     state: &AppState,
-    job_id: &str,
-    vapid_key_id: &str,
-    endpoint: &str,
-    p256dh: &str,
-    auth: &str,
-    title: &str,
-    body: &str,
-    data: Option<&serde_json::Value>,
-    action_url: Option<&str>,
+    delivery: PushDelivery<'_>,
 ) -> (String, Option<String>, Option<String>) {
-    let Some(private_key) = vapid_private_key_for_id(state, vapid_key_id) else {
+    let Some(private_key) = vapid_private_key_for_id(state, delivery.vapid_key_id) else {
         return (
             "failed".to_string(),
             Some("provider_not_configured".to_string()),
@@ -4213,10 +4326,10 @@ async fn send_push(
         );
     };
     let payload = serde_json::json!({
-        "title": title,
-        "body": body,
-        "data": data,
-        "action_url": action_url.filter(|url| valid_action_url(url)),
+        "title": delivery.title,
+        "body": delivery.body,
+        "data": delivery.data,
+        "action_url": delivery.action_url.filter(|url| valid_action_url(url)),
     });
     let content = match serde_json::to_vec(&payload) {
         Ok(content) if content.len() <= 3800 => content,
@@ -4236,7 +4349,7 @@ async fn send_push(
         }
     };
 
-    let subscription = SubscriptionInfo::new(endpoint, p256dh, auth);
+    let subscription = SubscriptionInfo::new(delivery.endpoint, delivery.p256dh, delivery.auth);
     let mut signature = if private_key.starts_with(b"-----BEGIN") {
         match VapidSignatureBuilder::from_pem(private_key, &subscription) {
             Ok(builder) => builder,
@@ -4270,7 +4383,7 @@ async fn send_push(
         Err(error) => return push_build_failure(error),
     };
 
-    let provider_message_id = push_message_id(job_id);
+    let provider_message_id = push_message_id(delivery.job_id);
     let client = match reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(
             SMTP_TRANSPORT_TIMEOUT_SECONDS,
@@ -4326,7 +4439,7 @@ async fn send_push(
         if let Err(error) = sqlx::query(
             "UPDATE public.notification_push_subscriptions SET revoked_at = NOW() WHERE endpoint = $1 AND revoked_at IS NULL",
         )
-        .bind(endpoint)
+        .bind(delivery.endpoint)
         .execute(&state.db)
         .await
         {
@@ -4396,9 +4509,7 @@ fn validate_send_request(request: &SendNotificationRequest) -> Result<(), Status
         .ok_or(StatusCode::BAD_REQUEST)?;
 
     if !matches!(request.channel.as_str(), "email" | "in_app" | "push")
-        || request.recipient.trim().is_empty()
-        || request.recipient.len() > 255
-        || request.recipient.chars().any(char::is_control)
+        || !bounded_control_free(&request.recipient, MAX_RECIPIENT_CHARS)
         || request.recipient == "all"
         || (request.channel == "email" && !valid_email_recipient(&request.recipient))
         || (request.channel == "in_app" && !request.recipient.eq_ignore_ascii_case(owner))
@@ -4410,15 +4521,16 @@ fn validate_send_request(request: &SendNotificationRequest) -> Result<(), Status
         || request
             .subject
             .as_deref()
-            .is_some_and(|value| value.len() > 255 || value.chars().any(char::is_control))
+            .is_some_and(|value| !bounded_control_free(value, MAX_SUBJECT_CHARS))
         || request
             .body
             .as_deref()
-            .is_some_and(|value| value.len() > 16 * 1024 || value.chars().any(char::is_control))
+            .is_some_and(|value| !bounded_control_free(value, MAX_BODY_CHARS))
         || request.data.as_ref().is_some_and(|value| {
-            serde_json::to_vec(value)
-                .map(|encoded| encoded.len() > 64 * 1024)
-                .unwrap_or(true)
+            !value.is_object()
+                || serde_json::to_vec(value)
+                    .map(|encoded| encoded.len() > MAX_DATA_BYTES)
+                    .unwrap_or(true)
         })
         || (request.template_id.is_some() && (request.subject.is_some() || request.body.is_some()))
         || (request.template_id.is_none()
@@ -4634,9 +4746,10 @@ fn require_owner_notification_total(result: Result<i64, sqlx::Error>) -> Result<
 
 async fn list_admin_notifications(
     State(state): State<AppState>,
-    Extension(_principal): Extension<VerifiedPrincipal>,
+    Extension(principal): Extension<VerifiedPrincipal>,
     RawQuery(raw_query): RawQuery,
 ) -> Result<Json<AdminNotificationListResponse>, StatusCode> {
+    require_admin_notifications(&principal)?;
     let query = AdminNotificationQuery::parse(raw_query.as_deref())?;
     let mut transaction = state
         .db
@@ -4701,6 +4814,21 @@ async fn admin_metrics(
     State(state): State<AppState>,
     Extension(_principal): Extension<VerifiedPrincipal>,
 ) -> Result<Json<NotificationMetricsResponse>, StatusCode> {
+    type NotificationMetricsRow = (
+        i64,
+        Option<i64>,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        i64,
+        Option<i64>,
+    );
+
     let (
         queue_depth,
         queue_age_seconds,
@@ -4714,20 +4842,7 @@ async fn admin_metrics(
         delivery_attempts,
         replay_cursors,
         replay_cursor_age_seconds,
-    ): (
-        i64,
-        Option<i64>,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        i64,
-        Option<i64>,
-    ) = sqlx::query_as(
+    ): NotificationMetricsRow = sqlx::query_as(
         "SELECT COUNT(*) FILTER (WHERE state IN ('queued', 'leased', 'attempting', 'retry_wait'))::bigint, GREATEST(0, EXTRACT(EPOCH FROM (NOW() - MIN(available_at) FILTER (WHERE state IN ('queued', 'leased', 'attempting', 'retry_wait')))))::bigint, (SELECT COUNT(*) FROM public.notifications WHERE status = 'suppressed')::bigint, COUNT(*) FILTER (WHERE state = 'retry_wait')::bigint, COUNT(*) FILTER (WHERE state = 'terminal_failed')::bigint, COUNT(*) FILTER (WHERE state = 'dead_lettered')::bigint, COUNT(*) FILTER (WHERE state = 'provider_accepted')::bigint, COUNT(*) FILTER (WHERE state = 'attempting')::bigint, (SELECT COUNT(*) FROM public.notification_provider_events)::bigint, (SELECT COUNT(*) FROM public.notification_delivery_attempts)::bigint, (SELECT COUNT(*) FROM public.notification_replay_cursors)::bigint, (SELECT GREATEST(0, EXTRACT(EPOCH FROM (NOW() - MIN(updated_at))))::bigint FROM public.notification_replay_cursors) FROM public.notification_channel_jobs",
     )
         .fetch_one(&state.db)
@@ -4823,6 +4938,55 @@ async fn redrive_dead_letter(
             Err(StatusCode::SERVICE_UNAVAILABLE)
         }
     }
+}
+
+fn valid_admin_notification_id(value: &str) -> bool {
+    (1..=66).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+async fn admin_mark_read(
+    State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    AxPath(id): AxPath<String>,
+) -> Result<Json<serde_json::Value>, StatusCode> {
+    require_admin_notifications(&principal)?;
+    if !valid_admin_notification_id(&id) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let result = sqlx::query(
+        "UPDATE public.notifications SET read_at = NOW(), status = CASE WHEN status = 'pending' THEN 'sent' ELSE status END WHERE id = $1",
+    )
+    .bind(&id)
+    .execute(&state.db)
+    .await
+    .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(Json(serde_json::json!({ "id": id, "read": true })))
+}
+
+async fn admin_delete_notification(
+    State(state): State<AppState>,
+    Extension(principal): Extension<VerifiedPrincipal>,
+    AxPath(id): AxPath<String>,
+) -> Result<StatusCode, StatusCode> {
+    require_admin_notifications(&principal)?;
+    if !valid_admin_notification_id(&id) {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+    let result = sqlx::query("DELETE FROM public.notifications WHERE id = $1")
+        .bind(&id)
+        .execute(&state.db)
+        .await
+        .map_err(|_| StatusCode::SERVICE_UNAVAILABLE)?;
+    if result.rows_affected() == 0 {
+        return Err(StatusCode::NOT_FOUND);
+    }
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn get_notification(
@@ -5244,26 +5408,18 @@ fn validate_unread_count_query(query: &UnreadCountQuery) -> Result<(), StatusCod
     if query.status.as_deref().is_some_and(|status| {
         !matches!(
             status,
-            "all"
-                | "read"
-                | "unread"
-                | "pending"
-                | "sent"
-                | "failed"
-                | "suppressed"
-                | "expired"
+            "all" | "read" | "unread" | "pending" | "sent" | "failed" | "suppressed" | "expired"
         )
-    })
-        || query.notification_type.as_deref().is_some_and(|value| {
-            value.is_empty()
-                || value.len() > 64
-                || value
-                    .chars()
-                    .any(|character| character.is_control() || character.is_whitespace())
-        })
-        || query.priority.as_deref().is_some_and(|value| {
-            !matches!(value, "low" | "normal" | "high" | "critical" | "urgent")
-        })
+    }) || query.notification_type.as_deref().is_some_and(|value| {
+        value.is_empty()
+            || value.len() > 64
+            || value
+                .chars()
+                .any(|character| character.is_control() || character.is_whitespace())
+    }) || query
+        .priority
+        .as_deref()
+        .is_some_and(|value| !matches!(value, "low" | "normal" | "high" | "critical" | "urgent"))
         || query
             .start_date
             .zip(query.end_date)
@@ -5285,15 +5441,15 @@ async fn unread_count(
     let owner = canonical_owner(&principal, q.user_id.as_deref())?;
     let status = q.status.as_deref().filter(|status| *status != "all");
     let count: i64 = sqlx::query_scalar(OWNER_UNREAD_COUNT_SQL)
-    .bind(&owner)
-    .bind(status)
-    .bind(q.notification_type.as_deref())
-    .bind(q.priority.as_deref())
-    .bind(q.start_date)
-    .bind(q.end_date)
-    .fetch_one(&state.db)
-    .await
-    .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+        .bind(&owner)
+        .bind(status)
+        .bind(q.notification_type.as_deref())
+        .bind(q.priority.as_deref())
+        .bind(q.start_date)
+        .bind(q.end_date)
+        .fetch_one(&state.db)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(Json(UnreadCountResponse { count }))
 }
 
@@ -5301,6 +5457,90 @@ async fn unread_count(
 mod tests {
     use super::*;
     use chrono::{TimeZone, Utc};
+    use epsx_notification::{NOTIFICATION_PUBLISHER_AUDIENCE, NOTIFICATION_PUBLISH_PERMISSION};
+    use epsx_service_auth::FRONTEND_AUDIENCE;
+
+    fn valid_send_request() -> SendNotificationRequest {
+        let owner = "0x1111111111111111111111111111111111111111";
+        SendNotificationRequest {
+            user_id: Some(owner.into()),
+            channel: "in_app".into(),
+            recipient: owner.into(),
+            template_id: None,
+            subject: Some("Migration update".into()),
+            body: Some("The migration is ready for review.".into()),
+            data: Some(serde_json::json!({"source": "admin"})),
+            expires_at: None,
+        }
+    }
+
+    #[test]
+    fn send_request_validation_is_bounded_and_requires_content() {
+        let valid = valid_send_request();
+        assert_eq!(validate_send_request(&valid), Ok(()));
+
+        let mut unknown_channel = valid_send_request();
+        unknown_channel.channel = "sms".into();
+        assert_eq!(
+            validate_send_request(&unknown_channel),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut no_content = valid_send_request();
+        no_content.body = None;
+        no_content.subject = None;
+        assert_eq!(
+            validate_send_request(&no_content),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut non_object_data = valid_send_request();
+        non_object_data.data = Some(serde_json::json!(["private"]));
+        assert_eq!(
+            validate_send_request(&non_object_data),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let mut oversized_body = valid_send_request();
+        oversized_body.body = Some("x".repeat(MAX_BODY_CHARS + 1));
+        assert_eq!(
+            validate_send_request(&oversized_body),
+            Err(StatusCode::BAD_REQUEST)
+        );
+    }
+
+    #[test]
+    fn email_validation_rejects_invalid_recipients_and_unknown_request_fields() {
+        let mut invalid_email = valid_send_request();
+        invalid_email.channel = "email".into();
+        invalid_email.recipient = "not-an-email".into();
+        assert_eq!(
+            validate_send_request(&invalid_email),
+            Err(StatusCode::BAD_REQUEST)
+        );
+
+        let unknown = serde_json::json!({
+            "channel": "in_app",
+            "recipient": "0xrecipient",
+            "body": "body",
+            "unexpected": true
+        });
+        assert!(serde_json::from_value::<SendNotificationRequest>(unknown).is_err());
+    }
+
+    #[test]
+    fn idempotency_key_is_ascii_bounded_and_maps_to_a_canonical_record_id() {
+        assert!(valid_idempotency_key("admin.send.2026-07-22_01"));
+        assert!(!valid_idempotency_key(""));
+        assert!(!valid_idempotency_key("contains space"));
+        assert!(!valid_idempotency_key(
+            &"x".repeat(MAX_IDEMPOTENCY_KEY_CHARS + 1)
+        ));
+        assert_eq!(
+            idempotent_notification_id("admin.send.2026-07-22_01"),
+            "idem_admin.send.2026-07-22_01"
+        );
+    }
 
     fn valid_admin_row() -> AdminNotificationRow {
         AdminNotificationRow {
@@ -5761,15 +6001,17 @@ mod tests {
         let job_id = "push-provider-runtime-job";
         let (status, error, provider_message_id) = send_push(
             &state,
-            job_id,
-            "active",
-            &format!("http://{address}/push"),
-            "BH1HTeKM7-NwaLGHEqxeu2IamQaVVLkcsFHPIHmsCnqxcBHPQBprF41bEMOr3O1hUQ2jU1opNEm1F_lZV_sxMP8",
-            "sBXU5_tIYz-5w7G2B25BEw",
-            "Runtime push",
-            "Provider acceptance audit",
-            Some(&serde_json::json!({"source": "runtime"})),
-            Some("/notifications/runtime"),
+            PushDelivery {
+                job_id,
+                vapid_key_id: "active",
+                endpoint: &format!("http://{address}/push"),
+                p256dh: "BH1HTeKM7-NwaLGHEqxeu2IamQaVVLkcsFHPIHmsCnqxcBHPQBprF41bEMOr3O1hUQ2jU1opNEm1F_lZV_sxMP8",
+                auth: "sBXU5_tIYz-5w7G2B25BEw",
+                title: "Runtime push",
+                body: "Provider acceptance audit",
+                data: Some(&serde_json::json!({"source": "runtime"})),
+                action_url: Some("/notifications/runtime"),
+            },
         )
         .await;
 
@@ -6925,7 +7167,7 @@ mod tests {
             .execute(&db)
             .await?;
         sqlx::query("DELETE FROM public.notifications WHERE id = ANY($1)")
-            .bind(&vec![selected_id, read_id, other_id, broadcast_id])
+            .bind(vec![selected_id, read_id, other_id, broadcast_id])
             .execute(&db)
             .await?;
         db.close().await;
@@ -7210,9 +7452,21 @@ mod tests {
         .map_err(|status| format!("push unsubscribe failed: {status}"))?;
         assert!(!unsubscribed.0.subscribed);
 
+        let admin_principal = VerifiedPrincipal {
+            subject: "runtime-notification-admin".into(),
+            wallet_address: owner.into(),
+            audience: ADMIN_AUDIENCE.into(),
+            permissions: vec![NOTIFICATIONS_MANAGE_PERMISSION.into()],
+        };
+        let mut send_headers = HeaderMap::new();
+        send_headers.insert(
+            "idempotency-key",
+            "runtime-preferences-suppression".parse()?,
+        );
         let send_response = send_notification(
             State(state),
-            Extension(principal),
+            Extension(admin_principal),
+            send_headers,
             Json(SendNotificationRequest {
                 user_id: Some(owner.into()),
                 channel: "in_app".into(),
@@ -7884,11 +8138,15 @@ mod tests {
             }
         );
         assert_eq!(
-            AdminNotificationQuery::parse(Some("notification_type=system")).unwrap().notification_type,
+            AdminNotificationQuery::parse(Some("notification_type=system"))
+                .unwrap()
+                .notification_type,
             Some("system".into())
         );
         assert_eq!(
-            AdminNotificationQuery::parse(Some("status=read")).unwrap().status,
+            AdminNotificationQuery::parse(Some("status=read"))
+                .unwrap()
+                .status,
             Some("read".into())
         );
     }
@@ -7999,7 +8257,7 @@ mod tests {
         row.channel = "Email".into();
         cases.push(row);
         let mut row = valid_admin_row();
-        row.status = "read".into();
+        row.status = "unknown".into();
         cases.push(row);
         let mut row = valid_admin_row();
         row.notification_type = Some("unsafe\ntype".into());
@@ -8229,10 +8487,7 @@ mod tests {
 
         let mut redis_ready = false;
         for _ in 0..40 {
-            let mut connection = match publisher.get_multiplexed_async_connection().await {
-                Ok(connection) => Some(connection),
-                Err(_) => None,
-            };
+            let mut connection = publisher.get_multiplexed_async_connection().await.ok();
             if let Some(connection) = connection.as_mut() {
                 if redis::cmd("PING")
                     .query_async::<String>(connection)
@@ -8292,10 +8547,7 @@ mod tests {
         redis_process = RedisChild::start(port);
         let mut restored = false;
         for _ in 0..40 {
-            let mut connection = match publisher.get_multiplexed_async_connection().await {
-                Ok(connection) => Some(connection),
-                Err(_) => None,
-            };
+            let mut connection = publisher.get_multiplexed_async_connection().await.ok();
             if let Some(connection) = connection.as_mut() {
                 if redis::cmd("PING")
                     .query_async::<String>(connection)

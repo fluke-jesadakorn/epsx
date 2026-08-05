@@ -417,7 +417,11 @@ fn DeveloperOverviewUnavailable() -> Element {
 }
 
 #[component]
-fn DeveloperMetricPreview(label: &'static str, value: &'static str, accent: &'static str) -> Element {
+fn DeveloperMetricPreview(
+    label: &'static str,
+    value: &'static str,
+    accent: &'static str,
+) -> Element {
     rsx! {
         article { class: "rounded-2xl border border-white/70 bg-black/10 p-5 sm:p-7",
             p { class: "text-base font-medium text-white", "{label}" }

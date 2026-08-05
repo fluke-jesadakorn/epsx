@@ -33,16 +33,12 @@ use crate::web::auth::AppState;
 /// still resolves and so the (now deprecated) static methods
 /// `NotificationService::send` / `NotificationService::broadcast`
 /// keep compiling. New code MUST go through `NotificationPort`.
-#[deprecated(
-    since = "0.1.0",
-    note = "Go through `AppState::notification_port` (`Arc<dyn NotificationPort>`) instead. The static methods on this shim will be removed in wave 11."
-)]
 pub struct NotificationService;
 
 impl NotificationService {
     /// Construct a fresh in-process adapter. Sugar for the
     /// `InProcessNotificationAdapter::try_new` constructor.
-    pub async fn new() -> AppResult<InProcessNotificationAdapter> {
+    pub async fn try_new_adapter() -> AppResult<InProcessNotificationAdapter> {
         InProcessNotificationAdapter::try_new(None).await
     }
 

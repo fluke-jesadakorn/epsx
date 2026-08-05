@@ -910,9 +910,7 @@ fn safe_link_target(value: &str) -> Option<SafeLinkTarget> {
 }
 
 fn canonical_https_authority(value: &str) -> Option<&str> {
-    let Some((scheme, rest)) = value.split_once("://") else {
-        return None;
-    };
+    let (scheme, rest) = value.split_once("://")?;
     if !scheme.eq_ignore_ascii_case("https") {
         return None;
     }

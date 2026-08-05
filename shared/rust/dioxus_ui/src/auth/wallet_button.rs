@@ -104,17 +104,12 @@ pub fn wallet_provider_for(id: &str) -> &'static WalletProvider {
 /// Size variant for `ConnectButton`. `Compact` matches the navbar's
 /// "Connect" pill; `Full` is the wide mobile drawer CTA. `Default`
 /// is the desktop / "Connect Wallet" hero button.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ConnectButtonSize {
     Compact,
+    #[default]
     Default,
     Full,
-}
-
-impl Default for ConnectButtonSize {
-    fn default() -> Self {
-        Self::Default
-    }
 }
 
 /// The "Connect Wallet" CTA. Renders an orange→purple gradient pill
@@ -204,7 +199,6 @@ pub fn ConnectButton(
         // attributes survive SSR. We escape the label so user-supplied
         // labels can't break out of the attribute context.
         let label_escaped = html_attr_escape(&label_val);
-        let extra_escaped = html_attr_escape(&extra_cls);
         let final_class_escaped = html_attr_escape(&format!("{size_cls} {extra_cls}"));
         let onclick_attr = on_click_js
             .as_deref()
@@ -240,7 +234,7 @@ pub fn ConnectButton(
     }
 
     rsx! {
-        if let Some(h) = on_click.clone() {
+        if let Some(h) = on_click {
             button {
                 class: "{final_class}",
                 r#type: "button",
@@ -387,7 +381,7 @@ impl ConnectedWalletState {
         // The client URL-encodes the JSON value when writing the
         // cookie (covers the case where the JSON has no special chars
         // but is always escaped for safety).
-        let decoded = percent_decode(&raw);
+        let decoded = percent_decode(raw);
         let parsed: WalletCookieShape = match serde_json::from_str(&decoded) {
             Ok(v) => v,
             Err(_) => return Self::default(),
@@ -671,7 +665,7 @@ pub fn ConnectedWalletDropdown(
 
             // Sign-in row (connected but not authenticated)
             if show_sign_in_row {
-                if let Some(h) = on_sign_in.clone() {
+                if let Some(h) = on_sign_in {
                     button {
                         class: "wallet-signin-row",
                         r#type: "button",
@@ -694,7 +688,7 @@ pub fn ConnectedWalletDropdown(
             // updates.
             if show_retry_row {
                 div { class: "wallet-retry-row-wrap", "aria-live": "polite",
-                    if let Some(h) = on_retry.clone() {
+                    if let Some(h) = on_retry {
                         button {
                             class: "wallet-retry-row",
                             r#type: "button",
@@ -726,7 +720,7 @@ pub fn ConnectedWalletDropdown(
             }
 
             // Disconnect
-            if let Some(h) = on_disconnect.clone() {
+            if let Some(h) = on_disconnect {
                 button {
                     class: "wallet-disconnect-btn",
                     r#type: "button",

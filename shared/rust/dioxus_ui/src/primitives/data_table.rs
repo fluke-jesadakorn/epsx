@@ -44,17 +44,12 @@
 
 use dioxus::prelude::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum Align {
+    #[default]
     Left,
     Center,
     Right,
-}
-
-impl Default for Align {
-    fn default() -> Self {
-        Align::Left
-    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -134,10 +129,10 @@ pub fn DataTable(
     let mut filter = use_signal(String::new);
     // Internal mirror of the controlled selection — lets header checkbox
     // toggle per-page state without round-tripping to the parent.
-    let mut local_selected = use_signal(Vec::<String>::new);
+    let local_selected = use_signal(Vec::<String>::new);
     {
         let sel = selected.clone();
-        let mut ls = local_selected.clone();
+        let mut ls = local_selected;
         use_effect(move || {
             if let Some(s) = sel.clone() {
                 ls.set(s);
@@ -178,7 +173,7 @@ pub fn DataTable(
 
     let total = visible.len();
     let page_size = page_size.max(1);
-    let total_pages = (total + page_size - 1) / page_size;
+    let total_pages = total.div_ceil(page_size);
     let cur_page = (*page.read()).min(total_pages.saturating_sub(1));
     let start = cur_page * page_size;
     let end = (start + page_size).min(total);
@@ -202,10 +197,10 @@ pub fn DataTable(
 
     // "Select all" reflects the current page's rows.
     let page_ids: Vec<String> = page_rows.iter().map(|r| r.id.clone()).collect();
-    let mut selected_signal = local_selected.clone();
-    let on_select_change_handler = on_select_change.clone();
+    let mut selected_signal = local_selected;
+    let on_select_change_handler = on_select_change;
     let selected_for_all = selected.clone();
-    let mut select_all = move |all_page_selected: bool, page_ids: Vec<String>| {
+    let select_all = move |all_page_selected: bool, page_ids: Vec<String>| {
         let current: Vec<String> = match &selected_for_all {
             Some(s) => s.clone(),
             None => selected_signal.read().clone(),
@@ -339,10 +334,10 @@ pub fn DataTable(
                                     let col_aligns: Vec<Align> = columns.iter().map(|c| c.align).collect();
                                     let col_classes: Vec<Option<String>> = columns.iter().map(|c| c.class_name.clone()).collect();
                                     let col_keys: Vec<String> = columns.iter().map(|c| c.key.clone()).collect();
-                                    let onclick_handler = on_row_click.clone();
-                                    let on_select_change_for_row = on_select_change.clone();
+                                    let onclick_handler = on_row_click;
+                                    let on_select_change_for_row = on_select_change;
                                     let selected_for_row = selected.clone();
-                                    let mut selected_signal_for_row = local_selected.clone();
+                                    let selected_signal_for_row = local_selected;
                                     let row_id_for_onclick = row_id.clone();
                                     rsx! {
                                         tr {
@@ -359,8 +354,8 @@ pub fn DataTable(
                                                 {
                                                     let row_id_for_check = row_id.clone();
                                                     let row_id_for_check_inner = row_id_for_check.clone();
-                                                    let mut selected_signal_inner = selected_signal_for_row.clone();
-                                                    let on_select_change_inner = on_select_change_for_row.clone();
+                                                    let mut selected_signal_inner = selected_signal_for_row;
+                                                    let on_select_change_inner = on_select_change_for_row;
                                                     let selected_inner = selected_for_row.clone();
                                                     rsx! {
                                                         td { class: "w-10",
@@ -402,7 +397,7 @@ pub fn DataTable(
                                                     let key = col_keys[i].clone();
                                                     let cell_text = row_cells.get(i).cloned().unwrap_or_default();
                                                     if let Some(cb) = render_map.get(&key) {
-                                                        let cb = cb.clone();
+                                                        let cb = *cb;
                                                         let row_clone = row_for_render.clone();
                                                         rsx! {
                                                             td {

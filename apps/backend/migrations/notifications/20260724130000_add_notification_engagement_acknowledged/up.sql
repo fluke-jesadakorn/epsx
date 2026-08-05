@@ -4,4 +4,3 @@
 
 ALTER TABLE public.notification_engagement
     ADD COLUMN IF NOT EXISTS acknowledged_at TIMESTAMPTZ(6);
-

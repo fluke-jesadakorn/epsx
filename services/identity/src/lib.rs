@@ -115,10 +115,10 @@ fn classify_user_detail(method: &Method, path: &str) -> AccessPolicy {
     if !safe_dynamic_segment(id) {
         return AccessPolicy::Blocked;
     }
-    match method {
-        &Method::GET => AccessPolicy::AdminPermission(USERS_READ_PERMISSION),
-        &Method::PUT => AccessPolicy::AdminPermission(USERS_UPDATE_PERMISSION),
-        &Method::DELETE => AccessPolicy::AdminPermission(USERS_DELETE_PERMISSION),
+    match *method {
+        Method::GET => AccessPolicy::AdminPermission(USERS_READ_PERMISSION),
+        Method::PUT => AccessPolicy::AdminPermission(USERS_UPDATE_PERMISSION),
+        Method::DELETE => AccessPolicy::AdminPermission(USERS_DELETE_PERMISSION),
         _ => AccessPolicy::Blocked,
     }
 }

@@ -266,10 +266,10 @@ const invariantIds = [
 exactIds(contract.invariants, invariantIds, "invariant");
 
 const expectedImplementation = [
-  ["impl-frontend-router-journey", "apps/frontend/src/main.rs", "73b8bfb10ca9903243023d125dc5ea087fa4ea9adc911b4a9c3b83fd66a3dbec"],
-  ["impl-frontend-ssr-state", "apps/frontend/src/ssr.rs", "82c38118afc6d4dd044b3afc576bd9e15e9ffde77a101bf64f3a4576c144a8ef"],
+  ["impl-frontend-router-journey", "apps/frontend/src/main.rs", "da76a4e76ad144f9819f07b56e4dd67d191c3d9989da2b5ed47f289be28a0966"],
+  ["impl-frontend-ssr-state", "apps/frontend/src/ssr.rs", "3d00345c4501ef5ada44453374fb2745f00912108f0c870285799bc67f768bfa"],
   ["impl-fixed-recovery-bootstrap", "shared/rust/bff/src/browser_auth.rs", "d0fec242ac4826f2584623b963dd99472f22373ee46f7f41c0667d34079785ba"],
-  ["impl-auth-page-state-machine", "shared/rust/dioxus_ui/src/pages/auth_page.rs", "38e3c0a54ae8ed9275179214a9f3d29441f0547d6411001efc35b4cdab43ed17"],
+  ["impl-auth-page-state-machine", "shared/rust/dioxus_ui/src/pages/auth_page.rs", "65039b501d24a4417edff71c38d8eac2af73bcbdca0b30ad55d265695140637a"],
   ["impl-fake-dom-harness", "scripts/migration/test-auth-recovery-ux.js", "dd28916051bbccd78b87060b4db859b45357dd08dd4cc246636c3f64ae97208b"],
 ];
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== expectedImplementation.length) fail("implementation evidence inventory drifted");

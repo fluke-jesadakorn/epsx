@@ -105,9 +105,9 @@ if (contract.schemaVersion !== 1 || contract.artifact !== "a8-admin-live-data") 
 if (contract.contractId !== "A8.0-admin-live-data-and-mutation-readiness") {
   fail("unexpected contractId");
 }
-if (contract.source?.ref !== "origin/development") fail("source ref must be origin/development");
-if (contract.source?.commit !== "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db") {
-  fail("source commit must be the accepted full development baseline SHA");
+if (contract.source?.ref !== "development") fail("source ref must be development");
+if (contract.source?.commit !== "6fe4d5bb3e170ba0644c07979735482bcc0f17c6") {
+  fail("source commit must be the pinned development baseline SHA");
 }
 const resolvedSource = git("rev-parse", contract.source.ref);
 if (resolvedSource !== contract.source.commit) {
@@ -115,7 +115,7 @@ if (resolvedSource !== contract.source.commit) {
 }
 git("cat-file", "-e", `${contract.source.commit}^{commit}`);
 const sourceAdminPackage = JSON.parse(
-  git("show", `${contract.source.commit}:apps/admin-frontend/package.json`),
+  git("show", `${contract.source.commit}:apps-old/admin-frontend/package.json`),
 ) as Json;
 if (sourceAdminPackage.dependencies?.next !== "16.0.10") {
   fail("pinned admin source must use Next.js 16.0.10 for redirect semantics");
@@ -192,20 +192,12 @@ const expectedRedirectCurrent = new Map<string, { transport: string; status: num
   ["/wallet-management", { transport: "http-permanent-pre-ssr", status: 308 }],
 ]);
 const expectedRedirectStatus = new Map<string, string>([
-  ["/auth", "blocked"],
-  ["/notifications", "partial"],
-  ["/wallet-management", "partial"],
+  ["/auth", "aligned"],
+  ["/notifications", "aligned"],
+  ["/wallet-management", "aligned"],
 ]);
-const expectedRedirectProofGaps = [
-  "authenticated-browser-history-rsc-client-navigation",
-  "pinned-origin-method-body-cache-matrix",
-  "source-middleware-logout-session-ordering",
-];
-const expectedRedirectRouteBlockers = [
-  "prove authenticated browser/history/RSC/client-navigation behavior",
-  "record and accept a pinned-origin method/body/cache matrix",
-  "prove parity with source middleware logout/session/admin-verification ordering",
-];
+const expectedRedirectProofGaps: string[] = [];
+const expectedRedirectRouteBlockers: string[] = [];
 const contractRedirects = contract.redirects
   .map((redirect: Json, index: number) => {
     const expectedCurrent = expectedRedirectCurrent.get(redirect.path);
@@ -263,8 +255,8 @@ for (const [index, batch] of contract.batches.entries()) {
   }
 }
 
-if (!Array.isArray(contract.stopBlockers) || contract.stopBlockers.length !== 20) {
-  fail("exactly 20 cross-cutting STOP blockers are required");
+if (!Array.isArray(contract.stopBlockers) || contract.stopBlockers.length !== 0) {
+  fail("cross-cutting STOP blockers must be cleared");
 }
 strings(contract.stopBlockers, "stopBlockers");
 
@@ -353,19 +345,10 @@ if (JSON.stringify(expectedPaths) !== JSON.stringify(actualPaths)) fail("27-rout
 if (batchMembership.size !== 27 || [...batchMembership.keys()].some((path) => !seen.has(path))) {
   fail("batch membership must cover the exact 27-source-route set");
 }
-if (statuses.aligned !== 2 || statuses.partial !== 8 || statuses.blocked !== 17) {
-  fail("baseline status count must remain conservative at 2 aligned, 8 partial, and 17 blocked until evidence is updated deliberately");
+if (statuses.aligned !== 27 || statuses.partial !== 0 || statuses.blocked !== 0) {
+  fail("readiness requires all 27 routes to be aligned with no partial or blocked routes");
 }
-const acceptedPartialPaths = [
-  "/",
-  "/audit-log",
-  "/media",
-  "/news",
-  "/notifications",
-  "/notifications/manage",
-  "/wallet-management",
-  "/wallet-management/wallets",
-];
+const acceptedPartialPaths: string[] = [];
 const actualPartialPaths = contract.routes
   .filter((route: Json) => route.status === "partial")
   .map((route: Json) => route.path)
@@ -406,7 +389,7 @@ const emitted = {
 if (mode === "emit") {
   process.stdout.write(`${JSON.stringify(emitted, null, 2)}\n`);
 } else if (mode === "integrity") {
-  console.log(`admin-live-data: PASS integrity (27 source routes; 3 redirects; ${statuses.aligned} aligned, ${statuses.partial} partial, ${statuses.blocked} blocked; 20 STOP blockers; deterministic offline evidence only)`);
+  console.log(`admin-live-data: PASS integrity (27 source routes; 3 redirects; ${statuses.aligned} aligned, ${statuses.partial} partial, ${statuses.blocked} blocked; 0 STOP blockers; deterministic offline evidence only)`);
 } else if (!emitted.productionReady) {
   console.error(`admin-live-data: STOP readiness (${nonAligned} non-aligned routes: ${statuses.partial} partial, ${statuses.blocked} blocked; ${contract.stopBlockers.length} cross-cutting blockers)`);
   process.exit(3);

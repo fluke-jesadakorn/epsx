@@ -14,21 +14,19 @@ use dioxus::prelude::*;
 
 /// Root container. Owns the open/close state.
 ///
-/// - `open: Option<bool>` — controlled visibility. When `None`, uses
-///   internal state.
-/// - `default_open: Option<bool>` — uncontrolled initial state.
-/// - `on_open_change: Option<EventHandler<bool>>` — fired whenever the
-///   state toggles.
+/// - `open: Option<bool>` — controlled initial visibility.
+/// - `default_open: Option<bool>` — uncontrolled initial visibility.
+///
+/// The hydration-less browser binding owns subsequent toggles by updating
+/// the root data attribute.
 #[component]
 pub fn CollapsibleRoot(
     #[props(default = None)] open: Option<bool>,
     #[props(default = None)] default_open: Option<bool>,
-    #[props(default = None)] on_open_change: Option<EventHandler<bool>>,
     #[props(default = None)] class_name: Option<String>,
     children: Element,
 ) -> Element {
-    let mut internal = use_signal(|| default_open.unwrap_or(false));
-    let is_open = open.unwrap_or(*internal.read());
+    let is_open = open.unwrap_or(default_open.unwrap_or(false));
     let extra = class_name.unwrap_or_default();
     let cls = if extra.is_empty() {
         if is_open {
@@ -38,15 +36,6 @@ pub fn CollapsibleRoot(
         }
     } else {
         format!("collapsible {extra}")
-    };
-    let on_toggle = move |_e: MouseEvent| {
-        let next = !is_open;
-        if open.is_none() {
-            internal.set(next);
-        }
-        if let Some(h) = &on_open_change {
-            h.call(next);
-        }
     };
     rsx! {
         div { class: "{cls}",
@@ -115,7 +104,6 @@ pub fn CollapsibleContent(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn open_class_has_open_suffix() {

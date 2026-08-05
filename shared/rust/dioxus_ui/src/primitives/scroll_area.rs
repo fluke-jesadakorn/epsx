@@ -32,6 +32,10 @@
 
 use dioxus::prelude::*;
 
+fn resolved_orientation(orientation: Option<String>) -> String {
+    orientation.unwrap_or_else(|| "vertical".to_string())
+}
+
 /// Shadcn-namespace scroll area container.
 ///
 /// - `max_height: Option<String>` — CSS `max-height` for the outer
@@ -76,7 +80,7 @@ pub fn ScrollArea(
 ///   Defaults to `"vertical"`.
 #[component]
 pub fn ScrollBar(orientation: Option<String>) -> Element {
-    let o = orientation.unwrap_or_else(|| "vertical".to_string());
+    let o = resolved_orientation(orientation);
     let base = "scroll-area-scrollbar flex touch-none select-none transition-colors";
     let orient_cls = match o.as_str() {
         "horizontal" => "h-2.5 flex-col border-t border-t-transparent p-[1px]",
@@ -92,7 +96,7 @@ pub fn ScrollBar(orientation: Option<String>) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::resolved_orientation;
 
     #[test]
     fn scrollbar_vertical_orientation_class() {
@@ -120,9 +124,7 @@ mod tests {
 
     #[test]
     fn scroll_area_default_orientation_is_vertical() {
-        let o: Option<String> = None;
-        let resolved = o.unwrap_or_else(|| "vertical".to_string());
-        assert_eq!(resolved, "vertical");
+        assert_eq!(resolved_orientation(None), "vertical");
     }
 
     #[test]

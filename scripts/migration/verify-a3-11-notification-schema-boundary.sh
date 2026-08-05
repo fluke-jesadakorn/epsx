@@ -170,7 +170,7 @@ if (!mainSource.includes("Result<(), TemplateLoadError>") || !mainSource.include
 if (!mainSource.includes("Some(chrono::Utc::now())")) fail("TIMESTAMPTZ sent_at bind is not DateTime<Utc>");
 if (!libSource.includes("sqlx::query_scalar::<_, bool>(NOTIFICATION_SCHEMA_COMPATIBILITY_QUERY)")) fail("compatibility query is not a scalar boolean probe");
 
-exact("qualified relation counts", { "public.templates": 14, "public.notifications": 33 }, runtime.qualifiedRelationOccurrences);
+exact("qualified relation counts", { "public.templates": 14, "public.notifications": 36 }, runtime.qualifiedRelationOccurrences);
 for (const [relation, expected] of Object.entries(runtime.qualifiedRelationOccurrences)) {
   if (occurrences(productionMainSource, relation) !== expected) fail(`${relation}: runtime occurrence count drifted`);
 }
@@ -349,7 +349,7 @@ if [ "$mode" = "integrity" ]; then
   echo "a3-11 notification schema: PASS — PostgreSQL 18 keys require connoinherit=true and reject WITHOUT OVERLAPS period semantics"
   echo "a3-11 notification schema: PASS — query/up/down evidence is independently hard-pinned; exact catalog identifiers and down delimiters are locked"
   echo "a3-11 notification schema: PASS — eight reviewed lifecycle FKs and three reviewed CHECK constraints are pinned; unexpected relation constraints, inheritance, RLS, partial/expression/included indexes fail closed"
-  echo "a3-11 notification schema: PASS — 47 runtime relations are public-qualified; TIMESTAMPTZ uses DateTime<Utc>; migration and source provenance digests are immutable"
+  echo "a3-11 notification schema: PASS — 50 runtime relations are public-qualified; TIMESTAMPTZ uses DateTime<Utc>; migration and source provenance digests are immutable"
   echo "a3-11 notification schema: LIMIT — seven blockers remain; no database, migration execution, upgrade, reconciliation, rollback, network, deployment, or production readiness was proven"
   exit 0
 fi

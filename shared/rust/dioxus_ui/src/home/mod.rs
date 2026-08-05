@@ -16,8 +16,6 @@
 //! shapes as reusable primitives so future pages (e.g. a marketing
 //! landing page variant) can compose them.
 
-use dioxus::prelude::*;
-
 pub mod dynamic_pricing_client;
 pub mod dynamic_pricing_section;
 pub mod financial_data_table;
@@ -36,7 +34,6 @@ pub use share_button::ShareButton;
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn home_module_re_exports_resolve() {

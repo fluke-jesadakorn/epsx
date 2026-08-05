@@ -365,7 +365,7 @@ pub async fn get_plan(
         match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1 AND is_active = true")
             .bind::<diesel::sql_types::Uuid, _>(*plan.id().value())
             .get_result::<Count>(&mut conn)
-            .await 
+            .await
         {
             Ok(c) => c.count as i32,
             Err(e) => {

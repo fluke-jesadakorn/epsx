@@ -47,7 +47,6 @@
 
 use async_trait::async_trait;
 use epsx_contracts::errors::AppResult;
-use uuid::Uuid;
 
 use crate::domain::subscription_management::value_objects::PlanId;
 use crate::domain::wallet_management::value_objects::WalletAddress;
@@ -157,6 +156,5 @@ mod port_shape_tests {
         fn _takes_subscription_id(_: SubscriptionId) {}
         fn _takes_wallet_address(_: &WalletAddress) {}
         fn _takes_plan_id(_: PlanId) {}
-        fn _takes_uuid(_: Uuid) {}
     }
 }

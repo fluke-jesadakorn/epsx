@@ -18,6 +18,7 @@
 
 use dioxus::prelude::*;
 
+#[cfg(test)]
 const VALID_THEMES: [&str; 2] = ["light", "dark"];
 const STORAGE_KEY: &str = "theme";
 const DEFAULT_THEME: &str = "dark";

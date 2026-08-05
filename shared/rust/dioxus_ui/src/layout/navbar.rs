@@ -495,7 +495,7 @@ pub fn NavigationClient(
             is_connected: connected,
             is_authenticated: authed,
             is_loading: loading,
-            on_sign_in: on_sign_in.clone(),
+            on_sign_in: on_sign_in,
         }
     }
 }

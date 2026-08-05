@@ -48,8 +48,7 @@ impl AuthPageSessionState {
 /// `docs/wave5-page-depth/design.md` §"Track A — Hero pages" /
 /// `auth_page.rs`. Two-column layout:
 ///   - LEFT: marketing pitch (hero copy + 3 value props + 1 testimonial)
-///   - RIGHT: the auth form (SIWE ConnectButton + email magic link +
-///     Google OAuth button)
+///   - RIGHT: the wallet-only SIWE auth form
 ///
 /// Wave 50 — wired up the full SIWE flow:
 /// - The `<ConnectButton data_connect_wallet=true>` renders a raw
@@ -166,7 +165,7 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                             span { class: "auth-page-social-avatar auth-page-social-avatar-d", "D" }
                         }
                         p { class: "auth-page-social-text",
-                            "Powering " span { class: "auth-page-social-count", "2,500+" } " teams worldwide"
+                            "Built for teams using modern data workflows"
                         }
                     }
                 }
@@ -330,9 +329,9 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                     // === Network status indicator ===
                     div { class: "auth-page-status-indicator",
                         span { class: "auth-page-status-dot" }
-                        span { class: "auth-page-status-wide", "Network Secure & Operational" }
+                        span { class: "auth-page-status-wide", "Wallet-based sign-in" }
                         span { class: "auth-page-status-compact", "Secure Connection" }
-                        span { class: "auth-page-status-wallet", "Wallet-based Sign-in" }
+                        span { class: "auth-page-status-wallet", "Wallet-based sign-in" }
                     }
                     // === Manual redirect fallback ===
                     div { class: "auth-page-fallback",
@@ -496,8 +495,9 @@ mod tests {
         assert!(html.contains("data-connect-wallet=\"true\""));
         assert!(!html.contains("disabled=\"true\""));
         assert!(!html.contains("disabled=\"disabled\""));
-        assert!(html.contains("Network Secure"));
+        assert!(html.contains("Wallet-based sign-in"));
         assert!(html.contains("Secure Connection"));
+        assert!(!html.contains("Network Secure"));
         for class in [
             "auth-page-pitch",
             "auth-page-sub",
@@ -662,9 +662,8 @@ mod tests {
         }
     }
 
-    /// Wave 5 — `test_auth_options`. Originally exposed SIWE +
-    /// email magic link + Google OAuth. Wave 49 T1 (Plan 13) changed
-    /// /auth to match prod's wallet-only design (Welcome to EPSX /
+    /// Wave 5 — `test_auth_options`. The current contract is the
+    /// wallet-only design (Welcome to EPSX /
     /// Connect Wallet / 3-feature security list). The 3 auth options
     /// test now asserts the wallet-only CTA + 3-feature security
     /// list, matching the prod baseline PNG.
@@ -739,12 +738,13 @@ mod tests {
                 html
             );
         }
-        // Source social proof.
+        // Product fit, without an unsupported numeric customer claim.
         assert!(
-            html.contains("Powering") && html.contains("2,500+"),
-            "Auth page must render source social proof. Got: {}",
+            html.contains("Built for teams using modern data workflows"),
+            "Auth page must render the truthful product-fit statement. Got: {}",
             html
         );
+        assert!(!html.contains("2,500+"));
     }
 
     // ── Wave 50 — SSR-friendly wallet wiring tests ────────────────

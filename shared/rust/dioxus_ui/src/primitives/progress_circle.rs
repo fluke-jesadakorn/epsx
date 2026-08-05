@@ -97,7 +97,6 @@ pub fn ProgressCircleWithLabel(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn progress_value_clamps_to_zero() {

@@ -54,6 +54,7 @@
   "runtimeBoundary": {
     "rustRoot": "services/subscription",
     "rustInventory": [
+      "services/subscription/src/admin.rs",
       "services/subscription/src/lib.rs",
       "services/subscription/src/main.rs"
     ],
@@ -65,8 +66,8 @@
     ],
     "compatibilityQueryConstant": "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY",
     "compatibilityFunction": "verify_schema_compatibility",
-    "compatibilityQueryBytes": 7709,
-    "compatibilityQuerySha256": "2e1ec012660141d05fedb22f5c37ee02817ce034b97830433e3a33238d8099a3",
+    "compatibilityQueryBytes": 7950,
+    "compatibilityQuerySha256": "5235b7509d102d0ca68f508ee1f48041c78846878c557a25af82846e07ae6a9d",
     "qualifiedRelationOccurrences": {
       "public.subscription_plans": 3,
       "public.subscriptions": 4
@@ -204,6 +205,18 @@
           "CREATE TABLE IF NOT EXISTS public.subscription_plans (",
           "CREATE TABLE IF NOT EXISTS public.subscriptions ("
         ]
+      },
+      {
+        "version": "20260727000000",
+        "path": "services/subscription/migrations/20260727000000_create_admin_access_operations.sql",
+        "bytes": 1524,
+        "sha256": "dbc244c1e24c0216adb3dc9dd0313534676e2555cabe8b663c9c88f4eada87b0"
+      },
+      {
+        "version": "20260727010000",
+        "path": "services/subscription/migrations/20260727010000_create_plan_state.sql",
+        "bytes": 511,
+        "sha256": "9122ca4f8f43bfe524d4784c7b211abc0e58843d732b991b4d47d2109aa60783"
       }
     ]
   },

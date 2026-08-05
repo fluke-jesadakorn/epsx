@@ -1,10 +1,12 @@
-//! Read-only admin payment-intent inventory.
+//! Backend-authoritative admin payment inventory and lifecycle controls.
 //!
 //! Payment, permission, plan, and financial policy remains owned by the Rust
-//! services. This page renders only the canonical admin pay-intent response
-//! supplied by the admin BFF. It deliberately exposes no mutation controls and
-//! does not derive fiat revenue, plan names, or entitlement state.
+//! services. This page renders only canonical admin pay-intent and payment-link
+//! responses supplied by the admin BFF. Lifecycle controls are native forms
+//! whose policy, validation, optimistic versions, and durable effects remain
+//! owned by the pay service.
 
+use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -25,6 +27,16 @@ pub const ADMIN_PAYMENTS_READY: &str = "ready";
 pub const ADMIN_PAYMENTS_EMPTY: &str = "empty";
 pub const ADMIN_PAYMENTS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PAYMENTS_MALFORMED: &str = "malformed";
+
+pub const ADMIN_PAYMENT_LINKS_DATA_PARAM: &str = "data_admin_payment_links";
+pub const ADMIN_PAYMENT_LINKS_STATE_PARAM: &str = "data_admin_payment_links_state";
+
+pub const ADMIN_PAYMENT_LINKS_READY: &str = "ready";
+pub const ADMIN_PAYMENT_LINKS_EMPTY: &str = "empty";
+pub const ADMIN_PAYMENT_LINKS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_PAYMENT_LINKS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_PAYMENT_LINKS_MALFORMED: &str = "malformed";
+pub const ADMIN_PAYMENT_MUTATION_PARAM: &str = "mutation";
 
 /// Exact service-owned fields returned by `GET /api/v1/admin/pay/intents`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -79,6 +91,96 @@ impl AdminPaymentIntent {
         .iter()
         .all(|value| !value.trim().is_empty())
     }
+}
+
+/// Safe fields from the backend AdminPayLink DTO needed to identify a link and
+/// submit an optimistic disable transition. Intent identity and audit details
+/// remain service-owned and are not carried into PageContext.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPaymentLinkProjection {
+    pub id: String,
+    pub slug: String,
+    pub max_uses: i32,
+    pub current_uses: i32,
+    pub expires_at: Option<String>,
+    pub status: String,
+    pub version: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPaymentLinkListProjection {
+    pub items: Vec<AdminPaymentLinkProjection>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+pub fn decode_admin_payment_link_projection(
+    value: serde_json::Value,
+) -> Option<AdminPaymentLinkProjection> {
+    let projection: AdminPaymentLinkProjection = serde_json::from_value(value).ok()?;
+    projection.is_well_formed().then_some(projection)
+}
+
+pub fn decode_admin_payment_link_list_projection(
+    value: serde_json::Value,
+) -> Option<AdminPaymentLinkListProjection> {
+    let projection: AdminPaymentLinkListProjection = serde_json::from_value(value).ok()?;
+    if !(1..=100).contains(&projection.limit)
+        || !(0..=10_000_000).contains(&projection.offset)
+        || projection.total < 0
+        || projection.items.len() > usize::try_from(projection.limit).ok()?
+        || projection
+            .offset
+            .checked_add(i64::try_from(projection.items.len()).ok()?)?
+            > projection.total
+        || projection.items.iter().any(|item| !item.is_well_formed())
+    {
+        return None;
+    }
+    Some(projection)
+}
+
+impl AdminPaymentLinkProjection {
+    fn is_well_formed(&self) -> bool {
+        valid_resource_id(&self.id)
+            && valid_link_slug(&self.slug)
+            && (0..=1_000_000).contains(&self.max_uses)
+            && self.current_uses >= 0
+            && (self.max_uses == 0 || self.current_uses <= self.max_uses)
+            && matches!(self.status.as_str(), "active" | "disabled")
+            && self.version >= 0
+            && self.expires_at.as_deref().is_none_or(|value| {
+                !value.is_empty()
+                    && value.len() <= 64
+                    && !value.chars().any(char::is_control)
+                    && DateTime::parse_from_rfc3339(value).is_ok()
+            })
+    }
+}
+
+fn valid_link_slug(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= 128
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn valid_resource_id(value: &str) -> bool {
+    (1..=66).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit() || matches!(byte, b'x' | b'-' | b'_'))
+}
+
+fn payment_intent_expected_version(value: &str) -> Option<i64> {
+    chrono::DateTime::parse_from_rfc3339(value)
+        .ok()
+        .map(|timestamp| timestamp.timestamp_micros())
+        .filter(|version| *version > 0)
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -147,6 +249,53 @@ enum PaymentLoad {
     Malformed,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PaymentLinksLoad {
+    Ready(AdminPaymentLinkListProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn payment_links_load(ctx: &PageContext) -> PaymentLinksLoad {
+    match ctx
+        .params
+        .get(ADMIN_PAYMENT_LINKS_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_PAYMENT_LINKS_READY) | Some(ADMIN_PAYMENT_LINKS_EMPTY) => {
+            let Some(raw) = ctx.params.get(ADMIN_PAYMENT_LINKS_DATA_PARAM) else {
+                return PaymentLinksLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_payment_link_list_projection)
+            else {
+                return PaymentLinksLoad::Malformed;
+            };
+            match (
+                ctx.params
+                    .get(ADMIN_PAYMENT_LINKS_STATE_PARAM)
+                    .map(String::as_str),
+                projection.items.is_empty(),
+                projection.total,
+            ) {
+                (Some(ADMIN_PAYMENT_LINKS_READY), false, _) => PaymentLinksLoad::Ready(projection),
+                (Some(ADMIN_PAYMENT_LINKS_READY), true, total) if total > 0 => {
+                    PaymentLinksLoad::Ready(projection)
+                }
+                (Some(ADMIN_PAYMENT_LINKS_EMPTY), true, 0) => PaymentLinksLoad::Empty,
+                _ => PaymentLinksLoad::Malformed,
+            }
+        }
+        Some(ADMIN_PAYMENT_LINKS_FORBIDDEN) => PaymentLinksLoad::Forbidden,
+        Some(ADMIN_PAYMENT_LINKS_MALFORMED) => PaymentLinksLoad::Malformed,
+        Some(ADMIN_PAYMENT_LINKS_UNAVAILABLE) | None => PaymentLinksLoad::Unavailable,
+        Some(_) => PaymentLinksLoad::Malformed,
+    }
+}
+
 fn payment_load(ctx: &PageContext) -> PaymentLoad {
     let state = ctx
         .params
@@ -180,13 +329,23 @@ fn payment_load(ctx: &PageContext) -> PaymentLoad {
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Payments");
+    let active_tab = ctx
+        .params
+        .get(ADMIN_PAYMENTS_TAB_PARAM)
+        .map(String::as_str)
+        .unwrap_or("payments");
+    let required_permissions = if active_tab == "payment-links" {
+        Some(vec!["admin:payment-links:view".to_string()])
+    } else {
+        Some(vec!["admin:payments:view".to_string()])
+    };
     (
         meta,
         rsx! {
             AuthGate {
                 user: ctx.user.clone(),
                 feature: Some("payment intent visibility".to_string()),
-                required_permissions: Some(vec!["admin:payments:view".to_string()]),
+                required_permissions,
                 return_url: Some(ctx.path.clone()),
                 RenderPaymentsHub { ctx: ctx.clone() }
             }
@@ -208,6 +367,15 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
     };
     let filters = PaymentFilters::from_ctx(&ctx);
     let refresh_url = filters.page_url(filters.offset);
+    let mutation = match ctx
+        .params
+        .get(ADMIN_PAYMENT_MUTATION_PARAM)
+        .map(String::as_str)
+    {
+        Some("success") | Some("conflict") | Some("forbidden") | Some("unavailable")
+        | Some("malformed") => ctx.params.get(ADMIN_PAYMENT_MUTATION_PARAM).cloned(),
+        _ => None,
+    };
 
     rsx! {
         PageLayout {
@@ -227,6 +395,12 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
                 class_name: None,
             }
             PaymentsHubTabs { active: active_tab.to_string() }
+            if let Some(state) = mutation.clone() {
+                p { class: "mb-5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
+                    "data-admin-payment-mutation-state": state,
+                    "Payment mutation: {state}"
+                }
+            }
             if active_tab == "payments" {
                 PaymentsTab { load: payment_load(&ctx), filters }
             } else if active_tab == "user-access" {
@@ -235,10 +409,7 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
                     detail: "A canonical subscription/access read contract is not connected to this page yet.".to_string(),
                 }
             } else {
-                UnavailableTab {
-                    title: "Payment links are unavailable".to_string(),
-                    detail: "Payment-link reads and mutations remain disabled until their service contract is production-ready.".to_string(),
-                }
+                PaymentLinksTab { load: payment_links_load(&ctx) }
             }
         }
     }
@@ -273,6 +444,207 @@ fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
                         retry_url: filters.page_url(filters.offset),
                     }
                 },
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksTab(load: PaymentLinksLoad) -> Element {
+    rsx! {
+        if matches!(&load, PaymentLinksLoad::Ready(_) | PaymentLinksLoad::Empty) {
+            PaymentLinkCreateForm {}
+        }
+        match load {
+            PaymentLinksLoad::Ready(projection) => rsx! { PaymentLinksReady { projection } },
+            PaymentLinksLoad::Empty => rsx! {
+                section {
+                    class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
+                    role: "status",
+                    "data-admin-payment-links-state": ADMIN_PAYMENT_LINKS_EMPTY,
+                    h2 { class: "text-lg font-semibold", "No payment links found" }
+                    p { class: "mt-2 text-sm text-muted-foreground", "The payment service returned an authoritative empty link projection." }
+                }
+            },
+            PaymentLinksLoad::Forbidden => rsx! {
+                PaymentLinksProblem {
+                    state: ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                    title: "Payment-link access was denied".to_string(),
+                    detail: "The backend did not authorize this session to read payment links.".to_string(),
+                }
+            },
+            PaymentLinksLoad::Unavailable => rsx! {
+                PaymentLinksProblem {
+                    state: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                    title: "Payment links are unavailable".to_string(),
+                    detail: "The payment backend could not provide an authoritative link response. No links are being shown.".to_string(),
+                }
+            },
+            PaymentLinksLoad::Malformed => rsx! {
+                PaymentLinksProblem {
+                    state: ADMIN_PAYMENT_LINKS_MALFORMED,
+                    title: "Payment-link data could not be verified".to_string(),
+                    detail: "The backend response did not match the strict redacted payment-link contract. No links are being shown.".to_string(),
+                }
+            },
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksReady(projection: AdminPaymentLinkListProjection) -> Element {
+    rsx! {
+        section {
+            class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
+            aria_labelledby: "admin-payment-links-title",
+            "data-admin-payment-links-state": ADMIN_PAYMENT_LINKS_READY,
+            div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]", aria_hidden: "true" }
+            div { class: "flex flex-wrap items-center justify-between gap-3 p-6",
+                div {
+                    h2 { id: "admin-payment-links-title", class: "text-lg font-semibold", "Payment links" }
+                    p { class: "text-sm text-muted-foreground", "{projection.total} authoritative records" }
+                }
+                p { class: "text-sm text-muted-foreground", "Backend-authoritative lifecycle" }
+            }
+            if projection.items.is_empty() {
+                div { class: "border-t border-border/30 p-8 text-center", role: "status",
+                    "No links are present on this bounded page; additional continuation is unavailable."
+                }
+            } else {
+                div { class: "hidden overflow-x-auto md:block",
+                    table { class: "min-w-full",
+                        caption { class: "sr-only", "Backend-authoritative payment links" }
+                        thead { tr { class: "border-y border-border/30",
+                            th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Link" }
+                            th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Uses" }
+                            th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Expires" }
+                            th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Status" }
+                            th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Action" }
+                        } }
+                        tbody { class: "divide-y divide-border/30",
+                            for link in projection.items.iter() {
+                                PaymentLinkRow { link: link.clone() }
+                            }
+                        }
+                    }
+                }
+                div { class: "space-y-3 p-4 md:hidden",
+                    for link in projection.items.iter() {
+                        PaymentLinkCard { link: link.clone() }
+                    }
+                }
+            }
+            p { class: "border-t border-border/30 px-6 py-4 text-xs leading-5 text-muted-foreground",
+                "Intent identity and audit details remain service-owned; lifecycle actions use the displayed backend version."
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinkRow(link: AdminPaymentLinkProjection) -> Element {
+    let expiry = link
+        .expires_at
+        .clone()
+        .unwrap_or_else(|| "No expiration reported".to_string());
+    let uses = if link.max_uses == 0 {
+        format!("{} / unlimited", link.current_uses)
+    } else {
+        format!("{} / {}", link.current_uses, link.max_uses)
+    };
+    rsx! {
+        tr {
+            td { class: "px-4 py-4 align-top", code { class: "text-xs", "{link.slug}" } }
+            td { class: "px-4 py-4 align-top text-sm", "{uses}" }
+            td { class: "px-4 py-4 align-top text-sm text-muted-foreground", "{expiry}" }
+            td { class: "px-4 py-4 align-top", StatusBadge { status: link.status.clone() } }
+            td { class: "px-4 py-4 align-top",
+                if link.status == "active" {
+                    form { method: "post", action: "/payments", class: "flex flex-wrap gap-2",
+                        input { r#type: "hidden", name: "operation", value: "payment_link_disable" }
+                        input { r#type: "hidden", name: "link_id", value: link.id.clone() }
+                        input { r#type: "hidden", name: "expected_version", value: link.version.to_string() }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.disable.{}", uuid::Uuid::new_v4()) }
+                        button { r#type: "submit", class: "btn btn-sm btn-outline", "Disable link" }
+                    }
+                } else {
+                    span { class: "text-xs text-muted-foreground", "Disabled" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinkCard(link: AdminPaymentLinkProjection) -> Element {
+    let expiry = link
+        .expires_at
+        .unwrap_or_else(|| "No expiration reported".to_string());
+    let uses = if link.max_uses == 0 {
+        format!("{} / unlimited", link.current_uses)
+    } else {
+        format!("{} / {}", link.current_uses, link.max_uses)
+    };
+    rsx! {
+        article { class: "rounded-xl border border-border/30 p-4",
+            div { class: "flex items-start justify-between gap-3",
+                code { class: "break-all text-xs", "{link.slug}" }
+                StatusBadge { status: link.status.clone() }
+            }
+            dl { class: "mt-4 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm",
+                dt { class: "text-muted-foreground", "Uses" }
+                dd { "{uses}" }
+                dt { class: "text-muted-foreground", "Expires" }
+                dd { "{expiry}" }
+            }
+            if link.status == "active" {
+                form { method: "post", action: "/payments", class: "mt-4",
+                    input { r#type: "hidden", name: "operation", value: "payment_link_disable" }
+                    input { r#type: "hidden", name: "link_id", value: link.id }
+                    input { r#type: "hidden", name: "expected_version", value: link.version.to_string() }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.disable.{}", uuid::Uuid::new_v4()) }
+                    button { r#type: "submit", class: "btn btn-sm btn-outline", "Disable link" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinkCreateForm() -> Element {
+    rsx! {
+        form { method: "post", action: "/payments", class: "mb-5 grid gap-3 rounded-xl border border-border/20 bg-card p-4 md:grid-cols-4 md:items-end",
+            input { r#type: "hidden", name: "operation", value: "payment_link_create" }
+            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.create.{}", uuid::Uuid::new_v4()) }
+            label { class: "space-y-2 text-sm font-medium",
+                span { "Intent ID" }
+                input { class: "input w-full font-mono", name: "intent_id", maxlength: 128, required: true, placeholder: "Existing intent ID" }
+            }
+            label { class: "space-y-2 text-sm font-medium",
+                span { "Maximum uses" }
+                input { class: "input w-full", name: "max_uses", r#type: "number", min: 0, max: 1000000, placeholder: "Unlimited" }
+            }
+            label { class: "space-y-2 text-sm font-medium",
+                span { "Expires in seconds" }
+                input { class: "input w-full", name: "expires_in", r#type: "number", min: 1, max: 31536000, placeholder: "Optional" }
+            }
+            button { class: "btn btn-primary", r#type: "submit", "Create payment link" }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksProblem(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8",
+            role: if state == ADMIN_PAYMENT_LINKS_FORBIDDEN { "alert" } else { "status" },
+            "data-admin-payment-links-state": state,
+            h2 { class: "text-lg font-semibold", "{title}" }
+            p { class: "mt-2 text-sm text-muted-foreground", "{detail}" }
+            nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Payment-link recovery",
+                a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", "Retry payment links" }
+                a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
             }
         }
     }
@@ -347,6 +719,7 @@ fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -
                                 th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Chain" }
                                 th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Status" }
                                 th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Created" }
+                                th { class: "px-4 py-3 text-left text-xs uppercase text-muted-foreground", scope: "col", "Action" }
                             }
                         }
                         tbody { class: "divide-y divide-border/30",
@@ -399,6 +772,23 @@ fn PaymentIntentRow(intent: AdminPaymentIntent) -> Element {
             td { class: "px-4 py-4 align-top", "{intent.chain_id}" }
             td { class: "px-4 py-4 align-top", StatusBadge { status: intent.status.clone() } }
             td { class: "px-4 py-4 align-top text-sm text-muted-foreground", "{intent.created_at}" }
+            td { class: "px-4 py-4 align-top",
+                if intent.status == "pending" {
+                    if let Some(version) = payment_intent_expected_version(&intent.updated_at) {
+                        form { method: "post", action: "/payments", class: "flex flex-wrap gap-2",
+                            input { r#type: "hidden", name: "operation", value: "payment_intent_cancel" }
+                            input { r#type: "hidden", name: "intent_id", value: intent.id.clone() }
+                            input { r#type: "hidden", name: "expected_version", value: version.to_string() }
+                            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-intents.cancel.{}", uuid::Uuid::new_v4()) }
+                            button { r#type: "submit", class: "btn btn-sm btn-outline", "Cancel intent" }
+                        }
+                    } else {
+                        span { class: "text-xs text-muted-foreground", "Version unavailable" }
+                    }
+                } else {
+                    span { class: "text-xs text-muted-foreground", "No action" }
+                }
+            }
         }
     }
 }
@@ -424,6 +814,17 @@ fn PaymentIntentCard(intent: AdminPaymentIntent) -> Element {
                 dd { "{intent.chain_id}" }
                 dt { class: "text-muted-foreground", "Created" }
                 dd { "{intent.created_at}" }
+            }
+            if intent.status == "pending" {
+                if let Some(version) = payment_intent_expected_version(&intent.updated_at) {
+                    form { method: "post", action: "/payments", class: "mt-4",
+                        input { r#type: "hidden", name: "operation", value: "payment_intent_cancel" }
+                        input { r#type: "hidden", name: "intent_id", value: intent.id }
+                        input { r#type: "hidden", name: "expected_version", value: version.to_string() }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-intents.cancel.{}", uuid::Uuid::new_v4()) }
+                        button { r#type: "submit", class: "btn btn-sm btn-outline", "Cancel intent" }
+                    }
+                }
             }
         }
     }
@@ -482,7 +883,10 @@ mod tests {
                 roles: vec![],
                 email: None,
                 tier: None,
-                permissions: vec!["admin:payments:view".to_string()],
+                permissions: vec![
+                    "admin:payments:view".to_string(),
+                    "admin:payment-links:view".to_string(),
+                ],
                 last_login_at: None,
                 auth_method: AuthMethod::Wallet,
                 display_name: None,
@@ -524,6 +928,37 @@ mod tests {
             .insert(ADMIN_PAYMENTS_LIMIT_PARAM.to_string(), "20".to_string());
         ctx.params
             .insert(ADMIN_PAYMENTS_OFFSET_PARAM.to_string(), "0".to_string());
+        ctx
+    }
+
+    fn link(slug: &str) -> AdminPaymentLinkProjection {
+        AdminPaymentLinkProjection {
+            id: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa".to_string(),
+            slug: slug.to_string(),
+            max_uses: 3,
+            current_uses: 1,
+            expires_at: Some("2026-12-31T00:00:00Z".to_string()),
+            status: "active".to_string(),
+            version: 0,
+        }
+    }
+
+    fn with_links(state: &str, payload: Option<AdminPaymentLinkListProjection>) -> PageContext {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            ADMIN_PAYMENTS_TAB_PARAM.to_string(),
+            "payment-links".to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_PAYMENT_LINKS_STATE_PARAM.to_string(),
+            state.to_string(),
+        );
+        if let Some(payload) = payload {
+            ctx.params.insert(
+                ADMIN_PAYMENT_LINKS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload).unwrap(),
+            );
+        }
         ctx
     }
 
@@ -644,6 +1079,108 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn payment_link_projection_is_strict_and_exposes_versioned_lifecycle_controls() {
+        let payload = AdminPaymentLinkListProjection {
+            items: vec![link("epsx-link_1")],
+            total: 1,
+            limit: 20,
+            offset: 0,
+        };
+        let html = render_html(&with_links(ADMIN_PAYMENT_LINKS_READY, Some(payload)));
+        assert!(html.contains("data-admin-payment-links-state=\"ready\""));
+        assert!(html.contains("epsx-link_1"));
+        assert!(html.contains("1 / 3"));
+        assert!(html.contains("Create payment link"));
+        assert!(html.contains("Disable link"));
+        assert!(html.contains("expected_version"));
+        assert!(html.contains("idempotency_key"));
+
+        assert!(decode_admin_payment_link_projection(serde_json::json!({
+            "id": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            "slug": "epsx-link_1",
+            "max_uses": 3,
+            "current_uses": 1,
+            "expires_at": null,
+            "status": "active",
+            "version": 0,
+        }))
+        .is_some());
+        assert!(decode_admin_payment_link_projection(serde_json::json!({
+            "slug": "epsx-link_1",
+            "max_uses": 3,
+            "current_uses": 1,
+            "expires_at": null,
+            "status": "active",
+            "id": "0xprivate-intent",
+            "intent_id": "private-intent",
+            "version": 4,
+            "correlation_id": "private-request",
+        }))
+        .is_none());
+        assert!(decode_admin_payment_link_projection(serde_json::json!({
+            "id": "link-1",
+            "slug": "epsx/link",
+            "max_uses": 3,
+            "current_uses": 1,
+            "expires_at": null,
+            "status": "active",
+            "version": 0,
+        }))
+        .is_none());
+    }
+
+    #[test]
+    fn payment_link_states_preserve_empty_forbidden_unavailable_and_malformed() {
+        let empty = render_html(&with_links(
+            ADMIN_PAYMENT_LINKS_EMPTY,
+            Some(AdminPaymentLinkListProjection {
+                items: vec![],
+                total: 0,
+                limit: 20,
+                offset: 0,
+            }),
+        ));
+        assert!(empty.contains("No payment links found"));
+        for (state, title) in [
+            (
+                ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                "Payment-link access was denied",
+            ),
+            (
+                ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                "Payment links are unavailable",
+            ),
+            (
+                ADMIN_PAYMENT_LINKS_MALFORMED,
+                "Payment-link data could not be verified",
+            ),
+        ] {
+            let html = render_html(&with_links(
+                state,
+                Some(AdminPaymentLinkListProjection {
+                    items: vec![link("epsx-link_1")],
+                    total: 1,
+                    limit: 20,
+                    offset: 0,
+                }),
+            ));
+            assert!(html.contains(&format!("data-admin-payment-links-state=\"{state}\"")));
+            assert!(html.contains(title));
+            assert!(!html.contains("epsx-link_1"));
+        }
+    }
+
+    #[test]
+    fn payment_link_read_permission_is_not_payment_manage_or_generic_read() {
+        let mut ctx = with_links(ADMIN_PAYMENT_LINKS_UNAVAILABLE, None);
+        ctx.user.as_mut().unwrap().permissions = vec!["admin:payments:manage".to_string()];
+        let html = render_html(&ctx);
+        assert!(html.contains("Permission required"));
+        assert!(html.contains("admin:payment-links:view"));
+        assert!(!html.contains("Payment links are unavailable"));
     }
 
     #[test]

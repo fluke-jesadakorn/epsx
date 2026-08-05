@@ -94,7 +94,9 @@ test.describe('A7 /about pinned-source runtime proof', () => {
         page.getByRole('heading', { level: 1, name: 'About EPSX' })
       ).toBeVisible();
       await expect(page.getByRole('heading', { level: 1 })).toHaveCount(1);
-      await expect(page.getByRole('heading', { level: 2 })).toHaveCount(11);
+      await expect(
+        page.locator('main').getByRole('heading', { level: 2 })
+      ).toHaveCount(11);
       await expect(
         page.getByRole('region', { name: 'DataTech Platform' })
       ).toBeVisible();
@@ -130,7 +132,7 @@ test.describe('A7 /about pinned-source runtime proof', () => {
       ]);
       await expectResponsiveDocument(page);
 
-      const theme = page.getByRole('button', { name: 'Toggle theme' });
+      const theme = page.locator('button[data-epsx-theme-toggle]');
       await theme.focus();
       await expect(theme).toBeFocused();
       const wasDark = await page
@@ -152,7 +154,10 @@ test.describe('A7 /about pinned-source runtime proof', () => {
         const aboutLink = page.locator('#epsx-mobile-sheet a[href="/about"]');
         await aboutLink.focus();
         await expect(aboutLink).toBeFocused();
-        await page.getByRole('button', { name: 'Close menu' }).click();
+        await page
+          .getByRole('dialog', { name: 'Menu' })
+          .getByRole('button', { name: 'Close menu' })
+          .click();
       } else {
         const company = page.getByRole('button', { name: 'Company' });
         await company.focus();

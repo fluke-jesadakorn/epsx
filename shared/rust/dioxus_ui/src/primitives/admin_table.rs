@@ -150,7 +150,7 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
 ) -> Element {
     let mut filter = use_signal(String::new);
     let mut page = use_signal(|| 0usize);
-    let mut chip_states = use_signal(|| {
+    let chip_states = use_signal(|| {
         filter_chips
             .clone()
             .unwrap_or_default()
@@ -177,7 +177,7 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
     // Paginate.
     let total = filtered.len();
     let page_size = page_size.max(1);
-    let total_pages = (total + page_size - 1) / page_size;
+    let total_pages = total.div_ceil(page_size);
     let cur_page = (*page.read()).min(total_pages.saturating_sub(1));
     let start = cur_page * page_size;
     let end = (start + page_size).min(total);
@@ -200,7 +200,7 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
                                 {
                                     let key = chip.key.clone();
                                     let label = chip.label.clone();
-                                    let mut states = chip_states.clone();
+                                    let mut states = chip_states;
                                     let active = *states.read().iter()
                                         .find(|(k, _)| k == &key)
                                         .map(|(_, a)| a)
@@ -279,13 +279,12 @@ pub fn AdminTable<T: Clone + PartialEq + std::fmt::Debug + 'static>(
                         } else {
                             for r in &page_rows {
                                 {
-                                    let r_clone = r.clone();
                                     let r_for_edit = r.clone();
                                     let r_for_delete = r.clone();
                                     let r_for_revoke = r.clone();
-                                    let on_action_edit = on_action.clone();
-                                    let on_action_delete = on_action.clone();
-                                    let on_action_revoke = on_action.clone();
+                                    let on_action_edit = on_action;
+                                    let on_action_delete = on_action;
+                                    let on_action_revoke = on_action;
                                     rsx! {
                                         tr { class: "admin-table-row data-table-row",
                                             for col in &columns {

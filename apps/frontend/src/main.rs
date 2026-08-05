@@ -15,7 +15,7 @@
 use axum::{
     extract::{Request, State},
     response::{IntoResponse, Response},
-    routing::{any, delete, get, post, put},
+    routing::{delete, get, post, put},
     Json, Router,
 };
 use epsx_bff::{
@@ -49,13 +49,6 @@ pub struct AppState {
     pub api_url: String,
     pub notification_url: String,
     pub demo_login_enabled: bool,
-}
-
-#[derive(Deserialize)]
-pub struct SavePageBody {
-    pub title: Option<String>,
-    pub blocks: Option<serde_json::Value>,
-    pub seo: Option<serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -263,24 +256,12 @@ mod configuration_tests {
 pub fn build_app(state: AppState) -> Router {
     Router::new()
         .route("/api/health", get(api_health))
-        .route("/api/v1/pages/{slug}", any(get_page))
-        .route("/api/v1/edit/{slug}/save", any(save_page))
-        .route("/api/v1/edit/{slug}/publish", any(publish_page))
         .route("/api/v1/auth/siwe", post(siwe_login))
         .route("/api/v1/auth/challenge", post(auth_challenge))
         .route("/api/v1/auth/demo", post(demo_login))
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/me", get(auth_me))
-        // Wave 23 T3 — OAuth start route. The auth page links to
-        // `/api/v1/auth/oauth/{provider}` (e.g. `google`) and the
-        // dev BFF must respond with a real HTTP status (not 404) so
-        // the click is observable. We 501 with a clear "not
-        // implemented" JSON when the backend identity service has no
-        // OAuth integration yet (current state of the Rust backend
-        // — see `shared/rust/epsx-identity-shared`); a future wave
-        // can wire the real provider redirect.
-        .route("/api/v1/auth/oauth/{provider}", get(api_oauth_start))
         .route(
             "/api/v1/notifications",
             get(notifications_api).head(|| async { axum::http::StatusCode::METHOD_NOT_ALLOWED }),
@@ -432,23 +413,10 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
         // Unowned dashboard and portfolio compatibility producers are
-        // intentionally absent. Those pages fail closed until their
-        // owner-scoped backend contracts exist.
-        .route("/api/v1/wallet/chains", get(api_wallet_chains))
-        .route("/api/v1/wallet/connect", post(api_wallet_connect))
-        .route("/api/v1/subscription/plans", get(api_subscription_plans))
-        .route(
-            "/api/v1/subscription/merchant/{addr}",
-            get(api_subscription_merchant),
-        )
-        .route(
-            "/api/v1/subscription/subscribe",
-            post(api_subscription_subscribe),
-        )
-        .route(
-            "/api/v1/subscription/plans/create",
-            post(api_subscription_create_plan),
-        )
+        // intentionally absent until owner-scoped backend contracts exist.
+        // Unowned wallet/session and subscription compatibility producers are
+        // intentionally absent. The backend owns wallet sessions, plan
+        // catalogs, eligibility, and subscription mutations.
         .route("/service-worker.js", get(service_worker))
         .nest_service(
             "/public",
@@ -928,6 +896,8 @@ mod routing_tests {
             "/api/v1/dashboard/stats",
             "/api/v1/portfolio/0x0000000000000000000000000000000000000001",
             "/api/v1/payment/not-an-authorized-intent",
+            "/api/v1/auth/oauth/google",
+            "/api/v1/auth/oauth/unknown",
         ] {
             let response = request(Method::GET, path).await;
             assert_eq!(response.status(), StatusCode::NOT_FOUND, "{path}");

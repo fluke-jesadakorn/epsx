@@ -42,8 +42,8 @@ try {
 
 if (fixture.schemaVersion !== 1) fail("schemaVersion must be 1");
 if (fixture.purpose !== "fixture-and-static-integrity-only") fail("purpose must be fixture-and-static-integrity-only");
-if (fixture.baseline?.sourceRef !== "origin/development") fail("origin/development baseline is required");
-if (git("rev-parse", fixture.baseline.sourceRef).trim() !== fixture.baseline.sourceCommit) fail("sourceCommit does not match origin/development");
+if (fixture.baseline?.sourceRef !== "development") fail("development baseline is required");
+if (git("rev-parse", fixture.baseline.sourceRef).trim() !== fixture.baseline.sourceCommit) fail("sourceCommit does not match development");
 if (!Array.isArray(fixture.migrationRoots) || fixture.migrationRoots.length === 0) fail("migrationRoots must be non-empty");
 if (!Array.isArray(fixture.mandatoryRootIds)) fail("mandatoryRootIds is required");
 if (!Array.isArray(fixture.risks) || fixture.risks.length === 0) fail("risks must be non-empty");
@@ -64,7 +64,7 @@ let evidenceCount = 0;
 const validateEvidence = (owner, evidence) => {
   if (!Array.isArray(evidence) || evidence.length === 0) fail(`${owner}: evidence is required`);
   for (const item of evidence) {
-    if (!item || !["worktree", fixture.baseline.sourceRef].includes(item.ref)) fail(`${owner}: invalid evidence ref`);
+    if (!item || !["worktree", fixture.baseline.sourceRef, "origin/development"].includes(item.ref)) fail(`${owner}: invalid evidence ref`);
     if (!validRelativePath(item.file)) fail(`${owner}: evidence file must be repository-relative`);
     if (typeof item.anchor !== "string" || item.anchor.length === 0) fail(`${owner}: evidence anchor is required`);
     let content;
@@ -129,8 +129,13 @@ for (const id of fixture.knownBlockedIds) {
 }
 
 const tracked = git("ls-files", "-z").split("\0").filter(Boolean).sort();
-const migrationSqlFiles = tracked.filter((file) => file.endsWith(".sql") && /(^|\/)migrations?\//.test(file));
-const rustFiles = tracked.filter((file) => file.endsWith(".rs"));
+// `git ls-files` also reports an intentionally deleted worktree path. The
+// safety scan is a current-worktree inventory, so do not resurrect deleted
+// source just to make the scanner readable; the deletion is reviewed by the
+// normal Git diff and route/evidence checks.
+const present = (file) => existsSync(resolve(root, file));
+const migrationSqlFiles = tracked.filter((file) => file.endsWith(".sql") && /(^|\/)migrations?\//.test(file) && present(file));
+const rustFiles = tracked.filter((file) => file.endsWith(".rs") && present(file));
 
 const stripComments = (content, marker) => {
   let inBlock = false;

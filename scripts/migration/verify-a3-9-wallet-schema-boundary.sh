@@ -108,7 +108,7 @@ if (candidateCheck.status === 0) fail("development candidate unexpectedly exists
 
 const runtime = contract.runtimeBoundary;
 if (!runtime || runtime.rustRoot !== "services/wallet" || runtime.scannerFindingBefore !== 3 || runtime.scannerFindingAfter !== 0) fail("runtime scanner boundary drifted");
-exact("runtime Rust inventory", ["services/wallet/src/lib.rs", "services/wallet/src/main.rs"], runtime.rustInventory);
+exact("runtime Rust inventory", ["services/wallet/src/commerce.rs", "services/wallet/src/lib.rs", "services/wallet/src/main.rs"], runtime.rustInventory);
 exact("removed runtime DDL anchors", [
   "CREATE TABLE IF NOT EXISTS accounts (",
   "CREATE TABLE IF NOT EXISTS nonces (",
@@ -260,8 +260,8 @@ const migrationRoot = contract.migrationRoot;
 if (!migrationRoot || migrationRoot.path !== "services/wallet/migrations" || migrationRoot.runner !== null || migrationRoot.transactionOwner !== "future-reviewed-runner") fail("migration-root boundary drifted");
 const migrationRootPath = repoPath(migrationRoot.path, "migration root");
 if (!existsSync(migrationRootPath) || lstatSync(migrationRootPath).isSymbolicLink() || !statSync(migrationRootPath).isDirectory()) fail("migration root must be a real directory");
-exact("migration-root inventory", ["20260722020000_create_wallet_store.sql"], readdirSync(migrationRootPath).sort());
-if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 1) fail("exactly one ordered wallet migration is required");
+exact("migration-root inventory", ["20260722020000_create_wallet_store.sql", "20260727000000_create_admin_wallet_commerce.sql", "20260727000001_add_credit_operation_results.sql"], readdirSync(migrationRootPath).sort());
+if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 3) fail("exactly three ordered wallet migrations are required");
 const migration = migrationRoot.orderedMigrations[0];
 if (migration.version !== "20260722020000" || migration.path !== "services/wallet/migrations/20260722020000_create_wallet_store.sql" || migration.bytes !== 775 || migration.sha256 !== "cf79bdb4e999d4cfb54648ba8d82e845af7c5feaccd20d5ca2143ff673ca1731") fail("ordered migration pin drifted");
 exact("migration guards", [
@@ -277,6 +277,18 @@ for (const guard of migration.guards) if ((migrationSql.split(guard).length - 1)
 if (/\b(?:DROP|TRUNCATE|DELETE|ALTER|INSERT|UPDATE|MERGE|CASCADE)\b/i.test(migrationSql)) fail("wallet migration contains a destructive, data-mutation, or alteration token");
 if (/\bCREATE\s+(?:SCHEMA|EXTENSION|INDEX|DATABASE|TYPE|VIEW)\b/i.test(migrationSql)) fail("wallet migration contains an out-of-scope creation");
 if (/\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(migrationSql)) fail("transaction control belongs to the future reviewed runner");
+
+for (const [index, expected] of [
+  [1, { version: "20260727000000", path: "services/wallet/migrations/20260727000000_create_admin_wallet_commerce.sql", bytes: 2759, sha256: "5d43af24819064b7269bef399ae9f95263e88a75b1ff368a033f46feb53b0a53" }],
+  [2, { version: "20260727000001", path: "services/wallet/migrations/20260727000001_add_credit_operation_results.sql", bytes: 503, sha256: "dce097cb7c0f846513e5faf7a920ab5056ba0b694056c1f7b99d53c77a2562de" }],
+]) {
+  const supplemental = migrationRoot.orderedMigrations[index];
+  if (supplemental.version !== expected.version || supplemental.path !== expected.path || supplemental.bytes !== expected.bytes || supplemental.sha256 !== expected.sha256) fail(`ordered supplemental wallet migration pin drifted: ${expected.version}`);
+  const bytes = readFileSync(regularRepoFile(supplemental.path, `wallet migration ${expected.version}`));
+  const sql = bytes.toString("utf8");
+  if (bytes.byteLength !== expected.bytes || sha256(bytes) !== expected.sha256) fail(`wallet migration bytes changed: ${expected.version}`);
+  if (!/\b(?:CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS|ALTER\s+TABLE\s+IF\s+EXISTS)\b/i.test(sql) || /\b(?:DROP|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|CASCADE)\b/i.test(sql) || /\b(?:START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(sql)) fail(`wallet supplemental migration is not safe additive SQL: ${expected.version}`);
+}
 
 const expectedTables = [
   {
@@ -462,7 +474,7 @@ const result = {
     compatibilityQueryBytes: Buffer.byteLength(query),
     compatibilityQuerySha256: sha256(query),
   },
-  migrationRoot: { path: migrationRoot.path, migrations: 1, pinnedBytes: migration.bytes, sha256: migration.sha256, runner: null },
+  migrationRoot: { path: migrationRoot.path, migrations: 3, pinnedBytes: migration.bytes, sha256: migration.sha256, runner: null },
   schema: { tables: 3, columns: totalColumns, nullableColumns, expectedNotNullColumns: totalColumns - nullableColumns, pg18NotNullInventory: true, prePg18NoRowPath: true, constraints: 3, indexes: 3, serialSequences: 1, exactDefaultDependencies: 1, datetimePrecisionColumns: 3, databaseDefaultCollationColumns: 12 },
   models: { responseFields: 4, nullableResponseFields: 2, uuidFields: 0, boundedBindAnchors: model.boundedBindAnchors.length, hermeticBinaryTests: model.hermeticBinaryTests, atomicTransactionExecutors: transactionExecutors },
   blockers: contract.blockers.map(({ id, category, status }) => ({ id, category, status })),
@@ -477,7 +489,7 @@ if [ "$mode" = report ]; then
   exit 0
 fi
 if [ "$mode" = integrity ]; then
-  echo "a3-9-wallet-schema-boundary: PASS — wallet runtime DDL 3→0, one 775-byte migration pinned, three tables/17 columns and Rust bind models verified"
+  echo "a3-9-wallet-schema-boundary: PASS — wallet runtime DDL 3→0, baseline plus two additive commerce migrations pinned, and Rust bind models verified"
   echo "a3-9-wallet-schema-boundary: LIMIT — no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran"
   exit 0
 fi

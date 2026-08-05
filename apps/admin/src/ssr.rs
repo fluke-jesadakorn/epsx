@@ -15,66 +15,138 @@ use axum::{
     http::{header, HeaderMap, HeaderValue},
     response::{IntoResponse, Response},
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use epsx_bff::session::AccessVerification;
 use epsx_client::RequestContext;
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
+use epsx_dioxus_ui::pages::admin_pages::analytics::{
+    ADMIN_ANALYTICS_DATA_PARAM, ADMIN_ANALYTICS_EMPTY, ADMIN_ANALYTICS_FORBIDDEN,
+    ADMIN_ANALYTICS_MALFORMED, ADMIN_ANALYTICS_READY, ADMIN_ANALYTICS_STATE_PARAM,
+    ADMIN_ANALYTICS_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_CATEGORY_PARAM, ADMIN_AUDIT_CURSOR_PARAM, ADMIN_AUDIT_DATA_PARAM,
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
     ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::admin_pages::chat::{
+    ADMIN_CHAT_DETAIL_DATA_PARAM, ADMIN_CHAT_DETAIL_STATE_PARAM, ADMIN_CHAT_EMPTY,
+    ADMIN_CHAT_FORBIDDEN, ADMIN_CHAT_LIST_DATA_PARAM, ADMIN_CHAT_LIST_STATE_PARAM,
+    ADMIN_CHAT_MALFORMED, ADMIN_CHAT_READY, ADMIN_CHAT_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::admin_pages::dashboard::{
-    AdminDashboardUserStatus, ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
-    ADMIN_DASHBOARD_USER_STATUS_MALFORMED, ADMIN_DASHBOARD_USER_STATUS_PARAM,
-    ADMIN_DASHBOARD_USER_STATUS_READY, ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM,
-    ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+    ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN, ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
+    ADMIN_DASHBOARD_USER_STATUS_PARAM, ADMIN_DASHBOARD_USER_STATUS_READY,
+    ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM, ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::developer_portal::{
+    decode_admin_developer_secret_once, AdminDeveloperSecretOnceProjection,
+    ADMIN_DEVELOPER_CREATE_CONFLICT, ADMIN_DEVELOPER_CREATE_CREATED,
+    ADMIN_DEVELOPER_CREATE_DATA_PARAM, ADMIN_DEVELOPER_CREATE_FORBIDDEN,
+    ADMIN_DEVELOPER_CREATE_FORM, ADMIN_DEVELOPER_CREATE_MALFORMED,
+    ADMIN_DEVELOPER_CREATE_STATE_PARAM, ADMIN_DEVELOPER_CREATE_UNAVAILABLE,
+    ADMIN_DEVELOPER_DATA_PARAM, ADMIN_DEVELOPER_EMPTY, ADMIN_DEVELOPER_FORBIDDEN,
+    ADMIN_DEVELOPER_MALFORMED, ADMIN_DEVELOPER_READY, ADMIN_DEVELOPER_STATE_PARAM,
+    ADMIN_DEVELOPER_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::media::{
     ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
-    ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_READY, ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
+    ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_MUTATION_COMMITTED, ADMIN_MEDIA_MUTATION_DATA_PARAM,
+    ADMIN_MEDIA_MUTATION_ERROR_PARAM, ADMIN_MEDIA_MUTATION_STATE_PARAM, ADMIN_MEDIA_READY,
+    ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::news::{
-    ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN, ADMIN_NEWS_MALFORMED,
-    ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM,
-    ADMIN_NEWS_UNAVAILABLE,
+    ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EDITOR_DATA_PARAM, ADMIN_NEWS_EDITOR_FORM,
+    ADMIN_NEWS_EDITOR_READY, ADMIN_NEWS_EDITOR_STATE_PARAM, ADMIN_NEWS_EMPTY, ADMIN_NEWS_FORBIDDEN,
+    ADMIN_NEWS_IMAGE_COMMITTED, ADMIN_NEWS_IMAGE_STATE_PARAM, ADMIN_NEWS_IMAGE_URL_PARAM,
+    ADMIN_NEWS_MALFORMED, ADMIN_NEWS_MUTATION_CONFLICT, ADMIN_NEWS_MUTATION_ERROR_PARAM,
+    ADMIN_NEWS_MUTATION_FORBIDDEN, ADMIN_NEWS_MUTATION_MALFORMED, ADMIN_NEWS_MUTATION_STATE_PARAM,
+    ADMIN_NEWS_MUTATION_UNAVAILABLE, ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY,
+    ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM, ADMIN_NEWS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
-    ADMIN_NOTIFICATIONS_DATA_PARAM, ADMIN_NOTIFICATIONS_EMPTY, ADMIN_NOTIFICATIONS_FORBIDDEN,
-    ADMIN_NOTIFICATIONS_MALFORMED, ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN,
-    ADMIN_NOTIFICATIONS_METRICS_MALFORMED, ADMIN_NOTIFICATIONS_METRICS_PARAM,
-    ADMIN_NOTIFICATIONS_METRICS_READY, ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM,
-    ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE, ADMIN_NOTIFICATIONS_PAGE_PARAM,
-    ADMIN_NOTIFICATIONS_READY, ADMIN_NOTIFICATIONS_SEND_ACCEPTED, ADMIN_NOTIFICATIONS_SEND_ERROR,
+    decode_admin_notification_create_result, ADMIN_NOTIFICATIONS_DATA_PARAM,
+    ADMIN_NOTIFICATIONS_EMPTY, ADMIN_NOTIFICATIONS_FORBIDDEN, ADMIN_NOTIFICATIONS_MALFORMED,
+    ADMIN_NOTIFICATIONS_MUTATION_PARAM, ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY,
+    ADMIN_NOTIFICATIONS_SEND_ACCEPTED, ADMIN_NOTIFICATIONS_SEND_ERROR,
     ADMIN_NOTIFICATIONS_SEND_STATE_PARAM, ADMIN_NOTIFICATIONS_STATE_PARAM,
-    ADMIN_NOTIFICATIONS_UNAVAILABLE,
+    ADMIN_NOTIFICATIONS_UNAVAILABLE, ADMIN_NOTIFICATION_CREATE_CONFLICT,
+    ADMIN_NOTIFICATION_CREATE_DATA_PARAM, ADMIN_NOTIFICATION_CREATE_FAILED,
+    ADMIN_NOTIFICATION_CREATE_FORBIDDEN, ADMIN_NOTIFICATION_CREATE_FORM,
+    ADMIN_NOTIFICATION_CREATE_INVALID, ADMIN_NOTIFICATION_CREATE_MALFORMED,
+    ADMIN_NOTIFICATION_CREATE_PENDING, ADMIN_NOTIFICATION_CREATE_SENT,
+    ADMIN_NOTIFICATION_CREATE_STATE_PARAM, ADMIN_NOTIFICATION_CREATE_UNAVAILABLE,
+    ADMIN_NOTIFICATION_METRICS_DATA_PARAM, ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
-    decode_admin_payment_intent_list, ADMIN_PAYMENTS_DATA_PARAM, ADMIN_PAYMENTS_EMPTY,
-    ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED, ADMIN_PAYMENTS_OFFSET_PARAM,
-    ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY, ADMIN_PAYMENTS_STATE_PARAM,
-    ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM, ADMIN_PAYMENTS_UNAVAILABLE,
+    decode_admin_payment_intent_list, AdminPaymentLinkListProjection, ADMIN_PAYMENTS_DATA_PARAM,
+    ADMIN_PAYMENTS_EMPTY, ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED,
+    ADMIN_PAYMENTS_OFFSET_PARAM, ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY,
+    ADMIN_PAYMENTS_STATE_PARAM, ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM,
+    ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM, ADMIN_PAYMENT_LINKS_EMPTY,
+    ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
+    ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::settings::{
+    ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
+    ADMIN_SETTINGS_MALFORMED, ADMIN_SETTINGS_MUTATION_PARAM, ADMIN_SETTINGS_READY,
+    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_access::{
+    AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM, ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED,
+    ADMIN_ACCESS_READY, ADMIN_ACCESS_STATE_PARAM, ADMIN_ACCESS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_credits::{
+    AdminCreditStatsProjection, ADMIN_CREDITS_DATA_PARAM, ADMIN_CREDITS_FORBIDDEN,
+    ADMIN_CREDITS_MALFORMED, ADMIN_CREDITS_READY, ADMIN_CREDITS_STATE_PARAM,
+    ADMIN_CREDITS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::admin_pages::wallet_plans::{
+    AdminPlanListProjection, AdminPlanProjection, ADMIN_PLANS_DATA_PARAM, ADMIN_PLANS_EMPTY,
+    ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED, ADMIN_PLANS_READY, ADMIN_PLANS_STATE_PARAM,
+    ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_DATA_PARAM, ADMIN_PLAN_DETAIL_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
-    ADMIN_WALLET_STATS_DATA_PARAM, ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED,
-    ADMIN_WALLET_STATS_READY, ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
+    AdminWalletDetailProjection, AdminWalletStatsSummary, ADMIN_WALLET_DETAIL_DATA_PARAM,
+    ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
+    ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
+    ADMIN_WALLET_DISABLE_CONFLICT, ADMIN_WALLET_DISABLE_FORBIDDEN, ADMIN_WALLET_DISABLE_FORM,
+    ADMIN_WALLET_DISABLE_MALFORMED, ADMIN_WALLET_DISABLE_STATE_PARAM, ADMIN_WALLET_DISABLE_SUCCESS,
+    ADMIN_WALLET_DISABLE_UNAVAILABLE, ADMIN_WALLET_LIST_DATA_PARAM, ADMIN_WALLET_LIST_EMPTY,
+    ADMIN_WALLET_LIST_FORBIDDEN, ADMIN_WALLET_LIST_MALFORMED, ADMIN_WALLET_LIST_READY,
+    ADMIN_WALLET_LIST_STATE_PARAM, ADMIN_WALLET_LIST_UNAVAILABLE, ADMIN_WALLET_STATS_DATA_PARAM,
+    ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED, ADMIN_WALLET_STATS_READY,
+    ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
 
+use super::analytics_admin_adapter::{load_admin_analytics, AdminAnalyticsLoad};
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
 use super::auth;
+use super::chat_admin_adapter::{
+    load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
+};
+use super::commerce_adapter::{
+    load_access, load_credit_stats, load_payment_links, load_plan_detail, load_plans,
+    load_wallet_detail, load_wallet_list, load_wallet_stats, AdminCommerceLoad as CommerceLoad,
+};
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
 };
+use super::developer_portal_adapter::{load_admin_developer_portal, AdminDeveloperLoad};
 use super::media_adapter::{load_admin_media, AdminMediaLoad, AdminMediaQuery};
-use super::news_adapter::{load_admin_news, AdminNewsLoad, AdminNewsQuery};
+use super::news_adapter::{
+    load_admin_news, load_admin_news_editor, AdminNewsEditorLoad, AdminNewsLoad, AdminNewsQuery,
+};
 use super::notification_admin_adapter::{
     load_admin_notification_metrics, load_admin_notifications, AdminNotificationLoad,
     AdminNotificationMetricsLoad, AdminNotificationQuery,
 };
-use super::wallet_stats_adapter::{
-    load_admin_wallet_stats, AdminWalletStatsLoad, AdminWalletStatsQuery,
-};
+use super::settings_admin_adapter::{load_admin_settings, AdminSettingsLoad};
+#[cfg(test)]
+use super::wallet_stats_adapter::AdminWalletStatsLoad;
+use super::wallet_stats_adapter::AdminWalletStatsQuery;
 use super::AppState;
 
 fn record_admin_dashboard_user_status_load(
@@ -99,6 +171,50 @@ fn record_admin_dashboard_user_status_load(
         ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM.to_string(),
         state.to_string(),
     );
+}
+
+fn record_admin_chat_list_load(params: &mut HashMap<String, String>, load: AdminChatListLoad) {
+    params.remove(ADMIN_CHAT_LIST_DATA_PARAM);
+    let state = match load {
+        AdminChatListLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_CHAT_LIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-chat list projection is serializable"),
+            );
+            ADMIN_CHAT_READY
+        }
+        AdminChatListLoad::Empty(payload) => {
+            params.insert(
+                ADMIN_CHAT_LIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed empty admin-chat list projection is serializable"),
+            );
+            ADMIN_CHAT_EMPTY
+        }
+        AdminChatListLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatListLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
+        AdminChatListLoad::Malformed => ADMIN_CHAT_MALFORMED,
+    };
+    params.insert(ADMIN_CHAT_LIST_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_chat_detail_load(params: &mut HashMap<String, String>, load: AdminChatDetailLoad) {
+    params.remove(ADMIN_CHAT_DETAIL_DATA_PARAM);
+    let state = match load {
+        AdminChatDetailLoad::Ready(payload) => {
+            params.insert(
+                ADMIN_CHAT_DETAIL_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-chat detail projection is serializable"),
+            );
+            ADMIN_CHAT_READY
+        }
+        AdminChatDetailLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatDetailLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
+        AdminChatDetailLoad::Malformed => ADMIN_CHAT_MALFORMED,
+    };
+    params.insert(ADMIN_CHAT_DETAIL_STATE_PARAM.to_string(), state.to_string());
 }
 
 fn record_admin_media_load(
@@ -136,6 +252,98 @@ fn record_admin_media_load(
     params.insert(ADMIN_MEDIA_STATE_PARAM.to_string(), state.to_string());
 }
 
+type AdminMediaMutationQuery = (String, Option<String>, Option<i64>, bool);
+type ParsedAdminMediaQuery = (AdminMediaQuery, Option<AdminMediaMutationQuery>);
+
+fn parse_admin_media_query(raw_query: &str) -> Result<ParsedAdminMediaQuery, ()> {
+    let mut bucket = None;
+    let mut mutation = None;
+    let mut key = None;
+    let mut size = None;
+    let mut deleted = None;
+    for (name, value) in url::form_urlencoded::parse(raw_query.as_bytes()) {
+        match name.as_ref() {
+            "bucket" if bucket.is_none() && matches!(value.as_ref(), "news" | "public") => {
+                bucket = Some(value.into_owned());
+            }
+            "mutation"
+                if mutation.is_none()
+                    && matches!(
+                        value.as_ref(),
+                        "committed" | "conflict" | "forbidden" | "unavailable" | "malformed"
+                    ) =>
+            {
+                mutation = Some(value.into_owned());
+            }
+            "key"
+                if key.is_none()
+                    && !value.is_empty()
+                    && value.len() <= 1_024
+                    && value.trim() == value
+                    && !value.chars().any(char::is_control) =>
+            {
+                key = Some(value.into_owned());
+            }
+            "size" if size.is_none() => {
+                let parsed = value.parse::<i64>().map_err(|_| ())?;
+                if parsed < 0 {
+                    return Err(());
+                }
+                size = Some(parsed);
+            }
+            "deleted" if deleted.is_none() => {
+                deleted = Some(match value.as_ref() {
+                    "true" => true,
+                    "false" => false,
+                    _ => return Err(()),
+                });
+            }
+            _ => return Err(()),
+        }
+    }
+    let bucket_name = bucket.unwrap_or_else(|| "news".to_string());
+    let inventory_query = AdminMediaQuery::from_raw(&format!("bucket={bucket_name}"))?;
+    match mutation {
+        None if key.is_none() && size.is_none() && deleted.is_none() => Ok((inventory_query, None)),
+        Some(state) if state == "committed" => {
+            let key = key.ok_or(())?;
+            let deleted = deleted.ok_or(())?;
+            Ok((inventory_query, Some((state, Some(key), size, deleted))))
+        }
+        Some(state) if key.is_none() && size.is_none() && deleted.is_none() => {
+            Ok((inventory_query, Some((state, None, None, false))))
+        }
+        _ => Err(()),
+    }
+}
+
+fn record_admin_media_mutation_query(
+    params: &mut HashMap<String, String>,
+    mutation: Option<(String, Option<String>, Option<i64>, bool)>,
+) {
+    params.remove(ADMIN_MEDIA_MUTATION_DATA_PARAM);
+    params.remove(ADMIN_MEDIA_MUTATION_ERROR_PARAM);
+    let Some((state, key, size, deleted)) = mutation else {
+        return;
+    };
+    params.insert(ADMIN_MEDIA_MUTATION_STATE_PARAM.to_string(), state.clone());
+    if state == ADMIN_MEDIA_MUTATION_COMMITTED {
+        if let Some(key) = key {
+            params.insert(
+                ADMIN_MEDIA_MUTATION_DATA_PARAM.to_string(),
+                serde_json::to_string(&serde_json::json!({
+                    "bucket": params.get(ADMIN_MEDIA_BUCKET_PARAM).cloned().unwrap_or_else(|| "news".to_string()),
+                    "key": key,
+                    "size": size,
+                    "deleted": deleted,
+                }))
+                .expect("the bounded media mutation projection is serializable"),
+            );
+        }
+    }
+}
+
+#[cfg(test)]
 fn record_admin_wallet_stats_load(
     params: &mut HashMap<String, String>,
     load: AdminWalletStatsLoad,
@@ -209,6 +417,146 @@ fn record_admin_news_load(
     params.insert(ADMIN_NEWS_STATE_PARAM.to_string(), state.to_string());
 }
 
+fn record_admin_news_editor_load(
+    params: &mut HashMap<String, String>,
+    id: &str,
+    load: AdminNewsEditorLoad,
+) {
+    params.remove(ADMIN_NEWS_EDITOR_DATA_PARAM);
+    match load {
+        AdminNewsEditorLoad::Ready(projection) => {
+            if projection.id == id {
+                params.insert(
+                    ADMIN_NEWS_EDITOR_DATA_PARAM.to_string(),
+                    serde_json::to_string(&projection)
+                        .expect("the typed admin-news editor projection is serializable"),
+                );
+                params.insert(
+                    ADMIN_NEWS_EDITOR_STATE_PARAM.to_string(),
+                    ADMIN_NEWS_EDITOR_READY.to_string(),
+                );
+            } else {
+                params.insert(
+                    ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                    ADMIN_NEWS_MUTATION_MALFORMED.to_string(),
+                );
+            }
+        }
+        AdminNewsEditorLoad::Forbidden => {
+            params.insert(
+                ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                ADMIN_NEWS_MUTATION_FORBIDDEN.to_string(),
+            );
+        }
+        AdminNewsEditorLoad::Unavailable => {
+            params.insert(
+                ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                ADMIN_NEWS_MUTATION_UNAVAILABLE.to_string(),
+            );
+        }
+        AdminNewsEditorLoad::Malformed => {
+            params.insert(
+                ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                ADMIN_NEWS_MUTATION_MALFORMED.to_string(),
+            );
+        }
+    }
+}
+
+fn news_mutation_query(query: &str) -> Option<&'static str> {
+    let mut value = None;
+    for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key != "mutation" || value.is_some() {
+            return None;
+        }
+        value = Some(match candidate.as_ref() {
+            "conflict" => ADMIN_NEWS_MUTATION_CONFLICT,
+            "forbidden" => ADMIN_NEWS_MUTATION_FORBIDDEN,
+            "unavailable" => ADMIN_NEWS_MUTATION_UNAVAILABLE,
+            "malformed" => ADMIN_NEWS_MUTATION_MALFORMED,
+            _ => return None,
+        });
+    }
+    value
+}
+
+fn news_inventory_mutation_query(query: &str) -> Option<&'static str> {
+    let mut value = None;
+    for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
+        match key.as_ref() {
+            "mutation" if value.is_none() => {
+                value = Some(match candidate.as_ref() {
+                    "committed" => "committed",
+                    "conflict" => "conflict",
+                    "forbidden" => "forbidden",
+                    "unavailable" => "unavailable",
+                    "malformed" => "malformed",
+                    _ => return None,
+                });
+            }
+            "page" | "status" => {}
+            _ => return None,
+        }
+    }
+    value
+}
+
+fn news_image_url_query(query: &str) -> Option<String> {
+    let mut image_url = None;
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key != ADMIN_NEWS_IMAGE_URL_PARAM || image_url.is_some() {
+            return None;
+        }
+        let value = value.into_owned();
+        if value.len() > 2_048
+            || value.chars().any(char::is_control)
+            || !reqwest::Url::parse(&value).ok().is_some_and(|url| {
+                matches!(url.scheme(), "http" | "https") && url.host_str().is_some()
+            })
+        {
+            return None;
+        }
+        image_url = Some(value);
+    }
+    image_url
+}
+
+fn chat_mutation_query(query: &str) -> Option<&'static str> {
+    let mut value = None;
+    for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key != "mutation" || value.is_some() {
+            return None;
+        }
+        value = Some(match candidate.as_ref() {
+            "success" => "success",
+            "conflict" => "conflict",
+            "forbidden" => "forbidden",
+            "unavailable" => "unavailable",
+            "malformed" => "malformed",
+            _ => return None,
+        });
+    }
+    value
+}
+
+fn notification_mutation_query(query: &str) -> Option<&'static str> {
+    let mut value = None;
+    for (key, candidate) in url::form_urlencoded::parse(query.as_bytes()) {
+        if key != ADMIN_NOTIFICATIONS_MUTATION_PARAM || value.is_some() {
+            return None;
+        }
+        value = Some(match candidate.as_ref() {
+            "committed" => "committed",
+            "conflict" => "conflict",
+            "forbidden" => "forbidden",
+            "unavailable" => "unavailable",
+            "malformed" => "malformed",
+            _ => return None,
+        });
+    }
+    value
+}
+
 fn record_admin_notification_load(
     params: &mut HashMap<String, String>,
     query: &AdminNotificationQuery,
@@ -251,22 +599,22 @@ fn record_admin_notification_metrics_load(
     params: &mut HashMap<String, String>,
     load: AdminNotificationMetricsLoad,
 ) {
-    params.remove(ADMIN_NOTIFICATIONS_METRICS_PARAM);
+    params.remove(ADMIN_NOTIFICATION_METRICS_DATA_PARAM);
     let state = match load {
-        AdminNotificationMetricsLoad::Ready(metrics) => {
+        AdminNotificationMetricsLoad::Ready(payload) => {
             params.insert(
-                ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
-                serde_json::to_string(&metrics)
-                    .expect("the typed notification metrics projection is serializable"),
+                ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload)
+                    .expect("the typed admin-notification metrics projection is serializable"),
             );
-            ADMIN_NOTIFICATIONS_METRICS_READY
+            ADMIN_NOTIFICATIONS_READY
         }
-        AdminNotificationMetricsLoad::Forbidden => ADMIN_NOTIFICATIONS_METRICS_FORBIDDEN,
-        AdminNotificationMetricsLoad::Unavailable => ADMIN_NOTIFICATIONS_METRICS_UNAVAILABLE,
-        AdminNotificationMetricsLoad::Malformed => ADMIN_NOTIFICATIONS_METRICS_MALFORMED,
+        AdminNotificationMetricsLoad::Forbidden => ADMIN_NOTIFICATIONS_FORBIDDEN,
+        AdminNotificationMetricsLoad::Unavailable => ADMIN_NOTIFICATIONS_UNAVAILABLE,
+        AdminNotificationMetricsLoad::Malformed => ADMIN_NOTIFICATIONS_MALFORMED,
     };
     params.insert(
-        ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM.to_string(),
+        ADMIN_NOTIFICATION_METRICS_STATE_PARAM.to_string(),
         state.to_string(),
     );
 }
@@ -310,6 +658,140 @@ fn record_admin_audit_load(
         AdminAuditLoad::Malformed => ADMIN_AUDIT_MALFORMED,
     };
     params.insert(ADMIN_AUDIT_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_settings_load(params: &mut HashMap<String, String>, load: AdminSettingsLoad) {
+    params.remove(ADMIN_SETTINGS_DATA_PARAM);
+    let state = match load {
+        AdminSettingsLoad::Ready(projection) => {
+            params.insert(
+                ADMIN_SETTINGS_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed admin-settings projection is serializable"),
+            );
+            ADMIN_SETTINGS_READY
+        }
+        AdminSettingsLoad::Empty => ADMIN_SETTINGS_EMPTY,
+        AdminSettingsLoad::Forbidden => ADMIN_SETTINGS_FORBIDDEN,
+        AdminSettingsLoad::Unavailable => ADMIN_SETTINGS_UNAVAILABLE,
+        AdminSettingsLoad::Malformed => ADMIN_SETTINGS_MALFORMED,
+    };
+    params.insert(ADMIN_SETTINGS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: AdminAnalyticsLoad) {
+    params.remove(ADMIN_ANALYTICS_DATA_PARAM);
+    let state = match load {
+        AdminAnalyticsLoad::Ready(snapshot) => {
+            params.insert(
+                ADMIN_ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&snapshot)
+                    .expect("the typed admin-analytics projection is serializable"),
+            );
+            ADMIN_ANALYTICS_READY
+        }
+        AdminAnalyticsLoad::Empty => ADMIN_ANALYTICS_EMPTY,
+        AdminAnalyticsLoad::Forbidden => ADMIN_ANALYTICS_FORBIDDEN,
+        AdminAnalyticsLoad::Unavailable => ADMIN_ANALYTICS_UNAVAILABLE,
+        AdminAnalyticsLoad::Malformed => ADMIN_ANALYTICS_MALFORMED,
+    };
+    params.insert(ADMIN_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_admin_developer_load(params: &mut HashMap<String, String>, load: AdminDeveloperLoad) {
+    params.remove(ADMIN_DEVELOPER_DATA_PARAM);
+    let state = match load {
+        AdminDeveloperLoad::Ready(projection) => {
+            params.insert(
+                ADMIN_DEVELOPER_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed developer-portal projection is serializable"),
+            );
+            ADMIN_DEVELOPER_READY
+        }
+        AdminDeveloperLoad::Empty(projection) => {
+            params.insert(
+                ADMIN_DEVELOPER_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed empty developer-portal projection is serializable"),
+            );
+            ADMIN_DEVELOPER_EMPTY
+        }
+        AdminDeveloperLoad::Forbidden => ADMIN_DEVELOPER_FORBIDDEN,
+        AdminDeveloperLoad::Unavailable => ADMIN_DEVELOPER_UNAVAILABLE,
+        AdminDeveloperLoad::Malformed => ADMIN_DEVELOPER_MALFORMED,
+    };
+    params.insert(ADMIN_DEVELOPER_STATE_PARAM.to_string(), state.to_string());
+}
+
+struct CommerceLoadContract<'a> {
+    data_param: &'a str,
+    state_param: &'a str,
+    ready: &'a str,
+    empty: Option<&'a str>,
+    forbidden: &'a str,
+    unavailable: &'a str,
+    malformed: &'a str,
+}
+
+macro_rules! record_commerce_load {
+    (
+        $params:expr,
+        $load:expr,
+        $data_param:expr,
+        $state_param:expr,
+        $ready:expr,
+        $empty:expr,
+        $forbidden:expr,
+        $unavailable:expr,
+        $malformed:expr $(,)?
+    ) => {
+        record_commerce_load(
+            $params,
+            $load,
+            CommerceLoadContract {
+                data_param: $data_param,
+                state_param: $state_param,
+                ready: $ready,
+                empty: $empty,
+                forbidden: $forbidden,
+                unavailable: $unavailable,
+                malformed: $malformed,
+            },
+        )
+    };
+}
+
+fn record_commerce_load<T: serde::Serialize>(
+    params: &mut HashMap<String, String>,
+    load: CommerceLoad<T>,
+    contract: CommerceLoadContract<'_>,
+) {
+    let CommerceLoadContract {
+        data_param,
+        state_param,
+        ready,
+        empty,
+        forbidden,
+        unavailable,
+        malformed,
+    } = contract;
+    params.remove(data_param);
+    let state = match load {
+        CommerceLoad::Ready(projection) => {
+            params.insert(
+                data_param.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the typed commerce projection is serializable"),
+            );
+            ready
+        }
+        CommerceLoad::Empty => empty.unwrap_or(malformed),
+        CommerceLoad::Forbidden => forbidden,
+        CommerceLoad::Unavailable => unavailable,
+        CommerceLoad::Malformed => malformed,
+    };
+    params.insert(state_param.to_string(), state.to_string());
 }
 
 fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
@@ -434,10 +916,7 @@ fn is_dashboard_user_status_route(route_path: &str) -> bool {
 /// The responsive capture harness uses `?__design_bypass=1` for authenticated
 /// admin states. Honor it only for local-cookie requests and only as a
 /// UI-only fixture; it never creates a bearer token or changes backend policy.
-fn design_bypass_requested(
-    query: &str,
-    environment: epsx_bff::cookies::CookieEnvironment,
-) -> bool {
+fn design_bypass_requested(query: &str, environment: epsx_bff::cookies::CookieEnvironment) -> bool {
     if environment != epsx_bff::cookies::CookieEnvironment::Local {
         return false;
     }
@@ -449,6 +928,30 @@ fn design_bypass_requested(
                 "1" | "true" | "yes" | "on"
             )
     })
+}
+
+fn developer_secret_once_cookie(headers: &HeaderMap) -> Option<AdminDeveloperSecretOnceProjection> {
+    let raw = headers.get(header::COOKIE)?.to_str().ok()?;
+    let encoded = raw.split(';').find_map(|cookie| {
+        let (name, value) = cookie.trim().split_once('=')?;
+        (name == super::ADMIN_DEVELOPER_SECRET_COOKIE).then_some(value)
+    })?;
+    let bytes = URL_SAFE_NO_PAD.decode(encoded).ok()?;
+    let value = serde_json::from_slice::<serde_json::Value>(&bytes).ok()?;
+    decode_admin_developer_secret_once(value)
+}
+
+fn notification_create_once_cookie(
+    headers: &HeaderMap,
+) -> Option<epsx_dioxus_ui::pages::admin_pages::notifications::AdminNotificationCreateResult> {
+    let raw = headers.get(header::COOKIE)?.to_str().ok()?;
+    let encoded = raw.split(';').find_map(|cookie| {
+        let (name, value) = cookie.trim().split_once('=')?;
+        (name == super::ADMIN_NOTIFICATION_CREATE_COOKIE).then_some(value)
+    })?;
+    let bytes = URL_SAFE_NO_PAD.decode(encoded).ok()?;
+    let value = serde_json::from_slice::<serde_json::Value>(&bytes).ok()?;
+    decode_admin_notification_create_result(value)
 }
 
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
@@ -521,29 +1024,363 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             }
         }
     }
-    // Wallet inventory starts with one narrow aggregate read. The adapter
-    // accepts no query grammar, sends only the canonical verified bearer and
-    // request ID, and projects four counts; wallet rows and every mutation
-    // remain unavailable.
-    if route_path == "/wallet-management/wallets" {
-        match AdminWalletStatsQuery::from_raw(&query) {
-            Ok(wallet_stats_query) => match verified_access_token.as_ref() {
+    // Chat reads use the extracted backend projection. The list query is
+    // closed and URL-persistent; dynamic conversation identifiers are parsed
+    // and canonicalized by the adapter before any upstream request.
+    if route_path == "/chat" {
+        match AdminChatQuery::from_raw(&query) {
+            Ok(chat_query) => match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let load = load_admin_wallet_stats(
-                        &state.wallet,
-                        wallet_stats_query,
-                        &request_context,
-                    )
-                    .await;
-                    record_admin_wallet_stats_load(&mut params, load);
+                    let load =
+                        load_admin_chat(&state.identity, &chat_query, &request_context).await;
+                    record_admin_chat_list_load(&mut params, load);
+                }
+                None => record_admin_chat_list_load(&mut params, AdminChatListLoad::Unavailable),
+            },
+            Err(()) => record_admin_chat_list_load(&mut params, AdminChatListLoad::Malformed),
+        }
+    } else if let Some(conversation_id) = route_path
+        .strip_prefix("/chat/")
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if query.is_empty() || chat_mutation_query(&query).is_some() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_admin_chat_detail(&state.identity, conversation_id, &request_context)
+                            .await;
+                    record_admin_chat_detail_load(&mut params, load);
                 }
                 None => {
-                    record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Unavailable)
+                    record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Unavailable)
+                }
+            }
+        } else {
+            record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Malformed);
+        }
+    }
+    // Wallet inventory starts with one narrow aggregate read. The service
+    // adapter projects four counts; wallet rows and every mutation remain
+    // outside this SSR read contract.
+    if route_path == "/wallet-management/wallets" {
+        match AdminWalletStatsQuery::from_raw(&query) {
+            Ok(_) => match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let list = load_wallet_list(&state.wallet, &request_context).await;
+                    record_commerce_load!(
+                        &mut params,
+                        list,
+                        ADMIN_WALLET_LIST_DATA_PARAM,
+                        ADMIN_WALLET_LIST_STATE_PARAM,
+                        ADMIN_WALLET_LIST_READY,
+                        Some(ADMIN_WALLET_LIST_EMPTY),
+                        ADMIN_WALLET_LIST_FORBIDDEN,
+                        ADMIN_WALLET_LIST_UNAVAILABLE,
+                        ADMIN_WALLET_LIST_MALFORMED,
+                    );
+                    let load = load_wallet_stats(&state.wallet, &request_context).await;
+                    record_commerce_load!(
+                        &mut params,
+                        load,
+                        ADMIN_WALLET_STATS_DATA_PARAM,
+                        ADMIN_WALLET_STATS_STATE_PARAM,
+                        ADMIN_WALLET_STATS_READY,
+                        None,
+                        ADMIN_WALLET_STATS_FORBIDDEN,
+                        ADMIN_WALLET_STATS_UNAVAILABLE,
+                        ADMIN_WALLET_STATS_MALFORMED,
+                    );
+                }
+                None => {
+                    record_commerce_load!(
+                        &mut params,
+                        CommerceLoad::<epsx_dioxus_ui::pages::admin_pages::wallet_wallets::AdminWalletListProjection>::Unavailable,
+                        ADMIN_WALLET_LIST_DATA_PARAM,
+                        ADMIN_WALLET_LIST_STATE_PARAM,
+                        ADMIN_WALLET_LIST_READY,
+                        Some(ADMIN_WALLET_LIST_EMPTY),
+                        ADMIN_WALLET_LIST_FORBIDDEN,
+                        ADMIN_WALLET_LIST_UNAVAILABLE,
+                        ADMIN_WALLET_LIST_MALFORMED,
+                    );
+                    record_commerce_load!(
+                        &mut params,
+                        CommerceLoad::<AdminWalletStatsSummary>::Unavailable,
+                        ADMIN_WALLET_STATS_DATA_PARAM,
+                        ADMIN_WALLET_STATS_STATE_PARAM,
+                        ADMIN_WALLET_STATS_READY,
+                        None,
+                        ADMIN_WALLET_STATS_FORBIDDEN,
+                        ADMIN_WALLET_STATS_UNAVAILABLE,
+                        ADMIN_WALLET_STATS_MALFORMED,
+                    );
                 }
             },
-            Err(()) => record_admin_wallet_stats_load(&mut params, AdminWalletStatsLoad::Malformed),
+            Err(()) => record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminWalletStatsSummary>::Malformed,
+                ADMIN_WALLET_STATS_DATA_PARAM,
+                ADMIN_WALLET_STATS_STATE_PARAM,
+                ADMIN_WALLET_STATS_READY,
+                None,
+                ADMIN_WALLET_STATS_FORBIDDEN,
+                ADMIN_WALLET_STATS_UNAVAILABLE,
+                ADMIN_WALLET_STATS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/credits" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_credit_stats(&state.wallet, &request_context).await;
+                record_commerce_load!(
+                    &mut params,
+                    load,
+                    ADMIN_CREDITS_DATA_PARAM,
+                    ADMIN_CREDITS_STATE_PARAM,
+                    ADMIN_CREDITS_READY,
+                    None,
+                    ADMIN_CREDITS_FORBIDDEN,
+                    ADMIN_CREDITS_UNAVAILABLE,
+                    ADMIN_CREDITS_MALFORMED,
+                );
+            }
+            None => record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminCreditStatsProjection>::Unavailable,
+                ADMIN_CREDITS_DATA_PARAM,
+                ADMIN_CREDITS_STATE_PARAM,
+                ADMIN_CREDITS_READY,
+                None,
+                ADMIN_CREDITS_FORBIDDEN,
+                ADMIN_CREDITS_UNAVAILABLE,
+                ADMIN_CREDITS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/access" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_access(&state.subscription, &request_context).await;
+                record_commerce_load!(
+                    &mut params,
+                    load,
+                    ADMIN_ACCESS_DATA_PARAM,
+                    ADMIN_ACCESS_STATE_PARAM,
+                    ADMIN_ACCESS_READY,
+                    None,
+                    ADMIN_ACCESS_FORBIDDEN,
+                    ADMIN_ACCESS_UNAVAILABLE,
+                    ADMIN_ACCESS_MALFORMED,
+                );
+            }
+            None => record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminAccessProjection>::Unavailable,
+                ADMIN_ACCESS_DATA_PARAM,
+                ADMIN_ACCESS_STATE_PARAM,
+                ADMIN_ACCESS_READY,
+                None,
+                ADMIN_ACCESS_FORBIDDEN,
+                ADMIN_ACCESS_UNAVAILABLE,
+                ADMIN_ACCESS_MALFORMED,
+            ),
+        }
+    }
+    if route_path == "/wallet-management/access/plans" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_plans(&state.subscription, &request_context).await;
+                record_commerce_load!(
+                    &mut params,
+                    load,
+                    ADMIN_PLANS_DATA_PARAM,
+                    ADMIN_PLANS_STATE_PARAM,
+                    ADMIN_PLANS_READY,
+                    Some(ADMIN_PLANS_EMPTY),
+                    ADMIN_PLANS_FORBIDDEN,
+                    ADMIN_PLANS_UNAVAILABLE,
+                    ADMIN_PLANS_MALFORMED,
+                );
+            }
+            None => record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminPlanListProjection>::Unavailable,
+                ADMIN_PLANS_DATA_PARAM,
+                ADMIN_PLANS_STATE_PARAM,
+                ADMIN_PLANS_READY,
+                Some(ADMIN_PLANS_EMPTY),
+                ADMIN_PLANS_FORBIDDEN,
+                ADMIN_PLANS_UNAVAILABLE,
+                ADMIN_PLANS_MALFORMED,
+            ),
+        }
+    }
+    if let Some(plan_id) = route_path
+        .strip_prefix("/wallet-management/access/plans/")
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load =
+                        load_plan_detail(&state.subscription, plan_id, &request_context).await;
+                    record_commerce_load!(
+                        &mut params,
+                        load,
+                        ADMIN_PLAN_DETAIL_DATA_PARAM,
+                        ADMIN_PLAN_DETAIL_STATE_PARAM,
+                        ADMIN_PLANS_READY,
+                        None,
+                        ADMIN_PLANS_FORBIDDEN,
+                        ADMIN_PLANS_UNAVAILABLE,
+                        ADMIN_PLANS_MALFORMED,
+                    );
+                }
+                None => record_commerce_load!(
+                    &mut params,
+                    CommerceLoad::<AdminPlanProjection>::Unavailable,
+                    ADMIN_PLAN_DETAIL_DATA_PARAM,
+                    ADMIN_PLAN_DETAIL_STATE_PARAM,
+                    ADMIN_PLANS_READY,
+                    None,
+                    ADMIN_PLANS_FORBIDDEN,
+                    ADMIN_PLANS_UNAVAILABLE,
+                    ADMIN_PLANS_MALFORMED,
+                ),
+            }
+        } else {
+            record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminPlanProjection>::Malformed,
+                ADMIN_PLAN_DETAIL_DATA_PARAM,
+                ADMIN_PLAN_DETAIL_STATE_PARAM,
+                ADMIN_PLANS_READY,
+                None,
+                ADMIN_PLANS_FORBIDDEN,
+                ADMIN_PLANS_UNAVAILABLE,
+                ADMIN_PLANS_MALFORMED,
+            );
+        }
+    }
+    if let Some(address) = route_path
+        .strip_prefix("/wallet-management/")
+        .filter(|value| {
+            !value.is_empty()
+                && !value.contains('/')
+                && !matches!(*value, "wallets" | "credits" | "access")
+        })
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_wallet_detail(&state.wallet, address, &request_context).await;
+                    record_commerce_load!(
+                        &mut params,
+                        load,
+                        ADMIN_WALLET_DETAIL_DATA_PARAM,
+                        ADMIN_WALLET_DETAIL_STATE_PARAM,
+                        ADMIN_WALLET_DETAIL_READY,
+                        None,
+                        ADMIN_WALLET_DETAIL_FORBIDDEN,
+                        ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                        ADMIN_WALLET_DETAIL_MALFORMED,
+                    );
+                }
+                None => record_commerce_load!(
+                    &mut params,
+                    CommerceLoad::<AdminWalletDetailProjection>::Unavailable,
+                    ADMIN_WALLET_DETAIL_DATA_PARAM,
+                    ADMIN_WALLET_DETAIL_STATE_PARAM,
+                    ADMIN_WALLET_DETAIL_READY,
+                    None,
+                    ADMIN_WALLET_DETAIL_FORBIDDEN,
+                    ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                    ADMIN_WALLET_DETAIL_MALFORMED,
+                ),
+            }
+        } else {
+            record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminWalletDetailProjection>::Malformed,
+                ADMIN_WALLET_DETAIL_DATA_PARAM,
+                ADMIN_WALLET_DETAIL_STATE_PARAM,
+                ADMIN_WALLET_DETAIL_READY,
+                None,
+                ADMIN_WALLET_DETAIL_FORBIDDEN,
+                ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                ADMIN_WALLET_DETAIL_MALFORMED,
+            );
+        }
+    }
+    if let Some(address) = route_path
+        .strip_prefix("/wallet-management/wallets/")
+        .and_then(|value| value.strip_suffix("/disable"))
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if query.is_empty() {
+            match verified_access_token.as_ref() {
+                Some(token) => {
+                    let mut request_context = RequestContext::from_headers(&headers);
+                    request_context.auth_token = Some(token.clone());
+                    let load = load_wallet_detail(&state.wallet, address, &request_context).await;
+                    record_commerce_load!(
+                        &mut params,
+                        load,
+                        ADMIN_WALLET_DETAIL_DATA_PARAM,
+                        ADMIN_WALLET_DETAIL_STATE_PARAM,
+                        ADMIN_WALLET_DETAIL_READY,
+                        None,
+                        ADMIN_WALLET_DETAIL_FORBIDDEN,
+                        ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                        ADMIN_WALLET_DETAIL_MALFORMED,
+                    );
+                    params.insert(
+                        ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+                        ADMIN_WALLET_DISABLE_FORM.to_string(),
+                    );
+                }
+                None => {
+                    params.insert(
+                        ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+                        ADMIN_WALLET_DISABLE_UNAVAILABLE.to_string(),
+                    );
+                }
+            }
+        } else {
+            let state = match url::form_urlencoded::parse(query.as_bytes())
+                .collect::<Vec<_>>()
+                .as_slice()
+            {
+                [(key, value)] if key == "mutation" => match value.as_ref() {
+                    "success" => ADMIN_WALLET_DISABLE_SUCCESS,
+                    "conflict" => ADMIN_WALLET_DISABLE_CONFLICT,
+                    "forbidden" => ADMIN_WALLET_DISABLE_FORBIDDEN,
+                    "unavailable" => ADMIN_WALLET_DISABLE_UNAVAILABLE,
+                    _ => ADMIN_WALLET_DISABLE_MALFORMED,
+                },
+                _ => ADMIN_WALLET_DISABLE_MALFORMED,
+            };
+            params.insert(
+                ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
         }
     }
     if route_path == "/payments" {
@@ -586,6 +1423,36 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         }
                         None => record_payment_intent_load(&mut params, Err(())),
                     }
+                } else if tab == "payment-links" {
+                    match verified_access_token.as_ref() {
+                        Some(token) => {
+                            let mut request_context = RequestContext::from_headers(&headers);
+                            request_context.auth_token = Some(token.clone());
+                            let load = load_payment_links(&state.payment, &request_context).await;
+                            record_commerce_load!(
+                                &mut params,
+                                load,
+                                ADMIN_PAYMENT_LINKS_DATA_PARAM,
+                                ADMIN_PAYMENT_LINKS_STATE_PARAM,
+                                ADMIN_PAYMENT_LINKS_READY,
+                                Some(ADMIN_PAYMENT_LINKS_EMPTY),
+                                ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                                ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                                ADMIN_PAYMENT_LINKS_MALFORMED,
+                            );
+                        }
+                        None => record_commerce_load!(
+                            &mut params,
+                            CommerceLoad::<AdminPaymentLinkListProjection>::Unavailable,
+                            ADMIN_PAYMENT_LINKS_DATA_PARAM,
+                            ADMIN_PAYMENT_LINKS_STATE_PARAM,
+                            ADMIN_PAYMENT_LINKS_READY,
+                            Some(ADMIN_PAYMENT_LINKS_EMPTY),
+                            ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                            ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                            ADMIN_PAYMENT_LINKS_MALFORMED,
+                        ),
+                    }
                 }
             }
             _ => {
@@ -601,23 +1468,26 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // verified session bearer and request ID cross this boundary; object URLs
     // and every mutation-capable storage detail are projected away.
     if route_path == "/media" {
-        match AdminMediaQuery::from_raw(&query) {
-            Ok(media_query) => match verified_access_token.as_ref() {
+        match parse_admin_media_query(&query) {
+            Ok((media_query, mutation)) => match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
                     let load =
                         load_admin_media(&state.content, &media_query, &request_context).await;
                     record_admin_media_load(&mut params, &media_query, load);
+                    record_admin_media_mutation_query(&mut params, mutation);
                 }
                 None => {
-                    record_admin_media_load(&mut params, &media_query, AdminMediaLoad::Unavailable)
+                    record_admin_media_load(&mut params, &media_query, AdminMediaLoad::Unavailable);
+                    record_admin_media_mutation_query(&mut params, mutation);
                 }
             },
             Err(()) => {
                 let default_query =
                     AdminMediaQuery::from_raw("").expect("the empty admin-media query is valid");
                 record_admin_media_load(&mut params, &default_query, AdminMediaLoad::Malformed);
+                record_admin_media_mutation_query(&mut params, None);
             }
         }
     }
@@ -633,9 +1503,21 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     request_context.auth_token = Some(token.clone());
                     let load = load_admin_news(&state.content, &news_query, &request_context).await;
                     record_admin_news_load(&mut params, &news_query, load);
+                    if let Some(state) = news_inventory_mutation_query(&query) {
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                            state.to_string(),
+                        );
+                    }
                 }
                 None => {
-                    record_admin_news_load(&mut params, &news_query, AdminNewsLoad::Unavailable)
+                    record_admin_news_load(&mut params, &news_query, AdminNewsLoad::Unavailable);
+                    if let Some(state) = news_inventory_mutation_query(&query) {
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                            state.to_string(),
+                        );
+                    }
                 }
             },
             Err(()) => {
@@ -645,30 +1527,118 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             }
         }
     }
+    if route_path == "/news/create" && verified_access_token.is_some() {
+        match query.is_empty() {
+            true => {
+                params.insert(
+                    ADMIN_NEWS_EDITOR_STATE_PARAM.to_string(),
+                    ADMIN_NEWS_EDITOR_FORM.to_string(),
+                );
+            }
+            false => {
+                if let Some(state) = news_mutation_query(&query) {
+                    params.insert(
+                        ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                        state.to_string(),
+                    );
+                    if state == ADMIN_NEWS_MUTATION_CONFLICT {
+                        params.insert(
+                            ADMIN_NEWS_MUTATION_ERROR_PARAM.to_string(),
+                            "The article mutation conflicted with current backend state."
+                                .to_string(),
+                        );
+                    }
+                } else {
+                    params.insert(
+                        ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                        ADMIN_NEWS_MUTATION_MALFORMED.to_string(),
+                    );
+                }
+            }
+        }
+    }
+    if let Some(article_id) = route_path
+        .strip_prefix("/news/")
+        .and_then(|value| value.strip_suffix("/edit"))
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    {
+        if verified_access_token.is_some() {
+            if query.is_empty() {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = verified_access_token.clone();
+                let load =
+                    load_admin_news_editor(&state.content, article_id, &request_context).await;
+                record_admin_news_editor_load(&mut params, article_id, load);
+            } else if let Some(image_url) = news_image_url_query(&query) {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = verified_access_token.clone();
+                let load =
+                    load_admin_news_editor(&state.content, article_id, &request_context).await;
+                record_admin_news_editor_load(&mut params, article_id, load);
+                params.insert(ADMIN_NEWS_IMAGE_URL_PARAM.to_string(), image_url);
+                params.insert(
+                    ADMIN_NEWS_IMAGE_STATE_PARAM.to_string(),
+                    ADMIN_NEWS_IMAGE_COMMITTED.to_string(),
+                );
+            } else if let Some(state) = news_mutation_query(&query) {
+                params.insert(
+                    ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                    state.to_string(),
+                );
+                if state == ADMIN_NEWS_MUTATION_CONFLICT {
+                    params.insert(
+                        ADMIN_NEWS_MUTATION_ERROR_PARAM.to_string(),
+                        "The article mutation conflicted with current backend state.".to_string(),
+                    );
+                }
+            } else {
+                params.insert(
+                    ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                    ADMIN_NEWS_MUTATION_MALFORMED.to_string(),
+                );
+            }
+        }
+    }
     // The management page requires a global admin inventory. Never reuse the
     // owner-scoped `/notification/list` feed: it would show only the admin's
     // wallet records and mislabel them as global state. This exact read keeps
     // authorization in the notification service and projects no identity or
     // message body through SSR.
     if route_path == "/notifications/manage" {
+        params.remove(ADMIN_NOTIFICATIONS_MUTATION_PARAM);
+        if let Some(mutation) = notification_mutation_query(&query) {
+            params.insert(
+                ADMIN_NOTIFICATIONS_MUTATION_PARAM.to_string(),
+                mutation.to_string(),
+            );
+        }
         match AdminNotificationQuery::from_raw(&query) {
             Ok(notification_query) => match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let load = load_admin_notifications(
-                        &state.notification,
-                        &notification_query,
-                        &request_context,
-                    )
-                    .await;
+                    let (load, metrics) = tokio::join!(
+                        load_admin_notifications(
+                            &state.notification,
+                            &notification_query,
+                            &request_context,
+                        ),
+                        load_admin_notification_metrics(&state.notification, &request_context),
+                    );
                     record_admin_notification_load(&mut params, &notification_query, load);
+                    record_admin_notification_metrics_load(&mut params, metrics);
                 }
-                None => record_admin_notification_load(
-                    &mut params,
-                    &notification_query,
-                    AdminNotificationLoad::Unavailable,
-                ),
+                None => {
+                    record_admin_notification_load(
+                        &mut params,
+                        &notification_query,
+                        AdminNotificationLoad::Unavailable,
+                    );
+                    record_admin_notification_metrics_load(
+                        &mut params,
+                        AdminNotificationMetricsLoad::Unavailable,
+                    );
+                }
             },
             Err(()) => {
                 let default_query = AdminNotificationQuery::from_raw("")
@@ -677,6 +1647,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     &mut params,
                     &default_query,
                     AdminNotificationLoad::Malformed,
+                );
+                record_admin_notification_metrics_load(
+                    &mut params,
+                    AdminNotificationMetricsLoad::Unavailable,
                 );
             }
         }
@@ -692,6 +1666,46 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 &mut params,
                 AdminNotificationMetricsLoad::Unavailable,
             ),
+        }
+    }
+    if route_path == "/notifications/create" && verified_access_token.is_some() {
+        if let Some(result) = notification_create_once_cookie(&headers) {
+            params.insert(
+                ADMIN_NOTIFICATION_CREATE_DATA_PARAM.to_string(),
+                serde_json::to_string(&result)
+                    .expect("the notification create projection is serializable"),
+            );
+            params.insert(
+                ADMIN_NOTIFICATION_CREATE_STATE_PARAM.to_string(),
+                result.status,
+            );
+        } else if query.is_empty() {
+            params.insert(
+                ADMIN_NOTIFICATION_CREATE_STATE_PARAM.to_string(),
+                ADMIN_NOTIFICATION_CREATE_FORM.to_string(),
+            );
+        } else {
+            let state = match url::form_urlencoded::parse(query.as_bytes())
+                .collect::<Vec<_>>()
+                .as_slice()
+            {
+                [(key, value)] if key == "mutation" => match value.as_ref() {
+                    "pending" => ADMIN_NOTIFICATION_CREATE_PENDING,
+                    "sent" => ADMIN_NOTIFICATION_CREATE_SENT,
+                    "failed" => ADMIN_NOTIFICATION_CREATE_FAILED,
+                    "forbidden" => ADMIN_NOTIFICATION_CREATE_FORBIDDEN,
+                    "conflict" => ADMIN_NOTIFICATION_CREATE_CONFLICT,
+                    "invalid" => ADMIN_NOTIFICATION_CREATE_INVALID,
+                    "unavailable" => ADMIN_NOTIFICATION_CREATE_UNAVAILABLE,
+                    "malformed" => ADMIN_NOTIFICATION_CREATE_MALFORMED,
+                    _ => ADMIN_NOTIFICATION_CREATE_MALFORMED,
+                },
+                _ => ADMIN_NOTIFICATION_CREATE_MALFORMED,
+            };
+            params.insert(
+                ADMIN_NOTIFICATION_CREATE_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
         }
     }
     // Audit records are loaded only from the extracted analytics service's
@@ -716,6 +1730,99 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     AdminAuditQuery::from_raw("").expect("the empty admin-audit query is valid");
                 record_admin_audit_load(&mut params, &default_query, AdminAuditLoad::Malformed);
             }
+        }
+    }
+    if route_path == "/settings" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_settings(&state.identity, &request_context).await;
+                record_admin_settings_load(&mut params, load);
+            }
+            None => record_admin_settings_load(&mut params, AdminSettingsLoad::Unavailable),
+        }
+        let mutation = match url::form_urlencoded::parse(query.as_bytes())
+            .collect::<Vec<_>>()
+            .as_slice()
+        {
+            [(key, value)]
+                if key == "mutation"
+                    && matches!(
+                        value.as_ref(),
+                        "success"
+                            | "conflict"
+                            | "forbidden"
+                            | "invalid"
+                            | "unavailable"
+                            | "malformed"
+                    ) =>
+            {
+                value.to_string()
+            }
+            [] => String::new(),
+            _ => "malformed".to_string(),
+        };
+        if !mutation.is_empty() {
+            params.insert(ADMIN_SETTINGS_MUTATION_PARAM.to_string(), mutation);
+        }
+    }
+    if route_path == "/analytics" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_analytics(&state.identity, &request_context).await;
+                record_admin_analytics_load(&mut params, load);
+            }
+            None => record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Unavailable),
+        }
+    }
+    if route_path == "/developer-portal" {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_admin_developer_portal(&state.identity, &request_context).await;
+                record_admin_developer_load(&mut params, load);
+            }
+            None => record_admin_developer_load(&mut params, AdminDeveloperLoad::Unavailable),
+        }
+    }
+    if route_path == "/developer-portal/api-keys/create" && verified_access_token.is_some() {
+        if let Some(projection) = developer_secret_once_cookie(&headers) {
+            params.insert(
+                ADMIN_DEVELOPER_CREATE_DATA_PARAM.to_string(),
+                serde_json::to_string(&projection)
+                    .expect("the secret-once developer projection is serializable"),
+            );
+            params.insert(
+                ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+                ADMIN_DEVELOPER_CREATE_CREATED.to_string(),
+            );
+        } else if query.is_empty() {
+            params.insert(
+                ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+                ADMIN_DEVELOPER_CREATE_FORM.to_string(),
+            );
+        } else {
+            let state = match url::form_urlencoded::parse(query.as_bytes())
+                .collect::<Vec<_>>()
+                .as_slice()
+            {
+                [(key, value)] if key == "mutation" => match value.as_ref() {
+                    "conflict" => ADMIN_DEVELOPER_CREATE_CONFLICT,
+                    "forbidden" => ADMIN_DEVELOPER_CREATE_FORBIDDEN,
+                    "unavailable" => ADMIN_DEVELOPER_CREATE_UNAVAILABLE,
+                    "malformed" => ADMIN_DEVELOPER_CREATE_MALFORMED,
+                    _ => ADMIN_DEVELOPER_CREATE_MALFORMED,
+                },
+                _ => ADMIN_DEVELOPER_CREATE_MALFORMED,
+            };
+            params.insert(
+                ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
         }
     }
     // Wave 3a Track B — admin doesn't render the wallet dropdown yet,
@@ -840,7 +1947,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         &meta.title,
         &meta.description,
         meta.keywords.as_deref(),
-        &String::new(),
+        "",
         &body_html,
         meta.include_footer,
         // Wave 38c T1 — body_class is now Option<String>. None
@@ -857,14 +1964,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let denial_runtime = matches!(layout_path.as_str(), "/access-denied" | "/unauthorized")
         .then_some(admin_denial_runtime_script())
         .unwrap_or("");
-    let recovery_runtime = recover_session
-        .then(|| {
+    let recovery_runtime = if recover_session {
+        {
             format!(
                 "<script data-epsx-session-recovery>{}</script>",
                 epsx_bff::browser_auth::browser_session_recovery_script()
             )
-        })
-        .unwrap_or_default();
+        }
+    } else {
+        Default::default()
+    };
     let doc = doc.replace(
         "</body>",
         &format!(
@@ -874,6 +1983,44 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     );
 
     let mut response = private_admin_html_response(status, doc);
+    if route_path == "/developer-portal/api-keys/create"
+        && headers
+            .get(header::COOKIE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| {
+                value.split(';').any(|cookie| {
+                    cookie
+                        .trim_start()
+                        .starts_with(super::ADMIN_DEVELOPER_SECRET_COOKIE)
+                })
+            })
+    {
+        response.headers_mut().append(
+            header::SET_COOKIE,
+            HeaderValue::from_static(
+                "epsx.admin.developer_secret_once=; Path=/developer-portal; Max-Age=0; HttpOnly; SameSite=Lax",
+            ),
+        );
+    }
+    if route_path == "/notifications/create"
+        && headers
+            .get(header::COOKIE)
+            .and_then(|value| value.to_str().ok())
+            .is_some_and(|value| {
+                value.split(';').any(|cookie| {
+                    cookie
+                        .trim_start()
+                        .starts_with(super::ADMIN_NOTIFICATION_CREATE_COOKIE)
+                })
+            })
+    {
+        response.headers_mut().append(
+            header::SET_COOKIE,
+            HeaderValue::from_static(
+                "epsx.admin.notification_create=; Path=/notifications/create; Max-Age=0; HttpOnly; SameSite=Lax",
+            ),
+        );
+    }
     if notification_send_flash_clear {
         response.headers_mut().append(
             header::SET_COOKIE,
@@ -996,6 +2143,7 @@ mod tests {
     use epsx_dioxus_ui::{
         auth::{user::AuthMethod, User},
         pages::admin_pages::audit_log::{AdminAuditList, AdminAuditSummary},
+        pages::admin_pages::dashboard::AdminDashboardUserStatus,
         pages::admin_pages::media::{AdminMediaList, AdminMediaObject},
         pages::admin_pages::news::{AdminNewsArticleSummary, AdminNewsList},
         pages::admin_pages::notifications::{
@@ -1104,6 +2252,7 @@ mod tests {
             tags: vec!["migration".to_string()],
             published_at: Some("2026-07-22T03:04:05Z".to_string()),
             created_at: "2026-07-21T03:04:05Z".to_string(),
+            updated_at: "2026-07-22T03:04:05Z".to_string(),
             is_pinned: true,
         }
     }
@@ -1817,13 +2966,7 @@ mod tests {
             serde_json::from_str(params.get(ADMIN_NEWS_DATA_PARAM).unwrap()).unwrap();
         assert_eq!(stored["articles"][0]["slug"], "migration-status");
         assert_eq!(stored["total"], 41);
-        for forbidden in [
-            "content",
-            "author_wallet",
-            "cover_image_url",
-            "updated_at",
-            "pinned_at",
-        ] {
+        for forbidden in ["content", "author_wallet", "cover_image_url", "pinned_at"] {
             assert!(
                 stored["articles"][0].get(forbidden).is_none(),
                 "{forbidden}"
@@ -1931,7 +3074,7 @@ mod tests {
     #[test]
     fn admin_notification_metrics_load_records_bounded_observations_or_explicit_failure() {
         let mut ready = HashMap::from([(
-            ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+            ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
             "stale-metrics".to_string(),
         )]);
         record_admin_notification_metrics_load(
@@ -1940,17 +3083,18 @@ mod tests {
         );
         assert_eq!(
             ready
-                .get(ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM)
+                .get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM)
                 .map(String::as_str),
-            Some(ADMIN_NOTIFICATIONS_METRICS_READY)
+            Some(ADMIN_NOTIFICATIONS_READY)
         );
         let stored: serde_json::Value =
-            serde_json::from_str(ready.get(ADMIN_NOTIFICATIONS_METRICS_PARAM).unwrap()).unwrap();
+            serde_json::from_str(ready.get(ADMIN_NOTIFICATION_METRICS_DATA_PARAM).unwrap())
+                .unwrap();
         assert_eq!(stored["queue_depth"], 2);
         assert_eq!(stored["channel_outcomes"]["in_app"], 2);
 
         let mut failed = HashMap::from([(
-            ADMIN_NOTIFICATIONS_METRICS_PARAM.to_string(),
+            ADMIN_NOTIFICATION_METRICS_DATA_PARAM.to_string(),
             "stale-metrics".to_string(),
         )]);
         record_admin_notification_metrics_load(
@@ -1959,11 +3103,11 @@ mod tests {
         );
         assert_eq!(
             failed
-                .get(ADMIN_NOTIFICATIONS_METRICS_STATE_PARAM)
+                .get(ADMIN_NOTIFICATION_METRICS_STATE_PARAM)
                 .map(String::as_str),
-            Some(ADMIN_NOTIFICATIONS_METRICS_MALFORMED)
+            Some(ADMIN_NOTIFICATIONS_MALFORMED)
         );
-        assert!(!failed.contains_key(ADMIN_NOTIFICATIONS_METRICS_PARAM));
+        assert!(!failed.contains_key(ADMIN_NOTIFICATION_METRICS_DATA_PARAM));
     }
 
     #[test]

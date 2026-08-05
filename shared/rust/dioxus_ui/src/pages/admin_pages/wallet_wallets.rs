@@ -1,12 +1,14 @@
 //! Authenticated wallet status summary plus truthful detail/disable shells.
 //!
-//! The exact wallet-list route may render four backend-authoritative aggregate
-//! counts. Wallet rows, identities, balances, plans, permissions, activity,
-//! filters, exports, details, and every mutation remain unavailable. Frontend
-//! roles and permissions are never treated as policy authority.
+//! The wallet-list route may render four backend-authoritative aggregate
+//! counts, and the detail route may render a separate redacted wallet read.
+//! Rows, balances, plans, permissions, activity, filters, exports, and every
+//! mutation remain unavailable. Frontend roles and permissions are never
+//! treated as policy authority.
 
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
+use uuid::Uuid;
 
 use crate::auth::AuthGate;
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
@@ -15,15 +17,37 @@ use crate::primitives::Icon;
 use super::super::{PageContext, PageMeta};
 
 const WALLETS_PATH: &str = "/wallet-management/wallets";
-const MAX_ROUTE_REFERENCE_CHARS: usize = 64;
+const MAX_WALLET_LABEL_CHARS: usize = 100;
+const MAX_WALLET_ROLE_CHARS: usize = 64;
+const MAX_CHAIN_ID_CHARS: usize = 10;
 
 pub const ADMIN_WALLET_STATS_DATA_PARAM: &str = "data_admin_wallet_stats";
 pub const ADMIN_WALLET_STATS_STATE_PARAM: &str = "data_admin_wallet_stats_state";
+pub const ADMIN_WALLET_LIST_DATA_PARAM: &str = "data_admin_wallet_list";
+pub const ADMIN_WALLET_LIST_STATE_PARAM: &str = "data_admin_wallet_list_state";
+pub const ADMIN_WALLET_DETAIL_DATA_PARAM: &str = "data_admin_wallet_detail";
+pub const ADMIN_WALLET_DETAIL_STATE_PARAM: &str = "data_admin_wallet_detail_state";
 
 pub const ADMIN_WALLET_STATS_READY: &str = "ready";
 pub const ADMIN_WALLET_STATS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_STATS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_STATS_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_LIST_READY: &str = "ready";
+pub const ADMIN_WALLET_LIST_EMPTY: &str = "empty";
+pub const ADMIN_WALLET_LIST_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_LIST_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_LIST_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_DETAIL_READY: &str = "ready";
+pub const ADMIN_WALLET_DETAIL_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_DETAIL_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_DETAIL_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_DISABLE_STATE_PARAM: &str = "data_admin_wallet_disable_state";
+pub const ADMIN_WALLET_DISABLE_FORM: &str = "form";
+pub const ADMIN_WALLET_DISABLE_SUCCESS: &str = "success";
+pub const ADMIN_WALLET_DISABLE_CONFLICT: &str = "conflict";
+pub const ADMIN_WALLET_DISABLE_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_WALLET_DISABLE_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_WALLET_DISABLE_MALFORMED: &str = "malformed";
 
 /// Deliberately excludes identities, addresses, balances, tier distribution,
 /// activity-window claims, growth calculations, and every row-level field.
@@ -57,12 +81,100 @@ pub fn decode_admin_wallet_stats_projection(
     Some(projection)
 }
 
+/// A bounded row projection for the wallet inventory.  Metadata, timestamps,
+/// balances, entitlements, and audit identity stay outside PageContext.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletListItemProjection {
+    pub address: String,
+    pub chain_id: String,
+    pub label: Option<String>,
+    pub role: Option<String>,
+    pub status: String,
+    pub version: i64,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletListProjection {
+    pub items: Vec<AdminWalletListItemProjection>,
+    pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
+}
+
+pub fn decode_admin_wallet_list_projection(
+    value: serde_json::Value,
+) -> Option<AdminWalletListProjection> {
+    let projection: AdminWalletListProjection = serde_json::from_value(value).ok()?;
+    if projection.total < 0
+        || !(1..=100).contains(&projection.limit)
+        || !(0..=10_000_000).contains(&projection.offset)
+        || projection.items.len() > projection.limit as usize
+    {
+        return None;
+    }
+    if projection.items.iter().any(|item| {
+        canonical_wallet_address(&item.address).is_none()
+            || !valid_chain_id(&item.chain_id)
+            || item
+                .label
+                .as_deref()
+                .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_LABEL_CHARS))
+            || item
+                .role
+                .as_deref()
+                .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_ROLE_CHARS))
+            || !matches!(item.status.as_str(), "active" | "disabled")
+            || item.version < 0
+    }) {
+        return None;
+    }
+    Some(projection)
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum WalletStatsLoad {
     Ready(AdminWalletStatsSummary),
     Forbidden,
     Unavailable,
     Malformed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WalletListLoad {
+    Ready(AdminWalletListProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn wallet_list_load(ctx: &PageContext) -> Option<WalletListLoad> {
+    let state = ctx
+        .params
+        .get(ADMIN_WALLET_LIST_STATE_PARAM)
+        .map(String::as_str)?;
+    Some(match state {
+        ADMIN_WALLET_LIST_READY => ctx
+            .params
+            .get(ADMIN_WALLET_LIST_DATA_PARAM)
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .and_then(decode_admin_wallet_list_projection)
+            .map(|projection| {
+                if projection.items.is_empty() && projection.total == 0 {
+                    WalletListLoad::Empty
+                } else {
+                    WalletListLoad::Ready(projection)
+                }
+            })
+            .unwrap_or(WalletListLoad::Malformed),
+        ADMIN_WALLET_LIST_EMPTY => WalletListLoad::Empty,
+        ADMIN_WALLET_LIST_FORBIDDEN => WalletListLoad::Forbidden,
+        ADMIN_WALLET_LIST_UNAVAILABLE => WalletListLoad::Unavailable,
+        ADMIN_WALLET_LIST_MALFORMED => WalletListLoad::Malformed,
+        _ => WalletListLoad::Malformed,
+    })
 }
 
 fn wallet_stats_load(ctx: &PageContext) -> WalletStatsLoad {
@@ -88,58 +200,107 @@ fn wallet_stats_load(ctx: &PageContext) -> WalletStatsLoad {
     }
 }
 
-#[derive(Clone, Copy, PartialEq)]
-enum WalletSurface {
-    List,
-    Detail,
-    Disable,
+/// Redacted fields from the backend AdminWallet DTO. Metadata, creation time,
+/// and operation/audit evidence never enter PageContext or page HTML.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminWalletDetailProjection {
+    pub address: String,
+    pub chain_id: String,
+    pub label: Option<String>,
+    pub role: Option<String>,
+    pub status: String,
+    pub version: i64,
 }
 
-impl WalletSurface {
-    fn marker(self) -> &'static str {
-        match self {
-            Self::List => "list",
-            Self::Detail => "detail",
-            Self::Disable => "disable",
-        }
+pub fn decode_admin_wallet_detail_projection(
+    value: serde_json::Value,
+) -> Option<AdminWalletDetailProjection> {
+    let projection: AdminWalletDetailProjection = serde_json::from_value(value).ok()?;
+    if canonical_wallet_address(&projection.address).is_none()
+        || !valid_chain_id(&projection.chain_id)
+        || projection
+            .label
+            .as_deref()
+            .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_LABEL_CHARS))
+        || projection
+            .role
+            .as_deref()
+            .is_some_and(|value| !valid_optional_text(value, MAX_WALLET_ROLE_CHARS))
+        || !matches!(projection.status.as_str(), "active" | "disabled")
+        || projection.version < 0
+    {
+        return None;
     }
+    Some(projection)
+}
 
-    fn meta_title(self) -> &'static str {
-        match self {
-            Self::List => "Wallets unavailable",
-            Self::Detail => "Wallet detail unavailable",
-            Self::Disable => "Wallet operation unavailable",
-        }
+fn valid_optional_text(value: &str, max_chars: usize) -> bool {
+    value.chars().count() <= max_chars
+        && value.trim() == value
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_chain_id(value: &str) -> bool {
+    !value.is_empty()
+        && value.len() <= MAX_CHAIN_ID_CHARS
+        && value.bytes().all(|byte| byte.is_ascii_digit())
+}
+
+fn canonical_wallet_address(value: &str) -> Option<String> {
+    let bytes = value.as_bytes();
+    if bytes.len() != 42
+        || bytes[0] != b'0'
+        || !matches!(bytes[1], b'x' | b'X')
+        || !bytes[2..].iter().all(u8::is_ascii_hexdigit)
+    {
+        return None;
     }
+    Some(format!("0x{}", value[2..].to_ascii_lowercase()))
+}
 
-    fn eyebrow(self) -> &'static str {
-        match self {
-            Self::List => "Wallet inventory",
-            Self::Detail => "Wallet workspace",
-            Self::Disable => "Wallet operation",
-        }
-    }
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum WalletDetailLoad {
+    Ready(AdminWalletDetailProjection),
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
 
-    fn title(self) -> &'static str {
-        match self {
-            Self::List => "Wallet inventory is unavailable",
-            Self::Detail => "This wallet cannot be verified",
-            Self::Disable => "Wallet changes are unavailable",
-        }
-    }
+fn wallet_detail_load(ctx: &PageContext) -> WalletDetailLoad {
+    let Some(route_address) = ctx
+        .params
+        .get("address")
+        .and_then(|value| canonical_wallet_address(value))
+    else {
+        return WalletDetailLoad::Malformed;
+    };
 
-    fn detail(self) -> &'static str {
-        match self {
-            Self::List => {
-                "No wallet records, counts, balances, platforms, permissions, subscription summaries, or activity are shown because an authoritative wallet list contract is not connected."
+    match ctx
+        .params
+        .get(ADMIN_WALLET_DETAIL_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ADMIN_WALLET_DETAIL_READY) => {
+            let Some(raw) = ctx.params.get(ADMIN_WALLET_DETAIL_DATA_PARAM) else {
+                return WalletDetailLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_wallet_detail_projection)
+            else {
+                return WalletDetailLoad::Malformed;
+            };
+            if canonical_wallet_address(&projection.address) == Some(route_address) {
+                WalletDetailLoad::Ready(projection)
+            } else {
+                WalletDetailLoad::Malformed
             }
-            Self::Detail => {
-                "No identity, balance, chain, subscription, permission, activity, or transaction data is shown because the backend has not verified the requested wallet."
-            }
-            Self::Disable => {
-                "No status or impact is inferred, and no disable or re-enable action is offered because an authorized, idempotent, audited wallet mutation is not connected."
-            }
         }
+        Some(ADMIN_WALLET_DETAIL_FORBIDDEN) => WalletDetailLoad::Forbidden,
+        Some(ADMIN_WALLET_DETAIL_MALFORMED) => WalletDetailLoad::Malformed,
+        Some(ADMIN_WALLET_DETAIL_UNAVAILABLE) | None => WalletDetailLoad::Unavailable,
+        Some(_) => WalletDetailLoad::Malformed,
     }
 }
 
@@ -158,37 +319,261 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// The route value is a bounded, control-free, escaped diagnostic reference.
-/// It never proves that a wallet exists, is canonical, or is authorized.
 pub fn render_detail(ctx: &PageContext) -> (PageMeta, Element) {
-    let reference = bounded_route_reference(
-        ctx.params
-            .get("address")
-            .map(String::as_str)
-            .unwrap_or_default(),
-    );
-    render_surface(ctx, WalletSurface::Detail, Some(reference))
+    let meta = PageMeta::admin("Wallet detail");
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private admin wallet workspace".to_string()),
+                return_url: Some(WALLETS_PATH.to_string()),
+                RenderWalletDetail { ctx: ctx.clone() }
+            }
+        },
+    )
 }
 
-/// The legacy confirmation route remains non-mutating. It cannot derive impact
-/// or status from the path and exposes no submit control or mutation endpoint.
+/// The legacy confirmation route is backed by the wallet detail version and
+/// submits only a backend-authorized, idempotent status mutation.
 pub fn render_disable(ctx: &PageContext) -> (PageMeta, Element) {
-    let reference = bounded_route_reference(
-        ctx.params
-            .get("address")
-            .map(String::as_str)
-            .unwrap_or_default(),
-    );
-    render_surface(ctx, WalletSurface::Disable, Some(reference))
+    let reference = ctx
+        .params
+        .get("address")
+        .and_then(|value| canonical_wallet_address(value));
+    let meta = PageMeta::admin("Disable wallet");
+    (
+        meta,
+        rsx! {
+            AuthGate {
+                user: ctx.user.clone(),
+                feature: Some("the private admin wallet workspace".to_string()),
+                return_url: Some(WALLETS_PATH.to_string()),
+                RenderWalletDisable { ctx: ctx.clone(), reference }
+            }
+        },
+    )
+}
+
+#[component]
+fn RenderWalletDisable(ctx: PageContext, reference: Option<String>) -> Element {
+    let state = ctx
+        .params
+        .get(ADMIN_WALLET_DISABLE_STATE_PARAM)
+        .map(String::as_str);
+    if let Some(state) = state.filter(|state| {
+        matches!(
+            *state,
+            ADMIN_WALLET_DISABLE_SUCCESS
+                | ADMIN_WALLET_DISABLE_CONFLICT
+                | ADMIN_WALLET_DISABLE_FORBIDDEN
+                | ADMIN_WALLET_DISABLE_UNAVAILABLE
+                | ADMIN_WALLET_DISABLE_MALFORMED
+        )
+    }) {
+        return match state {
+            ADMIN_WALLET_DISABLE_SUCCESS => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_SUCCESS, title: "Wallet disabled".to_string(), detail: "The wallet service committed the status change and returned an operation receipt.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_CONFLICT => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_CONFLICT, title: "Wallet status changed elsewhere".to_string(), detail: "The submitted version was stale. Reload the backend-authoritative wallet detail before retrying.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_FORBIDDEN => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet change access was denied".to_string(), detail: "The wallet service did not authorize this session to change the requested resource.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_UNAVAILABLE => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet change is unavailable".to_string(), detail: "The wallet service did not provide a committed mutation result. No success is inferred.".to_string() } }
+            }
+            _ => {
+                rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet change could not be verified".to_string(), detail: "The mutation response or route state did not match the strict contract.".to_string() } }
+            }
+        };
+    }
+
+    let Some(reference) = reference else {
+        return rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet address could not be verified".to_string(), detail: "The route must contain one canonical wallet address.".to_string() } };
+    };
+    match wallet_detail_load(&ctx) {
+        WalletDetailLoad::Ready(projection) if projection.status == "active" => {
+            let action = format!("/wallet-management/wallets/{reference}/disable");
+            let idempotency_key = Uuid::new_v4().to_string();
+            rsx! {
+                section {
+                    class: "container page-content max-w-3xl py-10",
+                    "data-admin-wallet-disable-state": ADMIN_WALLET_DISABLE_FORM,
+                    h1 { class: "text-3xl font-black tracking-tight text-foreground", "Disable wallet" }
+                    p { class: "mt-3 break-all font-mono text-sm text-muted-foreground", "{projection.address}" }
+                    p { class: "mt-4 text-sm leading-6 text-muted-foreground", "The wallet service will recheck ownership, permission, current status, and version before committing this audited change." }
+                    form { class: "mt-6 space-y-4 rounded-2xl border border-border/30 bg-card p-6 shadow-xl", method: "post", action,
+                        input { type: "hidden", name: "expected_version", value: projection.version.to_string() }
+                        input { type: "hidden", name: "idempotency_key", value: idempotency_key }
+                        label { class: "block text-sm font-medium text-foreground", r#for: "wallet-disable-reason", "Reason" }
+                        textarea { id: "wallet-disable-reason", name: "reason", required: true, maxlength: "500", rows: "4", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm", placeholder: "Describe the administrative reason" }
+                        div { class: "flex flex-wrap gap-3",
+                            button { class: "btn btn-primary", type: "submit", "Disable wallet" }
+                            a { class: "btn btn-outline", href: format!("/wallet-management/{}", projection.address), "Cancel" }
+                        }
+                    }
+                }
+            }
+        }
+        WalletDetailLoad::Ready(_) => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet is already disabled".to_string(), detail: "The backend-authoritative wallet state does not require this operation.".to_string() } }
+        }
+        WalletDetailLoad::Forbidden => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_FORBIDDEN, title: "Wallet detail access was denied".to_string(), detail: "The current wallet status could not be authorized.".to_string() } }
+        }
+        WalletDetailLoad::Unavailable => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet status is unavailable".to_string(), detail: "The wallet service did not provide the current version, so no mutation form is shown.".to_string() } }
+        }
+        WalletDetailLoad::Malformed => {
+            rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet status could not be verified".to_string(), detail: "The route or backend detail response did not match the strict wallet contract.".to_string() } }
+        }
+    }
+}
+
+#[component]
+fn WalletDisableNotice(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section { class: "container page-content max-w-3xl py-10", role: "status", "data-admin-wallet-disable-state": state,
+            h1 { class: "text-3xl font-black tracking-tight text-foreground", "{title}" }
+            p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{detail}" }
+            nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Wallet disable recovery",
+                a { class: "btn btn-primary", href: "/wallet-management/wallets", "Wallet inventory" }
+                a { class: "btn btn-outline", href: "/", "Admin home" }
+            }
+        }
+    }
+}
+
+#[component]
+fn RenderWalletDetail(ctx: PageContext) -> Element {
+    match wallet_detail_load(&ctx) {
+        WalletDetailLoad::Ready(projection) => rsx! { WalletDetailReady { projection } },
+        WalletDetailLoad::Forbidden => rsx! {
+            WalletDetailProblem {
+                state: ADMIN_WALLET_DETAIL_FORBIDDEN,
+                title: "Wallet detail access was denied".to_string(),
+                detail: "The backend did not authorize this session to read the requested wallet.".to_string(),
+            }
+        },
+        WalletDetailLoad::Unavailable => rsx! {
+            WalletDetailProblem {
+                state: ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                title: "Wallet detail is unavailable".to_string(),
+                detail: "The wallet backend could not provide an authoritative wallet response. No wallet fields are being shown.".to_string(),
+            }
+        },
+        WalletDetailLoad::Malformed => rsx! {
+            WalletDetailProblem {
+                state: ADMIN_WALLET_DETAIL_MALFORMED,
+                title: "Wallet detail could not be verified".to_string(),
+                detail: "The route address or backend response did not match the strict wallet contract. No wallet fields are being shown.".to_string(),
+            }
+        },
+    }
+}
+
+#[component]
+fn WalletDetailReady(projection: AdminWalletDetailProjection) -> Element {
+    let label = projection
+        .label
+        .unwrap_or_else(|| "Not reported".to_string());
+    let role = projection
+        .role
+        .unwrap_or_else(|| "Not reported".to_string());
+    let status = projection.status.clone();
+    let status_label = if status == "active" {
+        "Active"
+    } else {
+        "Disabled"
+    };
+
+    rsx! {
+        PageLayout {
+            max_width: Some(PageMaxWidth::FourXl),
+            PageHeader {
+                title: "Wallet detail".to_string(),
+                subtitle: Some("Backend-authoritative read-only wallet projection".to_string()),
+                icon: Some("wallet".to_string()),
+                gradient: Some(PageGradient::Primary),
+                centered: Some(false),
+                extra_actions: None,
+                class_name: None,
+            }
+            section {
+                class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl sm:p-8",
+                aria_labelledby: "admin-wallet-detail-title",
+                "data-admin-wallet-detail-state": ADMIN_WALLET_DETAIL_READY,
+                h2 { id: "admin-wallet-detail-title", class: "text-2xl font-bold text-foreground", "{label}" }
+                p { class: "mt-2 break-all font-mono text-sm text-muted-foreground", "{projection.address}" }
+                dl { class: "mt-6 grid gap-4 sm:grid-cols-2",
+                    WalletDetailField { label: "Status", value: status_label.to_string() }
+                    WalletDetailField { label: "Chain", value: projection.chain_id }
+                    WalletDetailField { label: "Role", value: role }
+                    WalletDetailField { label: "Read version", value: projection.version.to_string() }
+                }
+                p { class: "mt-6 border-t border-border/30 pt-4 text-xs leading-5 text-muted-foreground",
+                    "Metadata, balances, entitlements, permissions, audit identity, and wallet operations are not part of this redacted read projection."
+                }
+                nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Wallet detail recovery",
+                    a { class: "btn btn-outline", href: WALLETS_PATH, "Wallet list" }
+                    a { class: "btn btn-ghost", href: "/", "Admin home" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletDetailField(label: &'static str, value: String) -> Element {
+    rsx! {
+        div { class: "rounded-xl border border-border/20 bg-background/40 p-4",
+            dt { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "{label}" }
+            dd { class: "mt-1 break-words text-sm font-semibold text-foreground", "{value}" }
+        }
+    }
+}
+
+#[component]
+fn WalletDetailProblem(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        PageLayout {
+            max_width: Some(PageMaxWidth::FourXl),
+            PageHeader {
+                title: "Wallet detail".to_string(),
+                subtitle: Some("Read-only backend projection".to_string()),
+                icon: Some("wallet".to_string()),
+                gradient: Some(PageGradient::Primary),
+                centered: Some(false),
+                extra_actions: None,
+                class_name: None,
+            }
+            section {
+                class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
+                role: if state == ADMIN_WALLET_DETAIL_FORBIDDEN { "alert" } else { "status" },
+                aria_labelledby: "admin-wallet-detail-problem-title",
+                "data-admin-wallet-detail-state": state,
+                h2 { id: "admin-wallet-detail-problem-title", class: "text-xl font-bold text-foreground", "{title}" }
+                p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet detail recovery",
+                    a { class: "btn btn-sm btn-outline", href: WALLETS_PATH, "Retry wallet read" }
+                    a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                }
+            }
+        }
+    }
 }
 
 #[component]
 fn RenderWalletList(ctx: PageContext) -> Element {
+    let inventory = wallet_list_load(&ctx);
+    let has_inventory = inventory.is_some();
     let load = wallet_stats_load(&ctx);
 
     rsx! {
         div {
-            "data-admin-wallets-surface": WalletSurface::List.marker(),
+            "data-admin-wallets-surface": "list",
             PageLayout {
                 max_width: Some(PageMaxWidth::SevenXl),
                 PageHeader {
@@ -200,34 +585,117 @@ fn RenderWalletList(ctx: PageContext) -> Element {
                     extra_actions: None,
                     class_name: None,
                 }
-                match load {
-                    WalletStatsLoad::Ready(projection) => rsx! {
-                        WalletStatsReady { projection }
-                    },
-                    WalletStatsLoad::Forbidden => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_FORBIDDEN,
-                            title: "Wallet summary access was denied".to_string(),
-                            detail: "The backend did not authorize this session to read wallet status totals.".to_string(),
+                match inventory {
+                    Some(WalletListLoad::Ready(projection)) => rsx! { WalletListReady { projection } },
+                    Some(WalletListLoad::Empty) => rsx! { WalletListEmpty {} },
+                    Some(WalletListLoad::Forbidden) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_FORBIDDEN,
+                            title: "Wallet inventory access was denied".to_string(),
+                            detail: "The backend did not authorize this session to read wallet rows.".to_string(),
                         }
                     },
-                    WalletStatsLoad::Unavailable => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_UNAVAILABLE,
-                            title: "Wallet summary is unavailable".to_string(),
-                            detail: "The wallet backend could not provide an authoritative status summary. No totals are being shown.".to_string(),
+                    Some(WalletListLoad::Unavailable) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_UNAVAILABLE,
+                            title: "Wallet inventory is unavailable".to_string(),
+                            detail: "The wallet backend could not provide an authoritative wallet list. No rows are being shown.".to_string(),
                         }
                     },
-                    WalletStatsLoad::Malformed => rsx! {
-                        WalletStatsProblem {
-                            state: ADMIN_WALLET_STATS_MALFORMED,
-                            title: "Wallet summary could not be verified".to_string(),
-                            detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                    Some(WalletListLoad::Malformed) => rsx! {
+                        WalletListProblem {
+                            state: ADMIN_WALLET_LIST_MALFORMED,
+                            title: "Wallet inventory could not be verified".to_string(),
+                            detail: "The backend response did not match the strict bounded wallet-list contract. No rows are being shown.".to_string(),
                         }
+                    },
+                    None => match load {
+                        WalletStatsLoad::Ready(projection) => rsx! { WalletStatsReady { projection } },
+                        WalletStatsLoad::Forbidden => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_FORBIDDEN,
+                                title: "Wallet summary access was denied".to_string(),
+                                detail: "The backend did not authorize this session to read wallet status totals.".to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Unavailable => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_UNAVAILABLE,
+                                title: "Wallet summary is unavailable".to_string(),
+                                detail: "The wallet backend could not provide an authoritative status summary. No totals are being shown.".to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Malformed => rsx! {
+                            WalletStatsProblem {
+                                state: ADMIN_WALLET_STATS_MALFORMED,
+                                title: "Wallet summary could not be verified".to_string(),
+                                detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                            }
+                        },
                     },
                 }
-                WalletInventoryUnavailableNotice {}
+                if !has_inventory {
+                    WalletInventoryUnavailableNotice {}
+                }
             }
+        }
+    }
+}
+
+#[component]
+fn WalletListReady(projection: AdminWalletListProjection) -> Element {
+    rsx! {
+        section {
+            class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+            "data-admin-wallet-list-state": ADMIN_WALLET_LIST_READY,
+            h2 { class: "p-5 text-lg font-semibold text-foreground", "Wallet inventory" }
+            p { class: "px-5 pb-4 text-sm text-muted-foreground", "{projection.total} backend-authoritative records in this bounded response." }
+            ul { class: "divide-y divide-border/30 border-t border-border/30", aria_label: "Wallet inventory",
+                for wallet in projection.items { WalletListRow { wallet } }
+            }
+        }
+    }
+}
+
+#[component]
+fn WalletListRow(wallet: AdminWalletListItemProjection) -> Element {
+    let detail_href = format!(
+        "/wallet-management/{}",
+        encode_path_segment(&wallet.address)
+    );
+    let status = if wallet.status == "active" {
+        "Active"
+    } else {
+        "Disabled"
+    };
+    rsx! {
+        li { class: "grid gap-3 p-5 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center",
+            div {
+                p { class: "break-all font-mono text-sm text-foreground", "{wallet.address}" }
+                p { class: "mt-1 text-xs text-muted-foreground", "Chain {wallet.chain_id} · {status}" }
+            }
+            p { class: "text-sm text-muted-foreground", "Version {wallet.version}" }
+            a { class: "btn btn-sm btn-outline", href: detail_href, "Read detail" }
+        }
+    }
+}
+
+#[component]
+fn WalletListEmpty() -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-border/30 bg-card p-8 text-center", role: "status", "data-admin-wallet-list-state": ADMIN_WALLET_LIST_EMPTY,
+            h2 { class: "text-xl font-semibold text-foreground", "No wallets returned" }
+            p { class: "mt-2 text-sm text-muted-foreground", "The backend returned an authoritative empty wallet inventory." }
+        }
+    }
+}
+
+#[component]
+fn WalletListProblem(state: &'static str, title: String, detail: String) -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6", role: "status", "data-admin-wallet-list-state": state,
+            h2 { class: "text-xl font-bold text-foreground", "{title}" }
+            p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -374,54 +842,6 @@ fn format_count(value: i64) -> String {
     formatted
 }
 
-fn render_surface(
-    ctx: &PageContext,
-    surface: WalletSurface,
-    route_reference: Option<String>,
-) -> (PageMeta, Element) {
-    let meta = PageMeta::admin(surface.meta_title());
-    let retry_href = route_reference
-        .as_deref()
-        .map(|reference| route_href(surface, reference))
-        .unwrap_or_else(|| WALLETS_PATH.to_string());
-
-    (
-        meta,
-        rsx! {
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("the private admin wallet workspace".to_string()),
-                // Never disclose a route identifier in signed-out HTML.
-                return_url: Some(WALLETS_PATH.to_string()),
-                WalletUnavailable { surface, route_reference, retry_href }
-            }
-        },
-    )
-}
-
-fn bounded_route_reference(raw: &str) -> String {
-    let cleaned = raw
-        .chars()
-        .filter(|character| !character.is_control())
-        .collect::<String>();
-    let cleaned = cleaned.trim();
-
-    if cleaned.is_empty() {
-        return "not provided".to_string();
-    }
-
-    if cleaned.chars().count() <= MAX_ROUTE_REFERENCE_CHARS {
-        return cleaned.to_string();
-    }
-
-    let mut bounded = cleaned
-        .chars()
-        .take(MAX_ROUTE_REFERENCE_CHARS.saturating_sub(1))
-        .collect::<String>();
-    bounded.push('…');
-    bounded
-}
-
 fn encode_path_segment(reference: &str) -> String {
     let mut encoded = String::with_capacity(reference.len());
     for byte in reference.as_bytes() {
@@ -440,94 +860,14 @@ fn encode_path_segment(reference: &str) -> String {
     encoded
 }
 
-fn route_href(surface: WalletSurface, reference: &str) -> String {
-    let encoded = encode_path_segment(reference);
-    match surface {
-        WalletSurface::List => WALLETS_PATH.to_string(),
-        WalletSurface::Detail => format!("/wallet-management/{encoded}"),
-        WalletSurface::Disable => {
-            format!("/wallet-management/wallets/{encoded}/disable")
-        }
-    }
-}
-
-#[component]
-fn WalletUnavailable(
-    surface: WalletSurface,
-    route_reference: Option<String>,
-    retry_href: String,
-) -> Element {
-    let title_id = format!("admin-wallet-{}-unavailable-title", surface.marker());
-
-    rsx! {
-        div {
-            class: "container page-content max-w-6xl py-10",
-            "data-admin-wallets-state": "unavailable",
-            "data-admin-wallets-surface": surface.marker(),
-            section {
-                class: "relative overflow-hidden rounded-3xl border border-border/40 bg-card shadow-2xl",
-                role: "status",
-                aria_labelledby: title_id.clone(),
-                div {
-                    class: "absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]",
-                    aria_hidden: "true",
-                }
-                div { class: "grid gap-8 p-8 md:grid-cols-[auto_1fr] md:p-12",
-                    div {
-                        class: "flex h-16 w-16 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/10 text-violet-400",
-                        aria_hidden: "true",
-                        Icon { name: "wallet".to_string(), size: Some(30) }
-                    }
-                    div {
-                        p { class: "text-xs font-black uppercase tracking-[0.22em] text-violet-400",
-                            {surface.eyebrow()}
-                        }
-                        h1 { id: title_id, class: "mt-3 text-3xl font-black tracking-tight text-foreground",
-                            {surface.title()}
-                        }
-                        div { class: "mt-5 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-5",
-                            p { class: "text-sm font-semibold leading-6 text-foreground",
-                                {surface.detail()}
-                            }
-                        }
-                        if let Some(reference) = route_reference {
-                            p { class: "mt-4 rounded-xl border border-border/30 bg-background/50 px-4 py-3 text-sm text-muted-foreground",
-                                "Unverified route reference: "
-                                code { "data-admin-wallet-route-reference": "bounded", "{reference}" }
-                            }
-                        }
-                        p { class: "mt-5 max-w-3xl text-sm leading-6 text-muted-foreground",
-                            "The verified session keeps this workspace private. Only the Rust backend may authorize wallet reads or changes and return canonical typed data."
-                        }
-                        nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet workspace recovery",
-                            a { class: "btn btn-primary", href: retry_href,
-                                Icon { name: "refresh-cw".to_string(), size: Some(16) }
-                                " Retry wallet availability"
-                            }
-                            if surface != WalletSurface::List {
-                                a { class: "btn btn-outline", href: WALLETS_PATH,
-                                    Icon { name: "arrow-left".to_string(), size: Some(16) }
-                                    " Wallet list"
-                                }
-                            }
-                            a { class: "btn btn-ghost", href: "/",
-                                Icon { name: "home".to_string(), size: Some(16) }
-                                " Admin home"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
 
     use super::*;
     use crate::auth::user::{AuthMethod, User};
+
+    const TEST_ADDRESS: &str = "0x1111111111111111111111111111111111111111";
 
     fn authenticated_ctx() -> PageContext {
         PageContext {
@@ -571,6 +911,34 @@ mod tests {
         if let Some(data) = data {
             ctx.params
                 .insert(ADMIN_WALLET_STATS_DATA_PARAM.to_string(), data);
+        }
+        ctx
+    }
+
+    fn wallet_detail_json(address: &str) -> String {
+        serde_json::json!({
+            "address": address,
+            "chain_id": "56",
+            "label": "Read-only wallet",
+            "role": "user",
+            "status": "active",
+            "version": 3,
+        })
+        .to_string()
+    }
+
+    fn ctx_with_wallet_detail(state: &str, address: &str, data: Option<String>) -> PageContext {
+        let mut ctx = authenticated_ctx();
+        ctx.path = format!("/wallet-management/{address}");
+        ctx.params
+            .insert("address".to_string(), address.to_string());
+        ctx.params.insert(
+            ADMIN_WALLET_DETAIL_STATE_PARAM.to_string(),
+            state.to_string(),
+        );
+        if let Some(data) = data {
+            ctx.params
+                .insert(ADMIN_WALLET_DETAIL_DATA_PARAM.to_string(), data);
         }
         ctx
     }
@@ -653,6 +1021,73 @@ mod tests {
         ] {
             assert!(decode_admin_wallet_stats_projection(malformed).is_none());
         }
+    }
+
+    #[test]
+    fn wallet_list_projection_is_bounded_redacted_and_route_safe() {
+        let value = serde_json::json!({
+            "items": [{
+                "address": TEST_ADDRESS,
+                "chain_id": "56",
+                "label": "Treasury",
+                "role": "user",
+                "status": "active",
+                "version": 4
+            }],
+            "total": 1,
+            "limit": 100,
+            "offset": 0
+        });
+        let projection = decode_admin_wallet_list_projection(value).unwrap();
+        assert_eq!(projection.items[0].address, TEST_ADDRESS);
+        assert_eq!(projection.items[0].version, 4);
+
+        let mut hostile = serde_json::json!({
+            "items": [{
+                "address": format!("{TEST_ADDRESS}/../x"),
+                "chain_id": "56",
+                "label": "Treasury",
+                "role": "user",
+                "status": "active",
+                "version": 4
+            }],
+            "total": 1,
+            "limit": 100,
+            "offset": 0
+        });
+        assert!(decode_admin_wallet_list_projection(hostile.take()).is_none());
+    }
+
+    #[test]
+    fn wallet_list_page_renders_only_verified_rows_and_detail_links() {
+        let mut ctx = authenticated_ctx();
+        ctx.params.insert(
+            ADMIN_WALLET_LIST_STATE_PARAM.to_string(),
+            ADMIN_WALLET_LIST_READY.to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_WALLET_LIST_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "items": [{
+                    "address": TEST_ADDRESS,
+                    "chain_id": "56",
+                    "label": null,
+                    "role": "user",
+                    "status": "disabled",
+                    "version": 2
+                }],
+                "total": 1,
+                "limit": 100,
+                "offset": 0
+            })
+            .to_string(),
+        );
+        let rendered = html(render(&ctx).1);
+        assert!(rendered.contains("data-admin-wallet-list-state=\"ready\""));
+        assert!(rendered.contains(TEST_ADDRESS));
+        assert!(rendered.contains("/wallet-management/0x1111111111111111111111111111111111111111"));
+        assert!(!rendered.contains("metadata"));
+        assert!(!rendered.contains("<form"));
     }
 
     #[test]
@@ -782,19 +1217,61 @@ mod tests {
             Some(stats_json(1_234, 900, 334, 56)),
         );
         ctx.params
-            .insert("address".to_string(), "0xunverified".to_string());
+            .insert("address".to_string(), TEST_ADDRESS.to_string());
 
-        for (surface, rendered) in [
-            ("detail", html(render_detail(&ctx).1)),
-            ("disable", html(render_disable(&ctx).1)),
-        ] {
-            assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
-            assert!(rendered.contains(&format!("data-admin-wallets-surface=\"{surface}\"")));
-            assert!(!rendered.contains("User status summary"));
-            assert!(!rendered.contains("1,234"));
-            assert!(!rendered.contains("Users marked active"));
-            assert_no_samples_or_controls(&rendered);
-        }
+        let detail = html(render_detail(&ctx).1);
+        assert!(detail.contains("data-admin-wallet-detail-state=\"unavailable\""));
+        assert!(!detail.contains("User status summary"));
+        assert!(!detail.contains("1,234"));
+        assert_no_samples_or_controls(&detail);
+
+        let disable = html(render_disable(&ctx).1);
+        assert!(disable.contains("data-admin-wallet-disable-state=\"unavailable\""));
+        assert!(!disable.contains("1,234"));
+        assert_no_samples_or_controls(&disable);
+    }
+
+    #[test]
+    fn wallet_detail_projection_is_strict_redacted_and_route_bound() {
+        let mut ctx = ctx_with_wallet_detail(
+            ADMIN_WALLET_DETAIL_READY,
+            TEST_ADDRESS,
+            Some(wallet_detail_json(TEST_ADDRESS)),
+        );
+        let rendered = html(render_detail(&ctx).1);
+        assert!(rendered.contains("data-admin-wallet-detail-state=\"ready\""));
+        assert!(rendered.contains(TEST_ADDRESS));
+        assert!(rendered.contains("Read-only wallet"));
+        assert!(!rendered.contains("metadata"));
+        assert!(!rendered.contains("<form"));
+        assert!(!rendered.contains("<button"));
+
+        ctx.params.insert(
+            ADMIN_WALLET_DETAIL_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "address": TEST_ADDRESS,
+                "chain_id": "56",
+                "label": "Read-only wallet",
+                "role": "user",
+                "status": "active",
+                "version": 3,
+                "metadata": {"secret": "redacted"},
+            })
+            .to_string(),
+        );
+        let malformed = html(render_detail(&ctx).1);
+        assert!(malformed.contains("data-admin-wallet-detail-state=\"malformed\""));
+        assert!(!malformed.contains("redacted"));
+
+        let mismatched = ctx_with_wallet_detail(
+            ADMIN_WALLET_DETAIL_READY,
+            TEST_ADDRESS,
+            Some(wallet_detail_json(
+                "0x2222222222222222222222222222222222222222",
+            )),
+        );
+        assert!(html(render_detail(&mismatched).1)
+            .contains("data-admin-wallet-detail-state=\"malformed\""));
     }
 
     #[test]
@@ -852,15 +1329,21 @@ mod tests {
         let list = html(render(&ctx).1);
 
         ctx.params
-            .insert("address".to_string(), "0xunverified".to_string());
-        ctx.path = "/wallet-management/0xunverified".to_string();
+            .insert("address".to_string(), TEST_ADDRESS.to_string());
+        ctx.path = format!("/wallet-management/{TEST_ADDRESS}");
         let detail = html(render_detail(&ctx).1);
-        ctx.path = "/wallet-management/wallets/0xunverified/disable".to_string();
+        ctx.path = format!("/wallet-management/wallets/{TEST_ADDRESS}/disable");
         let disable = html(render_disable(&ctx).1);
 
-        for (surface, rendered) in [("list", list), ("detail", detail), ("disable", disable)] {
-            assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
-            assert!(rendered.contains(&format!("data-admin-wallets-surface=\"{surface}\"")));
+        assert!(list.contains("data-admin-wallets-state=\"unavailable\""));
+        assert!(list.contains("data-admin-wallets-surface=\"list\""));
+        for (surface, rendered) in [("detail", detail), ("disable", disable)] {
+            let state_marker = if surface == "detail" {
+                "data-admin-wallet-detail-state=\"unavailable\""
+            } else {
+                "data-admin-wallet-disable-state=\"unavailable\""
+            };
+            assert!(rendered.contains(state_marker));
             assert!(!rendered.contains("Permission required"));
             assert!(!rendered.contains("Admin access required"));
             assert_no_samples_or_controls(&rendered);
@@ -868,7 +1351,7 @@ mod tests {
     }
 
     #[test]
-    fn dynamic_reference_is_bounded_escaped_unverified_and_one_encoded_segment() {
+    fn invalid_dynamic_wallet_address_is_malformed_without_reflection() {
         let mut ctx = authenticated_ctx();
         ctx.path = "/wallet-management/hostile".to_string();
         ctx.params.insert(
@@ -877,13 +1360,10 @@ mod tests {
         );
         let rendered = html(render_detail(&ctx).1);
 
-        assert!(rendered.contains("Unverified route reference"));
-        assert!(rendered.contains("data-admin-wallet-route-reference=\"bounded\""));
-        assert!(rendered.contains('…'));
+        assert!(rendered.contains("data-admin-wallet-detail-state=\"malformed\""));
         assert!(!rendered.contains("<script>"));
         assert!(!rendered.contains("alert(1)"));
-        assert!(rendered.contains("href=\"/wallet-management/"));
-        assert!(!rendered.contains("\n"));
+        assert!(!rendered.contains("Unverified route reference"));
         assert_no_samples_or_controls(&rendered);
     }
 
@@ -907,6 +1387,27 @@ mod tests {
         }
         assert!(rendered.contains("data-admin-wallets-state=\"unavailable\""));
         assert_no_samples_or_controls(&rendered);
+    }
+
+    #[test]
+    fn disable_surface_requires_backend_detail_and_emits_bounded_form() {
+        let mut ctx = ctx_with_wallet_detail(
+            ADMIN_WALLET_DETAIL_READY,
+            TEST_ADDRESS,
+            Some(wallet_detail_json(TEST_ADDRESS)),
+        );
+        ctx.path = format!("/wallet-management/wallets/{TEST_ADDRESS}/disable");
+        ctx.params.insert(
+            ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+            ADMIN_WALLET_DISABLE_FORM.to_string(),
+        );
+        let rendered = html(render_disable(&ctx).1);
+        assert!(rendered.contains("data-admin-wallet-disable-state=\"form\""));
+        assert!(rendered.contains("method=\"post\""));
+        assert!(rendered.contains("name=\"expected_version\""));
+        assert!(rendered.contains("name=\"idempotency_key\""));
+        assert!(rendered.contains("name=\"reason\""));
+        assert!(rendered.contains("Disable wallet"));
     }
 
     #[test]

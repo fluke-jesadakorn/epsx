@@ -35,7 +35,6 @@ pub fn ChatBubble(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_bubble_smoke() {}

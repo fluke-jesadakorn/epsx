@@ -65,7 +65,6 @@ pub fn Timeline(#[props(default = None)] class: Option<String>, children: Elemen
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn timeline_default_class() {

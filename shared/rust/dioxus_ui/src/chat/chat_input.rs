@@ -48,7 +48,6 @@ pub fn ChatInput(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_input_smoke() {}

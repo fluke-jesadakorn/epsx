@@ -61,11 +61,7 @@ pub async fn admin_list_subscriptions_handler(
         status: params.status.clone(),
     };
     let (rows, total_count) = payment_repo
-        .list_admin_subscriptions_with_plan_names_paginated(
-            filters.clone(),
-            pg.page,
-            pg.limit as u32,
-        )
+        .list_admin_subscriptions_with_plan_names_paginated(filters.clone(), pg.page, pg.limit)
         .await
         .map_err(|e| {
             error!("Failed to list subscriptions: {}", e);

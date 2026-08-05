@@ -1,5 +1,3 @@
-use crate::primitives::icon::Icon;
-
 use dioxus::prelude::*;
 
 #[component]

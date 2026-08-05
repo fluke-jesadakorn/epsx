@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::fmt::{self, Display};
 use std::collections::HashSet;
+use std::fmt::{self, Display};
 
 /// Notification Topic Value Object
 /// Represents email topics for broadcasting notifications to plans of users
@@ -77,16 +77,34 @@ impl NotificationTopic {
     }
 
     /// Create admin topic
-    pub fn admin_topic(name: String, display_name: String, description: String) -> Result<Self, String> {
-        let mut topic = Self::new(name, display_name, Some(description), TopicCategory::Administrative)?;
+    pub fn admin_topic(
+        name: String,
+        display_name: String,
+        description: String,
+    ) -> Result<Self, String> {
+        let mut topic = Self::new(
+            name,
+            display_name,
+            Some(description),
+            TopicCategory::Administrative,
+        )?;
         topic.access_level = AccessLevel::Admin;
         topic.target_permissions.insert("admin:*:*".to_string());
         Ok(topic)
     }
 
     /// Create public topic (accessible to all users)
-    pub fn public_topic(name: String, display_name: String, description: String) -> Result<Self, String> {
-        Self::new(name, display_name, Some(description), TopicCategory::General)
+    pub fn public_topic(
+        name: String,
+        display_name: String,
+        description: String,
+    ) -> Result<Self, String> {
+        Self::new(
+            name,
+            display_name,
+            Some(description),
+            TopicCategory::General,
+        )
     }
 
     /// Create broadcast topic (for system-wide announcements)
@@ -161,7 +179,7 @@ impl NotificationTopic {
         if permission.is_empty() {
             return Err("Permission cannot be empty".to_string());
         }
-        
+
         self.target_permissions.insert(permission);
         Ok(())
     }
@@ -180,11 +198,9 @@ impl NotificationTopic {
         match self.access_level {
             AccessLevel::Public => true,
             AccessLevel::User => !user_permissions.is_empty(),
-            AccessLevel::Premium => {
-                user_permissions.iter().any(|p| {
-                    p.contains("premium") || p.contains("gold") || p.contains("platinum")
-                })
-            }
+            AccessLevel::Premium => user_permissions
+                .iter()
+                .any(|p| p.contains("premium") || p.contains("gold") || p.contains("platinum")),
             AccessLevel::Admin => {
                 let perms: Vec<String> = user_permissions.iter().cloned().collect();
                 epsx_contracts::permissions::has_admin_platform_permission(&perms)
@@ -221,18 +237,29 @@ impl NotificationTopic {
     pub fn email_topic_name(&self) -> String {
         // Email topic names must be safe for email headers
         let mut email_name = self.name.clone();
-        
+
         // Replace invalid characters
         email_name = email_name.replace(' ', "_");
-        email_name = email_name.chars()
-            .map(|c| if c.is_alphanumeric() || "-.~_%".contains(c) { c } else { '_' })
+        email_name = email_name
+            .chars()
+            .map(|c| {
+                if c.is_alphanumeric() || "-.~_%".contains(c) {
+                    c
+                } else {
+                    '_'
+                }
+            })
             .collect();
-            
+
         // Ensure it doesn't start with a number or special character
-        if email_name.chars().next().is_none_or(|c| !c.is_ascii_alphabetic()) {
+        if email_name
+            .chars()
+            .next()
+            .is_none_or(|c| !c.is_ascii_alphabetic())
+        {
             email_name = format!("topic_{}", email_name);
         }
-        
+
         email_name
     }
 
@@ -248,7 +275,8 @@ impl NotificationTopic {
         }
 
         // Only lowercase letters, numbers, hyphens, underscores
-        name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
+        name.chars()
+            .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-' || c == '_')
     }
 
     /// Get default access level for category
@@ -368,7 +396,8 @@ mod tests {
             "Test Topic".to_string(),
             Some("A test topic".to_string()),
             TopicCategory::General,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(topic.name(), "test_topic");
         assert_eq!(topic.display_name(), "Test Topic");
@@ -383,7 +412,8 @@ mod tests {
             "Display".to_string(),
             None,
             TopicCategory::General,
-        ).is_err());
+        )
+        .is_err());
 
         // Name starting with number
         assert!(NotificationTopic::new(
@@ -391,7 +421,8 @@ mod tests {
             "Display".to_string(),
             None,
             TopicCategory::General,
-        ).is_err());
+        )
+        .is_err());
 
         // Invalid characters
         assert!(NotificationTopic::new(
@@ -399,7 +430,8 @@ mod tests {
             "Display".to_string(),
             None,
             TopicCategory::General,
-        ).is_err());
+        )
+        .is_err());
     }
 
     #[test]
@@ -407,7 +439,8 @@ mod tests {
         let topic = NotificationTopic::system_topic(
             "system_alerts".to_string(),
             "System Alerts".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(topic.access_level(), &AccessLevel::System);
         assert_eq!(topic.category(), &TopicCategory::System);
@@ -419,7 +452,8 @@ mod tests {
             "admin_notifications".to_string(),
             "Admin Notifications".to_string(),
             "Administrative updates".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(topic.access_level(), &AccessLevel::Admin);
         assert!(topic.target_permissions().contains("admin:*:*"));
@@ -431,20 +465,22 @@ mod tests {
             "public_news".to_string(),
             "Public News".to_string(),
             "Public announcements".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let admin_topic = NotificationTopic::admin_topic(
             "admin_alerts".to_string(),
             "Admin Alerts".to_string(),
             "Admin notifications".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let user_permissions = vec!["user:profile:read".to_string()].into_iter().collect();
         let admin_permissions = vec!["admin:users:manage".to_string()].into_iter().collect();
 
         assert!(public_topic.can_user_subscribe(&user_permissions));
         assert!(public_topic.can_user_subscribe(&admin_permissions));
-        
+
         assert!(!admin_topic.can_user_subscribe(&user_permissions));
         assert!(admin_topic.can_user_subscribe(&admin_permissions));
     }
@@ -456,10 +492,13 @@ mod tests {
             "Test Topic".to_string(),
             None,
             TopicCategory::General,
-        ).unwrap();
+        )
+        .unwrap();
 
         let email_name = topic.email_topic_name();
-        assert!(email_name.chars().all(|c| c.is_alphanumeric() || "-.~_%".contains(c)));
+        assert!(email_name
+            .chars()
+            .all(|c| c.is_alphanumeric() || "-.~_%".contains(c)));
         assert!(email_name.chars().next().unwrap().is_ascii_alphabetic());
     }
 
@@ -470,10 +509,15 @@ mod tests {
             "Premium Features".to_string(),
             None,
             TopicCategory::Feature,
-        ).unwrap();
+        )
+        .unwrap();
 
-        topic.add_permission_requirement("premium:*:*".to_string()).unwrap();
-        topic.add_permission_requirement("gold:*:*".to_string()).unwrap();
+        topic
+            .add_permission_requirement("premium:*:*".to_string())
+            .unwrap();
+        topic
+            .add_permission_requirement("gold:*:*".to_string())
+            .unwrap();
 
         assert_eq!(topic.target_permissions().len(), 2);
         assert!(topic.target_permissions().contains("premium:*:*"));
@@ -487,14 +531,16 @@ mod tests {
         let system_topic = NotificationTopic::system_topic(
             "system_maintenance".to_string(),
             "System Maintenance".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let marketing_topic = NotificationTopic::new(
             "promotions".to_string(),
             "Promotions".to_string(),
             None,
             TopicCategory::Marketing,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(system_topic.is_suitable_for_notification("system", "high"));
         assert!(!system_topic.is_suitable_for_notification("marketing", "normal"));
@@ -508,16 +554,24 @@ mod tests {
         let system_topic = NotificationTopic::system_topic(
             "system_alerts".to_string(),
             "System Alerts".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let marketing_topic = NotificationTopic::new(
             "promotions".to_string(),
             "Promotions".to_string(),
             None,
             TopicCategory::Marketing,
-        ).unwrap();
+        )
+        .unwrap();
 
-        assert_eq!(system_topic.estimated_subscriber_scale(), SubscriberScale::Small);
-        assert_eq!(marketing_topic.estimated_subscriber_scale(), SubscriberScale::Large);
+        assert_eq!(
+            system_topic.estimated_subscriber_scale(),
+            SubscriberScale::Small
+        );
+        assert_eq!(
+            marketing_topic.estimated_subscriber_scale(),
+            SubscriberScale::Large
+        );
     }
 }

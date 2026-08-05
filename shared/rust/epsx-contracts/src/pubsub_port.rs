@@ -29,7 +29,7 @@
 //!   admin chat stream can subscribe to `chat:new` + `chat:agent:<id>`
 //!   in one call (matches the existing `redis_broadcaster::subscribe_to_channel`
 //!   + extra `ps.subscribe(&agent_channel).await` pattern at
-//!   `web/admin/chat_handlers.rs:443-454`).
+//!     `web/admin/chat_handlers.rs:443-454`).
 //! - `publish` returns `AppResult<()>` not `usize`. The number of
 //!   subscribers reached is transport-specific (Redis returns the count;
 //!   in-memory broadcast has its own semantics) and is not part of the

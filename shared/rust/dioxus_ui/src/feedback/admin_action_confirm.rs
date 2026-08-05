@@ -29,10 +29,11 @@ use dioxus::prelude::*;
 /// - `Destructive` — red (delete, revoke, purge)
 /// - `Warning` — amber (cancel scheduled, unpublish)
 /// - `Info` — cyan/primary (generic confirm)
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum ConfirmVariant {
     /// Red confirm button — used for permanent destructive ops
     /// (delete article, purge notification, revoke API key).
+    #[default]
     Destructive,
     /// Amber confirm button — used for ops that revert state but
     /// don't destroy data (cancel scheduled notification,
@@ -41,12 +42,6 @@ pub enum ConfirmVariant {
     /// Brand / cyan confirm button — generic non-destructive
     /// confirm (acknowledge log, send for review).
     Info,
-}
-
-impl Default for ConfirmVariant {
-    fn default() -> Self {
-        ConfirmVariant::Destructive
-    }
 }
 
 /// Render a button class string for the given variant. Centralized
@@ -174,7 +169,7 @@ mod tests {
     /// `rsx!` block fails with "Must be called from inside a Dioxus
     /// runtime". The `VirtualDom::new(harness)` + `rebuild_in_place()`
     /// + `dioxus_ssr::render(&vdom)` pattern (mirrored from
-    /// `data/export_dialog.rs::tests`) is the working one.
+    ///   `data/export_dialog.rs::tests`) is the working one.
     fn render_html(harness: fn() -> Element) -> String {
         let mut vdom = dioxus::prelude::VirtualDom::new(harness);
         vdom.rebuild_in_place();

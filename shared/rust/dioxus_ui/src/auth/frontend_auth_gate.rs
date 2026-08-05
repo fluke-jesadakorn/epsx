@@ -58,7 +58,6 @@ pub fn FrontendAuthGate(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn frontend_auth_gate_renders_overlay_class() {

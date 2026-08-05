@@ -62,8 +62,8 @@ bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
 if (report.productionReady !== false || report.readinessExit !== 3) process.exit(1);
 if (report.authority.decision !== "unresolved-do-not-cut-over-or-dual-write" || report.authority.evidence !== 7) process.exit(1);
-if (report.runtimeRust.files !== 11 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -10) process.exit(1);
-if (Object.values(report.runtimeRust.qualifiedRelations).reduce((sum, value) => sum + value, 0) !== 54) process.exit(1);
+if (report.runtimeRust.files !== 12 || report.runtimeRust.ddlFindings !== 0 || report.runtimeRust.expectedDelta !== -10) process.exit(1);
+if (Object.values(report.runtimeRust.qualifiedRelations).reduce((sum, value) => sum + value, 0) !== 55) process.exit(1);
 if (report.runtimeRust.bindAnchors !== 11 || report.migrationRoot.statements !== 10 || report.migrationRoot.runner !== null) process.exit(1);
 if (report.schema.tables.length !== 4 || report.schema.columns !== 39 || report.schema.structuralConstraints !== 5) process.exit(1);
 if (report.schema.postgres18NotNullConstraints !== 29 || report.schema.postgres18CatalogConstraints !== 34) process.exit(1);
@@ -122,7 +122,7 @@ expect_contract_tamper hostile-search-path \
   'const index = contract.runtimeBoundary.queryRequiredAnchors.findIndex((value) => value.includes("public.pay_intents")); contract.runtimeBoundary.queryRequiredAnchors[index] = "to_regclass(\"pay_intents\")"' \
   'compatibility-query anchors drifted|missing compatibility-query anchor'
 expect_contract_tamper unqualified-runtime-relation \
-  'contract.runtimeBoundary.qualifiedRelationOccurrences["public.pay_intents"] = 28' \
+  'contract.runtimeBoundary.qualifiedRelationOccurrences["public.pay_intents"] = 27' \
   'qualified relation occurrence contract drifted|runtime relation count'
 expect_contract_tamper bind-contract \
   'contract.runtimeBoundary.bindAnchors[0] = ".bind(state.chain_id)"' \

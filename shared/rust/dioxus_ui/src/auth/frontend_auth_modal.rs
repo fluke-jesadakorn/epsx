@@ -51,7 +51,6 @@ pub fn FrontendAuthModal(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn frontend_auth_modal_renders_closed_by_default() {

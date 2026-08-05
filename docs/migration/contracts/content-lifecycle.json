@@ -174,22 +174,22 @@
     {
       "id": "target-news-fallback",
       "file": "services/content/src/main.rs",
-      "anchor": "Article for <code>{slug}</code> coming soon."
+      "anchor": "return Err(StatusCode::NOT_FOUND)"
     },
     {
       "id": "target-plans-file-read",
       "file": "services/content/src/main.rs",
-      "anchor": "marketing/plans.json"
+      "anchor": "Plan eligibility, pricing, and entitlements are backend-owned."
     },
     {
       "id": "target-ranking-static",
       "file": "services/content/src/main.rs",
-      "anchor": "\"ticker\": \"GHC\""
+      "anchor": "Ranking authority and offsets belong to the Rust backend/analytics"
     },
     {
       "id": "target-portfolio-placeholder",
       "file": "services/content/src/main.rs",
-      "anchor": "\"auth_required\": true"
+      "anchor": "Portfolio balances, subscriptions, and transactions are owner-scoped"
     },
     {
       "id": "target-auth-boundary",
@@ -209,12 +209,12 @@
     {
       "id": "target-bff-ranking-absent",
       "file": "apps/frontend/src/main.rs",
-      "anchor": "Ranking and plan compatibility producers are intentionally absent."
+      "anchor": "\"/api/v1/rankings\","
     },
     {
       "id": "target-bff-plan-absent",
       "file": "apps/frontend/src/main.rs",
-      "anchor": "Market entitlements and subscription pricing remain backend-owned."
+      "anchor": "\"/api/v1/plans\","
     },
     {
       "id": "target-bff-news-upstream",
@@ -259,7 +259,7 @@
     {
       "id": "target-analytics-ui-unavailable",
       "file": "shared/rust/dioxus_ui/src/pages/analytics.rs",
-      "anchor": "\"data-analytics-state\": \"unavailable\""
+      "anchor": "fn empty_malformed_and_unavailable_states_are_distinct()"
     },
     {
       "id": "target-frontend-security-layer",

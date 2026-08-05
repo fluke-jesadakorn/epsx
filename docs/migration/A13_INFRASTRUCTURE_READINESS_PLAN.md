@@ -6,7 +6,7 @@ The machine contract is [`contracts/infrastructure-readiness.json`](contracts/in
 
 ## Current rendered topology
 
-The production overlay renders 17 resources: one namespace, eight Services, and eight Deployments. The observed public payment path is:
+The production overlay renders 15 resources: one namespace, seven Services, and seven Deployments. The observed public payment path is:
 
 ```text
 pay.epsx.io
@@ -20,16 +20,15 @@ internal pay service (not public)
 
 | Deployment | Rendered image | Replica | Readiness | Important gap |
 |---|---|---:|---|---|
-| `epsx-admin` | `epsx-admin:dev` | 1 | HTTP `/api/health` | dev tag, no digest, shallow |
+| `epsx-admin` | `epsx-admin-frontend:prod` | 1 | HTTP `/api/health` | mutable tag, no digest, shallow |
 | `epsx-analytics` | `epsx-analytics:wave12` | 1 | HTTP `/health` | mutable tag; identity dependencies not gated |
 | `epsx-backend` | `epsx-backend:prod` (init and app) | 1 | HTTP `/health` | mutable tag; dependency depth unproven |
-| `epsx-frontend` | `epsx-frontend:dev` | 1 | HTTP `/api/health` | dev tag, no digest, shallow |
+| `epsx-frontend` | `epsx-frontend:prod` | 1 | HTTP `/api/health` | mutable tag, no digest, shallow |
 | `epsx-identity` | `epsx-identity:dev` | 1 | TCP `50051` | SSE `50052` is not checked; deployed stub is not candidate HTTP identity |
-| `epsx-pay-bff` | `epsx-pay-bff:prod` | 1 | HTTP `/api/health` | mutable tag; public ingress bypasses it |
-| `epsx-pay-svc` | `epsx-pay-svc:prod` | 1 | HTTP `/health` | raw NodePort, literal DB credentials, zero escrow, no webhook env |
-| `epsx-notification` | `epsx-notification:prod` | 1 | HTTP `/ready` | standalone artifact and secret wiring are checked in; live dependency/provider/rollback proof is absent |
+| `epsx-pay-bff` | `epsx-pay-bff:wave49` | 1 | HTTP `/api/health` | mutable tag; authenticated live ingress remains unproven |
+| `epsx-pay-svc` | `epsx-pay-svc:wave49` | 1 | HTTP `/health` | raw NodePort, literal DB credentials, zero escrow, no webhook env |
 
-All eight image occurrences use `IfNotPresent`; none uses an immutable digest. Six prod image-transform keys use registry-prefixed names that do not match the base image names, while identity has no prod transform. This leaves three `:dev` images and prevents the declared wave/prod replacements from being a reliable image-resolution contract.
+All eight image occurrences use `IfNotPresent`; none uses an immutable digest. The six declared prod image-transform keys now exactly match the base image names and apply four visible replacements, while identity has no prod transform and remains the single `:dev` occurrence. This closes only the static key-resolution defect; mutable tags and image provenance remain blockers.
 
 ## Exposure, state, and dependency findings
 
@@ -38,7 +37,7 @@ All eight image occurrences use `IfNotPresent`; none uses an immutable digest. S
 - The prod Cloudflare artifact now maps pay through the BFF bridge (`4752 -> 30085`); it still contains no checked-in `epsx.io`, `admin.epsx.io`, or analytics ingress mapping. Other Cloudflare files describe different local topologies, so one reviewed ingress authority is not established.
 - Backend/frontend/admin use rendered Secret references. Pay instead embeds a PostgreSQL URL containing credentials, renders `ESCROW_CONTRACT=0`, has no Secret reference, and has no webhook configuration. Rendered Secret resources are absent; existence and key compatibility are not proven by this artifact audit.
 - The production base does not deploy candidate gateway, HTTP identity, wallet, subscription, content, notification, event-tracking analytics, or indexer services. The rendered analytics and identity deployments are different implementations documented in the production plan.
-- Each Deployment has liveness and readiness, but most probes remain shallow process endpoints or one TCP port. The notification Deployment now also has a bounded startup probe while identity and the remaining workloads still lack equivalent startup/listener-depth and dependency readiness; the manifests do not yet gate database, Redis, chain RPC, identity, webhook, or downstream readiness.
+- Each production Deployment has liveness and readiness, but the probes remain shallow process endpoints or one TCP port and none has a startup probe. A dev/staging-only notification manifest has a bounded startup probe, but it is intentionally absent from the production render. The production manifests do not yet gate database, Redis, chain RPC, identity, webhook, or downstream readiness.
 - Every Deployment is one replica. No checked-in strategy, disruption budget, topology spread, shadow route, traffic split, SLO abort threshold, immutable previous revision, or rehearsed rollback artifact closes the release loop.
 
 ## Required execution order

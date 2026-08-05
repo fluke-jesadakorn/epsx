@@ -13,6 +13,8 @@ use thiserror::Error;
 
 pub const PLANS_READ_PERMISSION: &str = "admin:plans:read";
 pub const PLANS_MANAGE_PERMISSION: &str = "admin:plans:manage";
+pub const ACCESS_READ_PERMISSION: &str = "admin:access:read";
+pub const ACCESS_MANAGE_PERMISSION: &str = "admin:access:manage";
 
 const SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
 WITH expected_columns (
@@ -166,6 +168,13 @@ SELECT
     AND (SELECT compatible FROM primary_key_compatibility)
     AND (SELECT compatible FROM primary_key_index_compatibility)
     AND (SELECT compatible FROM foreign_key_compatibility)
+    AND (
+        SELECT COUNT(*) = 3
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'subscription_plan_state'
+          AND column_name IN ('plan_id', 'version', 'updated_at')
+    )
 "#;
 
 #[derive(Debug, Error)]
@@ -229,6 +238,7 @@ pub fn protect_router(router: Router, verifier: Arc<dyn AccessTokenVerifier>) ->
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AccessPolicy {
     Public,
+    AdminPermission(&'static str),
     PlansRead,
     PlansManage,
     OwnerIdentityUnavailable,
@@ -242,6 +252,31 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     }
     if path.contains('%') || path.contains('\\') {
         return AccessPolicy::Blocked;
+    }
+    if path == "/api/v1/admin/subscription/plans" || path.starts_with("/api/v1/admin/subscription/")
+    {
+        let tail = path
+            .strip_prefix("/api/v1/admin/subscription/")
+            .unwrap_or_default();
+        let segments: Vec<_> = tail.split('/').collect();
+        if segments.iter().any(|segment| segment.is_empty()) {
+            return AccessPolicy::Blocked;
+        }
+        return match (method, segments.as_slice()) {
+            (&Method::GET, ["plans"]) => AccessPolicy::AdminPermission(PLANS_READ_PERMISSION),
+            (&Method::GET, ["plans", id]) if safe_dynamic_segment(id) => {
+                AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
+            }
+            (&Method::POST, ["plans"]) => AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION),
+            (&Method::PATCH, ["plans", id]) if safe_dynamic_segment(id) => {
+                AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION)
+            }
+            (&Method::GET, ["access"]) => AccessPolicy::AdminPermission(ACCESS_READ_PERMISSION),
+            (&Method::POST, ["access", "assign" | "revoke"]) => {
+                AccessPolicy::AdminPermission(ACCESS_MANAGE_PERMISSION)
+            }
+            _ => AccessPolicy::Blocked,
+        };
     }
     let Some(tail) = path.strip_prefix("/api/v1/subscription/") else {
         return AccessPolicy::Blocked;
@@ -266,7 +301,14 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
 }
 
 fn safe_dynamic_segment(segment: &str) -> bool {
-    !segment.is_empty() && !matches!(segment, "." | "..")
+    !segment.is_empty()
+        && segment
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+        && !matches!(
+            segment,
+            "plans" | "subscriptions" | "vault" | "access" | "assign" | "revoke" | "cancel"
+        )
 }
 
 async fn authorize_request(
@@ -278,6 +320,22 @@ async fn authorize_request(
     match classify(request.method(), request.uri().path()) {
         AccessPolicy::Public => {
             request.headers_mut().remove(header::AUTHORIZATION);
+        }
+        AccessPolicy::AdminPermission(required) => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != ADMIN_AUDIENCE
+                || !principal
+                    .permissions
+                    .iter()
+                    .any(|permission| permission == required)
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
         }
         AccessPolicy::PlansRead => {
             let principal =
@@ -511,6 +569,40 @@ mod tests {
         assert_eq!(downstream.authorization_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.spoofed_identity_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn admin_resource_prefix_is_a_strict_path_boundary() {
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/subscription/plans"),
+            AccessPolicy::AdminPermission(PLANS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/subscription/plans"),
+            AccessPolicy::AdminPermission(PLANS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/subscription/access"),
+            AccessPolicy::AdminPermission(ACCESS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/subscription/access/assign"),
+            AccessPolicy::AdminPermission(ACCESS_MANAGE_PERMISSION)
+        ));
+        for path in [
+            "/api/v1/admin/subscriptionfoo",
+            "/api/v1/admin/subscription/plansfoo",
+            "/api/v1/admin/subscription/plans/plan.id",
+            "/api/v1/admin/subscription/plans/../",
+            "/api/v1/admin/subscription/plans/%2e%2e",
+            "/api/v1/admin/subscription/accessfoo",
+        ] {
+            assert_eq!(
+                classify(&Method::GET, path),
+                AccessPolicy::Blocked,
+                "{path}"
+            );
+        }
     }
 
     #[tokio::test]

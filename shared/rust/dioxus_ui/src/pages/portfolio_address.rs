@@ -87,8 +87,10 @@ mod tests {
     use crate::pages::PageContext;
 
     fn ctx_with_address(address: &str) -> PageContext {
-        let mut p = PageContext::default();
-        p.path = format!("/portfolio/{address}");
+        let mut p = PageContext {
+            path: format!("/portfolio/{address}"),
+            ..PageContext::default()
+        };
         p.params.insert("address".to_string(), address.to_string());
         p
     }

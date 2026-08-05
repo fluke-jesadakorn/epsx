@@ -49,7 +49,7 @@ fn failed_cookie_clear_never_attests_cleared_session_state() {
         |_| false,
     ) {
         Ok(_) => panic!("forced cookie failure unexpectedly succeeded"),
-        Err(response) => response,
+        Err(response) => *response,
     };
     assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
     assert!(response.headers().get(SESSION_STATE_HEADER).is_none());

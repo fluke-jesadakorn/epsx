@@ -95,7 +95,6 @@ pub fn Divider(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn vstack_default_gap() {

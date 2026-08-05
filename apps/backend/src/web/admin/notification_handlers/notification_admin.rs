@@ -413,7 +413,7 @@ mod privacy_tests {
     security(("bearerAuth" = []))
 )]
 pub async fn get_all_notifications_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
     Query(filters): Query<NotificationFilters>,
 ) -> Result<impl IntoResponse, AppError> {
     let pg = crate::web::pagination::Pagination::standard(filters.page, filters.limit);
@@ -500,7 +500,7 @@ pub async fn get_all_notifications_handler(
     security(("bearerAuth" = []))
 )]
 pub async fn get_notification_stats_handler(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);

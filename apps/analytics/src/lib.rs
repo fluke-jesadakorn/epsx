@@ -137,7 +137,6 @@ mod tests {
         // The helper is the assertion — the type system enforces
         // it. Just keep a runtime `assert!` to keep the test fn
         // meaningful if someone refactors the helper.
-        assert!(true, "type-level re-export sanity holds");
         let _ = assert_same_type;
     }
 

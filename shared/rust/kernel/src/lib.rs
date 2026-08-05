@@ -1,5 +1,4 @@
 use alloy_primitives::{Address, U256};
-use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use thiserror::Error;

@@ -120,9 +120,16 @@ pub fn build_http_client() -> Result<reqwest::Client, reqwest::Error> {
 }
 
 pub fn build_router(state: AppState) -> Router {
-    let app = Router::new()
+    Router::new()
         .route("/health", get(health))
         .route("/api/v1/identity/{*path}", any(proxy_identity))
+        .route("/api/v1/admin/wallets/{*path}", any(proxy_wallet))
+        .route("/api/v1/admin/credits/{*path}", any(proxy_wallet))
+        .route("/api/v1/admin/pay/{*path}", any(proxy_payment))
+        .route(
+            "/api/v1/admin/subscription/{*path}",
+            any(proxy_subscription),
+        )
         .route("/api/v1/wallet/{*path}", any(proxy_wallet))
         .route("/api/v1/payment/{*path}", any(proxy_payment))
         .route("/api/v1/pay/{*path}", any(proxy_payment))
@@ -140,8 +147,7 @@ pub fn build_router(state: AppState) -> Router {
         .route("/api/v1/indexer/{*path}", any(proxy_indexer))
         .fallback(not_found)
         .layer(TraceLayer::new_for_http())
-        .with_state(state);
-    app
+        .with_state(state)
 }
 
 async fn health() -> StatusCode {

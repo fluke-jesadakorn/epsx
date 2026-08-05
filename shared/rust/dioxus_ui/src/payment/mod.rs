@@ -11,8 +11,6 @@
 //! shapes that the page-level BFF call sites can fill in from
 //! the payment / subscription service clients.
 
-use dioxus::prelude::*;
-
 pub mod chain_verification_card;
 pub mod checkout_button;
 pub mod current_access_card;
@@ -31,7 +29,6 @@ pub use upgrade_banner::{UpgradeBanner, UpgradeUrgency};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn payment_module_re_exports_resolve() {

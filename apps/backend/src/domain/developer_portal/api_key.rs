@@ -113,7 +113,9 @@ pub struct PlanInfo {
 pub struct ApiKey {
     pub id: Uuid,
     pub key_prefix: String,
-    pub full_key: Option<String>, // Full key for user to copy (stored for owner access)
+    /// Ephemeral creation-only secret; repository reads always set this to
+    /// `None` because plaintext keys are never persisted.
+    pub full_key: Option<String>,
     pub client_name: String,
     pub client_description: Option<String>,
     pub client_contact_email: Option<String>,

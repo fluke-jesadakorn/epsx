@@ -8,7 +8,7 @@ use uuid::Uuid;
 
 use crate::infrastructure::adapter_repositories::DbPool;
 use crate::schemas::infra_logs::api_key_usage_logs;
-use crate::schemas::primary::api_keys;
+use crate::schemas::primary::{api_keys, api_modules};
 
 /// API usage statistics for a wallet
 #[derive(Debug, Serialize)]
@@ -45,6 +45,7 @@ pub struct ModuleUsage {
     pub module_id: Uuid,
     pub module_name: String,
     pub request_count: i64,
+    pub unique_api_keys: i64,
 }
 
 /// Usage service with multi-database support
@@ -94,12 +95,11 @@ impl UsageService {
                 "LOWER(wallet_address) = '{}'",
                 wallet_lower.replace('\'', "''")
             )))
-            .select(diesel::dsl::sql::<
-                diesel::sql_types::Nullable<diesel::sql_types::BigInt>,
-            >("SUM(total_requests)::BIGINT"))
-            .first::<Option<i64>>(&mut core_conn)
-            .await?
-            .unwrap_or(0);
+            .select(diesel::dsl::sql::<diesel::sql_types::BigInt>(
+                "COALESCE(SUM(total_requests), 0)::BIGINT",
+            ))
+            .first::<i64>(&mut core_conn)
+            .await?;
 
         // Get API key IDs for analytics queries
         let api_key_ids: Vec<Uuid> = api_keys::table
@@ -112,12 +112,11 @@ impl UsageService {
             .await?;
 
         if api_key_ids.is_empty() {
-            return Ok(UsageStats {
-                total_requests,
-                average_success_rate: 100.0,
-                requests_24h: 0,
-                error_rate_24h: 0.0,
-            });
+            // A wallet without keys has no measured success rate. Returning
+            // 100% here would fabricate an operational metric from absence of
+            // data; the admin read surface maps this dependency result to an
+            // explicit unavailable state.
+            return Err(diesel::result::Error::NotFound);
         }
 
         // Query analytics database for 24h stats
@@ -137,8 +136,7 @@ impl UsageService {
             .filter(api_key_usage_logs::request_at.ge(&twenty_four_hours_ago))
             .count()
             .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+            .await?;
 
         // Count error requests in last 24 hours (status >= 400)
         let error_count: i64 = api_key_usage_logs::table
@@ -147,8 +145,7 @@ impl UsageService {
             .filter(api_key_usage_logs::response_status.ge(Some(400)))
             .count()
             .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+            .await?;
 
         // Calculate rates
         let error_rate_24h = if requests_24h > 0 {
@@ -228,8 +225,7 @@ impl UsageService {
         ))
         .bind::<Timestamptz, _>(start_date)
         .load::<UsageHistoryPoint>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
+        .await?;
 
         Ok(history)
     }
@@ -295,8 +291,7 @@ impl UsageService {
         ))
         .bind::<Timestamptz, _>(start_date)
         .load::<TopEndpoint>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
+        .await?;
 
         Ok(top_endpoints)
     }
@@ -314,14 +309,13 @@ impl UsageService {
             .date_naive()
             .and_hms_opt(0, 0, 0)
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
+            .expect("midnight is always a valid time");
 
         let count: i64 = api_key_usage_logs::table
             .filter(api_key_usage_logs::request_at.ge(&today_start))
             .count()
             .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+            .await?;
 
         Ok(count)
     }
@@ -341,14 +335,13 @@ impl UsageService {
             .with_day(1)
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
+            .expect("the first day of a month at midnight is always valid");
 
         let count: i64 = api_key_usage_logs::table
             .filter(api_key_usage_logs::request_at.ge(&month_start))
             .count()
             .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+            .await?;
 
         Ok(count)
     }
@@ -372,6 +365,8 @@ impl UsageService {
             module_id: Uuid,
             #[diesel(sql_type = diesel::sql_types::BigInt)]
             count: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            unique_api_keys: i64,
         }
 
         let month_start = Utc::now()
@@ -379,13 +374,14 @@ impl UsageService {
             .with_day(1)
             .and_then(|d| d.and_hms_opt(0, 0, 0))
             .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
+            .expect("the first day of a month at midnight is always valid");
 
         let module_counts: Vec<ModuleCount> = diesel::sql_query(format!(
             r#"
             SELECT 
                 module_id,
-                COUNT(*)::BIGINT as count
+                COUNT(*)::BIGINT as count,
+                COUNT(DISTINCT api_key_id)::BIGINT as unique_api_keys
             FROM api_key_usage_logs
             WHERE request_at >= $1
               AND module_id IS NOT NULL
@@ -397,21 +393,48 @@ impl UsageService {
         ))
         .bind::<Timestamptz, _>(month_start)
         .load::<ModuleCount>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
+        .await?;
 
-        // Convert to ModuleUsage (module name lookup would require core DB join)
+        if module_counts.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let module_ids: Vec<Uuid> = module_counts
+            .iter()
+            .map(|module| module.module_id)
+            .collect();
+        let mut core_conn = self.core_pool.get().await.map_err(|e| {
+            diesel::result::Error::DatabaseError(
+                diesel::result::DatabaseErrorKind::Unknown,
+                Box::new(e.to_string()),
+            )
+        })?;
+        let module_rows: Vec<(Uuid, String)> = api_modules::table
+            .filter(api_modules::id.eq_any(&module_ids))
+            .select((api_modules::id, api_modules::display_name))
+            .load(&mut core_conn)
+            .await?;
+        let module_names: std::collections::HashMap<Uuid, String> =
+            module_rows.into_iter().collect();
+        if module_names.len() != module_ids.len() {
+            return Err(diesel::result::Error::NotFound);
+        }
+
         let modules: Vec<ModuleUsage> = module_counts
             .into_iter()
-            .map(|mc| ModuleUsage {
-                module_id: mc.module_id,
-                module_name: format!(
-                    "module-{}",
-                    mc.module_id.to_string().chars().take(8).collect::<String>()
-                ),
-                request_count: mc.count,
+            .map(|mc| {
+                let module_name = module_names
+                    .get(&mc.module_id)
+                    .cloned()
+                    .ok_or(diesel::result::Error::NotFound)?;
+                Ok(ModuleUsage {
+                    module_id: mc.module_id,
+                    module_name,
+                    request_count: mc.count,
+                    unique_api_keys: mc.unique_api_keys,
+                })
             })
-            .collect();
+            .collect::<Result<_, diesel::result::Error>>()?;
 
         Ok(modules)
     }

@@ -406,7 +406,7 @@ mod tests {
         .bind(&job_id)
         .bind(&event_id)
         .bind(&notification_id)
-        .bind(&format!("{suffix}-key"))
+        .bind(format!("{suffix}-key"))
         .execute(&db)
         .await?;
 

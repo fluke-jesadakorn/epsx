@@ -14,7 +14,6 @@ use std::sync::Arc;
 #[derive(Clone)]
 struct AppState {
     content: Arc<ServiceClient>,
-    api_url: String,
 }
 
 #[derive(Deserialize)]
@@ -40,7 +39,6 @@ async fn main() {
     };
     let state = AppState {
         content: Arc::new(ServiceClient::new(cfg)),
-        api_url,
     };
 
     let app = Router::new()

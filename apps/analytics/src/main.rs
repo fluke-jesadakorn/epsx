@@ -21,12 +21,15 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 
 use anyhow::Context;
+#[cfg(test)]
 use async_trait::async_trait;
 use axum::routing::get;
 use axum::Router;
 use epsx::domain::market_analytics::repository_ports::MarketRankingsProviderPort;
 use epsx::infrastructure::adapters::services::tradingview::BoundedMarketRankingsProvider;
+#[cfg(test)]
 use epsx_contracts::errors::AppResult;
+#[cfg(test)]
 use epsx_contracts::value_objects::ranking_offset::RankingOffset;
 use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
 use epsx_service_auth::AccessTokenVerifier;
@@ -159,49 +162,22 @@ async fn health_handler() -> axum::Json<serde_json::Value> {
 }
 
 // ============================================================================
-// No-DB WalletRankingOffsetQuery stub
+// Historical hermetic test adapter
 // ============================================================================
 //
-// The in-process adapter the monolith uses (the
-// `InProcessWalletRankingOffsetAdapter` in
-// `apps/backend/src/infrastructure/adapters/permission/`) wraps
-// `UnifiedPermissionService`, which requires a `&'static TlsPool`
-// — i.e. a live PostgreSQL connection. Per the spec's "no DB in
-// the new binary" rule (and Q2 in ROADMAP §7), we cannot open a
-// pool here. The right shape today is a local stub adapter that
-// always returns the free-plan offset. This:
-//
-//   1. Satisfies the `WalletRankingOffsetQuery` port trait so the
-//      existing handler signatures compile unchanged.
-//   2. Preserves the same default the monolith falls back to
-//      when the auth call errors (see
-//      `apps/backend/src/web/analytics/eps/cache.rs:78-81`).
-//   3. Is a one-line swap to an HTTP / gRPC adapter against
-//      `epsx-identity` in wave-13+ — the port is the seam.
-//
-// "Always free" is a documented behavior; the tier-aware
-// promotion is an authorization enforcement that, per
-// CLAUDE.md "Permissions & Plan Logic — Backend Only", still
-// lives in `epsx-identity` and the monolith binary. The
-// `epsx-analytics-service` binary is a Rust backend itself
-// (the rule applies to it equally), but it does not yet
-// federate identity; that's wave-13+ work.
-
-/// Local no-DB stub for the `WalletRankingOffsetQuery` port.
-/// Returns the free-plan offset for every wallet.
+// The production binary uses the lazy identity gRPC authority above. This
+// compatibility adapter is test-only and must never be wired into production.
 #[derive(Debug, Default, Clone, Copy)]
+#[cfg(test)]
 pub struct FreePlanWalletRankingOffsetQuery;
 
+#[cfg(test)]
 #[async_trait]
 impl WalletRankingOffsetQuery for FreePlanWalletRankingOffsetQuery {
     async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset> {
-        // Log the wallet for ops visibility (one-line, no PII
-        // beyond the address itself, which is already public on
-        // every request the handler logs).
         tracing::debug!(
             wallet = %wallet,
-            "FreePlanWalletRankingOffsetQuery: returning free-plan offset (no DB; \
-             wave-13+ will swap to an HTTP / gRPC adapter against epsx-identity)"
+            "test-only free-plan ranking fixture"
         );
         Ok(RankingOffset::free_plan())
     }
@@ -509,16 +485,14 @@ mod tests {
             .unwrap();
         assert_eq!(health.status(), StatusCode::OK);
 
-        // Construct the retired public alias from segments so the route
-        // inventory smoke test can distinguish this negative assertion from
-        // a production mount of the legacy namespace.
-        let retired_public_rankings = ["/api", "public", "analytics", "rankings"].join("/");
-        for path in [
-            "/rankings".to_string(),
-            retired_public_rankings,
-            "/api/v1/analytics/rankings".to_string(),
-            "/v1/rankings/stream".to_string(),
-        ] {
+        let legacy_public_rankings = ["/api", "/public", "/analytics", "/rankings"].concat();
+        let blocked_paths = vec![
+            "/rankings".to_owned(),
+            legacy_public_rankings,
+            "/api/v1/analytics/rankings".to_owned(),
+            "/v1/rankings/stream".to_owned(),
+        ];
+        for path in blocked_paths {
             let response = router
                 .clone()
                 .oneshot(Request::builder().uri(&path).body(Body::empty()).unwrap())
@@ -552,9 +526,6 @@ mod tests {
         ) -> *const CrateEPSRanking {
             a
         }
-        // Compile-time equality. Runtime assertion kept for
-        // future-proofing the test fn itself.
-        assert!(true, "type-level re-export sanity holds for EPSRanking");
         let _ = assert_same_type;
     }
 

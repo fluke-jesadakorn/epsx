@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "artifact": "a7-frontend-live-data",
   "source": {
-    "ref": "origin/development",
-    "commit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db"
+    "ref": "development",
+    "commit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6"
   },
   "routeInventory": "docs/migration/contracts/routes.json",
   "expectedRouteCount": 28,
@@ -26,19 +26,19 @@
   "routes": [
     {
       "path":"/","batch":"B1-public-content","status":"blocked","dependencies":["A4","A5"],
-      "source":{"file":"apps/frontend/app/page.tsx","anchors":["export default async function HomePage","<ServerNewsSection />" ]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","\"data-home-market-state\": \"unavailable\"","\"data-home-plans-state\": \"unavailable\"","\"data-home-news-state\": \"ready\"","fn home_news_renders_one_to_three_rows_in_source_order_and_truncates_four()"]},
+      "source":{"file":"apps-old/frontend/app/page.tsx","anchors":["export default async function HomePage","<ServerNewsSection />" ]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/home.rs","handler":"home::render","anchors":["pub fn render(ctx: &PageContext)","\"data-home-market-state\": state","\"data-home-plans-state\": \"unavailable\"","\"data-home-news-state\": \"ready\"","fn home_renders_exactly_three_live_public_cards_in_backend_order()","fn home_news_renders_one_to_three_rows_in_source_order_and_truncates_four()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"gateway-strict-news-plus-unavailable-market-plans","endpoints":["GET /api/v1/content/news?page=1&limit=100"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"load_home_news(state.content.as_ref(), path).await"}]},
-      "authOwner":{"auth":"public","owner":"the default public-news list is not owner-scoped; no ranking, pricing, plan, eligibility, or editorial ordering claim is asserted by the frontend"},
+      "loader":{"kind":"gateway-strict-news-plus-public-ranking-preview-plus-unavailable-plans","endpoints":["GET /api/v1/content/news?page=1&limit=100","GET /api/analytics/rankings?page=1&limit=3"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"load_home_news(state.content.as_ref(), path)"},{"file":"apps/frontend/src/ssr.rs","anchor":"load_home_analytics(state.analytics.as_ref(), path)"}]},
+      "authOwner":{"auth":"public","owner":"the default public-news list and fixed first-three ranking preview are not owner-scoped; ranking order, values, and public visibility come from the backend response, while no pricing, plan, eligibility, or editorial-ordering decision is asserted by the frontend"},
       "interactions":{"forms":[],"pagination":[],"search":["Home query fields never select, filter, page, or limit the preview"],"wallet":[],"keyboard":["native article, view-all, analytics, plans, news, and retry-home links"],"controls":["source-order first-three public-news links; fixed market cards, plan catalogs, article fixtures, numerical/live claims, and share action remain removed","presentation-only global footer uses neutral EPSX information/reference copy, a yearless copyright notice, and the checked-in BSC chain-family label; static configuration evidence does not claim live deployment, browser/runtime proof, feature readiness, or legal approval; the same footer exposes three uniquely labelled native navigation landmarks with visible level-two group headings while preserving all visible copy, hrefs, and order, with focused markup assertions only and no browser or assistive-technology proof; the shared shell places a native first-child skip link before arbitrary navigation and targets its sole namespaced non-tabbable main landmark with statically asserted off-canvas/focus, stacking, scroll-offset, and contrast declarations only, without browser, assistive-technology, focus-transfer, scrolling, or runtime proof; the shared Rust button and input primitives emit a later focus-visible outline using deterministic light/dark tokens with statically calculated contrast against the corresponding default background and solid surfaces only, without browser, assistive-technology, viewport, or runtime focus proof; exact native `.btn:disabled` opacity/pointer-event and `.input:disabled` opacity/cursor declarations follow the primitive base/focus rules and are bound to actual disabled button/input output without changing attributes, event handlers, business logic, or styling aria-disabled pseudo-controls; pointer-event suppression is static declaration evidence only, with no browser, assistive-technology, pointer, keyboard, cursor, opacity, event-suppression, or runtime proof; native links/buttons in the active signed-out/authenticated header and generated mobile sheet plus all 12 native footer links reuse the checked focus-ring tokens through a container-scoped focus-visible rule with static emitted-output evidence only, without browser, assistive-technology, pointer-versus-keyboard heuristic, viewport, or runtime focus proof; the shared Rust head emits one reduced-motion media rule that preserves the animation/transition subset shared by the development frontend/admin, carries the development frontend's CSS smooth-scroll override, and adds Rust-specific animation and transition delay resets without adding display, visibility, opacity, state, or business logic; this is static emitted-CSS evidence only, explicit JavaScript smooth scrolling is not covered, and no browser, assistive-technology, user-preference, animation, transition, scrolling, or runtime proof is claimed; the standalone template, active shared-header, and Dioxus theme buttons use one dedicated marker and a neutral SSR name; static initialization evidence plus hermetic fake-DOM execution prove current light/dark/system reconciliation updates only marked controls' exact next-action name, optional title, target icon, html dark class, data-theme, colorScheme, and canonical storage without fetching, while notification, account, and mobile-menu controls remain excluded; no browser, assistive-technology, actual OS-preference, storage-policy, cookie, or full development-theme parity is claimed; the shared mobile-dialog controller stores the pre-open inline body overflow, sets it to hidden while the sheet exists, and restores the exact value through toggle, backdrop, Escape, close-button, signed-out, and authenticated cycles, proven only in the hermetic fake DOM; no browser, assistive-technology, touch, viewport, iOS, visual, or full modal-isolation behavior is claimed; both signed-out and authenticated duplicate compact session CTAs use the development-aligned hidden sm:flex md:hidden class sequence while the hermetic mobile-sheet test retains signed-out Connect Wallet and authenticated Account/Sign out actions; focused SSR assertions bind the class sequence to checked-in compiled hidden/sm:flex/md:hidden selectors only, with no browser-computed layout, breakpoint, viewport, zoom, reflow, or visual proof; the active desktop header adds the native Primary name without a redundant navigation role, and focused completed-shell assertions prove one named primary plus the three existing uniquely heading-labelled footer navigation landmarks in both session branches; this is emitted-markup evidence only, with no browser, assistive-technology landmark-list, responsive-display, focus, or runtime proof"]},
       "states":{"loading":"missing","empty":"present","error":"present","retry":"present"},
-      "hydration":{"need":"none","status":"not-applicable","reason":"strict public-news ready/empty/error outcomes and fail-closed market/plan sections are fully server-rendered with native links"},
-      "blockers":["A4/A5 must still provide strict ranking and public-plan contracts with backend-owned access decisions, provenance/freshness, complete async outcomes, and browser proof before those unavailable Home sections are replaced","Home reuses the general first-100 news list and its fixed 12-item normalized page before taking three source-order rows; unlike the pinned dedicated featured endpoint it cannot prove pinned/featured ordering, the content service still turns a missing marketing news file into an indistinguishable empty list, source 60-second ISR parity is absent, and no live-service/browser proof exists"]
+      "hydration":{"need":"none","status":"not-applicable","reason":"strict public-news and public-ranking ready/empty/error outcomes plus the fail-closed plan section are fully server-rendered with native links"},
+      "blockers":["A4/A5 must still lock the public-ranking and public-plan contracts with backend-owned visibility decisions, provenance/freshness, complete async outcomes, and browser proof before Home can be aligned; plans remain explicitly unavailable","Home reuses the general first-100 news list and its fixed 12-item normalized page before taking three source-order rows; unlike the pinned dedicated featured endpoint it cannot prove pinned/featured ordering, the content service still turns a missing marketing news file into an indistinguishable empty list, source 60-second ISR parity is absent, and no live-service/browser proof exists"]
     },
     {
       "path":"/about","batch":"B1-public-content","status":"aligned","dependencies":[],
-      "source":{"file":"apps/frontend/app/about/page.tsx","anchors":["title: 'About Us - EPSX Analytics Platform'","<DataTechSection />"]},
+      "source":{"file":"apps-old/frontend/app/about/page.tsx","anchors":["title: 'About Us - EPSX Analytics Platform'","<DataTechSection />"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/about.rs","handler":"about::render","anchors":["meta.title = TITLE.to_string();","MissionAndVision {}"]},
       "payloads":{"staticOrSample":["accepted pinned hero, DataTech lifecycle, benefits, mission, and vision copy"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
@@ -50,7 +50,7 @@
     },
     {
       "path":"/news","batch":"B1-public-content","status":"partial","dependencies":["A5"],
-      "source":{"file":"apps/frontend/app/news/page.tsx","anchors":["export default async function NewsPage","searchParams: Promise<{ page?: string }>"]},
+      "source":{"file":"apps-old/frontend/app/news/page.tsx","anchors":["export default async function NewsPage","searchParams: Promise<{ page?: string }>"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/news.rs","handler":"news::render","anchors":["pub fn render(ctx: &PageContext)","enum NewsListOutcome"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["pinned source Suspense and loading.tsx profile fallback; target has no route-level loading state"]},
       "loader":{"kind":"gateway-strict","endpoints":["GET /api/v1/content/news?page=1&limit=100"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::load_news_list(state.content.as_ref(), &query).await"}]},
@@ -62,7 +62,7 @@
     },
     {
       "path":"/news/:slug","batch":"B1-public-content","status":"partial","dependencies":["A5"],
-      "source":{"file":"apps/frontend/app/news/[slug]/page.tsx","anchors":["export default async function NewsDetailPage","generateMetadata"]},
+      "source":{"file":"apps-old/frontend/app/news/[slug]/page.tsx","anchors":["export default async function NewsDetailPage","generateMetadata"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/news_detail.rs","handler":"news_detail::render","anchors":["pub fn render(ctx: &PageContext)","enum NewsDetailOutcome"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"gateway-strict","endpoints":["GET /api/v1/content/news/{slug}"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"crate::api::load_news_post(state.content.as_ref(), slug).await"}]},
@@ -74,7 +74,7 @@
     },
     {
       "path":"/auth","batch":"B2-identity","status":"blocked","dependencies":["A1","A5"],
-      "source":{"file":"apps/frontend/app/auth/page.tsx","anchors":["export default function AuthPage()","<WalletConnectAuth"]},
+      "source":{"file":"apps-old/frontend/app/auth/page.tsx","anchors":["export default function AuthPage()","<WalletConnectAuth"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/auth_page.rs","handler":"auth_page::render","anchors":["pub fn render(ctx: &PageContext)","data_connect_wallet: Some(true)"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["source Suspense auth shell; target status text is DOM-script driven"]},
       "loader":{"kind":"browser-auth-bridge","endpoints":["wallet challenge/sign/verify"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"epsx_bff::browser_auth::browser_auth_script()"}]},
@@ -86,8 +86,8 @@
     },
     {
       "path":"/account","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
-      "source":{"file":"apps/frontend/app/account/page.tsx","anchors":["export default async function AccountPage()","pagination:"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","let payment_history_load = payment_history_load(&ctx);","NotificationPreferencesSection {\n                        load: notification_preferences_load,\n                        form_state: notification_preferences_form_state,"]},
+      "source":{"file":"apps-old/frontend/app/account/page.tsx","anchors":["export default async function AccountPage()","pagination:"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/account.rs","handler":"account::render","anchors":["pub fn render(ctx: &PageContext)","let payment_history_load = payment_history_load(&ctx);","load: notification_preferences_load,","form_state: notification_preferences_form_state,"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"locally-verified-session-claims-plus-owner-gateway-explicit-outcome-first-page","endpoints":["GET /api/v1/pay/history/{session-wallet}?limit=10&offset=0"],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"pub async fn verified_access_token("},{"file":"apps/frontend/src/ssr.rs","anchor":"account_payment_history_path(owner)"},{"file":"services/gateway/src/policy.rs","anchor":"safe_wallet_segment(wallet)"},{"file":"services/pay/src/handlers/pay_history.rs","anchor":"let addr = canonical_owner(&principal, Some(&address))?;"}]},
       "authOwner":{"auth":"optional account shell; verified session claims drive wallet/auth-method display, while payment history requires authenticated gateway forwarding and a supported Pay audience","owner":"only the verified session wallet is displayed or selects financial records; Pay repeats canonical_owner and hides mismatches; profile, credit, access-plan, and preference ownership is not asserted"},
@@ -98,7 +98,7 @@
     },
     {
       "path":"/account/credits","batch":"B2-identity","status":"blocked","dependencies":["A1","A5","A6"],
-      "source":{"file":"apps/frontend/app/account/credits/page.tsx","anchors":["export default function CreditsPage()"]},
+      "source":{"file":"apps-old/frontend/app/account/credits/page.tsx","anchors":["export default function CreditsPage()"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/account_credits.rs","handler":"account_credits::render","anchors":["pub fn render(ctx: &PageContext)","if let Some(owner) = owner {","data-credits-state\": \"unavailable"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-selected-authority","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"failure must not become a zero balance."}]},
@@ -110,7 +110,7 @@
     },
     {
       "path":"/profile","batch":"B2-identity","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/profile/page.tsx","anchors":["export default async function ProfilePage()","<WalletProfileClient wallet={session.user} />"]},
+      "source":{"file":"apps-old/frontend/app/profile/page.tsx","anchors":["export default async function ProfilePage()","<WalletProfileClient wallet={session.user} />"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/profile.rs","handler":"profile::render","anchors":["pub fn render(ctx: &PageContext)","let selected_tab = selected_profile_tab(&ctx.query);"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"locally-verified-session-claims","endpoints":[],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"pub async fn verified_access_token("},{"file":"apps/frontend/src/auth.rs","anchor":"permissions: session.permissions,"}]},
@@ -122,10 +122,10 @@
     },
     {
       "path":"/analytics","batch":"B3-insights","status":"blocked","dependencies":["A4","A5"],
-      "source":{"file":"apps/frontend/app/analytics/page.tsx","anchors":["export default async function AnalyticsPage","<ServerCardDashboard searchParams="]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/analytics.rs","handler":"analytics::render","anchors":["pub fn render(ctx: &PageContext)","AnalyticsUnavailableContent { signed_in }","data-analytics-state\": \"unavailable"]},
+      "source":{"file":"apps-old/frontend/app/analytics/page.tsx","anchors":["export default async function AnalyticsPage","<ServerCardDashboard searchParams="]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/analytics.rs","handler":"analytics::render","anchors":["pub fn render(ctx: &PageContext)","AnalyticsFailurePage {","\"data-analytics-state\": \"{failure_state}\""]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
-      "loader":{"kind":"intentional-unavailable-no-verified-rankings-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Ranking data and entitlement"}]},
+      "loader":{"kind":"gateway-strict-rankings-plus-public-filters-plus-optional-owner-watchlist","endpoints":["GET /api/analytics/rankings{?bounded-query}","GET /api/analytics/filters","GET /api/v1/wallet/watchlist"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"load_analytics_rankings("},{"file":"apps/frontend/src/ssr.rs","anchor":"load_analytics_filters(state.analytics.as_ref())"},{"file":"apps/frontend/src/ssr.rs","anchor":"load_analytics_watchlist(state.wallet.as_ref(), verified_access_token)"}]},
       "authOwner":{"auth":"public route; locally verified authentication changes only safe navigation","owner":"none asserted; ranking offsets, plan access, permissions, and watchlist ownership remain backend responsibilities and are not calculated or rendered"},
       "interactions":{"forms":[],"pagination":["absent until the backend owns validated query and bounded page state"],"search":[],"wallet":["optional native sign-in/account navigation only"],"keyboard":["native plans, sign-in, and account links"],"controls":["fake filters, export, pagination, watchlist, permission gate, ranking interactions, and no-producer self-retry removed; plans/sign-in/account navigation remains; presentation-only desktop/mobile shared navigation uses Rankings availability without changing the Rankings label or /analytics route"]},
       "states":{"loading":"missing","empty":"not-applicable","error":"present","retry":"not-applicable"},
@@ -134,8 +134,8 @@
     },
     {
       "path":"/dashboard","batch":"B3-insights","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/dashboard/page.tsx","anchors":["export default async function PersonalDashboardPage()","const session = await getSessionFromWeb3();"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/dashboard.rs","handler":"dashboard::render","anchors":["pub fn render(ctx: &PageContext)","data-dashboard-state","fn hostile_dashboard_payload_is_ignored()","fn legacy_business_cards_and_local_capability_controls_are_absent()"]},
+      "source":{"file":"apps-old/frontend/app/dashboard/page.tsx","anchors":["export default async function PersonalDashboardPage()","const session = await getSessionFromWeb3();"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/dashboard.rs","handler":"dashboard::render","anchors":["pub fn render(ctx: &PageContext)","data-dashboard-state","fn hostile_dashboard_payload_is_ignored()","fn source_dashboard_cards_are_navigation_only_without_local_capability_controls()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-dashboard","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/dashboard` intentionally has no loader"}]},
       "authOwner":{"auth":"optional progressive dashboard","owner":"signed-out visitors receive no account data; authenticated display name, email, wallet, and known authentication method come only from the locally verified session and are not interpreted as role, tier, plan, permission, or entitlement decisions"},
@@ -146,7 +146,7 @@
     },
     {
       "path":"/portfolio","batch":"B3-insights","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/portfolio/page.tsx","anchors":["export default function PortfolioPage()","<RequireSignIn"]},
+      "source":{"file":"apps-old/frontend/app/portfolio/page.tsx","anchors":["export default function PortfolioPage()","<RequireSignIn"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/portfolio.rs","handler":"portfolio::render","anchors":["pub fn render(ctx: &PageContext)","data-portfolio-state","fn canned_and_malformed_portfolio_payloads_are_ignored()","fn authenticated_portfolio_has_no_sample_financial_or_entitlement_claims()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-portfolio","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/portfolio` intentionally has no loader"}]},
@@ -158,7 +158,7 @@
     },
     {
       "path":"/permissions","batch":"B3-insights","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/permissions/page.tsx","anchors":["export default function PermissionsPage()","usePermissionsPage({ base })"]},
+      "source":{"file":"apps-old/frontend/app/permissions/page.tsx","anchors":["export default function PermissionsPage()","usePermissionsPage({ base })"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/permissions.rs","handler":"permissions::render","anchors":["pub fn render(ctx: &PageContext)","data-permissions-state","data-session-permission-claim","Backend-issued session claims"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"locally-verified-session-claims-only","endpoints":[],"evidence":[{"file":"apps/frontend/src/auth.rs","anchor":"permissions: session.permissions,"}]},
@@ -170,7 +170,7 @@
     },
     {
       "path":"/chat","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
-      "source":{"file":"apps/frontend/app/chat/page.tsx","anchors":["export default async function ChatPage()","getServerAuthToken(cookieStore)"]},
+      "source":{"file":"apps-old/frontend/app/chat/page.tsx","anchors":["export default async function ChatPage()","getServerAuthToken(cookieStore)"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/chat.rs","handler":"chat::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-state\": \"unavailable\"","fn sample_and_presence_claims_are_suppressed()","fn unavailable_inbox_has_no_fake_mutations_filters_or_self_recovery()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat","endpoints":[],"evidence":[]},
@@ -182,7 +182,7 @@
     },
     {
       "path":"/chat/:id","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
-      "source":{"file":"apps/frontend/app/chat/[id]/page.tsx","anchors":["export default function ChatConversationPage()","useChatSSE({ enabled:"]},
+      "source":{"file":"apps-old/frontend/app/chat/[id]/page.tsx","anchors":["export default function ChatConversationPage()","useChatSSE({ enabled:"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_conversation.rs","handler":"chat_conversation::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-conversation-state\": \"unavailable\"","\"data-chat-route-reference\": \"bounded\"","fn legacy_payloads_samples_and_fake_mutations_are_ignored()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat-detail","endpoints":[],"evidence":[]},
@@ -194,7 +194,7 @@
     },
     {
       "path":"/chat/history","batch":"B4-communication","status":"blocked","dependencies":["A1","A5"],
-      "source":{"file":"apps/frontend/app/chat/history/page.tsx","anchors":["export default function ChatHistoryPage()","const [loading, setLoading] = useState(true)"]},
+      "source":{"file":"apps-old/frontend/app/chat/history/page.tsx","anchors":["export default function ChatHistoryPage()","const [loading, setLoading] = useState(true)"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/chat_history.rs","handler":"chat_history::render","anchors":["pub fn render(ctx: &PageContext)","\"data-chat-history-state\": \"unavailable\"","fn history_suppresses_samples_counts_controls_and_self_recovery()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-chat-history","endpoints":[],"evidence":[]},
@@ -206,7 +206,7 @@
     },
     {
       "path":"/notifications","batch":"B4-communication","status":"partial","dependencies":["A1","A5"],
-      "source":{"file":"apps/frontend/app/notifications/page.tsx","anchors":["export default async function NotificationsPage","page: parseInt(params.page ?? '1')"]},
+      "source":{"file":"apps-old/frontend/app/notifications/page.tsx","anchors":["export default async function NotificationsPage","page: parseInt(params.page ?? '1')"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/notifications.rs","handler":"notifications::render","anchors":["pub fn render(ctx: &PageContext)","enum NotificationLoad {","fn malformed_and_upstream_states_are_truthful_and_sample_free()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"owner-gateway-explicit-outcome-plus-authenticated-shared-header","endpoints":["GET /api/v1/notification/list","GET /api/v1/notifications/unread-count"],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"let outcome = crate::api::load_owner_notifications("},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"ok\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"params.insert(NOTIFICATIONS_STATE_PARAM.into(), \"error\".into());"},{"file":"apps/frontend/src/ssr.rs","anchor":"let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"},{"file":"apps/frontend/src/ssr.rs","anchor":"var endpoint = '/api/v1/notifications/unread-count';"},{"file":"shared/rust/templates/src/lib.rs","anchor":"data-epsx-notification-unread-badge=\"true\" data-state=\"unavailable\" aria-hidden=\"true\" hidden></span>"}]},
@@ -218,7 +218,7 @@
     },
     {
       "path":"/developer","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/developer/page.tsx","anchors":["export default async function DeveloperPage()","APIKeyManager"]},
+      "source":{"file":"apps-old/frontend/app/developer/page.tsx","anchors":["export default async function DeveloperPage()","APIKeyManager"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_overview","anchors":["pub fn render_overview(ctx: &PageContext)","DeveloperOverviewUnavailable {}","data-section\": \"developer-overview-unavailable"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-api-key-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"API-key and rate-limit data"}]},
@@ -230,7 +230,7 @@
     },
     {
       "path":"/developer/docs","batch":"B5-developer","status":"partial","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/developer/docs/page.tsx","anchors":["export default function DocsPage()","<ApiDocs />"]},
+      "source":{"file":"apps-old/frontend/app/developer/docs/page.tsx","anchors":["export default function DocsPage()","<ApiDocs />"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_docs","anchors":["pub fn render_docs(ctx: &PageContext)","DEVELOPER_DOCS_SOURCE_BASELINE"]},
       "payloads":{"staticOrSample":["version-pinned source catalog: four categories, ten endpoint cards, request examples, response examples, and advertised rate limits"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"version-pinned-static","endpoints":[],"evidence":[]},
@@ -242,7 +242,7 @@
     },
     {
       "path":"/developer/usage","batch":"B5-developer","status":"blocked","dependencies":["A1","A4","A5"],
-      "source":{"file":"apps/frontend/app/developer/usage/page.tsx","anchors":["export default async function DeveloperUsagePage()"]},
+      "source":{"file":"apps-old/frontend/app/developer/usage/page.tsx","anchors":["export default async function DeveloperUsagePage()"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/developer.rs","handler":"developer::render_usage","anchors":["pub fn render_usage(ctx: &PageContext)","DeveloperUsageUnavailable {}","data-section\": \"developer-usage-unavailable"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-owner-metering","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"No owner-safe metering"}]},
@@ -254,8 +254,8 @@
     },
     {
       "path":"/manual","batch":"B5-developer","status":"partial","dependencies":["A1","A4","A5","A6"],
-      "source":{"file":"apps/frontend/app/manual/page.tsx","anchors":["export default function ManualPage()","Complete guide to all platform features"]},
-      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:","0x5a932c075bcaa698","#[path = \"manual_route_statuses.rs\"]","use manual_route_statuses::{ManualRouteStatus, MANUAL_ROUTE_STATUSES};","data-manual-migration-notice","route-level migration readiness from the checked contract only","let dynamic_route = feature.route == \"/payment/[type]/[id]\"","View route","Route template only"]},
+      "source":{"file":"apps-old/frontend/app/manual/page.tsx","anchors":["export default function ManualPage()","Complete guide to all platform features"]},
+      "target":{"file":"shared/rust/dioxus_ui/src/pages/manual.rs","handler":"manual::render","anchors":["pub fn render(ctx: &PageContext)","const FEATURES:","0x5a932c075bcaa698","#[path = \"manual_route_statuses.rs\"]","use manual_route_statuses::{ManualRouteStatus, MANUAL_ROUTE_STATUSES};","data-manual-migration-notice","route-level migration readiness from the checked contract only","let dynamic_route = feature.route == \"/payment/[type]/[id]\"","let action_label = \"Open page →\";","let action_accessible_label = format!(\"Open page: {}\", feature.name);"]},
       "payloads":{"staticOrSample":["intentional static 35-feature target catalog from the pinned source; the visible availability notice prevents its intended-workflow descriptions from asserting current runtime capability"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
       "authOwner":{"auth":"public","owner":"none"},
@@ -266,7 +266,7 @@
     },
     {
       "path":"/plans","batch":"B6-commerce-support","status":"blocked","dependencies":["A4","A5","A6"],
-      "source":{"file":"apps/frontend/app/plans/page.tsx","anchors":["export default async function PlansPage()"]},
+      "source":{"file":"apps-old/frontend/app/plans/page.tsx","anchors":["export default async function PlansPage()"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/plans.rs","handler":"plans::render","anchors":["pub fn render(ctx: &PageContext)","\"data-plans-state\": \"unavailable\"","fn legacy_and_hostile_payloads_never_create_plan_output()","fn unavailable_surface_has_no_mutation_or_selection_control()"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-unavailable-no-public-plan-contract","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"`/plans` intentionally has no loader"}]},
@@ -278,7 +278,7 @@
     },
     {
       "path":"/payment","batch":"B6-commerce-support","status":"blocked","dependencies":["A1","A4","A5","A6"],
-      "source":{"file":"apps/frontend/app/payment/page.tsx","anchors":["export default async function PaymentPage","redirect(`/payment/access-plan/"]},
+      "source":{"file":"apps-old/frontend/app/payment/page.tsx","anchors":["export default async function PaymentPage","redirect(`/payment/access-plan/"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render","anchors":["pub fn render(ctx: &PageContext)","PaymentUnavailablePage { ctx: ctx.clone(), route_context: None }","Checkout is not available right now"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-fail-closed","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Dynamic payment pages intentionally perform no intent lookup"}]},
@@ -290,7 +290,7 @@
     },
     {
       "path":"/payment/:type/:id","batch":"B6-commerce-support","status":"blocked","dependencies":["A1","A4","A5","A6"],
-      "source":{"file":"apps/frontend/app/payment/[type]/[id]/page.tsx","anchors":["export default async function PaymentDynamicPage","Fetch plans on server"]},
+      "source":{"file":"apps-old/frontend/app/payment/[type]/[id]/page.tsx","anchors":["export default async function PaymentDynamicPage","Fetch plans on server"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/payment.rs","handler":"payment::render_dynamic","anchors":["pub fn render_dynamic(ctx: &PageContext)","bounded_route_context(ctx.params.get(\"id\"))","Unverified route context"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":[]},
       "loader":{"kind":"intentional-fail-closed","endpoints":[],"evidence":[{"file":"apps/frontend/src/ssr.rs","anchor":"Dynamic payment pages intentionally perform no intent lookup"}]},
@@ -302,7 +302,7 @@
     },
     {
       "path":"/contact","batch":"B6-commerce-support","status":"partial","dependencies":["A1"],
-      "source":{"file":"apps/frontend/app/contact/page.tsx","anchors":["export default function ContactPage()","CopyEmailBtn"]},
+      "source":{"file":"apps-old/frontend/app/contact/page.tsx","anchors":["export default function ContactPage()","CopyEmailBtn"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/contact.rs","handler":"contact::render","anchors":["pub fn render(ctx: &PageContext)","fn contact_copy_email_has_stable_accessible_status_contract()"]},
       "payloads":{"staticOrSample":["static support channels"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
@@ -314,7 +314,7 @@
     },
     {
       "path":"/access-denied","batch":"B7-policy-fallback","status":"partial","dependencies":[],
-      "source":{"file":"apps/frontend/app/access-denied/page.tsx","anchors":["export default function AccessDeniedPage","searchParams.reason"]},
+      "source":{"file":"apps-old/frontend/app/access-denied/page.tsx","anchors":["export default function AccessDeniedPage","searchParams.reason"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/access_denied.rs","handler":"access_denied::render","anchors":["pub fn render(ctx: &PageContext)","GENERIC_DENIAL_REASON"]},
       "payloads":{"staticOrSample":[],"placeholderOrSkeleton":["pinned source Suspense Loading fallback is unnecessary for synchronous SSR target"]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
@@ -326,7 +326,7 @@
     },
     {
       "path":"/offline","batch":"B7-policy-fallback","status":"partial","dependencies":[],
-      "source":{"file":"apps/frontend/app/offline/page.tsx","anchors":["export default function OfflinePage()","window.location.reload()"]},
+      "source":{"file":"apps-old/frontend/app/offline/page.tsx","anchors":["export default function OfflinePage()","window.location.reload()"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/offline.rs","handler":"offline::render","anchors":["pub fn render(_ctx: &PageContext)","\"data-offline-reload\": \"true\""]},
       "payloads":{"staticOrSample":["intentional public offline help shell; four-row composition retained but unsupported cached notification/analytics/settings and sync claims corrected"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"public-service-worker-shell","endpoints":["GET /service-worker.js"],"evidence":[{"file":"apps/frontend/src/main.rs","anchor":".route(\"/service-worker.js\", get(service_worker))"},{"file":"apps/frontend/src/ssr.rs","anchor":"const OFFLINE_PATH = '/offline';"}]},
@@ -338,7 +338,7 @@
     },
     {
       "path":"/privacy","batch":"B7-policy-fallback","status":"partial","dependencies":[],
-      "source":{"file":"apps/frontend/app/privacy/page.tsx","anchors":["export default function PrivacyPage()","1. Information We Collect"]},
+      "source":{"file":"apps-old/frontend/app/privacy/page.tsx","anchors":["export default function PrivacyPage()","1. Information We Collect"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/privacy.rs","handler":"privacy::render","anchors":["pub fn render(ctx: &PageContext)","const LAST_UPDATED:"]},
       "payloads":{"staticOrSample":["intentional static policy copy and last-updated date"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},
@@ -350,7 +350,7 @@
     },
     {
       "path":"/terms","batch":"B7-policy-fallback","status":"partial","dependencies":["A5"],
-      "source":{"file":"apps/frontend/app/terms/page.tsx","anchors":["export default function TermsPage()","fetch('/api/public/subscribe'"]},
+      "source":{"file":"apps-old/frontend/app/terms/page.tsx","anchors":["export default function TermsPage()","fetch('/api/public/subscribe'"]},
       "target":{"file":"shared/rust/dioxus_ui/src/pages/terms.rs","handler":"terms::render","anchors":["pub fn render(ctx: &PageContext)","fn terms_preserves_accessible_legal_content_without_unsupported_subscription()"]},
       "payloads":{"staticOrSample":["intentional static terms copy"],"placeholderOrSkeleton":[]},
       "loader":{"kind":"none","endpoints":[],"evidence":[]},

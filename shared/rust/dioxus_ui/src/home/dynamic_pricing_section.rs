@@ -59,7 +59,6 @@ pub fn DynamicPricingSection(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn dynamic_pricing_section_smoke() {}

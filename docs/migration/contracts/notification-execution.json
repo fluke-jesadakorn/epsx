@@ -319,7 +319,7 @@
     {
       "id": "tgt-active-header-mount",
       "file": "apps/frontend/src/ssr.rs",
-      "anchor": "epsx_templates::epsx_header_for_session_and_return_target("
+      "anchor": "epsx_templates::epsx_header_for_session_and_wallet_with_network("
     },
     {
       "id": "tgt-active-header-auth-runtime",
@@ -483,8 +483,8 @@
     },
     {
       "id": "tgt-kustomize-notification-service",
-      "file": "infrastructure/kubernetes/base/kustomization.yaml",
-      "anchor": "- notification/deployment.yaml"
+      "file": "infrastructure/kubernetes/overlays/dev/kustomization.yaml",
+      "anchor": "- ../../base/notification"
     },
     {
       "id": "tgt-redis-multi-instance-local",

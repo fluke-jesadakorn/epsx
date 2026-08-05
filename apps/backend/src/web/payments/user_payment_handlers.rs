@@ -105,7 +105,7 @@ pub async fn get_user_payment_history(
     let pg = Pagination::small(params.page, params.per_page);
 
     let items = payment_repo
-        .list_user_payments_with_plan_names(&wallet, pg.page, pg.limit as u32)
+        .list_user_payments_with_plan_names(&wallet, pg.page, pg.limit)
         .await
         .map_err(|e| {
             tracing::error!("Failed to list user payments: {}", e);

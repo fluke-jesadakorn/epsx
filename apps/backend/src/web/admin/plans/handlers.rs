@@ -4,8 +4,6 @@ use axum::{
     response::Json as JsonResponse,
     Json,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 // wave11(track-b) move: `SubscriptionDb` import removed from
 // this file. The `list_subscriptions_handler` was the only
 // consumer; it moved to

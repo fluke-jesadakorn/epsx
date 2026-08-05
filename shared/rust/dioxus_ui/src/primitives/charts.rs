@@ -27,20 +27,19 @@ pub struct Series {
 
 /// Shared helper: project a `DataPoint` into SVG coordinates given the
 /// computed bounds. Used by both `ChartLine` and `ChartArea`.
-fn project_point(
-    p: &DataPoint,
+#[derive(Clone, Copy)]
+struct ChartBounds {
     min_x: f64,
     max_x: f64,
     min_y: f64,
     max_y: f64,
-    padding: i32,
-    w: f64,
-    h: f64,
-) -> (f64, f64) {
-    let x_range = (max_x - min_x).max(0.0001);
-    let y_range = (max_y - min_y).max(0.0001);
-    let x = padding as f64 + (p.x - min_x) / x_range * w;
-    let y = padding as f64 + h - (p.y - min_y) / y_range * h;
+}
+
+fn project_point(p: &DataPoint, bounds: ChartBounds, padding: i32, w: f64, h: f64) -> (f64, f64) {
+    let x_range = (bounds.max_x - bounds.min_x).max(0.0001);
+    let y_range = (bounds.max_y - bounds.min_y).max(0.0001);
+    let x = padding as f64 + (p.x - bounds.min_x) / x_range * w;
+    let y = padding as f64 + h - (p.y - bounds.min_y) / y_range * h;
     (x, y)
 }
 
@@ -87,13 +86,19 @@ pub fn ChartLine(
     );
     let w = (width - padding * 2) as f64;
     let h = (height - padding * 2) as f64;
+    let bounds = ChartBounds {
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+    };
 
     let paths: Vec<String> = series
         .iter()
         .map(|s| {
             let mut d = String::new();
             for (i, p) in s.points.iter().enumerate() {
-                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                let (x, y) = project_point(p, bounds, padding, w, h);
                 if i == 0 {
                     d.push_str(&format!("M{:.1},{:.1}", x, y));
                 } else {
@@ -123,7 +128,7 @@ pub fn ChartLine(
                     for s in &series {
                         for p in &s.points {
                             {
-                                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                                let (x, y) = project_point(p, bounds, padding, w, h);
                                 rsx! { circle { cx: "{x}", cy: "{y}", r: "3", fill: "{s.color}" } }
                             }
                         }
@@ -193,6 +198,12 @@ pub fn ChartArea(
     );
     let w = (width - padding * 2) as f64;
     let h = (height - padding * 2) as f64;
+    let bounds = ChartBounds {
+        min_x,
+        max_x,
+        min_y,
+        max_y,
+    };
     let baseline = (padding as f64) + h;
 
     let paths: Vec<String> = series
@@ -200,7 +211,7 @@ pub fn ChartArea(
         .map(|s| {
             let mut d = String::new();
             for (i, p) in s.points.iter().enumerate() {
-                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                let (x, y) = project_point(p, bounds, padding, w, h);
                 if i == 0 {
                     d.push_str(&format!("M{:.1},{:.1}", x, y));
                 } else {
@@ -209,11 +220,11 @@ pub fn ChartArea(
             }
             // Close to baseline so the area path is a proper filled region.
             if let Some(last) = s.points.last() {
-                let (lx, _) = project_point(last, min_x, max_x, min_y, max_y, padding, w, h);
+                let (lx, _) = project_point(last, bounds, padding, w, h);
                 d.push_str(&format!(" L{:.1},{:.1}", lx, baseline));
             }
             if let Some(first) = s.points.first() {
-                let (fx, _) = project_point(first, min_x, max_x, min_y, max_y, padding, w, h);
+                let (fx, _) = project_point(first, bounds, padding, w, h);
                 d.push_str(&format!(" L{:.1},{:.1} Z", fx, baseline));
             }
             d
@@ -240,7 +251,7 @@ pub fn ChartArea(
                     {
                         let mut line_d = String::new();
                         for (j, p) in s.points.iter().enumerate() {
-                            let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                            let (x, y) = project_point(p, bounds, padding, w, h);
                             if j == 0 { line_d.push_str(&format!("M{:.1},{:.1}", x, y)); }
                             else { line_d.push_str(&format!(" L{:.1},{:.1}", x, y)); }
                         }
@@ -251,7 +262,7 @@ pub fn ChartArea(
                     for s in &series {
                         for p in &s.points {
                             {
-                                let (x, y) = project_point(p, min_x, max_x, min_y, max_y, padding, w, h);
+                                let (x, y) = project_point(p, bounds, padding, w, h);
                                 rsx! { circle { cx: "{x}", cy: "{y}", r: "3", fill: "{s.color}" } }
                             }
                         }

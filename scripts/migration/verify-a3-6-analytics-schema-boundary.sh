@@ -132,7 +132,7 @@ for (const [key, value] of Object.entries(contract.safety)) {
 
 const runtime = contract.runtimeBoundary;
 if (!runtime || runtime.rustRoot !== "services/analytics" || runtime.scannerFindingBefore !== 1 || runtime.scannerFindingAfter !== 0) fail("runtime scanner boundary drifted");
-if (runtime.removedAnchor !== "CREATE TABLE IF NOT EXISTS events (" || runtime.compatibilityQueryConstant !== "ANALYTICS_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility" || runtime.compatibilityQueryBytes !== 2743 || runtime.compatibilityQuerySha256 !== "12b087199aa864aab033a701b089b04c3d9b686476d3af806435ea10750114c0" || runtime.qualifiedEventsRelation !== "public.events" || runtime.qualifiedEventsSqlOccurrences !== 7) fail("runtime boundary anchors or query pin drifted");
+if (runtime.removedAnchor !== "CREATE TABLE IF NOT EXISTS events (" || runtime.compatibilityQueryConstant !== "ANALYTICS_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility" || runtime.compatibilityQueryBytes !== 2824 || runtime.compatibilityQuerySha256 !== "3d8a007ad47b8c57cf3f2b45c8d1e5bcadf9ceebfeded89e69c0127725978739" || runtime.qualifiedEventsRelation !== "public.events" || runtime.qualifiedEventsSqlOccurrences !== 5) fail("runtime boundary anchors or query pin drifted");
 
 const rustRootPath = resolve(root, runtime.rustRoot);
 if (!existsSync(rustRootPath) || !statSync(rustRootPath).isDirectory()) fail("analytics Rust root is missing");
@@ -221,9 +221,9 @@ if (!migrationRoot || migrationRoot.path !== "services/analytics/migrations" || 
 safeRelative(migrationRoot.path, "migration root");
 const migrationRootPath = resolve(root, migrationRoot.path);
 if (!existsSync(migrationRootPath) || lstatSync(migrationRootPath).isSymbolicLink() || !statSync(migrationRootPath).isDirectory()) fail("migration root must be a real directory");
-if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 1) fail("exactly one ordered analytics migration is required");
+if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 2) fail("exactly two ordered analytics migrations are required");
 const rootEntries = readdirSync(migrationRootPath).sort();
-exact("migration-root file inventory", ["20260722000000_create_events.sql"], rootEntries);
+exact("migration-root file inventory", ["20260722000000_create_events.sql", "20260727010000_add_event_subject.sql"], rootEntries);
 const migration = migrationRoot.orderedMigrations[0];
 if (migration.version !== "20260722000000" || migration.path !== "services/analytics/migrations/20260722000000_create_events.sql" || migration.bytes !== 260 || migration.sha256 !== "03a154e1d8761e412face94c4cd848616e9e2c8ca43d8d5ffb44c52701c2e7dd" || migration.guard !== "CREATE TABLE IF NOT EXISTS public.events (") fail("ordered migration pin drifted");
 if (!migration.path.split("/").at(-1).startsWith(`${migration.version}_`)) fail("migration filename/version order is inconsistent");
@@ -236,6 +236,14 @@ if ((migrationSql.match(/\bCREATE\b/gi) ?? []).length !== 1 || !/^\s*CREATE\s+TA
 if (/\b(?:DROP|TRUNCATE|DELETE|ALTER|INSERT|UPDATE|MERGE|CASCADE)\b/i.test(migrationSql)) fail("analytics migration contains a destructive, data-mutation, or alteration token");
 if (/\bCREATE\s+(?:SCHEMA|EXTENSION|INDEX|DATABASE|TYPE|VIEW)\b/i.test(migrationSql)) fail("analytics migration contains an out-of-scope creation");
 if (/\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(migrationSql)) fail("transaction control belongs to the future reviewed runner");
+
+const subjectMigration = migrationRoot.orderedMigrations[1];
+if (subjectMigration.version !== "20260727010000" || subjectMigration.path !== "services/analytics/migrations/20260727010000_add_event_subject.sql" || subjectMigration.bytes !== 415 || subjectMigration.sha256 !== "df2e7da938b0b80f42bddc71c5f5c22f27fb41af01bce08823c1c7e4e510c812") fail("ordered subject migration pin drifted");
+const subjectBytes = readFileSync(regularRepoFile(subjectMigration.path, "analytics subject migration"));
+const subjectSql = subjectBytes.toString("utf8");
+if (subjectBytes.byteLength !== subjectMigration.bytes || sha256(subjectBytes) !== subjectMigration.sha256) fail("analytics subject migration bytes changed");
+if ((subjectSql.match(/;/g) ?? []).length !== 3 || !/ALTER\s+TABLE\s+public\.events\s+ADD\s+COLUMN\s+IF\s+NOT\s+EXISTS\s+subject\s+VARCHAR\(128\)/i.test(subjectSql) || !/CREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+events_subject_created_at_idx/i.test(subjectSql)) fail("analytics subject migration is not the reviewed additive shape");
+if (/\b(?:DROP|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|CASCADE|CREATE\s+(?:SCHEMA|EXTENSION|DATABASE|TYPE|VIEW))\b/i.test(subjectSql) || /\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(subjectSql)) fail("analytics subject migration contains a destructive token or transaction control");
 
 if (!Array.isArray(contract.requiredColumns) || contract.requiredColumns.length !== 6) fail("exactly six legacy columns are required");
 const expectedColumnNames = ["id", "user_id", "event_name", "properties_json", "chain_id", "created_at"];
@@ -279,7 +287,7 @@ const report = {
     qualifiedEventsRelation: runtime.qualifiedEventsRelation,
     qualifiedEventsSqlOccurrences: qualifiedEventsSql.length,
   },
-  migrationRoot: { path: migrationRoot.path, migrations: 1, pinnedBytes: migration.bytes, sha256: migration.sha256, runner: null },
+  migrationRoot: { path: migrationRoot.path, migrations: 2, pinnedBytes: migration.bytes + subjectMigration.bytes, sha256: subjectMigration.sha256, runner: null },
   requiredColumns: expectedColumnNames,
   blockers: contract.blockers.map(({ id, category, status }) => ({ id, category, status })),
   productionReady: false,
@@ -294,7 +302,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "a3-6-analytics-schema-boundary: PASS — analytics runtime DDL 1→0, one 260-byte migration pinned, six legacy columns verified"
+  echo "a3-6-analytics-schema-boundary: PASS — analytics runtime DDL 1→0, baseline plus additive subject migration pinned, seven-column compatibility boundary verified"
   echo "a3-6-analytics-schema-boundary: LIMIT — no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran"
   exit 0
 fi

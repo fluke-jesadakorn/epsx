@@ -147,7 +147,7 @@ pub fn PancakeIconButton(
         _ => "bg-gradient-to-r from-purple-500 to-orange-500 shadow-purple-500/20 hover:shadow-purple-500/30",
     };
 
-    let mut cls = format!(
+    let cls = format!(
         "{size} {variant} text-white relative overflow-hidden shadow-lg rounded-xl hover:shadow-xl hover:-translate-y-1 transition-all {disabled_cls}",
         size = size_cls,
         variant = variant_cls,

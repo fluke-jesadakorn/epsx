@@ -44,14 +44,30 @@ if grep -Eq '^        image: epsx-(backend|frontend|admin|analytics|notification
   echo "infrastructure-readiness self-test: staging overlay retains an unintended :dev application image" >&2
   exit 1
 fi
+[ "$(grep -c '^        image: epsx-notification:staging$' "$temp_dir/staging-rendered.yaml")" -eq 1 ] || {
+  echo "infrastructure-readiness self-test: staging notification image transform is missing" >&2
+  exit 1
+}
+[ "$(grep -c '^          value: staging$' "$temp_dir/staging-rendered.yaml")" -ge 1 ] || {
+  echo "infrastructure-readiness self-test: staging notification environment is missing" >&2
+  exit 1
+}
 kubectl kustomize "$repo_root/infrastructure/kubernetes/overlays/dev" >"$temp_dir/dev-rendered.yaml"
 [ "$(grep -c '^    name: epsx-dev$' "$temp_dir/dev-rendered.yaml")" -eq 1 ] || {
   echo "infrastructure-readiness self-test: dev namespace metadata is inconsistent" >&2
   exit 1
 }
+[ "$(grep -c '^        image: epsx-notification:dev$' "$temp_dir/dev-rendered.yaml")" -eq 1 ] || {
+  echo "infrastructure-readiness self-test: dev notification image transform is missing" >&2
+  exit 1
+}
+if grep -q 'epsx-notification' "$temp_dir/report-one.json"; then
+  echo "infrastructure-readiness self-test: production report unexpectedly contains notification resources" >&2
+  exit 1
+fi
 bun -e '
 const report = JSON.parse(await Bun.file(process.argv[1]).text());
-if (report.resources.total !== 17 || report.images.occurrences !== 9 || report.images.unique !== 8 || report.images.devOccurrences !== 1 || report.images.digestOccurrences !== 0 || report.nodePorts.length !== 6 || report.blockers.length !== 18 || report.stopBlockers !== 17 || report.supportedFindings !== 1 || JSON.stringify(report.p0StatusCounts) !== JSON.stringify({ passed: 1, partial: 4, blocked: 2 }) || report.productionReady !== false || report.clusterAccess !== false || report.readinessExit !== 3) process.exit(1);
+if (report.resources.total !== 15 || report.images.occurrences !== 8 || report.images.unique !== 7 || report.images.devOccurrences !== 1 || report.images.digestOccurrences !== 0 || report.nodePorts.length !== 6 || report.blockers.length !== 18 || report.stopBlockers !== 17 || report.supportedFindings !== 1 || JSON.stringify(report.p0StatusCounts) !== JSON.stringify({ passed: 1, partial: 4, blocked: 2 }) || report.productionReady !== false || report.clusterAccess !== false || report.readinessExit !== 3) process.exit(1);
 ' "$temp_dir/report-one.json"
 
 A13_CONTRACT_IN="$contract" A13_CONTRACT_OUT="$temp_dir/stale-anchor.json" bun -e '

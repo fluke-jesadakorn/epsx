@@ -156,8 +156,8 @@ for (const item of contract.prototypeSource.evidence) {
 }
 
 const expectedTargetPins = {
-  "tgt-plans-producer-absent": ["apps/frontend/src/main.rs", "Market entitlements and subscription pricing remain backend-owned."],
-  "tgt-canned-subscriptions": ["apps/frontend/src/api.rs", "{ \"id\": \"sub_1\", \"merchant_id\": \"0xM1\""],
+  "tgt-plans-producer-absent": ["apps/frontend/src/main.rs", "catalogs, eligibility, and subscription mutations."],
+  "tgt-subscription-compatibility-producers-absent": ["apps/frontend/src/main.rs", "Unowned wallet/session and subscription compatibility producers are"],
   "tgt-payment-producer-absent": ["apps/frontend/src/main.rs", "\"/api/v1/payment/not-an-authorized-intent\""],
   "tgt-payment-ui-unavailable": ["shared/rust/dioxus_ui/src/pages/payment.rs", "Checkout is not available right now"],
   "tgt-pay-bff-singular": ["apps/pay/src/main.rs", ".route(\"/api/v1/pay/intent/{id}/execute\", any(execute_pay))"],
@@ -171,7 +171,7 @@ const expectedTargetPins = {
   "tgt-pay-confirm-unverified": ["services/pay/src/handlers/intents.rs", "let tx_hash = req"],
   "tgt-pay-confirm-split-write": ["services/pay/src/handlers/intents.rs", "UPDATE public.pay_intents SET status = \x27escrowed\x27, escrow_id = $1, tx_hash = $2"],
   "tgt-pay-webhook-inbox": ["services/pay/src/handlers/pay_webhooks.rs", "ON CONFLICT (event_id) DO NOTHING"],
-  "tgt-pay-admin-force": ["services/pay/src/handlers/pay_admin.rs", "Force-cancel ignores the `status = \x27pending\x27` guard"],
+  "tgt-pay-admin-force": ["services/pay/src/handlers/pay_admin.rs", "WHERE id=$1 AND status=\x27pending\x27"],
   "tgt-admin-empty-confirm": ["apps/admin/src/main.rs", ".post_with_ctx(&path, &serde_json::json!({}), &ctx)"],
   "tgt-subscription-schema-boundary": ["services/subscription/src/main.rs", "verify_schema_compatibility(&db)"],
   "tgt-subscription-active-insert": ["services/subscription/src/main.rs", "INSERT INTO public.subscriptions (user_id, plan_id, account_id, payment_token)"],
@@ -310,7 +310,7 @@ const requiredSemanticAnchors = {
   ],
   "tgt-pay-mutation-stop": [
     "AccessPolicy::UnsafePaymentsManage => {", "!principal.has_permission(PAYMENTS_MANAGE_PERMISSION)",
-    "return StatusCode::NOT_FOUND.into_response();", "AccessPolicy::UnsafeFinancialMutation", "| AccessPolicy::InternalIdentityUnavailable",
+    "return StatusCode::NOT_FOUND.into_response();", "AccessPolicy::UnsafeFinancialMutation", "AccessPolicy::InternalIdentityUnavailable | AccessPolicy::Blocked",
   ],
   "tgt-subscription-migration": [
     "CREATE TABLE IF NOT EXISTS public.subscription_plans (", "CREATE TABLE IF NOT EXISTS public.subscriptions (",

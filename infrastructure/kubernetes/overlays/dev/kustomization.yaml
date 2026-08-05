@@ -18,6 +18,7 @@ namespace: epsx-dev
 
 resources:
   - ../../base
+  - ../../base/notification
 
 images:
   - name: epsx-backend

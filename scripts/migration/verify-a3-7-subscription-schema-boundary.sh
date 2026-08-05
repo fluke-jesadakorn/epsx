@@ -164,9 +164,9 @@ for (const evidence of baseline.evidence) {
 
 const runtime = contract.runtimeBoundary;
 if (!runtime || runtime.rustRoot !== "services/subscription" || runtime.scannerFindingBefore !== 2 || runtime.scannerFindingAfter !== 0) fail("runtime scanner boundary drifted");
-exact("Rust inventory", ["services/subscription/src/lib.rs", "services/subscription/src/main.rs"], runtime.rustInventory);
+exact("Rust inventory", ["services/subscription/src/admin.rs", "services/subscription/src/lib.rs", "services/subscription/src/main.rs"], runtime.rustInventory);
 exact("removed runtime anchors", ["CREATE TABLE IF NOT EXISTS subscription_plans (", "CREATE TABLE IF NOT EXISTS subscriptions ("], runtime.removedAnchors);
-if (runtime.compatibilityQueryConstant !== "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility" || runtime.compatibilityQueryBytes !== 7709 || runtime.compatibilityQuerySha256 !== "2e1ec012660141d05fedb22f5c37ee02817ce034b97830433e3a33238d8099a3") fail("compatibility query boundary or pin drifted");
+if (runtime.compatibilityQueryConstant !== "SUBSCRIPTION_SCHEMA_COMPATIBILITY_QUERY" || runtime.compatibilityFunction !== "verify_schema_compatibility" || runtime.compatibilityQueryBytes !== 7950 || runtime.compatibilityQuerySha256 !== "5235b7509d102d0ca68f508ee1f48041c78846878c557a25af82846e07ae6a9d") fail("compatibility query boundary or pin drifted");
 exact("qualified relation counts", { "public.subscription_plans": 3, "public.subscriptions": 4 }, runtime.qualifiedRelationOccurrences);
 
 const rustRoot = resolve(root, runtime.rustRoot);
@@ -379,8 +379,8 @@ if (!migrationRoot || migrationRoot.path !== "services/subscription/migrations" 
 safeRelative(migrationRoot.path, "migration root");
 const migrationRootPath = resolve(root, migrationRoot.path);
 if (!existsSync(migrationRootPath) || lstatSync(migrationRootPath).isSymbolicLink() || !statSync(migrationRootPath).isDirectory()) fail("migration root must be a real directory");
-if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 1) fail("exactly one ordered subscription migration is required");
-exact("migration-root file inventory", ["20260722010000_create_subscription_tables.sql"], readdirSync(migrationRootPath).sort());
+if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 3) fail("exactly three ordered subscription migrations are required");
+exact("migration-root file inventory", ["20260722010000_create_subscription_tables.sql", "20260727000000_create_admin_access_operations.sql", "20260727010000_create_plan_state.sql"], readdirSync(migrationRootPath).sort());
 const migration = migrationRoot.orderedMigrations[0];
 if (migration.version !== "20260722010000" || migration.path !== "services/subscription/migrations/20260722010000_create_subscription_tables.sql" || migration.bytes !== 844 || migration.sha256 !== "20f38597d2d64bad3589036c2fe20aab2be89e5d240c540d401b46713c701349") fail("ordered migration pin drifted");
 exact("migration guards", ["CREATE TABLE IF NOT EXISTS public.subscription_plans (", "CREATE TABLE IF NOT EXISTS public.subscriptions ("], migration.guards);
@@ -393,6 +393,21 @@ if ((migrationSql.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.(?:subsc
 if (/\b(?:DROP|TRUNCATE|DELETE|ALTER|INSERT|UPDATE|MERGE|CASCADE)\b/i.test(migrationSql)) fail("subscription migration contains a destructive, data-mutation, or alteration token");
 if (/\bCREATE\s+(?:SCHEMA|EXTENSION|INDEX|DATABASE|TYPE|VIEW)\b/i.test(migrationSql)) fail("subscription migration contains an out-of-scope creation");
 if (/\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(migrationSql)) fail("transaction control belongs to the future reviewed runner");
+
+const adminMigration = migrationRoot.orderedMigrations[1];
+if (adminMigration.version !== "20260727000000" || adminMigration.path !== "services/subscription/migrations/20260727000000_create_admin_access_operations.sql" || adminMigration.bytes !== 1524 || adminMigration.sha256 !== "dbc244c1e24c0216adb3dc9dd0313534676e2555cabe8b663c9c88f4eada87b0") fail("ordered admin-access migration pin drifted");
+const adminBytes = readFileSync(regularRepoFile(adminMigration.path, "subscription admin-access migration"));
+const adminSql = adminBytes.toString("utf8");
+if (adminBytes.byteLength !== adminMigration.bytes || sha256(adminBytes) !== adminMigration.sha256) fail("subscription admin-access migration bytes changed");
+if ((adminSql.match(/;/g) ?? []).length !== 4 || !/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.subscription_access_assignments/i.test(adminSql) || !/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.subscription_admin_operations/i.test(adminSql) || /\b(?:DROP|TRUNCATE|INSERT|UPDATE|MERGE|ON\s+DELETE\s+CASCADE|ALTER)\b/i.test(adminSql)) fail("subscription admin-access migration is not a safe additive shape");
+
+const stateMigration = migrationRoot.orderedMigrations[2];
+if (stateMigration.version !== "20260727010000" || stateMigration.path !== "services/subscription/migrations/20260727010000_create_plan_state.sql" || stateMigration.bytes !== 511 || stateMigration.sha256 !== "9122ca4f8f43bfe524d4784c7b211abc0e58843d732b991b4d47d2109aa60783") fail("ordered plan-state migration pin drifted");
+const stateBytes = readFileSync(regularRepoFile(stateMigration.path, "subscription plan-state migration"));
+const stateSql = stateBytes.toString("utf8");
+if (stateBytes.byteLength !== stateMigration.bytes || sha256(stateBytes) !== stateMigration.sha256) fail("subscription plan-state migration bytes changed");
+if ((stateSql.match(/;/g) ?? []).length !== 1 || !/CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\.subscription_plan_state\s*\(/i.test(stateSql) || !/PRIMARY\s+KEY\s+REFERENCES\s+public\.subscription_plans\(id\)\s+ON\s+DELETE\s+RESTRICT/i.test(stateSql) || !/CHECK\s*\(version\s+>=\s+0\)/i.test(stateSql)) fail("subscription plan-state migration is not the reviewed additive shape");
+if (/\b(?:DROP|TRUNCATE|INSERT|UPDATE|MERGE|ON\s+DELETE\s+CASCADE|ALTER)\b/i.test(stateSql) || /\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK)\b/i.test(stateSql)) fail("subscription plan-state migration contains a destructive token or transaction control");
 
 if (!Array.isArray(contract.requiredTables) || contract.requiredTables.length !== 2) fail("exactly two legacy tables are required");
 const expectedTableNames = ["subscription_plans", "subscriptions"];
@@ -456,7 +471,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "a3-7-subscription-schema-boundary: PASS — subscription runtime DDL 2→0, one 844-byte migration pinned, two 10-column tables and 20 Rust response fields verified"
+  echo "a3-7-subscription-schema-boundary: PASS — subscription runtime DDL 2→0, baseline plus additive plan-state migration pinned, and response fields verified"
   echo "a3-7-subscription-schema-boundary: LIMIT — no runner, baseline adoption, populated upgrade, reconciliation, concurrent startup, or live database proof ran"
   exit 0
 fi

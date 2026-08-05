@@ -13,6 +13,10 @@ use std::{sync::Arc, time::Duration};
 use thiserror::Error;
 
 pub const WALLET_JSON_BODY_LIMIT_BYTES: usize = 8 * 1024;
+pub const WALLETS_READ_PERMISSION: &str = "admin:wallets:read";
+pub const WALLETS_MANAGE_PERMISSION: &str = "admin:wallets:manage";
+pub const CREDITS_READ_PERMISSION: &str = "admin:credits:read";
+pub const CREDITS_MANAGE_PERMISSION: &str = "admin:credits:manage";
 
 const WALLET_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
 WITH expected_tables (table_name, column_count) AS (
@@ -541,6 +545,7 @@ fn normalize_address(address: &str) -> Option<String> {
 enum AccessPolicy {
     Public,
     OwnerRead,
+    AdminPermission(&'static str),
     UnsafeProjection,
     UnsafeCustodyMutation,
     Blocked,
@@ -552,6 +557,49 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     }
     if !normalized_path(path) {
         return AccessPolicy::Blocked;
+    }
+    if path == "/api/v1/admin/wallets" || path.starts_with("/api/v1/admin/wallets/") {
+        let tail = path
+            .strip_prefix("/api/v1/admin/wallets")
+            .unwrap_or_default();
+        let segments: Vec<_> = tail
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect();
+        return match (method, segments.as_slice()) {
+            (&Method::GET, []) | (&Method::GET, ["stats"]) => {
+                AccessPolicy::AdminPermission(WALLETS_READ_PERMISSION)
+            }
+            (&Method::GET, [address]) if safe_dynamic_segment(address) => {
+                AccessPolicy::AdminPermission(WALLETS_READ_PERMISSION)
+            }
+            (&Method::POST, [address, "disable" | "enable"]) if safe_dynamic_segment(address) => {
+                AccessPolicy::AdminPermission(WALLETS_MANAGE_PERMISSION)
+            }
+            (&Method::PATCH, [address, "metadata"]) if safe_dynamic_segment(address) => {
+                AccessPolicy::AdminPermission(WALLETS_MANAGE_PERMISSION)
+            }
+            _ => AccessPolicy::Blocked,
+        };
+    }
+    if path == "/api/v1/admin/credits" || path.starts_with("/api/v1/admin/credits/") {
+        let tail = path
+            .strip_prefix("/api/v1/admin/credits")
+            .unwrap_or_default();
+        let segments: Vec<_> = tail
+            .split('/')
+            .filter(|segment| !segment.is_empty())
+            .collect();
+        return match (method, segments.as_slice()) {
+            (&Method::GET, []) => AccessPolicy::AdminPermission(CREDITS_READ_PERMISSION),
+            (&Method::GET, [address]) if safe_dynamic_segment(address) => {
+                AccessPolicy::AdminPermission(CREDITS_READ_PERMISSION)
+            }
+            (&Method::POST, [address, "grant" | "revoke"]) if safe_dynamic_segment(address) => {
+                AccessPolicy::AdminPermission(CREDITS_MANAGE_PERMISSION)
+            }
+            _ => AccessPolicy::Blocked,
+        };
     }
     let Some(tail) = path.strip_prefix("/api/v1/wallet/") else {
         return AccessPolicy::Blocked;
@@ -624,6 +672,22 @@ async fn authorize_request(
                 return auth_error(StatusCode::FORBIDDEN);
             }
             if normalize_address(&principal.wallet_address).is_none() {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
+        }
+        AccessPolicy::AdminPermission(required) => {
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(principal) => principal,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if principal.audience != ADMIN_AUDIENCE
+                || !principal
+                    .permissions
+                    .iter()
+                    .any(|permission| permission == required)
+            {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);
@@ -1001,6 +1065,37 @@ mod tests {
             ..principal
         };
         assert_eq!(canonical_owner(&invalid, None), Err(StatusCode::FORBIDDEN));
+    }
+
+    #[test]
+    fn admin_resource_prefixes_are_strict_boundaries() {
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/wallets"),
+            AccessPolicy::AdminPermission(WALLETS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/wallets/0xabc/disable"),
+            AccessPolicy::AdminPermission(WALLETS_MANAGE_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::GET, "/api/v1/admin/credits"),
+            AccessPolicy::AdminPermission(CREDITS_READ_PERMISSION)
+        ));
+        assert!(matches!(
+            classify(&Method::POST, "/api/v1/admin/credits/0xabc/grant"),
+            AccessPolicy::AdminPermission(CREDITS_MANAGE_PERMISSION)
+        ));
+        for (method, path) in [
+            (Method::GET, "/api/v1/admin/walletsfoo"),
+            (Method::POST, "/api/v1/admin/wallets/../disable"),
+            (Method::POST, "/api/v1/admin/wallets/%2e%2e/disable"),
+            (Method::POST, "/api/v1/admin/wallets/0xabc//disable"),
+            (Method::GET, "/api/v1/admin/creditsfoo"),
+            (Method::POST, "/api/v1/admin/credits/../grant"),
+            (Method::POST, "/api/v1/admin/credits/%2e%2e/grant"),
+        ] {
+            assert_eq!(classify(&method, path), AccessPolicy::Blocked, "{path}");
+        }
     }
 
     #[tokio::test]

@@ -148,7 +148,7 @@ pub fn AuthGate(
                 }
             }
             div { class: "auth-gate-actions",
-                if let Some(h) = on_connect.clone() {
+                if let Some(h) = on_connect {
                     button {
                         class: "btn btn-primary",
                         r#type: "button",
@@ -230,7 +230,7 @@ pub fn AdminAuthGate(
                 }
             }
             div { class: "auth-gate-actions",
-                if let Some(h) = on_connect.clone() {
+                if let Some(h) = on_connect {
                     button {
                         class: "btn btn-primary",
                         r#type: "button",

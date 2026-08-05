@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)"
 CONTRACT="$REPO_ROOT/docs/migration/contracts/routes.json"
-SOURCE_REF="origin/development"
+SOURCE_REF="development"
 
 command -v bun >/dev/null 2>&1 || { echo "route-inventory: ERROR: bun is required" >&2; exit 1; }
 git -C "$REPO_ROOT" cat-file -e "$SOURCE_REF^{commit}" 2>/dev/null || {

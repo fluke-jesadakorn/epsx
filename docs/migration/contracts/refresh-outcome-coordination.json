@@ -165,7 +165,7 @@
     {
       "file": "apps/frontend/src/ssr.rs",
       "anchors": [
-        "epsx_templates::epsx_header_for_session(is_authenticated)"
+        "epsx_templates::epsx_header_for_session_and_wallet_with_network("
       ]
     },
     {
@@ -186,7 +186,7 @@
     {
       "file": "shared/rust/dioxus_ui/src/layout/admin_shell.rs",
       "anchors": [
-        "\"data-epsx-logout\": \"true\"",
+        "html.contains(\"data-epsx-logout=\\\"true\\\"\")",
         "authenticated AdminShell must expose the shared logout controller hook"
       ]
     },

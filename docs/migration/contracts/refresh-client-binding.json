@@ -11,7 +11,7 @@
   },
   "migration": {
     "directory": "apps/backend/migrations/core/20260723000000_bind_refresh_tokens_to_client",
-    "upSha256": "bbb9123588701625e2bcb76c816fb3c0e0b73ad14e83772d0e3eb442178e4ede",
+    "upSha256": "fecacad53c5ff188480b70e184399bf73d86f58074a71fe8f868484a66974b37",
     "downSha256": "17a8dd4363f8b7a30f43892417d144dd5c805112359c2ff5212046233b96cf02",
     "mode": "additive-expand-forward-only",
     "legacyPolicy": "Existing NULL client or family rows are never guessed, backfilled, or claimed. Runtime exact-client/family predicates reject them without mutation and force fresh authentication. Legacy logout revokes only the exact presented row. A separately reviewed enforcement migration may revoke remaining active NULL rows only after every old writer is gone."

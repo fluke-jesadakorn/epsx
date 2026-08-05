@@ -231,156 +231,6 @@ pub async fn api_health() -> &'static str {
     "ok"
 }
 
-/// Wave 23 T3 — OAuth start handler (`/api/v1/auth/oauth/{provider}`).
-///
-/// The auth page's "Continue with Google" button (`pages/auth_page.rs`)
-/// links to `/api/v1/auth/oauth/google`. Pre-wave-23 the dev BFF had
-/// no route registered, so the click fell through to the SSR fallback
-/// and rendered the `/auth` page (200 OK) — the click was *silently*
-/// observable only as a navigation back to the auth page.
-///
-/// This handler returns a 501 with a clear "not implemented" JSON
-/// body. The browser shows the error in DevTools and the click
-/// handler can detect the failure. The response is intentionally
-/// NOT a 302 redirect to `/auth?error=...` — we don't want the user
-/// to think the OAuth flow succeeded when the backend has no
-/// provider integration yet.
-///
-/// When the Rust identity service grows an OAuth start handler
-/// (`/api/v1/identity/auth/oauth/{provider}/start` style), this
-/// route becomes a thin proxy that 307-redirects to the identity
-/// service's start URL, passing through the `?return_url=` and any
-/// CSRF/PKCE state. The handler is structured so the upgrade is a
-/// single `match` arm swap, not a rewrite.
-pub async fn api_oauth_start(AxPath(provider): AxPath<String>) -> Response {
-    // Whitelist the providers the auth page actually exposes.
-    // Anything else returns 404 to avoid a SSRF probe surface.
-    let allowed = matches!(provider.as_str(), "google" | "github" | "apple" | "twitter");
-    if !allowed {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({
-                "error": "unknown_provider",
-                "provider": provider,
-                "allowed": ["google", "github", "apple", "twitter"],
-            })),
-        )
-            .into_response();
-    }
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(serde_json::json!({
-            "error": "oauth_not_configured",
-            "provider": provider,
-            "message": "OAuth provider integration is not yet wired in the dev BFF. Use the wallet / demo / email auth flows instead.",
-        })),
-    )
-        .into_response()
-}
-
-#[cfg(test)]
-mod oauth_tests {
-    //! Unit tests for the wave-23-T3 OAuth start stub.
-    //!
-    //! The handler is a placeholder until the Rust identity service
-    //! grows a real provider-redirect integration. These tests pin
-    //! the current shape: 501 for whitelisted providers, 404 for
-    //! unknown providers, and a clear JSON body so the click is
-    //! observable in DevTools (not a silent 404).
-    use super::*;
-    use axum::http::StatusCode;
-
-    #[tokio::test]
-    async fn oauth_start_returns_501_for_google() {
-        let r = api_oauth_start(AxPath("google".to_string())).await;
-        assert_eq!(r.status(), StatusCode::NOT_IMPLEMENTED);
-        let body = r.into_body();
-        // Drain the body to a string for the JSON-shape assertion.
-        let bytes = axum::body::to_bytes(body, 1024).await.unwrap();
-        let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
-        assert_eq!(v["error"], "oauth_not_configured");
-        assert_eq!(v["provider"], "google");
-        assert!(v["message"].as_str().unwrap().contains("not yet wired"));
-    }
-
-    #[tokio::test]
-    async fn oauth_start_returns_501_for_github_apple_twitter() {
-        for provider in ["github", "apple", "twitter"] {
-            let r = api_oauth_start(AxPath(provider.to_string())).await;
-            assert_eq!(
-                r.status(),
-                StatusCode::NOT_IMPLEMENTED,
-                "{provider} should be in the allow-list and return 501"
-            );
-        }
-    }
-
-    #[tokio::test]
-    async fn oauth_start_returns_404_for_unknown_provider() {
-        // SSRF probe guard: providers outside the allow-list must
-        // return 404, not 501. This prevents a probe-for-anything
-        // surface from being exposed even before the real OAuth
-        // integration is wired.
-        for provider in ["facebook", "okta", "auth0", "../../etc/passwd"] {
-            let r = api_oauth_start(AxPath(provider.to_string())).await;
-            assert_eq!(
-                r.status(),
-                StatusCode::NOT_FOUND,
-                "{provider} should be outside the allow-list and return 404"
-            );
-        }
-    }
-}
-
-pub async fn get_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
-    let path = format!("/api/v1/content/pages/{}", slug);
-    match state.content.get_plain(&path).await {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
-pub async fn save_page(
-    State(state): State<AppState>,
-    AxPath(slug): AxPath<String>,
-    Json(body): Json<super::SavePageBody>,
-) -> Response {
-    let path = format!("/api/v1/content/pages/{}", slug);
-    let payload = serde_json::json!({
-        "title": body.title,
-        "blocks_json": body.blocks.map(|v| v.to_string()).unwrap_or_else(|| "[]".to_string()),
-        "seo_json": body.seo.map(|v| v.to_string()).unwrap_or_else(|| "{}".to_string()),
-    });
-    match state.content.put_plain(&path, &payload).await {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
-pub async fn publish_page(State(state): State<AppState>, AxPath(slug): AxPath<String>) -> Response {
-    let path = format!("/api/v1/content/pages/{}/publish", slug);
-    match state
-        .content
-        .post_plain(&path, &serde_json::json!({}))
-        .await
-    {
-        Ok(v) => Json(v).into_response(),
-        Err(_) => (
-            StatusCode::BAD_GATEWAY,
-            Json(serde_json::json!({"error": "upstream"})),
-        )
-            .into_response(),
-    }
-}
-
 pub async fn siwe_login(
     State(state): State<AppState>,
     Json(body): Json<super::SiweLoginBody>,
@@ -761,7 +611,7 @@ fn clear_session_response(state: &AppState, status: StatusCode, code: &'static s
         append_clear_session_cookies(headers, state.cookie_environment, CookieClient::Frontend)
             .is_ok()
     })
-    .unwrap_or_else(|error| error)
+    .unwrap_or_else(|error| *error)
 }
 
 fn clear_refresh_session_response(
@@ -774,7 +624,7 @@ fn clear_refresh_session_response(
             .is_ok()
     }) {
         Ok(response) => refresh_response(response, RefreshDisposition::Clear),
-        Err(error) => error,
+        Err(error) => *error,
     }
 }
 
@@ -782,13 +632,13 @@ fn try_clear_session_response(
     status: StatusCode,
     code: &'static str,
     append: impl FnOnce(&mut axum::http::HeaderMap) -> bool,
-) -> Result<Response, Response> {
+) -> Result<Response, Box<Response>> {
     let mut response = safe_error(status, code);
     if !append(response.headers_mut()) {
-        return Err(safe_error(
+        return Err(Box::new(safe_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "session_cookie_error",
-        ));
+        )));
     }
     Ok(response)
 }
@@ -833,7 +683,7 @@ pub(crate) fn decode_watchlist_response(
     if !envelope.success {
         return Err(());
     }
-    envelope.data.ok_or(())?.validated()
+    envelope.data.ok_or(())?.validated().map_err(|_| ())
 }
 
 fn private_watchlist_response(mut response: Response) -> Response {
@@ -1040,6 +890,7 @@ mod watchlist_contract_tests {
 const NOTIFICATION_LIST_LIMIT_MAX: u16 = 100;
 const NOTIFICATION_LIST_OFFSET_MAX: u32 = 1_000_000;
 pub(crate) const NOTIFICATION_SSR_PAGE_SIZE: u16 = 20;
+#[cfg(test)]
 pub(crate) const NOTIFICATION_SSR_MAX_PAGE: u32 =
     (NOTIFICATION_LIST_OFFSET_MAX / NOTIFICATION_SSR_PAGE_SIZE as u32) + 1;
 // The list endpoint returns at most 100 rows. A 2 MiB cap leaves roughly
@@ -1060,7 +911,7 @@ const NOTIFICATION_ID_MAX: usize = 128;
 const NOTIFICATION_RECIPIENT_MAX: usize = 2 * 1024;
 const NOTIFICATION_SUBJECT_MAX: usize = 512;
 const NOTIFICATION_BODY_MAX: usize = 16 * 1024;
-const NOTIFICATION_ERROR_MAX: usize = 1 * 1024;
+const NOTIFICATION_ERROR_MAX: usize = 1024;
 const NOTIFICATION_TITLE_MAX: usize = 512;
 const NOTIFICATION_TYPE_MAX: usize = 64;
 const NOTIFICATION_PRIORITY_MAX: usize = 32;
@@ -1084,11 +935,13 @@ impl NotificationListQuery {
     /// The browser selects only a canonical page number. Page size, offset,
     /// and owner are not caller-controlled: size is frozen to the development
     /// source's 20 rows and offset is derived here.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page(page: u32) -> Option<Self> {
         Self::for_ssr_page_and_status(page, None)
     }
 
     /// Build a fixed owner-scoped SSR page with the bounded status filter.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page_and_status(page: u32, status: Option<&str>) -> Option<Self> {
         Self::for_ssr_page_and_filters(page, status, None, None)
     }
@@ -1097,6 +950,7 @@ impl NotificationListQuery {
     /// type, and priority filters. The caller supplies canonical values only;
     /// this final boundary still rejects whitespace/control/unbounded values
     /// before an upstream request is possible.
+    #[cfg(test)]
     pub(crate) fn for_ssr_page_and_filters(
         page: u32,
         status: Option<&str>,
@@ -1341,16 +1195,11 @@ impl NotificationListQuery {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 enum RequiredNullable<T> {
+    #[default]
     Missing,
     Present(Option<T>),
-}
-
-impl<T> Default for RequiredNullable<T> {
-    fn default() -> Self {
-        Self::Missing
-    }
 }
 
 impl<'de, T> Deserialize<'de> for RequiredNullable<T>
@@ -1454,7 +1303,7 @@ impl NotificationListWire {
             });
             let broadcast_matches = item.user_id.as_ref()?.is_none()
                 && item.recipient.eq_ignore_ascii_case("all")
-                && item.channel != "";
+                && !item.channel.is_empty();
             if !owner_matches && !broadcast_matches {
                 return Err(());
             }
@@ -3353,12 +3202,12 @@ async fn read_notification_preferences_response(
                 "malformed_notification_preferences_response",
             )
         })?;
-    if !validate_notification_preferences(&NotificationPreferencesRequest {
+    if validate_notification_preferences(&NotificationPreferencesRequest {
         channels: preferences.channels.clone(),
         quiet_hours: preferences.quiet_hours.clone(),
         timezone: preferences.timezone.clone(),
     })
-    .is_ok()
+    .is_err()
     {
         return Err(safe_error(
             StatusCode::BAD_GATEWAY,
@@ -4634,8 +4483,13 @@ pub async fn legacy_notification_push_unsubscribe(
 
 pub async fn track_event(
     State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
     Json(body): Json<AnalyticsTrackBody>,
 ) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return response,
+    };
     let url = format!(
         "{}/api/v1/analytics/track",
         state.api_url.trim_end_matches('/')
@@ -4644,6 +4498,7 @@ pub async fn track_event(
         .analytics
         .clone_for_bearer()
         .post(&url)
+        .bearer_auth(&token)
         .json(&serde_json::json!({
             "event_name": body.event_name,
             "properties": body.properties,
@@ -4653,114 +4508,14 @@ pub async fn track_event(
         .send()
         .await
     {
-        Ok(_) => Json(serde_json::json!({"ok": true})).into_response(),
-        Err(_) => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) if r.status().is_success() => Json(serde_json::json!({"ok": true})).into_response(),
+        Ok(r) => (r.status(), Json(serde_json::json!({"error": "upstream"}))).into_response(),
+        Err(_) => (
+            StatusCode::BAD_GATEWAY,
+            Json(serde_json::json!({"error": "upstream"})),
+        )
+            .into_response(),
     }
-}
-
-#[derive(serde::Serialize)]
-pub struct ChainInfo {
-    pub id: String,
-    pub name: String,
-    pub chain_id: u64,
-    pub rpc_url: String,
-    pub currency: String,
-    pub explorer: String,
-}
-
-pub async fn api_wallet_chains() -> Json<Vec<ChainInfo>> {
-    Json(vec![
-        ChainInfo {
-            id: "bsc".into(),
-            name: "BSC Mainnet".into(),
-            chain_id: 56,
-            rpc_url: "https://bsc-dataseed1.binance.org".into(),
-            currency: "BNB".into(),
-            explorer: "https://bscscan.com".into(),
-        },
-        ChainInfo {
-            id: "bsc_testnet".into(),
-            name: "BSC Testnet".into(),
-            chain_id: 97,
-            rpc_url: "https://data-seed-prebsc-1-s1.binance.org:8545".into(),
-            currency: "tBNB".into(),
-            explorer: "https://testnet.bscscan.com".into(),
-        },
-    ])
-}
-
-#[derive(serde::Deserialize)]
-pub struct WalletConnectBody {
-    pub address: Option<String>,
-    pub chain_id: Option<String>,
-}
-
-pub async fn api_wallet_connect(Json(body): Json<WalletConnectBody>) -> Json<serde_json::Value> {
-    let session_id = format!("0x{:064x}", uuid::Uuid::new_v4().as_u128());
-    Json(serde_json::json!({
-        "session_id": session_id,
-        "address": body.address,
-        "chain_id": body.chain_id.unwrap_or_else(|| "56".into()),
-        "expires_at": chrono::Utc::now().timestamp() + 86400
-    }))
-}
-
-pub async fn api_subscription_plans(_state: State<AppState>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "plans": [
-            { "id": "sub_1", "merchant_id": "0xM1", "name": "Pro Monthly", "amount": "9", "currency": "USDT", "chain_id": 56, "interval": 2592000, "active": true },
-            { "id": "sub_2", "merchant_id": "0xM1", "name": "Pro Yearly", "amount": "79", "currency": "USDT", "chain_id": 56, "interval": 31536000, "active": true }
-        ]
-    }))
-}
-
-pub async fn api_subscription_merchant(
-    _state: State<AppState>,
-    AxPath(addr): AxPath<String>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "merchant": addr,
-        "plans": [
-            { "id": "sub_1", "name": "Pro Monthly", "amount": "9", "currency": "USDT" }
-        ]
-    }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct SubscribeBody {
-    pub plan_id: String,
-    pub tx_hash: String,
-}
-
-pub async fn api_subscription_subscribe(
-    Json(body): Json<SubscribeBody>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "ok": true,
-        "plan_id": body.plan_id,
-        "tx_hash": body.tx_hash
-    }))
-}
-
-#[derive(serde::Deserialize)]
-pub struct CreatePlanBody {
-    pub name: String,
-    pub amount: String,
-    pub currency: Option<String>,
-    pub interval: Option<i64>,
-}
-
-pub async fn api_subscription_create_plan(
-    Json(body): Json<CreatePlanBody>,
-) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "id": uuid::Uuid::new_v4().to_string(),
-        "name": body.name,
-        "amount": body.amount,
-        "currency": body.currency.unwrap_or_else(|| "USDT".to_string()),
-        "interval": body.interval.unwrap_or(2592000),
-        "active": true
-    }))
 }
 
 pub(crate) fn valid_news_slug(slug: &str) -> bool {
@@ -4810,9 +4565,7 @@ fn valid_cover_image_url(value: &str) -> bool {
 }
 
 fn canonical_https_authority(value: &str) -> Option<&str> {
-    let Some((scheme, rest)) = value.split_once("://") else {
-        return None;
-    };
+    let (scheme, rest) = value.split_once("://")?;
     if !scheme.eq_ignore_ascii_case("https") {
         return None;
     }
@@ -6614,7 +6367,7 @@ mod auth_session_tests {
             |_| false,
         ) {
             Ok(_) => panic!("forced cookie failure unexpectedly succeeded"),
-            Err(response) => response,
+            Err(response) => *response,
         };
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
         assert!(response.headers().get(SESSION_STATE_HEADER).is_none());

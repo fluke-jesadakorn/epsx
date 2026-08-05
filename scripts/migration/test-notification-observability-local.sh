@@ -75,6 +75,6 @@ const expected = ["notification_queue_depth_high", "notification_queue_age_high"
 if (JSON.stringify(alertsFor(unhealthy)) !== JSON.stringify(expected)) fail(`unhealthy alert set drifted: ${JSON.stringify(alertsFor(unhealthy))}`);
 if (contract.alerts.some((alert) => !alertsFor(unhealthy).includes(alert.name) && alert.name !== "notification_dependency_not_ready" && alert.name !== "notification_dead_letters_present")) fail("contract alert is not exercised by the unhealthy fixture");
 console.log("notification-observability-local: PASS — healthy snapshot stayed alert-free and unhealthy snapshot raised bounded queue, provider, SSE-lag, and query-failure alerts");
-' 
+'
 
 echo "notification-observability-local: LIMIT — offline fixtures and readiness evaluator only; no live telemetry, alert receiver, dashboard, provider, deployment, or production evidence"

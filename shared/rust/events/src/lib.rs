@@ -13,6 +13,9 @@ pub enum EventError {
 }
 
 pub type Result<T> = std::result::Result<T, EventError>;
+type StreamFields = Vec<(String, String)>;
+type StreamMessages = Vec<(String, StreamFields)>;
+type StreamReadResponse = Vec<(String, StreamMessages)>;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DomainEvent {
@@ -50,7 +53,7 @@ pub struct EventStore {
 impl EventStore {
     pub async fn new(redis_url: &str) -> Result<Self> {
         let client = redis::Client::open(redis_url)?;
-        let conn = client.get_tokio_connection_manager().await?;
+        let conn = client.get_connection_manager().await?;
         Ok(Self { redis: conn })
     }
 
@@ -72,7 +75,7 @@ impl EventStore {
         group: &str,
         consumer: &str,
     ) -> Result<Vec<DomainEvent>> {
-        let result: Vec<(String, Vec<(String, Vec<(String, String)>)>)> = redis::cmd("XREADGROUP")
+        let result: StreamReadResponse = redis::cmd("XREADGROUP")
             .arg("GROUP")
             .arg(group)
             .arg(consumer)

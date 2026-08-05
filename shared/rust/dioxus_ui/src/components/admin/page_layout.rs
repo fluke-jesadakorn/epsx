@@ -32,19 +32,14 @@ use dioxus::prelude::*;
 // `space-y-6` to gap sibling sections consistently.
 
 /// Maximum width preset. Matches the source's 5 variants.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum PageMaxWidth {
     Full,
+    #[default]
     SevenXl,
     SixXl,
     FiveXl,
     FourXl,
-}
-
-impl Default for PageMaxWidth {
-    fn default() -> Self {
-        PageMaxWidth::SevenXl
-    }
 }
 
 impl PageMaxWidth {
@@ -89,7 +84,7 @@ pub fn PageLayout(
 
 /// Gradient preset for `PageHeader` and `PageTabs` active states.
 /// Matches the source's 7 presets.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Default)]
 pub enum PageGradient {
     Primary,
     Success,
@@ -97,13 +92,8 @@ pub enum PageGradient {
     Purple,
     Warning,
     Indigo,
+    #[default]
     Default,
-}
-
-impl Default for PageGradient {
-    fn default() -> Self {
-        PageGradient::Default
-    }
 }
 
 impl PageGradient {

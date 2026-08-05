@@ -33,7 +33,6 @@ use axum::{
 };
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Duration, Utc};
-use epsx_contracts::errors::AppError;
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::Arc;
@@ -699,7 +698,7 @@ pub async fn record_payment_usage_handler(
 /// payment-bounded-context — keeping the route builder next to
 /// the handlers makes the ownership explicit.
 pub fn create_admin_payment_link_routes() -> axum::Router<crate::web::auth::AppState> {
-    use axum::routing::{delete, get, post, put};
+    use axum::routing::{get, post};
     use axum::Router;
 
     Router::new()
@@ -963,7 +962,7 @@ mod tests {
     impl crate::domain::payment::repository_ports::PaymentContextRepositoryPort
         for MockPaymentContextRepository
     {
-        async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
+        async fn save(&self, _context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
             unimplemented!("not exercised by the route tests")
         }
 
@@ -1092,9 +1091,3 @@ mod tests {
         // route test is the integration counterpart.
     }
 }
-
-// `AppError` is used indirectly through the `Arc<dyn ...>` port
-// return type; silence the unused-import warning on the
-// `epsx_contracts::errors::AppError` import.
-#[allow(dead_code)]
-fn _unused_app_error_marker(_: AppError) {}

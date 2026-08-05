@@ -5,6 +5,7 @@ namespace: epsx-staging
 
 resources:
   - ../../base
+  - ../../base/notification
 
 images:
   - name: epsx-backend
@@ -37,3 +38,4 @@ patches:
   - path: patches/pay-services-nodeport.yaml
   - path: patches/pay-replicas.yaml
   - path: patches/pay-resources.yaml
+  - path: patches/notification-environment.yaml

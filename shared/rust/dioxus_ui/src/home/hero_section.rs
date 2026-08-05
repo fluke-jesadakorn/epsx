@@ -153,7 +153,6 @@ fn HeroStat(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn hero_section_smoke() {}

@@ -8,15 +8,12 @@
 //! typed data props that the page-level BFF call sites can fill
 //! in from the dashboard service.
 
-use dioxus::prelude::*;
-
 pub mod dashboard_client;
 
 pub use dashboard_client::{DashboardClient, DashboardStats};
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn dashboard_module_re_exports_resolve() {}

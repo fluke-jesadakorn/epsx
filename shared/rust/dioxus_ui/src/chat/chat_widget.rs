@@ -38,7 +38,6 @@ pub fn ChatWidget(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_widget_smoke() {}

@@ -9,9 +9,9 @@
 //!
 //! Uses the Wave 1 `Sheet` primitive for the side-panel + `aria-modal`
 //! + `aria-labelledby` plumbing. The hamburger trigger has
-//! `aria-label="Open menu"` and is rendered as a sibling of the Sheet
-//! (the Sheet primitive's `!open` short-circuit hides the children, so
-//! the trigger must live outside).
+//!   `aria-label="Open menu"` and is rendered as a sibling of the Sheet
+//!   (the Sheet primitive's `!open` short-circuit hides the children, so
+//!   the trigger must live outside).
 //!
 //! Wave 2 a11y: `role="dialog"` and `aria-modal="true"` are provided
 //! by `<Sheet>`; this component sets the visible header inside the
@@ -60,7 +60,7 @@ pub fn MobileNav(
         .iter()
         .map(|g| is_group_active(g, &path))
         .collect();
-    let mut group_open = use_signal(move || initial_group_open);
+    let group_open = use_signal(move || initial_group_open);
     let close_sheet = move |_: MouseEvent| {
         open.set(false);
     };
@@ -145,7 +145,7 @@ pub fn MobileNav(
                 }
                 // Sign-in banner (only when wallet connected but
                 // not authenticated — matches TS SignInBanner)
-                if let Some(handler) = on_sign_in.clone() {
+                if let Some(handler) = on_sign_in {
                     if connected && !is_authenticated {
                         div { class: "signin-banner",
                             button {

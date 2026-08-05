@@ -177,8 +177,8 @@ pub(super) async fn apply(
 
     if mutation.expected() != &stored.expected {
         return Err(SelectionConflict::ExpectedState {
-            expected: mutation.expected().clone(),
-            actual: stored.expected,
+            expected: Box::new(mutation.expected().clone()),
+            actual: Box::new(stored.expected),
         }
         .into());
     }

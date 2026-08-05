@@ -94,12 +94,12 @@
     {
       "id": "impl-frontend-router-journey",
       "file": "apps/frontend/src/main.rs",
-      "sha256": "73b8bfb10ca9903243023d125dc5ea087fa4ea9adc911b4a9c3b83fd66a3dbec"
+      "sha256": "da76a4e76ad144f9819f07b56e4dd67d191c3d9989da2b5ed47f289be28a0966"
     },
     {
       "id": "impl-frontend-ssr-state",
       "file": "apps/frontend/src/ssr.rs",
-      "sha256": "82c38118afc6d4dd044b3afc576bd9e15e9ffde77a101bf64f3a4576c144a8ef"
+      "sha256": "3d00345c4501ef5ada44453374fb2745f00912108f0c870285799bc67f768bfa"
     },
     {
       "id": "impl-fixed-recovery-bootstrap",
@@ -109,7 +109,7 @@
     {
       "id": "impl-auth-page-state-machine",
       "file": "shared/rust/dioxus_ui/src/pages/auth_page.rs",
-      "sha256": "38e3c0a54ae8ed9275179214a9f3d29441f0547d6411001efc35b4cdab43ed17"
+      "sha256": "65039b501d24a4417edff71c38d8eac2af73bcbdca0b30ad55d265695140637a"
     },
     {
       "id": "impl-fake-dom-harness",

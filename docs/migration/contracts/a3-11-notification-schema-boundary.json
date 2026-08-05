@@ -100,7 +100,7 @@
     "compatibilityQuerySha256": "0486b3ad1a89414b62a87f40487f695cbb99c43e09a72ccd47e222642c204a3c",
     "qualifiedRelationOccurrences": {
       "public.templates": 14,
-      "public.notifications": 33
+      "public.notifications": 36
     },
     "timestampBind": "Some(chrono::Utc::now())",
     "templateLoadResult": "Result<(), TemplateLoadError>",

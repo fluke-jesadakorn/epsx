@@ -27,7 +27,6 @@ pub fn ChatMessageList(#[props(default = Vec::new())] messages: Vec<Message>) ->
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_message_list_smoke() {}

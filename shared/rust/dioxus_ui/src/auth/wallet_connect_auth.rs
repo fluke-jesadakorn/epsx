@@ -142,7 +142,6 @@ pub fn WalletConnectAuth(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn wallet_connect_auth_signature_matches_ts() {

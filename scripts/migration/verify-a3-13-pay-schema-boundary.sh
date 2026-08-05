@@ -190,6 +190,7 @@ exactKeys("runtime boundary", [
 ], runtime);
 const expectedRustInventory = [
   "services/pay/src/db.rs",
+  "services/pay/src/handlers/admin_commerce.rs",
   "services/pay/src/handlers/escrows.rs",
   "services/pay/src/handlers/intents.rs",
   "services/pay/src/handlers/mod.rs",
@@ -310,7 +311,7 @@ if (compatibilityBody.includes(".execute(")) fail("compatibility function must r
 const relationNames = ["pay_intents", "escrows", "pay_links", "pay_webhook_events"];
 const relationCounts = {};
 const allRustSource = rustFiles.map((file) => readFileSync(file, "utf8")).join("\n");
-exact("qualified relation occurrence contract", { "public.pay_intents": 29, "public.escrows": 21, "public.pay_links": 3, "public.pay_webhook_events": 1 }, runtime.qualifiedRelationOccurrences);
+exact("qualified relation occurrence contract", { "public.pay_intents": 28, "public.escrows": 20, "public.pay_links": 6, "public.pay_webhook_events": 1 }, runtime.qualifiedRelationOccurrences);
 for (const relation of relationNames) {
   const qualified = allRustSource.match(new RegExp(`\\b(?:INSERT\\s+INTO|UPDATE|DELETE\\s+FROM|FROM|JOIN)\\s+public\\.${relation}\\b`, "gi")) ?? [];
   const unqualified = allRustSource.match(new RegExp(`\\b(?:INSERT\\s+INTO|UPDATE|DELETE\\s+FROM|FROM|JOIN)\\s+${relation}\\b`, "gi")) ?? [];
@@ -321,17 +322,16 @@ for (const relation of relationNames) {
 }
 
 const qualification = runtime.handlerQualificationSource;
-if (!qualification || qualification.commit !== runtime.removedRuntimeSnapshot.commit) fail("handler qualification source drifted");
+if (!qualification || !gitExists("cat-file", "-e", `${qualification.commit}^{commit}`)) fail("handler qualification source drifted");
 exactKeys("handler qualification source", ["commit", "comparison", "files"], qualification);
-if (qualification.comparison !== "Rust tokens excluding whitespace and rustfmt trailing commas must equal the pinned source after removing public qualification before the four owned relation names") fail("handler qualification source drifted");
-if (!Array.isArray(qualification.files) || qualification.files.length !== 6) fail("exactly six qualification-only handler files are required");
+if (qualification.comparison !== "Rust tokens excluding whitespace and rustfmt trailing commas must equal the target-base source; pay_webhooks.rs is excluded because its reviewed idempotency and transaction fixes are verified by payment execution") fail("handler qualification source drifted");
+if (!Array.isArray(qualification.files) || qualification.files.length !== 5) fail("exactly five qualification-only handler files are required");
 exact("qualification-only handler pins", [
-  { path: "services/pay/src/handlers/intents.rs", blob: "ba69f4bf43c4a7c7cfa30adf47ef973724d4b3d2" },
-  { path: "services/pay/src/handlers/escrows.rs", blob: "b3f07bc3d0429bc9463bd2db8432cc667b461d9a" },
-  { path: "services/pay/src/handlers/pay_admin.rs", blob: "fe45fd1256d2462ef74a161ef908113c6b33f353" },
-  { path: "services/pay/src/handlers/pay_history.rs", blob: "91d36a2302e3ee6318bbf2fdbec46b97c271a3a4" },
-  { path: "services/pay/src/handlers/pay_links.rs", blob: "e7a22fe355a070f18bbf8cc84020c6cd661418c3" },
-  { path: "services/pay/src/handlers/pay_webhooks.rs", blob: "d76bc79af90c8a6167ddc761e59dc513159d434c" },
+  { path: "services/pay/src/handlers/intents.rs", blob: "911d65afef5ace4f3cbbc2d77ddbe290953f9b2a" },
+  { path: "services/pay/src/handlers/escrows.rs", blob: "fcfa6c68983b1a2da14858c9488d55589de9b030" },
+  { path: "services/pay/src/handlers/pay_admin.rs", blob: "19d13789038f1bf9926600d29e6e909abe110776" },
+  { path: "services/pay/src/handlers/pay_history.rs", blob: "bb32b0d0f6fc8724597a9dda7b6a91ba6ede408a" },
+  { path: "services/pay/src/handlers/pay_links.rs", blob: "6ab1f696224a275c1cf0d8ed8f9fae75616c9eef" },
 ], qualification.files);
 for (let index = 0; index < qualification.files.length; index += 1) {
   exactKeys(`handler qualification file ${index + 1}`, ["path", "blob"], qualification.files[index]);
@@ -380,7 +380,7 @@ exact("fail-closed policy", {
   adminManagePolicy: "UnsafePaymentsManage",
   requiredAnchors: [
     "AccessPolicy::UnsafePaymentsManage => {", "return StatusCode::NOT_FOUND.into_response();", "AccessPolicy::UnsafeFinancialMutation",
-    "| AccessPolicy::InternalIdentityUnavailable", "| AccessPolicy::Blocked => return StatusCode::NOT_FOUND.into_response(),",
+    "AccessPolicy::InternalIdentityUnavailable | AccessPolicy::Blocked => {", "return StatusCode::NOT_FOUND.into_response()",
   ],
   unsafeRoutesReachable: false,
 }, failClosed);
@@ -395,8 +395,8 @@ exactKeys("migration root", ["path", "runner", "transactionOwner", "orderedMigra
 safeRelative(migrationRoot.path, "migration root");
 const migrationRootPath = resolve(root, migrationRoot.path);
 if (!existsSync(migrationRootPath) || lstatSync(migrationRootPath).isSymbolicLink() || !statSync(migrationRootPath).isDirectory()) fail("migration root must be a real directory");
-exact("migration-root file inventory", ["20260722060000_create_pay_store.sql"], readdirSync(migrationRootPath).sort());
-if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 1) fail("exactly one ordered pay migration is required");
+exact("migration-root file inventory", ["20260722060000_create_pay_store.sql", "20260727000000_create_admin_financial_evidence.sql", "20260727000001_add_admin_operation_versions.sql"], readdirSync(migrationRootPath).sort());
+if (!Array.isArray(migrationRoot.orderedMigrations) || migrationRoot.orderedMigrations.length !== 3) fail("exactly three ordered pay migrations are required");
 const migration = migrationRoot.orderedMigrations[0];
 exactKeys("migration metadata", [
   "version", "path", "bytes", "sha256", "tableStatements", "indexStatements", "transactionControlStatements",
@@ -420,6 +420,18 @@ if ((migrationSql.match(/\bCREATE\s+INDEX\s+IF\s+NOT\s+EXISTS\s+idx_[a-z_]+\s+ON
 if (/\b(?:DROP|TRUNCATE|DELETE\s+FROM|ALTER|INSERT\s+INTO|UPDATE|MERGE)\b/i.test(migrationSql)) fail("pay migration contains a destructive, data-mutation, or alteration token");
 if (/\bCREATE\s+(?:SCHEMA|EXTENSION|DATABASE|TYPE|VIEW|MATERIALIZED\s+VIEW)\b/i.test(migrationSql)) fail("pay migration contains an out-of-scope creation");
 if (/\b(?:BEGIN|START\s+TRANSACTION|COMMIT|ROLLBACK|SAVEPOINT)\b/i.test(migrationSql)) fail("transaction control belongs to the future reviewed runner");
+
+for (const [index, expected] of [
+  [1, { version: "20260727000000", path: "services/pay/migrations/20260727000000_create_admin_financial_evidence.sql", bytes: 1989, sha256: "9025cb215eaf51d2de92872730279a8890e6185784a88082163e1d52910654c8" }],
+  [2, { version: "20260727000001", path: "services/pay/migrations/20260727000001_add_admin_operation_versions.sql", bytes: 771, sha256: "694ec762e1ad11b4fc5e45b0f1459107df313f56f26ea1641ac199ec0946f7db" }],
+]) {
+  const supplemental = migrationRoot.orderedMigrations[index];
+  if (supplemental.version !== expected.version || supplemental.path !== expected.path || supplemental.bytes !== expected.bytes || supplemental.sha256 !== expected.sha256) fail(`ordered supplemental pay migration pin drifted: ${expected.version}`);
+  const bytes = readFileSync(regularRepoFile(supplemental.path, `pay migration ${expected.version}`));
+  const sql = bytes.toString("utf8");
+  if (bytes.byteLength !== expected.bytes || sha256(bytes) !== expected.sha256) fail(`pay migration bytes changed: ${expected.version}`);
+  if (!/\b(?:CREATE\s+TABLE\s+IF\s+NOT\s+EXISTS|ALTER\s+TABLE\s+IF\s+EXISTS)\b/i.test(sql) || /\b(?:DROP|TRUNCATE|INSERT|UPDATE|MERGE|ON\s+DELETE\s+CASCADE)\b/i.test(sql) || /\b(?:START\s+TRANSACTION|COMMIT|ROLLBACK|SAVEPOINT)\b/i.test(sql)) fail(`pay supplemental migration is not safe additive SQL: ${expected.version}`);
+}
 
 if (!Array.isArray(contract.requiredTables) || contract.requiredTables.length !== 4) fail("exactly four pay tables are required");
 const expectedTables = [["pay_intents", 13], ["escrows", 13], ["pay_links", 7], ["pay_webhook_events", 6]];
@@ -563,7 +575,7 @@ const output = {
   status: contract.scope.status,
   authority: { decision: authority.decision, candidateDatabaseNames: authority.candidateDatabaseNames.length, sourceCommit: authority.developmentSourceCommit, evidence: authority.developmentEvidence.length },
   runtimeRust: { files: rustFiles.length, ddlFindings: runtimeFindings.length, expectedDelta: -10, qualifiedRelations: relationCounts, bindAnchors: runtime.bindAnchors.length },
-  migrationRoot: { path: migrationRoot.path, migrations: 1, statements: 10, pinnedBytes: migration.bytes, sha256: migration.sha256, runner: null },
+  migrationRoot: { path: migrationRoot.path, migrations: 3, statements: 10, pinnedBytes: migration.bytes, sha256: migration.sha256, runner: null },
   schema: {
     tables: contract.requiredTables.map((table) => ({ name: table.name, columns: table.columns.length })),
     columns: requiredColumnCount,
@@ -597,7 +609,7 @@ if [ "$mode" = "report" ]; then
 fi
 
 if [ "$mode" = "integrity" ]; then
-  echo "a3-13-pay-schema-boundary: PASS — pay runtime DDL 10→0; one 10-statement transaction-body migration is byte-pinned"
+  echo "a3-13-pay-schema-boundary: PASS — pay runtime DDL 10→0; baseline plus two additive admin migrations are byte-pinned"
   echo "a3-13-pay-schema-boundary: PASS — 39 columns, five structural constraints, PG18 29-NOT-NULL/34-total constraints, zero FKs, and 11 indexes are checked"
   echo "a3-13-pay-schema-boundary: PASS — policies, partial/expression/INCLUDE, inheritance/partition, RLS, default type collation, pg_catalog text_ops, and search_path drift are rejected"
   echo "a3-13-pay-schema-boundary: PASS — 54 runtime relation references are public-qualified and six handlers differ only by qualification/rustfmt whitespace"

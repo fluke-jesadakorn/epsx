@@ -5,7 +5,7 @@
 //! Renders the disable-wallet dialog: warning header + duration
 //! buttons + affected-platforms checkboxes + reason-category select
 //! + reason-details textarea + behavior checkboxes (block login /
-//! pause subscriptions / notify user).
+//!   pause subscriptions / notify user).
 //!
 //! The dialog is rendered with `is_open = true` to match the prod
 //! "controlled modal" pattern — the caller toggles via the
@@ -46,7 +46,7 @@ pub enum DisableReasonCategory {
 }
 
 impl DisableReasonCategory {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "suspicious_activity" => DisableReasonCategory::SuspiciousActivity,
             "tos_violation" => DisableReasonCategory::TosViolation,
@@ -97,7 +97,7 @@ pub enum DisablePlatform {
 }
 
 impl DisablePlatform {
-    pub fn from_str(s: &str) -> Self {
+    pub fn from_name(s: &str) -> Self {
         match s {
             "pay" => DisablePlatform::Pay,
             "token" => DisablePlatform::Token,
@@ -535,17 +535,17 @@ mod tests {
     #[test]
     fn test_disable_reason_category_enum() {
         assert_eq!(
-            DisableReasonCategory::from_str("suspicious_activity").as_str(),
+            DisableReasonCategory::from_name("suspicious_activity").as_str(),
             "suspicious_activity"
         );
         assert_eq!(
-            DisableReasonCategory::from_str("tos_violation").label(),
+            DisableReasonCategory::from_name("tos_violation").label(),
             "Terms of Service Violation"
         );
         assert_eq!(DisableReasonCategory::Other.emoji(), "📝");
         // Unknown → Other.
         assert_eq!(
-            DisableReasonCategory::from_str("nonexistent").as_str(),
+            DisableReasonCategory::from_name("nonexistent").as_str(),
             "other"
         );
     }
@@ -553,10 +553,10 @@ mod tests {
     /// Platform enum maps to the right values.
     #[test]
     fn test_disable_platform_enum() {
-        assert_eq!(DisablePlatform::from_str("pay").as_str(), "pay");
+        assert_eq!(DisablePlatform::from_name("pay").as_str(), "pay");
         assert_eq!(DisablePlatform::Analytics.label(), "EPSX Analytics");
         assert_eq!(DisablePlatform::Token.emoji(), "🪙");
         // Unknown → Analytics.
-        assert_eq!(DisablePlatform::from_str("unknown").as_str(), "analytics");
+        assert_eq!(DisablePlatform::from_name("unknown").as_str(), "analytics");
     }
 }

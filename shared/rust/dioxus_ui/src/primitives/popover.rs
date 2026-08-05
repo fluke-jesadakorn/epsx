@@ -43,7 +43,7 @@ pub fn Popover(open: bool, on_open_change: EventHandler<bool>, children: Element
     let mut internal_open = use_signal(|| open);
     // Sync controlled → internal so the click handler reads the
     // latest value.
-    if internal_open.read().clone() != open {
+    if *internal_open.read() != open {
         internal_open.set(open);
     }
     let current_open = *internal_open.read();
@@ -130,7 +130,6 @@ pub fn PopoverContent(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn popover_content_align_start_class() {

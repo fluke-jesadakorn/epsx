@@ -23,7 +23,6 @@ pub fn AnalyticsAuthWrapper(children: Element) -> Element {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn analytics_auth_wrapper_renders_children() {

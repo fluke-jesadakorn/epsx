@@ -22,8 +22,6 @@ use super::plan_handlers::{
 // used in the route mount below. See
 // `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
 // preconditions item 3.
-#[allow(deprecated)]
-use super::plan_handlers::list_subscriptions_handler as _legacy_list_subscriptions_handler;
 // Promotion management handlers
 use super::promotion_handlers::{
     create_promotion_handler, delete_promotion_handler, get_promotion_handler,
@@ -101,17 +99,15 @@ use super::notification_handlers::{
     upload_notification_image,
 };
 // System settings handlers
-// use super::system_settings_handlers::{
-//   get_all_settings_handler,
-//   get_settings_by_category_handler,
-//   update_settings_handler,
-//   reset_settings_handler,
-// };
 use super::batch_handlers::{
     admin_dashboard_summary_handler, admin_notification_overview_handler,
     wallet_access_summary_handler,
 };
 use super::dashboard_handlers::admin_dashboard_user_status_handler;
+use super::system_settings_handlers::{
+    get_all_settings_handler, get_settings_by_category_handler, reset_settings_handler,
+    update_settings_handler,
+};
 use crate::web::auth::AppState;
 
 pub fn create_admin_routes() -> Router<AppState> {
@@ -317,11 +313,19 @@ pub fn create_admin_routes() -> Router<AppState> {
         )
         .layer(from_fn_with_state("admin:analytics:view", perm_guard));
 
-    // Notification management
-    let notifications = Router::new()
-        .route("/notifications/send", post(send_notification_handler))
+    // Notification management. Reads and mutations have separate router
+    // boundaries even while the notification service's current canonical
+    // permission remains admin:notifications:manage.
+    let notifications_read = Router::new()
         .route("/notifications", get(get_all_notifications_handler))
         .route("/notifications/stats", get(get_notification_stats_handler))
+        .route(
+            "/notifications/overview",
+            get(admin_notification_overview_handler),
+        )
+        .layer(from_fn_with_state("admin:notifications:manage", perm_guard));
+    let notifications_write = Router::new()
+        .route("/notifications/send", post(send_notification_handler))
         .route(
             "/notifications/{id}/acknowledge",
             put(acknowledge_notification_handler),
@@ -331,25 +335,42 @@ pub fn create_admin_routes() -> Router<AppState> {
             delete(delete_admin_notification_handler),
         )
         .route(
-            "/notifications/overview",
-            get(admin_notification_overview_handler),
-        )
-        .route(
             "/notifications/upload-image",
             post(upload_notification_image),
         )
         .layer(from_fn_with_state("admin:notifications:manage", perm_guard));
 
     // Developer portal
-    let developer = Router::new()
+    let developer_read = Router::new()
         .route(
             "/developer-portal/api-keys",
-            get(super::developer_portal_handlers::list_api_keys_handler)
-                .post(super::developer_portal_handlers::create_api_key_handler),
+            get(super::developer_portal_handlers::list_api_keys_handler),
         )
         .route(
             "/developer-portal/api-keys/{id}",
             get(super::developer_portal_handlers::get_api_key_handler),
+        )
+        .route(
+            "/developer-portal/api-keys/expiring",
+            get(super::developer_portal_handlers::list_expiring_keys_handler),
+        )
+        .route(
+            "/developer-portal/modules",
+            get(super::developer_portal_handlers::list_modules_handler),
+        )
+        .route(
+            "/developer-portal/modules/{id}",
+            get(super::developer_portal_handlers::get_module_handler),
+        )
+        .route(
+            "/developer-portal/stats",
+            get(super::developer_portal_handlers::get_stats_handler),
+        )
+        .layer(from_fn_with_state("admin:developer:read", perm_guard));
+    let developer_write = Router::new()
+        .route(
+            "/developer-portal/api-keys",
+            post(super::developer_portal_handlers::create_api_key_handler),
         )
         .route(
             "/developer-portal/api-keys/{id}/revoke",
@@ -360,22 +381,12 @@ pub fn create_admin_routes() -> Router<AppState> {
             patch(super::developer_portal_handlers::update_expiration_handler),
         )
         .route(
-            "/developer-portal/api-keys/expiring",
-            get(super::developer_portal_handlers::list_expiring_keys_handler),
-        )
-        .route(
             "/developer-portal/modules",
-            get(super::developer_portal_handlers::list_modules_handler)
-                .post(super::developer_portal_handlers::create_module_handler),
+            post(super::developer_portal_handlers::create_module_handler),
         )
         .route(
             "/developer-portal/modules/{id}",
-            get(super::developer_portal_handlers::get_module_handler)
-                .put(super::developer_portal_handlers::update_module_handler),
-        )
-        .route(
-            "/developer-portal/stats",
-            get(super::developer_portal_handlers::get_stats_handler),
+            put(super::developer_portal_handlers::update_module_handler),
         )
         .layer(from_fn_with_state("admin:developer:manage", perm_guard));
 
@@ -389,26 +400,34 @@ pub fn create_admin_routes() -> Router<AppState> {
     // (`/api/public/payment-links/{slug}`) is mounted separately
     // from `unified_router::create_public_routes` and uses no
     // perm guard.
-    let payment_links = Router::new()
+    let payment_links_read = Router::new()
         .route(
             "/payment-links",
-            get(crate::web::payments::payment_link_handlers::list_payment_links_handler)
-                .post(crate::web::payments::payment_link_handlers::create_payment_link_handler),
+            get(crate::web::payments::payment_link_handlers::list_payment_links_handler),
         )
         .route(
             "/payment-links/{id}",
-            get(crate::web::payments::payment_link_handlers::get_payment_link_handler)
-                .put(crate::web::payments::payment_link_handlers::update_payment_link_handler)
+            get(crate::web::payments::payment_link_handlers::get_payment_link_handler),
+        )
+        .layer(from_fn_with_state("admin:payment-links:view", perm_guard));
+    let payment_links_write = Router::new()
+        .route(
+            "/payment-links",
+            post(crate::web::payments::payment_link_handlers::create_payment_link_handler),
+        )
+        .route(
+            "/payment-links/{id}",
+            put(crate::web::payments::payment_link_handlers::update_payment_link_handler)
                 .delete(crate::web::payments::payment_link_handlers::delete_payment_link_handler),
         )
         .route(
             "/payment-links/{id}/record-usage",
             post(crate::web::payments::payment_link_handlers::record_payment_usage_handler),
         )
-        .layer(from_fn_with_state("admin:payments:manage", perm_guard));
+        .layer(from_fn_with_state("admin:payment-links:manage", perm_guard));
 
     // Support chat
-    let chat = Router::new()
+    let chat_read = Router::new()
         .route("/chat/topics", get(super::chat_handlers::admin_list_topics))
         .route(
             "/chat/conversations",
@@ -420,8 +439,18 @@ pub fn create_admin_routes() -> Router<AppState> {
         )
         .route(
             "/chat/conversations/{id}/messages",
-            get(super::chat_handlers::admin_list_messages)
-                .post(super::chat_handlers::admin_send_reply),
+            get(super::chat_handlers::admin_list_messages),
+        )
+        .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
+        .route(
+            "/chat/overview",
+            get(super::chat_handlers::admin_chat_overview_handler),
+        )
+        .layer(from_fn_with_state("admin:chat:read", perm_guard));
+    let chat_write = Router::new()
+        .route(
+            "/chat/conversations/{id}/messages",
+            post(super::chat_handlers::admin_send_reply),
         )
         .route(
             "/chat/conversations/{id}/upload",
@@ -443,28 +472,22 @@ pub fn create_admin_routes() -> Router<AppState> {
             "/chat/conversations/{id}/read",
             put(super::chat_handlers::admin_mark_read),
         )
-        .route("/chat/stats", get(super::chat_handlers::admin_get_stats))
-        .route(
-            "/chat/overview",
-            get(super::chat_handlers::admin_chat_overview_handler),
-        )
         .layer(from_fn_with_state("admin:chat:manage", perm_guard));
 
     // News / content management
-    let news = Router::new()
-        .route(
-            "/news",
-            get(super::news_handlers::list_news).post(super::news_handlers::create_news),
-        )
+    let news_read = Router::new()
+        .route("/news", get(super::news_handlers::list_news))
+        .route("/news/{id}", get(super::news_handlers::get_news))
+        .layer(from_fn_with_state("admin:content:read", perm_guard));
+    let news_write = Router::new()
+        .route("/news", post(super::news_handlers::create_news))
         .route(
             "/news/upload-image",
             post(super::news_handlers::upload_news_image),
         )
         .route(
             "/news/{id}",
-            get(super::news_handlers::get_news)
-                .put(super::news_handlers::update_news)
-                .delete(super::news_handlers::delete_news),
+            put(super::news_handlers::update_news).delete(super::news_handlers::delete_news),
         )
         .route(
             "/news/{id}/publish",
@@ -479,22 +502,39 @@ pub fn create_admin_routes() -> Router<AppState> {
         .layer(from_fn_with_state("admin:content:manage", perm_guard));
 
     // Media and file management
-    let media = Router::new()
+    let media_read = Router::new()
+        .route("/files", get(super::media_handlers::list_public_files))
+        .route("/media/{bucket}", get(super::media_handlers::list_media))
+        .layer(from_fn_with_state("admin:media:read", perm_guard));
+    let media_write = Router::new()
         .route(
             "/files/upload",
             post(super::media_handlers::upload_public_file),
         )
-        .route("/files", get(super::media_handlers::list_public_files))
         .route(
             "/files/{key}",
             delete(super::media_handlers::delete_public_file),
         )
-        .route("/media/{bucket}", get(super::media_handlers::list_media))
         .route(
             "/media/{bucket}/{key}",
             delete(super::media_handlers::delete_media),
         )
         .layer(from_fn_with_state("admin:media:manage", perm_guard));
+
+    // Settings read/manage are separate permission boundaries. The handlers
+    // apply the exact admin audience and field/version/idempotency validation
+    // before touching the monolith settings table.
+    let settings_read = Router::new()
+        .route("/settings", get(get_all_settings_handler))
+        .route(
+            "/settings/{category}",
+            get(get_settings_by_category_handler),
+        )
+        .layer(from_fn_with_state("admin:settings:read", perm_guard));
+    let settings_write = Router::new()
+        .route("/settings", put(update_settings_handler))
+        .route("/settings/reset", post(reset_settings_handler))
+        .layer(from_fn_with_state("admin:settings:manage", perm_guard));
 
     dashboard
         .merge(dashboard_user_status)
@@ -508,12 +548,25 @@ pub fn create_admin_routes() -> Router<AppState> {
         .merge(wallets_read)
         .merge(wallets_write)
         .merge(analytics)
-        .merge(notifications)
-        .merge(developer)
-        .merge(payment_links)
-        .merge(chat)
-        .merge(news)
-        .merge(media)
+        .merge(notifications_read)
+        .merge(notifications_write)
+        .merge(developer_read)
+        .merge(developer_write)
+        .merge(payment_links_read)
+        .merge(payment_links_write)
+        .merge(chat_read)
+        .merge(chat_write)
+        .merge(news_read)
+        .merge(news_write)
+        .merge(media_read)
+        .merge(media_write)
+        .merge(settings_read)
+        .merge(settings_write)
+        // Every admin operation is an admin-audience boundary. Individual
+        // subrouters still carry their read/manage permission guards; this
+        // outer layer prevents API-key and non-admin JWT fallback paths from
+        // reaching any admin handler.
+        .layer(from_fn(require_exact_admin_audience))
 }
 
 pub fn create_admin_public_routes() -> Router<AppState> {

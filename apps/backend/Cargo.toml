@@ -39,6 +39,7 @@ auth = ["jwt", "sha2"]
 jwt = ["jsonwebtoken", "sha2"]
 http-client = ["reqwest", "tls-rustls"]
 cache = ["redis"]  # CQRS event bus via Redis Streams
+redis-tests = ["redis"]
 
 # TLS implementation (rustls only for production)
 tls-rustls = ["reqwest?/rustls-tls"]
@@ -168,25 +169,3 @@ axum-test = "15.0"
 tokio-test = "0.4"
 
 # Performance Benchmark Tests
-
-# Profile configurations for binary size optimization
-[profile.dev]
-# Development build (faster compilation, larger binary)
-opt-level = 0
-debug = true
-split-debuginfo = "unpacked"
-overflow-checks = true
-lto = false
-panic = "unwind"
-incremental = true
-codegen-units = 256
-
-[profile.release]
-opt-level = 3
-debug = false
-strip = true
-lto = "thin"
-panic = "abort"
-codegen-units = 1
-overflow-checks = false
-incremental = false

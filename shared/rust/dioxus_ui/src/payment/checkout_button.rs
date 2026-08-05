@@ -33,20 +33,15 @@ use dioxus::prelude::*;
 
 use crate::primitives::icon::Icon;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default)]
 pub enum CheckoutVariant {
     /// Primary CTA — `bg-gradient-to-r from-cyan-500 to-blue-600 text-white`
+    #[default]
     Gradient,
     /// Outline — `border-2 border-orange-500 text-orange-500`
     Outline,
     /// Solid — `bg-orange-500 text-white`
     Solid,
-}
-
-impl Default for CheckoutVariant {
-    fn default() -> Self {
-        Self::Gradient
-    }
 }
 
 #[derive(Props, Clone, PartialEq)]

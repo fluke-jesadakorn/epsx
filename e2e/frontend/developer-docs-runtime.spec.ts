@@ -27,9 +27,12 @@ const endpoints = [
 ] as const;
 
 const sourceCopy = [
-  'Integrate EPSX analytics into your applications. Use your API key as a Bearer token — same endpoints, same data.',
-  'All requests use the Authorization: Bearer <token> header. Your API key works like a JWT — the middleware auto-detects the type.',
-  'API keys use the same Authorization header as JWT tokens. Pass your key as a Bearer token.',
+  'Pinned migration reference for reviewing endpoint, schema, and example structure.',
+  'Pinned migration reference',
+  'Endpoint, authentication, tier, rate-limit, schema, and example content below comes from the pinned migration source',
+  'It is not a verified production contract. Do not use real credentials.',
+  'The pinned reference shows an Authorization: Bearer <token> header. Accepted credential types and middleware behavior are not verified here.',
+  'curl -H "Authorization: Bearer YOUR_API_KEY" https://api.example.invalid/api/analytics/rankings',
   'Market data, stock rankings, filters, countries, and sector breakdowns.',
   'Manage your stock watchlist. Requires authentication.',
   'User profile and access information.',
@@ -98,21 +101,15 @@ test.describe('A7 /developer/docs pinned-source runtime proof', () => {
 
       await expect(page.getByRole('heading', { level: 1, name: 'API Reference' })).toHaveCount(1);
       await expect(page.locator('.developer-docs-hero')).toContainText(
-        'Integrate EPSX analytics into your applications. Use your API key as a Bearer token — same endpoints, same data.'
+        'Pinned migration reference for reviewing endpoint, schema, and example structure.'
       );
       await expect(page.locator('.developer-docs-auth-card')).toContainText(
-        'Your API key works like a JWT — the middleware auto-detects the type.'
+        'Accepted credential types and middleware behavior are not verified here.'
       );
       await expect(page.locator('.docs-endpoint-card')).toHaveCount(10);
-      await expect(page.locator('.docs-try-it')).toHaveCount(10);
-      await expect(page.locator('.docs-send-button')).toHaveCount(10);
-      expect(
-        await page.locator('.docs-send-button').evaluateAll(buttons =>
-          buttons.every(button => (button as HTMLButtonElement).disabled)
-        )
-      ).toBe(true);
-      await expect(page.locator('.docs-try-it-status').first()).toContainText(
-        'Live requests stay disabled until the A4/A5'
+      await expect(page.locator('.docs-live-request-unavailable')).toHaveCount(10);
+      await expect(page.locator('.docs-live-request-unavailable').first()).toContainText(
+        'This endpoint is reference-only. It does not accept credentials or send a request.'
       );
       for (const copy of sourceCopy) {
         await expect(page.locator('.developer-docs-page')).toContainText(copy);
@@ -183,7 +180,7 @@ test.describe('A7 /developer/docs pinned-source runtime proof', () => {
         await expect(analyticsLink).toHaveClass(/active/);
       }
 
-      const theme = page.getByRole('button', { name: 'Toggle theme' });
+      const theme = page.locator('button[data-epsx-theme-toggle]');
       await theme.focus();
       await expect(theme).toBeFocused();
       await page.keyboard.press('Enter');

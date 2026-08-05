@@ -1,14 +1,20 @@
 //! Strict read-only adapter for the backend-owned wallet inventory summary.
 //!
 //! Only aggregate counts cross this boundary. Wallet addresses, metadata,
-//! plans, permissions, activity, and the backend's misleading compatibility
-//! fields are parsed only to prove the exact upstream contract and are never
-//! projected into SSR state.
+//! plans, permissions, activity, and correlation evidence are parsed only to
+//! prove the exact service DTO and are never projected into SSR state.
 
+#[cfg(test)]
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::AdminWalletStatsSummary;
+#[cfg(test)]
 use serde::Deserialize;
 
-const WALLET_STATS_PATH: &str = "/api/admin/wallets/stats";
+#[cfg(test)]
+use super::commerce_adapter::decode_admin_envelope;
+
+#[cfg(test)]
+const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
+#[cfg(test)]
 const MAX_ADMIN_WALLET_STATS_RESPONSE_BYTES: usize = 256 * 1024;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -23,11 +29,13 @@ impl AdminWalletStatsQuery {
         }
     }
 
+    #[cfg(test)]
     pub(crate) fn upstream_path(self) -> &'static str {
         WALLET_STATS_PATH
     }
 }
 
+#[cfg(test)]
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminWalletStatsLoad {
     Ready(AdminWalletStatsSummary),
@@ -36,6 +44,7 @@ pub(crate) enum AdminWalletStatsLoad {
     Malformed,
 }
 
+#[cfg(test)]
 pub(crate) async fn load_admin_wallet_stats(
     client: &epsx_client::ServiceClient,
     query: AdminWalletStatsQuery,
@@ -86,7 +95,7 @@ pub(crate) async fn load_admin_wallet_stats(
             Ok(body) => body,
             Err(()) => return AdminWalletStatsLoad::Unavailable,
         };
-    let payload = match serde_json::from_slice::<BackendAdminWalletStatsEnvelope>(&body) {
+    let payload = match decode_admin_envelope::<BackendWalletStatsResponse>(&body) {
         Ok(payload) => payload,
         Err(_) => return AdminWalletStatsLoad::Malformed,
     };
@@ -94,6 +103,7 @@ pub(crate) async fn load_admin_wallet_stats(
     classify_payload(payload)
 }
 
+#[cfg(test)]
 async fn read_response_body_limited(
     mut response: reqwest::Response,
     limit: usize,
@@ -116,91 +126,21 @@ async fn read_response_body_limited(
     Ok(body)
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BackendAdminWalletStatsEnvelope {
-    success: bool,
-    data: Option<BackendWalletStatsResponse>,
-    error: Option<String>,
-    message: String,
-    timestamp: String,
-    admin_meta: Option<BackendAdminMetadata>,
-}
-
+#[cfg(test)]
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct BackendWalletStatsResponse {
     total_users: i64,
     active_users: i64,
     inactive_users: i64,
-    users_by_tier: BackendEmptyObject,
+    users_by_tier: serde_json::Value,
     new_users_30_days: i64,
     active_users_30_days: i64,
     growth_rate: f64,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BackendAdminMetadata {
-    operation: String,
-    performed_by: Option<String>,
-    pagination: Option<BackendPaginationInfo>,
-    permissions: Option<BackendPermissionContext>,
-    metadata: Option<BackendEmptyObject>,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BackendPaginationInfo {
-    page: u32,
-    limit: u32,
-    total_count: u64,
-    total_pages: u32,
-    has_next: bool,
-    has_prev: bool,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BackendPermissionContext {
-    admin_plan: String,
-    available_actions: Vec<String>,
-    restricted_actions: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct BackendEmptyObject {}
-
-fn classify_payload(payload: BackendAdminWalletStatsEnvelope) -> AdminWalletStatsLoad {
-    let BackendAdminWalletStatsEnvelope {
-        success,
-        data,
-        error,
-        message,
-        timestamp,
-        admin_meta,
-    } = payload;
-
-    let Some(data) = data else {
-        return AdminWalletStatsLoad::Malformed;
-    };
-    let Some(admin_meta) = admin_meta else {
-        return AdminWalletStatsLoad::Malformed;
-    };
-    if !success
-        || error.is_some()
-        || chrono::DateTime::parse_from_rfc3339(&timestamp).is_err()
-        || admin_meta.operation != "get_user_stats"
-        || admin_meta.pagination.is_some()
-        || admin_meta.permissions.is_some()
-        || admin_meta.metadata.is_some()
-    {
-        return AdminWalletStatsLoad::Malformed;
-    }
-
+#[cfg(test)]
+fn classify_payload(payload: BackendWalletStatsResponse) -> AdminWalletStatsLoad {
     let BackendWalletStatsResponse {
         total_users,
         active_users,
@@ -209,36 +149,26 @@ fn classify_payload(payload: BackendAdminWalletStatsEnvelope) -> AdminWalletStat
         new_users_30_days,
         active_users_30_days,
         growth_rate,
-    } = data;
-    if [
-        total_users,
-        active_users,
-        inactive_users,
-        new_users_30_days,
-        active_users_30_days,
-    ]
-    .into_iter()
-    .any(|count| count < 0)
+    } = payload;
+    if !users_by_tier.is_object()
+        || !growth_rate.is_finite()
+        || [
+            total_users,
+            active_users,
+            inactive_users,
+            new_users_30_days,
+            active_users_30_days,
+        ]
+        .into_iter()
+        .any(|count| count < 0)
         || active_users
             .checked_add(inactive_users)
             .is_none_or(|known_total| known_total != total_users)
         || new_users_30_days > total_users
+        || active_users_30_days > active_users
     {
         return AdminWalletStatsLoad::Malformed;
     }
-
-    // `performed_by`, `message`, `timestamp`, `users_by_tier`,
-    // `active_users_30_days`, and `growth_rate` are intentionally discarded.
-    // The current backend does not give the last three stable production
-    // semantics, and none of them are part of this narrow summary projection.
-    let _ = (
-        message,
-        timestamp,
-        admin_meta.performed_by,
-        users_by_tier,
-        active_users_30_days,
-        growth_rate,
-    );
     AdminWalletStatsLoad::Ready(AdminWalletStatsSummary {
         total_users,
         active_users,
@@ -291,20 +221,18 @@ mod tests {
                 "inactive_users": 3,
                 "users_by_tier": {},
                 "new_users_30_days": 2,
-                "active_users_30_days": 8,
-                "growth_rate": 18.181818
+                "active_users_30_days": 6,
+                "growth_rate": 1.5
             },
-            "message": "User statistics retrieved successfully",
-            "timestamp": "2026-07-23T03:04:05Z",
-            "admin_meta": {
-                "operation": "get_user_stats",
-                "performed_by": "admin"
-            }
+            "error": null,
+            "message": "Wallet statistics retrieved",
+            "timestamp": "2026-07-27T00:00:00Z",
+            "admin_meta": null
         })
     }
 
     fn classify_value(value: Value) -> AdminWalletStatsLoad {
-        match serde_json::from_value::<BackendAdminWalletStatsEnvelope>(value) {
+        match decode_admin_envelope::<BackendWalletStatsResponse>(value.to_string().as_bytes()) {
             Ok(payload) => classify_payload(payload),
             Err(_) => AdminWalletStatsLoad::Malformed,
         }
@@ -373,58 +301,11 @@ mod tests {
     }
 
     #[test]
-    fn invalid_envelope_metadata_and_count_semantics_are_malformed() {
+    fn invalid_dto_and_count_semantics_are_malformed() {
         let mut cases = Vec::new();
 
         let mut value = valid_payload();
         value["unknown"] = json!(true);
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["data"]["unknown"] = json!(true);
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["admin_meta"]["unknown"] = json!(true);
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["admin_meta"]["operation"] = json!("list_wallets");
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["admin_meta"]["pagination"] = json!({
-            "page": 1,
-            "limit": 20,
-            "total_count": 11,
-            "total_pages": 1,
-            "has_next": false,
-            "has_prev": false
-        });
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["admin_meta"]["permissions"] = json!({
-            "admin_plan": "admin",
-            "available_actions": [],
-            "restricted_actions": null
-        });
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["admin_meta"]["metadata"] = json!({});
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["success"] = json!(false);
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["error"] = json!("unexpected");
-        cases.push(value);
-
-        let mut value = valid_payload();
-        value["timestamp"] = json!("2026-02-30T03:04:05Z");
         cases.push(value);
 
         let mut value = valid_payload();
@@ -440,7 +321,7 @@ mod tests {
         cases.push(value);
 
         let mut value = valid_payload();
-        value["data"]["users_by_tier"] = json!({"legacy": 1});
+        value["data"]["active_users_30_days"] = json!(12);
         cases.push(value);
 
         for case in cases {
@@ -449,6 +330,37 @@ mod tests {
                 AdminWalletStatsLoad::Malformed
             ));
         }
+    }
+
+    #[test]
+    fn raw_dto_and_unsuccessful_or_unknown_envelopes_are_rejected() {
+        let raw = json!({
+            "total": 11,
+            "active": 8,
+            "disabled": 3,
+            "new_30_days": 2,
+            "correlation_id": "e44f180b-3d2b-41ec-badf-cb4332f05fb2"
+        });
+        assert!(matches!(
+            classify_value(raw),
+            AdminWalletStatsLoad::Malformed
+        ));
+
+        let mut failed = valid_payload();
+        failed["success"] = json!(false);
+        failed["data"] = Value::Null;
+        failed["error"] = json!("permission denied");
+        assert!(matches!(
+            classify_value(failed),
+            AdminWalletStatsLoad::Malformed
+        ));
+
+        let mut unknown = valid_payload();
+        unknown["unexpected"] = json!(true);
+        assert!(matches!(
+            classify_value(unknown),
+            AdminWalletStatsLoad::Malformed
+        ));
     }
 
     #[tokio::test]
@@ -464,7 +376,7 @@ mod tests {
         let request = server.await.unwrap();
 
         assert!(matches!(load, AdminWalletStatsLoad::Ready(_)));
-        assert!(request.starts_with("GET /api/admin/wallets/stats HTTP/1.1\r\n"));
+        assert!(request.starts_with("GET /api/v1/admin/wallets/stats HTTP/1.1\r\n"));
         let lowered = request.to_ascii_lowercase();
         assert!(lowered.contains("authorization: bearer verified-wallet-stats-token\r\n"));
         assert!(lowered.contains("x-request-id: e44f180b-3d2b-41ec-badf-cb4332f05fb2\r\n"));
@@ -521,7 +433,7 @@ mod tests {
         let redirect_server = tokio::spawn(async move {
             let (mut stream, _) = redirect_listener.accept().await.unwrap();
             let request = read_request(&mut stream).await;
-            assert!(request.starts_with("GET /api/admin/wallets/stats HTTP/1.1\r\n"));
+            assert!(request.starts_with("GET /api/v1/admin/wallets/stats HTTP/1.1\r\n"));
             let response = format!(
                 "HTTP/1.1 302 Found\r\nLocation: http://{target_address}/bearer-leak\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
             );

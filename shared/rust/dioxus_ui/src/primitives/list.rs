@@ -89,7 +89,6 @@ pub fn DescriptionList(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn list_item_default_class() {

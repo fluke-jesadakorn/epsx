@@ -43,6 +43,6 @@ if (contract.alerts.length !== requiredAlerts.length || contract.alerts.some((al
 if (contract.dashboardPanels.length !== 6 || contract.dashboardPanels.some((panel) => panel.includes("wallet") || panel.includes("recipient") || panel.includes("email"))) fail("dashboard panel set is not redacted");
 if (contract.privacy.logsContainNoUserContent !== true || contract.privacy.logsContainNoBearerTokens !== true || contract.privacy.providerPayloadsExcluded !== true || contract.privacy.dashboardLabelsAreAllowlisted !== true) fail("privacy observability guard drifted");
 console.log("notification-observability-contract: PASS — redacted metrics, SLO thresholds, alerts, dashboard panels, and privacy guards verified");
-' 
+'
 
 echo "notification-observability-contract: LIMIT — static design contract only; no telemetry backend, alert, dashboard, provider, deployment, or production execution"

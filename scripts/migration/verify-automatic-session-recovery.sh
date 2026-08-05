@@ -159,7 +159,7 @@ if (expectedStops.size !== 0) fail("one or more residual STOPs are missing");
 
 if (!Array.isArray(contract.evidence) || contract.evidence.length !== 12) fail("twelve evidence files are required");
 const evidenceDigest = createHash("sha256").update(JSON.stringify(contract.evidence)).digest("hex");
-if (contract.evidenceDigest !== evidenceDigest || evidenceDigest !== "4a4f37c819fd082cf6637c5ca165d308de533bdea6423f0f196c950ac9d54aee") fail("exact evidence inventory drifted");
+if (contract.evidenceDigest !== evidenceDigest || evidenceDigest !== "1f408832c66543f1023531761ec3671604a5b8662ac42795545b695674b2fde6") fail("exact evidence inventory drifted");
 let anchors = 0;
 for (const item of contract.evidence) {
   if (!item.file || item.file.startsWith("/") || item.file.split("/").includes("..")) fail(`invalid evidence path: ${item.file}`);
@@ -203,12 +203,12 @@ for (const file of ["apps/frontend/src/auth.rs", "apps/admin/src/auth.rs"]) {
 }
 
 const frontendSsr = normalize(stripRustComments(read(resolve(root, "apps/frontend/src/ssr.rs"))));
-const frontendRecoveryStart = frontendSsr.indexOf("let recover_session = access_verification.permits_refresh_recovery()");
+const frontendRecoveryStart = frontendSsr.indexOf("let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();");
 const frontendRecoveryEnd = frontendSsr.indexOf("let (verified_access_token, user)", frontendRecoveryStart);
 const frontendRecovery = frontendSsr.slice(frontendRecoveryStart, frontendRecoveryEnd);
-if (frontendRecoveryStart < 0 || frontendRecoveryEnd < 0 || !frontendRecovery.includes("auth::refresh_token(&headers, state.cookie_environment).is_some()") || !frontendRecovery.includes("path != \"/offline\"")) fail("frontend recovery predicate drifted");
+if (frontendRecoveryStart < 0 || frontendRecoveryEnd < 0 || !frontendRecovery.includes("let recover_session = access_verification.permits_refresh_recovery()") || !frontendRecovery.includes("auth::refresh_token(&headers, state.cookie_environment).is_some()") || !frontendRecovery.includes("path != \"/offline\"")) fail("frontend recovery predicate drifted");
 if (!frontendSsr.includes("is_authenticated || recover_session") || !frontendSsr.includes("HeaderValue::from_static(\"private, no-store\")") || !frontendSsr.includes("HeaderValue::from_static(\"Cookie, Authorization\")")) fail("frontend recovery cache boundary drifted");
-if ((frontendSsr.match(/return private_session_redirect\(/g) ?? []).length !== 2 || !frontendSsr.includes("fn private_session_redirect(location: String) -> Response") || !frontendSsr.includes("apply_ssr_cache_policy(&mut response, true, false, \"/auth\")")) fail("frontend credential-dependent redirects are not private");
+if ((frontendSsr.match(/return private_session_redirect\(/g) ?? []).length !== 2 || !frontendSsr.includes("fn private_session_redirect(location: String) -> Response") || !frontendSsr.includes("apply_ssr_cache_policy(&mut response, true, false, false, \"/auth\")")) fail("frontend credential-dependent redirects are not private");
 if (!frontendSsr.includes("let offline_shell = path == \"/offline\"") || !frontendSsr.includes("let access_verification = if offline_shell { AccessVerification::MissingOrRejected")) fail("offline shell still depends on session verification");
 const offlineBranch = frontendSsr.slice(frontendSsr.indexOf("if path == \"/offline\""), frontendSsr.indexOf("} else if is_authenticated || recover_session"));
 if (!offlineBranch.includes("public, max-age=0, must-revalidate") || !offlineBranch.includes("offline-shell-v1")) fail("offline public exception drifted");
@@ -226,7 +226,8 @@ for (const [name, source] of [["frontend", frontendSsr], ["admin", adminSsr]]) {
   if (!source.includes("browser_session_recovery_script()")) fail(`${name}: fixed recovery bootstrap is not used`);
 }
 
-const browserFile = stripRustComments(read(resolve(root, "shared/rust/bff/src/browser_auth.rs")));
+const browserSource = read(resolve(root, "shared/rust/bff/src/browser_auth.rs"));
+const browserFile = stripRustComments(browserSource);
 const rawMatch = browserFile.match(/pub fn browser_auth_script\(\) -> &\u0027static str \{\s*r#"\n([\s\S]*?)\n"#\s*\}/);
 if (!rawMatch) fail("browser bridge raw string missing");
 const browser = rawMatch[1];
@@ -243,8 +244,8 @@ const siwe = browser.slice(siweStart, siweEnd);
 if (siweStart < 0 || siweEnd < 0 || !siwe.includes("epsxWithSessionMutation(function()") || !siwe.includes("'/api/v1/auth/siwe'") || !siwe.includes("}, false);")) fail("SIWE cookie establishment bypasses the shared session-mutation lock");
 if (!browser.includes("siweLogin: epsxSiweLogin")) fail("SIWE bridge does not use the serialized cookie-establishment flow");
 for (const forbidden of ["localStorage", "sessionStorage", "access_token", "refresh_token"]) if (browser.includes(forbidden)) fail(`browser bridge contains forbidden material: ${forbidden}`);
-const bootstrapMatch = browserFile.match(/pub fn browser_session_recovery_script\(\) -> &\u0027static str \{\s*"([^"]+)"\s*\}/);
-if (!bootstrapMatch || bootstrapMatch[1] !== "window.epsxAuth.recover().catch(function() {});") fail("fixed recovery bootstrap drifted");
+const bootstrapMatch = browserSource.match(/pub fn browser_session_recovery_script\(\) -> &\u0027static str \{\s*"([^"]+)"\s*\}/);
+if (!bootstrapMatch || !bootstrapMatch[1].startsWith("window.epsxAuth.recover().catch(function(){") || !bootstrapMatch[1].includes("new CustomEvent(\u0027epsx:auth:recovery\u0027") || !bootstrapMatch[1].includes("state:\u0027failed\u0027") || !bootstrapMatch[1].endsWith("catch(_){}});")) fail("fixed recovery bootstrap drifted");
 
 const browserTests = read(resolve(root, "scripts/migration/test-browser-session-coordination.js"));
 if ((browserTests.match(/\btest\("/g) ?? []).length !== 20) fail("exactly twenty browser VM cases are required");
@@ -291,7 +292,7 @@ if [[ "$STATIC_ONLY" != "1" ]]; then
   }
 
   run_cargo_case verifier-tests 14 cargo test --offline --locked -p epsx-bff session::tests --no-fail-fast
-  run_cargo_case browser-bridge-tests 8 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
+  run_cargo_case browser-bridge-tests 9 cargo test --offline --locked -p epsx-bff browser_auth::tests --no-fail-fast
   run_cargo_case frontend-cache-test 1 cargo test --offline --locked -p epsx-frontend ssr::tests::recovery_bearing_frontend_html_is_private_and_varies_by_credentials --no-fail-fast
   run_cargo_case frontend-router-test 1 cargo test --offline --locked -p epsx-frontend routing_tests::frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html --no-fail-fast
   run_cargo_case admin-router-test 1 cargo test --offline --locked -p epsx-admin routing_tests::admin_emits_one_private_recovery_bootstrap_only_with_refresh_cookie --no-fail-fast

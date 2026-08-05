@@ -60,7 +60,6 @@ pub fn Label(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn label_renders_shardcn_base_classes() {

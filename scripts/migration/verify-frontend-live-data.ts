@@ -332,7 +332,7 @@ ${rows.join("\n")}
 if (contract.schemaVersion !== 1 || contract.artifact !== "a7-frontend-live-data") {
   die("unexpected schemaVersion or artifact");
 }
-if (contract.source?.ref !== "origin/development") die("source ref must be origin/development");
+if (contract.source?.ref !== "development") die("source ref must be development");
 if (!/^[0-9a-f]{40}$/.test(contract.source?.commit ?? "")) die("source commit must be a full SHA-1");
 const resolvedSource = git("rev-parse", contract.source.ref);
 if (resolvedSource !== contract.source.commit) {
@@ -526,9 +526,8 @@ for (const anchor of [
   '.unwrap_or("Migration status unavailable")',
   ".map(|status| status.status.token())",
   '.unwrap_or("unavailable")',
-  '"Route template only"',
-  '} else if route_status.is_some() {\n        "View route"',
-  '"Route status unavailable"',
+  'let action_label = "Open page →";',
+  'let action_accessible_label = format!("Open page: {}", feature.name);',
   "if dynamic_route || route_status.is_none()",
   '"aria-disabled": "true"',
   '"data-manual-route-action": "{status_token}"',
@@ -541,7 +540,8 @@ for (const forbidden of [
   "feature.route.contains('[')",
   "ManualRouteAvailability",
   "Reference only",
-  "Open page",
+  "View route",
+  "Route template only",
 ]) {
   if (manualRuntime.includes(forbidden)) die(`/manual reintroduced feature-availability or non-neutral action policy: ${forbidden}`);
 }
@@ -604,7 +604,7 @@ for (const forbidden of [
 const notificationSsr = currentFile("apps/frontend/src/ssr.rs", "/notifications shared-header runtime");
 const authDerivation = notificationSsr.indexOf("let is_authenticated = user.is_some();");
 const runtimeInjection = notificationSsr.indexOf("let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);");
-const bodyInjection = notificationSsr.indexOf("{route_runtime}{authenticated_header_runtime}</body>", runtimeInjection);
+const bodyInjection = notificationSsr.indexOf("{route_runtime}{authenticated_header_runtime}{chat_widget_html}</body>", runtimeInjection);
 const badgeRuntimeStart = notificationSsr.indexOf("fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static str {");
 const badgeRuntimeEnd = notificationSsr.indexOf("/// Minimal URL-encoder for the `next=` query parameter.", badgeRuntimeStart);
 if ([authDerivation, runtimeInjection, bodyInjection, badgeRuntimeStart, badgeRuntimeEnd].some((offset) => offset < 0) || !(authDerivation < runtimeInjection && runtimeInjection < bodyInjection && bodyInjection < badgeRuntimeStart && badgeRuntimeStart < badgeRuntimeEnd)) {

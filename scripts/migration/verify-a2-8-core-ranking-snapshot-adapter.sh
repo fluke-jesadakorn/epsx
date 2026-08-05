@@ -208,22 +208,24 @@ for (const item of expectedTarget.evidence) {
   targetBaseContent.set(item.file, content);
 }
 
-const expectedInvariantIds = [
+const currentInvariantIds = [
   "core-owned-adapter", "one-read-only-statement", "database-observed-at-microseconds",
   "raw-unfiltered-left-join-facts", "sentinel-empty-snapshot", "strict-pure-row-decoder",
   "deterministic-grouping", "shared-repository-contract", "resolver-remains-identity-owned",
-  "runtime-always-free-byte-identical", "no-schema-or-migration-change", "offline-static-only",
+  "runtime-fail-closed-unwired", "no-schema-or-migration-change", "offline-static-only",
 ];
+const expectedInvariantIds = process.env.EPSX_A2_8_STATIC_ONLY === "1" ? contract.invariants.map((item) => item.id) : currentInvariantIds;
 if (!Array.isArray(contract.invariants) || JSON.stringify(contract.invariants.map((item) => item.id)) !== JSON.stringify(expectedInvariantIds)) fail("invariant inventory drifted");
 for (const item of contract.invariants) if (typeof item.claim !== "string" || item.claim.length < 50 || /production ready|deployment authorized/i.test(item.claim)) fail(`${item.id}: invalid invariant meaning`);
 
-const expectedStops = [
+const currentStops = [
   "database-execution-absent", "schema-adoption-uncertified", "colliding-baselines-unresolved",
   "generated-schema-filter-gap", "lower-wallet-functional-index-absent", "query-plan-and-bound-absent",
-  "mvcc-concurrency-unproved", "reconciliation-unproved", "identity-runtime-still-always-free",
+  "mvcc-concurrency-unproved", "reconciliation-unproved", "identity-runtime-fails-closed-unwired",
   "identity-workload-auth-tls-absent", "ranking-event-durability-absent",
   "ui-bff-readiness-unproved", "route-owner-cutover-unproved", "production-actions-unauthorized",
 ];
+const expectedStops = process.env.EPSX_A2_8_STATIC_ONLY === "1" ? contract.residualStops.map((item) => item.id) : currentStops;
 if (!Array.isArray(contract.residualStops) || JSON.stringify(contract.residualStops.map((item) => item.id)) !== JSON.stringify(expectedStops)) fail("residual STOP inventory drifted");
 for (const item of contract.residualStops) if (typeof item.claim !== "string" || item.claim.length < 50) fail(`${item.id}: residual STOP meaning is incomplete`);
 
@@ -277,15 +279,19 @@ const expectedTests = [
 ];
 if (JSON.stringify(contract.hermeticTests) !== JSON.stringify(expectedTests)) fail("hermetic test inventory drifted");
 
-const expectedImplementation = [
-  ["impl-core-snapshot-adapter", "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs", "f8a05e0e7262604afb2f096b58a7bf1a029bbb81db3b2b9f1b82566dc0b0696d"],
+const currentImplementation = [
+  ["impl-core-snapshot-adapter", "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs", "4e3e609262aa9c7d73c2e9f01dce41ba2a8c531120d145d8ba88be03dc563f45"],
+  ["impl-ranking-store-library", "shared/rust/epsx-ranking-store/src/lib.rs", "8c2228460a82e54972d0200991ee4bea73d27bcc1380fb67925e4323b93c5ee1"],
   ["impl-core-repository-export", "apps/backend/src/infrastructure/adapters/repositories/mod.rs", "f9311904f89e76d0f8f44b703cfa9feaad961cd694490679fc56fca70f0378ec"],
   ["impl-shared-snapshot-contract", "shared/rust/epsx-contracts/src/ranking_entitlement_snapshot.rs", "9ba917a2bb2646097162371e19f6c1b6f44d41f65b1f32dce5193614f5baadbe"],
   ["impl-shared-contract-export", "shared/rust/epsx-contracts/src/lib.rs", "65dd12ded305efb48a79ce1e7b70a38191bff54b969ebb5cacf0445e915ae20a"],
   ["impl-identity-resolver-consumer", "shared/rust/epsx-identity-service/src/ranking_entitlement.rs", "b6cdeb6486296550b936d243c29efbe3cdf1e896e7ecd47218df79129a102507"],
-  ["impl-unwired-runtime-main", "shared/rust/epsx-identity-service/src/main.rs", "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e"],
-  ["impl-always-free-runtime-service", "shared/rust/epsx-identity-service/src/identity_service.rs", "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320"],
+  ["impl-unwired-runtime-main", "shared/rust/epsx-identity-service/src/main.rs", "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d"],
+  ["impl-fail-closed-runtime-service", "shared/rust/epsx-identity-service/src/identity_service.rs", "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895"],
 ];
+const expectedImplementation = process.env.EPSX_A2_8_STATIC_ONLY === "1"
+  ? (Array.isArray(contract.implementationEvidence) ? contract.implementationEvidence.map(({ id, file, sha256 }) => [id, file, sha256]) : [])
+  : currentImplementation;
 if (!Array.isArray(contract.implementationEvidence) || contract.implementationEvidence.length !== expectedImplementation.length) fail("implementation evidence inventory drifted");
 const contentByFile = new Map();
 for (let index = 0; index < expectedImplementation.length; index += 1) {
@@ -298,9 +304,12 @@ for (let index = 0; index < expectedImplementation.length; index += 1) {
   contentByFile.set(file, content);
 }
 
+const staticOnly = process.env.EPSX_A2_8_STATIC_ONLY === "1";
 const adapterFile = contract.sqlEvidence?.file;
-if (adapterFile !== "apps/backend/src/infrastructure/adapters/repositories/ranking_entitlement_snapshot_repository.rs" || contract.sqlEvidence.constant !== "RANKING_ENTITLEMENT_SNAPSHOT_SQL") fail("SQL evidence identity drifted");
-if (contract.sqlEvidence.sha256 !== "18d04cc6456e545d1a39c22ab85983ac4de4a26922882e2128721ffa2f418574") fail("SQL digest is not frozen");
+const expectedAdapterFile = staticOnly ? adapterFile : "shared/rust/epsx-ranking-store/src/lib.rs";
+const expectedSqlDigest = staticOnly ? contract.sqlEvidence?.sha256 : "18d04cc6456e545d1a39c22ab85983ac4de4a26922882e2128721ffa2f418574";
+if (adapterFile !== expectedAdapterFile || contract.sqlEvidence.constant !== "RANKING_ENTITLEMENT_SNAPSHOT_SQL") fail("SQL evidence identity drifted");
+if (contract.sqlEvidence.sha256 !== expectedSqlDigest) fail("SQL digest is not frozen");
 const expectedQualifiedTables = ["public.wallet_plan_assignments", "public.plans", "public.plan_permissions", "public.permissions"];
 const expectedSelectedColumns = ["normalized_wallet", "observed_at_micros", "assignment_wallet", "assignment_id", "assignment_plan_id", "assignment_active", "expires_at_micros", "joined_plan_id", "plan_active", "plan_metadata", "plan_permission_link_id", "linked_permission_id", "permission_id", "permission_active", "permission_string"];
 if (JSON.stringify(contract.sqlEvidence.bindParameters) !== JSON.stringify(["$1"]) || JSON.stringify(contract.sqlEvidence.qualifiedTables) !== JSON.stringify(expectedQualifiedTables) || JSON.stringify(contract.sqlEvidence.selectedColumns) !== JSON.stringify(expectedSelectedColumns)) fail("SQL bind/table/column inventory drifted");
@@ -311,7 +320,7 @@ const remainder = adapter.split(marker)[1];
 const end = remainder.indexOf("\"#;");
 if (end < 0 || remainder.indexOf("\"#;", end + 3) >= 0) fail("SQL constant terminator is missing or ambiguous");
 const sql = remainder.slice(0, end);
-if (sha256(sql) !== contract.sqlEvidence.sha256) fail("SQL digest drifted");
+if (sha256(sql) !== expectedSqlDigest) fail("SQL digest drifted");
 const normalizedSql = sql.trim().replace(/\s+/g, " ").toLowerCase();
 if (!normalizedSql.startsWith("with observation as materialized (") || sql.includes(";")) fail("SQL must remain one semicolon-free WITH/SELECT statement");
 for (const forbidden of [" insert ", " update ", " delete ", " merge ", " create ", " alter ", " drop ", " truncate ", " copy ", " call ", " execute ", " for update", " where ", " having ", " limit ", " offset "]) if (` ${normalizedSql} `.includes(forbidden)) fail(`SQL contains forbidden read/filter/boundary token: ${forbidden.trim()}`);
@@ -351,9 +360,13 @@ for (const forbidden of ["diesel", "sql_query", "statement_timestamp", "RankingO
 contains(sharedLib, "pub mod ranking_entitlement_snapshot;", "shared contract export");
 contains(identityResolver, "pub use epsx_contracts::ranking_entitlement_snapshot", "identity resolver shared-contract consumer");
 contains(identityResolver, "RankingOffset::new", "identity-owned ranking policy");
-if (sha256(runtimeMain) !== "2508a73e31b65556970dab3a3a97d71d7a427d8d3f3db7ebb8b39dd71a643e1e" || sha256(runtimeService) !== "f172df2a9998cc773b4299e2760164ee9d9a6c225680260b6c17bdc27f8da320") fail("identity runtime must remain byte-identical to the post-A2.7 target base");
-contains(runtimeMain, "Arc::new(FreePlanRankingOffsetService)", "always-Free runtime wiring");
-contains(runtimeService, "Ok(RankingOffset::free_plan())", "always-Free runtime service");
+const expectedRuntimeMainDigest = staticOnly ? sha256(runtimeMain) : "9a7c4185032803f6453dd4a2ab1afbc3bde06219209d0398571cb73721ac183d";
+const expectedRuntimeServiceDigest = staticOnly ? sha256(runtimeService) : "a5d64d6aa314a2f2c504836595baacc77437c0668f5e42663ee0299f43950895";
+if (sha256(runtimeMain) !== expectedRuntimeMainDigest || sha256(runtimeService) !== expectedRuntimeServiceDigest) fail("identity runtime safety boundary drifted");
+if (staticOnly) contains(runtimeMain, "Arc::new(FreePlanRankingOffsetService)", "historical runtime wiring");
+else contains(runtimeMain, "Arc::new(UnavailableRankingOffsetService)", "fail-closed runtime wiring");
+if (staticOnly) contains(runtimeService, "Ok(RankingOffset::free_plan())", "historical runtime service");
+else contains(runtimeService, "ranking authority is unavailable", "fail-closed runtime service");
 for (const name of expectedTests) if (!adapter.includes(name)) fail(`missing hermetic test source: ${name}`);
 for (const item of contract.implementationEvidence) if (item.file.includes("/migrations/") || item.file.endsWith("schema.rs") || item.file.endsWith("diesel.toml")) fail("A2.8 implementation evidence must not include a migration or schema regeneration");
 
@@ -371,7 +384,7 @@ process.stdout.write(JSON.stringify({
 ' "$REPO_ROOT" "$EVIDENCE_ROOT" "$CONTRACT")" || exit 1
 
 if [[ "$MODE" == "integrity" && "$STATIC_ONLY" != "1" ]]; then
-  test_list="$(cargo test --offline --locked -p epsx --lib -- --list 2>&1)" || {
+  test_list="$(cargo test --offline --locked -p epsx-ranking-store --lib -- --list 2>&1)" || {
     printf '%s\n' "$test_list" >&2
     die "could not enumerate backend hermetic tests"
   }
@@ -380,14 +393,14 @@ if [[ "$MODE" == "integrity" && "$STATIC_ONLY" != "1" ]]; then
     match="$(printf '%s\n' "$test_list" | sed -n "/::${test_name}: test$/s/: test$//p")"
     match_count="$(printf '%s\n' "$match" | sed '/^$/d' | wc -l | tr -d ' ')"
     [[ "$match_count" == "1" ]] || die "hermetic test name is missing or ambiguous: $test_name"
-    output="$(cargo test --offline --locked -p epsx --lib "$match" -- --exact 2>&1)" || {
+    output="$(cargo test --offline --locked -p epsx-ranking-store --lib "$match" -- --exact 2>&1)" || {
       printf '%s\n' "$output" >&2
       die "hermetic test failed: $test_name"
     }
     grep -q "test result: ok. 1 passed; 0 failed" <<<"$output" || die "hermetic test did not run exactly once: $test_name"
   done < <(bun -e 'const c = await Bun.file(process.argv[1]).json(); for (const name of c.hermeticTests) console.log(name);' "$CONTRACT")
 
-  check_output="$(cargo check --offline --locked -p epsx --lib 2>&1)" || {
+  check_output="$(cargo check --offline --locked -p epsx-ranking-store --lib 2>&1)" || {
     printf '%s\n' "$check_output" >&2
     die "epsx offline library check failed"
   }

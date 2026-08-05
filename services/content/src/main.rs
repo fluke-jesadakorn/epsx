@@ -13,7 +13,7 @@ use notify_debouncer_mini::new_debouncer;
 use serde::{Deserialize, Serialize};
 use sqlx::FromRow;
 use std::net::SocketAddr;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
@@ -265,7 +265,7 @@ async fn not_found() -> StatusCode {
 }
 
 async fn load_block_registry(
-    path: &PathBuf,
+    path: &Path,
     registry: &Arc<RwLock<BlockRegistry>>,
 ) -> Result<(), String> {
     let mut reg = registry.write().await;
@@ -405,7 +405,7 @@ async fn sync_blocks_to_db(db: &sqlx::PgPool, registry: &BlockRegistry) -> Resul
     Ok(())
 }
 
-async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &PathBuf) -> Result<(), String> {
+async fn sync_themes_to_db(db: &sqlx::PgPool, content_path: &Path) -> Result<(), String> {
     let themes_dir = content_path.join("themes");
     if !themes_dir.exists() {
         return Ok(());
@@ -912,7 +912,7 @@ async fn get_site_settings(
 // Served by the content service since they're display-only / content-driven.
 // =====================================================================
 
-fn read_content_json(content_path: &PathBuf, rel: &str) -> Option<serde_json::Value> {
+fn read_content_json(content_path: &Path, rel: &str) -> Option<serde_json::Value> {
     let p = content_path.join(rel);
     if !p.exists() {
         return None;
@@ -956,7 +956,8 @@ async fn news_post(
         "proprietary-performance-metrics" | "metrics-deep-dive" | "performance-analysis" => {
             Some("paymaster")
         }
-        "optimizing-high-throughput-analytics-rust" | "rust-performance"
+        "optimizing-high-throughput-analytics-rust"
+        | "rust-performance"
         | "throughput-deep-dive" => Some("optimizing-high-throughput-analytics-rust"),
         "real-time-intelligence" | "real-time-data" | "live-pipeline" => {
             Some("real-time-intelligence")
@@ -964,10 +965,14 @@ async fn news_post(
         "securing-the-future" | "security-overview" | "siwe-explained" => {
             Some("securing-the-future")
         }
-        "scalable-postgresql-time-series" | "scalable-foundation"
-        | "scalability-update" | "infrastructure-deep-dive" => Some("scalable-foundation"),
-        "predictive-ai-models-market-sentiment" | "smarter-decisions-ai"
-        | "ai-deep-dive" | "model-explainer" => Some("smarter-decisions-ai"),
+        "scalable-postgresql-time-series"
+        | "scalable-foundation"
+        | "scalability-update"
+        | "infrastructure-deep-dive" => Some("scalable-foundation"),
+        "predictive-ai-models-market-sentiment"
+        | "smarter-decisions-ai"
+        | "ai-deep-dive"
+        | "model-explainer" => Some("smarter-decisions-ai"),
         _ => None,
     };
 
@@ -983,8 +988,8 @@ async fn news_post(
             let mut title = slug.replace('-', " ");
             let mut published = "June 9, 2026".to_string();
             let body_start;
-            if trimmed.starts_with("---") {
-                let after = trimmed[3..].trim_start_matches('\n');
+            if let Some(frontmatter) = trimmed.strip_prefix("---") {
+                let after = frontmatter.trim_start_matches('\n');
                 if let Some(close) = after.find("\n---") {
                     for line in after[..close].lines() {
                         let line = line.trim();
@@ -1016,11 +1021,7 @@ async fn news_post(
             // Rust SSR renderer.
             (title, md.to_string(), published)
         }
-        None => (
-            slug.replace('-', " "),
-            format!("Article for `{slug}` coming soon."),
-            "June 9, 2026".to_string(),
-        ),
+        None => return Err(StatusCode::NOT_FOUND),
     };
 
     Ok(Json(serde_json::json!({
@@ -1031,38 +1032,22 @@ async fn news_post(
     })))
 }
 
-async fn plans_list(State(state): State<AppState>) -> Json<serde_json::Value> {
-    Json(
-        read_content_json(&state.content_path, "marketing/plans.json").unwrap_or_else(|| {
-            serde_json::json!({
-                "personal": [], "api": [], "custom": []
-            })
-        }),
-    )
+async fn plans_list() -> StatusCode {
+    // Plan eligibility, pricing, and entitlements are backend-owned. Until a
+    // typed projection is available, never serve a content-file catalog.
+    StatusCode::NOT_IMPLEMENTED
 }
 
-async fn rankings_list() -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "companies": [
-            { "rank": 100, "ticker": "GHC",  "price": "$5.40",  "growth": "+4650.00%", "growth_pct": 4650.00, "next_action_days": 158, "next_action_pct": 5.0,    "tradingview_url": "https://www.tradingview.com/symbols/GHC" },
-            { "rank": 101, "ticker": "6535", "price": "$462.00","growth": "+4622.84%", "growth_pct": 4622.84, "next_action_days": 1,   "next_action_pct": 98.89,  "tradingview_url": "https://www.tradingview.com/symbols/6535" },
-            { "rank": 102, "ticker": "4657", "price": "$427.00","growth": "+4612.47%", "growth_pct": 4612.47, "next_action_days": 65,  "next_action_pct": 27.78,  "tradingview_url": "https://www.tradingview.com/symbols/4657" }
-        ],
-        "as_of": "2026-06-09T00:00:00Z",
-        "total": 100
-    }))
+async fn rankings_list() -> StatusCode {
+    // Ranking authority and offsets belong to the Rust backend/analytics
+    // authority. A content service must not manufacture market rows.
+    StatusCode::NOT_IMPLEMENTED
 }
 
-async fn portfolio_get(AxPath(addr): AxPath<String>) -> Json<serde_json::Value> {
-    Json(serde_json::json!({
-        "address": addr,
-        "total_value_usd": 0.0,
-        "watchlist": [],
-        "subscriptions": [],
-        "transactions": [],
-        "auth_required": true,
-        "message": "Sign in to view your portfolio"
-    }))
+async fn portfolio_get() -> StatusCode {
+    // Portfolio balances, subscriptions, and transactions are owner-scoped
+    // financial state; this public content service has no authority for them.
+    StatusCode::NOT_IMPLEMENTED
 }
 
 #[cfg(test)]

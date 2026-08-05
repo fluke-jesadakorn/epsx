@@ -45,7 +45,7 @@ The exact 18 source and 25 target anchors are intentionally kept in the machine 
 
 | Capability | Pinned source contract | Current Rust target | Required production contract |
 |---|---|---|---|
-| Public plan read | `GET /api/public/plans` → `ApiResponse<PublicPlan[]>` | Raw subscription array and canned `/api/v1/subscription/plans` remain; top-level compatibility route/loader/UI fail closed | One versioned projection of canonical backend plans; live loading/empty/error/retry UI |
+| Public plan read | `GET /api/public/plans` → `ApiResponse<PublicPlan[]>` | Frontend compatibility subscription producers are absent; top-level route/loader/UI fail closed | One versioned projection of canonical backend plans; live loading/empty/error/retry UI |
 | Current access | `GET /api/payments/plans/my-plan-access` → `ApiResponse<PlanAccessData>` | Absent; ranking always free | JWT-owner read of effective plan, period, grace, permissions, and ranking offset |
 | Owner create/activation | Payment submission followed by confirmed-chain monitor | Direct caller create becomes active | Pending payment or trusted finalized-payment event; never public direct-active creation |
 | Owner list | Authenticated wallet assignment projection | Returns all subscription rows | Owner derived from JWT and present in the SQL predicate |
@@ -74,7 +74,7 @@ The locked semantics are:
 
 ### Plan authority
 
-Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files and the canned subscription BFF are fixtures or display projections, never authority; the public `/plans` page and admin wallet-plan list/detail now present none of them and instead fail closed until typed backend adapters exist.
+Per repository architecture, Rust backend business logic remains the only authority for plan eligibility, permission mapping, price/billing cycle, promotion, active flag, ranking offset, and subscription rules. The subscription service may keep an immutable, versioned projection for lifecycle processing. It may not introduce an independently editable merchant catalog. Content files and former frontend compatibility producers are fixtures or display projections, never authority; the public `/plans` page and admin wallet-plan list/detail now present none of them and instead fail closed until typed backend adapters exist.
 
 ### Owner and service authorization
 

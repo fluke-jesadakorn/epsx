@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "purpose": "fixture-integrity-only",
   "baseline": {
-    "sourceRef": "origin/development",
-    "sourceCommit": "373bd231cb7a616c3d4c0ddc1d60e0099a88a5db",
+    "sourceRef": "development",
+    "sourceCommit": "6fe4d5bb3e170ba0644c07979735482bcc0f17c6",
     "targetRef": "migration/dioxus-microservices",
     "targetCommitBeforeHarness": "f86d204b"
   },
@@ -284,7 +284,7 @@
       },
       "observed": {"status": "blocked", "summary": "The direct service validates admin manage credentials and then returns 404 before force handlers, but the DB-only lifecycle, durable audit, and public-host BFF route remain unresolved."},
       "evidence": [
-        {"file": "services/pay/src/lib.rs", "anchor": "A valid operator credential still cannot reach the current"},
+        {"file": "services/pay/src/lib.rs", "anchor": "admin_mutations_require_manage_but_remain_unavailable"},
         {"file": "services/pay/src/main.rs", "anchor": "/api/v1/admin/pay/intents/{id}/force-cancel"},
         {"file": "infrastructure/cloudflare/cloudflared-config.prod.yml", "anchor": "service: http://localhost:4752"}
       ]

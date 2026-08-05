@@ -125,7 +125,6 @@ pub fn ConnectedWalletDropdown(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn connected_wallet_dropdown_returns_early_when_no_address() {

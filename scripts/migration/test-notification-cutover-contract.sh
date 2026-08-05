@@ -47,6 +47,6 @@ const order = contract.executionOrder;
 if (JSON.stringify(order) !== JSON.stringify(["shadow_compare_without_serving", "approve_allowlisted_canary", "switch_one_writer", "observe_abort_thresholds", "reconcile_after_window", "rollback_without_destructive_schema_or_provider_replay"])) fail("execution order drifted");
 if (contract.requiredApprovals.length !== 5) fail("required approval set drifted");
 console.log("notification-cutover-contract: PASS — single-writer default, shadow/no-serve, canary allowlist, and duplicate-safe rollback requirements verified");
-' 
+'
 
 echo "notification-cutover-contract: LIMIT — static non-production contract only; no switch, shadow, canary, deployment, provider, database, or rollback execution"

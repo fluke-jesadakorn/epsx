@@ -92,17 +92,17 @@ case_unredacts_access_outcome_debug() {
 case_frontend_drops_refresh_cookie_gate() {
   root="$1"
   mutate_after "$root/apps/frontend/src/ssr.rs" \
-    'let recover_session = access_verification.permits_refresh_recovery()' \
-    '&& auth::refresh_token(&headers, state.cookie_environment).is_some()' \
-    '&& true'
+    'let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment)' \
+    'is_some()' \
+    'false'
 }
 
 case_admin_drops_refresh_cookie_gate() {
   root="$1"
   mutate_after "$root/apps/admin/src/ssr.rs" \
     'let recover_session = access_verification.permits_refresh_recovery()' \
-    '&& auth::refresh_token(&headers, state.cookie_environment).is_some()' \
-    '&& true'
+    '&& auth::refresh_token(&headers, state.cookie_environment).is_some();' \
+    '&& true;'
 }
 
 case_frontend_recovers_offline() {

@@ -1,18 +1,20 @@
 use axum::{
     body::to_bytes,
-    extract::{Path as AxPath, RawQuery, Request, State},
+    extract::{Multipart, Path as AxPath, RawQuery, Request, State},
     http::{header, HeaderMap, HeaderValue, Method, StatusCode},
     middleware::Next,
     response::{IntoResponse, Redirect, Response},
-    routing::{delete, get, post},
+    routing::{any, delete, get, post},
     Json, Router,
 };
+use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use epsx_bff::{
-    cookies::CookieEnvironment,
+    cookies::{append_clear_session_cookies, CookieClient, CookieEnvironment},
     middleware::security_headers,
     session::{JwksVerifier, JwksVerifierConfig, ADMIN_CLIENT_ID, JWKS_PATH},
 };
 use epsx_client::{RequestContext, ServiceClient};
+use epsx_dioxus_ui::pages::admin_pages::media::AdminMediaMutationProjection;
 use epsx_dioxus_ui::pages::admin_pages::payments::decode_admin_payment_intent_list;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -20,17 +22,41 @@ use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
+mod analytics_admin_adapter;
 mod audit_log_adapter;
 mod auth;
+mod chat_admin_adapter;
+mod commerce_adapter;
 mod dashboard_user_status_adapter;
+mod developer_portal_adapter;
 mod media_adapter;
 mod news_adapter;
 mod notification_admin_adapter;
 mod session_auth;
 #[cfg(test)]
 mod session_auth_tests;
+mod settings_admin_adapter;
 mod ssr;
 mod wallet_stats_adapter;
+
+use commerce_adapter::{
+    send_wallet_status_mutation, wallet_status_mutation_path, AdminCommerceMutationLoad,
+    WalletStatusCommand,
+};
+use developer_portal_adapter::{
+    create_admin_api_key, revoke_admin_api_key, update_admin_api_key_expiration,
+    AdminDeveloperCreateInput, AdminDeveloperMutationError,
+};
+use media_adapter::{delete_admin_media, upload_admin_public_file, AdminMediaMutationError};
+use news_adapter::{
+    create_admin_news, delete_admin_news, transition_admin_news, update_admin_news,
+    upload_admin_news_image, AdminNewsCreateInput, AdminNewsMutationError, AdminNewsTransition,
+    AdminNewsUpdateInput,
+};
+use notification_admin_adapter::{
+    delete_admin_notification, mark_admin_notification_read, send_admin_notification,
+    AdminNotificationMutationResult, AdminNotificationSendRequest, AdminNotificationSendResult,
+};
 
 #[derive(Clone)]
 struct AppState {
@@ -50,12 +76,15 @@ struct AppState {
 
 const ADMIN_NOTIFICATION_FORM_MAX: usize = 20 * 1024;
 const ADMIN_NOTIFICATION_FLASH_COOKIE: &str = "epsx.admin.notification_send";
+const ADMIN_NOTIFICATION_CREATE_COOKIE: &str = "epsx.admin.notification_create";
+const ADMIN_DEVELOPER_SECRET_COOKIE: &str = "epsx.admin.developer_secret_once";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct AdminNotificationSendForm {
     recipient_wallet_address: String,
     title: String,
     message: String,
+    idempotency_key: String,
 }
 
 fn same_origin_admin_notification_form(headers: &HeaderMap) -> bool {
@@ -111,7 +140,7 @@ fn parse_admin_notification_form(body: &[u8]) -> Result<AdminNotificationSendFor
     if fields.keys().any(|key| {
         !matches!(
             key.as_str(),
-            "recipient_wallet_address" | "title" | "message"
+            "recipient_wallet_address" | "title" | "message" | "idempotency_key"
         )
     }) {
         return Err(());
@@ -119,9 +148,14 @@ fn parse_admin_notification_form(body: &[u8]) -> Result<AdminNotificationSendFor
     let recipient_wallet_address = fields.remove("recipient_wallet_address").ok_or(())?;
     let title = fields.remove("title").ok_or(())?;
     let message = fields.remove("message").ok_or(())?;
+    let idempotency_key = fields.remove("idempotency_key").ok_or(())?;
     if !valid_admin_wallet(&recipient_wallet_address)
         || !valid_admin_form_text(&title, 255, true)
         || !valid_admin_form_text(&message, 16 * 1024, true)
+        || !(1..=56).contains(&idempotency_key.chars().count())
+        || !idempotency_key
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
     {
         return Err(());
     }
@@ -129,9 +163,11 @@ fn parse_admin_notification_form(body: &[u8]) -> Result<AdminNotificationSendFor
         recipient_wallet_address: recipient_wallet_address.to_ascii_lowercase(),
         title,
         message,
+        idempotency_key,
     })
 }
 
+#[cfg(test)]
 fn admin_notification_form_redirect(state: &'static str) -> Response {
     let state = matches!(state, "accepted")
         .then_some("accepted")
@@ -333,6 +369,89 @@ fn err_to_status(e: epsx_client::ClientError) -> StatusCode {
     }
 }
 
+fn admin_proxy_error_code(status: StatusCode) -> &'static str {
+    match status {
+        StatusCode::BAD_REQUEST => "invalid_request",
+        StatusCode::UNAUTHORIZED => "authentication_required",
+        StatusCode::FORBIDDEN => "forbidden",
+        StatusCode::NOT_FOUND => "not_found",
+        StatusCode::CONFLICT => "conflict",
+        StatusCode::UNPROCESSABLE_ENTITY => "validation_failed",
+        StatusCode::TOO_MANY_REQUESTS => "rate_limited",
+        StatusCode::METHOD_NOT_ALLOWED => "method_not_allowed",
+        StatusCode::PAYLOAD_TOO_LARGE => "payload_too_large",
+        StatusCode::BAD_GATEWAY | StatusCode::SERVICE_UNAVAILABLE | StatusCode::GATEWAY_TIMEOUT => {
+            "service_unavailable"
+        }
+        _ => "admin_service_unavailable",
+    }
+}
+
+fn admin_proxy_error_is_retryable(status: StatusCode) -> bool {
+    matches!(
+        status,
+        StatusCode::TOO_MANY_REQUESTS
+            | StatusCode::BAD_GATEWAY
+            | StatusCode::SERVICE_UNAVAILABLE
+            | StatusCode::GATEWAY_TIMEOUT
+    )
+}
+
+fn admin_proxy_error(status: StatusCode, ctx: &RequestContext) -> Response {
+    let request_id = ctx.request_id.to_string();
+    let mut response = (
+        status,
+        Json(serde_json::json!({
+            "success": false,
+            "error": admin_proxy_error_code(status),
+            "retryable": admin_proxy_error_is_retryable(status),
+            "request_id": request_id,
+        })),
+    )
+        .into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&ctx.request_id.to_string())
+            .expect("UUID request IDs are valid HTTP header values"),
+    );
+    response
+}
+
+fn admin_proxy_json_with_status(
+    status: StatusCode,
+    value: serde_json::Value,
+    ctx: &RequestContext,
+) -> Response {
+    let mut response = (status, Json(value)).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response.headers_mut().insert(
+        "x-request-id",
+        HeaderValue::from_str(&ctx.request_id.to_string())
+            .expect("UUID request IDs are valid HTTP header values"),
+    );
+    response
+}
+
+fn query_has_key(raw_query: Option<&str>, expected: &str) -> bool {
+    raw_query.is_some_and(|raw| {
+        url::form_urlencoded::parse(raw.as_bytes()).any(|(key, _)| key == expected)
+    })
+}
+
+fn query_has_value(raw_query: Option<&str>, key: &str, expected: &str) -> bool {
+    raw_query.is_some_and(|raw| {
+        url::form_urlencoded::parse(raw.as_bytes())
+            .any(|(candidate, value)| candidate == key && value == expected)
+    })
+}
+
 #[cfg(test)]
 mod upstream_error_mapping_tests {
     use super::*;
@@ -396,6 +515,41 @@ mod upstream_error_mapping_tests {
             ))),
             StatusCode::BAD_GATEWAY
         );
+    }
+
+    #[test]
+    fn admin_proxy_errors_use_closed_codes_and_retryability() {
+        assert_eq!(
+            admin_proxy_error_code(StatusCode::BAD_REQUEST),
+            "invalid_request"
+        );
+        assert_eq!(admin_proxy_error_code(StatusCode::CONFLICT), "conflict");
+        assert_eq!(
+            admin_proxy_error_code(StatusCode::SERVICE_UNAVAILABLE),
+            "service_unavailable"
+        );
+        assert!(!admin_proxy_error_is_retryable(StatusCode::FORBIDDEN));
+        assert!(admin_proxy_error_is_retryable(
+            StatusCode::TOO_MANY_REQUESTS
+        ));
+        assert!(admin_proxy_error_is_retryable(StatusCode::GATEWAY_TIMEOUT));
+    }
+
+    #[test]
+    fn auth_query_flags_match_source_cookie_clear_contract() {
+        assert!(query_has_key(Some("logout=1"), "logout"));
+        assert!(query_has_key(Some("clear"), "clear"));
+        assert!(query_has_value(
+            Some("reason=no-session"),
+            "reason",
+            "no-session"
+        ));
+        assert!(!query_has_key(Some("next=logout"), "logout"));
+        assert!(!query_has_value(
+            Some("reason=backend_error"),
+            "reason",
+            "no-session"
+        ));
     }
 }
 
@@ -845,6 +999,72 @@ fn build_app(state: AppState) -> Router {
             "/notifications/create",
             get(fallback_handler).post(submit_notification_form),
         )
+        .route(
+            "/notifications/manage",
+            get(fallback_handler).post(submit_notification_manage_form),
+        )
+        .route(
+            "/settings",
+            get(fallback_handler).post(submit_settings_form),
+        )
+        .route("/settings/reset", post(submit_settings_form))
+        .route("/news", get(fallback_handler).post(submit_news_delete_form))
+        .route(
+            "/news/create",
+            get(fallback_handler).post(submit_news_create_form),
+        )
+        .route("/news/upload-image", post(submit_news_image_upload_form))
+        .route(
+            "/news/{id}/edit",
+            get(fallback_handler).post(submit_news_edit_form),
+        )
+        .route(
+            "/developer-portal/api-keys/create",
+            get(fallback_handler).post(submit_developer_create_form),
+        )
+        .route(
+            "/developer-portal",
+            get(fallback_handler).post(submit_developer_mutation_form),
+        )
+        .route(
+            "/chat/{id}",
+            get(fallback_handler).post(submit_chat_mutation_form),
+        )
+        .route(
+            "/wallet-management/access",
+            get(fallback_handler).post(submit_commerce_mutation_form),
+        )
+        .route(
+            "/wallet-management/credits",
+            get(fallback_handler).post(submit_commerce_mutation_form),
+        )
+        .route(
+            "/wallet-management/access/plans",
+            get(fallback_handler).post(submit_commerce_mutation_form),
+        )
+        .route(
+            "/wallet-management/access/plans/{plan_id}",
+            get(fallback_handler).post(submit_commerce_mutation_form),
+        )
+        .route(
+            "/payments",
+            get(fallback_handler).post(submit_commerce_mutation_form),
+        )
+        .route(
+            "/media",
+            get(fallback_handler).post(submit_media_delete_form),
+        )
+        .route("/media/upload", post(submit_media_upload_form))
+        .route(
+            "/wallet-management/wallets/{address}/disable",
+            get(fallback_handler).post(submit_wallet_disable_form),
+        )
+        // Route-owned admin mutations/read-throughs are forwarded to the
+        // backend service that owns the record. The BFF performs only the
+        // authenticated same-origin hop; validation, permissions, plans,
+        // idempotency, and durable mutation authority stay in the backend.
+        .route("/api/admin/{*path}", any(admin_service_proxy))
+        .route("/api/v1/admin/{*path}", any(admin_service_proxy))
         // Analytics
         .route("/api/v1/analytics/events", get(list_events))
         .route("/api/v1/analytics/metrics/{metric}", get(get_metrics))
@@ -886,6 +1106,12 @@ async fn require_verified_admin_session(
     next: Next,
 ) -> Response {
     let path = request.uri().path();
+    // Match the legacy middleware's logout semantics before any protected
+    // route can resolve or forward a bearer. The redirect target is derived
+    // only from the current request path, never from a caller-controlled URL.
+    if !is_api_path(path) && query_has_key(request.uri().query(), "logout") {
+        return clear_session_redirect(&state, path);
+    }
     if is_api_path(path) && !is_known_admin_api_path(path) {
         return api_not_found_response();
     }
@@ -988,6 +1214,8 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
             | ["api", "v1", "notifications", "send"]
             | ["api", "v1", "notifications", _]
             | ["api", "v1", "notifications", _, "read"]
+            | ["api", "v1", "notification", "send"]
+            | ["api", "v1", "notification", "admin", "list"]
             | ["api", "v1", "analytics", "events"]
             | ["api", "v1", "analytics", "metrics", _]
             | ["api", "v1", "analytics", "revenue"]
@@ -998,6 +1226,51 @@ fn is_known_protected_admin_api_path(path: &str) -> bool {
             | ["api", "v1", "indexer", "transfers", _, _]
             | ["api", "v1", "wallet", "accounts"]
             | ["api", "v1", "wallet", "accounts", _]
+            | ["api", "admin", "media"]
+            | ["api", "admin", "media", _]
+            | ["api", "admin", "media", _, _]
+            | ["api", "admin", "files"]
+            | ["api", "admin", "files", _]
+            | ["api", "admin", "news"]
+            | ["api", "admin", "news", _]
+            | ["api", "admin", "news", _, _]
+            | ["api", "admin", "developer-portal", "api-keys"]
+            | ["api", "admin", "developer-portal", "api-keys", _]
+            | ["api", "admin", "developer-portal", "api-keys", _, _]
+            | ["api", "admin", "developer-portal", "modules"]
+            | ["api", "admin", "developer-portal", "modules", _]
+            | ["api", "admin", "developer-portal", "stats"]
+            | ["api", "admin", "chat", "topics"]
+            | ["api", "admin", "chat", "conversations"]
+            | ["api", "admin", "chat", "conversations", _]
+            | ["api", "admin", "chat", "conversations", _, _]
+            | ["api", "admin", "chat", "stats"]
+            | ["api", "admin", "chat", "overview"]
+            | ["api", "admin", "analytics", "dashboard"]
+            | ["api", "admin", "dashboard", "user-status"]
+            | ["api", "admin", "settings"]
+            | ["api", "admin", "settings", _]
+            | ["api", "admin", "audit-log"]
+            | ["api", "v1", "analytics", "admin", "audit-log"]
+            | ["api", "v1", "admin", "wallets", _]
+            | ["api", "v1", "admin", "wallets"]
+            | ["api", "v1", "admin", "wallets", _, "disable"]
+            | ["api", "v1", "admin", "wallets", _, "enable"]
+            | ["api", "v1", "admin", "wallets", _, "metadata"]
+            | ["api", "v1", "admin", "credits"]
+            | ["api", "v1", "admin", "credits", _]
+            | ["api", "v1", "admin", "credits", _, "grant"]
+            | ["api", "v1", "admin", "credits", _, "revoke"]
+            | ["api", "v1", "admin", "subscription", "access"]
+            | ["api", "v1", "admin", "subscription", "access", "assign"]
+            | ["api", "v1", "admin", "subscription", "access", "revoke"]
+            | ["api", "v1", "admin", "subscription", "plans"]
+            | ["api", "v1", "admin", "subscription", "plans", _]
+            | ["api", "v1", "admin", "pay", "links"]
+            | ["api", "v1", "admin", "pay", "links", _]
+            | ["api", "v1", "admin", "pay", "intents"]
+            | ["api", "v1", "admin", "pay", "intents", _, _]
+            | ["api", "v1", "admin", "pay", "escrows", _, _]
     )
 }
 
@@ -1016,18 +1289,71 @@ fn is_allowed_protected_admin_api_method(method: &Method, path: &str) -> bool {
         | ["api", "v1", "analytics", "events"]
         | ["api", "v1", "analytics", "metrics", _]
         | ["api", "v1", "analytics", "revenue"]
+        | ["api", "v1", "analytics", "admin", "audit-log"]
         | ["api", "v1", "indexer", "status", _]
         | ["api", "v1", "indexer", "block", _, _]
         | ["api", "v1", "indexer", "tx", _, _]
         | ["api", "v1", "indexer", "transfers", _, _]
         | ["api", "v1", "wallet", "accounts"]
         | ["api", "v1", "wallet", "accounts", _] => is_read,
+        ["api", "admin", "media"]
+        | ["api", "admin", "media", _]
+        | ["api", "admin", "media", _, _]
+        | ["api", "admin", "files"]
+        | ["api", "admin", "files", _]
+        | ["api", "admin", "news"]
+        | ["api", "admin", "news", _]
+        | ["api", "admin", "news", _, _]
+        | ["api", "admin", "developer-portal", "api-keys"]
+        | ["api", "admin", "developer-portal", "api-keys", _]
+        | ["api", "admin", "developer-portal", "api-keys", _, _]
+        | ["api", "admin", "developer-portal", "modules"]
+        | ["api", "admin", "developer-portal", "modules", _]
+        | ["api", "admin", "developer-portal", "stats"]
+        | ["api", "admin", "chat", "topics"]
+        | ["api", "admin", "chat", "conversations"]
+        | ["api", "admin", "chat", "conversations", _]
+        | ["api", "admin", "chat", "conversations", _, _]
+        | ["api", "admin", "chat", "stats"]
+        | ["api", "admin", "chat", "overview"]
+        | ["api", "admin", "analytics", "dashboard"]
+        | ["api", "admin", "dashboard", "user-status"]
+        | ["api", "admin", "settings"]
+        | ["api", "admin", "settings", _]
+        | ["api", "admin", "audit-log"]
+        | ["api", "v1", "admin", "wallets", _]
+        | ["api", "v1", "admin", "wallets"]
+        | ["api", "v1", "admin", "wallets", _, "disable"]
+        | ["api", "v1", "admin", "wallets", _, "enable"]
+        | ["api", "v1", "admin", "wallets", _, "metadata"]
+        | ["api", "v1", "admin", "credits"]
+        | ["api", "v1", "admin", "credits", _]
+        | ["api", "v1", "admin", "credits", _, "grant"]
+        | ["api", "v1", "admin", "credits", _, "revoke"]
+        | ["api", "v1", "admin", "subscription", "access"]
+        | ["api", "v1", "admin", "subscription", "access", "assign"]
+        | ["api", "v1", "admin", "subscription", "access", "revoke"]
+        | ["api", "v1", "admin", "subscription", "plans"]
+        | ["api", "v1", "admin", "subscription", "plans", _]
+        | ["api", "v1", "admin", "pay", "links"]
+        | ["api", "v1", "admin", "pay", "links", _] => {
+            is_read
+                || method == Method::POST
+                || method == Method::PUT
+                || method == Method::PATCH
+                || method == Method::DELETE
+        }
+        ["api", "v1", "admin", "pay", "intents"]
+        | ["api", "v1", "admin", "pay", "intents", _, _]
+        | ["api", "v1", "admin", "pay", "escrows", _, _] => is_read || method == Method::POST,
         ["api", "v1", "subscriptions", _, "cancel"]
         | ["api", "v1", "pages", _, "publish"]
         | ["api", "v1", "notifications", _, "read"]
         | ["api", "v1", "notifications", "send"]
         | ["api", "v1", "notifications", "templates", _, "preview"]
         | ["api", "v1", "notifications", "templates", _, "rollback"] => method == Method::POST,
+        ["api", "v1", "notification", "send"] => method == Method::POST,
+        ["api", "v1", "notification", "admin", "list"] => is_read,
         ["api", "v1", "notifications", "templates", _, "audit"] => is_read,
         ["api", "v1", "notifications", "metrics"] => is_read,
         ["api", "v1", "analytics", "track"] => method == Method::POST,
@@ -1145,8 +1471,9 @@ mod routing_tests {
     #[test]
     fn notification_form_parser_is_closed_bounded_and_canonicalizes_wallets() {
         let wallet = "0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-        let body =
-            format!("recipient_wallet_address={wallet}&title=Hello+admin&message=Queued+message");
+        let body = format!(
+            "recipient_wallet_address={wallet}&title=Hello+admin&message=Queued+message&idempotency_key=admin.notification.test"
+        );
         let parsed = parse_admin_notification_form(body.as_bytes()).unwrap();
         assert_eq!(parsed.recipient_wallet_address, wallet.to_ascii_lowercase());
         assert_eq!(parsed.title, "Hello admin");
@@ -1155,8 +1482,8 @@ mod routing_tests {
         for invalid in [
             format!("{body}&message=duplicate"),
             format!("{body}&broadcast=true"),
-            format!("recipient_wallet_address=0x123&title=x&message=y"),
-            format!("recipient_wallet_address={wallet}&title=&message=y"),
+            "recipient_wallet_address=0x123&title=x&message=y".to_string(),
+            format!("recipient_wallet_address={wallet}&title=&message=y&idempotency_key=x"),
         ] {
             assert!(
                 parse_admin_notification_form(invalid.as_bytes()).is_err(),
@@ -1316,6 +1643,8 @@ mod routing_tests {
             "/api/v1/notifications/templates/id/audit",
             "/api/v1/notifications/metrics",
             "/api/v1/notifications/send",
+            "/api/v1/notification/send",
+            "/api/v1/notification/admin/list",
             "/api/v1/analytics/events",
             "/api/v1/analytics/metrics/usage",
             "/api/v1/analytics/revenue",
@@ -1326,6 +1655,21 @@ mod routing_tests {
             "/api/v1/indexer/transfers/bsc/address",
             "/api/v1/wallet/accounts",
             "/api/v1/wallet/accounts/address",
+            "/api/v1/analytics/admin/audit-log",
+            "/api/admin/media/news",
+            "/api/admin/media/news/object-key",
+            "/api/admin/files",
+            "/api/admin/files/upload",
+            "/api/admin/news",
+            "/api/admin/news/slug/publish",
+            "/api/admin/developer-portal/api-keys",
+            "/api/admin/developer-portal/api-keys/key-id/revoke",
+            "/api/admin/developer-portal/modules/module-id",
+            "/api/admin/chat/topics",
+            "/api/admin/chat/conversations",
+            "/api/admin/chat/conversations/conversation-id/messages",
+            "/api/admin/settings",
+            "/api/admin/settings/reset",
         ] {
             assert!(is_known_protected_admin_api_path(path), "{path}");
         }
@@ -1340,6 +1684,10 @@ mod routing_tests {
             "/api/v1/payments/id/cancel",
             "/api/v1/escrows",
             "/api/v1/escrows/id/release",
+            "/api/admin/media/news/object-key/extra",
+            "/api/admin/developer-portal/api-keys/key-id/revoke/extra",
+            "/api/admin/chat/conversations/conversation-id/messages/extra",
+            "/api/v1/notification/admin/list/extra",
         ] {
             assert!(!is_known_admin_api_path(path), "{path}");
         }
@@ -1378,6 +1726,33 @@ mod routing_tests {
             request(Method::HEAD, "/missing-page").await.status(),
             StatusCode::NOT_FOUND
         );
+    }
+
+    #[tokio::test]
+    async fn auth_and_logout_redirects_clear_only_canonical_session_cookies() {
+        for (uri, location) in [
+            ("/auth?reason=no-session", "/"),
+            ("/auth?clear=1", "/"),
+            ("/settings?logout=1", "/settings"),
+        ] {
+            let response = request(Method::GET, uri).await;
+            assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT, "{uri}");
+            assert_eq!(response.headers()[header::LOCATION], location, "{uri}");
+            assert_eq!(
+                response
+                    .headers()
+                    .get_all(header::SET_COOKIE)
+                    .iter()
+                    .count(),
+                5,
+                "{uri}"
+            );
+            assert_eq!(
+                response.headers()[header::CACHE_CONTROL],
+                "private, no-store",
+                "{uri}"
+            );
+        }
     }
 
     #[tokio::test]
@@ -1505,8 +1880,165 @@ async fn api_health() -> &'static str {
     "ok"
 }
 
-async fn admin_auth_redirect() -> Response {
+/// Forward route-owned admin API calls to the service selected by the
+/// canonical path. This BFF boundary deliberately has no permission, plan,
+/// entitlement, ownership, or mutation rules: the verified bearer and request
+/// ID are forwarded, while the backend service remains authoritative.
+async fn admin_service_proxy(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let path = parts
+        .uri
+        .path_and_query()
+        .map(ToString::to_string)
+        .unwrap_or_else(|| parts.uri.path().to_string());
+    let method = parts.method;
+    let headers = parts.headers;
+    let ctx = ctx_from(&headers);
+    let body = if matches!(
+        method,
+        Method::POST | Method::PUT | Method::PATCH | Method::DELETE
+    ) {
+        match to_bytes(body, 2 * 1024 * 1024).await {
+            Ok(bytes) => bytes,
+            Err(_) => return admin_proxy_error(StatusCode::PAYLOAD_TOO_LARGE, &ctx),
+        }
+    } else {
+        axum::body::Bytes::new()
+    };
+
+    let client = if path.starts_with("/api/admin/media") || path.starts_with("/api/admin/news") {
+        &state.content
+    } else if path.starts_with("/api/v1/admin/wallets") || path.starts_with("/api/v1/admin/credits")
+    {
+        &state.wallet
+    } else if path.starts_with("/api/v1/admin/subscription") {
+        &state.subscription
+    } else if path.starts_with("/api/v1/admin/pay") {
+        &state.payment
+    } else if path.starts_with("/api/v1/notification") {
+        &state.notification
+    } else if path.starts_with("/api/v1/analytics/admin") {
+        &state.analytics
+    } else {
+        &state.identity
+    };
+
+    let Some(token) = ctx
+        .auth_token
+        .as_deref()
+        .filter(|token| !token.trim().is_empty())
+    else {
+        return admin_proxy_error(StatusCode::UNAUTHORIZED, &ctx);
+    };
+    let Ok(upstream_method) = reqwest::Method::from_bytes(method.as_str().as_bytes()) else {
+        return admin_proxy_error(StatusCode::METHOD_NOT_ALLOWED, &ctx);
+    };
+    let mut upstream = client
+        .auth_client()
+        .request(
+            upstream_method,
+            format!("{}{}", client.base_url().trim_end_matches('/'), path),
+        )
+        .bearer_auth(token)
+        .header("x-request-id", ctx.request_id.to_string());
+    // These headers are part of the route-owned mutation contracts. Forward
+    // only their bounded, canonical values; the bearer and request ID above
+    // are always taken from the verified BFF context.
+    for name in ["idempotency-key", "if-match"] {
+        if let Some(value) = headers.get(name) {
+            upstream = upstream.header(name, value);
+        }
+    }
+    if let Some(value) = headers.get(header::CONTENT_TYPE) {
+        upstream = upstream.header(header::CONTENT_TYPE, value);
+    }
+    if !body.is_empty() {
+        upstream = upstream.body(body);
+    }
+    let response = match upstream.send().await {
+        Ok(response) => response,
+        Err(error) if error.is_timeout() => {
+            return admin_proxy_error(StatusCode::GATEWAY_TIMEOUT, &ctx)
+        }
+        Err(error) if error.is_connect() => {
+            return admin_proxy_error(StatusCode::SERVICE_UNAVAILABLE, &ctx)
+        }
+        Err(_) => return admin_proxy_error(StatusCode::BAD_GATEWAY, &ctx),
+    };
+    let status = response.status();
+    if !status.is_success() {
+        return admin_proxy_error(
+            safe_upstream_status(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY),
+            &ctx,
+        );
+    }
+    let body = match response.bytes().await {
+        Ok(body) if body.len() <= 2 * 1024 * 1024 => body,
+        _ => return admin_proxy_error(StatusCode::BAD_GATEWAY, &ctx),
+    };
+    if body.is_empty() {
+        return admin_proxy_json_with_status(
+            StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK),
+            serde_json::json!({ "success": true }),
+            &ctx,
+        );
+    }
+    let value = match serde_json::from_slice::<serde_json::Value>(&body) {
+        Ok(value) => value,
+        Err(_) => return admin_proxy_error(StatusCode::BAD_GATEWAY, &ctx),
+    };
+    admin_proxy_json_with_status(
+        StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::OK),
+        value,
+        &ctx,
+    )
+}
+
+async fn admin_auth_redirect(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    RawQuery(raw_query): RawQuery,
+) -> Response {
+    // The source middleware clears expired-session cookies for the explicit
+    // no-session/clear auth entry points, then redirects to the fixed root.
+    // The BFF performs the same cookie operation before redirecting; it does
+    // not decode or authorize anything in the browser.
+    if query_has_value(raw_query.as_deref(), "reason", "no-session")
+        || query_has_key(raw_query.as_deref(), "clear")
+    {
+        return clear_session_redirect(&state, "/");
+    }
+
+    // `/auth` is a fixed public entry point. The source page redirects both
+    // signed-out and signed-in requests to the root gate; authenticated users
+    // are not allowed to choose a return target through this route.
+    let _has_access_cookie = auth::access_token(&headers, state.cookie_environment).is_some();
     Redirect::temporary("/").into_response()
+}
+
+fn clear_session_redirect(state: &AppState, location: &str) -> Response {
+    let mut response = Redirect::temporary(location).into_response();
+    if append_clear_session_cookies(
+        response.headers_mut(),
+        state.cookie_environment,
+        CookieClient::Admin,
+    )
+    .is_err()
+    {
+        return (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(serde_json::json!({
+                "success": false,
+                "error": "session_cookie_error"
+            })),
+        )
+            .into_response();
+    }
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
 }
 
 // Wave 43 T1 A3 — mirror prod's Vercel middleware:
@@ -2261,6 +2793,1427 @@ async fn send_notification(
         .map_err(err_to_status)
 }
 
+const ADMIN_EDITOR_FORM_MAX: usize = 2 * 1024 * 1024 + 64 * 1024;
+
+fn parse_admin_editor_fields(
+    body: &[u8],
+    allowed: &[&str],
+) -> Result<BTreeMap<String, String>, ()> {
+    if body.len() > ADMIN_EDITOR_FORM_MAX {
+        return Err(());
+    }
+    let mut fields = BTreeMap::new();
+    for (key, value) in url::form_urlencoded::parse(body) {
+        let key = key.into_owned();
+        let value = value.into_owned();
+        if key.len() > 64
+            || value.len() > ADMIN_EDITOR_FORM_MAX
+            || !allowed.contains(&key.as_str())
+            || fields.insert(key, value).is_some()
+        {
+            return Err(());
+        }
+    }
+    Ok(fields)
+}
+
+fn form_value(fields: &mut BTreeMap<String, String>, key: &str) -> Result<String, ()> {
+    fields.remove(key).ok_or(())
+}
+
+fn optional_form_value(fields: &mut BTreeMap<String, String>, key: &str) -> Option<String> {
+    fields.remove(key).filter(|value| !value.is_empty())
+}
+
+fn parse_news_tags(value: Option<String>) -> Result<Vec<String>, ()> {
+    let Some(value) = value else {
+        return Ok(Vec::new());
+    };
+    if value.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let tags = value
+        .split(',')
+        .map(str::trim)
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+    if tags.iter().any(String::is_empty) {
+        return Err(());
+    }
+    Ok(tags)
+}
+
+async fn verified_admin_form_context(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<RequestContext, StatusCode> {
+    let context = verified_admin_auth_context(state, headers).await?;
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !content_type.split(';').next().is_some_and(|value| {
+        value
+            .trim()
+            .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+    }) {
+        return Err(StatusCode::UNSUPPORTED_MEDIA_TYPE);
+    }
+    Ok(context)
+}
+
+async fn verified_admin_auth_context(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<RequestContext, StatusCode> {
+    if !same_origin_admin_notification_form(headers) {
+        return Err(StatusCode::FORBIDDEN);
+    }
+    let Some((token, _user)) =
+        auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
+            .await
+    else {
+        return Err(StatusCode::UNAUTHORIZED);
+    };
+    let mut context = RequestContext::from_headers(headers);
+    context.auth_token = Some(token);
+    Ok(context)
+}
+
+fn news_mutation_redirect(path: &str, state: &str) -> Response {
+    let state = match state {
+        "conflict" | "forbidden" | "unavailable" | "malformed" => state,
+        _ => "malformed",
+    };
+    let location = format!("{path}?mutation={state}");
+    Redirect::to(&location).into_response()
+}
+
+fn news_mutation_error_state(error: AdminNewsMutationError) -> &'static str {
+    match error {
+        AdminNewsMutationError::Conflict => "conflict",
+        AdminNewsMutationError::Forbidden => "forbidden",
+        AdminNewsMutationError::Unavailable => "unavailable",
+        AdminNewsMutationError::Invalid | AdminNewsMutationError::Malformed => "malformed",
+    }
+}
+
+async fn submit_news_delete_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(&body, &["id", "if_match", "idempotency_key"])
+    {
+        Ok(fields) => fields,
+        Err(()) => return news_mutation_redirect("/news", "malformed"),
+    };
+    let id = match form_value(&mut fields, "id") {
+        Ok(value) => value,
+        Err(()) => return news_mutation_redirect("/news", "malformed"),
+    };
+    let if_match = match form_value(&mut fields, "if_match") {
+        Ok(value) => value,
+        Err(()) => return news_mutation_redirect("/news", "malformed"),
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => return news_mutation_redirect("/news", "malformed"),
+    };
+    match delete_admin_news(&state.content, &context, &id, &if_match, &idempotency_key).await {
+        Ok(_) => news_mutation_redirect("/news", "committed"),
+        Err(error) => news_mutation_redirect("/news", news_mutation_error_state(error)),
+    }
+}
+
+async fn submit_news_image_upload_form(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    let context = match verified_admin_auth_context(&state, &headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let mut article_id = None;
+    let mut idempotency_key = None;
+    let mut filename = None;
+    let mut bytes = None;
+    loop {
+        let mut field = match multipart.next_field().await {
+            Ok(Some(field)) => field,
+            Ok(None) => break,
+            Err(_) => return news_mutation_redirect("/news", "malformed"),
+        };
+        let Some(name) = field.name().map(ToOwned::to_owned) else {
+            return news_mutation_redirect("/news", "malformed");
+        };
+        match name.as_str() {
+            "article_id" if article_id.is_none() => {
+                article_id = match field.text().await {
+                    Ok(value) => Some(value),
+                    Err(_) => return news_mutation_redirect("/news", "malformed"),
+                };
+            }
+            "idempotency_key" if idempotency_key.is_none() => {
+                idempotency_key = match field.text().await {
+                    Ok(value) => Some(value),
+                    Err(_) => return news_mutation_redirect("/news", "malformed"),
+                };
+            }
+            "file" if filename.is_none() && bytes.is_none() => {
+                filename = field.file_name().map(ToOwned::to_owned);
+                let mut data = Vec::new();
+                loop {
+                    let chunk = match field.chunk().await {
+                        Ok(Some(chunk)) => chunk,
+                        Ok(None) => break,
+                        Err(_) => return news_mutation_redirect("/news", "malformed"),
+                    };
+                    let Some(next) = data.len().checked_add(chunk.len()) else {
+                        return news_mutation_redirect("/news", "malformed");
+                    };
+                    if next > 25 * 1024 * 1024 {
+                        return news_mutation_redirect("/news", "malformed");
+                    }
+                    data.extend_from_slice(&chunk);
+                }
+                bytes = Some(data);
+            }
+            _ => return news_mutation_redirect("/news", "malformed"),
+        }
+    }
+    let Some(article_id) = article_id.filter(|value| uuid::Uuid::parse_str(value).is_ok()) else {
+        return news_mutation_redirect("/news", "malformed");
+    };
+    let Some(idempotency_key) = idempotency_key else {
+        return news_mutation_redirect("/news", "malformed");
+    };
+    let Some(filename) = filename else {
+        return news_mutation_redirect("/news", "malformed");
+    };
+    let Some(bytes) = bytes.filter(|value| !value.is_empty()) else {
+        return news_mutation_redirect("/news", "malformed");
+    };
+    match upload_admin_news_image(&state.content, &context, &filename, bytes, &idempotency_key)
+        .await
+    {
+        Ok(result) => {
+            let query = url::form_urlencoded::Serializer::new(String::new())
+                .append_pair("image_url", &result.url)
+                .finish();
+            Redirect::to(&format!("/news/{article_id}/edit?{query}")).into_response()
+        }
+        Err(error) => news_mutation_redirect(
+            &format!("/news/{article_id}/edit"),
+            news_mutation_error_state(error),
+        ),
+    }
+}
+
+async fn submit_news_create_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, ADMIN_EDITOR_FORM_MAX).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "title",
+            "summary",
+            "content",
+            "cover_image_url",
+            "tags",
+            "status",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => return news_mutation_redirect("/news/create", "malformed"),
+    };
+    let (input, idempotency_key) = match (
+        form_value(&mut fields, "title"),
+        form_value(&mut fields, "content"),
+        parse_news_tags(fields.remove("tags")),
+        form_value(&mut fields, "idempotency_key"),
+    ) {
+        (Ok(title), Ok(content), Ok(tags), Ok(idempotency_key)) => (
+            AdminNewsCreateInput {
+                title,
+                content,
+                summary: optional_form_value(&mut fields, "summary"),
+                cover_image_url: optional_form_value(&mut fields, "cover_image_url"),
+                tags,
+                status: optional_form_value(&mut fields, "status"),
+            },
+            idempotency_key,
+        ),
+        _ => return news_mutation_redirect("/news/create", "malformed"),
+    };
+    match create_admin_news(&state.content, &context, input, &idempotency_key).await {
+        Ok(article) => Redirect::to(&format!("/news/{}/edit", article.id)).into_response(),
+        Err(error) => news_mutation_redirect("/news/create", news_mutation_error_state(error)),
+    }
+}
+
+async fn submit_settings_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let allowed = if parts.uri.path() == "/settings/reset" {
+        &["idempotency_key"][..]
+    } else {
+        &[
+            "category",
+            "key",
+            "value_json",
+            "expected_updated_at",
+            "idempotency_key",
+        ][..]
+    };
+    let mut fields = match parse_admin_editor_fields(&body, allowed) {
+        Ok(fields) => fields,
+        Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value)
+            if (1..=56).contains(&value.chars().count())
+                && value.bytes().all(|byte| {
+                    byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-')
+                }) =>
+        {
+            value
+        }
+        _ => return Redirect::to("/settings?mutation=invalid").into_response(),
+    };
+    let (method, path, payload) = if parts.uri.path() == "/settings/reset" {
+        (
+            reqwest::Method::POST,
+            "/api/admin/settings/reset",
+            serde_json::Value::Null,
+        )
+    } else {
+        let category = match form_value(&mut fields, "category") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let key = match form_value(&mut fields, "key") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let raw_value = match form_value(&mut fields, "value_json") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let value = match serde_json::from_str::<serde_json::Value>(&raw_value) {
+            Ok(value) => value,
+            Err(_) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        };
+        let expected_updated_at = optional_form_value(&mut fields, "expected_updated_at");
+        (
+            reqwest::Method::PUT,
+            "/api/admin/settings",
+            serde_json::json!({"settings": [{"category": category, "key": key, "value": value, "expected_updated_at": expected_updated_at}]}),
+        )
+    };
+    let Some(token) = context.auth_token.as_deref() else {
+        return Redirect::to("/settings?mutation=unavailable").into_response();
+    };
+    let request = state
+        .identity
+        .auth_client()
+        .request(
+            method,
+            format!(
+                "{}{}",
+                state.identity.base_url().trim_end_matches('/'),
+                path
+            ),
+        )
+        .bearer_auth(token)
+        .header("x-request-id", context.request_id.to_string())
+        .header("idempotency-key", &idempotency_key)
+        .header(header::CONTENT_TYPE, "application/json")
+        .json(&payload);
+    let state_name = match request.send().await {
+        Ok(response) if response.status().is_success() => "success",
+        Ok(response) if response.status().as_u16() == StatusCode::FORBIDDEN.as_u16() => "forbidden",
+        Ok(response) if response.status().as_u16() == StatusCode::CONFLICT.as_u16() => "conflict",
+        Ok(response) if matches!(response.status().as_u16(), value if value == StatusCode::BAD_REQUEST.as_u16() || value == StatusCode::UNPROCESSABLE_ENTITY.as_u16()) => {
+            "invalid"
+        }
+        Ok(_) | Err(_) => "unavailable",
+    };
+    Redirect::to(&format!("/settings?mutation={state_name}")).into_response()
+}
+
+async fn submit_news_edit_form(
+    State(state): State<AppState>,
+    AxPath(article_id): AxPath<String>,
+    request: Request,
+) -> Response {
+    let Ok(article_id) = uuid::Uuid::parse_str(&article_id).map(|id| id.to_string()) else {
+        return news_mutation_redirect("/news", "malformed");
+    };
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, ADMIN_EDITOR_FORM_MAX).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "title",
+            "slug",
+            "summary",
+            "content",
+            "cover_image_url",
+            "tags",
+            "status",
+            "if_match",
+            "operation",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => return news_mutation_redirect(&format!("/news/{article_id}/edit"), "malformed"),
+    };
+    let input = match (
+        form_value(&mut fields, "title"),
+        form_value(&mut fields, "slug"),
+        form_value(&mut fields, "content"),
+        parse_news_tags(fields.remove("tags")),
+        form_value(&mut fields, "if_match"),
+        form_value(&mut fields, "idempotency_key"),
+    ) {
+        (
+            Ok(title),
+            Ok(slug),
+            Ok(content),
+            Ok(tags),
+            Ok(expected_updated_at),
+            Ok(idempotency_key),
+        ) => {
+            let input = AdminNewsUpdateInput {
+                title: Some(title),
+                slug: Some(slug),
+                content: Some(content),
+                summary: optional_form_value(&mut fields, "summary"),
+                cover_image_url: optional_form_value(&mut fields, "cover_image_url"),
+                tags: Some(tags),
+                status: optional_form_value(&mut fields, "status"),
+            };
+            (input, expected_updated_at, idempotency_key)
+        }
+        _ => return news_mutation_redirect(&format!("/news/{article_id}/edit"), "malformed"),
+    };
+    let operation = optional_form_value(&mut fields, "operation");
+    let result = if let Some(operation) = operation {
+        let action = match operation.as_str() {
+            "publish" => AdminNewsTransition::Publish,
+            "unpublish" => AdminNewsTransition::Unpublish,
+            "pin" => AdminNewsTransition::Pin,
+            "unpin" => AdminNewsTransition::Unpin,
+            _ => return news_mutation_redirect(&format!("/news/{article_id}/edit"), "malformed"),
+        };
+        transition_admin_news(
+            &state.content,
+            &context,
+            &article_id,
+            action,
+            &input.1,
+            &input.2,
+        )
+        .await
+        .map(|_| ())
+    } else {
+        update_admin_news(
+            &state.content,
+            &context,
+            &article_id,
+            input.0,
+            &input.1,
+            &input.2,
+        )
+        .await
+        .map(|_| ())
+    };
+    match result {
+        Ok(_) => Redirect::to(&format!("/news/{article_id}/edit")).into_response(),
+        Err(error) => news_mutation_redirect(
+            &format!("/news/{article_id}/edit"),
+            news_mutation_error_state(error),
+        ),
+    }
+}
+
+async fn submit_developer_create_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "client_name",
+            "wallet_address",
+            "permissions",
+            "expires_at",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
+    };
+    let client_name = match form_value(&mut fields, "client_name") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
+    };
+    let wallet_address = match form_value(&mut fields, "wallet_address") {
+        Ok(value) => value.to_ascii_lowercase(),
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
+    };
+    let permissions = optional_form_value(&mut fields, "permissions")
+        .map(|value| {
+            value
+                .split(',')
+                .map(str::trim)
+                .map(ToOwned::to_owned)
+                .collect()
+        })
+        .unwrap_or_default();
+    let expires_at = optional_form_value(&mut fields, "expires_at");
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                .into_response()
+        }
+    };
+    let input = AdminDeveloperCreateInput {
+        client_name,
+        client_description: None,
+        client_contact_email: None,
+        wallet_address,
+        allowed_modules: Vec::new(),
+        ip_restrictions: None,
+        rate_limit_per_minute: None,
+        rate_limit_per_day: None,
+        expires_at,
+        plan_ids: None,
+        permissions: Some(permissions),
+    };
+    match create_admin_api_key(&state.identity, &context, input, &idempotency_key).await {
+        Ok(created) => {
+            let payload = serde_json::json!({
+                "api_key": created.key,
+                "secret": created.secret,
+            });
+            let encoded = match serde_json::to_vec(&payload) {
+                Ok(bytes) => URL_SAFE_NO_PAD.encode(bytes),
+                Err(_) => {
+                    return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let mut response = Redirect::to("/developer-portal/api-keys/create").into_response();
+            let cookie = format!(
+                "{ADMIN_DEVELOPER_SECRET_COOKIE}={encoded}; Path=/developer-portal; Max-Age=30; HttpOnly; SameSite=Lax"
+            );
+            response.headers_mut().insert(
+                header::SET_COOKIE,
+                HeaderValue::from_str(&cookie).expect("developer secret cookie is bounded"),
+            );
+            response
+        }
+        Err(error) => {
+            let state = match error {
+                developer_portal_adapter::AdminDeveloperMutationError::Forbidden => "forbidden",
+                developer_portal_adapter::AdminDeveloperMutationError::Conflict => "conflict",
+                developer_portal_adapter::AdminDeveloperMutationError::Unavailable => "unavailable",
+                developer_portal_adapter::AdminDeveloperMutationError::Invalid
+                | developer_portal_adapter::AdminDeveloperMutationError::Malformed => "malformed",
+            };
+            Redirect::to(&format!(
+                "/developer-portal/api-keys/create?mutation={state}"
+            ))
+            .into_response()
+        }
+    }
+}
+
+fn developer_mutation_error_state(error: AdminDeveloperMutationError) -> &'static str {
+    match error {
+        AdminDeveloperMutationError::Conflict => "conflict",
+        AdminDeveloperMutationError::Forbidden => "forbidden",
+        AdminDeveloperMutationError::Unavailable => "unavailable",
+        AdminDeveloperMutationError::Invalid | AdminDeveloperMutationError::Malformed => {
+            "malformed"
+        }
+    }
+}
+
+async fn submit_developer_mutation_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "operation",
+            "api_key_id",
+            "reason",
+            "expires_at",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
+    };
+    let operation = match form_value(&mut fields, "operation") {
+        Ok(value) if matches!(value.as_str(), "revoke" | "expiration") => value,
+        _ => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
+    };
+    let id = match form_value(&mut fields, "api_key_id") {
+        Ok(value) => value,
+        Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
+    };
+    let result = if operation == "revoke" {
+        let reason = match form_value(&mut fields, "reason") {
+            Ok(value) => value,
+            Err(()) => return Redirect::to("/developer-portal?mutation=malformed").into_response(),
+        };
+        revoke_admin_api_key(&state.identity, &context, &id, &reason, &idempotency_key)
+            .await
+            .map(|_| ())
+    } else {
+        let expires_at = optional_form_value(&mut fields, "expires_at");
+        update_admin_api_key_expiration(
+            &state.identity,
+            &context,
+            &id,
+            expires_at.as_deref(),
+            &idempotency_key,
+        )
+        .await
+        .map(|_| ())
+    };
+    let state = match result {
+        Ok(()) => "success",
+        Err(error) => developer_mutation_error_state(error),
+    };
+    Redirect::to(&format!("/developer-portal?mutation={state}")).into_response()
+}
+
+async fn send_admin_form_mutation(
+    client: &ServiceClient,
+    method: reqwest::Method,
+    path: &str,
+    payload: &serde_json::Value,
+    idempotency_key: &str,
+    context: &RequestContext,
+) -> Result<StatusCode, &'static str> {
+    let Some(token) = context
+        .auth_token
+        .as_deref()
+        .filter(|value| !value.trim().is_empty())
+    else {
+        return Err("unavailable");
+    };
+    if !(1..=128).contains(&idempotency_key.len())
+        || !idempotency_key
+            .bytes()
+            .all(|byte| byte.is_ascii_graphic() && byte != b' ')
+    {
+        return Err("malformed");
+    }
+    let http_client = reqwest::Client::builder()
+        .timeout(client.config().timeout)
+        .redirect(reqwest::redirect::Policy::none())
+        .build()
+        .map_err(|_| "unavailable")?;
+    let response = http_client
+        .request(
+            method,
+            format!("{}{}", client.base_url().trim_end_matches('/'), path),
+        )
+        .bearer_auth(token)
+        .header("x-request-id", context.request_id.to_string())
+        .header("idempotency-key", idempotency_key)
+        .json(payload)
+        .send()
+        .await
+        .map_err(|_| "unavailable")?;
+    let status = response.status();
+    if status.is_success() {
+        Ok(status)
+    } else if status == reqwest::StatusCode::FORBIDDEN {
+        Err("forbidden")
+    } else if status == reqwest::StatusCode::CONFLICT {
+        Err("conflict")
+    } else if status.is_client_error() {
+        Err("malformed")
+    } else {
+        Err("unavailable")
+    }
+}
+
+async fn submit_chat_mutation_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let conversation_id = match parts
+        .uri
+        .path()
+        .strip_prefix("/chat/")
+        .and_then(|value| uuid::Uuid::parse_str(value).ok())
+        .map(|id| id.to_string())
+    {
+        Some(id) => id,
+        None => return StatusCode::BAD_REQUEST.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "operation",
+            "content",
+            "status",
+            "agent_address",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
+    };
+    let operation = match form_value(&mut fields, "operation") {
+        Ok(value) if matches!(value.as_str(), "reply" | "status" | "assign" | "read") => value,
+        _ => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                .into_response()
+        }
+    };
+    let (method, path, payload) = match operation.as_str() {
+        "reply" => {
+            let content = match form_value(&mut fields, "content") {
+                Ok(value) if valid_admin_form_text(&value, 16 * 1024, true) => value,
+                _ => {
+                    return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                        .into_response()
+                }
+            };
+            (
+                reqwest::Method::POST,
+                format!("/api/admin/chat/conversations/{conversation_id}/messages"),
+                serde_json::json!({"content": content}),
+            )
+        }
+        "status" => {
+            let status = match form_value(&mut fields, "status") {
+                Ok(value)
+                    if matches!(
+                        value.as_str(),
+                        "open" | "in_progress" | "resolved" | "closed"
+                    ) =>
+                {
+                    value
+                }
+                _ => {
+                    return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                        .into_response()
+                }
+            };
+            (
+                reqwest::Method::PUT,
+                format!("/api/admin/chat/conversations/{conversation_id}/status"),
+                serde_json::json!({"status": status}),
+            )
+        }
+        "assign" => {
+            let agent_address = optional_form_value(&mut fields, "agent_address");
+            if agent_address
+                .as_deref()
+                .is_some_and(|value| !valid_admin_wallet(value))
+            {
+                return Redirect::to(&format!("/chat/{conversation_id}?mutation=malformed"))
+                    .into_response();
+            }
+            (
+                reqwest::Method::PUT,
+                format!("/api/admin/chat/conversations/{conversation_id}/assign"),
+                serde_json::json!({"agent_address": agent_address}),
+            )
+        }
+        "read" => (
+            reqwest::Method::PUT,
+            format!("/api/admin/chat/conversations/{conversation_id}/read"),
+            serde_json::json!({}),
+        ),
+        _ => unreachable!(),
+    };
+    let state = match send_admin_form_mutation(
+        &state.identity,
+        method,
+        &path,
+        &payload,
+        &idempotency_key,
+        &context,
+    )
+    .await
+    {
+        Ok(_) => "success",
+        Err(state) => state,
+    };
+    Redirect::to(&format!("/chat/{conversation_id}?mutation={state}")).into_response()
+}
+
+async fn submit_commerce_mutation_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 128 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &[
+            "operation",
+            "wallet_address",
+            "plan_id",
+            "permission",
+            "expected_version",
+            "amount_minor",
+            "reason",
+            "merchant_id",
+            "name",
+            "description",
+            "amount",
+            "currency",
+            "chain_id",
+            "interval",
+            "active",
+            "intent_id",
+            "max_uses",
+            "expires_in",
+            "link_id",
+            "idempotency_key",
+        ],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
+    };
+    let operation = match form_value(&mut fields, "operation") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to("/wallet-management/access?mutation=malformed").into_response()
+        }
+    };
+    let expected_version = || {
+        fields
+            .get("expected_version")
+            .and_then(|value| value.parse::<i64>().ok())
+            .filter(|value| *value >= 0)
+    };
+    let (client, method, path, payload, return_path) = match operation.as_str() {
+        "access_assign" | "access_revoke" => {
+            let wallet = match fields
+                .get("wallet_address")
+                .filter(|value| valid_admin_wallet(value))
+            {
+                Some(value) => value.to_ascii_lowercase(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let plan_id = match fields
+                .get("plan_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            {
+                Some(value) => value.to_string(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let permission = match fields
+                .get("permission")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let expected_version = match expected_version() {
+                Some(value) => value,
+                None => {
+                    return Redirect::to("/wallet-management/access?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let action = if operation == "access_assign" {
+                "assign"
+            } else {
+                "revoke"
+            };
+            (
+                &state.subscription,
+                reqwest::Method::POST,
+                format!("/api/v1/admin/subscription/access/{action}"),
+                serde_json::json!({"wallet_address": wallet, "plan_id": plan_id, "permission": permission, "expected_version": expected_version}),
+                "/wallet-management/access".to_string(),
+            )
+        }
+        "credit_grant" | "credit_revoke" => {
+            let wallet = match fields
+                .get("wallet_address")
+                .filter(|value| valid_admin_wallet(value))
+            {
+                Some(value) => value.to_ascii_lowercase(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let expected_version = match expected_version() {
+                Some(value) => value,
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let amount_minor = match fields
+                .get("amount_minor")
+                .and_then(|value| value.parse::<i64>().ok())
+                .filter(|value| (1..=1_000_000_000_000).contains(value))
+            {
+                Some(value) => value,
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let reason = match fields
+                .get("reason")
+                .filter(|value| valid_admin_form_text(value, 500, true))
+            {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/credits?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let action = if operation == "credit_grant" {
+                "grant"
+            } else {
+                "revoke"
+            };
+            (
+                &state.wallet,
+                reqwest::Method::POST,
+                format!("/api/v1/admin/credits/{wallet}/{action}"),
+                serde_json::json!({"expected_version": expected_version, "amount_minor": amount_minor, "reason": reason}),
+                "/wallet-management/credits".to_string(),
+            )
+        }
+        "plan_create" | "plan_update" => {
+            let plan_id = fields
+                .get("plan_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok());
+            let merchant_id = match fields
+                .get("merchant_id")
+                .and_then(|value| uuid::Uuid::parse_str(value).ok())
+            {
+                Some(value) => value,
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let name = match fields
+                .get("name")
+                .filter(|value| valid_admin_form_text(value, 100, true))
+            {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let amount = match fields.get("amount").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 78
+                    && value.bytes().all(|byte| byte.is_ascii_digit())
+            }) {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let currency = match fields.get("currency").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 10
+                    && value
+                        .bytes()
+                        .all(|byte| byte.is_ascii_uppercase() || byte.is_ascii_digit())
+            }) {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let chain_id = match fields.get("chain_id").filter(|value| {
+                !value.is_empty()
+                    && value.len() <= 10
+                    && value.bytes().all(|byte| byte.is_ascii_digit())
+            }) {
+                Some(value) => value.clone(),
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let interval = match fields
+                .get("interval")
+                .and_then(|value| value.parse::<i32>().ok())
+                .filter(|value| (1..=366).contains(value))
+            {
+                Some(value) => value,
+                None => {
+                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                        .into_response()
+                }
+            };
+            let expected = if operation == "plan_update" {
+                match expected_version() {
+                    Some(value) => Some(value),
+                    None => {
+                        return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                            .into_response()
+                    }
+                }
+            } else {
+                None
+            };
+            let path = plan_id
+                .map(|id| format!("/api/v1/admin/subscription/plans/{id}"))
+                .unwrap_or_else(|| "/api/v1/admin/subscription/plans".to_string());
+            let return_path = plan_id
+                .map(|id| format!("/wallet-management/access/plans/{id}"))
+                .unwrap_or_else(|| "/wallet-management/access/plans".to_string());
+            (
+                &state.subscription,
+                if operation == "plan_update" {
+                    reqwest::Method::PUT
+                } else {
+                    reqwest::Method::POST
+                },
+                path,
+                serde_json::json!({
+                    "merchant_id": merchant_id,
+                    "name": name,
+                    "description": fields.get("description").cloned(),
+                    "amount": amount,
+                    "currency": currency,
+                    "chain_id": chain_id,
+                    "interval": interval,
+                    "active": fields.get("active").and_then(|value| value.parse::<bool>().ok()),
+                    "expected_version": expected,
+                }),
+                return_path,
+            )
+        }
+        "payment_link_create" => {
+            let intent_id = match fields
+                .get("intent_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
+                Some(value) => value.clone(),
+                None => return Redirect::to("/payments?mutation=malformed").into_response(),
+            };
+            let max_uses = fields
+                .get("max_uses")
+                .and_then(|value| value.parse::<i32>().ok());
+            let expires_in = fields
+                .get("expires_in")
+                .and_then(|value| value.parse::<i64>().ok());
+            (
+                &state.payment,
+                reqwest::Method::POST,
+                "/api/v1/admin/pay/links".to_string(),
+                serde_json::json!({"intent_id": intent_id, "max_uses": max_uses, "expires_in": expires_in}),
+                "/payments".to_string(),
+            )
+        }
+        "payment_link_disable" => {
+            let link_id = match fields
+                .get("link_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
+                Some(value) => value.clone(),
+                None => return Redirect::to("/payments?mutation=malformed").into_response(),
+            };
+            let expected_version = match expected_version() {
+                Some(value) => value,
+                None => return Redirect::to("/payments?mutation=malformed").into_response(),
+            };
+            (
+                &state.payment,
+                reqwest::Method::POST,
+                format!("/api/v1/admin/pay/links/{link_id}/disable"),
+                serde_json::json!({"expected_version": expected_version}),
+                "/payments".to_string(),
+            )
+        }
+        "payment_intent_cancel" => {
+            let intent_id = match fields
+                .get("intent_id")
+                .filter(|value| valid_admin_form_text(value, 128, true))
+            {
+                Some(value) => value.clone(),
+                None => return Redirect::to("/payments?mutation=malformed").into_response(),
+            };
+            let expected_version = match expected_version() {
+                Some(value) => value,
+                None => return Redirect::to("/payments?mutation=malformed").into_response(),
+            };
+            (
+                &state.payment,
+                reqwest::Method::POST,
+                format!("/api/v1/admin/pay/intents/{intent_id}/cancel"),
+                serde_json::json!({"expected_version": expected_version}),
+                "/payments".to_string(),
+            )
+        }
+        _ => return Redirect::to("/wallet-management/access?mutation=malformed").into_response(),
+    };
+    let state_name =
+        match send_admin_form_mutation(client, method, &path, &payload, &idempotency_key, &context)
+            .await
+        {
+            Ok(_) => "success",
+            Err(state) => state,
+        };
+    Redirect::to(&format!("{return_path}?mutation={state_name}")).into_response()
+}
+
+fn media_mutation_state(error: AdminMediaMutationError) -> &'static str {
+    match error {
+        AdminMediaMutationError::Invalid | AdminMediaMutationError::Malformed => "malformed",
+        AdminMediaMutationError::Forbidden => "forbidden",
+        AdminMediaMutationError::Conflict => "conflict",
+        AdminMediaMutationError::Unavailable => "unavailable",
+    }
+}
+
+fn media_mutation_redirect(
+    bucket: &str,
+    state: &str,
+    projection: Option<&AdminMediaMutationProjection>,
+) -> Response {
+    let mut query = url::form_urlencoded::Serializer::new(String::new());
+    query.append_pair("bucket", bucket);
+    query.append_pair("mutation", state);
+    if let Some(projection) = projection {
+        query.append_pair("key", &projection.key);
+        query.append_pair("deleted", if projection.deleted { "true" } else { "false" });
+        if let Some(size) = projection.size {
+            query.append_pair("size", &size.to_string());
+        }
+    }
+    Redirect::to(&format!("/media?{}", query.finish())).into_response()
+}
+
+async fn submit_media_delete_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(&body, &["bucket", "key", "idempotency_key"]) {
+        Ok(fields) => fields,
+        Err(()) => return media_mutation_redirect("news", "malformed", None),
+    };
+    let bucket = match form_value(&mut fields, "bucket") {
+        Ok(value) if matches!(value.as_str(), "news" | "public") => value,
+        _ => return media_mutation_redirect("news", "malformed", None),
+    };
+    let key = match form_value(&mut fields, "key") {
+        Ok(value) if valid_admin_form_text(&value, 1_024, true) => value,
+        _ => return media_mutation_redirect(&bucket, "malformed", None),
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => return media_mutation_redirect(&bucket, "malformed", None),
+    };
+    match delete_admin_media(&state.content, &context, &bucket, &key, &idempotency_key).await {
+        Ok(projection) => media_mutation_redirect(&bucket, "committed", Some(&projection)),
+        Err(error) => media_mutation_redirect(&bucket, media_mutation_state(error), None),
+    }
+}
+
+async fn submit_media_upload_form(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    let context = match verified_admin_auth_context(&state, &headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let mut filename = None;
+    let mut bytes = None;
+    let mut idempotency_key = None;
+    while let Ok(Some(field)) = multipart.next_field().await {
+        let Some(name) = field.name().map(str::to_string) else {
+            return media_mutation_redirect("public", "malformed", None);
+        };
+        match name.as_str() {
+            "file" if bytes.is_none() => {
+                filename = field.file_name().map(str::to_string);
+                bytes = match field.bytes().await {
+                    Ok(value) => Some(value.to_vec()),
+                    Err(_) => return media_mutation_redirect("public", "malformed", None),
+                };
+            }
+            "idempotency_key" if idempotency_key.is_none() => {
+                idempotency_key = match field.text().await {
+                    Ok(value) => Some(value),
+                    Err(_) => return media_mutation_redirect("public", "malformed", None),
+                };
+            }
+            _ => return media_mutation_redirect("public", "malformed", None),
+        }
+    }
+    let (Some(filename), Some(bytes), Some(idempotency_key)) = (filename, bytes, idempotency_key)
+    else {
+        return media_mutation_redirect("public", "malformed", None);
+    };
+    match upload_admin_public_file(&state.content, &context, &filename, bytes, &idempotency_key)
+        .await
+    {
+        Ok(projection) => media_mutation_redirect("public", "committed", Some(&projection)),
+        Err(error) => media_mutation_redirect("public", media_mutation_state(error), None),
+    }
+}
+
+async fn submit_wallet_disable_form(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let Some(address) = parts
+        .uri
+        .path()
+        .strip_prefix("/wallet-management/wallets/")
+        .and_then(|value| value.strip_suffix("/disable"))
+        .filter(|value| !value.is_empty() && !value.contains('/'))
+    else {
+        return Redirect::to("/wallet-management/wallets?mutation=malformed").into_response();
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(
+        &body,
+        &["expected_version", "reason", "idempotency_key"],
+    ) {
+        Ok(fields) => fields,
+        Err(()) => {
+            return Redirect::to(&format!(
+                "/wallet-management/wallets/{address}/disable?mutation=malformed"
+            ))
+            .into_response()
+        }
+    };
+    let expected_version = match form_value(&mut fields, "expected_version")
+        .ok()
+        .and_then(|value| value.parse::<i64>().ok())
+    {
+        Some(value) => value,
+        None => {
+            return Redirect::to(&format!(
+                "/wallet-management/wallets/{address}/disable?mutation=malformed"
+            ))
+            .into_response()
+        }
+    };
+    let reason = match form_value(&mut fields, "reason") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to(&format!(
+                "/wallet-management/wallets/{address}/disable?mutation=malformed"
+            ))
+            .into_response()
+        }
+    };
+    let idempotency_key = match form_value(&mut fields, "idempotency_key") {
+        Ok(value) => value,
+        Err(()) => {
+            return Redirect::to(&format!(
+                "/wallet-management/wallets/{address}/disable?mutation=malformed"
+            ))
+            .into_response()
+        }
+    };
+    let Some(path) = wallet_status_mutation_path(address, false) else {
+        return Redirect::to(&format!(
+            "/wallet-management/wallets/{address}/disable?mutation=malformed"
+        ))
+        .into_response();
+    };
+    let result = send_wallet_status_mutation(
+        &state.wallet,
+        &path,
+        &WalletStatusCommand {
+            expected_version,
+            reason,
+        },
+        &idempotency_key,
+        &context,
+    )
+    .await;
+    let state = match result {
+        AdminCommerceMutationLoad::Ready(_) => "success",
+        AdminCommerceMutationLoad::Forbidden => "forbidden",
+        AdminCommerceMutationLoad::Conflict => "conflict",
+        AdminCommerceMutationLoad::Unavailable => "unavailable",
+        AdminCommerceMutationLoad::Malformed => "malformed",
+    };
+    Redirect::to(&format!(
+        "/wallet-management/wallets/{address}/disable?mutation={state}"
+    ))
+    .into_response()
+}
+
+async fn submit_notification_manage_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    let context = match verified_admin_form_context(&state, &parts.headers).await {
+        Ok(context) => context,
+        Err(status) => return status.into_response(),
+    };
+    let body = match to_bytes(body, 64 * 1024).await {
+        Ok(body) => body,
+        Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
+    };
+    let mut fields = match parse_admin_editor_fields(&body, &["action", "id"]) {
+        Ok(fields) => fields,
+        Err(()) => return Redirect::to("/notifications/manage?mutation=malformed").into_response(),
+    };
+    let action = match form_value(&mut fields, "action") {
+        Ok(value) => value,
+        Err(()) => return Redirect::to("/notifications/manage?mutation=malformed").into_response(),
+    };
+    let id = match form_value(&mut fields, "id") {
+        Ok(value) => value,
+        Err(()) => return Redirect::to("/notifications/manage?mutation=malformed").into_response(),
+    };
+    if !fields.is_empty() {
+        return Redirect::to("/notifications/manage?mutation=malformed").into_response();
+    }
+    let result = match action.as_str() {
+        "read" => mark_admin_notification_read(&state.notification, &id, &context).await,
+        "delete" => delete_admin_notification(&state.notification, &id, &context).await,
+        _ => AdminNotificationMutationResult::Malformed,
+    };
+    let mutation = match result {
+        AdminNotificationMutationResult::Ready => "committed",
+        AdminNotificationMutationResult::Forbidden => "forbidden",
+        AdminNotificationMutationResult::Unavailable => "unavailable",
+        AdminNotificationMutationResult::Malformed => "malformed",
+    };
+    Redirect::to(&format!("/notifications/manage?mutation={mutation}")).into_response()
+}
+
 /// Accept the small, source-compatible notification compose surface rendered
 /// by the Dioxus admin page. Authentication and authorization remain owned by
 /// the verified session and notification service; this handler only translates
@@ -2306,28 +4259,60 @@ async fn submit_notification_form(State(state): State<AppState>, request: Reques
     };
     let form = match parse_admin_notification_form(&body) {
         Ok(form) => form,
-        Err(()) => return admin_notification_form_redirect("error"),
+        Err(()) => return Redirect::to("/notifications/create?mutation=invalid").into_response(),
     };
 
     let mut request_context = RequestContext::from_headers(&parts.headers);
     request_context.auth_token = Some(token);
-    let payload = serde_json::json!({
-        "user_id": form.recipient_wallet_address,
-        "channel": "in_app",
-        "recipient": form.recipient_wallet_address,
-        "template_id": null,
-        "subject": form.title,
-        "body": form.message,
-        "data": null,
-        "expires_at": null,
-    });
-    match state
-        .notification
-        .post_with_ctx_status("/api/v1/notification/send", &payload, &request_context)
-        .await
+    let request = AdminNotificationSendRequest {
+        user_id: Some(form.recipient_wallet_address.clone()),
+        channel: "in_app".to_string(),
+        recipient: form.recipient_wallet_address,
+        template_id: None,
+        subject: Some(form.title),
+        body: Some(form.message),
+        data: None,
+    };
+    match send_admin_notification(
+        &state.notification,
+        &request,
+        &form.idempotency_key,
+        &request_context,
+    )
+    .await
     {
-        Ok((status, _)) if status.is_success() => admin_notification_form_redirect("accepted"),
-        _ => admin_notification_form_redirect("error"),
+        AdminNotificationSendResult::Ready(result) => {
+            let encoded = serde_json::to_vec(&result)
+                .ok()
+                .map(|bytes| URL_SAFE_NO_PAD.encode(bytes));
+            let mut response =
+                Redirect::to(&format!("/notifications/create?mutation={}", result.status))
+                    .into_response();
+            if let Some(encoded) = encoded {
+                let cookie = format!(
+                    "{ADMIN_NOTIFICATION_CREATE_COOKIE}={encoded}; Path=/notifications/create; Max-Age=30; HttpOnly; SameSite=Lax"
+                );
+                if let Ok(value) = HeaderValue::from_str(&cookie) {
+                    response.headers_mut().insert(header::SET_COOKIE, value);
+                }
+            }
+            response
+        }
+        AdminNotificationSendResult::Forbidden => {
+            Redirect::to("/notifications/create?mutation=forbidden").into_response()
+        }
+        AdminNotificationSendResult::Conflict => {
+            Redirect::to("/notifications/create?mutation=conflict").into_response()
+        }
+        AdminNotificationSendResult::Invalid => {
+            Redirect::to("/notifications/create?mutation=invalid").into_response()
+        }
+        AdminNotificationSendResult::Unavailable => {
+            Redirect::to("/notifications/create?mutation=unavailable").into_response()
+        }
+        AdminNotificationSendResult::Malformed => {
+            Redirect::to("/notifications/create?mutation=malformed").into_response()
+        }
     }
 }
 

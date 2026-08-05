@@ -20,6 +20,8 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 use tracing::info;
 
+mod commerce;
+
 #[derive(Parser)]
 #[command(name = "epsx-wallet", about = "EPSX Wallet Service")]
 struct Args {
@@ -185,6 +187,40 @@ async fn main() {
         .route("/api/v1/wallet/sign-message", post(sign_message))
         .route("/api/v1/wallet/verify-message", post(verify_message))
         .route("/api/v1/wallet/estimate-gas", post(estimate_gas))
+        .route("/api/v1/admin/wallets", get(commerce::list_admin_wallets))
+        .route(
+            "/api/v1/admin/wallets/stats",
+            get(commerce::admin_wallet_stats),
+        )
+        .route(
+            "/api/v1/admin/wallets/{address}",
+            get(commerce::get_admin_wallet),
+        )
+        .route(
+            "/api/v1/admin/wallets/{address}/disable",
+            post(commerce::disable_admin_wallet),
+        )
+        .route(
+            "/api/v1/admin/wallets/{address}/enable",
+            post(commerce::enable_admin_wallet),
+        )
+        .route(
+            "/api/v1/admin/wallets/{address}/metadata",
+            axum::routing::patch(commerce::update_admin_wallet_metadata),
+        )
+        .route("/api/v1/admin/credits", get(commerce::admin_credit_stats))
+        .route(
+            "/api/v1/admin/credits/{address}",
+            get(commerce::get_admin_credits),
+        )
+        .route(
+            "/api/v1/admin/credits/{address}/grant",
+            post(commerce::grant_admin_credits),
+        )
+        .route(
+            "/api/v1/admin/credits/{address}/revoke",
+            post(commerce::revoke_admin_credits),
+        )
         .with_state(AppState {
             db,
             chain_id,

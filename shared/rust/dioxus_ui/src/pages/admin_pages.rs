@@ -23,21 +23,20 @@
 //! render the skeleton for them — prod renders the actual
 //! "Access Denied" SSR panel (red-shield + h1 + Error Details
 //! + Go to Auth / Go Back). The Wave 38 fix was the wrong shape
-//! because the per-route render functions
-//! (`access_denied::render`, `unauthorized::render`,
-//! `developer_portal::render_create_key`) used a different
-//! `AccessDenied` primitive with non-prod class strings, giving
-//! 0% match on all 3 (99.95% diff, see
-//! `tools/e2e-admin/report.md` Wave 24 T1'). This dispatch now
-//! routes the 3 outliers to the prod-EXACT
-//! `<AccessDeniedPanel>` (see `admin_pages/access_denied_panel.rs`).
-//! The 22 other admin routes keep the Wave 34 behavior
-//! (skeleton-only).
+//!   because the per-route render functions
+//!   (`access_denied::render`, `unauthorized::render`,
+//!   `developer_portal::render_create_key`) used a different
+//!   `AccessDenied` primitive with non-prod class strings, giving
+//!   0% match on all 3 (99.95% diff, see
+//!   `tools/e2e-admin/report.md` Wave 24 T1'). This dispatch now
+//!   routes the 3 outliers to the prod-EXACT
+//!   `<AccessDeniedPanel>` (see `admin_pages/access_denied_panel.rs`).
+//!   The 22 other admin routes keep the Wave 34 behavior
+//!   (skeleton-only).
 
 use super::not_found;
 use super::{PageContext, PageMeta};
 use crate::components::admin::auth_page_overlay::{AuthPageOverlay, SkeletonPage};
-use crate::primitives::*;
 use dioxus::prelude::*;
 
 pub mod access_denied;
@@ -90,10 +89,9 @@ pub fn dispatch(ctx: &PageContext) -> (PageMeta, Element) {
     //
     // The other 22 admin routes still get the Wave 34 behavior
     // (AuthPageOverlay + SkeletonPage placeholder bars) below.
-    if matches!(
-        p,
-        "/access-denied" | "/unauthorized" | "/developer-portal/api-keys/create"
-    ) {
+    if matches!(p, "/access-denied" | "/unauthorized")
+        || (p == "/developer-portal/api-keys/create" && ctx.user.is_none())
+    {
         return access_denied_panel::render(ctx);
     }
 

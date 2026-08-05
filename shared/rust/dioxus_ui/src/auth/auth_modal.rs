@@ -248,7 +248,7 @@ pub fn WalletOption(
     on_click: Option<EventHandler<WalletClick>>,
 ) -> Element {
     let id_val = id.clone();
-    let on_click_handler = on_click.clone();
+    let on_click_handler = on_click;
     let is_disabled = on_click.is_none();
     rsx! {
         button {

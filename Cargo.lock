@@ -4583,6 +4583,7 @@ dependencies = [
  "serde",
  "serde_json",
  "url",
+ "uuid 1.23.3",
 ]
 
 [[package]]
@@ -4990,6 +4991,7 @@ dependencies = [
  "tokio",
  "tower 0.5.3",
  "tracing",
+ "uuid 1.23.3",
 ]
 
 [[package]]

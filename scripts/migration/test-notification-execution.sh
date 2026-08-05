@@ -236,7 +236,7 @@ assert_wrong_existing_target_anchor \
 assert_wrong_existing_target_anchor \
   wrong-existing-header-dom-anchor \
   tgt-active-header-initial-dom \
-  'data-epsx-notification-badge-target="true"' \
+  'data-epsx-notification-unread-badge="true"' \
   'tgt-active-header-initial-dom: notification semantic anchor drifted'
 assert_wrong_existing_target_anchor \
   wrong-existing-header-accessibility-anchor \

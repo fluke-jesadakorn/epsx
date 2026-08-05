@@ -62,7 +62,6 @@ pub fn GlobalAuthGuard(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn global_auth_guard_signature_accepts_user_authenticated() {

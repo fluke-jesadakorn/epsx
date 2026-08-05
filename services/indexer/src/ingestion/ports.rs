@@ -41,8 +41,8 @@ pub enum SelectionConflict {
     MutationIdReuse { mutation_id: MutationId },
     #[error("expected chain state does not match stored state")]
     ExpectedState {
-        expected: ExpectedChainState,
-        actual: ExpectedChainState,
+        expected: Box<ExpectedChainState>,
+        actual: Box<ExpectedChainState>,
     },
     #[error("candidate block {identity:?} already has different immutable content")]
     CandidateContent { identity: BlockIdentity },

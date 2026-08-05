@@ -157,9 +157,9 @@ dioxus-web = "0.7"
 dioxus-router = "0.7"
 
 # Testing
-axum-test = { version = "15", dev = true }
-tokio-test = { version = "0.4", dev = true }
-mockall = { version = "0.13", dev = true }
+axum-test = "15"
+tokio-test = "0.4"
+mockall = "0.13"
 
 [workspace.package]
 version = "0.1.0"

@@ -85,7 +85,7 @@ pub fn ProgressiveAuthBanner(
                 p { class: "banner-title", "{message_val}" }
                 p { class: "banner-subtitle text-sm text-muted-foreground", "{description_val}" }
             }
-            if let Some(h) = on_click.clone() {
+            if let Some(h) = on_click {
                 button {
                     class: "btn btn-sm btn-primary",
                     r#type: "button",
@@ -96,7 +96,7 @@ pub fn ProgressiveAuthBanner(
                 a { class: "btn btn-sm btn-primary", href: "{href_val}", "{cta_label_val}" }
             }
             if has_dismiss {
-                if let Some(h) = on_dismiss.clone() {
+                if let Some(h) = on_dismiss {
                     button {
                         class: "progressive-auth-banner-dismiss",
                         r#type: "button",

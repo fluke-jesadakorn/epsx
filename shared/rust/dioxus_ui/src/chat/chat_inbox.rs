@@ -39,7 +39,6 @@ pub fn ChatInbox(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
 
     #[test]
     fn chat_inbox_smoke() {}

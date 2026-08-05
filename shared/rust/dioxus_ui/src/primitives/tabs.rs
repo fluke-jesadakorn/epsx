@@ -36,7 +36,7 @@
 //! `?tab=…` and the SSR re-render shows the right active tab.
 //! That full refactor is a follow-up; this v2 wires the markup
 //! + keyboard nav so the page is at least fully navigable via
-//! keyboard once `bindTabLists` runs.
+//!   keyboard once `bindTabLists` runs.
 
 use super::icon::Icon;
 

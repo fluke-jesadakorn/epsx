@@ -199,9 +199,10 @@ to production or backfilled; the service fails closed until its fourteen lifecyc
 exist, and the dry-run commands perform no writes, so this does not claim lifecycle readiness.
 The notification service now also has
 a standalone Rust Dockerfile plus checked-in Kubernetes Deployment/Service and
-dev/staging/prod image overlays with secret-backed configuration and `/health`/
-`/ready` probes; those manifests are not applied and do not prove cluster or
-provider readiness. Production and explicit remote-adapter startup now fail
+dev/staging-only image overlays with secret-backed configuration and `/health`/
+`/ready` probes. The production overlay intentionally does not include the
+notification resources; no manifest was applied, and the source artifacts do
+not prove cluster or provider readiness. Production and explicit remote-adapter startup now fail
 closed when the notification port cannot be built; only non-production test
 harnesses may omit it.
 

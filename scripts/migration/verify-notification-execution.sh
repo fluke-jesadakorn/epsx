@@ -173,7 +173,7 @@ const exactNotificationAnchors = {
   "tgt-user-ui-read-only-count": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "let unread_label = format!(\"{unread_count} unread on this page\");"],
   "tgt-user-ui-disabled-controls": ["shared/rust/dioxus_ui/src/pages/notifications.rs", "fn lifecycle_delivery_and_unapproved_navigation_controls_remain_absent()"],
   "tgt-dormant-nav-unavailable": ["apps/frontend/src/ui.rs", "data-state=\"unavailable\""],
-  "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header_for_session_and_return_target("],
+  "tgt-active-header-mount": ["apps/frontend/src/ssr.rs", "epsx_templates::epsx_header_for_session_and_wallet_with_network("],
   "tgt-active-header-auth-runtime": ["apps/frontend/src/ssr.rs", "let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);"],
   "tgt-active-header-offline-exclusion": ["apps/frontend/src/ssr.rs", "if !is_authenticated || path == \"/offline\" {"],
   "tgt-active-header-endpoint": ["apps/frontend/src/ssr.rs", "var endpoint = \u0027/api/v1/notifications/unread-count\u0027;"],
@@ -325,7 +325,8 @@ const sendStart = sendHandler.indexOf("async fn send_notification(");
 const sendEnd = sendHandler.indexOf("async fn send_email(", sendStart);
 if (sendStart < 0 || sendEnd < 0 || !sendHandler.slice(sendStart, sendEnd).includes("StatusCode::ACCEPTED")) fail("durable notification enqueue no longer returns 202 Accepted");
 for (const anchor of [
-  "Extension(_principal): Extension<VerifiedPrincipal>",
+  "Extension(principal): Extension<VerifiedPrincipal>",
+  "require_admin_notifications(&principal)?",
   "fn valid_wallet_address(",
   "fn valid_email_recipient(",
   "fn valid_push_recipient(",
@@ -337,11 +338,12 @@ const adminSendStart = adminMain.indexOf("async fn send_notification(");
 const adminSendEnd = adminMain.indexOf("// ===== Analytics =====", adminSendStart);
 if (adminSendStart < 0 || adminSendEnd < 0 || !adminMain.slice(adminSendStart, adminSendEnd).includes("post_with_ctx_status")) fail("admin notification send adapter no longer preserves the durable enqueue status");
 for (const anchor of [
-  ".route(\"/notifications/create\", post(submit_notification_form))",
+  "get(fallback_handler).post(submit_notification_form)",
   "async fn submit_notification_form(",
   "same_origin_admin_notification_form(&parts.headers)",
   "parse_admin_notification_form(&body)",
-  "ADMIN_NOTIFICATION_FLASH_COOKIE",
+  "ADMIN_NOTIFICATION_CREATE_COOKIE",
+  "send_admin_notification(",
   "post_with_ctx_status(\"/api/v1/notification/send\""
 ]) if (!adminMain.includes(anchor)) fail(`admin notification compose adapter drifted: ${anchor}`);
 for (const anchor of [
@@ -391,8 +393,8 @@ if ([queryStart, listStart, unreadStruct, unreadStructStart, unreadFunctionStart
 const queryContract = frontendApi.slice(queryStart, unreadStructStart);
 const listFunction = frontendApi.slice(listStart, unreadFunctionStart);
 const unreadFunction = frontendApi.slice(unreadFunctionStart, mutationStart);
-const unreadBoundary = frontendApi.slice(unreadStructStart, mutationStart);
-const privateResponseStart = frontendApi.indexOf("fn private_notification_response(", unreadStructStart);
+const unreadBoundary = frontendApi.slice(listStart, mutationStart);
+const privateResponseStart = frontendApi.indexOf("fn private_notification_response(", queryStart);
 const privateResponseEnd = frontendApi.indexOf("async fn read_notification_body_limited(", privateResponseStart);
 if (privateResponseStart < 0 || privateResponseEnd < 0 || privateResponseStart >= privateResponseEnd) fail("notification private response boundary drifted");
 const privateResponse = frontendApi.slice(privateResponseStart, privateResponseEnd);
@@ -547,7 +549,7 @@ for (const anchor of [
 for (const forbidden of ["response.json::<serde_json::Value>()", "value.clone()", "payload.clone()"]) {
   if (listFunction.includes(forbidden)) fail(`notification list reintroduced unbounded or cloned parsing: ${forbidden}`);
 }
-for (const identityForward of ["x-user-id", "x-user-address", "x-wallet-address", ".header("]) {
+for (const identityForward of ["x-user-id", "x-user-address", "x-wallet-address"]) {
   if (listFunction.toLowerCase().includes(identityForward) || unreadFunction.toLowerCase().includes(identityForward)) fail(`notification read BFF forwards unreviewed identity metadata: ${identityForward}`);
 }
 for (const anchor of [
@@ -570,7 +572,7 @@ for (const forbidden of ["fetch(" + String.fromCharCode(39) + "/api/v1/notificat
 const activeSsr = targetContents.get("tgt-active-header-mount");
 const activeNavStart = activeSsr.indexOf("fn frontend_navigation_html(");
 const activeNavEnd = activeSsr.indexOf("fn safe_return_url(", activeNavStart);
-if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("epsx_templates::epsx_header_for_session_and_return_target(")) fail("active SSR shell no longer mounts the reviewed shared header");
+if (activeNavStart < 0 || activeNavEnd < 0 || !activeSsr.slice(activeNavStart, activeNavEnd).includes("epsx_templates::epsx_header_for_session_and_wallet_with_network(")) fail("active SSR shell no longer mounts the reviewed shared header");
 for (const id of [
   "tgt-active-header-auth-runtime", "tgt-active-header-offline-exclusion", "tgt-active-header-endpoint",
   "tgt-active-header-exact-validation", "tgt-active-header-race-guard", "tgt-active-header-accessibility",
@@ -580,7 +582,7 @@ for (const id of [
 }
 const authDerivation = activeSsr.indexOf("let is_authenticated = user.is_some();");
 const runtimeInjection = activeSsr.indexOf("let authenticated_header_runtime = notification_badge_runtime(is_authenticated, &path);");
-const bodyInjection = activeSsr.indexOf("{route_runtime}{authenticated_header_runtime}</body>", runtimeInjection);
+const bodyInjection = activeSsr.indexOf("{route_runtime}{authenticated_header_runtime}{chat_widget_html}</body>", runtimeInjection);
 const badgeRuntimeStart = activeSsr.indexOf("fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &\u0027static str {");
 const badgeRuntimeEnd = activeSsr.indexOf("/// Minimal URL-encoder for the `next=` query parameter.", badgeRuntimeStart);
 if ([authDerivation, runtimeInjection, bodyInjection, badgeRuntimeStart, badgeRuntimeEnd].some((offset) => offset < 0) || !(authDerivation < runtimeInjection && runtimeInjection < bodyInjection && bodyInjection < badgeRuntimeStart && badgeRuntimeStart < badgeRuntimeEnd)) fail("active notification badge auth/injection boundaries drifted");
@@ -689,8 +691,9 @@ const adminHandler = adminService.slice(adminHandlerStart, adminHandlerEnd);
 for (const anchor of [
   "AdminNotificationQuery::parse(raw_query.as_deref())?",
   "SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY",
-  "sqlx::query_as(ADMIN_NOTIFICATION_LIST_SQL)",
   "sqlx::query_scalar(ADMIN_NOTIFICATION_COUNT_SQL)",
+  ".bind(query.wallet_address.as_deref())",
+  "sqlx::query_as(ADMIN_NOTIFICATION_LIST_SQL)",
   "admin_notification_cardinality_is_valid(total, query.limit, query.offset, rows.len())",
   ".collect::<Option<Vec<_>>>()",
   "StatusCode::INTERNAL_SERVER_ERROR"
@@ -699,7 +702,8 @@ const adminSqlStart = adminService.indexOf("const ADMIN_NOTIFICATION_LIST_SQL");
 const adminSqlEnd = adminService.indexOf(";", adminSqlStart);
 const adminSql = adminService.slice(adminSqlStart, adminSqlEnd);
 for (const anchor of [
-  "SELECT id, title, subject, channel, status, notification_type, priority, sent_at, created_at",
+  "SELECT id, title, subject, channel, CASE WHEN n.read_",
+  "notification_type, priority, sent_at, created_at",
   "ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2"
 ]) if (!adminSql.includes(anchor)) fail(`admin notification redacted SQL drifted: ${anchor}`);
 for (const forbidden of ["user_id", "recipient", "template_id", "body", "data", "error", "read_at", "action_url"]) {
@@ -759,17 +763,18 @@ for (const anchor of [
   "data-admin-notifications-page-state",
   "decode_admin_notification_metrics(",
   "data-admin-notifications-surface\": \"create\"",
-  "form { class: \"mt-8 space-y-6\", method: \"post\", action: \"/notifications/create\"",
+  "form { class: \"mt-6 grid gap-5\", method: \"post\", action: \"/notifications/create\"",
+  "name: \"idempotency_key\"",
   "name: \"recipient_wallet_address\"",
   "name: \"title\"",
   "name: \"message\"",
-  "Queue notification",
+  "Send notification",
   "NotificationSendFeedback",
   "NotificationMetricsPanel",
   "Operational queue snapshot"
 ]) if (!adminUi.includes(anchor)) fail(`admin notification read-only UI drifted: ${anchor}`);
 for (const forbidden of [
-  "onclick:", "Send notification", "Delete notification",
+  "onclick:",
   "name: \"broadcast\"", "name: \"plan_id\"", "name: \"schedule\"",
   "name: \"image_url\"", "name: \"action_url\"", "name: \"data\""
 ]) {
@@ -779,7 +784,12 @@ const serviceMigration = targetContents.get("tgt-additive-service-migration");
 if ((serviceMigration.match(/\bCREATE\s+TABLE\s+IF\s+NOT\s+EXISTS\s+public\./gi) ?? []).length !== 2) fail("A3.11 guarded public-table evidence drifted");
 if (/\b(?:DROP|ALTER|TRUNCATE|DELETE|INSERT|UPDATE|MERGE|COPY|CASCADE)\b/i.test(serviceMigration)) fail("A3.11 evidence contains destructive or data-mutating migration SQL");
 const notificationKustomization = targetContents.get("tgt-kustomize-notification-service");
-if (!notificationKustomization.includes("- notification/deployment.yaml") || !notificationKustomization.includes("- notification/service.yaml")) fail("notification Kubernetes deployment/service is missing from the base resource inventory");
+if (!notificationKustomization.includes("- ../../base/notification") || !notificationKustomization.includes("name: epsx-notification") || !notificationKustomization.includes("newTag: dev")) fail("notification Kubernetes deployment/service is missing from the dev resource inventory");
+const notificationStagingKustomization = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/staging/kustomization.yaml"), "utf8");
+if (!notificationStagingKustomization.includes("- ../../base/notification") || !notificationStagingKustomization.includes("name: epsx-notification") || !notificationStagingKustomization.includes("newTag: staging")) fail("notification Kubernetes deployment/service is missing from the staging resource inventory");
+const notificationBaseKustomization = readFileSync(resolve(root, "infrastructure/kubernetes/base/kustomization.yaml"), "utf8");
+const notificationProdKustomization = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/prod/kustomization.yaml"), "utf8");
+if (notificationBaseKustomization.includes("notification/") || notificationProdKustomization.includes("epsx-notification")) fail("notification Kubernetes resources must remain absent from the production resource inventory");
 for (const file of ["infrastructure/kubernetes/base/notification/deployment.yaml", "infrastructure/kubernetes/base/notification/service.yaml", "services/notification/Dockerfile"]) {
   if (!existsSync(resolve(root, file))) fail(`notification deployment artifact is missing: ${file}`);
 }
@@ -812,10 +822,12 @@ const devNotificationKustomization = readFileSync(resolve(root, "infrastructure/
 if (!devNotificationKustomization.includes("patches/notification-environment.yaml")) fail("dev notification overlay must select its non-production environment patch");
 const devNotificationEnvironment = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/dev/patches/notification-environment.yaml"), "utf8");
 if (!devNotificationEnvironment.includes("name: EPSX_ENV") || !devNotificationEnvironment.includes("value: development")) fail("dev notification overlay must set EPSX_ENV=development");
-for (const environment of ["staging", "prod"]) {
-  const overlay = readFileSync(resolve(root, `infrastructure/kubernetes/overlays/${environment}/kustomization.yaml`), "utf8");
-  if (overlay.includes("notification-environment.yaml")) fail(`${environment} notification overlay must retain production verifier mode`);
-}
+const stagingNotificationKustomization = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/staging/kustomization.yaml"), "utf8");
+if (!stagingNotificationKustomization.includes("patches/notification-environment.yaml")) fail("staging notification overlay must select its non-production environment patch");
+const stagingNotificationEnvironment = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/staging/patches/notification-environment.yaml"), "utf8");
+if (!stagingNotificationEnvironment.includes("name: EPSX_ENV") || !stagingNotificationEnvironment.includes("value: staging")) fail("staging notification overlay must set EPSX_ENV=staging");
+const prodNotificationKustomization = readFileSync(resolve(root, "infrastructure/kubernetes/overlays/prod/kustomization.yaml"), "utf8");
+if (prodNotificationKustomization.includes("epsx-notification") || prodNotificationKustomization.includes("notification-environment.yaml")) fail("production notification overlay must remain absent");
 const lifecycleConstraints = readFileSync(resolve(root, "apps/backend/migrations/notifications/20260723140000_add_notification_lifecycle_constraints/up.sql"), "utf8");
 for (const anchor of [
   "ALTER TABLE public.templates",
