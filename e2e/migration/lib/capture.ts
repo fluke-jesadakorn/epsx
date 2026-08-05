@@ -1,4 +1,5 @@
 import { rename, writeFile } from 'node:fs/promises';
+import { Buffer } from 'node:buffer';
 import { basename, resolve } from 'node:path';
 
 import type { Browser, BrowserContext, Page, Route } from '@playwright/test';
@@ -39,6 +40,38 @@ interface BrowserStorageState {
 }
 
 export const MIGRATION_CAPTURE_TIME = '2026-07-29T05:00:00.000Z';
+
+type InputFileAction = Extract<ScenarioAction, { type: 'set-input-files' }>;
+
+export function inputFilePayload(action: InputFileAction): {
+  name: string;
+  mimeType: string;
+  buffer: Buffer;
+} {
+  if (
+    action.name.trim() !== action.name ||
+    action.name === '' ||
+    action.name.includes('/') ||
+    action.name.includes('\\') ||
+    !/^[a-zA-Z0-9!#$&^_.+-]+\/[a-zA-Z0-9!#$&^_.+-]+$/.test(action.mimeType)
+  ) {
+    throw new Error('invalid deterministic input-file metadata');
+  }
+  const normalized = action.contentBase64.replaceAll(/\s+/g, '');
+  const buffer = Buffer.from(normalized, 'base64');
+  if (
+    buffer.length === 0 ||
+    buffer.toString('base64').replaceAll(/=+$/g, '') !==
+      normalized.replaceAll(/=+$/g, '')
+  ) {
+    throw new Error('invalid deterministic input-file content');
+  }
+  return {
+    name: action.name,
+    mimeType: action.mimeType,
+    buffer,
+  };
+}
 
 export function requiresDeterministicWallClock(
   scenario: Pick<Scenario, 'path' | 'surface'>
@@ -233,6 +266,17 @@ export function blockingFailedRequests(
           (failure.method === 'GET' &&
             failure.resourceType === 'fetch' &&
             new URL(failure.url).searchParams.has('_rsc')));
+      const isCanceledStubbedWalletConfig =
+        failure.method === 'GET' &&
+        failure.resourceType === 'fetch' &&
+        failure.failure === 'net::ERR_ABORTED' &&
+        failureUrl.origin === 'https://api.web3modal.org' &&
+        failureUrl.pathname === '/appkit/v1/config' &&
+        failureUrl.searchParams.get('projectId') ===
+          '00000000000000000000000000000000' &&
+        failureUrl.searchParams.get('st') === 'appkit' &&
+        failureUrl.searchParams.get('sv') === 'html-core-1.7.8' &&
+        [...failureUrl.searchParams.keys()].length === 3;
       const successfulResponseAbort =
         (isSuccessfulStreamAbort || isCompletedNextStylesheet) &&
         failure.failure === 'net::ERR_ABORTED' &&
@@ -249,7 +293,11 @@ export function blockingFailedRequests(
       // completed Next.js RSC stream, or a generated Next.js stylesheet that
       // already returned successfully. Only exact 2xx/3xx URL/method matches
       // qualify; both raw entries remain in network.json.
-      return !successfulResponseAbort;
+      // The immutable source can also cancel its exact harness-stubbed wallet
+      // config fetch during a redirect before Playwright emits the synthetic
+      // response. The full URL, dummy project, client version, and abort remain
+      // in network.json; every other external or wallet request still blocks.
+      return !successfulResponseAbort && !isCanceledStubbedWalletConfig;
     });
 }
 
@@ -321,6 +369,54 @@ async function waitForStableMeaningfulBody(page: Page): Promise<void> {
     // bodyTextLength assertion. Continuing here preserves the DOM, screenshot,
     // trace, network log, and reset proof for that failure.
     .catch(() => undefined);
+}
+
+async function waitForVisibleImages(page: Page): Promise<void> {
+  await page.waitForFunction(
+    () => {
+      const visibleImages = Array.from(document.images).filter(image => {
+        const rect = image.getBoundingClientRect();
+        const style = getComputedStyle(image);
+        return (
+          rect.width > 0 &&
+          rect.height > 0 &&
+          rect.bottom > 0 &&
+          rect.right > 0 &&
+          rect.top < window.innerHeight &&
+          rect.left < window.innerWidth &&
+          style.display !== 'none' &&
+          style.visibility !== 'hidden'
+        );
+      });
+      return visibleImages.every(image => image.complete);
+    },
+    undefined,
+    { polling: 100, timeout: 15_000 }
+  );
+  await page.evaluate(async () => {
+    const visibleImages = Array.from(document.images).filter(image => {
+      const rect = image.getBoundingClientRect();
+      const style = getComputedStyle(image);
+      return (
+        rect.width > 0 &&
+        rect.height > 0 &&
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.left < window.innerWidth &&
+        style.display !== 'none' &&
+        style.visibility !== 'hidden'
+      );
+    });
+    await Promise.all(
+      visibleImages
+        .filter(image => image.naturalWidth > 0)
+        .map(image => image.decode())
+    );
+    await new Promise<void>(resolveFrame =>
+      requestAnimationFrame(() => resolveFrame())
+    );
+  });
 }
 
 // eslint-disable-next-line max-params
@@ -469,6 +565,10 @@ async function applyActions(options: {
       await page.locator(action.selector).fill(action.value);
     } else if (action.type === 'press') {
       await page.locator(action.selector).press(action.key);
+    } else if (action.type === 'set-input-files') {
+      await page
+        .locator(action.selector)
+        .setInputFiles(inputFilePayload(action));
     } else if (action.type === 'reload') {
       status =
         (await page.reload({ waitUntil: 'domcontentloaded' }))?.status() ??
@@ -627,6 +727,29 @@ export async function captureSide(
       /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
       route => proxySourceDependency(route, fixtureUrl, sourceAccessToken)
     );
+    if (new URL(scenario.path, baseUrl).pathname === '/manual') {
+      // Next 16's pinned Turbopack dev output lowers viem's native BigInt
+      // exponentiation to Math.pow(BigInt, BigInt), which throws even though
+      // the original production expression is valid. Restore the original
+      // operator semantics only for the affected immutable source route;
+      // numeric Math.pow behavior is delegated unchanged.
+      await context.addInitScript(() => {
+        const nativePow = Math.pow;
+        Object.defineProperty(Math, 'pow', {
+          configurable: true,
+          writable: true,
+          value: (
+            base: number | bigint,
+            exponent: number | bigint
+          ): number | bigint => {
+            if (typeof base === 'bigint' && typeof exponent === 'bigint') {
+              return base ** exponent;
+            }
+            return nativePow(base as number, exponent as number);
+          },
+        });
+      });
+    }
   }
   await context.addInitScript((theme: string) => {
     localStorage.setItem('theme', theme);
@@ -716,6 +839,7 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
+    await waitForVisibleImages(page);
     if (requiresDeterministicWallClock(scenario)) {
       // Install the deterministic wall clock only after hydration. The pinned
       // Next.js admin root renders a live client clock; installing before
@@ -740,6 +864,7 @@ export async function captureSide(
       .waitForLoadState('domcontentloaded', { timeout: 5_000 })
       .catch(() => undefined);
     await waitForStableMeaningfulBody(page);
+    await waitForVisibleImages(page);
 
     const finalUrl = page.url();
     const finalStatus = actionStatus ?? response?.status() ?? null;
@@ -749,7 +874,12 @@ export async function captureSide(
     const html = await page.content();
     const semanticHtml = await page.evaluate(() => {
       const clone = document.body.cloneNode(true) as HTMLElement;
-      for (const node of clone.querySelectorAll('script, style')) {
+      // Next.js can leave streamed document metadata in `<body>` for a
+      // hydration turn, then move it into `<head>` without changing pixels or
+      // the accessibility tree. Document metadata is not part of the body
+      // semantic contract (and the final title is captured separately), so
+      // exclude it alongside non-semantic runtime script/style nodes.
+      for (const node of clone.querySelectorAll('script, style, title, meta')) {
         node.remove();
       }
       for (const element of [clone, ...clone.querySelectorAll('*')]) {

@@ -2,6 +2,8 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import { createPrivateKey, sign } from 'node:crypto';
 
+import { permissionAllows } from './lib/fixture-permissions';
+
 interface FixtureRequest {
   sequence: number;
   method: string;
@@ -25,6 +27,7 @@ const fixtureTimestamp = '2026-01-01T00:00:00.000Z';
 const fixtureWalletAddress = '0xea6400000000000000000000000000000000e3df';
 const fixturePlanId = '00000000-0000-0000-0000-000000000001';
 const fixtureMerchantId = '00000000-0000-0000-0000-000000000002';
+const fixtureNewsId = '00000000-0000-0000-0000-000000000006';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -176,6 +179,13 @@ function requiredAdminPermission(path: string, method: string): string | null {
   }
   if (path.startsWith('/api/admin/analytics/')) {
     return 'admin:analytics:view';
+  }
+  if (
+    path.startsWith('/api/admin/news') ||
+    path.startsWith('/api/admin/media') ||
+    path.startsWith('/api/admin/files')
+  ) {
+    return 'admin:content:manage';
   }
   return null;
 }
@@ -455,6 +465,102 @@ const publicNews = [
   },
 ];
 
+const targetPublicNews = [
+  {
+    id: fixtureNewsId,
+    slug: 'deterministic-market-brief',
+    title: 'Deterministic Market Brief',
+    summary: 'A fixed local article used by the migration evidence harness.',
+    content:
+      'This fixture is intentionally stable across repeated E2E runs.\n\nIt verifies the published content boundary.',
+    cover_image_url: null,
+    author: 'EPSX Research',
+    status: 'published',
+    published_at: '2026-07-01T00:00:00Z',
+    tags: ['Research', 'engineering'],
+    featured: true,
+  },
+];
+
+const legacyPublicNews = [
+  {
+    id: fixtureNewsId,
+    slug: 'deterministic-market-brief',
+    title: 'Deterministic Market Brief',
+    summary: 'A fixed local article used by the migration evidence harness.',
+    content:
+      'This fixture is intentionally stable across repeated E2E runs.\n\nIt verifies the published content boundary.',
+    cover_image_url: null,
+    author_wallet: 'EPSX Research',
+    status: 'published',
+    tags: ['Research', 'engineering'],
+    published_at: '2026-07-01T00:00:00Z',
+    created_at: '2026-06-30T00:00:00Z',
+    updated_at: fixtureTimestamp,
+    is_pinned: false,
+    pinned_at: null,
+  },
+];
+
+function adminNewsArticle(
+  options: {
+    status?: 'draft' | 'published';
+    pinned?: boolean;
+  } = {}
+): Record<string, unknown> {
+  const status = options.status ?? 'published';
+  return {
+    id: fixtureNewsId,
+    title: 'Deterministic Market Brief',
+    slug: 'deterministic-market-brief',
+    summary: 'A fixed local article used by the migration evidence harness.',
+    content: 'This fixture is intentionally stable across repeated E2E runs.',
+    cover_image_url: null,
+    author_wallet: fixtureWalletAddress,
+    status,
+    tags: ['Research'],
+    published_at: status === 'published' ? '2026-07-01T00:00:00Z' : null,
+    created_at: '2026-06-30T00:00:00Z',
+    updated_at: fixtureTimestamp,
+    is_pinned: options.pinned ?? false,
+    pinned_at: options.pinned === true ? fixtureTimestamp : null,
+  };
+}
+
+function fixtureResponseMeta(): Record<string, string> {
+  return {
+    timestamp: fixtureTimestamp,
+    version: 'v1',
+  };
+}
+
+function adminNewsEnvelope(data: unknown, status = 200): Response {
+  return json(
+    {
+      success: true,
+      data,
+      error: null,
+      meta: fixtureResponseMeta(),
+    },
+    status
+  );
+}
+
+function mediaItems(bucket: string, origin: string): unknown[] {
+  const key =
+    bucket === 'public'
+      ? 'guides/getting-started.pdf'
+      : 'news/release-notes.pdf';
+  return [
+    {
+      key,
+      url: `${origin}/__e2e/media/${bucket}/fixture.pdf`,
+      size: 4096,
+      last_modified: fixtureTimestamp,
+    },
+  ];
+}
+
 function adminAnalyticsData(empty = false): Record<string, unknown> {
   return {
     user_stats: empty
@@ -630,10 +736,35 @@ async function routeRequest(request: Request): Promise<Response> {
     const principal = fixturePrincipal(request);
     if (
       principal?.audience !== 'epsx-admin' ||
-      !principal.permissions.includes(requiredPermission)
+      !permissionAllows(principal.permissions, requiredPermission)
     ) {
       return json({ success: false, error: 'forbidden' }, 403);
     }
+  }
+  const adminContentPath =
+    url.pathname.startsWith('/api/admin/news') ||
+    url.pathname.startsWith('/api/admin/media') ||
+    url.pathname.startsWith('/api/admin/files');
+  const publicContentPath =
+    url.pathname === '/api/v1/content/news' ||
+    url.pathname.startsWith('/api/v1/content/news/') ||
+    url.pathname === '/api/public/news' ||
+    (url.pathname.startsWith('/api/public/news/') &&
+      url.pathname !== '/api/public/news/featured');
+  if (fixtureMode === 'content-forbidden' && adminContentPath) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (
+    fixtureMode === 'content-unavailable' &&
+    (adminContentPath || publicContentPath)
+  ) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    fixtureMode === 'content-malformed' &&
+    (adminContentPath || publicContentPath)
+  ) {
+    return json({ malformed: true });
   }
   if (
     fixtureMode === 'forbidden' &&
@@ -942,6 +1073,101 @@ async function routeRequest(request: Request): Promise<Response> {
   }
   if (url.pathname === '/api/public/news/featured') {
     return json({ success: true, data: publicNews });
+  }
+  if (url.pathname === '/api/public/news') {
+    return json({
+      success: true,
+      data: {
+        articles: legacyPublicNews,
+        total: legacyPublicNews.length,
+        page: 1,
+        limit: Number(url.searchParams.get('limit') ?? '10'),
+      },
+    });
+  }
+  if (url.pathname.startsWith('/api/public/news/')) {
+    const slug = url.pathname.split('/').at(-1);
+    const article = legacyPublicNews.find(candidate => candidate.slug === slug);
+    return article
+      ? json({ success: true, data: article })
+      : json({ success: false, error: 'not_found' }, 404);
+  }
+  if (url.pathname === '/api/admin/news') {
+    const status = url.searchParams.get('status');
+    const article = adminNewsArticle({
+      status: status === 'draft' ? 'draft' : 'published',
+    });
+    if (['GET', 'HEAD'].includes(request.method)) {
+      const articles = fixtureMode === 'content-empty' ? [] : [article];
+      return adminNewsEnvelope({
+        articles,
+        total: articles.length,
+        page: Number(url.searchParams.get('page') ?? '1'),
+        limit: 20,
+      });
+    }
+    return adminNewsEnvelope(article, 201);
+  }
+  if (url.pathname === '/api/admin/news/upload-image') {
+    return adminNewsEnvelope({
+      url: 'https://assets.epsx.invalid/news/cover.png',
+      thumb_url: null,
+      filename: 'migration-cover.png',
+      mime: 'image/png',
+      size: 68,
+    });
+  }
+  if (url.pathname.startsWith('/api/admin/news/')) {
+    const segments = url.pathname.split('/').filter(Boolean);
+    const id = segments[3];
+    if (id !== fixtureNewsId) {
+      return json({ success: false, error: 'not_found' }, 404);
+    }
+    const operation = segments[4];
+    if (request.method === 'DELETE' && operation === undefined) {
+      return adminNewsEnvelope({ id: fixtureNewsId, deleted: true });
+    }
+    return adminNewsEnvelope(
+      adminNewsArticle({
+        status: operation === 'unpublish' ? 'draft' : 'published',
+        pinned: operation === 'pin',
+      })
+    );
+  }
+  if (url.pathname === '/api/admin/files/upload') {
+    return adminNewsEnvelope({
+      bucket: 'public',
+      key: 'uploads/migration-proof.txt',
+      url: `${url.origin}/__e2e/media/public/migration-proof.txt`,
+      thumb_url: null,
+      mime: 'text/plain',
+      size: 21,
+      deleted: false,
+    });
+  }
+  if (url.pathname.startsWith('/api/admin/media/')) {
+    const segments = url.pathname.split('/').filter(Boolean);
+    const bucket = segments[3];
+    if (!['news', 'public'].includes(bucket ?? '')) {
+      return json({ success: false, error: 'invalid_bucket' }, 400);
+    }
+    const key = segments.slice(4).join('/');
+    if (request.method === 'DELETE') {
+      return adminNewsEnvelope({
+        bucket,
+        key,
+        url: null,
+        thumb_url: null,
+        mime: null,
+        size: null,
+        deleted: true,
+      });
+    }
+    return adminNewsEnvelope(
+      fixtureMode === 'content-empty'
+        ? []
+        : mediaItems(bucket ?? 'news', url.origin)
+    );
   }
   const legacyWallet = {
     wallet_address: fixtureWalletAddress,
@@ -1326,13 +1552,23 @@ async function routeRequest(request: Request): Promise<Response> {
     return json({ count: 0 });
   }
   if (url.pathname === '/api/v1/content/news') {
-    return json({ success: true, data: publicNews });
+    const articles = fixtureMode === 'content-empty' ? [] : targetPublicNews;
+    return json({
+      success: true,
+      data: {
+        articles,
+        total: articles.length,
+        page: 1,
+        limit: 100,
+      },
+      error: null,
+    });
   }
   if (url.pathname.startsWith('/api/v1/content/news/')) {
     const slug = url.pathname.split('/').at(-1);
-    const article = publicNews.find(candidate => candidate.slug === slug);
+    const article = targetPublicNews.find(candidate => candidate.slug === slug);
     return article
-      ? json({ success: true, data: article })
+      ? json({ success: true, data: article, error: null })
       : json({ success: false, error: 'not_found' }, 404);
   }
   if (

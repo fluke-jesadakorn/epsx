@@ -228,11 +228,13 @@ fn NewsPageBody(outcome: NewsListOutcome, retry_href: String) -> Element {
     };
 
     rsx! {
-        // Keep the public news route on the same full-width dark frame as
-        // the production page. The responsive inner padding is intentionally
-        // owned by this wrapper so the header and featured card share the
-        // exact 16px desktop edge used by the source composition.
-        div { class: "relative min-h-screen bg-slate-950",
+        div { class: "relative min-h-screen bg-gray-50 dark:bg-slate-950",
+            div { class: "fixed inset-0 z-0 pointer-events-none overflow-hidden",
+                div { class: "absolute inset-0 bg-gradient-to-b from-white dark:from-slate-950 via-gray-50 dark:via-slate-900 to-white dark:to-slate-950" }
+                div { class: "absolute -top-40 -right-32 h-[500px] w-[500px] rounded-full bg-purple-600/8 dark:bg-purple-600/15 blur-3xl" }
+                div { class: "absolute top-1/3 -left-32 h-[400px] w-[400px] rounded-full bg-cyan-500/5 dark:bg-cyan-500/10 blur-3xl" }
+                div { class: "absolute bottom-20 right-1/4 h-[300px] w-[300px] rounded-full bg-purple-600/5 dark:bg-purple-600/10 blur-3xl" }
+            }
             div { class: "relative z-10 mx-auto max-w-7xl px-4 py-12 sm:py-16",
                 div { class: "page-content news-page w-full",
                     header { class: "mb-12 text-center news-header",

@@ -2,9 +2,7 @@ import { execFileSync } from 'node:child_process';
 import { copyFile, rm, writeFile } from 'node:fs/promises';
 import { basename, relative, resolve } from 'node:path';
 
-import {
-  loadManifest,
-} from './config';
+import { loadManifest } from './config';
 import {
   artifactManifest,
   ensureDirectory,
@@ -51,10 +49,29 @@ function markdownImage(label: string, path: string): string {
   return `[![${label}](./${path})](./${path})`;
 }
 
+export function captureStatusPassed(
+  capture: Pick<CaptureResult, 'outcomeChecks' | 'side' | 'status'>
+): boolean {
+  if (capture.status === null) {
+    return false;
+  }
+  if (capture.status < 500) {
+    return true;
+  }
+  return capture.outcomeChecks.some(
+    check =>
+      check.outcome.type === 'status' &&
+      (check.outcome.side === undefined ||
+        check.outcome.side === 'both' ||
+        check.outcome.side === capture.side) &&
+      check.outcome.value === capture.status &&
+      check.passed
+  );
+}
+
 function capturePassed(capture: CaptureResult): boolean {
   return (
-    capture.status !== null &&
-    capture.status < 500 &&
+    captureStatusPassed(capture) &&
     capture.bodyTextLength > 50 &&
     capture.consoleErrors.length === 0 &&
     capture.pageErrors.length === 0 &&
@@ -96,9 +113,7 @@ export async function generateReport(
     .filter(group => group.id >= 0 && group.id <= config.groupId)
     .flatMap(group => group.backendContracts ?? []);
   const contractPaths = files
-    .filter(path =>
-      path.includes('/backend-contracts/')
-    )
+    .filter(path => path.includes('/backend-contracts/'))
     .filter(path => path.endsWith('/reproducibility.json'))
     .sort();
   if (contractPaths.length !== expectedContractSuites.length) {
