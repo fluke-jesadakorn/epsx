@@ -292,22 +292,15 @@ fn render_rich_text(p: &serde_json::Value) -> String {
 fn render_custom_html(p: &serde_json::Value) -> String {
     let html = get_string(p, "html", "");
     let css = get_string(p, "css", "");
-    let scripts = get_string(p, "scripts", "");
     let style_tag = if css.is_empty() {
         String::new()
     } else {
         format!(r#"<style>{}</style>"#, css)
     };
-    let script_tag = if scripts.is_empty() {
-        String::new()
-    } else {
-        format!(r#"<script>{}</script>"#, scripts)
-    };
     format!(
-        "<div class=\"custom-html\">{style}{html}{script}</div>",
+        "<div class=\"custom-html\">{style}{html}</div>",
         style = style_tag,
         html = html,
-        script = script_tag
     )
 }
 

@@ -168,6 +168,8 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                         a {
                             href: "/auth?return_url=%2F",
                             "data-admin-denial-auth": "true",
+                            "data-epsx-logout": "true",
+                            "data-epsx-logout-target": "/auth?return_url=%2F",
                             class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-500/20 hover:shadow-xl hover:shadow-red-500/30 hover-lift transition-all",
                             Icon {
                                 name: "rotate-ccw".to_string(),
@@ -179,6 +181,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                         a {
                             href: "/",
                             "data-admin-denial-back": "true",
+                            "data-epsx-action": "back",
                             class: "flex-1 inline-flex items-center justify-center gap-2 px-6 py-4 bg-muted/30 border border-border/20 text-foreground rounded-2xl font-semibold hover:bg-muted/50 transition-colors",
                             Icon {
                                 name: "arrow-left".to_string(),

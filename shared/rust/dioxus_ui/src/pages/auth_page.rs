@@ -52,12 +52,11 @@ impl AuthPageSessionState {
 ///
 /// Wave 50 — wired up the full SIWE flow:
 /// - The `<ConnectButton data_connect_wallet=true>` renders a raw
-///   `<button data-connect-wallet="true">` (the page-shell
-///   `wallet_shim()` attaches the click → `window.epsx.connectWallet()`).
+///   `<button data-connect-wallet="true">` consumed by the generated
+///   Rust/WASM browser runtime.
 /// - Loading + error banners are rendered statically with stable ids;
-///   an inline `<script>` listens for the `epsx:wallet:status` events
-///   the shim broadcasts and toggles `hidden` + content. No Dioxus
-///   hydration is required — every interactive state is SSR-safe.
+///   Rust/WASM updates the live region throughout challenge, signing, and
+///   verification. The initial document remains useful without enhancement.
 #[component]
 pub fn AuthPage() -> Element {
     rsx! { RenderAuth { session_state: AuthPageSessionState::SignedOut } }
@@ -66,11 +65,8 @@ pub fn AuthPage() -> Element {
 #[component]
 pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
     // The component is purely declarative — every interactive state
-    // (loading / error / success) is driven by the inline script
-    // below. The Dioxus `use_signal` calls were removed because
-    // their closures don't survive SSR; the SSR'd HTML carries the
-    // initial state (idle, no error, no loading) and JS toggles the
-    // visibility from there.
+    // (loading / error / success) is driven by the generated Rust/WASM
+    // runtime. The SSR document carries the initial idle state.
 
     rsx! {
         div {
@@ -232,15 +228,12 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                         }
                         div { class: "auth-card-divider auth-card-divider-thin", aria_hidden: "true" }
                         // === Loading state (hidden by default) ===
-                        // The inline script at the bottom of the page
-                        // toggles `hidden` and updates the message as
-                        // the SIWE flow progresses through challenge →
-                        // signing → verifying. Static markup so the SSR
-                        // snapshot carries the full UI even with
-                        // hydration off.
+                        // Rust/WASM toggles `hidden` and updates the message as
+                        // SIWE progresses through challenge, signing, and verification.
                         div {
                             id: "auth-card-status",
                             class: "auth-card-status",
+                            "data-epsx-runtime-status": "true",
                             role: "status",
                             "aria-live": "polite",
                             hidden: session_state != AuthPageSessionState::Recovering,
@@ -337,123 +330,11 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                     div { class: "auth-page-fallback",
                         a { href: "/", "Go to Homepage" }
                     }
-                    // === Wave 50 — wallet status event listener ===
-                    //
-                    // Toggles the loading + error banner visibility
-                    // based on `epsx:wallet:status` events broadcast by
-                    // the page-shell `wallet_shim()`. Pure DOM
-                    // manipulation — no Dioxus hydration needed.
-                    script { dangerous_inner_html: WALLET_STATUS_LISTENER_SCRIPT }
                 }
             }
         }
     }
 }
-
-/// Inline `<script>` that listens for the `epsx:wallet:status` events
-/// the page-shell `wallet_shim()` broadcasts and toggles the loading
-/// + error banner visibility.
-///
-/// Status shape:
-///   `{ status: 'idle'|'challenge'|'signing'|'verifying'|'success'|'error',
-///      kind?: 'no_wallet'|'wrong_network'|'rejected'|'error',
-///      message?: string,
-///      address?: string }`
-///
-/// The script is intentionally minimal — it only manipulates the four
-/// known elements (CTA button + status banner + error title + error
-/// message). No innerHTML injection, no fetch, no library deps.
-const WALLET_STATUS_LISTENER_SCRIPT: &str = r#"(function(){
-  function $(id){ return document.getElementById(id); }
-  var ctaBtn = document.getElementById('auth-card-cta-btn') ||
-               document.querySelector('[data-connect-wallet]');
-  var authPage = document.querySelector('[data-auth-session-state]');
-  var statusEl = $('auth-card-status');
-  var statusMsg = $('auth-card-status-msg');
-  var errorEl = $('auth-card-error');
-  var errorTitle = $('auth-card-error-title');
-  var errorMsg = $('auth-card-error-msg');
-  var ctaLabel = ctaBtn && ctaBtn.querySelector('.connect-btn-label');
-
-  function authActionable() {
-    if (!authPage) return false;
-    var state = authPage.getAttribute('data-auth-session-state');
-    return state === 'signed_out' || state === 'recovery_failed';
-  }
-
-  if (ctaBtn) {
-    ctaBtn.addEventListener('click', function() {
-      if (!authActionable()) return;
-      statusMsg.textContent = 'Opening wallet...';
-      statusEl.hidden = false;
-      errorEl.hidden = true;
-      ctaBtn.disabled = true;
-      if (authPage) authPage.setAttribute('aria-busy', 'true');
-    });
-  }
-
-  function show(d) {
-    if (!d || !authActionable()) return;
-    if (d.status === 'challenge') {
-      statusMsg.textContent = 'Requesting challenge...';
-      statusEl.hidden = false;
-      errorEl.hidden = true;
-      if (ctaBtn) ctaBtn.disabled = true;
-    } else if (d.status === 'signing') {
-      statusMsg.textContent = 'Check your wallet...';
-      statusEl.hidden = false;
-      errorEl.hidden = true;
-      if (ctaBtn) ctaBtn.disabled = true;
-    } else if (d.status === 'verifying') {
-      statusMsg.textContent = 'Verifying signature...';
-      statusEl.hidden = false;
-      errorEl.hidden = true;
-      if (ctaBtn) ctaBtn.disabled = true;
-    } else if (d.status === 'success') {
-      // Page reload handled by the shim.
-      statusEl.hidden = true;
-      errorEl.hidden = true;
-    } else if (d.status === 'error') {
-      var title = 'Sign-in failed';
-      if (d.kind === 'no_wallet') title = 'Wallet not installed';
-      else if (d.kind === 'wrong_network') title = 'Wrong network';
-      else if (d.kind === 'rejected') title = 'Signature rejected';
-      errorTitle.textContent = title;
-      errorMsg.textContent = d.message || 'Authentication failed. Please try again.';
-      errorEl.hidden = false;
-      statusEl.hidden = true;
-      if (ctaBtn) ctaBtn.disabled = false;
-      if (authPage) authPage.setAttribute('aria-busy', 'false');
-    } else if (d.status === 'idle') {
-      statusEl.hidden = true;
-      errorEl.hidden = true;
-      if (ctaBtn) ctaBtn.disabled = false;
-      if (authPage) authPage.setAttribute('aria-busy', 'false');
-    }
-  }
-
-  document.addEventListener('epsx:wallet:status', function(e) {
-    show((e && e.detail) || {});
-  });
-
-  document.addEventListener('epsx:auth:recovery', function(e) {
-    var d = (e && e.detail) || {};
-    if (d.version !== 1 || d.state !== 'failed') return;
-    if (!authPage || authPage.getAttribute('data-auth-session-state') !== 'recovering') return;
-    authPage.setAttribute('data-auth-session-state', 'recovery_failed');
-    errorTitle.textContent = 'Session recovery failed';
-    errorMsg.textContent = 'We could not restore your session. Try connecting your wallet again.';
-    errorEl.hidden = false;
-    statusEl.hidden = true;
-    errorEl.focus();
-    if (authPage) authPage.setAttribute('aria-busy', 'false');
-    if (ctaBtn) {
-      ctaBtn.disabled = false;
-      ctaBtn.setAttribute('aria-label', 'Try again with wallet');
-    }
-    if (ctaLabel) ctaLabel.textContent = 'Try Again';
-  });
-})();"#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
@@ -550,56 +431,6 @@ mod tests {
         assert!(html.contains("Sign-in temporarily unavailable"));
         assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
         assert!(!html.contains("future-open-state"));
-    }
-
-    #[test]
-    fn auth_page_recovery_failure_event_is_fixed_actionable_and_nondisclosing() {
-        let listener = WALLET_STATUS_LISTENER_SCRIPT
-            .split("document.addEventListener('epsx:auth:recovery'")
-            .nth(1)
-            .expect("auth recovery listener must be present");
-        assert!(listener.contains("d.version !== 1 || d.state !== 'failed'"));
-        assert!(
-            listener.contains("authPage.getAttribute('data-auth-session-state') !== 'recovering'")
-        );
-        assert!(listener.contains("Session recovery failed"));
-        assert!(listener
-            .contains("We could not restore your session. Try connecting your wallet again."));
-        assert!(listener.contains("ctaBtn.disabled = false"));
-        assert!(listener.contains("ctaLabel.textContent = 'Try Again'"));
-        assert!(listener.contains("errorEl.focus()"));
-        for forbidden in ["d.message", "e.message", "String(", "JSON.stringify"] {
-            assert!(
-                !listener.contains(forbidden),
-                "recovery failure UI must not disclose rejection details via {forbidden:?}"
-            );
-        }
-
-        let html = render_with_session_state(Some(AUTH_PAGE_SESSION_STATE_RECOVERING));
-        assert!(html.contains("data-connect-wallet=\"true\""));
-        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
-        assert!(html.contains("role=\"alert\""));
-        assert!(html.contains("tabindex=\"-1\""));
-    }
-
-    #[test]
-    fn auth_page_connect_enters_opening_wallet_busy_state_immediately() {
-        let click_handler = WALLET_STATUS_LISTENER_SCRIPT
-            .split("ctaBtn.addEventListener('click', function() {")
-            .nth(1)
-            .and_then(|tail| tail.split("function show(d)").next())
-            .expect("the auth CTA must have a parse-time click listener");
-        assert!(click_handler.contains("statusMsg.textContent = 'Opening wallet...'"));
-        assert!(click_handler.contains("if (!authActionable()) return"));
-        assert!(click_handler.contains("statusEl.hidden = false"));
-        assert!(click_handler.contains("errorEl.hidden = true"));
-        assert!(click_handler.contains("ctaBtn.disabled = true"));
-        assert!(click_handler.contains("authPage.setAttribute('aria-busy', 'true')"));
-        assert!(WALLET_STATUS_LISTENER_SCRIPT
-            .contains("return state === 'signed_out' || state === 'recovery_failed'"));
-        assert!(WALLET_STATUS_LISTENER_SCRIPT.contains("if (!d || !authActionable()) return;"));
-        assert!(!click_handler.contains("eth_requestAccounts"));
-        assert!(!click_handler.contains("fetch("));
     }
 
     /// Wave 5 — `test_render_smoke`. The `render` function returns a
@@ -770,12 +601,9 @@ mod tests {
         );
     }
 
-    /// The auth page must include the inline `<script>` that listens
-    /// for `epsx:wallet:status` events. Without this script the user
-    /// has no visual feedback when the SIWE flow progresses through
-    /// challenge → signing → verifying.
+    /// The generated Rust/WASM runtime writes status into a stable live region.
     #[test]
-    fn test_includes_wallet_status_listener_script() {
+    fn test_includes_wallet_runtime_status_contract() {
         let ctx = PageContext {
             user: None,
             path: "/auth".to_string(),
@@ -783,29 +611,13 @@ mod tests {
         };
         let (_meta, el) = render(&ctx);
         let html = dioxus_ssr::render_element(el);
-        assert!(
-            html.contains("epsx:wallet:status"),
-            "Auth page must include the wallet status listener script. Got: {html}"
-        );
-        // Verify the script toggles all 5 status labels.
-        for label in &[
-            "Opening wallet...",
-            "Requesting challenge...",
-            "Check your wallet...",
-            "Verifying signature...",
-            "Wallet not installed",
-            "Signature rejected",
-        ] {
-            assert!(
-                html.contains(label),
-                "Wallet status listener script must reference '{}'. Got: {html}",
-                label
-            );
-        }
+        assert!(html.contains("data-epsx-runtime-status=\"true\""));
+        assert!(html.contains("aria-live=\"polite\""));
+        assert!(!html.contains("<script"));
     }
 
     /// The auth page must render the loading + error banner elements
-    /// with stable ids so the JS listener can toggle them. Initial
+    /// with stable ids so the Rust/WASM runtime can update them. Initial
     /// state: `hidden` (idle, no error, no loading).
     #[test]
     fn test_status_and_error_elements_present_with_stable_ids() {

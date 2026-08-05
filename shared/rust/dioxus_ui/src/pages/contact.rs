@@ -314,7 +314,8 @@ mod tests {
         assert!(html.contains("data-copy-status-target=\"contact-copy-email-status\""));
         assert!(html.contains("data-copy=\"info@epsx.io\""));
         assert!(html.contains("type=\"button\""));
-        assert!(html.contains("onclick=\"epsx.copyText(&#39;info@epsx.io&#39;, this)\""));
+        assert!(html.contains("data-epsx-action=\"copy\""));
+        assert!(!html.contains("onclick=\""));
         assert!(html.contains("<span>Copy</span>"));
 
         for forbidden in [

@@ -46,7 +46,6 @@ pub mod input_with_icon;
 pub mod loading_button;
 pub mod pagination_nav;
 pub mod permission_badge;
-pub mod safe_theme_script;
 pub mod toaster;
 // === Wave 36b T2 ports — shadcn-namespace + new primitives ===
 pub mod callout;
@@ -102,7 +101,6 @@ pub use pagination_nav::*;
 pub use permission_badge::*;
 pub use progress::*;
 pub use rich_text::*;
-pub use safe_theme_script::*;
 pub use select::*;
 pub use separator::*;
 pub use sheet::*;

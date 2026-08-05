@@ -117,29 +117,8 @@ pub enum ConnectButtonSize {
 /// a button; otherwise it's an anchor pointing to `href`
 /// (default `/auth`).
 ///
-/// **Wave 50 — SSR-friendly wiring:** Dioxus 0.7 SSR is hydration-less
-/// in this project, so Dioxus `onclick:` closures are stripped from the
-/// rendered HTML — clicking the button does nothing. Three ways to wire
-/// a real click handler that survives SSR:
-///
-/// 1. `on_click_js: Some("epsx.connectWallet()".to_string())` — emits a
-///    literal `onclick="epsx.connectWallet()"` attribute on the button
-///    via `dangerous_inner_html`, so the handler runs on the very first
-///    click (no hydration needed). Use this for the production wallet
-///    flow on the auth page.
-/// 2. `data_connect_wallet: Some(true)` — emits `data-connect-wallet`
-///    on the button; the page-shell `wallet_shim()` script (always
-///    injected just before `</body>`) attaches a click listener that
-///    calls `window.epsx.connectWallet()`. Same effect as (1) but
-///    without inline JS — slightly cleaner, slightly slower first
-///    paint because it waits for `DOMContentLoaded`.
-/// 3. `on_click: Some(...)` — Dioxus event handler. Hydration-only;
-///    in pure SSR mode (this project's deployment) the button is a
-///    visual no-op. Kept for backwards compat with Wave 1 / 2 sites.
-///
-/// Both `on_click` and `on_click_js` / `data_connect_wallet` may be
-/// passed — `on_click_js` takes precedence (the rendered HTML attribute
-/// fires first, the Dioxus closure fires after hydration if present).
+/// In SSR, `data_connect_wallet` delegates to the generated Rust/WASM
+/// EIP-1193 bridge. Hydrated callers may continue to use `on_click`.
 #[component]
 pub fn ConnectButton(
     /// Click handler. When set, the element becomes a button.
@@ -160,21 +139,8 @@ pub fn ConnectButton(
     /// Extra class names appended to the rendered element.
     #[props(default = None)]
     class_name: Option<String>,
-    /// SSR-friendly raw JS click handler. When set, the button is
-    /// rendered via `dangerous_inner_html` with a literal
-    /// `onclick="{js}"` attribute so the click fires on the very
-    /// first click without hydration. Example:
-    /// `on_click_js: Some("epsx.connectWallet()".to_string())`.
-    /// Takes precedence over `on_click` (when both are set, only the
-    /// raw-HTML handler is emitted; the Dioxus closure is skipped).
-    #[props(default = None)]
-    on_click_js: Option<String>,
     /// When `Some(true)`, emit `data-connect-wallet` on the button.
-    /// The page-shell `wallet_shim()` script attaches a click listener
-    /// (on `DOMContentLoaded`) that calls `window.epsx.connectWallet()`.
-    /// Equivalent to `on_click_js = Some("window.epsx.connectWallet()")`
-    /// but defers to script attach instead of inline handler — useful
-    /// when the script might be loaded async.
+    /// The generated Rust/WASM runtime owns the click and SIWE flow.
     #[props(default = None)]
     data_connect_wallet: Option<bool>,
 ) -> Element {
@@ -192,18 +158,12 @@ pub fn ConnectButton(
     };
     let final_class = format!("{size_cls} {extra_cls}");
     let want_data = data_connect_wallet.unwrap_or(false);
-    let has_raw_js = on_click_js.is_some() || want_data;
+    let has_ssr_action = want_data;
 
-    if has_raw_js {
-        // Render via dangerous_inner_html so the onclick / data-*
-        // attributes survive SSR. We escape the label so user-supplied
-        // labels can't break out of the attribute context.
+    if has_ssr_action {
+        // Render the typed data attribute so the action survives SSR.
         let label_escaped = html_attr_escape(&label_val);
         let final_class_escaped = html_attr_escape(&format!("{size_cls} {extra_cls}"));
-        let onclick_attr = on_click_js
-            .as_deref()
-            .map(|s| format!(r#" onclick="{}""#, html_attr_escape(s)))
-            .unwrap_or_default();
         let data_attr = if want_data {
             r#" data-connect-wallet="true""#
         } else {
@@ -224,7 +184,7 @@ pub fn ConnectButton(
         };
         let icon_svg = epsx_templates::lucide("wallet", &icon_size.to_string(), "");
         let html = format!(
-            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{onclick_attr}{data_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
+            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
         );
         return rsx! {
             span { class: "connect-btn-wrap inline-flex",
@@ -961,11 +921,7 @@ mod tests {
 
     // ── Wave 50 — ConnectButton SSR-friendly wiring tests ────────
     //
-    // The new `data_connect_wallet: Some(true)` and `on_click_js:
-    // Some(...)` props render the button as raw HTML so the click
-    // handler survives SSR (Dioxus `onclick:` closures get stripped
-    // at SSR time). These tests lock in the rendered-HTML contract
-    // that the page-shell `wallet_shim()` script depends on.
+    // The data attribute is the SSR contract consumed by Rust/WASM.
 
     /// `html_attr_escape` must escape the 5 HTML-attribute-breaking
     /// characters (`&`, `<`, `>`, `"`, `'`) so user-supplied labels /
@@ -1013,28 +969,7 @@ mod tests {
         // present (the data-* approach is what the shim hooks into).
         // (The shim uses `addEventListener` so the button doesn't
         // need an inline onclick at all.)
-    }
-
-    /// `on_click_js: Some(...)` emits the literal `onclick="{js}"`
-    /// attribute so the click handler fires on the first click
-    /// without waiting for DOMContentLoaded.
-    #[test]
-    fn connect_button_on_click_js_emits_inline_onclick() {
-        let html = dioxus_ssr::render_element(rsx! {
-            ConnectButton {
-                size: Some(ConnectButtonSize::Default),
-                label: Some("Sign In".to_string()),
-                on_click_js: Some("epsx.connectWallet()".to_string()),
-            }
-        });
-        assert!(
-            html.contains("onclick=\"epsx.connectWallet()\""),
-            "ConnectButton(on_click_js=...) must emit onclick attribute. Got: {html}"
-        );
-        assert!(
-            html.contains("Sign In"),
-            "ConnectButton must render its label. Got: {html}"
-        );
+        assert!(!html.contains("onclick="));
     }
 
     /// User-supplied labels with HTML-breaking characters must be

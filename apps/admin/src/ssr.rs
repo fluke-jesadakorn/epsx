@@ -2039,26 +2039,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         meta.body_class.as_deref().unwrap_or(""),
     );
 
-    let denial_runtime = matches!(layout_path.as_str(), "/access-denied" | "/unauthorized")
-        .then_some(admin_denial_runtime_script())
-        .unwrap_or("");
     let recovery_runtime = if recover_session {
-        {
-            format!(
-                "<script data-epsx-session-recovery>{}</script>",
-                epsx_bff::browser_auth::browser_session_recovery_script()
-            )
-        }
+        r#"<span hidden data-epsx-session-recovery="true" data-epsx-action="session-recover"></span>"#.to_string()
     } else {
         Default::default()
     };
-    let doc = doc.replace(
-        "</body>",
-        &format!(
-            "<script>{}</script>{recovery_runtime}{denial_runtime}</body>",
-            epsx_bff::browser_auth::browser_auth_script(),
-        ),
-    );
+    let doc = doc.replace("</body>", &format!("{recovery_runtime}</body>"));
 
     let mut response = private_admin_html_response(status, doc);
     if route_path == "/developer-portal/api-keys/create"
@@ -2154,56 +2140,6 @@ fn safe_admin_layout_path(layout_path: &str, is_authenticated: bool) -> String {
     }
 
     layout_path.to_string()
-}
-
-/// The denial pages are rendered as hydration-free SSR. This constant,
-/// route-scoped controller restores the source actions without embedding any
-/// query or user value in JavaScript. Reauthentication uses the canonical
-/// same-origin logout endpoint and always follows the already-sanitized auth
-/// link. The back action uses history only for a same-origin referrer; the
-/// anchor remains a safe static fallback when the page was opened directly.
-fn admin_denial_runtime_script() -> &'static str {
-    r#"<script data-epsx-admin-denial-runtime>
-(function () {
-  var root = document.querySelector('[data-admin-denial-runtime="true"]');
-  if (!root) return;
-  var auth = root.querySelector('[data-admin-denial-auth="true"]');
-  var back = root.querySelector('[data-admin-denial-back="true"]');
-
-  if (auth) auth.addEventListener('click', async function (event) {
-    event.preventDefault();
-    var target = auth.getAttribute('href') || '/auth?return_url=%2F';
-    auth.setAttribute('aria-busy', 'true');
-    try {
-      if (!window.epsxAuth || typeof window.epsxAuth.logout !== 'function') {
-        throw new Error('Session controller unavailable');
-      }
-      await window.epsxAuth.logout(target);
-    } catch (error) {
-      auth.removeAttribute('aria-busy');
-      try {
-        document.dispatchEvent(new CustomEvent('epsx:wallet:status', {
-          detail: {
-            status: 'error',
-            kind: 'logout_unconfirmed',
-            message: error && error.message ? error.message : 'Logout could not be confirmed.'
-          }
-        }));
-      } catch (_) {}
-    }
-  });
-
-  if (back) back.addEventListener('click', function (event) {
-    if (!document.referrer || window.history.length <= 1) return;
-    try {
-      var previous = new URL(document.referrer);
-      if (previous.origin !== window.location.origin) return;
-      event.preventDefault();
-      window.history.back();
-    } catch (_) {}
-  });
-})();
-</script>"#
 }
 
 #[cfg(test)]
@@ -2718,21 +2654,6 @@ mod tests {
         ] {
             assert_eq!(safe_admin_layout_path(path, true), path);
         }
-    }
-
-    #[test]
-    fn denial_runtime_uses_only_same_origin_endpoints_and_static_dom_values() {
-        let script = admin_denial_runtime_script();
-        assert!(script.contains("data-epsx-admin-denial-runtime"));
-        assert!(script.contains("window.epsxAuth.logout(target)"));
-        assert!(!script.contains("fetch('/api/v1/auth/logout'"));
-        assert!(script.contains("previous.origin !== window.location.origin"));
-        assert!(script.contains("logout_unconfirmed"));
-        assert!(!script.contains("innerHTML"));
-        assert!(!script.contains("localStorage"));
-        assert!(!script.contains("access_token"));
-        assert!(!script.contains("refresh_token"));
-        assert!(!script.contains("javascript:"));
     }
 
     #[test]

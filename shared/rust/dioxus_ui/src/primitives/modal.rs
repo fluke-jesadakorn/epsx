@@ -51,30 +51,7 @@ pub fn Modal(
     };
     let extra_cls = class_name.unwrap_or_default();
 
-    // Focus the first focusable element on open. `document::eval` is
-    // browser-only — it's a no-op on the server (SSR), so this is safe
-    // to call inline.
-    if initial_focus {
-        let panel_id = format!("modal-panel-{}", generate_id());
-        let selector = format!("#{panel_id}");
-        // Embed the dynamic id as a quoted string literal at runtime.
-        let script = format!(
-            r#"
-            (function() {{
-                var el = document.querySelector({selector:?});
-                if (!el) return;
-                var focusable = el.querySelector(
-                    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-                );
-                if (focusable) {{ focusable.focus(); }} else {{ el.focus(); }}
-            }})();
-            "#
-        );
-        spawn(async move {
-            // Best-effort focus. Don't fail the build if the eval fails.
-            let _ = document::eval(script.as_str()).await;
-        });
-    }
+    let _ = initial_focus;
 
     let on_overlay_click = move |e: MouseEvent| {
         if !close_on_overlay {
@@ -161,12 +138,4 @@ pub fn ModalBody(children: Element) -> Element {
     rsx! {
         div { class: "modal-body", {children} }
     }
-}
-
-/// Monotonically increasing id for SSR-stable panel ids. SSR is single
-/// threaded and component instances don't overlap, so a counter is enough.
-fn generate_id() -> u64 {
-    use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(1);
-    COUNTER.fetch_add(1, Ordering::Relaxed)
 }

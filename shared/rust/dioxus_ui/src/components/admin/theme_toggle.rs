@@ -34,10 +34,7 @@ pub use crate::theme::{
     UnifiedThemeToggle as SimpleThemeToggle,
 };
 
-/// CSS-only theme toggle (no JS hydration required). For the Dioxus
-/// port this is the same as `UnifiedThemeToggle` because Dioxus
-/// SSR is hydration-less — the toggle's click handler is already
-/// attached via the inline `onclick="epsx.toggleTheme()"` attribute.
+/// Theme toggle enhanced by the generated Rust/WASM runtime.
 pub use crate::theme::UnifiedThemeToggle as ThemeToggleCSS;
 
 // =====================================================================
@@ -51,7 +48,7 @@ mod tests {
 
     /// `AdminThemeToggle` is a re-export of `UnifiedThemeToggle`. The
     /// rendered HTML must contain the canonical `theme-toggle` class
-    /// and the inline `onclick="epsx.toggleTheme()"` hydration hook.
+    /// and the typed Rust/WASM action contract.
     #[test]
     fn test_admin_theme_toggle_renders_button() {
         let el = rsx! { AdminThemeToggle {} };
@@ -60,10 +57,8 @@ mod tests {
             html.contains("theme-toggle"),
             "AdminThemeToggle should expose the theme-toggle class. Got: {html}"
         );
-        assert!(
-            html.contains("epsx.toggleTheme"),
-            "AdminThemeToggle should emit the epsx.toggleTheme hydration hook. Got: {html}"
-        );
+        assert!(html.contains("data-epsx-action=\"theme-toggle\""));
+        assert!(!html.contains("onclick=\""));
     }
 
     /// `ThemeToggle` alias resolves to the same component.

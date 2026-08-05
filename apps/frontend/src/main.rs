@@ -417,7 +417,6 @@ pub fn build_app(state: AppState) -> Router {
         // Unowned wallet/session and subscription compatibility producers are
         // intentionally absent. The backend owns wallet sessions, plan
         // catalogs, eligibility, and subscription mutations.
-        .route("/service-worker.js", get(service_worker))
         .nest_service(
             "/runtime",
             tower_http::services::ServeDir::new(browser_runtime_dir()),
@@ -444,21 +443,6 @@ fn browser_runtime_dir() -> String {
     })
 }
 
-/// Public, body-free service-worker entry point for the `/offline` recovery
-/// shell. The worker script is constant, does not inspect credentials, and is
-/// deliberately revalidated so deployments cannot strand an old cache policy.
-async fn service_worker() -> Response {
-    (
-        [
-            ("content-type", "text/javascript; charset=utf-8"),
-            ("cache-control", "no-cache, no-store, must-revalidate"),
-            ("service-worker-allowed", "/"),
-        ],
-        ssr::offline_service_worker_script(),
-    )
-        .into_response()
-}
-
 fn is_api_path(path: &str) -> bool {
     path == "/api" || path.starts_with("/api/")
 }
@@ -475,8 +459,19 @@ fn api_not_found_response() -> Response {
 }
 
 async fn fallback_handler(State(state): State<AppState>, request: Request) -> Response {
-    if is_api_path(request.uri().path()) {
+    let path = request.uri().path();
+    if is_api_path(path) {
         api_not_found_response()
+    } else if path
+        .strip_prefix("/portfolio/")
+        .is_some_and(|address| !address.is_empty() && !address.contains('/'))
+    {
+        (
+            axum::http::StatusCode::TEMPORARY_REDIRECT,
+            [(axum::http::header::LOCATION, "/portfolio")],
+            "",
+        )
+            .into_response()
     } else {
         ssr::ssr_handler(State(state), request).await
     }
@@ -663,21 +658,21 @@ mod routing_tests {
             .unwrap();
         let html = String::from_utf8_lossy(&body);
         assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
-        assert_eq!(html.matches("window.epsxAuth.recover()").count(), 1);
+        assert_eq!(html.matches("epsx_browser_runtime_bootstrap.js").count(), 1);
+        assert!(!html.contains("window.epsxAuth"));
         assert!(html.contains("data-auth-session-state=\"recovering\""));
         assert!(html.contains("Restoring your session..."));
         assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
-        assert!(html.contains("detail:{version:1,state:'failed'}"));
         assert!(!html.contains("opaque-refresh"));
-        let bridge_position = html
-            .find("window.epsxAuth =")
-            .expect("the shared auth bridge must be present");
+        let runtime_position = html
+            .find("epsx_browser_runtime_bootstrap.js")
+            .expect("the generated Rust/WASM runtime module must be present");
         let recovery_position = html
             .find("data-epsx-session-recovery")
             .expect("the recovery bootstrap must be present");
         assert!(
-            bridge_position < recovery_position,
-            "the shared bridge must be defined before recovery runs"
+            runtime_position < recovery_position,
+            "the generated runtime must load before the recovery marker"
         );
 
         let wrong_client = request_with_cookie(
@@ -1229,52 +1224,11 @@ mod routing_tests {
             .contains("no-store"));
     }
 
-    #[test]
-    fn dormant_nav_badge_stays_unavailable_and_never_counts_a_list_page() {
-        let source = include_str!("ui.rs");
-        assert!(source.contains("data-state=\"unavailable\""));
-        assert!(!source.contains("fetch('/api/v1/notifications"));
-        assert!(!source.contains("/api/v1/notifications?limit=1"));
-        assert!(!source.contains("items.filter"));
-        assert!(!source.contains(">0</span>"));
-    }
-
     #[tokio::test]
     async fn pricing_redirect_status_and_target_are_preserved() {
         let response = request(Method::GET, "/pricing?ref=test").await;
         assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
         assert_eq!(response.headers()[header::LOCATION], "/plans?ref=test");
-    }
-
-    #[tokio::test]
-    async fn offline_worker_is_public_static_and_revalidated() {
-        let response = request(Method::GET, "/service-worker.js").await;
-        assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(
-            response.headers()[header::CONTENT_TYPE],
-            "text/javascript; charset=utf-8"
-        );
-        assert_eq!(
-            response.headers()[header::CACHE_CONTROL],
-            "no-cache, no-store, must-revalidate"
-        );
-        assert_eq!(response.headers()["service-worker-allowed"], "/");
-        assert!(response.headers().get(header::SET_COOKIE).is_none());
-
-        let body = to_bytes(response.into_body(), 128 * 1024).await.unwrap();
-        let script = String::from_utf8_lossy(&body);
-        assert!(script.contains("const OFFLINE_PATH = '/offline';"));
-        assert!(script.contains("credentials: 'omit'"));
-        assert!(script.contains("url.search !== ''"));
-        assert!(script.contains("request.mode !== 'navigate'"));
-        assert!(script.contains("cache.put(OFFLINE_PATH"));
-        assert!(!script.contains("cache.addAll"));
-        assert!(!script.contains("event.request.clone()"));
-
-        assert_eq!(
-            request(Method::POST, "/service-worker.js").await.status(),
-            StatusCode::METHOD_NOT_ALLOWED
-        );
     }
 
     #[tokio::test]
@@ -1295,7 +1249,8 @@ mod routing_tests {
             .await
             .unwrap();
         let html = String::from_utf8_lossy(&body);
-        assert!(html.contains("data-epsx-offline-worker-registration"));
+        assert!(html.contains("/runtime/epsx_browser_runtime_bootstrap.js"));
+        assert!(!html.contains("/service-worker.js"));
         assert!(html.contains("Open this offline help page"));
         assert!(!html.contains("View cached notifications"));
         assert!(!html.contains("Your data will sync"));

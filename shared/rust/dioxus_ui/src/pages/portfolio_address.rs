@@ -5,12 +5,8 @@
 //! the bare `/portfolio` (per the Wave 22 preflight ROUTES.md
 //! "skipped" rationale: the listing page above is the same surface).
 //!
-//! Implementation: this is a server-side redirect. We render a small
-//! "Redirecting..." page that uses an inline `<meta http-equiv=refresh>`
-//! to navigate the client. SSR is the only reliable way to handle
-//! per-address routes in this stack (the path-param /:address/ isn't
-//! part of the dispatcher matchers), so the redirect also works
-//! before any JS hydration.
+//! The frontend BFF performs the actual HTTP 307 before dispatching this page.
+//! This component is a non-executable fallback for direct library rendering.
 //!
 //! Section markers (for the design-doc test suite):
 //!   - `portfolio-address-page` — the wrapper div.
@@ -34,17 +30,10 @@ fn RenderPortfolioAddress(ctx: PageContext) -> Element {
         .trim_start_matches('/')
         .trim_end_matches('/')
         .to_string();
-    // Per the OLD prod behaviour, the per-address path is a 307 to
-    // `/portfolio`. We use a meta-refresh so the redirect works
-    // pre-hydration (the OLD does the same; see apps-old/frontend
-    // middleware: portfolio/[address] -> /portfolio).
     let target = "/portfolio".to_string();
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            // No `<AuthGate>` — the OLD prod `/portfolio/[address]`
-            // is a 307 to `/portfolio` for everyone. The new port
-            // renders a small "Redirecting..." page that triggers
-            // the redirect via inline JS.
+            // No `<AuthGate>` — the route redirects for everyone.
             div { class: "container page-content portfolio-address-page",
                 "data-section": "portfolio-address-redirect",
                 h1 { class: "text-2xl font-bold text-foreground", "Portfolio" }
@@ -57,24 +46,8 @@ fn RenderPortfolioAddress(ctx: PageContext) -> Element {
                         "..."
                     }
                 }
-                // Inline JS redirect — fires before any
-                // client-side hydration. The OLD uses a 307
-                // from middleware; we render the redirect
-                // inline because the BFF dispatcher doesn't
-                // have a per-address route matcher (the URL
-                // still lands here as a catch-all
-                // /portfolio/...). Dioxus doesn't accept
-                // `http-equiv` as a raw attribute name (hyphen
-                // in an identifier), and `<meta refresh>` is
-                // finicky, so we use a small inline script
-                // instead.
-                script {
-                    dangerous_inner_html: "window.location.replace('/portfolio');"
-                }
-                noscript {
-                    p { "JavaScript is disabled. "
-                        a { href: "{target}", "Click here to continue." }
-                    }
+                p {
+                    a { href: "{target}", "Continue to portfolio" }
                 }
             }
         }
@@ -121,10 +94,6 @@ mod tests {
     fn test_meta_refresh_target() {
         let (_meta, el) = render(&ctx_with_address("0xdeadbeef"));
         let html = dioxus_ssr::render_element(el);
-        // The redirect target is `/portfolio`. We render it as a
-        // JS `window.location.replace('/portfolio')` instead of a
-        // meta-refresh because Dioxus doesn't accept the
-        // `http-equiv` attribute name.
         assert!(
             html.contains("/portfolio"),
             "redirect must point at /portfolio. Got: {}",

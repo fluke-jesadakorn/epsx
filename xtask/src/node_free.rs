@@ -355,6 +355,19 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
             &format!("wasm-bindgen for {crate_name}"),
         )?;
     }
+    // This loader is build output, never repository source. It is the minimum
+    // module bridge required to initialize wasm-bindgen's generated `web`
+    // target without an application-owned JavaScript toolchain.
+    for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
+        let bootstrap = output.join(format!("{crate_name}_bootstrap.js"));
+        fs::write(
+            &bootstrap,
+            format!(
+                "import init from './{crate_name}.js';\nawait init();\n//# sourceURL=wasm-bindgen:{crate_name}\n"
+            ),
+        )
+        .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
+    }
     println!(
         "browser-runtime: PASS — generated untracked assets in {}",
         output.display()
@@ -847,7 +860,7 @@ fn validate_group_flag(flags: &[String]) -> Result<(), String> {
 }
 
 fn validate_key_value_flags(flags: &[String], allowed: &[&str]) -> Result<(), String> {
-    if flags.len() % 2 != 0 {
+    if !flags.len().is_multiple_of(2) {
         return Err("flags must use --name value pairs".into());
     }
     for pair in flags.chunks_exact(2) {

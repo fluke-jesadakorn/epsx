@@ -301,37 +301,10 @@ pub fn tier_color_class(tier: &str) -> &'static str {
 fn code_snippet(endpoint: &EndpointDef, language: &str) -> String {
     let url = format!("{DEVELOPER_DOCS_EXAMPLE_ORIGIN}{}", endpoint.path);
     match language {
-        "javascript" => {
-            let mut options = vec![
-                format!("  method: '{}'", endpoint.method),
-                "  headers: { 'Authorization': 'Bearer YOUR_API_KEY' }".to_string(),
-            ];
-            if endpoint.method == "POST" {
-                options.push("  body: JSON.stringify({ ticker: 'AAPL' })".to_string());
-            }
-            format!(
-                "const res = await fetch('{url}', {{\n{}\n}});\nconst data = await res.json();",
-                options.join(",\n")
-            )
-        }
-        "python" => {
-            let mut lines = vec![
-                "import requests".to_string(),
-                String::new(),
-                format!("url = \"{url}\""),
-                "headers = {\"Authorization\": \"Bearer YOUR_API_KEY\"}".to_string(),
-            ];
-            let request = match endpoint.method.as_str() {
-                "POST" => "res = requests.post(url, headers=headers, json={\"ticker\": \"AAPL\"})",
-                "DELETE" => {
-                    "res = requests.delete(url, headers=headers, params={\"ticker\": \"AAPL\"})"
-                }
-                _ => "res = requests.get(url, headers=headers)",
-            };
-            lines.push(request.to_string());
-            lines.push("data = res.json()".to_string());
-            lines.join("\n")
-        }
+        "rust" => format!(
+            "let response = reqwest::Client::new()\n    .request(reqwest::Method::{}, \"{}\")\n    .bearer_auth(\"YOUR_API_KEY\")\n    .send()\n    .await?;\nlet data: serde_json::Value = response.json().await?;",
+            endpoint.method, url
+        ),
         _ => {
             let mut lines = vec![
                 format!("curl -X {} \"{url}\"", endpoint.method),
@@ -719,15 +692,12 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
     );
     let body_id = format!("{card_id}-body");
     let curl = code_snippet(&endpoint, "curl");
-    let javascript = code_snippet(&endpoint, "javascript");
-    let python = code_snippet(&endpoint, "python");
+    let rust = code_snippet(&endpoint, "rust");
     let response = pretty_response(&endpoint.response_example);
     let curl_tab_id = format!("{card_id}-tab-curl");
-    let javascript_tab_id = format!("{card_id}-tab-javascript");
-    let python_tab_id = format!("{card_id}-tab-python");
+    let rust_tab_id = format!("{card_id}-tab-rust");
     let curl_panel_id = format!("{card_id}-panel-curl");
-    let javascript_panel_id = format!("{card_id}-panel-javascript");
-    let python_panel_id = format!("{card_id}-panel-python");
+    let rust_panel_id = format!("{card_id}-panel-rust");
     let code_copy_status_id = format!("{card_id}-copy-code-status");
     let response_copy_status_id = format!("{card_id}-copy-response-status");
     let code_copy_label = format!(
@@ -834,8 +804,7 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                             "aria-label": "Code language",
                             for (lang, label, tab_id, panel_id) in [
                                 ("curl", "cURL", curl_tab_id.clone(), curl_panel_id.clone()),
-                                ("javascript", "JavaScript", javascript_tab_id.clone(), javascript_panel_id.clone()),
-                                ("python", "Python", python_tab_id.clone(), python_panel_id.clone()),
+                                ("rust", "Rust", rust_tab_id.clone(), rust_panel_id.clone()),
                             ] {
                                 button {
                                     id: "{tab_id}",
@@ -879,24 +848,14 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                             code { "{curl}" }
                         }
                         pre {
-                            id: "{javascript_panel_id}",
+                            id: "{rust_panel_id}",
                             class: "docs-code-panel",
                             role: "tabpanel",
                             tabindex: "0",
-                            "aria-labelledby": "{javascript_tab_id}",
-                            "data-docs-code-panel": "javascript",
+                            "aria-labelledby": "{rust_tab_id}",
+                            "data-docs-code-panel": "rust",
                             hidden: true,
-                            code { "{javascript}" }
-                        }
-                        pre {
-                            id: "{python_panel_id}",
-                            class: "docs-code-panel",
-                            role: "tabpanel",
-                            tabindex: "0",
-                            "aria-labelledby": "{python_tab_id}",
-                            "data-docs-code-panel": "python",
-                            hidden: true,
-                            code { "{python}" }
+                            code { "{rust}" }
                         }
                     }
                 }
@@ -1256,8 +1215,8 @@ mod tests {
         );
         assert_eq!(html.matches("docs-endpoint-card-params").count(), 3);
         assert_eq!(html.matches("docs-endpoint-card-rate-limits").count(), 10);
-        assert_eq!(html.matches("data-docs-code-tab=").count(), 30);
-        assert_eq!(html.matches("data-docs-code-panel=").count(), 30);
+        assert_eq!(html.matches("data-docs-code-tab=").count(), 20);
+        assert_eq!(html.matches("data-docs-code-panel=").count(), 20);
         assert_eq!(html.matches("data-docs-copy-code=\"true\"").count(), 10);
         assert_eq!(html.matches("data-docs-copy-response=\"true\"").count(), 10);
         assert_eq!(html.matches("docs-response-panel").count(), 10);
@@ -1274,7 +1233,7 @@ mod tests {
         assert!(html.contains("It is not a verified production contract."));
         assert!(html.contains("Do not use real credentials."));
         assert_eq!(html.matches("Live requests unavailable").count(), 20);
-        assert_eq!(html.matches("https://api.example.invalid").count(), 31);
+        assert_eq!(html.matches("https://api.example.invalid").count(), 21);
         assert!(html.contains(
             "curl -H &#34;Authorization: Bearer YOUR_API_KEY&#34; https://api.example.invalid/api/analytics/rankings"
         ));
@@ -1300,9 +1259,7 @@ mod tests {
                 "docs page retained live-request control or executor: {removed_control}"
             );
         }
-        // The ten JavaScript fetch calls remain inert text inside the preserved
-        // language examples; there is no form, field, send control, or executor.
-        assert_eq!(html.matches("const res = await fetch").count(), 10);
+        assert_eq!(html.matches("reqwest::Client::new()").count(), 10);
         assert!(!html.contains("REST endpoints, request/response schemas, and examples"));
         assert!(!html.contains("API documentation</h1>"));
     }
@@ -1335,9 +1292,7 @@ mod tests {
                     endpoint.method.to_ascii_lowercase(),
                     endpoint.path.trim_matches('/').replace('/', "-")
                 );
-                for (language, selected) in
-                    [("curl", true), ("javascript", false), ("python", false)]
-                {
+                for (language, selected) in [("curl", true), ("rust", false)] {
                     let tab_id = format!("{card_id}-tab-{language}");
                     let panel_id = format!("{card_id}-panel-{language}");
                     assert!(tab_ids.insert(tab_id.clone()), "duplicate tab id {tab_id}");
@@ -1374,12 +1329,12 @@ mod tests {
         }
 
         assert_eq!(endpoint_count, 10);
-        assert_eq!(tab_ids.len(), 30);
-        assert_eq!(panel_ids.len(), 30);
+        assert_eq!(tab_ids.len(), 20);
+        assert_eq!(panel_ids.len(), 20);
         assert!(tab_ids.is_disjoint(&panel_ids));
         assert_eq!(html.matches(r#"role="tablist""#).count(), 10);
-        assert_eq!(html.matches(r#"role="tab""#).count(), 30);
-        assert_eq!(html.matches(r#"role="tabpanel""#).count(), 30);
+        assert_eq!(html.matches(r#"role="tab""#).count(), 20);
+        assert_eq!(html.matches(r#"role="tabpanel""#).count(), 20);
         assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-tab-curl""#));
         assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-panel-curl""#));
     }
@@ -1569,12 +1524,8 @@ mod tests {
             "curl -X POST \"https://api.example.invalid/api/users/watchlist\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"ticker\": \"AAPL\"}'"
         );
         assert_eq!(
-            code_snippet(post, "javascript"),
-            "const res = await fetch('https://api.example.invalid/api/users/watchlist', {\n  method: 'POST',\n  headers: { 'Authorization': 'Bearer YOUR_API_KEY' },\n  body: JSON.stringify({ ticker: 'AAPL' })\n});\nconst data = await res.json();"
-        );
-        assert_eq!(
-            code_snippet(post, "python"),
-            "import requests\n\nurl = \"https://api.example.invalid/api/users/watchlist\"\nheaders = {\"Authorization\": \"Bearer YOUR_API_KEY\"}\nres = requests.post(url, headers=headers, json={\"ticker\": \"AAPL\"})\ndata = res.json()"
+            code_snippet(post, "rust"),
+            "let response = reqwest::Client::new()\n    .request(reqwest::Method::POST, \"https://api.example.invalid/api/users/watchlist\")\n    .bearer_auth(\"YOUR_API_KEY\")\n    .send()\n    .await?;\nlet data: serde_json::Value = response.json().await?;"
         );
         let pretty = pretty_response(&post.response_example);
         assert!(pretty.contains("\n  \"success\": true"));

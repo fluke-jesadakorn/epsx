@@ -18,16 +18,8 @@
 //! }
 //! ```
 //!
-//! Click behavior:
-//! 1. POST `/api/v1/pay/intents` with the typed props (via the
-//!    BFF proxy at `pay.epsx.io/api/v1/pay/intents`).
-//! 2. On success, redirect to `pay.epsx.io/checkout?intent={id}`.
-//! 3. On failure, show an inline error toast (slice-5 will
-//!    hydrate to use `epsx.toast()`).
-//!
-//! For slice-4 the click handler is implemented as a Dioxus
-//! `onclick` closure. Slice-5 can swap in a `use_navigator` +
-//! `Resource` if hydration feels janky.
+//! Click behavior is delegated through typed data attributes to the generated
+//! Rust/WASM browser runtime.
 
 use dioxus::prelude::*;
 
@@ -111,97 +103,19 @@ pub fn CheckoutButton(props: CheckoutButtonProps) -> Element {
         .clone()
         .unwrap_or_else(|| base_class.to_string());
 
-    // Build the POST body.
-    let body_json = serde_json::json!({
-        "amount": props.amount,
-        "currency": props.currency,
-        "chain_id": props.chain_id,
-        "token": token,
-        "description": props.description.clone().unwrap_or_default(),
-    });
-    let body_str = body_json.to_string();
-
-    // wave49(slice-5): real onclick handler. After slice-4
-    // shipped a no-op spawn, this now does the actual work:
-    //
-    // 1. POST to `/api/v1/pay/intent` (the BFF proxy at
-    //    `props.api_base` forwards to `pay-svc`).
-    // 2. Parse the response — the `intent.id` field is the
-    //    redirect target.
-    // 3. `window.location.href = /pay?intent={id}` to navigate.
-    //
-    // Implementation uses the Dioxus `document::eval` JS
-    // bridge (same pattern Wave 1 used in `auth_modal`,
-    // `modal`, and `rich_text`) because the SSR mode doesn't
-    // expose `window` to Rust closures. For SSR-only render
-    // (no hydration), the eval never runs and the button is
-    // a visual no-op (the page-shell `disabled` state handles
-    // the visible-but-inert case).
-    let api_base = props.api_base.clone();
-    let pay_url_fallback = props.pay_url.clone();
-    let onclick = move |_evt| {
-        let url = format!("{}/v1/pay/intent", api_base);
-        let pay_url_fallback = pay_url_fallback.clone();
-        let body_str = body_str.clone();
-        spawn(async move {
-            // Inline JS payload — runs in the browser context.
-            // The fetch is intentionally NOT pre-encoded; the
-            // browser-side JSON.stringify matches our Rust
-            // serde_json output for the simple shapes we use.
-            //
-            // Follows the auth_modal.rs / modal.rs / rich_text.rs
-            // pattern: `let _ = document::eval(script.as_str()).await;`
-            // The `_` discard is intentional — the script is
-            // fire-and-forget (we redirect on completion, so
-            // there's nothing to await in the Rust closure).
-            let script = format!(
-                r#"
-                (async () => {{
-                    try {{
-                        const resp = await fetch("{url}", {{
-                            method: "POST",
-                            headers: {{ "Content-Type": "application/json" }},
-                            body: JSON.stringify({body}),
-                        }});
-                        if (!resp.ok) {{
-                            console.error("CheckoutButton: pay-svc error", resp.status);
-                            return;
-                        }}
-                        const data = await resp.json();
-                        const intentId = data?.intent?.id;
-                        if (intentId) {{
-                            window.location.href = "/pay?intent=" + encodeURIComponent(intentId);
-                        }} else {{
-                            window.location.href = "{fallback}";
-                        }}
-                    }} catch (e) {{
-                        console.error("CheckoutButton: fetch failed", e);
-                        window.location.href = "{fallback}";
-                    }}
-                }})();
-                "#,
-                url = url,
-                body = body_str,
-                fallback = pay_url_fallback,
-            );
-            // Dispatch to the browser via the Dioxus eval bridge.
-            // SSR is a no-op (the `RuntimeScope` doesn't have a
-            // `document`); the button visual is correct without
-            // hydration. On the client, this runs the IIFE
-            // immediately and the user is redirected.
-            let _ = document::eval(script.as_str()).await;
-        });
-    };
-
     rsx! {
         div { class: "checkout-button-wrap",
             button {
                 class: "{final_class}",
                 r#type: "button",
-                onclick: onclick,
                 "data-checkout-button": "true",
+                "data-epsx-action": "create-checkout",
                 "data-amount": "{props.amount}",
                 "data-currency": "{props.currency}",
+                "data-token": "{token}",
+                "data-chain-id": "{props.chain_id}",
+                "data-description": "{props.description.clone().unwrap_or_default()}",
+                "data-api-base": "{props.api_base}",
                 "data-chain": "{chain_label}",
                 "data-pay-url": "{props.pay_url}",
                 span { class: "checkout-button-label relative flex items-center justify-center gap-2",

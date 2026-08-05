@@ -817,7 +817,8 @@ mod tests {
         }
         assert!(html.contains("Share Platform"));
         assert!(html.contains("data-share-text=\"\""));
-        assert!(html.contains("onclick=\"epsx.shareText"));
+        assert!(html.contains("data-epsx-action=\"share\""));
+        assert!(!html.contains("onclick=\""));
         assert!(
             html.contains("type=\"button\""),
             "home share CTA must render a native button: {html}"

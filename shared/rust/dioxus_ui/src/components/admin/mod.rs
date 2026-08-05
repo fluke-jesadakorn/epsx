@@ -214,9 +214,6 @@ pub use crate::primitives::permission_badge::{
     PermissionBadge, PermissionBadgeProps, PermissionBadgeSize,
 };
 pub use crate::primitives::progress::Progress;
-pub use crate::primitives::safe_theme_script::{
-    theme_utils, SafeThemeScript, SafeThemeScriptWithNonce,
-};
 pub use crate::primitives::select::{MultiSelect, Select, SelectOption};
 pub use crate::primitives::separator::Separator;
 pub use crate::primitives::sheet::{

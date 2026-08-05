@@ -1401,6 +1401,23 @@ fn api_not_found_response() -> Response {
 async fn fallback_handler(State(state): State<AppState>, request: Request) -> Response {
     if is_api_path(request.uri().path()) {
         api_not_found_response()
+    } else if matches!(request.uri().path(), "/auth" | "/admin/auth") {
+        (
+            StatusCode::TEMPORARY_REDIRECT,
+            [(header::LOCATION, "/")],
+            "",
+        )
+            .into_response()
+    } else if matches!(
+        request.uri().path(),
+        "/notifications" | "/admin/notifications"
+    ) {
+        (
+            StatusCode::TEMPORARY_REDIRECT,
+            [(header::LOCATION, "/notifications/manage")],
+            "",
+        )
+            .into_response()
     } else {
         ssr::ssr_handler(State(state), request).await
     }
@@ -1571,17 +1588,18 @@ mod routing_tests {
             .unwrap();
         let html = String::from_utf8_lossy(&body);
         assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
-        assert_eq!(html.matches("window.epsxAuth.recover()").count(), 1);
+        assert_eq!(html.matches("epsx_browser_runtime_bootstrap.js").count(), 1);
+        assert!(!html.contains("window.epsxAuth"));
         assert!(!html.contains("opaque-refresh"));
-        let bridge_position = html
-            .find("window.epsxAuth =")
-            .expect("the shared auth bridge must be present");
+        let runtime_position = html
+            .find("epsx_browser_runtime_bootstrap.js")
+            .expect("the generated Rust/WASM runtime module must be present");
         let recovery_position = html
             .find("data-epsx-session-recovery")
             .expect("the recovery bootstrap must be present");
         assert!(
-            bridge_position < recovery_position,
-            "the shared bridge must be defined before recovery runs"
+            runtime_position < recovery_position,
+            "the generated runtime must load before the recovery marker"
         );
 
         let wrong_client = request_with_cookie(
@@ -1866,16 +1884,23 @@ mod routing_tests {
             "/notifications?next=https%3A%2F%2Fevil.example%2Fsteal",
         ] {
             let notifications = request(Method::GET, uri).await;
-            assert_eq!(notifications.status(), StatusCode::OK, "{uri}");
-            let body = to_bytes(notifications.into_body(), 2 * 1024 * 1024)
-                .await
-                .unwrap();
-            let html = String::from_utf8_lossy(&body);
-            assert!(
-                html.contains("window.location.replace('/notifications/manage');"),
+            assert_eq!(
+                notifications.status(),
+                StatusCode::TEMPORARY_REDIRECT,
                 "{uri}"
             );
-            assert!(!html.contains("evil.example"), "{uri}");
+            assert_eq!(
+                notifications.headers()[header::LOCATION],
+                "/notifications/manage",
+                "{uri}"
+            );
+            let body = to_bytes(notifications.into_body(), 16 * 1024)
+                .await
+                .unwrap();
+            assert!(
+                !String::from_utf8_lossy(&body).contains("evil.example"),
+                "{uri}"
+            );
         }
 
         // The notification composer is a real page whose form posts back to

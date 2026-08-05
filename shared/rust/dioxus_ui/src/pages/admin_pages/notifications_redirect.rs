@@ -6,8 +6,7 @@ pub fn render(_ctx: &PageContext) -> (PageMeta, Element) {
     (
         meta,
         rsx! {
-            script { "window.location.replace('/notifications/manage');" }
-            div { "Redirecting…" }
+            div { "Redirecting… " a { href: "/notifications/manage", "Continue" } }
         },
     )
 }

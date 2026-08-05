@@ -212,10 +212,10 @@ impl Btn {
             .unwrap_or_default();
 
         let attrs = self.extra_attrs;
-        let onclick_attr = self
+        let action_attr = self
             .onclick
             .as_deref()
-            .map(|o| format!(r#" onclick="{o}""#))
+            .map(|action| format!(r#" data-epsx-action="{}""#, html_escape_attr(action)))
             .unwrap_or_default();
 
         if let Some(href) = self.href {
@@ -223,7 +223,7 @@ impl Btn {
                 r##"<a href="{href}" class="{cls}"{onclick}{attrs}>{left}<span>{label}</span>{right}</a>"##,
                 href = html_escape_attr(&href),
                 cls = full_cls,
-                onclick = onclick_attr,
+                onclick = action_attr,
                 attrs = if attrs.is_empty() {
                     String::new()
                 } else {
@@ -237,7 +237,7 @@ impl Btn {
             format!(
                 r##"<button type="button" class="{cls}"{onclick}{attrs}>{left}<span>{label}</span>{right}</button>"##,
                 cls = full_cls,
-                onclick = onclick_attr,
+                onclick = action_attr,
                 attrs = if attrs.is_empty() {
                     String::new()
                 } else {
@@ -942,7 +942,7 @@ impl Tabs {
         let items: Vec<String> = self.tabs.iter().map(|(n, l)| {
             let active_cls = if n == &self.active { " active" } else { "" };
             format!(
-                r##"<button type="button" data-tab-group="{g}" data-tab-name="{n}" class="tab{active}" onclick="epsx.activateTab('{g}','{n}')">{l}</button>"##,
+                r##"<button type="button" data-tab-group="{g}" data-tab-name="{n}" data-epsx-action="activate-tab" class="tab{active}">{l}</button>"##,
                 g = self.group, n = html_escape_attr(n), active = active_cls, l = html_escape_text(l)
             )
         }).collect();

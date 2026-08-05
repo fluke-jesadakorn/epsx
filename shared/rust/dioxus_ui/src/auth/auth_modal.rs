@@ -11,9 +11,8 @@
 //!   when the user dismisses the modal via Escape, overlay click, or
 //!   the close button — mirrors the Radix `onOpenChange` contract used
 //!   by the shadcn `Dialog`.
-//! - Focus trap: the dialog panel gets a runtime-generated `id` and
-//!   the first focusable descendant is focused on mount via
-//!   `document::eval` (same approach Wave 1 used for `Modal`).
+//! - The dialog panel has deterministic accessibility identifiers; hydrated
+//!   focus behavior stays in Dioxus/Rust.
 //! - Escape listener: `onkeydown` on the panel checks `Key::Escape` and
 //!   calls the close handlers when `close_on_escape` is enabled.
 //! - `aria-labelledby` + `aria-describedby` wiring to the title and
@@ -98,27 +97,6 @@ pub fn AuthModal(
     let panel_id = "auth-modal-panel".to_string();
     let title_id = format!("{panel_id}-title");
     let desc_id = format!("{panel_id}-desc");
-
-    // Focus the first focusable descendant on mount. Best-effort: a
-    // browser-only eval, no-op on the server.
-    {
-        let selector = format!("#{panel_id}");
-        let script = format!(
-            r#"
-            (function() {{
-                var el = document.querySelector({selector:?});
-                if (!el) return;
-                var focusable = el.querySelector(
-                    'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]):not([type="hidden"]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
-                );
-                if (focusable) {{ focusable.focus(); }} else {{ el.focus(); }}
-            }})();
-            "#
-        );
-        spawn(async move {
-            let _ = document::eval(script.as_str()).await;
-        });
-    }
 
     let on_overlay_click = move |e: MouseEvent| {
         if !close_on_overlay {

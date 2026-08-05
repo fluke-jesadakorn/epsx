@@ -2,14 +2,11 @@
 //!
 //! The development source is a server-side `redirect("/")`. The shared
 //! Dioxus dispatcher cannot issue that framework redirect itself, so direct
-//! callers receive the smallest equivalent document: an immediate constant
-//! client redirect and a constant same-origin fallback link. Request state is
-//! deliberately ignored.
+//! callers receive a constant same-origin fallback link. The BFF owns HTTP
+//! redirects; this render path contains no client executable code.
 
 use super::super::{PageContext, PageMeta};
 use dioxus::prelude::*;
-
-const AUTH_REDIRECT_SCRIPT: &str = "window.location.replace('/');";
 
 pub fn render(_ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::admin("Redirecting");
@@ -29,7 +26,6 @@ fn AdminAuthRedirect() -> Element {
                 a { href: "/", "continue to the admin home page" }
                 "."
             }
-            script { dangerous_inner_html: AUTH_REDIRECT_SCRIPT }
         }
     }
 }
@@ -82,7 +78,7 @@ mod tests {
 
         assert_eq!(signed_out_html, signed_in_html);
         assert!(signed_out_html.contains("data-admin-auth-state=\"redirect\""));
-        assert!(signed_out_html.contains("window.location.replace('/');"));
+        assert!(!signed_out_html.contains("<script"));
         assert!(signed_out_html.contains("href=\"/\""));
     }
 

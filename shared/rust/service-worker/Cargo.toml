@@ -6,6 +6,10 @@ edition.workspace = true
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
@@ -19,9 +23,15 @@ web-sys = { workspace = true, features = [
   "ExtendableEvent",
   "FetchEvent",
   "Headers",
+  "Notification",
+  "NotificationEvent",
   "NotificationOptions",
+  "PushEvent",
+  "PushMessageData",
   "Request",
   "RequestMode",
   "Response",
   "ServiceWorkerGlobalScope",
+  "ServiceWorkerRegistration",
+  "WindowClient",
 ] }

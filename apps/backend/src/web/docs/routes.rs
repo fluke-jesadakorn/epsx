@@ -1,7 +1,7 @@
-//! Documentation Routes
+//! Server-rendered OpenAPI documentation routes.
 //!
-//! Provides endpoints for serving OpenAPI documentation with Scalar.
-//! Separate documentation for users (/docs) and admins (/admin/docs).
+//! The reference is rendered from the same `utoipa` model as the JSON
+//! endpoints. It intentionally loads no CDN library or browser script.
 
 use axum::http::{HeaderMap, HeaderValue};
 use axum::{
@@ -9,21 +9,17 @@ use axum::{
     routing::get,
     Router,
 };
+use serde_json::Value;
 use utoipa::OpenApi;
 
 use crate::config::env::get_env_var;
 use crate::web::docs::openapi_admin::AdminApiDoc;
 use crate::web::docs::openapi_user::UserApiDoc;
 
-/// Create documentation routes for Scalar
-/// - /docs - User-facing API documentation
-/// - /admin/docs - Admin API documentation (includes all endpoints)
 pub fn create_docs_routes() -> Router {
     Router::new()
-        // User documentation
         .route("/docs", get(docs_user_handler))
         .route("/api-docs/openapi.json", get(openapi_user_json_handler))
-        // Admin documentation
         .route("/admin/docs", get(docs_admin_handler))
         .route(
             "/admin/api-docs/openapi.json",
@@ -31,253 +27,205 @@ pub fn create_docs_routes() -> Router {
         )
 }
 
-/// Serve Scalar Interactive API Documentation for Users at /docs
-/// This endpoint provides user-facing API documentation (excludes admin endpoints)
 pub async fn docs_user_handler() -> impl IntoResponse {
-    create_scalar_html(
+    create_openapi_html(
         "EPSX API Documentation",
-        "Interactive API documentation for EPSX Data Analytics Platform",
+        "EPSX Data Analytics Platform HTTP API",
         "/api-docs/openapi.json",
-        false, // is_admin
+        UserApiDoc::openapi(),
+        false,
     )
-    .await
 }
 
-/// Serve Scalar Interactive API Documentation for Admins at /admin/docs
-/// This endpoint provides complete API documentation including admin endpoints
 pub async fn docs_admin_handler() -> impl IntoResponse {
-    create_scalar_html(
+    create_openapi_html(
         "EPSX Admin API Documentation",
-        "Complete API documentation including admin management endpoints",
+        "Administrative and service-management HTTP API",
         "/admin/api-docs/openapi.json",
-        true, // is_admin
+        AdminApiDoc::openapi(),
+        true,
     )
-    .await
 }
 
-/// Create Scalar HTML documentation page
-async fn create_scalar_html(
+fn create_openapi_html(
     title: &str,
     description: &str,
     openapi_url: &str,
+    spec: utoipa::openapi::OpenApi,
     is_admin: bool,
 ) -> impl IntoResponse {
-    let admin_badge = if is_admin {
-        r#"<span class="badge admin-badge">🔐 Admin Panel</span>"#
+    let operations = render_operations(&spec);
+    let badge = if is_admin {
+        r#"<span class="badge admin">Admin surface</span>"#
     } else {
-        ""
+        r#"<span class="badge">Public surface</span>"#
     };
-
-    let admin_style = if is_admin {
-        r#"
-        .admin-badge {
-            background: rgba(220, 38, 38, 0.3);
-            border: 1px solid rgba(220, 38, 38, 0.5);
-        }
-        .header {
-            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%) !important;
-        }
-    "#
-    } else {
-        ""
-    };
-
+    let title = escape_text(title);
+    let description = escape_text(description);
+    let openapi_url = escape_attr(openapi_url);
     let html = format!(
-        r#"
-<!DOCTYPE html>
-<html>
+        r#"<!doctype html>
+<html lang="en" class="dark">
 <head>
-    <title>{title}</title>
-    <meta charset="utf-8"/>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:300,400,700|Roboto:300,400,700" rel="stylesheet">
-    <style>
-        body {{
-            margin: 0;
-            padding: 0;
-            font-family: 'Roboto', sans-serif;
-        }}
-        .header {{
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }}
-        .header h1 {{
-            margin: 0;
-            font-size: 2.5em;
-            font-weight: 300;
-        }}
-        .header p {{
-            margin: 10px 0 0 0;
-            opacity: 0.9;
-            font-size: 1.1em;
-        }}
-        .feature-badges {{
-            margin-top: 15px;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            flex-wrap: wrap;
-        }}
-        .badge {{
-            background: rgba(255, 255, 255, 0.2);
-            padding: 5px 12px;
-            border-radius: 20px;
-            font-size: 0.85em;
-            font-weight: 500;
-        }}
-        #scalar-container {{
-            margin-top: 0;
-            height: calc(100vh - 120px);
-        }}
-        /* Custom Scalar styling for EPSX branding */
-        .scalar-app {{
-            --scalar-color-1: #667eea;
-            --scalar-color-2: #764ba2;
-            --scalar-color-accent: #667eea;
-            --scalar-background-1: #ffffff;
-            --scalar-background-2: #f8fafc;
-            --scalar-background-3: #f1f5f9;
-            --scalar-border-color: #e2e8f0;
-        }}
-        {admin_style}
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="{description}">
+  <title>{title}</title>
+  <style>
+    :root {{ color-scheme: dark; font-family: ui-sans-serif, system-ui, sans-serif; background:#09090b; color:#f4f4f5; }}
+    * {{ box-sizing:border-box; }} body {{ margin:0; min-height:100vh; background:linear-gradient(145deg,#09090b,#111827); }}
+    header {{ padding:2.5rem max(1rem,calc((100vw - 76rem)/2)); border-bottom:1px solid #27272a; background:rgba(9,9,11,.92); }}
+    h1 {{ margin:.5rem 0; font-size:clamp(1.8rem,4vw,3rem); }} h2,h3,p {{ margin-top:0; }}
+    main {{ max-width:76rem; margin:0 auto; padding:2rem 1rem 5rem; }}
+    .header-row,.operation-head,.meta {{ display:flex; align-items:center; gap:.75rem; flex-wrap:wrap; }}
+    .badge,.method,.status {{ display:inline-flex; border-radius:999px; padding:.25rem .65rem; font-size:.75rem; font-weight:800; letter-spacing:.04em; }}
+    .badge {{ background:#312e81; color:#c7d2fe; }} .badge.admin {{ background:#7f1d1d; color:#fecaca; }}
+    .raw {{ color:#93c5fd; }} .intro {{ color:#a1a1aa; max-width:52rem; }}
+    .operation {{ margin:0 0 1rem; padding:1.1rem; border:1px solid #27272a; border-radius:.9rem; background:rgba(24,24,27,.72); }}
+    .path {{ font-family:ui-monospace,monospace; overflow-wrap:anywhere; }}
+    .method {{ min-width:4.5rem; justify-content:center; background:#164e63; color:#a5f3fc; }}
+    .method-post {{ background:#14532d; color:#bbf7d0; }} .method-put,.method-patch {{ background:#713f12; color:#fde68a; }} .method-delete {{ background:#7f1d1d; color:#fecaca; }}
+    .summary {{ margin:.75rem 0 .35rem; font-weight:700; }} .description {{ color:#a1a1aa; white-space:pre-wrap; }}
+    .status {{ border:1px solid #3f3f46; color:#d4d4d8; margin:.25rem .25rem 0 0; }}
+    .empty {{ padding:2rem; border:1px dashed #3f3f46; border-radius:.9rem; color:#a1a1aa; }}
+    a:focus-visible {{ outline:3px solid #38bdf8; outline-offset:3px; }}
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1>{title}</h1>
-        <p>{description}</p>
-        <div class="feature-badges">
-            {admin_badge}
-            <span class="badge">🚀 Interactive Testing</span>
-            <span class="badge">🔐 Web3 Authentication</span>
-            <span class="badge">📊 Real-time Analytics</span>
-            <span class="badge">💼 Data Analytics Platform</span>
-        </div>
-        <div style="margin-top: 15px; font-size: 0.9em; opacity: 0.9;">
-            <strong>🦄 Web3 Authentication Flow:</strong>
-            Generate Challenge → Sign with Wallet → Verify Signature → Get Bearer Token
-        </div>
-    </div>
-    <div id="scalar-container"></div>
-    <script id="api-reference" data-url="{openapi_url}"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
-    <script>
-        // Configure Scalar with EPSX branding and interactive features
-        const apiReference = document.getElementById('api-reference');
-        
-        // Enhanced configuration for interactive testing
-        apiReference.dataset.configuration = JSON.stringify({{
-            theme: 'purple',
-            layout: 'modern',
-            showSidebar: true,
-            searchHotKey: 'k',
-            darkMode: false,
-            customCss: `
-                .scalar-app {{
-                    --scalar-color-1: #667eea;
-                    --scalar-color-2: #764ba2;
-                    --scalar-color-accent: #667eea;
-                    --scalar-radius: 6px;
-                    --scalar-font: 'Roboto', sans-serif;
-                }}
-            `,
-            authentication: {{
-                preferredSecurityScheme: 'bearerAuth',
-                bearerAuth: {{
-                    token: '',
-                    description: 'Enter your Web3 authentication token obtained from /api/auth/web3/verify'
-                }},
-                apiKey: {{
-                    token: '',
-                    description: 'Alternative API key authentication'
-                }}
-            }},
-            spec: {{
-                url: '{openapi_url}'
-            }},
-            servers: [
-                {{
-                    url: 'http://localhost:8080',
-                    description: 'Development Server'
-                }},
-                {{
-                    url: 'https://api.epsx.io',
-                    description: 'Production Server'
-                }}
-            ],
-            defaultHttpClient: {{
-                targetKey: 'javascript',
-                clientKey: 'fetch'
-            }},
-            hiddenClients: [],
-            examples: {{
-                'ChallengeRequest': {{
-                    wallet_address: '0x742d35Cc6634C0532925a3b8F39dBC0A31Da12345'
-                }},
-                'VerifyRequest': {{
-                    wallet_address: '0x742d35Cc6634C0532925a3b8F39dBC0A31Da12345',
-                    message: 'EPSX wants you to sign in with your Ethereum account...',
-                    signature: '0x1a2b3c4d5e6f...'
-                }}
-            }},
-            onSpecUpdate: function(spec) {{
-                console.log('EPSX API Specification loaded:', spec.info);
-                // Add Web3-specific guidance
-                console.log('💡 Web3 Authentication Flow:');
-                console.log('1. POST /api/auth/web3/challenge - Get SIWE challenge');
-                console.log('2. Sign message with wallet (MetaMask, WalletConnect, etc.)');
-                console.log('3. POST /api/auth/web3/verify - Submit signature for token');
-                console.log('4. Use returned Bearer token for authenticated requests');
-            }}
-        }});
-    </script>
+  <header>
+    <div class="header-row">{badge}<span class="badge">SSR</span><span class="badge">OpenAPI</span></div>
+    <h1>{title}</h1>
+    <p class="intro">{description}</p>
+    <a class="raw" href="{openapi_url}">Download the canonical OpenAPI JSON</a>
+  </header>
+  <main aria-label="API operations">{operations}</main>
 </body>
-</html>
-"#
+</html>"#
     );
 
-    // Build headers that allow iframe embedding from allowed origins
     let mut headers = HeaderMap::new();
-
-    // Get frontend URL from env, default to localhost for dev
     let frontend_url =
         get_env_var("FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3000".to_string());
     let admin_url =
         get_env_var("ADMIN_FRONTEND_URL").unwrap_or_else(|_| "http://localhost:3001".to_string());
-
-    // Allow embedding from frontend origins
-    let frame_ancestors = format!("frame-ancestors 'self' {} {}", frontend_url, admin_url);
-
-    // Override X-Frame-Options to allow from same origin (modern browsers use frame-ancestors)
+    let csp = format!(
+        "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self' {} {}",
+        csp_origin(&frontend_url),
+        csp_origin(&admin_url)
+    );
     headers.insert("x-frame-options", HeaderValue::from_static("SAMEORIGIN"));
-
-    // Set Content-Security-Policy with frame-ancestors allowing frontend
-    if let Ok(csp_value) = HeaderValue::from_str(&frame_ancestors) {
-        headers.insert("content-security-policy", csp_value);
+    if let Ok(value) = HeaderValue::from_str(&csp) {
+        headers.insert("content-security-policy", value);
     }
-
-    // Set content type
     headers.insert(
         "content-type",
         HeaderValue::from_static("text/html; charset=utf-8"),
     );
-
     (headers, Html(html))
 }
 
-/// Serve User OpenAPI JSON specification at /api-docs/openapi.json
+fn render_operations(spec: &utoipa::openapi::OpenApi) -> String {
+    let Ok(value) = serde_json::to_value(spec) else {
+        return r#"<p class="empty">The OpenAPI document could not be rendered.</p>"#.into();
+    };
+    let Some(paths) = value.get("paths").and_then(Value::as_object) else {
+        return r#"<p class="empty">No API paths are published.</p>"#.into();
+    };
+    let mut rendered = String::new();
+    for (path, item) in paths {
+        let Some(item) = item.as_object() else {
+            continue;
+        };
+        for method in ["get", "post", "put", "patch", "delete", "head", "options"] {
+            let Some(operation) = item.get(method).and_then(Value::as_object) else {
+                continue;
+            };
+            let summary = operation
+                .get("summary")
+                .and_then(Value::as_str)
+                .unwrap_or("Documented operation");
+            let description = operation
+                .get("description")
+                .and_then(Value::as_str)
+                .unwrap_or("");
+            let statuses = operation
+                .get("responses")
+                .and_then(Value::as_object)
+                .map(|responses| {
+                    responses
+                        .keys()
+                        .map(|status| {
+                            format!(r#"<span class="status">{}</span>"#, escape_text(status))
+                        })
+                        .collect::<String>()
+                })
+                .unwrap_or_default();
+            rendered.push_str(&format!(
+                r#"<article class="operation"><div class="operation-head"><span class="method method-{method}">{method_upper}</span><code class="path">{path}</code></div><p class="summary">{summary}</p><p class="description">{description}</p><div class="meta" aria-label="Documented response statuses">{statuses}</div></article>"#,
+                method = escape_attr(method),
+                method_upper = escape_text(&method.to_ascii_uppercase()),
+                path = escape_text(path),
+                summary = escape_text(summary),
+                description = escape_text(description),
+            ));
+        }
+    }
+    if rendered.is_empty() {
+        r#"<p class="empty">No API operations are published.</p>"#.into()
+    } else {
+        rendered
+    }
+}
+
+fn csp_origin(value: &str) -> &str {
+    if value.starts_with("https://") || value.starts_with("http://localhost") {
+        value
+    } else {
+        "'none'"
+    }
+}
+
+fn escape_text(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+fn escape_attr(value: &str) -> String {
+    escape_text(value)
+}
+
 pub async fn openapi_user_json_handler() -> Json<utoipa::openapi::OpenApi> {
     Json(UserApiDoc::openapi())
 }
 
-/// Serve Admin OpenAPI JSON specification at /admin/api-docs/openapi.json
 pub async fn openapi_admin_json_handler() -> Json<utoipa::openapi::OpenApi> {
     Json(AdminApiDoc::openapi())
 }
 
-// Keep backward compatibility exports
 pub use docs_user_handler as docs_scalar_handler;
 pub use openapi_user_json_handler as openapi_json_handler;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn renderer_escapes_operation_metadata_and_emits_no_script() {
+        let html = render_operations(&UserApiDoc::openapi());
+        assert!(html.contains("class=\"operation\"") || html.contains("No API operations"));
+        assert!(!html.contains("<script"));
+        assert!(!html.contains("@scalar"));
+    }
+
+    #[test]
+    fn html_escaping_is_context_safe() {
+        assert_eq!(
+            escape_text("</p><script>alert(1)</script>"),
+            "&lt;/p&gt;&lt;script&gt;alert(1)&lt;/script&gt;"
+        );
+    }
+}

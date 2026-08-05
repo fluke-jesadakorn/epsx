@@ -4,7 +4,7 @@
 //! No generated JavaScript or WebAssembly is committed to the repository.
 
 /// Canonical generated module name used by the BFFs and build tooling.
-pub const GENERATED_MODULE: &str = "epsx_browser_runtime.js";
+pub const GENERATED_MODULE: &str = "epsx_browser_runtime_bootstrap.js";
 
 /// Accept only same-origin absolute-path redirects.
 pub fn safe_return_path(raw: &str) -> &str {
@@ -22,14 +22,14 @@ pub fn safe_return_path(raw: &str) -> &str {
 #[cfg(target_arch = "wasm32")]
 mod browser {
     use super::safe_return_path;
-    use js_sys::{Array, Function, Object, Promise, Reflect};
+    use js_sys::{Array, Function, Object, Promise, Reflect, Uint8Array};
     use serde::Deserialize;
     use serde_json::{json, Value};
     use wasm_bindgen::{closure::Closure, prelude::*, JsCast};
     use wasm_bindgen_futures::{spawn_local, JsFuture};
     use web_sys::{Document, Element, Event, Request, RequestInit, Response, Window};
 
-    const GENERATED_WORKER: &str = "/runtime/epsx_service_worker.js";
+    const GENERATED_WORKER: &str = "/runtime/epsx_service_worker_bootstrap.js";
 
     #[derive(Deserialize)]
     struct Challenge {
@@ -56,9 +56,14 @@ mod browser {
             else {
                 return;
             };
-            let Ok(Some(element)) = target.closest(
-                "[data-epsx-action],[data-connect-wallet],[data-epsx-logout],[data-notification-mutation]",
-            ) else {
+            let Ok(Some(element)) = target.closest(concat!(
+                "[data-epsx-action],[data-connect-wallet],[data-epsx-logout],",
+                "[data-notification-mutation],[data-manual-screenshot],",
+                "[data-manual-dialog-close],[data-docs-sidebar-toggle],",
+                "[data-docs-sidebar-overlay],[data-docs-section-link],",
+                "[data-docs-endpoint-toggle],[data-docs-code-tab],",
+                "[data-docs-copy-code],[data-docs-copy-response],[data-push-action]"
+            )) else {
                 return;
             };
             let action = element
@@ -77,6 +82,60 @@ mod browser {
                     element
                         .has_attribute("data-notification-mutation")
                         .then(|| "notification-mutation".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-manual-screenshot")
+                        .then(|| "manual-open".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-manual-dialog-close")
+                        .then(|| "manual-close".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-sidebar-toggle")
+                        .then(|| "docs-sidebar-toggle".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-sidebar-overlay")
+                        .then(|| "docs-sidebar-close".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-section-link")
+                        .then(|| "docs-section".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-endpoint-toggle")
+                        .then(|| "docs-endpoint".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-code-tab")
+                        .then(|| "docs-tab".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-copy-code")
+                        .then(|| "docs-copy-code".into())
+                })
+                .or_else(|| {
+                    element
+                        .has_attribute("data-docs-copy-response")
+                        .then(|| "docs-copy-response".into())
+                })
+                .or_else(|| {
+                    element.get_attribute("data-push-action").map(|action| {
+                        if action == "enable" {
+                            "push-enable".into()
+                        } else {
+                            "push-disable".into()
+                        }
+                    })
                 });
             let Some(action) = action else { return };
             if !matches!(action.as_str(), "native-link" | "native-submit") {
@@ -108,6 +167,18 @@ mod browser {
             }
             "session-recover" => spawn_local(recover_session()),
             "notification-mutation" => spawn_local(notification_mutation(element)),
+            "create-checkout" => spawn_local(create_checkout(element)),
+            "manual-open" => open_manual_dialog(&element),
+            "manual-close" => close_manual_dialog(),
+            "docs-sidebar-toggle" => set_docs_sidebar(&element, None),
+            "docs-sidebar-close" => set_docs_sidebar(&element, Some(false)),
+            "docs-section" => activate_docs_section(&element),
+            "docs-endpoint" => toggle_docs_endpoint(&element),
+            "docs-tab" => activate_docs_tab(&element),
+            "docs-copy-code" => copy_docs_value(&element, false),
+            "docs-copy-response" => copy_docs_value(&element, true),
+            "push-enable" => spawn_local(change_push_subscription(true)),
+            "push-disable" => spawn_local(change_push_subscription(false)),
             "retry" => reload(),
             "back" => history_back(),
             _ => {}
@@ -229,6 +300,185 @@ mod browser {
                     let _ = node.toggle_attribute_with_force("hidden", !selected);
                 }
             }
+        }
+    }
+
+    fn open_manual_dialog(trigger: &Element) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        let Ok(Some(dialog)) = document.query_selector("[data-manual-dialog]") else {
+            return;
+        };
+        if let Ok(Some(image)) = dialog.query_selector("[data-manual-dialog-image]") {
+            if let Some(source) = trigger.get_attribute("data-screenshot-src") {
+                let _ = image.set_attribute("src", &source);
+            }
+            if let Some(alt) = trigger.get_attribute("data-screenshot-alt") {
+                let _ = image.set_attribute("alt", &alt);
+            }
+        }
+        if let Ok(Some(title)) = dialog.query_selector("[data-manual-dialog-title]") {
+            title.set_text_content(trigger.get_attribute("data-screenshot-alt").as_deref());
+        }
+        let _ = dialog.remove_attribute("hidden");
+        set_body_overflow("hidden");
+        if let Ok(Some(close)) = dialog.query_selector("[data-manual-dialog-close]") {
+            if let Ok(close) = close.dyn_into::<web_sys::HtmlElement>() {
+                let _ = close.focus();
+            }
+        }
+    }
+
+    fn close_manual_dialog() {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        if let Ok(Some(dialog)) = document.query_selector("[data-manual-dialog]") {
+            let _ = dialog.set_attribute("hidden", "");
+        }
+        set_body_overflow("");
+    }
+
+    fn set_body_overflow(value: &str) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        let Some(body) = document.body() else { return };
+        if let Ok(style) = Reflect::get(body.as_ref(), &JsValue::from_str("style")) {
+            let _ = Reflect::set(
+                &style,
+                &JsValue::from_str("overflow"),
+                &JsValue::from_str(value),
+            );
+        }
+    }
+
+    fn set_docs_sidebar(trigger: &Element, requested: Option<bool>) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        let Ok(Some(sidebar)) = document.query_selector("[data-docs-sidebar]") else {
+            return;
+        };
+        let open = requested.unwrap_or_else(|| !sidebar.class_list().contains("open"));
+        let _ = sidebar.class_list().toggle_with_force("open", open);
+        if let Ok(Some(toggle)) = document.query_selector("[data-docs-sidebar-toggle]") {
+            let _ = toggle.set_attribute("aria-expanded", if open { "true" } else { "false" });
+            let _ = toggle.set_attribute(
+                "aria-label",
+                if open {
+                    "Close API reference navigation"
+                } else {
+                    "Open API reference navigation"
+                },
+            );
+        }
+        if let Ok(Some(overlay)) = document.query_selector("[data-docs-sidebar-overlay]") {
+            if open {
+                let _ = overlay.remove_attribute("hidden");
+            } else {
+                let _ = overlay.set_attribute("hidden", "");
+            }
+        }
+        let _ = trigger;
+    }
+
+    fn activate_docs_section(link: &Element) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        if let Ok(links) = document.query_selector_all("[data-docs-section-link]") {
+            for index in 0..links.length() {
+                if let Some(item) = links
+                    .item(index)
+                    .and_then(|node| node.dyn_into::<Element>().ok())
+                {
+                    let _ = item.class_list().toggle_with_force("active", item == *link);
+                }
+            }
+        }
+        set_docs_sidebar(link, Some(false));
+    }
+
+    fn toggle_docs_endpoint(button: &Element) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        let Some(id) = button.get_attribute("aria-controls") else {
+            return;
+        };
+        let Some(body) = document.get_element_by_id(&id) else {
+            return;
+        };
+        let open = button.get_attribute("aria-expanded").as_deref() != Some("true");
+        let _ = button.set_attribute("aria-expanded", if open { "true" } else { "false" });
+        if open {
+            let _ = body.remove_attribute("hidden");
+        } else {
+            let _ = body.set_attribute("hidden", "");
+        }
+        if let Ok(Some(chevron)) = button.query_selector(".docs-endpoint-card-chevron") {
+            chevron.set_text_content(Some(if open { "▾" } else { "▸" }));
+        }
+    }
+
+    fn activate_docs_tab(tab: &Element) {
+        let Some(language) = tab.get_attribute("data-docs-code-tab") else {
+            return;
+        };
+        let Ok(Some(example)) = tab.closest(".docs-code-example") else {
+            return;
+        };
+        for (selector, attribute) in [
+            ("[data-docs-code-tab]", "data-docs-code-tab"),
+            ("[data-docs-code-panel]", "data-docs-code-panel"),
+        ] {
+            let Ok(nodes) = example.query_selector_all(selector) else {
+                continue;
+            };
+            for index in 0..nodes.length() {
+                let Some(node) = nodes
+                    .item(index)
+                    .and_then(|node| node.dyn_into::<Element>().ok())
+                else {
+                    continue;
+                };
+                let selected = node.get_attribute(attribute).as_deref() == Some(&language);
+                if attribute == "data-docs-code-tab" {
+                    let _ = node.class_list().toggle_with_force("active", selected);
+                    let _ = node
+                        .set_attribute("aria-selected", if selected { "true" } else { "false" });
+                    let _ = node.set_attribute("tabindex", if selected { "0" } else { "-1" });
+                } else if selected {
+                    let _ = node.remove_attribute("hidden");
+                } else {
+                    let _ = node.set_attribute("hidden", "");
+                }
+            }
+        }
+    }
+
+    fn copy_docs_value(button: &Element, response: bool) {
+        let container_selector = if response {
+            ".docs-response-example"
+        } else {
+            ".docs-code-example"
+        };
+        let value_selector = if response {
+            "code"
+        } else {
+            "[data-docs-code-panel]:not([hidden]) code"
+        };
+        let value = button
+            .closest(container_selector)
+            .ok()
+            .flatten()
+            .and_then(|container| container.query_selector(value_selector).ok().flatten())
+            .and_then(|node| node.text_content());
+        if let Some(value) = value {
+            let _ = button.set_attribute("data-copy", &value);
+            copy_value(button);
         }
     }
 
@@ -422,6 +672,54 @@ mod browser {
         }
     }
 
+    async fn create_checkout(element: Element) {
+        let amount = element.get_attribute("data-amount").unwrap_or_default();
+        let currency = element.get_attribute("data-currency").unwrap_or_default();
+        let token = element.get_attribute("data-token").unwrap_or_default();
+        let chain_id = element.get_attribute("data-chain-id").unwrap_or_default();
+        let description = element
+            .get_attribute("data-description")
+            .unwrap_or_default();
+        let api_base = element
+            .get_attribute("data-api-base")
+            .unwrap_or_else(|| "/api".into());
+        let fallback = element
+            .get_attribute("data-pay-url")
+            .unwrap_or_else(|| "/pay".into());
+        if !api_base.starts_with('/') || api_base.starts_with("//") {
+            set_status("Checkout is unavailable.", true);
+            return;
+        }
+        let endpoint = format!("{}/v1/pay/intent", api_base.trim_end_matches('/'));
+        match fetch_json(
+            &endpoint,
+            "POST",
+            Some(json!({
+                "amount": amount,
+                "currency": currency,
+                "token": token,
+                "chain_id": chain_id,
+                "description": description
+            })),
+        )
+        .await
+        {
+            Ok(value) => {
+                let intent = value
+                    .get("intent")
+                    .and_then(|value| value.get("id"))
+                    .and_then(Value::as_str);
+                let target = intent
+                    .map(|id| format!("/pay?intent={}", js_sys::encode_uri_component(id)))
+                    .unwrap_or(fallback);
+                if let Some((window, _)) = window_document() {
+                    let _ = window.location().assign(&target);
+                }
+            }
+            Err(_) => set_status("Checkout could not be started.", true),
+        }
+    }
+
     fn start_route_tasks(window: &Window, document: &Document) {
         if document
             .query_selector("[data-epsx-session-recovery]")
@@ -439,6 +737,9 @@ mod browser {
         }
         if let Ok(Some(node)) = document.query_selector("[data-notifications-live-status]") {
             start_notification_stream(node);
+        }
+        if let Ok(Some(node)) = document.query_selector("[data-epsx-notification-push]") {
+            spawn_local(load_push_status(node));
         }
         let _ = window;
     }
@@ -467,12 +768,366 @@ mod browser {
         if !endpoint.starts_with('/') || endpoint.starts_with("//") {
             return;
         }
-        if let Ok(value) = fetch_json(&endpoint, "GET", None).await {
-            if let Some(status) = value.get("status").and_then(Value::as_str) {
-                node.set_text_content(Some(status));
-                let _ = node.set_attribute("data-payment-status", status);
+        loop {
+            set_payment_loading(true);
+            if let Ok(value) = fetch_json(&endpoint, "GET", None).await {
+                let payload = value.get("intent").unwrap_or(&value);
+                if let Some(status) = payload.get("status").and_then(Value::as_str) {
+                    apply_payment_status(&node, status);
+                    set_payment_loading(false);
+                    if matches!(status, "released" | "refunded" | "cancelled") {
+                        break;
+                    }
+                }
+            }
+            set_payment_loading(false);
+            delay(5_000).await;
+        }
+    }
+
+    fn apply_payment_status(node: &Element, status: &str) {
+        let color = match status {
+            "escrowed" => "blue",
+            "released" => "green",
+            "refunded" | "cancelled" => "red",
+            "pending" => "orange",
+            _ => "slate",
+        };
+        let _ = node.set_attribute("data-status", status);
+        let _ = node.set_attribute("data-payment-status", status);
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        if let Some(label) = document.get_element_by_id("pay-escrow-status-label") {
+            label.set_text_content(Some(status));
+            label.set_class_name(&format!(
+                "pay-escrow-status-label text-sm font-medium text-{color}-500"
+            ));
+        }
+        if let Some(dot) = document.get_element_by_id("pay-escrow-status-dot") {
+            dot.set_class_name(&format!(
+                "pay-escrow-status-dot h-2 w-2 rounded-full bg-{color}-500"
+            ));
+        }
+        for id in ["pay-escrow-flow-steps", "pay-escrow-chain-card"] {
+            if let Some(target) = document.get_element_by_id(id) {
+                let _ = target.set_attribute("data-status", status);
             }
         }
+    }
+
+    fn set_payment_loading(loading: bool) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        if let Some(indicator) = document.get_element_by_id("pay-escrow-polling-indicator") {
+            let _ = indicator.class_list().toggle_with_force("hidden", !loading);
+        }
+    }
+
+    async fn delay(milliseconds: i32) {
+        let promise = Promise::new(&mut |resolve, _reject| {
+            if let Some(window) = web_sys::window() {
+                let _ = window
+                    .set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, milliseconds);
+            } else {
+                let _ = resolve.call0(&JsValue::UNDEFINED);
+            }
+        });
+        let _ = JsFuture::from(promise).await;
+    }
+
+    async fn load_push_status(root: Element) {
+        set_push_state(
+            &root,
+            "checking",
+            "Checking whether browser push is available…",
+        );
+        let Ok(value) = fetch_json("/api/v1/notifications/push", "GET", None).await else {
+            set_push_state(
+                &root,
+                "unavailable",
+                "Browser push availability could not be verified.",
+            );
+            return;
+        };
+        let enabled = value.get("enabled").and_then(Value::as_bool);
+        let subscribed = value.get("subscribed").and_then(Value::as_bool);
+        let public_key = value.get("public_key").and_then(Value::as_str);
+        if enabled.is_none()
+            || subscribed.is_none()
+            || enabled != Some(public_key.is_some())
+            || (enabled == Some(false) && subscribed == Some(true))
+        {
+            set_push_state(
+                &root,
+                "unavailable",
+                "Browser push availability could not be verified.",
+            );
+            return;
+        }
+        if !enabled.unwrap_or(false) {
+            set_push_state(
+                &root,
+                "unavailable",
+                "Browser push is unavailable until the notification service is configured.",
+            );
+            return;
+        }
+        let Some(public_key) = public_key.filter(|key| valid_base64url_key(key)) else {
+            set_push_state(
+                &root,
+                "unavailable",
+                "Browser push configuration is invalid.",
+            );
+            return;
+        };
+        let _ = root.set_attribute("data-push-public-key", public_key);
+        if subscribed.unwrap_or(false) {
+            set_push_state(
+                &root,
+                "subscribed",
+                "A browser push subscription is registered for this wallet.",
+            );
+        } else {
+            set_push_state(
+                &root,
+                "ready",
+                "Browser push is ready. Enable it from this browser when you are ready.",
+            );
+        }
+    }
+
+    async fn change_push_subscription(enable: bool) {
+        let Some((window, document)) = window_document() else {
+            return;
+        };
+        let Ok(Some(root)) = document.query_selector("[data-epsx-notification-push]") else {
+            return;
+        };
+        set_push_state(
+            &root,
+            "pending",
+            if enable {
+                "Requesting browser notification permission…"
+            } else {
+                "Removing the browser push subscription…"
+            },
+        );
+        let result = async {
+            if enable {
+                request_notification_permission(&window).await?;
+            }
+            let registration = JsFuture::from(window.navigator().service_worker().ready()?).await?;
+            let manager = Reflect::get(&registration, &JsValue::from_str("pushManager"))?;
+            let mut subscription = call_promise_method(&manager, "getSubscription", None).await?;
+            if enable && (subscription.is_null() || subscription.is_undefined()) {
+                let key = root
+                    .get_attribute("data-push-public-key")
+                    .and_then(|value| decode_base64url(&value))
+                    .ok_or_else(|| JsValue::from_str("invalid push key"))?;
+                let options = Object::new();
+                Reflect::set(
+                    &options,
+                    &JsValue::from_str("userVisibleOnly"),
+                    &JsValue::TRUE,
+                )?;
+                let bytes = Uint8Array::from(key.as_slice());
+                Reflect::set(
+                    &options,
+                    &JsValue::from_str("applicationServerKey"),
+                    bytes.as_ref(),
+                )?;
+                subscription =
+                    call_promise_method(&manager, "subscribe", Some(options.as_ref())).await?;
+            }
+            let body = push_subscription_body(&subscription)?;
+            if enable {
+                let value =
+                    fetch_json("/api/v1/notifications/push", "PUT", Some(body.clone())).await?;
+                if value.get("enabled") != Some(&Value::Bool(true))
+                    || value.get("subscribed") != Some(&Value::Bool(true))
+                {
+                    return Err(JsValue::from_str("push subscription was rejected"));
+                }
+            } else {
+                let endpoint = body
+                    .get("endpoint")
+                    .and_then(Value::as_str)
+                    .ok_or_else(|| JsValue::from_str("missing subscription endpoint"))?;
+                let value = fetch_json(
+                    "/api/v1/notifications/push",
+                    "DELETE",
+                    Some(json!({"endpoint": endpoint})),
+                )
+                .await?;
+                if value.get("subscribed") != Some(&Value::Bool(false)) {
+                    return Err(JsValue::from_str("push unsubscribe was rejected"));
+                }
+                let _ = call_promise_method(&subscription, "unsubscribe", None).await;
+            }
+            Ok::<(), JsValue>(())
+        }
+        .await;
+        match result {
+            Ok(()) if enable => set_push_state(
+                &root,
+                "subscribed",
+                "A browser push subscription is registered for this wallet.",
+            ),
+            Ok(()) => {
+                let _ = root.remove_attribute("data-push-public-key");
+                load_push_status(root).await;
+            }
+            Err(_) if enable => set_push_state(
+                &root,
+                "ready",
+                "The browser subscription could not be registered. Try again when the service is available.",
+            ),
+            Err(_) => set_push_state(
+                &root,
+                "subscribed",
+                "The browser push subscription could not be removed.",
+            ),
+        }
+    }
+
+    async fn request_notification_permission(window: &Window) -> Result<(), JsValue> {
+        if !window.is_secure_context() {
+            return Err(JsValue::from_str("secure context required"));
+        }
+        let notification = Reflect::get(window.as_ref(), &JsValue::from_str("Notification"))?;
+        if notification.is_null() || notification.is_undefined() {
+            return Err(JsValue::from_str("notifications unsupported"));
+        }
+        let mut permission = Reflect::get(&notification, &JsValue::from_str("permission"))?
+            .as_string()
+            .unwrap_or_default();
+        if permission == "default" {
+            let request = Reflect::get(&notification, &JsValue::from_str("requestPermission"))?
+                .dyn_into::<Function>()?;
+            let promise = request.call0(&notification)?.dyn_into::<Promise>()?;
+            permission = JsFuture::from(promise)
+                .await?
+                .as_string()
+                .unwrap_or_default();
+        }
+        if permission == "granted" {
+            Ok(())
+        } else {
+            Err(JsValue::from_str("notification permission not granted"))
+        }
+    }
+
+    async fn call_promise_method(
+        receiver: &JsValue,
+        method: &str,
+        argument: Option<&JsValue>,
+    ) -> Result<JsValue, JsValue> {
+        let function =
+            Reflect::get(receiver, &JsValue::from_str(method))?.dyn_into::<Function>()?;
+        let value = if let Some(argument) = argument {
+            function.call1(receiver, argument)?
+        } else {
+            function.call0(receiver)?
+        };
+        JsFuture::from(value.dyn_into::<Promise>()?).await
+    }
+
+    fn push_subscription_body(subscription: &JsValue) -> Result<Value, JsValue> {
+        if subscription.is_null() || subscription.is_undefined() {
+            return Err(JsValue::from_str("browser subscription unavailable"));
+        }
+        let to_json =
+            Reflect::get(subscription, &JsValue::from_str("toJSON"))?.dyn_into::<Function>()?;
+        let raw = to_json.call0(subscription)?;
+        let value: Value = serde_wasm_bindgen::from_value(raw)
+            .map_err(|error| JsValue::from_str(&error.to_string()))?;
+        let endpoint = value
+            .get("endpoint")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let p256dh = value
+            .pointer("/keys/p256dh")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let auth = value
+            .pointer("/keys/auth")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let valid_endpoint = url::Url::parse(endpoint).is_ok_and(|url| {
+            url.scheme() == "https"
+                && url.username().is_empty()
+                && url.password().is_none()
+                && url.query().is_none()
+                && url.fragment().is_none()
+                && endpoint.len() <= 2_048
+        });
+        if !valid_endpoint || !valid_base64url_key(p256dh) || !valid_base64url_key(auth) {
+            return Err(JsValue::from_str("invalid browser subscription"));
+        }
+        Ok(json!({"endpoint": endpoint, "p256dh": p256dh, "auth": auth}))
+    }
+
+    fn set_push_state(root: &Element, state: &str, message: &str) {
+        let _ = root.set_attribute("data-push-state", state);
+        if let Ok(Some(status)) = root.query_selector("[data-push-status]") {
+            status.set_text_content(Some(message));
+        }
+        for (action, visible, enabled) in [
+            ("enable", state != "subscribed", state == "ready"),
+            ("disable", state == "subscribed", state == "subscribed"),
+        ] {
+            let selector = format!("[data-push-action=\"{action}\"]");
+            let Ok(Some(button)) = root.query_selector(&selector) else {
+                continue;
+            };
+            if visible {
+                let _ = button.remove_attribute("hidden");
+            } else {
+                let _ = button.set_attribute("hidden", "");
+            }
+            if enabled {
+                let _ = button.remove_attribute("disabled");
+            } else {
+                let _ = button.set_attribute("disabled", "");
+            }
+        }
+    }
+
+    fn valid_base64url_key(value: &str) -> bool {
+        !value.is_empty()
+            && value.len() <= 256
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+    }
+
+    fn decode_base64url(value: &str) -> Option<Vec<u8>> {
+        if !valid_base64url_key(value) || value.len() % 4 == 1 {
+            return None;
+        }
+        let mut output = Vec::with_capacity(value.len() * 3 / 4);
+        let mut accumulator = 0_u32;
+        let mut bits = 0_u8;
+        for byte in value.bytes() {
+            let digit = match byte {
+                b'A'..=b'Z' => byte - b'A',
+                b'a'..=b'z' => byte - b'a' + 26,
+                b'0'..=b'9' => byte - b'0' + 52,
+                b'-' => 62,
+                b'_' => 63,
+                _ => return None,
+            };
+            accumulator = (accumulator << 6) | u32::from(digit);
+            bits += 6;
+            if bits >= 8 {
+                bits -= 8;
+                output.push((accumulator >> bits) as u8);
+                accumulator &= (1_u32 << bits).saturating_sub(1);
+            }
+        }
+        (!output.is_empty()).then_some(output)
     }
 
     fn start_notification_stream(status: Element) {

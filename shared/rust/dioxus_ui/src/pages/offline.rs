@@ -104,6 +104,7 @@ fn OfflineActions() -> Element {
                 class: "btn offline-retry",
                 r#type: "button",
                 "data-offline-reload": "true",
+                "data-epsx-action": "retry",
                 "aria-describedby": "offline-retry-status",
                 Icon { name: "rotate-ccw".to_string(), size: Some(18) }
                 span { "Try Again" }
