@@ -14,6 +14,8 @@ import {
   shouldStabilizePinnedSourceAdminChatStream,
   shouldStabilizePinnedSourceAdminNotificationStream,
   shouldStabilizePinnedSourceAdminNotificationNavigation,
+  pinnedSourceAdminRedirectTarget,
+  shouldHideDuplicateSourceToastsInScreenshot,
   shouldPatchPinnedSourceViemBigIntMath,
 } from './capture';
 import type { NetworkEntry, Scenario } from './types';
@@ -194,6 +196,69 @@ test('only affected pinned source access toasts are canonicalized', () => {
   expect(
     canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
   ).toBe(false);
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr9.admin.wallet-plan-detail')
+  ).toBe(true);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot(
+      'source',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(true);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot(
+      'target',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(false);
+  expect(
+    shouldHideDuplicateSourceToastsInScreenshot('source', 'pr3.admin.access')
+  ).toBe(false);
+});
+
+test('only exact source alias routes wait for canonical admin destinations', () => {
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.notifications',
+      '/notifications'
+    )
+  ).toBe('/notifications/manage');
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-management',
+      '/wallet-management'
+    )
+  ).toBe('/wallet-management/wallets');
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-plan-detail',
+      '/wallet-management/access/plans/plan-pro'
+    )
+  ).toBe('/wallet-management/access');
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'target',
+      'pr9.admin.notifications',
+      '/notifications'
+    )
+  ).toBeUndefined();
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.notifications',
+      '/notifications/manage'
+    )
+  ).toBeUndefined();
+  expect(
+    pinnedSourceAdminRedirectTarget(
+      'source',
+      'pr9.admin.wallet-plan-detail',
+      '/wallet-management/access'
+    )
+  ).toBeUndefined();
 });
 
 test('only the pinned source wallet denial hides framework transients', () => {
@@ -207,6 +272,24 @@ test('only the pinned source wallet denial hides framework transients', () => {
     canonicalizeSourceTransientFrameworkNodes(
       'target',
       'pr3.admin.wallet-detail-forbidden'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr9.admin.wallet-detail'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr9.admin.wallet-plan-detail'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'target',
+      'pr9.admin.wallet-plan-detail'
     )
   ).toBe(false);
   expect(
@@ -257,6 +340,20 @@ test('only the pinned notification source serves the static admin brand asset', 
     shouldServePinnedSourceAdminBrandAsset(
       'target',
       'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.chat-empty',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'target',
+      'pr6.admin.chat-empty',
       '/logos/epsx-icon.svg'
     )
   ).toBe(false);
@@ -354,6 +451,22 @@ test('only the exact pinned admin chat source stabilizes its notification stream
   expect(
     shouldStabilizePinnedSourceAdminChatStream(
       'source',
+      'pr6.admin.chat-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'target',
+      'pr6.admin.chat-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
       'pr6.admin.chat-reply',
       'GET',
       '/api/notifications/stream'
@@ -405,6 +518,22 @@ test('only the exact pinned admin notification source stabilizes its stream', ()
   expect(
     shouldStabilizePinnedSourceAdminNotificationStream(
       'source',
+      'pr9.admin.wallet-disable',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'target',
+      'pr9.admin.wallet-disable',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
       'pr6.admin.notification-manage',
       'POST',
       '/api/notifications/stream'
@@ -424,6 +553,20 @@ test('only the exact pinned admin notification/chat sources cache static chunks'
     shouldCachePinnedSourceAdminChatStaticAsset(
       'target',
       'pr6.admin.chat-detail',
+      'http://127.0.0.1:4201/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-empty',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.chat-empty',
       'http://127.0.0.1:4201/_next/static/chunks/chat.js'
     )
   ).toBe(false);
@@ -551,6 +694,63 @@ test('only pinned PR7 source developer API 404s are explained', () => {
     expectedDocumentConsoleError({
       ...options,
       scenario: { ...scenario, id: 'pr6.admin.notification-empty' },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, id: 'pr9.admin.developer-portal' },
+      entry: {
+        ...entry,
+        location: 'http://localhost:8080/api/admin/plans?is_active=true:0:0',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, id: 'pr9.admin.developer-portal' },
+      side: 'target',
+    })
+  ).toBe(false);
+});
+
+test('only the pinned source wallet disable duplicate-key warning is explained', () => {
+  const scenario: Scenario = {
+    id: 'pr9.admin.wallet-disable',
+    surface: 'admin',
+    path: '/wallet-management/wallets/0xea6400000000000000000000000000000000e3df/disable',
+    title: 'Pinned wallet disable',
+    state: { id: 'wallet-admin', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4101/_next/static/chunks/c6277_next_dist_6157defe._.js:3330:31',
+    text: 'Encountered two children with the same key, `%s`. Keys should be unique so that components maintain their identity across updates. /wallet-management/wallets',
+  };
+  const options = {
+    entry,
+    finalUrl: scenario.path,
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: {
+        ...entry,
+        text: entry.text.replace('same key', 'different key'),
+      },
     })
   ).toBe(false);
 });
@@ -701,6 +901,40 @@ test('only exact pinned viem BigInt errors are explained', () => {
       entry: {
         ...entry,
         location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: {
+        ...scenario,
+        id: 'pr9.frontend.analytics',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4200/analytics',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'source',
+      scenario: {
+        ...scenario,
+        id: 'pr9.frontend.analytics',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4100/api/v1/notifications/unread-count:0:0',
         text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
       },
     })

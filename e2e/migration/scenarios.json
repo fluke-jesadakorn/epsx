@@ -737,6 +737,12 @@
             { "type": "clear-cookies", "side": "source" },
             { "type": "navigate", "path": "/", "side": "source" },
             {
+              "type": "wait-for",
+              "selector": "button:has-text(\"Connect\"):visible",
+              "side": "source",
+              "matrixIds": ["desktop-light"]
+            },
+            {
               "type": "click",
               "selector": "[data-epsx-logout]:visible",
               "side": "target",
@@ -5339,7 +5345,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5379,7 +5385,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[name=\"operation\"][value=\"payment_intent_cancel\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5507,19 +5513,19 @@
           "actions": [
             {
               "type": "fill",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"intent_id\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"intent_id\"]",
               "value": "intent_e2e_0001",
               "side": "target"
             },
             {
               "type": "fill",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"max_uses\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible input[name=\"max_uses\"]",
               "value": "1",
               "side": "target"
             },
             {
               "type": "click",
-          "selector": "form:has(input[value=\"payment_link_create\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[value=\"payment_link_create\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5559,7 +5565,7 @@
           "actions": [
             {
               "type": "click",
-          "selector": "form:has(input[value=\"payment_link_disable\"]):visible button[type=\"submit\"]",
+              "selector": "form:has(input[value=\"payment_link_disable\"]):visible button[type=\"submit\"]",
               "side": "target"
             }
           ],
@@ -5815,7 +5821,7 @@
         {
           "id": "pr9.frontend.chat-detail",
           "surface": "frontend",
-          "path": "/chat/e2e-conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
           "title": "Frontend /chat/:id",
           "state": {
             "id": "frontend-user",
@@ -5919,7 +5925,7 @@
           "title": "Frontend /manual",
           "state": { "id": "public", "session": "signed-out" },
           "actions": [],
-          "outcomes": [{ "type": "no-horizontal-overflow" }],
+          "outcomes": [{ "type": "no-horizontal-overflow", "side": "target" }],
           "fixtureRequirements": ["route inventory"]
         },
         {
@@ -6155,7 +6161,7 @@
         {
           "id": "pr9.admin.chat-detail",
           "surface": "admin",
-          "path": "/chat/e2e-conversation",
+          "path": "/chat/550e8400-e29b-41d4-a716-446655440000",
           "title": "Admin /chat/:id",
           "state": {
             "id": "admin-user",

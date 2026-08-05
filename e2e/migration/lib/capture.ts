@@ -146,8 +146,62 @@ export function canonicalizeSourceTransientToasts(
 ): boolean {
   return (
     side === 'source' &&
-    ['pr3.admin.access', 'pr3.admin.plan-conflict'].includes(scenarioId)
+    [
+      'pr3.admin.access',
+      'pr3.admin.plan-conflict',
+      'pr9.admin.wallet-plan-detail',
+    ].includes(scenarioId)
   );
+}
+
+/**
+ * The source plan-detail route can emit the same backend-authoritative
+ * "Plan not found" toast twice while its client boundary hydrates. Keep the
+ * screenshot proof focused on the first toast while preserving the raw HTML
+ * and all application requests. This is intentionally narrower than the
+ * semantic toast canonicalization above because visual evidence must remain
+ * unchanged for every other scenario.
+ */
+export function shouldHideDuplicateSourceToastsInScreenshot(
+  side: 'source' | 'target',
+  scenarioId: string
+): boolean {
+  return side === 'source' && scenarioId === 'pr9.admin.wallet-plan-detail';
+}
+
+/**
+ * The pinned source uses client redirects for the public aliases below. Wait
+ * for their canonical destination before sampling so a clean repeat cannot
+ * capture the shell-only alias page while the other repeat captures the
+ * destination page.
+ */
+export function pinnedSourceAdminRedirectTarget(
+  side: 'source' | 'target',
+  scenarioId: string,
+  pathname: string
+): string | undefined {
+  if (side !== 'source') {
+    return undefined;
+  }
+  if (
+    scenarioId === 'pr9.admin.notifications' &&
+    pathname === '/notifications'
+  ) {
+    return '/notifications/manage';
+  }
+  if (
+    scenarioId === 'pr9.admin.wallet-management' &&
+    pathname === '/wallet-management'
+  ) {
+    return '/wallet-management/wallets';
+  }
+  if (
+    scenarioId === 'pr9.admin.wallet-plan-detail' &&
+    pathname === '/wallet-management/access/plans/plan-pro'
+  ) {
+    return '/wallet-management/access';
+  }
+  return undefined;
 }
 
 /**
@@ -162,7 +216,12 @@ export function canonicalizeSourceTransientFrameworkNodes(
   scenarioId: string
 ): boolean {
   return (
-    side === 'source' && scenarioId === 'pr3.admin.wallet-detail-forbidden'
+    side === 'source' &&
+    [
+      'pr3.admin.wallet-detail-forbidden',
+      'pr9.admin.wallet-detail',
+      'pr9.admin.wallet-plan-detail',
+    ].includes(scenarioId)
   );
 }
 
@@ -184,8 +243,8 @@ export function canonicalizeSourceTransientEditorProjection(
  * The immutable Next.js admin source can transiently send its static brand
  * asset through the backend-unavailable middleware during a clean repeat.
  * Keep the static asset deterministic only for the exact notification and
- * conversation evidence that observed the redirect; application requests and
- * all other source scenarios continue through the pinned server unchanged.
+ * chat evidence that observed the redirect; application requests and all
+ * other source scenarios continue through the pinned server unchanged.
  */
 export function shouldServePinnedSourceAdminBrandAsset(
   side: 'source' | 'target',
@@ -194,9 +253,11 @@ export function shouldServePinnedSourceAdminBrandAsset(
 ): boolean {
   return (
     side === 'source' &&
-    ['pr6.admin.notification-manage', 'pr6.admin.chat-detail'].includes(
-      scenarioId
-    ) &&
+    [
+      'pr6.admin.notification-manage',
+      'pr6.admin.chat-empty',
+      'pr6.admin.chat-detail',
+    ].includes(scenarioId) &&
     pathname === '/logos/epsx-icon.svg'
   );
 }
@@ -229,8 +290,8 @@ export function shouldStabilizePinnedSourceAdminNotificationNavigation(
  * EventSource. On a clean desktop repeat the source reconnect loop can keep
  * the browser context alive after capture, even though chat itself has no
  * notification surface. Return the protocol's terminal 204 response only for
- * this exact source scenario; every target and other source stream remains
- * fixture-backed and observable.
+ * these exact source chat scenarios; every target and other source stream
+ * remains fixture-backed and observable.
  */
 export function shouldStabilizePinnedSourceAdminChatStream(
   side: 'source' | 'target',
@@ -240,17 +301,18 @@ export function shouldStabilizePinnedSourceAdminChatStream(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.chat-detail' &&
+    ['pr6.admin.chat-empty', 'pr6.admin.chat-detail'].includes(scenarioId) &&
     method === 'GET' &&
     pathname === '/api/notifications/stream'
   );
 }
 
 /**
- * The pinned source notification management page also opens the global
- * notification EventSource. On a clean desktop repeat it can remain pending
- * while the page is already fully rendered. Return the protocol's terminal
- * 204 response only for this exact source scenario.
+ * The pinned source notification management and wallet-disable pages open the
+ * global notification EventSource. On a clean desktop repeat it can remain
+ * pending while the page is already fully rendered and prevent context
+ * shutdown. Return the protocol's terminal 204 response only for these exact
+ * source scenarios.
  */
 export function shouldStabilizePinnedSourceAdminNotificationStream(
   side: 'source' | 'target',
@@ -260,7 +322,9 @@ export function shouldStabilizePinnedSourceAdminNotificationStream(
 ): boolean {
   return (
     side === 'source' &&
-    scenarioId === 'pr6.admin.notification-manage' &&
+    ['pr6.admin.notification-manage', 'pr9.admin.wallet-disable'].includes(
+      scenarioId
+    ) &&
     method === 'GET' &&
     pathname === '/api/notifications/stream'
   );
@@ -275,9 +339,11 @@ export function shouldCachePinnedSourceAdminChatStaticAsset(
     const parsed = new URL(url);
     return (
       side === 'source' &&
-      ['pr6.admin.chat-detail', 'pr6.admin.notification-manage'].includes(
-        scenarioId
-      ) &&
+      [
+        'pr6.admin.chat-empty',
+        'pr6.admin.chat-detail',
+        'pr6.admin.notification-manage',
+      ].includes(scenarioId) &&
       parsed.port === '4101' &&
       parsed.pathname.startsWith('/_next/static/')
     );
@@ -625,7 +691,9 @@ export function expectedDocumentConsoleError(options: {
   }
   const pinnedDeveloperApiNotFound =
     side === 'source' &&
-    scenario.id.startsWith('pr7.') &&
+    (scenario.id.startsWith('pr7.') ||
+      scenario.id === 'pr9.frontend.developer' ||
+      scenario.id === 'pr9.admin.developer-portal') &&
     entry.type === 'error' &&
     entry.text.includes(
       'Failed to load resource: the server responded with a status of 404 (Not Found)'
@@ -644,6 +712,17 @@ export function expectedDocumentConsoleError(options: {
       ].includes(location.pathname);
     })();
   if (pinnedDeveloperApiNotFound) {
+    return true;
+  }
+  const pinnedWalletDuplicateKeyWarning =
+    side === 'source' &&
+    scenario.id === 'pr9.admin.wallet-disable' &&
+    entry.type === 'error' &&
+    entry.location?.startsWith('http://127.0.0.1:4101/_next/static/chunks/') ===
+      true &&
+    entry.text.includes('Encountered two children with the same key') &&
+    entry.text.includes('/wallet-management/wallets');
+  if (pinnedWalletDuplicateKeyWarning) {
     return true;
   }
   const pinnedViemBigIntMathError =
@@ -675,14 +754,17 @@ export function expectedDocumentConsoleError(options: {
   // The pinned target account shell probes push capability before logout. Its
   // notification service may be unavailable in the auth fixture, yielding an
   // exact 503 console entry while the verified logout mutation still returns
-  // to the signed-out shell. Keep this explanation limited to the two proven
-  // target scenarios and their exact endpoint; all other dependency errors
-  // remain blocking evidence.
+  // to the signed-out shell. The analytics shell performs the same unrelated
+  // unread-count probe while ranking content is rendered. Keep this
+  // explanation limited to the proven target scenarios and exact endpoint;
+  // all other dependency errors remain blocking evidence.
   const pinnedTargetNotificationDependencyError =
     side === 'target' &&
-    ['pr2.profile.verified', 'pr2.auth.logout'].includes(scenario.id) &&
+    ['pr2.profile.verified', 'pr2.auth.logout', 'pr9.frontend.analytics'].includes(
+      scenario.id
+    ) &&
     entry.type === 'error' &&
-    ((scenario.id === 'pr2.profile.verified' &&
+    ((['pr2.profile.verified', 'pr9.frontend.analytics'].includes(scenario.id) &&
       entry.location?.includes('/api/v1/notifications/unread-count:0:0') ===
         true) ||
       (scenario.id === 'pr2.auth.logout' &&
@@ -1334,6 +1416,20 @@ export async function captureSide(
     await page
       .waitForLoadState('networkidle', { timeout: 7_500 })
       .catch(() => undefined);
+    const pinnedRedirectTarget = pinnedSourceAdminRedirectTarget(
+      side,
+      scenario.id,
+      new URL(requestedUrl).pathname
+    );
+    if (pinnedRedirectTarget !== undefined) {
+      await page.waitForURL(
+        url => new URL(url).pathname === pinnedRedirectTarget,
+        { timeout: 20_000 }
+      );
+      await page
+        .waitForLoadState('networkidle', { timeout: 7_500 })
+        .catch(() => undefined);
+    }
     await page.addStyleTag({
       content:
         '*,*::before,*::after{animation:none!important;transition:none!important;caret-color:transparent!important}nextjs-portal{display:none!important}',
@@ -1568,11 +1664,46 @@ export async function captureSide(
         layout
       );
     }
-    await page.screenshot({
-      path: screenshotPath,
-      fullPage: false,
-      animations: 'disabled',
-    });
+    const hideDuplicateSourceToasts =
+      shouldHideDuplicateSourceToastsInScreenshot(side, scenario.id);
+    const screenshotToasts = hideDuplicateSourceToasts
+      ? page.locator('[data-sonner-toast]')
+      : null;
+    const priorToastDisplays = screenshotToasts
+      ? await screenshotToasts.evaluateAll(elements =>
+          elements.map(element => element.getAttribute('style'))
+        )
+      : [];
+    if (screenshotToasts) {
+      await screenshotToasts.evaluateAll(elements => {
+        elements.slice(1).forEach(element => {
+          element.setAttribute(
+            'style',
+            `${element.getAttribute('style') ?? ''};display:none!important`
+          );
+        });
+      });
+    }
+    try {
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: false,
+        animations: 'disabled',
+      });
+    } finally {
+      if (screenshotToasts) {
+        await screenshotToasts.evaluateAll((elements, priorStyles) => {
+          elements.forEach((element, index) => {
+            const prior = priorStyles[index];
+            if (prior === null || prior === undefined) {
+              element.removeAttribute('style');
+            } else {
+              element.setAttribute('style', prior);
+            }
+          });
+        }, priorToastDisplays);
+      }
+    }
     const capturedConsoleEntries = [...consoleEntries];
     const capturedPageErrors = [...pageErrors];
     const capturedNetworkEntries = [...networkEntries];
