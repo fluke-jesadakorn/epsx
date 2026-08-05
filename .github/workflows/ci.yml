@@ -1,44 +1,54 @@
-name: CI
+name: Rust CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [development, staging, production, migration/dioxus-microservices]
   pull_request:
-    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  workspace:
+    name: Cargo, Dioxus, and migration gates
     runs-on: ubuntu-latest
-
+    timeout-minutes: 90
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: actions/checkout@v4
         with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          components: clippy, rustfmt
+          components: clippy,rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Unit and integration tests
+        run: cargo test --workspace --locked
+      - name: Verify frozen assets
+        run: cargo xtask assets verify
+      - name: Verify migration evidence
+        run: |
+          cargo xtask e2e doctor
+          cargo xtask e2e verify-artifacts
+      - name: Enforce the Rust-only workspace
+        run: cargo xtask audit no-node --strict
+      - name: Release build
+        run: cargo xtask build --profile production
 
-      - name: Install dependencies
-        run: bun install
-
-      - name: Check Formatting
-        run: bun run format:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type Check
-        run: bun run type-check
-
-      - name: Test (Frontend & Shared)
-        run: bun run test
-
-      - name: Test (Backend)
-        run: bun run test:backend
+  contracts:
+    name: Foundry contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge build --root apps/contracts
+      - run: forge test --root apps/contracts

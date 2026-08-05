@@ -1,90 +1,57 @@
 # EPSX Analytics Platform
 
-EPSX is a high-performance production analytics platform built with a modern tech stack, designed for scalability and speed. It features a monorepo architecture managing a Next.js frontend, an admin dashboard, and a high-throughput Rust backend.
+EPSX is a Rust workspace for a Dioxus analytics frontend, an admin portal, Axum microservices, and Foundry contracts. The repository has no application-owned browser scripting toolchain; wasm-bindgen glue is generated under `target/` during a build and is never committed.
 
-## 🚀 Quick Start
+## Quick start
 
-Ensure you have [Bun](https://bun.sh) and [Docker](https://www.docker.com/) installed.
+Install stable Rust, the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` 0.2.123, Docker, and Foundry. Then configure `.env` from `.env.example` and run:
 
 ```bash
-# Install dependencies
-bun install
-
-# Configure local env stack
-# Shared secrets/common defaults: .env or .env.local
-# Environment overlays: .env.development / .env.staging / .env.production
-
-# Start development environment (all services)
-bun dev
+cargo xtask env validate
+cargo xtask dev --all
 ```
 
-### Services Access
+| Service | Local URL | Implementation |
+|---|---|---|
+| Frontend | http://localhost:3000 | Dioxus SSR + Rust/WASM |
+| Admin | http://localhost:3001 | Dioxus SSR + Rust/WASM |
+| Backend | http://localhost:8080 | Rust + Axum |
 
-| Service | Local URL | description |
-|---------|-----------|-------------|
-| **Frontend** | [http://localhost:3000](http://localhost:3000) | Main analytics dashboard (Next.js 16 + React 19) |
-| **Admin** | [http://localhost:3001](http://localhost:3001) | Admin management portal (Next.js 16) |
-| **Backend** | [http://localhost:8080](http://localhost:8080) | API Server (Rust + Axum) |
-
-## 🏗 Architecture
-
-The project is structured as a monorepo using **Turbo** and **Bun**.
+## Workspace
 
 ```text
-├── apps/
-│   ├── frontend/        # Analytics platform (Next.js App Router)
-│   ├── admin-frontend/  # Internal admin tool (Next.js App Router)
-│   └── backend/         # High-performance API (Rust/Axum)
-├── packages/            # Shared internal NPM packages
-├── shared/              # Shared configuration and types
-└── scripts/             # DevOps and utility scripts
+apps/                  Dioxus frontends and Rust application binaries
+services/              Rust microservices
+shared/rust/           shared Rust domain, UI, client, and infrastructure crates
+apps/contracts/        Foundry contracts and pinned submodules
+e2e/                   Rust WebDriver scenario contract and fixtures
+xtask/                 workspace development, build, audit, and E2E commands
 ```
 
-### Technology Stack
+Business rules for permissions, plans, ranking, subscriptions, and feature access live in Rust backend crates. Dioxus applications are presentation and interaction layers.
 
-- **Frontend**: Next.js 16.0, React 19.2, TailwindCSS, Zustand, SWR.
-- **Web3**: Wagmi, RainbowKit (SIWE compatible).
-- **Backend**: Rust (Axum), Diesel ORM (Async), PostgreSQL, Redis.
-- **DevOps**: Vercel (frontend/admin), local Kubernetes + Cloudflare Tunnel (backend), Turbo Repo.
+## Commands
 
-## 🔑 Authentication
+```bash
+cargo xtask dev --all
+cargo xtask build --profile development
+cargo xtask build --profile production
+cargo xtask test --all
+cargo xtask e2e doctor
+cargo xtask e2e run --group 0 --browser chromium
+cargo xtask e2e report
+cargo xtask e2e verify-artifacts
+cargo xtask env validate
+cargo xtask setup-local
+cargo xtask anvil-proxy
+cargo xtask assets verify
+cargo xtask audit no-node --strict
+```
 
-The platform uses a Web3-first authentication system (Sign-In with Ethereum).
+Use `cargo fmt --all --check`, `cargo clippy --workspace --all-targets --all-features -- -D warnings`, and `cargo test --workspace --locked` as the local merge gates. Foundry contracts use `forge build --root apps/contracts` and `forge test --root apps/contracts`.
 
-- **Wallet-Only**: No email/password required.
-- **Multi-Chain**: Supports BSC Mainnet (56) and Testnet (97).
-- **Session Management**: Secure HttpOnly cookies.
+## Environment and deployment
 
-## 🛠 Development Commands
+Environment loading is layered through `.env`, `.env.<environment>`, `.env.local`, and `.env.<environment>.local`. Select the environment with `DEPLOYMENT_ENV`, `APP_ENV`, `ENV`, `EPSX_ENV`, or `RUST_ENV`.
 
-Defined in `package.json`, here are the most common commands:
-
-- `bun dev`: Run all apps in parallel.
-- `bun dev:frontend`: Run only the main frontend.
-- `bun dev:admin`: Run only the admin frontend.
-- `bun dev:backend`: Run only the backend API.
-- `bun build`: Build all applications.
-- `bun test`: Run test suite.
-- `bun lint`: Lint all codebases.
-- `bun format`: Format code with Prettier.
-
-## 🌍 Environment Files
-
-Root environment loading now follows a layered model:
-
-- `.env`: shared secrets and legacy common values
-- `.env.development`, `.env.staging`, `.env.production`: tracked non-secret overlays
-- `.env.local`, `.env.development.local`, `.env.staging.local`, `.env.production.local`: untracked overrides
-
-The app and backend scripts resolve the active stack automatically from `ENV`, `DEPLOYMENT_ENV`, `RUST_ENV`, or `NODE_ENV`.
-
-## 📦 Deployment
-
-The target deployment split is now:
-
-- `apps/frontend` -> Vercel
-- `apps/admin-frontend` -> Vercel
-- `apps/backend` -> local Kubernetes
-- `apps/contracts` -> local Foundry workflows and on-chain deployment
-
-The repo migration note is in [docs/plans/2026-04-16-vercel-hybrid-deployment.md](/Users/fluke/Desktop/Work/epsx/docs/plans/2026-04-16-vercel-hybrid-deployment.md). Legacy Docker-based frontend deployment files still exist and should be treated as transitional until the Vercel projects are fully live.
+Production uses Colima Kubernetes and Cloudflare Tunnel. Production deployment always requires an explicit user instruction; repository changes and migration verification do not authorize a deployment.

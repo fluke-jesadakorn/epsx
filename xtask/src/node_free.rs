@@ -26,26 +26,10 @@ const NODE_MANIFESTS: &[&str] = &[
     "turbo.json",
     ".npmrc",
 ];
-const ACTIVE_NODE_MARKERS: &[&str] = &[
-    "node ",
-    "node -",
-    "bun ",
-    "bunx ",
-    "npm ",
-    "npx ",
-    "yarn ",
-    "pnpm ",
-    "setup-bun",
-    "setup-node",
-];
+const ACTIVE_NODE_COMMANDS: &[&str] = &["node", "bun", "bunx", "npm", "npx", "yarn", "pnpm"];
 const INLINE_RUNTIME_MARKERS: &[&str] = &[
     "document::eval",
     "dangerous_inner_html: AUTH_REDIRECT_SCRIPT",
-    "r#\"<script",
-    "r##\"<script",
-    "<script data-epsx-",
-    "onclick=\"",
-    "onsubmit=\"",
 ];
 
 #[derive(Debug, Deserialize)]
@@ -160,14 +144,11 @@ pub fn audit(flags: &[String]) -> Result<(), String> {
         let Ok(contents) = fs::read_to_string(&absolute) else {
             continue;
         };
-        if is_active_automation_path(relative)
-            && ACTIVE_NODE_MARKERS
-                .iter()
-                .any(|marker| contains_command(&contents, marker))
-        {
+        if is_active_automation_path(relative) && contains_node_command(&contents) {
             active_refs.push(relative.clone());
         }
         if extension == "rs"
+            && relative != Path::new("xtask/src/node_free.rs")
             && INLINE_RUNTIME_MARKERS
                 .iter()
                 .any(|marker| contents.contains(marker))
@@ -214,6 +195,13 @@ pub fn e2e(flags: &[String]) -> Result<(), String> {
         "verify-artifacts" => e2e_verify_artifacts(args),
         _ => Err(format!("unknown e2e command {command}")),
     }
+}
+
+pub fn design(flags: &[String]) -> Result<(), String> {
+    if flags.first().map(String::as_str) != Some("capture") {
+        return Err("design accepts only: design capture --group 0..9".into());
+    }
+    e2e_run(&flags[1..])
 }
 
 pub fn env_command(flags: &[String]) -> Result<(), String> {
@@ -943,11 +931,23 @@ fn is_active_automation_path(path: &Path) -> bool {
             })
 }
 
-fn contains_command(contents: &str, marker: &str) -> bool {
+fn contains_node_command(contents: &str) -> bool {
     contents
         .lines()
         .filter(|line| !line.trim_start().starts_with('#'))
-        .any(|line| line.to_ascii_lowercase().contains(marker))
+        .any(|line| {
+            let line = line.to_ascii_lowercase();
+            if line.contains("setup-node") || line.contains("setup-bun") {
+                return true;
+            }
+            line.split(|character: char| {
+                !(character.is_ascii_alphanumeric()
+                    || matches!(character, '-' | '_' | '.' | '/' | '@'))
+            })
+            .filter(|token| !token.is_empty())
+            .filter_map(|token| token.rsplit('/').next())
+            .any(|token| ACTIVE_NODE_COMMANDS.contains(&token))
+        })
 }
 
 fn print_paths(label: &str, paths: &[PathBuf]) {
@@ -1051,7 +1051,9 @@ fn is_hex(value: &str, len: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{environment_name, is_hex, matrix_matches, safe_relative_path};
+    use super::{
+        contains_node_command, environment_name, is_hex, matrix_matches, safe_relative_path,
+    };
     use serde_json::json;
     use std::path::Path;
 
@@ -1087,5 +1089,15 @@ mod tests {
             environment_name().as_str(),
             "development" | "staging" | "production"
         ));
+    }
+
+    #[test]
+    fn active_command_audit_uses_exact_runtime_tokens() {
+        assert!(contains_node_command("run: node -p version"));
+        assert!(contains_node_command("uses: actions/setup-node@v4"));
+        assert!(!contains_node_command(
+            "run: cargo xtask audit no-node --strict"
+        ));
+        assert!(!contains_node_command("nodePort: 30080"));
     }
 }

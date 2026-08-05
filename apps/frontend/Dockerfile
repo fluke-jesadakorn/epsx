@@ -42,11 +42,13 @@ RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
 # ============================================================================
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+    ca-certificates libssl3 curl && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /workspace/target/release/bff-frontend /app/bff-frontend
 COPY --from=builder /workspace/target/epsx-browser-runtime /app/runtime
 
 ENV HOST=0.0.0.0 PORT=3000 RUST_LOG=info RUST_BACKTRACE=0 EPSX_BROWSER_RUNTIME_DIR=/app/runtime
 EXPOSE 3000
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+  CMD curl -sf http://localhost:3000/api/health || exit 1
 CMD ["/app/bff-frontend"]

@@ -70,7 +70,7 @@ CODE_SIZE=$(cast code $USDT_ADDRESS --rpc-url $RPC_URL | wc -c)
 # wc -c of "0x" is 3 (including newline) or 2 depending on system. Empty code is usually "0x"
 if [[ $CODE_SIZE -le 3 ]]; then
     echo -e "${RED}❌ Contracts not found on local Anvil!${NC}"
-    echo -e "${YELLOW}⚠️  You must run 'bun setup:local' to deploy contracts first.${NC}"
+    echo -e "${YELLOW}⚠️  You must run 'cargo xtask setup-local' to deploy contracts first.${NC}"
     exit 1
 fi
 echo -e "${GREEN}✅ Contracts found${NC}"
@@ -100,7 +100,7 @@ if cast send $USDT_ADDRESS "mint(address,uint256)" $TARGET_ADDRESS $TOKEN_WEI \
     echo -e "   ${GREEN}✅ Minted $(printf "%'d" $TOKEN_AMOUNT) USDT${NC}"
 else
     echo -e "   ${RED}❌ Failed to mint USDT${NC}"
-    echo -e "   ${YELLOW}⚠️  Have you run 'bun setup:local' first?${NC}"
+    echo -e "   ${YELLOW}⚠️  Have you run 'cargo xtask setup-local' first?${NC}"
 fi
 
 # Step 3: Mint USDC

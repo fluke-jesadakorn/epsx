@@ -5,28 +5,26 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 ## Common Commands
 
 ### Development
-- `bun dev` - All services (frontend :3000, admin :3001, backend :8080)
-- `bun dev:frontend` / `bun dev:admin` / `bun dev:backend` - Individual apps
-- `bun dev:web` - Both frontends without backend
-- `bun dev:anvil` - Start local Anvil chain (:8545)
-- `bun setup:local` - Deploy contracts & tokens to local chain
+- `cargo xtask dev --all` - All Rust/Dioxus services
+- `cargo xtask dev --frontend` / `--admin` / `--backend` - Individual apps
+- `cargo xtask anvil-proxy` - Local Anvil chain and Rust RPC proxy (:8545)
+- `cargo xtask setup-local` - Deploy contracts and tokens to the local chain
 
 ### Build
-- `bun build` - All apps
-- `bun build:dev` / `bun build:prod` - Environment-specific builds
+- `cargo xtask build --profile development`
+- `cargo xtask build --profile production`
 
 ### Lint & Format
-- `bun lint` - ESLint all apps
-- `bun lint:frontend` / `bun lint:admin` - Individual apps
-- `bun lint:fix` - Auto-fix ESLint issues
-- `bun type-check` - TypeScript checking
-- `bun format` - Prettier format all files
+- `cargo fmt --all --check`
+- `cargo clippy --workspace --all-targets --all-features -- -D warnings`
+- `cargo xtask audit no-node --strict`
+- `cargo xtask assets verify`
 
 ### Test
-- `bun test` - All tests (Jest)
-- `bun test:frontend` / `bun test:admin` / `bun test:backend` - Per-app
-- `bun test:e2e` - Playwright E2E tests
-- `bun test:watch` - Watch mode
+- `cargo xtask test --all`
+- `cargo test --workspace --locked`
+- `cargo xtask e2e doctor|report|verify-artifacts`
+- `cargo xtask e2e run --group 0 --browser chromium`
 
 ### Backend (Rust)
 - `cargo build` from `apps/backend/`
@@ -52,33 +50,8 @@ kubectl rollout restart deployment -n epsx-prod
 set -a && source infrastructure/docker/.env.prod && set +a
 export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
 
-# Build frontend
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/frontend/Dockerfile -t epsx-frontend:prod .
-
-# Build admin frontend
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
-
-# Build backend
+docker build -f apps/frontend/Dockerfile -t epsx-frontend:prod .
+docker build -f apps/admin/Dockerfile -t epsx-admin:prod .
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
 # Create/update K8s secrets
@@ -128,12 +101,12 @@ ps aux | grep socat
 ## Architecture Constraints
 
 ### Permissions & Plan Logic — Backend Only
-All business logic related to permissions, plan access, ranking offsets, feature flags, and subscription rules **must be implemented in the Rust backend only**. Frontend (`apps/frontend`) and admin-frontend (`apps/admin-frontend`) are UI-only layers.
+All business logic related to permissions, plan access, ranking offsets, feature flags, and subscription rules **must be implemented in the Rust backend only**. Frontend (`apps/frontend`) and admin (`apps/admin`) are UI-only layers.
 
 ## Architecture
 
 ### Monorepo Structure
-Bun workspaces + Turborepo. Four apps share code via `shared/`.
+Cargo workspace with Dioxus applications, Axum microservices, shared Rust crates, and Foundry contracts.
 
 ### Infrastructure
 - **Host**: Local Mac Mini (arm64) via **Colima Kubernetes** + Cloudflare Tunnel

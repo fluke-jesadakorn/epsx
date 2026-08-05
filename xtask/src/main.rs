@@ -4,6 +4,7 @@
 //! migration tool that can run after the Bun/Node toolchain is removed.
 
 mod node_free;
+mod workspace_tools;
 
 use sha2::{Digest, Sha256};
 use std::{
@@ -121,6 +122,10 @@ fn main() -> ExitCode {
         "build" => node_free::build(&flags),
         "browser-runtime" => node_free::browser_runtime(&flags),
         "test" => node_free::test(&flags),
+        "anvil-proxy" => workspace_tools::anvil_proxy(&flags),
+        "assets" => workspace_tools::assets(&flags),
+        "fixtures" => workspace_tools::fixtures(&flags),
+        "design" => node_free::design(&flags),
         "verify" => rust_audit(&["--strict".to_string()]),
         "help" | "--help" | "-h" => {
             print_help();
@@ -156,6 +161,13 @@ cargo xtask commands:
   build --profile development|production
   browser-runtime build  compile Rust/WASM and emit untracked wasm-bindgen browser assets
   test --all            run the Rust workspace test suite
+  anvil-proxy [--listen ADDR] [--upstream ADDR] [--no-spawn]
+                         run Anvil and its Rust HTTP/RPC proxy
+  assets verify         verify frozen CSS and committed public assets
+  fixtures serve [--root PATH] [--bind LOOPBACK_ADDR]
+                         serve local test fixtures without a script runtime
+  design capture --group 0..9 [Rust E2E flags]
+                         capture design evidence through the Rust WebDriver harness
   rust-audit [--strict]  inventory tracked JS/TS and embedded runtime markers
   migration-audit [--strict] detect colliding versions and destructive SQL
   authority-audit [--strict] verify the notification authority/compatibility matrix
