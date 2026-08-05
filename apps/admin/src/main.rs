@@ -3922,7 +3922,7 @@ async fn submit_commerce_mutation_form(
                 reqwest::Method::POST,
                 "/api/v1/admin/pay/links".to_string(),
                 serde_json::json!({"intent_id": intent_id, "max_uses": max_uses, "expires_in": expires_in}),
-                "/payments".to_string(),
+                "/payments?tab=payment-links".to_string(),
             )
         }
         "payment_link_disable" => {
@@ -3942,7 +3942,7 @@ async fn submit_commerce_mutation_form(
                 reqwest::Method::POST,
                 format!("/api/v1/admin/pay/links/{link_id}/disable"),
                 serde_json::json!({"expected_version": expected_version}),
-                "/payments".to_string(),
+                "/payments?tab=payment-links".to_string(),
             )
         }
         "payment_intent_cancel" => {
@@ -3974,7 +3974,8 @@ async fn submit_commerce_mutation_form(
             Ok(_) => "success",
             Err(state) => state,
         };
-    Redirect::to(&format!("{return_path}?mutation={state_name}")).into_response()
+    let separator = if return_path.contains('?') { '&' } else { '?' };
+    Redirect::to(&format!("{return_path}{separator}mutation={state_name}")).into_response()
 }
 
 fn media_mutation_state(error: AdminMediaMutationError) -> &'static str {

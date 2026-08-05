@@ -85,7 +85,7 @@ use epsx_dioxus_ui::pages::admin_pages::payments::{
     ADMIN_PAYMENTS_STATE_PARAM, ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM,
     ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM, ADMIN_PAYMENT_LINKS_EMPTY,
     ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
-    ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+    ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE, ADMIN_PAYMENT_MUTATION_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::settings::{
     ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
@@ -819,6 +819,43 @@ fn record_commerce_load<T: serde::Serialize>(
     params.insert(state_param.to_string(), state.to_string());
 }
 
+fn record_payment_links_load(
+    params: &mut HashMap<String, String>,
+    load: CommerceLoad<AdminPaymentLinkListProjection>,
+) {
+    if matches!(load, CommerceLoad::Empty) {
+        let empty = AdminPaymentLinkListProjection {
+            items: Vec::new(),
+            total: 0,
+            limit: 100,
+            offset: 0,
+        };
+        params.insert(
+            ADMIN_PAYMENT_LINKS_DATA_PARAM.to_string(),
+            serde_json::to_string(&empty)
+                .expect("the typed empty payment-link projection is serializable"),
+        );
+        params.insert(
+            ADMIN_PAYMENT_LINKS_STATE_PARAM.to_string(),
+            ADMIN_PAYMENT_LINKS_EMPTY.to_string(),
+        );
+        return;
+    }
+    record_commerce_load(
+        params,
+        load,
+        CommerceLoadContract {
+            data_param: ADMIN_PAYMENT_LINKS_DATA_PARAM,
+            state_param: ADMIN_PAYMENT_LINKS_STATE_PARAM,
+            ready: ADMIN_PAYMENT_LINKS_READY,
+            empty: Some(ADMIN_PAYMENT_LINKS_EMPTY),
+            forbidden: ADMIN_PAYMENT_LINKS_FORBIDDEN,
+            unavailable: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+            malformed: ADMIN_PAYMENT_LINKS_MALFORMED,
+        },
+    );
+}
+
 fn private_admin_html_response(status: axum::http::StatusCode, doc: String) -> Response {
     (
         status,
@@ -919,6 +956,36 @@ fn record_payment_intent_load(
                 ADMIN_PAYMENTS_UNAVAILABLE.to_string(),
             );
         }
+    }
+}
+
+/// Preserve the closed mutation result on the payment page after a native
+/// form redirect. Read query fields remain owned by their strict parsers; the
+/// mutation marker is a separate, bounded UI outcome and never reaches a
+/// service request.
+fn payment_mutation_query(raw_query: &str) -> Option<&'static str> {
+    let mut state = None;
+    let mut malformed = false;
+    for (key, value) in url::form_urlencoded::parse(raw_query.as_bytes()) {
+        if key != "mutation" {
+            continue;
+        }
+        let candidate = match value.as_ref() {
+            "success" => "success",
+            "conflict" => "conflict",
+            "forbidden" => "forbidden",
+            "unavailable" => "unavailable",
+            "malformed" => "malformed",
+            _ => "malformed",
+        };
+        if state.replace(candidate).is_some() {
+            malformed = true;
+        }
+    }
+    if malformed {
+        Some("malformed")
+    } else {
+        state
     }
 }
 
@@ -1454,28 +1521,11 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             let mut request_context = RequestContext::from_headers(&headers);
                             request_context.auth_token = Some(token.clone());
                             let load = load_payment_links(&state.payment, &request_context).await;
-                            record_commerce_load!(
-                                &mut params,
-                                load,
-                                ADMIN_PAYMENT_LINKS_DATA_PARAM,
-                                ADMIN_PAYMENT_LINKS_STATE_PARAM,
-                                ADMIN_PAYMENT_LINKS_READY,
-                                Some(ADMIN_PAYMENT_LINKS_EMPTY),
-                                ADMIN_PAYMENT_LINKS_FORBIDDEN,
-                                ADMIN_PAYMENT_LINKS_UNAVAILABLE,
-                                ADMIN_PAYMENT_LINKS_MALFORMED,
-                            );
+                            record_payment_links_load(&mut params, load);
                         }
-                        None => record_commerce_load!(
+                        None => record_payment_links_load(
                             &mut params,
                             CommerceLoad::<AdminPaymentLinkListProjection>::Unavailable,
-                            ADMIN_PAYMENT_LINKS_DATA_PARAM,
-                            ADMIN_PAYMENT_LINKS_STATE_PARAM,
-                            ADMIN_PAYMENT_LINKS_READY,
-                            Some(ADMIN_PAYMENT_LINKS_EMPTY),
-                            ADMIN_PAYMENT_LINKS_FORBIDDEN,
-                            ADMIN_PAYMENT_LINKS_UNAVAILABLE,
-                            ADMIN_PAYMENT_LINKS_MALFORMED,
                         ),
                     }
                 }
@@ -1487,6 +1537,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_PAYMENTS_MALFORMED.to_string(),
                 );
             }
+        }
+        if let Some(state) = payment_mutation_query(&query) {
+            params.insert(ADMIN_PAYMENT_MUTATION_PARAM.to_string(), state.to_string());
         }
     }
     // Media inventory SSR is a single strict compatibility read. Only the
@@ -2738,6 +2791,24 @@ mod tests {
             Some(ADMIN_PAYMENTS_MALFORMED)
         );
         assert!(!params.contains_key(ADMIN_PAYMENTS_DATA_PARAM));
+    }
+
+    #[test]
+    fn payment_mutation_query_preserves_only_closed_states() {
+        assert_eq!(payment_mutation_query("mutation=success"), Some("success"));
+        assert_eq!(
+            payment_mutation_query("tab=payment-links&mutation=conflict"),
+            Some("conflict")
+        );
+        assert_eq!(
+            payment_mutation_query("mutation=unknown"),
+            Some("malformed")
+        );
+        assert_eq!(
+            payment_mutation_query("mutation=success&mutation=conflict"),
+            Some("malformed")
+        );
+        assert_eq!(payment_mutation_query("tab=payments"), None);
     }
 
     #[test]

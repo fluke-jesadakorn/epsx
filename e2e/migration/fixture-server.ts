@@ -35,6 +35,11 @@ const fixtureTopicId = '550e8400-e29b-41d4-a716-446655440001';
 const fixtureMessageId = '550e8400-e29b-41d4-a716-446655440002';
 const fixtureApiKeyId = '550e8400-e29b-41d4-a716-446655440003';
 const fixtureModuleId = '550e8400-e29b-41d4-a716-446655440004';
+const fixturePaymentIntentId = 'intent_e2e_0001';
+// Payment-link identifiers are projected through the same bounded resource-id
+// decoder as every other financial record. Keep the fixture UUID-shaped so a
+// ready projection cannot be downgraded to malformed solely by its test id.
+const fixturePaymentLinkId = '550e8400-e29b-41d4-a716-446655440005';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -210,6 +215,12 @@ function requiredAdminPermission(path: string, method: string): string | null {
     return path === '/api/admin/developer-portal/api-keys'
       ? 'admin:developer:create'
       : 'admin:developer:manage';
+  }
+  if (path.startsWith('/api/v1/admin/pay/links')) {
+    return mutation ? 'admin:payment-links:manage' : 'admin:payment-links:view';
+  }
+  if (path.startsWith('/api/v1/admin/pay')) {
+    return mutation ? 'admin:payments:manage' : 'admin:payments:view';
   }
   return null;
 }
@@ -1978,6 +1989,120 @@ async function routeRequest(request: Request): Promise<Response> {
       data: developerKey,
       error: null,
       meta: fixtureResponseMeta(),
+    });
+  }
+  const adminPayPath = url.pathname.startsWith('/api/v1/admin/pay/');
+  if (fixtureMode === 'payment-forbidden' && adminPayPath) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (fixtureMode === 'payment-unavailable' && adminPayPath) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    fixtureMode === 'payment-malformed' &&
+    adminPayPath &&
+    ['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ items: [{ id: 'unverified' }], total: 1 });
+  }
+  if (
+    fixtureMode === 'payment-conflict' &&
+    adminPayPath &&
+    !['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: false, error: 'stale_version' }, 409);
+  }
+  if (url.pathname === '/api/v1/admin/pay/intents') {
+    const items =
+      fixtureMode === 'payment-empty'
+        ? []
+        : [
+            {
+              id: fixturePaymentIntentId,
+              chain_id: '31337',
+              payer: fixtureWalletAddress,
+              payee: '0x1111111111111111111111111111111111111111',
+              amount: '29000000',
+              token_address: '0x2222222222222222222222222222222222222222',
+              status: 'pending',
+              escrow_id: null,
+              tx_hash: null,
+              description: 'Migration plan checkout',
+              expires_at: '2026-01-02T00:00:00.000Z',
+              created_at: fixtureTimestamp,
+              updated_at: fixtureTimestamp,
+            },
+          ];
+    return json({ items, total: items.length });
+  }
+  if (
+    url.pathname ===
+    `/api/v1/admin/pay/intents/${fixturePaymentIntentId}/cancel`
+  ) {
+    return json({
+      id: fixturePaymentIntentId,
+      status: 'cancelled',
+      evidence: {
+        operation_id: '550e8400-e29b-41d4-a716-446655440005',
+        financial_finality: 'not_applicable',
+      },
+    });
+  }
+  if (url.pathname === '/api/v1/admin/pay/links') {
+    if (!['GET', 'HEAD'].includes(request.method)) {
+      return json({
+        link: {
+          id: fixturePaymentLinkId,
+          slug: 'migration-checkout',
+          intent_id: fixturePaymentIntentId,
+          max_uses: 1,
+          current_uses: 0,
+          expires_at: '2026-01-02T00:00:00.000Z',
+          created_at: fixtureTimestamp,
+          status: 'active',
+          version: 0,
+        },
+        evidence: {
+          operation_id: '550e8400-e29b-41d4-a716-446655440006',
+          financial_finality: 'not_applicable',
+        },
+      });
+    }
+    const items =
+      fixtureMode === 'payment-empty'
+        ? []
+        : [
+            {
+              id: fixturePaymentLinkId,
+              slug: 'migration-checkout',
+              intent_id: fixturePaymentIntentId,
+              max_uses: 1,
+              current_uses: 0,
+              expires_at: '2026-01-02T00:00:00.000Z',
+              created_at: fixtureTimestamp,
+              status: 'active',
+              version: 0,
+            },
+          ];
+    return json({
+      items,
+      total: items.length,
+      limit: 100,
+      offset: 0,
+      correlation_id: 'epsx-e2e-payment-links',
+    });
+  }
+  if (
+    url.pathname === `/api/v1/admin/pay/links/${fixturePaymentLinkId}/disable`
+  ) {
+    return json({
+      id: fixturePaymentLinkId,
+      status: 'disabled',
+      version: 1,
+      evidence: {
+        operation_id: '550e8400-e29b-41d4-a716-446655440007',
+        financial_finality: 'not_applicable',
+      },
     });
   }
   if (url.pathname === '/api/v1/content/news') {

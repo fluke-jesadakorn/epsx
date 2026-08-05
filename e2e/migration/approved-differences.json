@@ -9,6 +9,114 @@
   ],
   "items": [
     {
+      "scenarioId": "pr8.frontend.plans-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders a dependency-unavailable plan state from the Rust-owned subscription authority and withholds fabricated plan data. The pinned source has no equivalent verified service boundary, so the state difference is required backend behavior.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/plans/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/plans.rs#PlansUnavailableContent",
+      "maximumDifferencePercent": 8.9
+    },
+    {
+      "scenarioId": "pr8.frontend.payment-auth-required",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "wallet-siwe-legal-accuracy",
+      "reason": "The target accurately requires a wallet/SIWE-authenticated payment session before rendering payment controls, while the pinned source exposes a different legacy auth surface. The visible difference is required by wallet and legal accuracy.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/payment/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/payment.rs#PaymentAuthRequiredContent",
+      "maximumDifferencePercent": 26.3
+    },
+    {
+      "scenarioId": "pr8.frontend.payment-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the Rust payment-service dependency failure and does not claim checkout availability. The pinned source does not provide an equivalent backend-authoritative failure state.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/payment/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/payment.rs#PaymentUnavailableContent",
+      "maximumDifferencePercent": 88.0
+    },
+    {
+      "scenarioId": "pr8.frontend.receipt-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target reports unavailable receipt verification from the Rust payment authority and withholds financial success claims. The visible delta is required for financial/backend correctness.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/payment/[type]/[id]/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/payment.rs#PaymentUnavailableContent",
+      "maximumDifferencePercent": 88.0
+    },
+    {
+      "scenarioId": "pr8.admin.intents-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders only the redacted, typed payment-intent projection verified by the Rust BFF. The pinned source has no equivalent backend-owned projection contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
+      "maximumDifferencePercent": 15.1
+    },
+    {
+      "scenarioId": "pr8.admin.intents-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target displays an authoritative empty payment-intent inventory from the Rust payment service instead of fabricating rows from legacy browser data.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
+      "maximumDifferencePercent": 14.6
+    },
+    {
+      "scenarioId": "pr8.admin.intents-unavailable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the Rust payment dependency failure and withholds an unverifiable intent list. This is a required service-owned state, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
+      "maximumDifferencePercent": 14.9
+    },
+    {
+      "scenarioId": "pr8.admin.intents-malformed",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target fails closed on a malformed payment-intent contract and renders no fabricated financial data. The state difference is required by the Rust BFF's strict security boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_intent_load",
+      "maximumDifferencePercent": 14.9
+    },
+    {
+      "scenarioId": "pr8.admin.links-ready",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders only the redacted, versioned payment-link projection accepted by the Rust BFF. The pinned source has no equivalent verified backend contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs#load_payment_links",
+      "maximumDifferencePercent": 15.0
+    },
+    {
+      "scenarioId": "pr8.admin.links-forbidden",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "security",
+      "reason": "The target preserves the Rust permission denial and withholds payment-link identity data. The visible delta is required by the backend authorization boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/commerce_adapter.rs#load_payment_links",
+      "maximumDifferencePercent": 10.9
+    },
+    {
+      "scenarioId": "pr8.admin.link-create",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target acknowledges payment-link creation only through the Rust payment service and its versioned audit evidence. The pinned source has no equivalent verified lifecycle boundary.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#submit_commerce_mutation_form",
+      "maximumDifferencePercent": 15.0
+    },
+    {
+      "scenarioId": "pr8.admin.link-disable",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target acknowledges payment-link disable only after the Rust service validates ownership and version, so the visible lifecycle state is required backend behavior.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/main.rs#submit_commerce_mutation_form",
+      "maximumDifferencePercent": 15.0
+    },
+    {
       "scenarioId": "pr1.shell.home",
       "matrixIds": ["desktop-light"],
       "category": "unsupported-feature-removal",
@@ -1393,6 +1501,33 @@
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/developer-portal/page.tsx",
       "targetEvidence": "apps/admin/src/main.rs#admin_developer_revoke_key",
       "maximumDifferencePercent": 10.6
+    },
+    {
+      "scenarioId": "pr8.admin.intent-cancel",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target reports the Rust payment service's versioned cancellation acknowledgement through the BFF mutation redirect, while the pinned source has no equivalent verified lifecycle state. The visible status difference is required by backend authority, not styling.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#payment_mutation_query",
+      "maximumDifferencePercent": 15.1
+    },
+    {
+      "scenarioId": "pr8.admin.intent-cancel-conflict",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target preserves the Rust payment service's optimistic-concurrency conflict and withholds a cancellation success claim. The pinned source does not expose an equivalent verified conflict boundary, so this delta is required backend behavior.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#payment_mutation_query",
+      "maximumDifferencePercent": 15.1
+    },
+    {
+      "scenarioId": "pr8.admin.links-empty",
+      "matrixIds": ["desktop-light", "mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The target renders the Rust BFF's authoritative empty payment-link registry with a typed zero-item envelope. The pinned source has no equivalent verified backend-owned empty state, so the visible state difference is required by the migration contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/payments/page.tsx",
+      "targetEvidence": "apps/admin/src/ssr.rs#record_payment_links_load",
+      "maximumDifferencePercent": 14.8
     }
   ]
 }
