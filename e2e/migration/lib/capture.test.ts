@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
-import { blockingFailedRequests } from './capture';
+import {
+  blockingFailedRequests,
+  MIGRATION_CAPTURE_TIME,
+  requiresDeterministicWallClock,
+} from './capture';
 import type { NetworkEntry } from './types';
 
 const nextStylesheet =
@@ -58,4 +62,31 @@ describe('blockingFailedRequests', () => {
       ])
     ).toEqual([failure]);
   });
+});
+
+test('migration capture wall clock is an exact canonical instant', () => {
+  expect(new Date(MIGRATION_CAPTURE_TIME).toISOString()).toBe(
+    MIGRATION_CAPTURE_TIME
+  );
+});
+
+test('wall-clock control is limited to the admin root dashboard', () => {
+  expect(requiresDeterministicWallClock({ surface: 'admin', path: '/' })).toBe(
+    true
+  );
+  expect(
+    requiresDeterministicWallClock({
+      surface: 'admin',
+      path: '/?from=admin-alias',
+    })
+  ).toBe(true);
+  expect(
+    requiresDeterministicWallClock({
+      surface: 'admin',
+      path: '/wallet-management/access/plans/example',
+    })
+  ).toBe(false);
+  expect(
+    requiresDeterministicWallClock({ surface: 'frontend', path: '/' })
+  ).toBe(false);
 });

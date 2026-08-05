@@ -16,7 +16,7 @@ const MAX_META_TEXT_CHARS: usize = 256;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminAnalyticsLoad {
     Ready(AdminAnalyticsSnapshot),
-    Empty,
+    Empty(AdminAnalyticsSnapshot),
     Forbidden,
     Unavailable,
     Malformed,
@@ -109,16 +109,20 @@ fn classify_payload(envelope: BackendEnvelope) -> AdminAnalyticsLoad {
     let Some(snapshot) = envelope.data else {
         return AdminAnalyticsLoad::Malformed;
     };
+    if snapshot.observed_at.is_some() {
+        return AdminAnalyticsLoad::Malformed;
+    }
     let Some(value) = serde_json::to_value(&snapshot).ok() else {
         return AdminAnalyticsLoad::Malformed;
     };
-    let Some(snapshot) = decode_admin_analytics_projection(value) else {
+    let Some(mut snapshot) = decode_admin_analytics_projection(value) else {
         return AdminAnalyticsLoad::Malformed;
     };
+    snapshot.observed_at = Some(envelope.timestamp);
     if has_data(&snapshot) {
         AdminAnalyticsLoad::Ready(snapshot)
     } else {
-        AdminAnalyticsLoad::Empty
+        AdminAnalyticsLoad::Empty(snapshot)
     }
 }
 
@@ -179,6 +183,7 @@ mod tests {
 
     fn snapshot() -> AdminAnalyticsSnapshot {
         AdminAnalyticsSnapshot {
+            observed_at: None,
             user_stats: Some(
                 epsx_dioxus_ui::pages::admin_pages::analytics::AdminAnalyticsUserStats {
                     total: 12,
@@ -218,15 +223,20 @@ mod tests {
             classify_payload(envelope(Some(snapshot()))),
             AdminAnalyticsLoad::Ready(_)
         ));
+        let AdminAnalyticsLoad::Ready(ready) = classify_payload(envelope(Some(snapshot()))) else {
+            panic!("expected a ready analytics projection");
+        };
+        assert_eq!(ready.observed_at.as_deref(), Some("2026-07-27T00:00:00Z"));
         assert!(matches!(
             classify_payload(envelope(Some(AdminAnalyticsSnapshot {
+                observed_at: None,
                 user_stats: None,
                 permission_analytics: None,
                 plan_stats: None,
                 system_metrics: None,
                 developer_portal: None,
             }))),
-            AdminAnalyticsLoad::Empty
+            AdminAnalyticsLoad::Empty(_)
         ));
     }
 
@@ -239,5 +249,12 @@ mod tests {
         let mut telemetry = serde_json::to_value(envelope(Some(snapshot()))).unwrap();
         telemetry["data"]["system_metrics"] = json!({"health_percentage": 99.9});
         assert!(serde_json::from_value::<BackendEnvelope>(telemetry).is_err());
+
+        let mut fabricated_freshness = snapshot();
+        fabricated_freshness.observed_at = Some("2026-07-27T00:00:00Z".to_string());
+        assert_eq!(
+            classify_payload(envelope(Some(fabricated_freshness))),
+            AdminAnalyticsLoad::Malformed
+        );
     }
 }

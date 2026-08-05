@@ -4,6 +4,7 @@
 //! `PageContext.params` by the admin BFF. It never derives entitlement from
 //! frontend roles, invents missing metrics, or emits mutation controls.
 
+use chrono::DateTime;
 use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -15,6 +16,7 @@ use super::super::{PageContext, PageMeta};
 
 const ANALYTICS_PATH: &str = "/analytics";
 const MAX_COUNT: i64 = 9_000_000_000_000_000;
+const MAX_OBSERVED_AT_CHARS: usize = 64;
 
 pub const ADMIN_ANALYTICS_DATA_PARAM: &str = "data_admin_analytics";
 pub const ADMIN_ANALYTICS_STATE_PARAM: &str = "data_admin_analytics_state";
@@ -73,6 +75,8 @@ pub struct AdminAnalyticsSystemMetrics {}
 #[serde(deny_unknown_fields)]
 pub struct AdminAnalyticsSnapshot {
     #[serde(default)]
+    pub observed_at: Option<String>,
+    #[serde(default)]
     pub user_stats: Option<AdminAnalyticsUserStats>,
     #[serde(default)]
     pub permission_analytics: Option<AdminAnalyticsPermissionStats>,
@@ -89,9 +93,13 @@ pub fn decode_admin_analytics_projection(
 ) -> Option<AdminAnalyticsSnapshot> {
     let projection: AdminAnalyticsSnapshot = serde_json::from_value(value).ok()?;
     if projection
-        .user_stats
-        .as_ref()
-        .is_some_and(|stats| !valid_user_stats(stats))
+        .observed_at
+        .as_deref()
+        .is_some_and(|observed_at| !valid_observed_at(observed_at))
+        || projection
+            .user_stats
+            .as_ref()
+            .is_some_and(|stats| !valid_user_stats(stats))
         || projection
             .permission_analytics
             .as_ref()
@@ -108,6 +116,13 @@ pub fn decode_admin_analytics_projection(
         return None;
     }
     Some(projection)
+}
+
+fn valid_observed_at(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().count() <= MAX_OBSERVED_AT_CHARS
+        && !value.chars().any(char::is_control)
+        && DateTime::parse_from_rfc3339(value).is_ok()
 }
 
 fn valid_count(value: i64) -> bool {
@@ -166,7 +181,7 @@ fn valid_developer_stats(stats: &AdminAnalyticsDeveloperStats) -> bool {
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum AnalyticsLoad {
     Ready(AdminAnalyticsSnapshot),
-    Empty,
+    Empty(AdminAnalyticsSnapshot),
     Forbidden,
     Unavailable,
     Malformed,
@@ -189,9 +204,10 @@ fn analytics_load(ctx: &PageContext) -> AnalyticsLoad {
                 return AnalyticsLoad::Malformed;
             };
             let has_data = has_data(&snapshot);
-            match (state, has_data) {
-                (Some(ADMIN_ANALYTICS_READY), true) => AnalyticsLoad::Ready(snapshot),
-                (Some(ADMIN_ANALYTICS_EMPTY), false) => AnalyticsLoad::Empty,
+            let has_observed_at = snapshot.observed_at.is_some();
+            match (state, has_data, has_observed_at) {
+                (Some(ADMIN_ANALYTICS_READY), true, true) => AnalyticsLoad::Ready(snapshot),
+                (Some(ADMIN_ANALYTICS_EMPTY), false, true) => AnalyticsLoad::Empty(snapshot),
                 _ => AnalyticsLoad::Malformed,
             }
         }
@@ -231,7 +247,11 @@ fn RenderAnalytics(ctx: PageContext) -> Element {
                 ],
                 match load {
                     AnalyticsLoad::Ready(snapshot) => rsx! { AnalyticsReady { snapshot } },
-                    AnalyticsLoad::Empty => rsx! { AnalyticsEmpty {} },
+                    AnalyticsLoad::Empty(snapshot) => rsx! {
+                        AnalyticsEmpty {
+                            observed_at: snapshot.observed_at.expect("validated empty analytics snapshot has freshness")
+                        }
+                    },
                     AnalyticsLoad::Forbidden => rsx! {
                         AnalyticsProblem {
                             state: ADMIN_ANALYTICS_FORBIDDEN,
@@ -261,11 +281,22 @@ fn RenderAnalytics(ctx: PageContext) -> Element {
 
 #[component]
 fn AnalyticsReady(snapshot: AdminAnalyticsSnapshot) -> Element {
+    let observed_at = snapshot
+        .observed_at
+        .clone()
+        .expect("validated ready analytics snapshot has freshness");
     rsx! {
         div {
             class: "container page-content admin-analytics py-8",
             "data-admin-analytics-state": ADMIN_ANALYTICS_READY,
-            p { class: "text-sm text-muted-foreground", "Backend-authoritative analytics snapshot" }
+            div { class: "flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground",
+                p { "Backend-authoritative analytics snapshot" }
+                time {
+                    datetime: observed_at.clone(),
+                    "data-admin-analytics-freshness": "backend",
+                    "Observed {observed_at}"
+                }
+            }
             div { class: "mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4",
                 if let Some(stats) = snapshot.user_stats {
                     AnalyticsGroup {
@@ -332,7 +363,7 @@ fn AnalyticsGroup(title: String, items: Vec<(String, String)>) -> Element {
 }
 
 #[component]
-fn AnalyticsEmpty() -> Element {
+fn AnalyticsEmpty(observed_at: String) -> Element {
     rsx! {
         section {
             class: "container page-content admin-analytics py-8",
@@ -342,6 +373,12 @@ fn AnalyticsEmpty() -> Element {
                 Icon { name: "bar-chart-3".to_string(), size: Some(30) }
                 h2 { class: "mt-4 text-xl font-semibold text-foreground", "No analytics data is available" }
                 p { class: "mt-2 text-sm leading-6 text-muted-foreground", "The backend returned an authoritative empty analytics snapshot." }
+                time {
+                    class: "mt-3 block text-xs text-muted-foreground",
+                    datetime: observed_at.clone(),
+                    "data-admin-analytics-freshness": "backend",
+                    "Observed {observed_at}"
+                }
                 a { class: "btn btn-sm btn-outline mt-5", href: ANALYTICS_PATH, "Refresh analytics" }
             }
         }
@@ -416,6 +453,7 @@ mod tests {
 
     fn ready_snapshot() -> AdminAnalyticsSnapshot {
         AdminAnalyticsSnapshot {
+            observed_at: Some("2026-07-27T00:00:00Z".to_string()),
             user_stats: Some(AdminAnalyticsUserStats {
                 total: 120,
                 active: 100,
@@ -488,6 +526,8 @@ mod tests {
         assert!(rendered.contains("120"));
         assert!(rendered.contains("100"));
         assert!(rendered.contains("12"));
+        assert!(rendered.contains("data-admin-analytics-freshness=\"backend\""));
+        assert!(rendered.contains("datetime=\"2026-07-27T00:00:00Z\""));
         for forbidden in [
             "Permission required",
             "admin:analytics:view",
@@ -511,6 +551,7 @@ mod tests {
             signed_in_ctx(),
             ADMIN_ANALYTICS_EMPTY,
             Some(AdminAnalyticsSnapshot {
+                observed_at: Some("2026-07-27T00:00:00Z".to_string()),
                 user_stats: None,
                 permission_analytics: None,
                 plan_stats: None,
@@ -519,6 +560,7 @@ mod tests {
             }),
         ));
         assert!(empty.contains("data-admin-analytics-state=\"empty\""));
+        assert!(empty.contains("data-admin-analytics-freshness=\"backend\""));
 
         for state in [ADMIN_ANALYTICS_FORBIDDEN, ADMIN_ANALYTICS_UNAVAILABLE] {
             let rendered = html(&with_state(signed_in_ctx(), state, None));

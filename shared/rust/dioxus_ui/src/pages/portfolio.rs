@@ -58,7 +58,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     }
                     div { class: "relative z-10",
                         div { class: "mx-auto max-w-7xl px-4 py-6 sm:py-8 portfolio-prod-container",
-                            PortfolioHeader { wallet_connected: ctx.wallet.address.is_some() }
+                            PortfolioHeader {}
                             if ctx.user.is_none() {
                                 if ctx.wallet.address.is_none() {
                                     AuthAccessBanner { href: PORTFOLIO_SIGN_IN_PATH.to_string() }
@@ -82,7 +82,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 /// Preserve the recognizable development-source heading without claiming
 /// that market data is live or that a watchlist has been loaded.
 #[component]
-fn PortfolioHeader(wallet_connected: bool) -> Element {
+fn PortfolioHeader() -> Element {
     rsx! {
         div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
             div { class: "flex items-center gap-3",
@@ -96,9 +96,11 @@ fn PortfolioHeader(wallet_connected: bool) -> Element {
                     }
                 }
             }
-            span { class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400 sm:self-center",
-                Icon { name: "trending-up".to_string(), size: Some(14) }
-                "Live"
+            span {
+                class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 sm:self-center",
+                "data-portfolio-freshness": "unavailable",
+                Icon { name: "circle-alert".to_string(), size: Some(14) }
+                "Data unavailable"
             }
         }
     }
@@ -346,12 +348,14 @@ mod tests {
             "Real-time EPS data",
             "AI-powered insights",
             "Sign In Free",
+            ">Live<",
         ] {
             assert!(
                 !html.contains(forbidden),
                 "unsupported portfolio or entitlement claim `{forbidden}` must not render: {html}"
             );
         }
+        assert!(html.contains("data-portfolio-freshness=\"unavailable\""));
     }
 
     #[test]
