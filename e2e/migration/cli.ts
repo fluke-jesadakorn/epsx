@@ -19,9 +19,11 @@ import {
   repoRoot,
   runtimeConfig,
 } from './lib/config';
+import { runBackendContracts } from './lib/backend-contracts';
 import { listFiles, readJson, sha256File } from './lib/files';
 import { generateReport, verifyArtifactManifest } from './lib/report';
 import { RuntimeResetManager } from './lib/runtime-reset';
+import type { ScenarioGroup, ScenarioManifest } from './lib/types';
 
 interface ManagedProcess {
   name: string;
@@ -155,8 +157,11 @@ async function startManagedProcess(options: {
 async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
   const { child, name, processGroupId } = processInfo;
   const groupIsAlive = (): boolean => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      return false;
+    }
     if (processGroupId === undefined) {
-      return child.exitCode === null && child.signalCode === null;
+      return true;
     }
     try {
       process.kill(-processGroupId, 0);
@@ -381,6 +386,36 @@ async function doctor(): Promise<void> {
           `authenticated scenario ${scenario.id} is missing its audience`
         );
       }
+      if (
+        scenario.state.fixtureModeSide !== undefined &&
+        scenario.state.fixtureMode === undefined
+      ) {
+        throw new Error(
+          `scenario ${scenario.id} declares fixtureModeSide without fixtureMode`
+        );
+      }
+      if (
+        scenario.state.sourceAudience !== undefined &&
+        scenario.state.session !== 'authenticated'
+      ) {
+        throw new Error(
+          `scenario ${scenario.id} declares sourceAudience without an authenticated session`
+        );
+      }
+    }
+    for (const suite of group.backendContracts ?? []) {
+      if (
+        suite.id.trim() === '' ||
+        suite.title.trim() === '' ||
+        String(suite.executable) !== 'cargo' ||
+        suite.arguments.length === 0 ||
+        suite.claims.length === 0 ||
+        suite.sources.length === 0 ||
+        suite.claims.some(claim => claim.trim() === '') ||
+        suite.sources.some(source => source.trim() === '')
+      ) {
+        throw new Error(`group ${group.id} has an invalid backend contract`);
+      }
     }
   }
   for (const surface of ['frontend', 'admin'] as const) {
@@ -528,6 +563,62 @@ function mergeCleanupFailures(
   return runError ?? failures[0]?.error;
 }
 
+interface PlaywrightShard {
+  grep: string;
+  project?: string;
+}
+
+function buildPlaywrightShards(
+  manifest: ScenarioManifest,
+  accumulatedGroups: ScenarioGroup[],
+  explicitGrep?: string
+): PlaywrightShard[] {
+  if (explicitGrep !== undefined && explicitGrep !== '') {
+    return [{ grep: explicitGrep }];
+  }
+  const shards: PlaywrightShard[] = [];
+  for (const group of accumulatedGroups) {
+    if (group.id !== 9) {
+      shards.push({
+        grep: `group ${group.id}:`,
+        project: 'migration-chromium',
+      });
+      continue;
+    }
+    const matrices = manifest.matrices[group.matrix] ?? [];
+    for (const surface of group.surfaces) {
+      for (const matrix of matrices) {
+        shards.push({
+          grep: `group 9: pr9\\.${surface}\\..* \\[${matrix.id}\\]`,
+          project: 'migration-chromium',
+        });
+      }
+      for (const browser of group.browsers ?? []) {
+        shards.push({
+          grep: `cross-browser pr9\\.${surface}\\.`,
+          project: `migration-${browser}`,
+        });
+      }
+    }
+  }
+  return shards;
+}
+
+function playwrightArgumentsForShard(shard: PlaywrightShard): string[] {
+  const argumentsForShard = [
+    'playwright',
+    'test',
+    '--config',
+    resolve(migrationRoot, 'playwright.config.ts'),
+    '--grep',
+    shard.grep,
+  ];
+  if (shard.project !== undefined) {
+    argumentsForShard.push('--project', shard.project);
+  }
+  return argumentsForShard;
+}
+
 // Process orchestration is intentionally centralized so cleanup owns every
 // child/container handle in one try/finally boundary.
 // eslint-disable-next-line max-lines-per-function, complexity
@@ -640,6 +731,12 @@ async function run(): Promise<void> {
         `source dependency installation modified the immutable baseline: ${sourceChanges}`
       );
     }
+    await runBackendContracts({
+      config,
+      environment: safeEnvironment(),
+      groups: accumulatedGroups,
+      resetManager,
+    });
     runCommand(
       'cargo',
       [
@@ -774,54 +871,62 @@ async function run(): Promise<void> {
     }
     await Promise.all(readiness);
 
-    const playwrightArguments = [
-      'playwright',
-      'test',
-      '--config',
-      resolve(migrationRoot, 'playwright.config.ts'),
-    ];
-    if (process.env.E2E_GREP !== undefined && process.env.E2E_GREP !== '') {
-      playwrightArguments.push('--grep', process.env.E2E_GREP);
+    const playwrightEnvironment = safeEnvironment({
+      E2E_GROUP: String(selectedGroup),
+      E2E_SOURCE_ROOT: config.sourceRoot,
+      E2E_ARTIFACT_ROOT: config.artifactRoot,
+      E2E_RUN_ROOT: config.runRoot,
+      E2E_ALLOW_RUNTIME_MUTATION: '1',
+      E2E_SOURCE_FRONTEND_URL: config.sourceFrontendUrl,
+      E2E_SOURCE_ADMIN_URL: config.sourceAdminUrl,
+      E2E_TARGET_FRONTEND_URL: config.targetFrontendUrl,
+      E2E_TARGET_ADMIN_URL: config.targetAdminUrl,
+      E2E_FIXTURE_URL: config.fixtureUrl,
+      E2E_FIXTURE_TOKEN: config.fixtureToken,
+      E2E_POSTGRES_ADMIN_URL: config.postgresAdminUrl,
+      E2E_POSTGRES_TEMPLATE_DATABASE: config.postgresTemplateDatabase,
+      E2E_POSTGRES_RUNTIME_DATABASE: config.postgresRuntimeDatabase,
+      E2E_REDIS_URL: config.redisUrl,
+      E2E_REDIS_PREFIX: config.redisPrefix,
+      E2E_ANVIL_URL: config.anvilUrl,
+      ...(process.env.E2E_LAYOUT_SELECTORS !== undefined &&
+      process.env.E2E_LAYOUT_SELECTORS !== ''
+        ? {
+            E2E_LAYOUT_SELECTORS: process.env.E2E_LAYOUT_SELECTORS,
+          }
+        : {}),
+    });
+    const playwrightShards = buildPlaywrightShards(
+      manifest,
+      accumulatedGroups,
+      process.env.E2E_GREP
+    );
+    for (const shard of playwrightShards) {
+      process.stdout.write(
+        `playwright shard: ${shard.project ?? 'all projects'} / ${shard.grep}\n`
+      );
+      const playwright = spawn(
+        'bunx',
+        playwrightArgumentsForShard(shard),
+        {
+          cwd: repoRoot,
+          env: playwrightEnvironment,
+          stdio: 'inherit',
+        }
+      );
+      testStatus = await new Promise<number>(resolvePromise => {
+        playwright.once('exit', code => resolvePromise(code ?? 1));
+      });
+      if (testStatus !== 0) {
+        throw new Error(
+          `Playwright migration group ${selectedGroup} shard ${shard.grep} failed`
+        );
+      }
     }
-    const playwright = spawn('bunx', playwrightArguments, {
-      cwd: repoRoot,
-      env: safeEnvironment({
-        E2E_GROUP: String(selectedGroup),
-        E2E_SOURCE_ROOT: config.sourceRoot,
-        E2E_ARTIFACT_ROOT: config.artifactRoot,
-        E2E_RUN_ROOT: config.runRoot,
-        E2E_ALLOW_RUNTIME_MUTATION: '1',
-        E2E_SOURCE_FRONTEND_URL: config.sourceFrontendUrl,
-        E2E_SOURCE_ADMIN_URL: config.sourceAdminUrl,
-        E2E_TARGET_FRONTEND_URL: config.targetFrontendUrl,
-        E2E_TARGET_ADMIN_URL: config.targetAdminUrl,
-        E2E_FIXTURE_URL: config.fixtureUrl,
-        E2E_FIXTURE_TOKEN: config.fixtureToken,
-        E2E_POSTGRES_ADMIN_URL: config.postgresAdminUrl,
-        E2E_POSTGRES_TEMPLATE_DATABASE: config.postgresTemplateDatabase,
-        E2E_POSTGRES_RUNTIME_DATABASE: config.postgresRuntimeDatabase,
-        E2E_REDIS_URL: config.redisUrl,
-        E2E_REDIS_PREFIX: config.redisPrefix,
-        E2E_ANVIL_URL: config.anvilUrl,
-        ...(process.env.E2E_LAYOUT_SELECTORS !== undefined &&
-        process.env.E2E_LAYOUT_SELECTORS !== ''
-          ? {
-              E2E_LAYOUT_SELECTORS: process.env.E2E_LAYOUT_SELECTORS,
-            }
-          : {}),
-      }),
-      stdio: 'inherit',
-    });
-    testStatus = await new Promise<number>(resolvePromise => {
-      playwright.once('exit', code => resolvePromise(code ?? 1));
-    });
 
     evidenceReady = (await listFiles(config.artifactRoot)).some(path =>
       path.endsWith('/reproducibility.json')
     );
-    if (testStatus !== 0) {
-      throw new Error(`Playwright migration group ${selectedGroup} failed`);
-    }
   } catch (error) {
     runError = error;
   } finally {

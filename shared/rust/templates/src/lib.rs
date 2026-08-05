@@ -1026,6 +1026,15 @@ pub fn design_system_head_with_keywords(
   html:not(.dark) .page-bg-app {{
     background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #fce7f3 100%);
   }}
+  .account-prod-page {{
+    background: linear-gradient(135deg, #111827 0%, #581c87 48%, #111827 100%);
+  }}
+  html:not(.dark) .account-prod-page {{
+    background: linear-gradient(135deg, #fffbea 0%, #fff7ed 48%, #fdf2f8 100%);
+  }}
+  html:not(.dark) .account-prod-page .text-slate-300 {{
+    color: #475569;
+  }}
 
   /* === Section === */
   .section {{ padding: 4rem 1.5rem; }}

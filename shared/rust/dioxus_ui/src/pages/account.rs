@@ -51,8 +51,7 @@ fn RenderAccount(ctx: PageContext) -> Element {
 
     rsx! {
         MainLayout { ctx: ctx.clone(),
-            div { class: "account-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-gray-900 via-purple-900 to-gray-900 px-3 pb-20 sm:px-6",
-                style: "background: linear-gradient(135deg, #111827 0%, #581c87 48%, #111827 100%);",
+            div { class: "account-prod-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6",
                 div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
                     div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl" }
                     div { class: "absolute right-32 top-40 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-lg" }

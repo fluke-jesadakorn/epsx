@@ -153,6 +153,14 @@ impl KeyManager {
         // Parse PEM strings
         let private_key = RsaPrivateKey::from_pkcs8_pem(private_pem)?;
         let public_key = RsaPublicKey::from_public_key_pem(public_pem)?;
+        let derived_public_key = RsaPublicKey::from(&private_key);
+        if derived_public_key.n() != public_key.n() || derived_public_key.e() != public_key.e() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "RSA private and public keys do not form one signing pair",
+            )
+            .into());
+        }
 
         // Create encoding/decoding keys
         let encoding_key = EncodingKey::from_rsa_pem(private_pem.as_bytes())?;
@@ -349,5 +357,53 @@ mod tests {
         assert_ne!(original_kid, new_kid);
         assert_eq!(manager.current_key.kid, new_kid);
         assert!(manager.backup_keys.contains_key(&original_kid));
+    }
+
+    #[test]
+    fn persistent_key_material_reconstructs_one_identity_across_restarts() {
+        let generated = KeyManager::generate_key_pair().unwrap();
+        let private_pem = generated
+            .private_key
+            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+            .unwrap();
+        let public_pem = generated
+            .public_key
+            .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+            .unwrap();
+        let first =
+            KeyManager::from_pem(private_pem.as_str(), &public_pem, "persistent-e2e-key").unwrap();
+        let restarted =
+            KeyManager::from_pem(private_pem.as_str(), &public_pem, "persistent-e2e-key").unwrap();
+
+        assert_eq!(first.current_key().kid, restarted.current_key().kid);
+        assert_eq!(
+            first.generate_key_thumbprint().unwrap(),
+            restarted.generate_key_thumbprint().unwrap()
+        );
+        assert_eq!(
+            serde_json::to_value(first.generate_jwks().unwrap()).unwrap(),
+            serde_json::to_value(restarted.generate_jwks().unwrap()).unwrap()
+        );
+    }
+
+    #[test]
+    fn mismatched_persistent_key_pair_is_rejected() {
+        let private_pair = KeyManager::generate_key_pair().unwrap();
+        let unrelated_public_pair = KeyManager::generate_key_pair().unwrap();
+        let private_pem = private_pair
+            .private_key
+            .to_pkcs8_pem(rsa::pkcs8::LineEnding::LF)
+            .unwrap();
+        let unrelated_public_pem = unrelated_public_pair
+            .public_key
+            .to_public_key_pem(rsa::pkcs8::LineEnding::LF)
+            .unwrap();
+
+        assert!(KeyManager::from_pem(
+            private_pem.as_str(),
+            &unrelated_public_pem,
+            "mismatched-e2e-key"
+        )
+        .is_err());
     }
 }

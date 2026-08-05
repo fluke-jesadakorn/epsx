@@ -169,6 +169,186 @@
       "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/unauthorized/page.tsx",
       "targetEvidence": "shared/rust/dioxus_ui/src/pages/admin_pages/access_denied_panel.rs",
       "maximumDifferencePercent": 13.5
+    },
+    {
+      "scenarioId": "pr2.auth.signed-out",
+      "matrixIds": ["desktop-light"],
+      "category": "security",
+      "reason": "The pinned source sign-in gate claims secure operation and customer adoption without backend evidence. The target preserves the wallet CTA and gate structure while removing those unverified claims and describing only the wallet-based authentication contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/auth/page.tsx#AuthContent",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/auth_page.rs#RenderAuth",
+      "maximumDifferencePercent": 11.7
+    },
+    {
+      "scenarioId": "pr2.auth.signed-out",
+      "matrixIds": ["mobile-dark"],
+      "category": "security",
+      "reason": "The pinned source sign-in gate claims secure operation and customer adoption without backend evidence. The target preserves the wallet CTA and gate structure while removing those unverified claims and describing only the wallet-based authentication contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/auth/page.tsx#AuthContent",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/auth_page.rs#RenderAuth",
+      "maximumDifferencePercent": 15.8
+    },
+    {
+      "scenarioId": "pr2.account.verified",
+      "matrixIds": ["desktop-light"],
+      "category": "backend-authority",
+      "reason": "The pinned source mixes a server session with client wallet state and renders fixture-derived membership, credit, plan, feature, payment, and preference claims. The target renders the verified wallet and SIWE method but marks every unselected owner-scoped backend projection unavailable instead of inventing authority.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/account/account-client.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/account.rs#RenderAccount",
+      "maximumDifferencePercent": 14.2
+    },
+    {
+      "scenarioId": "pr2.account.verified",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source mixes a server session with client wallet state and renders fixture-derived membership, credit, plan, feature, payment, and preference claims. The target renders the verified wallet and SIWE method but marks every unselected owner-scoped backend projection unavailable instead of inventing authority.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/account/account-client.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/account.rs#RenderAccount",
+      "maximumDifferencePercent": 16.4
+    },
+    {
+      "scenarioId": "pr2.profile.verified",
+      "matrixIds": ["desktop-light"],
+      "category": "backend-authority",
+      "reason": "The pinned source profile treats browser wallet connectivity as the profile authority even when its server session is valid. The target distinguishes the backend-verified session wallet from unavailable browser-wallet and policy-management state, preserving owner identity without fabricating connected-provider capabilities.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/profile/profile-client.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/profile.rs#RenderProfile",
+      "maximumDifferencePercent": 5.5
+    },
+    {
+      "scenarioId": "pr2.profile.verified",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source profile treats browser wallet connectivity as the profile authority even when its server session is valid. The target distinguishes the backend-verified session wallet from unavailable browser-wallet and policy-management state, preserving owner identity without fabricating connected-provider capabilities.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/components/profile/profile-client.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/profile.rs#RenderProfile",
+      "maximumDifferencePercent": 12.3
+    },
+    {
+      "scenarioId": "pr2.permissions.verified",
+      "matrixIds": ["desktop-light"],
+      "category": "backend-authority",
+      "reason": "The pinned source client gate cannot establish authority from the valid backend session without a connected browser wallet and therefore obscures the permission body. The target validates the exact Rust-issued audience and scope and renders only those verified permission claims.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/permissions/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/permissions.rs#RenderPermissions",
+      "maximumDifferencePercent": 78.9
+    },
+    {
+      "scenarioId": "pr2.permissions.verified",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source client gate cannot establish authority from the valid backend session without a connected browser wallet and therefore obscures the permission body. The target validates the exact Rust-issued audience and scope and renders only those verified permission claims.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/permissions/page.tsx",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/permissions.rs#RenderPermissions",
+      "maximumDifferencePercent": 7.4
+    },
+    {
+      "scenarioId": "pr2.permissions.empty-claims",
+      "matrixIds": ["desktop-light"],
+      "category": "backend-authority",
+      "reason": "The pinned source client gate cannot establish authority from the valid backend session without a connected browser wallet. The target accepts the correctly signed owner session but renders an explicit zero-permission state, proving that empty backend claims stay empty and gain no frontend defaults.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/permissions/use-permissions-page.ts",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/permissions.rs#RenderPermissions",
+      "maximumDifferencePercent": 78.9
+    },
+    {
+      "scenarioId": "pr2.permissions.empty-claims",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source client gate cannot establish authority from the valid backend session without a connected browser wallet. The target accepts the correctly signed owner session but renders an explicit zero-permission state, proving that empty backend claims stay empty and gain no frontend defaults.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/permissions/use-permissions-page.ts",
+      "targetEvidence": "shared/rust/dioxus_ui/src/pages/permissions.rs#RenderPermissions",
+      "maximumDifferencePercent": 7.6
+    },
+    {
+      "scenarioId": "pr2.frontend.wrong-audience",
+      "matrixIds": ["desktop-light"],
+      "category": "security",
+      "reason": "The source receives its valid frontend-audience baseline session, while the target receives an equally signed admin-audience token and must replace the owner profile with the public authentication gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/profile/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 9.6
+    },
+    {
+      "scenarioId": "pr2.frontend.wrong-audience",
+      "matrixIds": ["mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its valid frontend-audience baseline session, while the target receives an equally signed admin-audience token and must replace the owner profile with the public authentication gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/profile/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 15.2
+    },
+    {
+      "scenarioId": "pr2.admin.settings",
+      "matrixIds": ["desktop-light"],
+      "category": "backend-authority",
+      "reason": "The pinned source renders fixture-owned administrator contact and maintenance values as settings. The target keeps the authenticated settings route but explicitly declines to project those claims when the Rust adapter cannot verify its strict backend contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/settings/page.tsx",
+      "targetEvidence": "apps/admin/src/settings_admin_adapter.rs",
+      "maximumDifferencePercent": 6
+    },
+    {
+      "scenarioId": "pr2.admin.settings",
+      "matrixIds": ["mobile-dark"],
+      "category": "backend-authority",
+      "reason": "The pinned source renders fixture-owned administrator contact and maintenance values as settings. The target keeps the authenticated settings route but explicitly declines to project those claims when the Rust adapter cannot verify its strict backend contract.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/settings/page.tsx",
+      "targetEvidence": "apps/admin/src/settings_admin_adapter.rs",
+      "maximumDifferencePercent": 10.5
+    },
+    {
+      "scenarioId": "pr2.admin.wrong-audience",
+      "matrixIds": ["desktop-light"],
+      "category": "security",
+      "reason": "The source receives its valid admin baseline session, while the target receives an equally signed frontend-audience token and must replace all administrator settings with the public Admin Access gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/settings/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 26.7
+    },
+    {
+      "scenarioId": "pr2.admin.wrong-audience",
+      "matrixIds": ["mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its valid admin baseline session, while the target receives an equally signed frontend-audience token and must replace all administrator settings with the public Admin Access gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/admin-frontend/app/settings/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 8.3
+    },
+    {
+      "scenarioId": "pr2.auth.logout",
+      "matrixIds": ["desktop-light"],
+      "category": "unsupported-feature-removal",
+      "reason": "Both captures finish signed out after their respective session-clearing mechanisms. The residual public-home difference is the same removal of unsupported live-market, social-proof, customer, and call-to-action claims approved for the shared-shell home capture.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/page.tsx",
+      "targetEvidence": "shared/rust/templates/src/lib.rs#RenderHomePage",
+      "maximumDifferencePercent": 12.9
+    },
+    {
+      "scenarioId": "pr2.auth.logout",
+      "matrixIds": ["mobile-dark"],
+      "category": "unsupported-feature-removal",
+      "reason": "Both captures finish signed out after their respective session-clearing mechanisms. The residual public-home difference is the same removal of unsupported live-market, social-proof, customer, and call-to-action claims approved for the shared-shell home capture.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/page.tsx",
+      "targetEvidence": "shared/rust/templates/src/lib.rs#RenderHomePage",
+      "maximumDifferencePercent": 21.8
+    },
+    {
+      "scenarioId": "pr2.auth.dependency-failure",
+      "matrixIds": ["desktop-light"],
+      "category": "security",
+      "reason": "The source receives its normal valid-session baseline. The target's token uses an uncached key identifier while identity verification is unavailable, so the Rust verifier clears unprovable authority and renders the explicit unavailable sign-in gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/profile/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 9.6
+    },
+    {
+      "scenarioId": "pr2.auth.dependency-failure",
+      "matrixIds": ["mobile-dark"],
+      "category": "security",
+      "reason": "The source receives its normal valid-session baseline. The target's token uses an uncached key identifier while identity verification is unavailable, so the Rust verifier clears unprovable authority and renders the explicit unavailable sign-in gate.",
+      "sourceEvidence": "source@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db:apps/frontend/app/profile/page.tsx",
+      "targetEvidence": "shared/rust/epsx-service-auth/src/lib.rs",
+      "maximumDifferencePercent": 22.7
     }
   ]
 }

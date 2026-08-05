@@ -1,7 +1,7 @@
 import { rename, writeFile } from 'node:fs/promises';
 import { basename, resolve } from 'node:path';
 
-import type { Browser, BrowserContext, Page } from '@playwright/test';
+import type { Browser, BrowserContext, Page, Route } from '@playwright/test';
 
 import { ensureDirectory, sha256, sha256File, writeJson } from './files';
 import type {
@@ -142,6 +142,12 @@ async function clearBrowserStorage(
 function normalizedDom(semanticHtml: string): string {
   return semanticHtml
     .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
+    // React's useId allocation can shift between otherwise identical source
+    // captures when Radix mounts a different set of client-only primitives.
+    // Preserve every ID relationship while canonicalizing only Radix's
+    // generated identifier payload. Accessibility snapshots are gated
+    // separately and remain byte-exact.
+    .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
     .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
     .replaceAll(/\s+/g, ' ')
     .trim();
@@ -161,8 +167,9 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
   return entries
     .filter(entry => entry.kind === 'failed')
     .filter(failure => {
-      const successfulHeadResponse =
-        failure.method === 'HEAD' &&
+      const successfulResponseAbort =
+        failure.method !== undefined &&
+        ['HEAD', 'POST'].includes(failure.method) &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -173,10 +180,10 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             entry.status >= 200 &&
             entry.status < 400
         );
-      // Chromium can report a body abort after a successful HEAD response.
-      // HEAD has no response body, so the completed 2xx/3xx headers are the
-      // authoritative outcome; the raw response and abort remain in network.json.
-      return !successfulHeadResponse;
+      // Chromium can report an abort after a successful HEAD response or a
+      // completed Next.js RSC POST stream. The observed 2xx/3xx response is
+      // authoritative; both raw entries remain available in network.json.
+      return !successfulResponseAbort;
     });
 }
 
@@ -268,6 +275,42 @@ async function fixtureControl<T>(
   return (await response.json()) as T;
 }
 
+async function proxySourceDependency(
+  route: Route,
+  fixtureUrl: string,
+  accessToken: string | undefined
+): Promise<void> {
+  const request = route.request();
+  const originalUrl = new URL(request.url());
+  const fixtureRequestUrl = new URL(
+    `${originalUrl.pathname}${originalUrl.search}`,
+    fixtureUrl
+  );
+  const headers = new Headers(request.headers());
+  headers.delete('content-length');
+  headers.delete('host');
+  if (!headers.has('authorization') && accessToken !== undefined) {
+    headers.set('authorization', `Bearer ${accessToken}`);
+  }
+  const method = request.method();
+  const response = await fetch(fixtureRequestUrl, {
+    method,
+    headers,
+    body: ['GET', 'HEAD'].includes(method) ? undefined : request.postData(),
+    redirect: 'manual',
+  });
+  const responseHeaders = new Headers(response.headers);
+  responseHeaders.delete('content-encoding');
+  responseHeaders.delete('content-length');
+  responseHeaders.delete('transfer-encoding');
+  await route.fulfill({
+    status: response.status,
+    headers: Object.fromEntries(responseHeaders.entries()),
+    body: Buffer.from(await response.arrayBuffer()),
+  });
+}
+
+// eslint-disable-next-line complexity
 async function configureScenarioState(options: {
   context: BrowserContext;
   baseUrl: string;
@@ -275,10 +318,14 @@ async function configureScenarioState(options: {
   fixtureToken: string;
   scenario: Scenario;
   side: 'source' | 'target';
-}): Promise<void> {
+}): Promise<string | undefined> {
   const { baseUrl, context, fixtureToken, fixtureUrl, scenario, side } =
     options;
-  if (scenario.state.fixtureMode !== undefined) {
+  const fixtureModeSide = scenario.state.fixtureModeSide ?? 'both';
+  if (
+    scenario.state.fixtureMode !== undefined &&
+    (fixtureModeSide === 'both' || fixtureModeSide === side)
+  ) {
     await fixtureControl(fixtureUrl, fixtureToken, '/__e2e/mode', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -286,9 +333,12 @@ async function configureScenarioState(options: {
     });
   }
   if (scenario.state.session !== 'authenticated') {
-    return;
+    return undefined;
   }
-  const audience = scenario.state.audience;
+  const audience =
+    side === 'source'
+      ? (scenario.state.sourceAudience ?? scenario.state.audience)
+      : scenario.state.audience;
   if (audience === undefined) {
     throw new Error(
       `authenticated scenario ${scenario.id} must declare an audience`
@@ -300,6 +350,8 @@ async function configureScenarioState(options: {
     fixtureToken,
     `/__e2e/session?audience=${encodeURIComponent(audience)}&permissions=${encodeURIComponent(
       permissions
+    )}&key_id=${encodeURIComponent(
+      scenario.state.tokenKeyId ?? 'epsx-e2e-rs256-v1'
     )}`
   );
   const targetName =
@@ -308,22 +360,40 @@ async function configureScenarioState(options: {
       : 'epsx.frontend.access_token';
   await context.addCookies([
     {
-      name: side === 'source' ? 'epsx.sid' : targetName,
+      name: side === 'source' ? 'epsx.access_token' : targetName,
       value: session.accessToken,
       url: baseUrl,
       httpOnly: true,
       sameSite: 'Lax',
     },
   ]);
+  return session.accessToken;
 }
 
-async function applyActions(
-  context: BrowserContext,
-  page: Page,
-  actions: ScenarioAction[]
-): Promise<number | null> {
+// eslint-disable-next-line complexity
+async function applyActions(options: {
+  context: BrowserContext;
+  page: Page;
+  actions: ScenarioAction[];
+  side: 'source' | 'target';
+  matrixId: string;
+}): Promise<number | null> {
+  const { actions, context, matrixId, page, side } = options;
   let status: number | null = null;
   for (const action of actions) {
+    if (
+      action.side !== undefined &&
+      action.side !== 'both' &&
+      action.side !== side
+    ) {
+      continue;
+    }
+    if (
+      action.matrixIds !== undefined &&
+      !action.matrixIds.includes(matrixId)
+    ) {
+      continue;
+    }
     if (action.type === 'click') {
       await page.locator(action.selector).click();
     } else if (action.type === 'fill') {
@@ -336,6 +406,15 @@ async function applyActions(
         null;
     } else if (action.type === 'set-offline') {
       await context.setOffline(action.offline);
+    } else if (action.type === 'navigate') {
+      status =
+        (
+          await page.goto(new URL(action.path, page.url()).toString(), {
+            waitUntil: 'domcontentloaded',
+          })
+        )?.status() ?? null;
+    } else if (action.type === 'clear-cookies') {
+      await context.clearCookies();
     } else {
       await page.locator(action.selector).waitFor({ state: 'visible' });
     }
@@ -441,6 +520,7 @@ export async function captureSide(
   const context = await browser.newContext({
     viewport,
     colorScheme,
+    bypassCSP: side === 'source',
     reducedMotion: 'reduce',
     locale: 'en-US',
     timezoneId: 'UTC',
@@ -455,6 +535,14 @@ export async function captureSide(
       size: viewport,
     },
   });
+  const sourceAccessToken = await configureScenarioState({
+    context,
+    baseUrl,
+    fixtureUrl,
+    fixtureToken,
+    scenario,
+    side,
+  });
   await context.route('https://api.web3modal.org/appkit/v1/config**', route =>
     route.fulfill({
       status: 200,
@@ -466,14 +554,10 @@ export async function captureSide(
     route.fulfill({ status: 204, body: '' })
   );
   if (side === 'source') {
-    await context.route('http://localhost:8080/**', route => {
-      const original = new URL(route.request().url());
-      const fixture = new URL(
-        `${original.pathname}${original.search}`,
-        fixtureUrl
-      );
-      return route.continue({ url: fixture.toString() });
-    });
+    await context.route(
+      /^http:\/\/(?:localhost|127\.0\.0\.1):8080\/.*/,
+      route => proxySourceDependency(route, fixtureUrl, sourceAccessToken)
+    );
   }
   await context.addInitScript((theme: string) => {
     localStorage.setItem('theme', theme);
@@ -487,14 +571,6 @@ export async function captureSide(
     applyTheme();
     document.addEventListener('DOMContentLoaded', applyTheme, { once: true });
   }, colorScheme);
-  await configureScenarioState({
-    context,
-    baseUrl,
-    fixtureUrl,
-    fixtureToken,
-    scenario,
-    side,
-  });
   await context.tracing.start({
     screenshots: true,
     snapshots: true,
@@ -571,7 +647,13 @@ export async function captureSide(
     // already being rebuilt. Require a quiet, meaningful interval before
     // sampling so slower CI runners capture the same stable state as local runs.
     await waitForStableMeaningfulBody(page);
-    const actionStatus = await applyActions(context, page, scenario.actions);
+    const actionStatus = await applyActions({
+      context,
+      page,
+      actions: scenario.actions,
+      side,
+      matrixId,
+    });
     await page
       .waitForLoadState('domcontentloaded', { timeout: 5_000 })
       .catch(() => undefined);

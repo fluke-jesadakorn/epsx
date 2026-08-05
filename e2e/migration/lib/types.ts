@@ -18,18 +18,27 @@ export interface ScenarioState {
   id: string;
   session: 'signed-out' | 'authenticated';
   audience?: SessionAudience;
+  sourceAudience?: SessionAudience;
   permissions?: string[];
+  tokenKeyId?: string;
   fixtureMode?: string;
+  fixtureModeSide?: 'source' | 'target' | 'both';
   offline?: boolean;
 }
 
-export type ScenarioAction =
+export type ScenarioAction = (
   | { type: 'click'; selector: string }
   | { type: 'fill'; selector: string; value: string }
   | { type: 'press'; selector: string; key: string }
   | { type: 'reload' }
   | { type: 'set-offline'; offline: boolean }
-  | { type: 'wait-for'; selector: string };
+  | { type: 'wait-for'; selector: string }
+  | { type: 'navigate'; path: string }
+  | { type: 'clear-cookies' }
+) & {
+  side?: 'source' | 'target' | 'both';
+  matrixIds?: string[];
+};
 
 export type ScenarioOutcome = (
   | { type: 'path'; value: string }
@@ -61,6 +70,15 @@ export interface Scenario {
   expectedTargetPath?: string;
 }
 
+export interface BackendContractSuite {
+  id: string;
+  title: string;
+  executable: 'cargo';
+  arguments: string[];
+  claims: string[];
+  sources: string[];
+}
+
 export interface ScenarioGroup {
   id: number;
   slug: string;
@@ -78,6 +96,7 @@ export interface ScenarioGroup {
   includeAllContractRoutes?: boolean;
   browsers?: string[];
   requiredBypasses?: number;
+  backendContracts?: BackendContractSuite[];
 }
 
 export interface ScenarioManifest {
@@ -265,4 +284,42 @@ export interface ComparisonResult {
   approvalReason: string;
   approvalCategory?: ApprovedDifferenceCategory;
   maximumAllowedDifferencePercent: number;
+}
+
+export interface BackendContractRepeat {
+  schemaVersion: number;
+  groupId: number;
+  suiteId: string;
+  repeat: number;
+  command: string[];
+  startedAt: string;
+  completedAt: string;
+  durationMs: number;
+  exitCode: number;
+  passedTests: number;
+  failedTests: number;
+  ignoredTests: number;
+  outputPath: string;
+  outputSha256: string;
+  preResetPath: string;
+  postResetPath: string;
+  passed: boolean;
+}
+
+export interface BackendContractReproducibility {
+  schemaVersion: number;
+  groupId: number;
+  suiteId: string;
+  title: string;
+  repeats: number;
+  claims: string[];
+  sources: string[];
+  results: BackendContractRepeat[];
+  checks: {
+    allRunsPassed: boolean;
+    stablePassedTestCount: boolean;
+    stableIgnoredTestCount: boolean;
+    noIgnoredTests: boolean;
+  };
+  passed: boolean;
 }
