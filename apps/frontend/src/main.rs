@@ -419,6 +419,10 @@ pub fn build_app(state: AppState) -> Router {
         // catalogs, eligibility, and subscription mutations.
         .route("/service-worker.js", get(service_worker))
         .nest_service(
+            "/runtime",
+            tower_http::services::ServeDir::new(browser_runtime_dir()),
+        )
+        .nest_service(
             "/public",
             tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR")))
                 .fallback(tower_http::services::ServeFile::new(format!(
@@ -429,6 +433,15 @@ pub fn build_app(state: AppState) -> Router {
         .fallback(fallback_handler)
         .layer(axum::middleware::from_fn(security_headers))
         .with_state(state)
+}
+
+fn browser_runtime_dir() -> String {
+    std::env::var("EPSX_BROWSER_RUNTIME_DIR").unwrap_or_else(|_| {
+        format!(
+            "{}/../../target/epsx-browser-runtime",
+            env!("CARGO_MANIFEST_DIR")
+        )
+    })
 }
 
 /// Public, body-free service-worker entry point for the `/offline` recovery

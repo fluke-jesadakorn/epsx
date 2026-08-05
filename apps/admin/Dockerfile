@@ -17,11 +17,15 @@ WORKDIR /workspace
 RUN apt-get update && apt-get install -y --no-install-recommends \
     pkg-config libssl-dev ca-certificates && rm -rf /var/lib/apt/lists/*
 
+RUN rustup target add wasm32-unknown-unknown && \
+    cargo install wasm-bindgen-cli --version 0.2.123 --locked
+
 ENV CARGO_TARGET_DIR=/workspace/target
 
 COPY . .
 
 WORKDIR /workspace/apps/admin
+RUN cargo xtask browser-runtime build
 RUN --mount=type=cache,sharing=private,target=/usr/local/cargo/registry \
     --mount=type=cache,sharing=private,target=/usr/local/cargo/git \
     cargo build --release --bin bff-admin
@@ -32,7 +36,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY --from=builder /workspace/target/release/bff-admin /app/bff-admin
+COPY --from=builder /workspace/target/epsx-browser-runtime /app/runtime
 
-ENV HOST=0.0.0.0 PORT=3001 RUST_LOG=info RUST_BACKTRACE=0
+ENV HOST=0.0.0.0 PORT=3001 RUST_LOG=info RUST_BACKTRACE=0 EPSX_BROWSER_RUNTIME_DIR=/app/runtime
 EXPOSE 3001
 CMD ["/app/bff-admin"]

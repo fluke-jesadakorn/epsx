@@ -119,6 +119,7 @@ fn main() -> ExitCode {
         "setup-local" => node_free::setup_local(&flags),
         "dev" => node_free::dev(&flags),
         "build" => node_free::build(&flags),
+        "browser-runtime" => node_free::browser_runtime(&flags),
         "test" => node_free::test(&flags),
         "verify" => rust_audit(&["--strict".to_string()]),
         "help" | "--help" | "-h" => {
@@ -153,6 +154,7 @@ cargo xtask commands:
   dev --all|--frontend|--admin|--backend
                          run the Rust/Dioxus development surface
   build --profile development|production
+  browser-runtime build  compile Rust/WASM and emit untracked wasm-bindgen browser assets
   test --all            run the Rust workspace test suite
   rust-audit [--strict]  inventory tracked JS/TS and embedded runtime markers
   migration-audit [--strict] detect colliding versions and destructive SQL

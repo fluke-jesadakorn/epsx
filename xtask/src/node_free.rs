@@ -285,8 +285,14 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
                 .current_dir(root),
             "Rust workspace development stack",
         ),
-        Some("--frontend") => cargo_run(&root, "epsx-frontend", "bff-frontend"),
-        Some("--admin") => cargo_run(&root, "epsx-admin", "epsx-admin"),
+        Some("--frontend") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--admin") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-admin", "bff-admin")
+        }
         Some("--backend") => cargo_run(&root, "epsx", "epsx"),
         _ => Err("dev requires --all, --frontend, --admin, or --backend".into()),
     }
@@ -298,6 +304,7 @@ pub fn build(flags: &[String]) -> Result<(), String> {
         return Err("build requires --profile development|production".into());
     }
     let root = repo_root()?;
+    build_browser_runtime(&root)?;
     let mut command = Command::new("cargo");
     command.args(["build", "--workspace", "--locked"]);
     if profile == "production" {
@@ -305,6 +312,54 @@ pub fn build(flags: &[String]) -> Result<(), String> {
     }
     command.current_dir(root);
     run_status(&mut command, "Rust workspace build")
+}
+
+pub fn browser_runtime(flags: &[String]) -> Result<(), String> {
+    if flags != ["build"] {
+        return Err("browser-runtime accepts only: browser-runtime build".into());
+    }
+    build_browser_runtime(&repo_root()?)
+}
+
+fn build_browser_runtime(root: &Path) -> Result<(), String> {
+    run_status(
+        Command::new("cargo")
+            .args([
+                "build",
+                "--locked",
+                "--release",
+                "--target",
+                "wasm32-unknown-unknown",
+                "-p",
+                "epsx-browser-runtime",
+                "-p",
+                "epsx-service-worker",
+            ])
+            .current_dir(root),
+        "Rust browser runtime",
+    )?;
+
+    let output = root.join("target/epsx-browser-runtime");
+    fs::create_dir_all(&output)
+        .map_err(|error| format!("could not create {}: {error}", output.display()))?;
+    for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
+        let input = root.join(format!(
+            "target/wasm32-unknown-unknown/release/{crate_name}.wasm"
+        ));
+        run_status(
+            Command::new("wasm-bindgen")
+                .args(["--target", "web", "--no-typescript", "--out-dir"])
+                .arg(&output)
+                .arg(&input)
+                .current_dir(root),
+            &format!("wasm-bindgen for {crate_name}"),
+        )?;
+    }
+    println!(
+        "browser-runtime: PASS — generated untracked assets in {}",
+        output.display()
+    );
+    Ok(())
 }
 
 pub fn test(flags: &[String]) -> Result<(), String> {

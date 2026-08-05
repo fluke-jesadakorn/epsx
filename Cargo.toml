@@ -20,6 +20,8 @@ members = [
     "shared/rust/templates",
     "shared/rust/dioxus_ui",
     "shared/rust/bff",
+    "shared/rust/browser-runtime",
+    "shared/rust/service-worker",
     "shared/rust/epsx-web-middleware",
     "services/gateway",
     "services/identity",
@@ -155,6 +157,14 @@ dioxus-fullstack = { version = "0.7", features = ["axum"] }
 dioxus-server = "0.7"
 dioxus-web = "0.7"
 dioxus-router = "0.7"
+
+# Browser runtime. Source remains Rust; wasm-bindgen emits untracked glue into
+# target/ during `cargo xtask build`.
+wasm-bindgen = "0.2.123"
+wasm-bindgen-futures = "0.4.73"
+js-sys = "0.3.100"
+web-sys = "0.3.100"
+serde-wasm-bindgen = "0.6.5"
 
 # Testing
 axum-test = "15"

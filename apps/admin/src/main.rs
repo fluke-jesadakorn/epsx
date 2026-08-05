@@ -1083,6 +1083,10 @@ fn build_app(state: AppState) -> Router {
         .route("/api/v1/wallet/accounts/{address}", get(get_account))
         // Static assets
         .nest_service(
+            "/runtime",
+            tower_http::services::ServeDir::new(browser_runtime_dir()),
+        )
+        .nest_service(
             "/public",
             tower_http::services::ServeDir::new(format!("{}/public", env!("CARGO_MANIFEST_DIR")))
                 .fallback(tower_http::services::ServeFile::new(format!(
@@ -1098,6 +1102,15 @@ fn build_app(state: AppState) -> Router {
         ))
         .layer(axum::middleware::from_fn(security_headers))
         .with_state(state)
+}
+
+fn browser_runtime_dir() -> String {
+    std::env::var("EPSX_BROWSER_RUNTIME_DIR").unwrap_or_else(|_| {
+        format!(
+            "{}/../../target/epsx-browser-runtime",
+            env!("CARGO_MANIFEST_DIR")
+        )
+    })
 }
 
 async fn require_verified_admin_session(
