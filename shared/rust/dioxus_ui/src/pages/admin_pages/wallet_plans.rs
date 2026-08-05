@@ -430,7 +430,7 @@ fn PlanDetailReady(plan: AdminPlanProjection, mutation: Option<String>) -> Eleme
                 form { method: "post", action: plan_href(&plan.id), class: "mt-6 grid gap-3 border-t border-border/30 pt-5 sm:grid-cols-2",
                     input { r#type: "hidden", name: "operation", value: "plan_update" }
                     input { r#type: "hidden", name: "plan_id", value: plan.id.clone() }
-                    input { r#type: "hidden", name: "expected_version", value: plan.version }
+                    input { r#type: "hidden", name: "expected_version", value: plan.version.to_string() }
                     input { r#type: "hidden", name: "idempotency_key", value: format!("admin.plan.update.{}", uuid::Uuid::new_v4()) }
                     input { class: "input input-bordered", name: "merchant_id", maxlength: 36, placeholder: "Merchant UUID", required: true }
                     input { class: "input input-bordered", name: "name", maxlength: 100, value: plan.name.clone(), required: true }
@@ -628,6 +628,20 @@ mod tests {
         assert!(detail.contains("<form"));
         assert!(detail.contains("Save plan"));
         assert!(detail.contains("expected_version"));
+        assert!(detail.contains("value=\"2\""));
+        assert!(!detail.contains("value=\"2/\""));
+    }
+
+    #[test]
+    fn detail_renders_only_a_closed_mutation_state() {
+        let mut conflict = detail_context(PLAN_ID, ADMIN_PLANS_READY, Some(plan_json(PLAN_ID)));
+        conflict.query = "mutation=conflict".to_string();
+        let rendered = dioxus_ssr::render_element(render_editor(&conflict).1);
+        assert!(rendered.contains("data-admin-wallet-plan-mutation-state=\"conflict\""));
+
+        conflict.query = "mutation=unknown".to_string();
+        let rendered = dioxus_ssr::render_element(render_editor(&conflict).1);
+        assert!(!rendered.contains("data-admin-wallet-plan-mutation-state="));
     }
 
     #[test]

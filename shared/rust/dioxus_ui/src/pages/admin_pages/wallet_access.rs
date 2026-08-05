@@ -268,7 +268,7 @@ fn AccessAssignmentRow(item: AdminAccessAssignmentProjection) -> Element {
                     input { r#type: "hidden", name: "wallet_address", value: item.wallet_address.clone() }
                     input { r#type: "hidden", name: "plan_id", value: item.plan_id.clone() }
                     input { r#type: "hidden", name: "permission", value: item.permission.clone() }
-                    input { r#type: "hidden", name: "expected_version", value: item.version }
+                    input { r#type: "hidden", name: "expected_version", value: item.version.to_string() }
                     input { r#type: "hidden", name: "idempotency_key", value: format!("admin.access.revoke.{}", uuid::Uuid::new_v4()) }
                     button { r#type: "submit", class: "btn btn-sm btn-outline", "Revoke assignment" }
                 }
@@ -385,6 +385,8 @@ mod tests {
         assert!(rendered.contains("Wallet 0x1234567890abcdef1234567890abcdef12345678"));
         assert!(rendered.contains("Revoke assignment"));
         assert!(rendered.contains("expected_version"));
+        assert!(rendered.contains("value=\"2\""));
+        assert!(!rendered.contains("value=\"2/\""));
         assert!(!rendered.contains("onclick="));
     }
 

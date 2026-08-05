@@ -68,6 +68,7 @@
     "test:e2e:migration:pr7": "bun e2e/migration/cli.ts run --group 7",
     "test:e2e:migration:pr8": "bun e2e/migration/cli.ts run --group 8",
     "test:e2e:migration:pr9": "bun e2e/migration/cli.ts run --group 9",
+    "test:e2e:migration:unit": "bun test e2e/migration/lib/*.test.ts",
     "test:e2e:frontend": "playwright test --project=frontend",
     "test:e2e:admin": "playwright test --project=admin",
     "test:e2e:staging": "TEST_ENV=staging playwright test",

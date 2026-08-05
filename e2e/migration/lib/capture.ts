@@ -140,17 +140,58 @@ async function clearBrowserStorage(
 }
 
 function normalizedDom(semanticHtml: string): string {
-  return semanticHtml
-    .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
-    // React's useId allocation can shift between otherwise identical source
-    // captures when Radix mounts a different set of client-only primitives.
-    // Preserve every ID relationship while canonicalizing only Radix's
-    // generated identifier payload. Accessibility snapshots are gated
-    // separately and remain byte-exact.
-    .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
-    .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
-    .replaceAll(/\s+/g, ' ')
-    .trim();
+  return (
+    semanticHtml
+      .replaceAll(/\bnonce="[^"]*"/g, 'nonce="<normalized>"')
+      // React's useId allocation can shift between otherwise identical source
+      // captures when Radix mounts a different set of client-only primitives.
+      // Preserve every ID relationship while canonicalizing only Radix's
+      // generated identifier payload. Accessibility snapshots are gated
+      // separately and remain byte-exact.
+      .replaceAll(/\bradix-_r_[0-9a-z]+_/g, 'radix-<normalized>')
+      // dnd-kit's provider counter is process-global in the pinned source,
+      // so otherwise identical captures can receive different numeric
+      // suffixes. Canonicalize the two linked live-region IDs while keeping
+      // their role-specific prefixes and relationships intact.
+      .replaceAll(
+        /\bDnd(DescribedBy|LiveRegion)-[0-9]+\b/g,
+        'Dnd$1-<normalized>'
+      )
+      .replaceAll(/\sdata-nextjs-router-state-tree="[^"]*"/g, '')
+      .replaceAll(/\s+/g, ' ')
+      .trim()
+  );
+}
+
+async function accessibilitySnapshot(page: Page): Promise<string> {
+  const announcers = page.locator('next-route-announcer [role="alert"]');
+  const priorAriaHidden = await announcers.evaluateAll(elements =>
+    elements.map(element => element.getAttribute('aria-hidden'))
+  );
+  await announcers.evaluateAll(elements => {
+    for (const element of elements) {
+      // Next.js writes route announcements asynchronously. The announcement
+      // has already been delivered by the time the stable page is sampled,
+      // but its retained text can race between an empty alert and the last
+      // route title. Exclude only that framework-owned transient node from
+      // the static accessibility proof; application alerts remain exact.
+      element.setAttribute('aria-hidden', 'true');
+    }
+  });
+  try {
+    return await page.locator('body').ariaSnapshot();
+  } finally {
+    await announcers.evaluateAll((elements, priorValues) => {
+      elements.forEach((element, index) => {
+        const prior = priorValues[index];
+        if (prior === null || prior === undefined) {
+          element.removeAttribute('aria-hidden');
+        } else {
+          element.setAttribute('aria-hidden', prior);
+        }
+      });
+    }, priorAriaHidden);
+  }
 }
 
 function errorLocation(message: {
@@ -163,13 +204,26 @@ function errorLocation(message: {
   return `${location.url}:${location.lineNumber ?? 0}:${location.columnNumber ?? 0}`;
 }
 
-function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
+export function blockingFailedRequests(
+  entries: NetworkEntry[]
+): NetworkEntry[] {
   return entries
     .filter(entry => entry.kind === 'failed')
     .filter(failure => {
-      const successfulResponseAbort =
+      const failureUrl = new URL(failure.url);
+      const isCompletedNextStylesheet =
+        failure.method === 'GET' &&
+        failure.resourceType === 'stylesheet' &&
+        failureUrl.pathname.startsWith('/_next/static/chunks/') &&
+        failureUrl.pathname.endsWith('.css');
+      const isSuccessfulStreamAbort =
         failure.method !== undefined &&
-        ['HEAD', 'POST'].includes(failure.method) &&
+        (['HEAD', 'POST'].includes(failure.method) ||
+          (failure.method === 'GET' &&
+            failure.resourceType === 'fetch' &&
+            new URL(failure.url).searchParams.has('_rsc')));
+      const successfulResponseAbort =
+        (isSuccessfulStreamAbort || isCompletedNextStylesheet) &&
         failure.failure === 'net::ERR_ABORTED' &&
         entries.some(
           entry =>
@@ -180,9 +234,10 @@ function blockingFailedRequests(entries: NetworkEntry[]): NetworkEntry[] {
             entry.status >= 200 &&
             entry.status < 400
         );
-      // Chromium can report an abort after a successful HEAD response or a
-      // completed Next.js RSC POST stream. The observed 2xx/3xx response is
-      // authoritative; both raw entries remain available in network.json.
+      // Chromium can report an abort after a successful HEAD response, a
+      // completed Next.js RSC stream, or a generated Next.js stylesheet that
+      // already returned successfully. Only exact 2xx/3xx URL/method matches
+      // qualify; both raw entries remain in network.json.
       return !successfulResponseAbort;
     });
 }
@@ -671,6 +726,15 @@ export async function captureSide(
         node.remove();
       }
       for (const element of [clone, ...clone.querySelectorAll('*')]) {
+        if (
+          element.tagName === 'INPUT' &&
+          element.getAttribute('name') === 'idempotency_key'
+        ) {
+          // Idempotency tokens intentionally contain fresh entropy on every
+          // render. Preserve the input and its contract while canonicalizing
+          // only the volatile value for exact semantic-DOM repeat proofs.
+          element.setAttribute('value', '__EPSX_IDEMPOTENCY_KEY__');
+        }
         const runtimeAttributes = Array.from(element.attributes)
           .map(attribute => attribute.name)
           .filter(name => name.startsWith('data-nextjs') || name === 'nonce');
@@ -690,7 +754,7 @@ export async function captureSide(
       return clone.outerHTML;
     });
     const canonicalDom = normalizedDom(semanticHtml);
-    const accessibility = await page.locator('body').ariaSnapshot();
+    const accessibility = await accessibilitySnapshot(page);
     const outcomeChecks = await Promise.all(
       scenario.outcomes.map(outcome =>
         checkOutcome(page, outcome, finalStatus, side)
