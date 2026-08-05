@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 import { createPrivateKey, sign } from 'node:crypto';
 
 import { permissionAllows } from './lib/fixture-permissions';
+import { isNotificationItemMutationPath } from './lib/fixture-routes';
 
 interface FixtureRequest {
   sequence: number;
@@ -28,6 +29,10 @@ const fixtureWalletAddress = '0xea6400000000000000000000000000000000e3df';
 const fixturePlanId = '00000000-0000-0000-0000-000000000001';
 const fixtureMerchantId = '00000000-0000-0000-0000-000000000002';
 const fixtureNewsId = '00000000-0000-0000-0000-000000000006';
+const fixtureNotificationId = 'idem_notification_e2e_1';
+const fixtureConversationId = '550e8400-e29b-41d4-a716-446655440000';
+const fixtureTopicId = '550e8400-e29b-41d4-a716-446655440001';
+const fixtureMessageId = '550e8400-e29b-41d4-a716-446655440002';
 const signingKey = createPrivateKey(`-----BEGIN PRIVATE KEY-----
 MIIEvwIBADANBgkqhkiG9w0BAQEFAASCBKkwggSlAgEAAoIBAQC3Zucb7soDltXU
 G5e/am1A1dC6zZyXA6TBse5ktX70zTTfIEsro7LoYF44UgWmM3iyrNAK5kVijIr4
@@ -186,6 +191,15 @@ function requiredAdminPermission(path: string, method: string): string | null {
     path.startsWith('/api/admin/files')
   ) {
     return 'admin:content:manage';
+  }
+  if (path === '/api/v1/notification/send') {
+    return 'admin:notifications:create';
+  }
+  if (path.startsWith('/api/v1/notification/admin')) {
+    return mutation ? 'admin:notifications:manage' : 'admin:notifications:read';
+  }
+  if (path.startsWith('/api/admin/chat/conversations')) {
+    return mutation ? 'admin:chat:send' : 'admin:chat:read';
   }
   return null;
 }
@@ -1503,6 +1517,62 @@ async function routeRequest(request: Request): Promise<Response> {
       },
     });
   }
+  const notificationPath =
+    url.pathname.startsWith('/api/v1/notification/') ||
+    url.pathname.startsWith('/api/v1/notifications/');
+  const adminNotificationPath =
+    url.pathname.startsWith('/api/v1/notification/admin') ||
+    url.pathname === '/api/v1/notification/send';
+  const chatPath = url.pathname.startsWith('/api/admin/chat/');
+  if (fixtureMode === 'notification-forbidden' && adminNotificationPath) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (fixtureMode === 'notification-unavailable' && notificationPath) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (fixtureMode === 'notification-malformed' && notificationPath) {
+    return json({ malformed: true });
+  }
+  if (
+    fixtureMode === 'notification-mutation-unavailable' &&
+    notificationPath &&
+    !['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    fixtureMode === 'notification-send-conflict' &&
+    url.pathname === '/api/v1/notification/send'
+  ) {
+    return json({ success: false, error: 'idempotency_conflict' }, 409);
+  }
+  if (fixtureMode === 'chat-forbidden' && chatPath) {
+    return json({ success: false, error: 'forbidden' }, 403);
+  }
+  if (fixtureMode === 'chat-unavailable' && chatPath) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
+  if (
+    fixtureMode === 'chat-malformed' &&
+    chatPath &&
+    ['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: true, data: { malformed: true }, error: null });
+  }
+  if (
+    fixtureMode === 'chat-mutation-conflict' &&
+    chatPath &&
+    !['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: false, error: 'idempotency_conflict' }, 409);
+  }
+  if (
+    fixtureMode === 'chat-mutation-unavailable' &&
+    chatPath &&
+    !['GET', 'HEAD'].includes(request.method)
+  ) {
+    return json({ success: false, error: 'dependency_unavailable' }, 503);
+  }
   if (url.pathname === '/api/notifications/preferences') {
     return json({
       success: true,
@@ -1517,9 +1587,34 @@ async function routeRequest(request: Request): Promise<Response> {
       },
     });
   }
+  if (url.pathname === '/api/v1/notification/preferences') {
+    const principal = fixturePrincipal(request);
+    const requiredPermission =
+      request.method === 'GET'
+        ? 'epsx:notifications:read'
+        : 'epsx:notifications:update';
+    if (
+      principal?.audience !== 'epsx-frontend' ||
+      !permissionAllows(principal.permissions, requiredPermission)
+    ) {
+      return json({ success: false, error: 'forbidden' }, 403);
+    }
+    return json({
+      channels: { email: true, in_app: true, push: false },
+      quiet_hours: {
+        enabled: true,
+        start: '22:00',
+        end: '07:00',
+      },
+      timezone: 'Asia/Bangkok',
+      updated_at: fixtureTimestamp,
+    });
+  }
   if (
     url.pathname === '/api/v1/notification/push' ||
-    url.pathname === '/api/v1/notification/push/unsubscribe'
+    url.pathname === '/api/v1/notification/push/unsubscribe' ||
+    url.pathname === '/api/v1/notifications/push' ||
+    url.pathname === '/api/v1/notifications/push/unsubscribe'
   ) {
     return json({
       enabled: false,
@@ -1527,14 +1622,26 @@ async function routeRequest(request: Request): Promise<Response> {
       public_key: null,
     });
   }
-  if (url.pathname === '/api/notifications/stream') {
-    return new Response('data: {"type":"connected"}\n\n', {
+  if (
+    url.pathname === '/api/notifications/stream' ||
+    url.pathname === '/api/v1/notification/stream' ||
+    url.pathname === '/api/v1/notifications/stream' ||
+    url.pathname === '/api/chat/stream' ||
+    url.pathname === '/api/chat/admin/stream'
+  ) {
+    return new Response(': deterministic fixture stream connected\n\n', {
       headers: {
         'cache-control': 'no-store',
         'content-type': 'text/event-stream',
         'x-epsx-e2e-fixture': '1',
       },
     });
+  }
+  if (
+    url.pathname === '/api/v1/notification/stream/ack' ||
+    url.pathname === '/api/v1/notifications/stream/ack'
+  ) {
+    return json({ acknowledged: true });
   }
   if (url.pathname === '/api/admin/notifications') {
     return json({
@@ -1546,10 +1653,214 @@ async function routeRequest(request: Request): Promise<Response> {
     });
   }
   if (url.pathname === '/api/v1/notification/list') {
-    return json({ items: [], total: 0 });
+    if (fixtureMode === 'notification-empty') {
+      return json({ items: [], total: 0 });
+    }
+    return json({
+      items: [
+        {
+          id: fixtureNotificationId,
+          user_id: fixtureWalletAddress,
+          channel: 'in_app',
+          recipient: fixtureWalletAddress,
+          template_id: null,
+          subject: 'Security notice',
+          body: 'Your deterministic migration notification is ready.',
+          data: null,
+          status: 'sent',
+          error: null,
+          sent_at: fixtureTimestamp,
+          created_at: fixtureTimestamp,
+          read_at: null,
+          clicked_at: null,
+          title: 'Migration notification',
+          notification_type: 'security',
+          priority: 'high',
+          action_url: null,
+          expires_at: null,
+        },
+      ],
+      total: 1,
+    });
   }
   if (url.pathname === '/api/v1/notification/unread-count') {
-    return json({ count: 0 });
+    const principal = fixturePrincipal(request);
+    const canReadNotifications =
+      principal?.audience === 'epsx-frontend' &&
+      permissionAllows(principal.permissions, 'epsx:notifications:read');
+    return json({
+      count:
+        canReadNotifications && fixtureMode !== 'notification-empty' ? 1 : 0,
+    });
+  }
+  if (
+    url.pathname === '/api/v1/notification/mark-all-read' ||
+    url.pathname === '/api/v1/notification/clear-all' ||
+    isNotificationItemMutationPath(url.pathname)
+  ) {
+    return json({ success: true, updated_count: 1, deleted_count: 1 });
+  }
+  if (url.pathname === '/api/v1/notification/send') {
+    const status =
+      fixtureMode === 'notification-send-pending'
+        ? 'pending'
+        : fixtureMode === 'notification-send-failed'
+          ? 'failed'
+          : 'sent';
+    return json({
+      id: 'idem_notification_send_e2e',
+      status,
+      delivered: status === 'sent',
+      request_id: 'epsx-e2e-notification-send',
+    });
+  }
+  if (url.pathname === '/api/v1/notification/admin/list') {
+    const items =
+      fixtureMode === 'notification-empty'
+        ? []
+        : [
+            {
+              id: fixtureNotificationId,
+              title: 'Migration notification',
+              subject: 'Security notice',
+              channel: 'in_app',
+              status: 'sent',
+              notification_type: 'security',
+              priority: 'high',
+              sent_at: fixtureTimestamp,
+              created_at: fixtureTimestamp,
+            },
+          ];
+    return json({
+      items,
+      total: items.length,
+      limit: 20,
+      offset: Number(url.searchParams.get('offset') ?? '0'),
+    });
+  }
+  if (url.pathname === '/api/v1/notification/admin/metrics') {
+    return json({
+      queue_depth: 1,
+      queue_age_seconds: 5,
+      suppressed: 1,
+      retry_wait: 1,
+      terminal_failed: 1,
+      dead_lettered: 1,
+      provider_accepted: 3,
+      attempting: 1,
+      channel_outcomes: { email: 1, in_app: 2, push: 0 },
+      provider_events: 4,
+      delivery_attempts: 5,
+      replay_cursors: 1,
+      replay_cursor_age_seconds: 2,
+      active_streams: 1,
+      stream_connections_total: 3,
+      stream_reconnects_total: 1,
+      stream_replayed_events_total: 2,
+      stream_lag_seconds: 1,
+      stream_query_failures_total: 0,
+    });
+  }
+  if (
+    /^\/api\/v1\/notification\/admin\/[A-Za-z0-9_-]+(?:\/read)?$/.test(
+      url.pathname
+    )
+  ) {
+    return json({ success: true });
+  }
+  if (url.pathname === '/api/admin/chat/conversations') {
+    const items =
+      fixtureMode === 'chat-empty'
+        ? []
+        : [
+            {
+              id: fixtureConversationId,
+              topic_id: fixtureTopicId,
+              wallet_address: fixtureWalletAddress,
+              subject: 'Migration support conversation',
+              status: 'open',
+              assigned_agent: fixtureWalletAddress,
+              last_message_at: fixtureTimestamp,
+              unread_user: 0,
+              unread_agent: 1,
+              created_at: fixtureTimestamp,
+              updated_at: fixtureTimestamp,
+            },
+          ];
+    return json({
+      success: true,
+      data: {
+        items,
+        total: items.length,
+        page: Number(url.searchParams.get('page') ?? '1'),
+        limit: Number(url.searchParams.get('limit') ?? '20'),
+        has_next: false,
+      },
+      error: null,
+      meta: {
+        timestamp: fixtureTimestamp,
+        request_id: 'epsx-e2e-chat-list',
+      },
+    });
+  }
+  if (
+    url.pathname === `/api/admin/chat/conversations/${fixtureConversationId}`
+  ) {
+    return json({
+      success: true,
+      data: {
+        id: fixtureConversationId,
+        topic_id: fixtureTopicId,
+        wallet_address: fixtureWalletAddress,
+        subject: 'Migration support conversation',
+        status: 'open',
+        assigned_agent: fixtureWalletAddress,
+        last_message_at: fixtureTimestamp,
+        unread_user: 0,
+        unread_agent: 1,
+        created_at: fixtureTimestamp,
+        updated_at: fixtureTimestamp,
+      },
+      error: null,
+      meta: {
+        timestamp: fixtureTimestamp,
+        request_id: 'epsx-e2e-chat-detail',
+      },
+    });
+  }
+  if (
+    url.pathname ===
+    `/api/admin/chat/conversations/${fixtureConversationId}/messages`
+  ) {
+    if (['GET', 'HEAD'].includes(request.method)) {
+      return json({
+        success: true,
+        data: [
+          {
+            id: fixtureMessageId,
+            conversation_id: fixtureConversationId,
+            sender_type: 'user',
+            sender_address: fixtureWalletAddress,
+            content: 'Please verify my migration notification.',
+            is_read: false,
+            created_at: fixtureTimestamp,
+          },
+        ],
+        error: null,
+        meta: {
+          timestamp: fixtureTimestamp,
+          request_id: 'epsx-e2e-chat-messages',
+        },
+      });
+    }
+    return json({ success: true });
+  }
+  if (
+    new RegExp(
+      `^/api/admin/chat/conversations/${fixtureConversationId}/(?:status|assign|read)$`
+    ).test(url.pathname)
+  ) {
+    return json({ success: true });
   }
   if (url.pathname === '/api/v1/content/news') {
     const articles = fixtureMode === 'content-empty' ? [] : targetPublicNews;

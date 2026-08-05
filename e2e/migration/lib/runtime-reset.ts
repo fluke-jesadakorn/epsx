@@ -1,5 +1,5 @@
 import { createConnection } from 'node:net';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 import { Client } from 'pg';
@@ -105,6 +105,32 @@ async function createDatabase(
   });
 }
 
+async function applyNotificationMigrations(
+  config: RuntimeConfig,
+  client: Client
+): Promise<void> {
+  const migrationsRoot = resolve(
+    config.repoRoot,
+    'apps/backend/migrations/notifications'
+  );
+  const migrations = (await readdir(migrationsRoot, { withFileTypes: true }))
+    .filter(
+      entry => entry.isDirectory() && /^\d+_[a-z0-9_]+$/.test(entry.name)
+    )
+    .map(entry => entry.name)
+    .sort();
+  if (migrations.length === 0) {
+    throw new Error('notification migration inventory is empty');
+  }
+  for (const migration of migrations) {
+    const sql = await readFile(
+      resolve(migrationsRoot, migration, 'up.sql'),
+      'utf8'
+    );
+    await client.query(sql);
+  }
+}
+
 async function initializeTemplate(config: RuntimeConfig): Promise<void> {
   await dropDatabase(config.postgresAdminUrl, config.postgresRuntimeDatabase);
   await dropDatabase(config.postgresAdminUrl, config.postgresTemplateDatabase);
@@ -120,6 +146,7 @@ async function initializeTemplate(config: RuntimeConfig): Promise<void> {
     databaseUrl(config.postgresAdminUrl, config.postgresTemplateDatabase),
     async client => {
       await client.query(baselineSql);
+      await applyNotificationMigrations(config, client);
     }
   );
   await createDatabase(

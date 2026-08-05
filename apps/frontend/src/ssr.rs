@@ -939,16 +939,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     };
     // The development frontend mounts the floating support affordance from
     // the global layout for authenticated pages. Keep the same shell-level
-    // placement in the SSR document; `/chat` owns its full-page conversation
-    // UI and therefore hides the floating trigger.
+    // placement in the SSR document; `/chat` and its route descendants own
+    // their full-page conversation UI and therefore hide the floating trigger.
     let design_bypass_chat = design_bypass_chat_enabled(design_bypass, &path);
-    let chat_widget_html = if (is_authenticated || design_bypass_chat)
-        && !matches!(path.as_str(), "/auth" | "/chat")
-    {
-        crate::widgets::chat_widget(true, &user_id)
-    } else {
-        String::new()
-    };
+    let owns_chat_surface = path == "/chat" || path.starts_with("/chat/");
+    let chat_widget_html =
+        if (is_authenticated || design_bypass_chat) && path != "/auth" && !owns_chat_surface {
+            crate::widgets::chat_widget(true, &user_id)
+        } else {
+            String::new()
+        };
     let doc = doc.replace(
         "</body>",
         &format!(
@@ -1458,6 +1458,7 @@ fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Opt
         match params.get(NOTIFICATIONS_STATE_PARAM).map(String::as_str) {
             Some("ok") if params.contains_key(NOTIFICATIONS_DATA_PARAM) => StatusCode::OK,
             Some(NOTIFICATIONS_INVALID_QUERY) => StatusCode::BAD_REQUEST,
+            Some("malformed") => StatusCode::BAD_GATEWAY,
             _ => StatusCode::SERVICE_UNAVAILABLE,
         },
     )
@@ -1923,12 +1924,15 @@ fn developer_docs_runtime_script() -> &'static str {
 /// data. Every refresh clears the previous display before it calls the exact
 /// unread-count BFF route, and any non-success, malformed body, network error,
 /// or superseded response leaves the badge unavailable rather than showing a
-/// fabricated zero or stale count.
+/// fabricated zero or stale count. The notifications page owns the complete
+/// notification projection, including its unread total and dependency state,
+/// so it must not issue a second badge request that can contradict the page
+/// response or create a duplicate browser error.
 fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static str {
     // `/offline` is an explicitly public/cacheable recovery shell even when a
     // request happens to carry a valid session. Never let user-specific
     // notification activity enter that response.
-    if !is_authenticated || path == "/offline" {
+    if !is_authenticated || matches!(path, "/offline" | "/notifications") {
         return "";
     }
     r#"<script data-epsx-notification-badge-runtime>
@@ -2029,6 +2033,11 @@ fn notification_badge_runtime(is_authenticated: bool, path: &str) -> &'static st
     }
   });
 
+  if (window.location.pathname === '/notifications' &&
+      !document.querySelector('[data-notifications-window="complete"]')) {
+    setUnavailable();
+    return;
+  }
   loadCount();
 })();
 </script>"#
@@ -3149,17 +3158,19 @@ mod tests {
     }
 
     #[test]
-    fn notification_load_records_failures_as_503_and_removes_stale_payload() {
-        for (outcome, state) in [
+    fn notification_load_records_explicit_failure_statuses_and_removes_stale_payload() {
+        for (outcome, state, status) in [
             (
                 crate::api::NotificationListLoadOutcome::Unavailable(
                     crate::api::NotificationListUnavailable::Dependency,
                 ),
                 "error",
+                axum::http::StatusCode::SERVICE_UNAVAILABLE,
             ),
             (
                 crate::api::NotificationListLoadOutcome::Malformed,
                 "malformed",
+                axum::http::StatusCode::BAD_GATEWAY,
             ),
         ] {
             let mut params = HashMap::from([(
@@ -3189,7 +3200,7 @@ mod tests {
             assert!(!params.contains_key(super::NOTIFICATIONS_DATA_PARAM));
             assert_eq!(
                 notifications_ssr_status("/notifications", &params),
-                Some(axum::http::StatusCode::SERVICE_UNAVAILABLE)
+                Some(status)
             );
         }
     }
@@ -4399,6 +4410,7 @@ assert.equal(fetchCalls, 0);
     #[test]
     fn notification_badge_runtime_is_authenticated_only_and_uses_exact_read_route() {
         assert_eq!(notification_badge_runtime(false, "/rankings"), "");
+        assert_eq!(notification_badge_runtime(true, "/notifications"), "");
 
         let script = notification_badge_runtime(true, "/rankings");
         assert!(script.contains("data-epsx-notification-badge-runtime"));
@@ -4544,6 +4556,8 @@ assert.equal(fetchCalls, 0);
         assert_eq!(notification_badge_runtime(false, "/offline"), "");
         assert_eq!(notification_badge_runtime(true, "/offline"), "");
         assert!(!notification_badge_runtime(true, "/offline").contains("fetch("));
+        assert_eq!(notification_badge_runtime(true, "/notifications"), "");
+        assert!(!notification_badge_runtime(true, "/notifications").contains("fetch("));
 
         let script = notification_badge_runtime(true, "/rankings");
         assert!(script.contains("target.setAttribute('aria-label', 'Notifications');"));

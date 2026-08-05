@@ -251,6 +251,7 @@ export interface CaptureResult {
   title: string;
   bodyTextLength: number;
   consoleErrors: BrowserLogEntry[];
+  explainedConsoleErrors: BrowserLogEntry[];
   pageErrors: string[];
   failedRequests: NetworkEntry[];
   artifactDirectory: string;

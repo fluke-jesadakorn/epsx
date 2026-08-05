@@ -8,6 +8,7 @@ import {
 } from 'node:child_process';
 import { createWriteStream, existsSync } from 'node:fs';
 import { mkdir, rm } from 'node:fs/promises';
+import { createServer } from 'node:net';
 import { dirname, resolve } from 'node:path';
 
 import {
@@ -173,23 +174,10 @@ async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
       throw error;
     }
   };
-  const sendSignal = (signal: NodeJS.Signals): void => {
-    try {
-      if (processGroupId === undefined) {
-        child.kill(signal);
-      } else {
-        process.kill(-processGroupId, signal);
-      }
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
-        throw error;
-      }
-    }
-  };
   if (!groupIsAlive()) {
     return;
   }
-  sendSignal('SIGTERM');
+  signalManagedProcess(processInfo, 'SIGTERM');
   const deadline = Date.now() + 10_000;
   while (groupIsAlive() && Date.now() < deadline) {
     await new Promise(resolvePromise => setTimeout(resolvePromise, 100));
@@ -198,8 +186,47 @@ async function stopManagedProcess(processInfo: ManagedProcess): Promise<void> {
     process.stderr.write(
       `${name} did not stop after SIGTERM; sending SIGKILL\n`
     );
-    sendSignal('SIGKILL');
+    signalManagedProcess(processInfo, 'SIGKILL');
   }
+}
+
+function signalManagedProcess(
+  processInfo: ManagedProcess,
+  signal: NodeJS.Signals
+): void {
+  try {
+    if (processInfo.processGroupId === undefined) {
+      processInfo.child.kill(signal);
+    } else {
+      process.kill(-processInfo.processGroupId, signal);
+    }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') {
+      throw error;
+    }
+  }
+}
+
+async function assertTcpPortAvailable(
+  rawUrl: string,
+  label: string
+): Promise<void> {
+  const url = new URL(rawUrl);
+  const port = Number(url.port);
+  await new Promise<void>((resolvePromise, rejectPromise) => {
+    const server = createServer();
+    server.unref();
+    server.once('error', error => {
+      rejectPromise(
+        new Error(
+          `${label} requires free ${url.hostname}:${port}: ${error.message}`
+        )
+      );
+    });
+    server.listen({ host: url.hostname, port, exclusive: true }, () =>
+      server.close(() => resolvePromise())
+    );
+  });
 }
 
 async function waitForUrl(
@@ -467,7 +494,18 @@ async function doctor(): Promise<void> {
 
 async function safeCleanArtifactRoot(path: string): Promise<void> {
   const expected = resolve(migrationRoot, 'artifacts');
-  if (resolve(path) !== expected) {
+  const resolved = resolve(path);
+  const shardIndex = process.env.E2E_SHARD_INDEX?.trim();
+  const shardCount = process.env.E2E_SHARD_COUNT?.trim();
+  const isExactShardRoot =
+    shardIndex !== undefined &&
+    shardCount !== undefined &&
+    /^\d+$/.test(shardIndex) &&
+    /^\d+$/.test(shardCount) &&
+    Number(shardCount) > 0 &&
+    Number(shardIndex) < Number(shardCount) &&
+    resolved === resolve(expected, `shard-${shardIndex}`);
+  if (resolved !== expected && !isExactShardRoot) {
     throw new Error(`refusing to clean unexpected artifact root ${path}`);
   }
   await rm(path, { recursive: true, force: true });
@@ -656,6 +694,33 @@ function playwrightArgumentsForShard(shard: PlaywrightShard): string[] {
   return argumentsForShard;
 }
 
+function selectPlaywrightShards(shards: PlaywrightShard[]): PlaywrightShard[] {
+  const rawIndex = process.env.E2E_SHARD_INDEX?.trim();
+  const rawCount = process.env.E2E_SHARD_COUNT?.trim();
+  if (rawIndex === undefined && rawCount === undefined) {
+    return shards;
+  }
+  if (rawIndex === undefined || rawCount === undefined) {
+    throw new Error(
+      'E2E_SHARD_INDEX and E2E_SHARD_COUNT must be provided together'
+    );
+  }
+  const index = Number(rawIndex);
+  const count = Number(rawCount);
+  if (
+    !Number.isInteger(index) ||
+    !Number.isInteger(count) ||
+    count < 1 ||
+    index < 0 ||
+    index >= count
+  ) {
+    throw new Error(
+      `invalid Playwright shard selection index=${rawIndex} count=${rawCount}`
+    );
+  }
+  return shards.filter((_, shardIndex) => shardIndex % count === index);
+}
+
 // Process orchestration is intentionally centralized so cleanup owns every
 // child/container handle in one try/finally boundary.
 // eslint-disable-next-line max-lines-per-function, complexity
@@ -678,6 +743,17 @@ async function run(): Promise<void> {
   // manager calls remain guarded unless their caller makes this explicit.
   process.env.E2E_ALLOW_RUNTIME_MUTATION = '1';
   const config = await runtimeConfig(selectedGroup);
+  await Promise.all([
+    assertTcpPortAvailable(config.fixtureUrl, 'fixture server'),
+    assertTcpPortAvailable(config.sourceFrontendUrl, 'Next.js frontend source'),
+    assertTcpPortAvailable(config.targetFrontendUrl, 'Rust frontend target'),
+    ...(requiresAdmin
+      ? [
+          assertTcpPortAvailable(config.sourceAdminUrl, 'Next.js admin source'),
+          assertTcpPortAvailable(config.targetAdminUrl, 'Rust admin target'),
+        ]
+      : []),
+  ]);
   await safeCleanArtifactRoot(config.artifactRoot);
   await mkdir(config.runRoot, { recursive: true });
   const logsRoot = resolve(config.artifactRoot, 'server-logs');
@@ -695,6 +771,27 @@ async function run(): Promise<void> {
   let evidenceReady = false;
   let resetManager: RuntimeResetManager | undefined;
   let runtimeBootstrapped = false;
+  let activePlaywright: ManagedProcess | undefined;
+  let interruptedSignal: NodeJS.Signals | undefined;
+  const handleInterrupt = (signal: NodeJS.Signals): void => {
+    if (interruptedSignal !== undefined) {
+      return;
+    }
+    interruptedSignal = signal;
+    process.stderr.write(
+      `migration e2e received ${signal}; stopping scoped child process groups\n`
+    );
+    if (activePlaywright !== undefined) {
+      signalManagedProcess(activePlaywright, 'SIGTERM');
+    }
+    for (const processInfo of [...managed].reverse()) {
+      signalManagedProcess(processInfo, 'SIGTERM');
+    }
+  };
+  const handleSigint = (): void => handleInterrupt('SIGINT');
+  const handleSigterm = (): void => handleInterrupt('SIGTERM');
+  process.on('SIGINT', handleSigint);
+  process.on('SIGTERM', handleSigterm);
   try {
     // `compose up` can create a partial project before returning an error, so
     // cleanup owns the project from the moment startup is attempted.
@@ -768,12 +865,22 @@ async function run(): Promise<void> {
         `source dependency installation modified the immutable baseline: ${sourceChanges}`
       );
     }
-    await runBackendContracts({
-      config,
-      environment: safeEnvironment(),
-      groups: accumulatedGroups,
-      resetManager,
-    });
+    const shardIndex = Number(process.env.E2E_SHARD_INDEX ?? '0');
+    if (shardIndex === 0) {
+      await runBackendContracts({
+        config,
+        environment: safeEnvironment({
+          NOTIFICATION_RUNTIME_DATABASE_URL: databaseUrlForRuntime(config),
+          NOTIFICATION_RUNTIME_REDIS_URL: config.redisUrl,
+        }),
+        groups: accumulatedGroups,
+        resetManager,
+      });
+    } else {
+      process.stdout.write(
+        `backend contract suites assigned to shard 0; skipping on shard ${shardIndex}\n`
+      );
+    }
     runCommand(
       'cargo',
       [
@@ -828,6 +935,10 @@ async function run(): Promise<void> {
       NEXT_PUBLIC_CDN_URL: config.fixtureUrl,
       TZ: 'UTC',
     };
+    const cargoTargetRoot = resolve(
+      repoRoot,
+      process.env.CARGO_TARGET_DIR?.trim() || 'target'
+    );
     const source = await startManagedProcess({
       name: 'nextjs-source',
       executable: 'bun',
@@ -845,7 +956,7 @@ async function run(): Promise<void> {
 
     const target = await startManagedProcess({
       name: 'dioxus-target',
-      executable: resolve(repoRoot, 'target/debug/bff-frontend'),
+      executable: resolve(cargoTargetRoot, 'debug/bff-frontend'),
       commandArgs: [],
       spawnOptions: {
         cwd: repoRoot,
@@ -885,7 +996,7 @@ async function run(): Promise<void> {
       managed.push(sourceAdmin);
       const targetAdmin = await startManagedProcess({
         name: 'dioxus-admin-target',
-        executable: resolve(repoRoot, 'target/debug/bff-admin'),
+        executable: resolve(cargoTargetRoot, 'debug/bff-admin'),
         commandArgs: [],
         spawnOptions: {
           cwd: repoRoot,
@@ -933,23 +1044,34 @@ async function run(): Promise<void> {
           }
         : {}),
     });
-    const playwrightShards = buildPlaywrightShards(
-      manifest,
-      accumulatedGroups,
-      process.env.E2E_GREP
+    const playwrightShards = selectPlaywrightShards(
+      buildPlaywrightShards(manifest, accumulatedGroups, process.env.E2E_GREP)
+    );
+    process.stdout.write(
+      `selected ${playwrightShards.length} Playwright shard(s) from ` +
+        `${process.env.E2E_SHARD_COUNT ?? '1'} campaign worker(s)\n`
     );
     for (const shard of playwrightShards) {
       process.stdout.write(
         `playwright shard: ${shard.project ?? 'all projects'} / ${shard.grep}\n`
       );
+      const useProcessGroup = process.platform !== 'win32';
       const playwright = spawn('bunx', playwrightArgumentsForShard(shard), {
         cwd: repoRoot,
+        detached: useProcessGroup,
         env: playwrightEnvironment,
         stdio: 'inherit',
       });
+      activePlaywright = {
+        name: 'playwright',
+        child: playwright,
+        logPath: resolve(config.artifactRoot, 'playwright-report'),
+        processGroupId: useProcessGroup ? playwright.pid : undefined,
+      };
       testStatus = await new Promise<number>(resolvePromise => {
         playwright.once('exit', code => resolvePromise(code ?? 1));
       });
+      activePlaywright = undefined;
       if (testStatus !== 0) {
         throw new Error(
           `Playwright migration group ${selectedGroup} shard ${shard.grep} failed`
@@ -963,6 +1085,9 @@ async function run(): Promise<void> {
   } catch (error) {
     runError = error;
   } finally {
+    if (interruptedSignal !== undefined && runError === undefined) {
+      runError = new Error(`migration e2e interrupted by ${interruptedSignal}`);
+    }
     runError = mergeCleanupFailures(
       runError,
       await cleanupRuntime({
@@ -975,8 +1100,11 @@ async function run(): Promise<void> {
         selectedGroup,
       })
     );
+    process.off('SIGINT', handleSigint);
+    process.off('SIGTERM', handleSigterm);
   }
-  if (runError === undefined && evidenceReady) {
+  const isShardedRun = process.env.E2E_SHARD_COUNT !== undefined;
+  if (runError === undefined && evidenceReady && !isShardedRun) {
     try {
       await generateReport(config);
       await verifyArtifactManifest(config);

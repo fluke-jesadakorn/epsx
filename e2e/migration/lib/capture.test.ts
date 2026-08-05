@@ -2,11 +2,21 @@ import { describe, expect, test } from 'bun:test';
 
 import {
   blockingFailedRequests,
+  canonicalizeSourceTransientToasts,
+  canonicalizeSourceTransientFrameworkNodes,
+  canonicalizeSourceTransientEditorProjection,
+  expectedDocumentConsoleError,
   inputFilePayload,
   MIGRATION_CAPTURE_TIME,
   requiresDeterministicWallClock,
+  shouldServePinnedSourceAdminBrandAsset,
+  shouldCachePinnedSourceAdminChatStaticAsset,
+  shouldStabilizePinnedSourceAdminChatStream,
+  shouldStabilizePinnedSourceAdminNotificationStream,
+  shouldStabilizePinnedSourceAdminNotificationNavigation,
+  shouldPatchPinnedSourceViemBigIntMath,
 } from './capture';
-import type { NetworkEntry } from './types';
+import type { NetworkEntry, Scenario } from './types';
 
 const nextStylesheet =
   'http://127.0.0.1:4100/_next/static/chunks/%5Broot-of-the-server%5D__9f26c86c._.css';
@@ -90,6 +100,30 @@ describe('blockingFailedRequests', () => {
       unexplainedFailure,
     ]);
   });
+
+  test('accepts an image canceled by a redirect when the exact image retry succeeds', () => {
+    const url = 'http://127.0.0.1:4201/public/logos/epsx-icon.svg';
+    const failure: NetworkEntry = {
+      kind: 'failed',
+      method: 'GET',
+      resourceType: 'image',
+      url,
+      failure: 'net::ERR_ABORTED',
+    };
+
+    expect(
+      blockingFailedRequests([
+        failure,
+        {
+          kind: 'response',
+          method: 'GET',
+          resourceType: 'image',
+          url,
+          status: 200,
+        },
+      ])
+    ).toEqual([]);
+  });
 });
 
 test('migration capture wall clock is an exact canonical instant', () => {
@@ -116,6 +150,516 @@ test('wall-clock control is limited to the admin root dashboard', () => {
   ).toBe(false);
   expect(
     requiresDeterministicWallClock({ surface: 'frontend', path: '/' })
+  ).toBe(false);
+});
+
+test('only affected pinned source access toasts are canonicalized', () => {
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-conflict')
+  ).toBe(true);
+  expect(canonicalizeSourceTransientToasts('source', 'pr3.admin.access')).toBe(
+    true
+  );
+  expect(
+    canonicalizeSourceTransientToasts('target', 'pr3.admin.plan-conflict')
+  ).toBe(false);
+  expect(canonicalizeSourceTransientToasts('target', 'pr3.admin.access')).toBe(
+    false
+  );
+  expect(
+    canonicalizeSourceTransientToasts('source', 'pr3.admin.plan-detail')
+  ).toBe(false);
+});
+
+test('only the pinned source wallet denial hides framework transients', () => {
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr3.admin.wallet-detail-forbidden'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'target',
+      'pr3.admin.wallet-detail-forbidden'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientFrameworkNodes(
+      'source',
+      'pr3.admin.wallet-detail'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned news unpublish editor projection is normalized', () => {
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'source',
+      'pr5.admin.news-unpublish'
+    )
+  ).toBe(true);
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'target',
+      'pr5.admin.news-unpublish'
+    )
+  ).toBe(false);
+  expect(
+    canonicalizeSourceTransientEditorProjection(
+      'source',
+      'pr5.admin.news-edit-ready'
+    )
+  ).toBe(false);
+});
+
+test('only the pinned notification source serves the static admin brand asset', () => {
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(true);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'target',
+      'pr6.admin.notification-manage',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.chat-reply',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notifications-redirect',
+      '/logos/epsx-icon.svg'
+    )
+  ).toBe(false);
+  expect(
+    shouldServePinnedSourceAdminBrandAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      '/logos/other.svg'
+    )
+  ).toBe(false);
+});
+
+test('only the pinned notification source stabilizes its HEAD navigation', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/manage'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'target',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/manage'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/notifications/manage'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notifications-redirect',
+      'HEAD',
+      '/notifications'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'source',
+      'pr6.admin.notification-manage',
+      'HEAD',
+      '/notifications/create'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationNavigation(
+      'target',
+      'pr6.admin.notifications-redirect',
+      'HEAD',
+      '/notifications'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin chat source stabilizes its notification stream', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'target',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-reply',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'POST',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminChatStream(
+      'source',
+      'pr6.admin.chat-detail',
+      'GET',
+      '/api/notifications/unread-count'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin notification source stabilizes its stream', () => {
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(true);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'target',
+      'pr6.admin.notification-manage',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-empty',
+      'GET',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+  expect(
+    shouldStabilizePinnedSourceAdminNotificationStream(
+      'source',
+      'pr6.admin.notification-manage',
+      'POST',
+      '/api/notifications/stream'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin notification/chat sources cache static chunks', () => {
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4201/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-reply',
+      'http://127.0.0.1:4101/_next/static/chunks/chat.js'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.chat-detail',
+      'http://127.0.0.1:4101/chat/550e8400-e29b-41d4-a716-446655440000'
+    )
+  ).toBe(false);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'source',
+      'pr6.admin.notification-manage',
+      'http://127.0.0.1:4101/_next/static/chunks/notifications.js'
+    )
+  ).toBe(true);
+  expect(
+    shouldCachePinnedSourceAdminChatStaticAsset(
+      'target',
+      'pr6.admin.notification-manage',
+      'http://127.0.0.1:4201/_next/static/chunks/notifications.js'
+    )
+  ).toBe(false);
+});
+
+test('only the exact pinned admin chat hydration error is explained', () => {
+  const scenario: Scenario = {
+    id: 'pr6.admin.chat-detail',
+    surface: 'admin',
+    path: '/chat/550e8400-e29b-41d4-a716-446655440000',
+    title: 'Pinned chat detail',
+    state: { id: 'chat-admin', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4101/_next/static/chunks/c6277_next_dist_client_45827b1f._.js:1375:24',
+    text: [
+      'Error: Event handlers cannot be passed to Client Component props.',
+      'onUpdate={function onUpdate}',
+      'The above error occurred in the <ChatConversationView> component.',
+      'It was handled by the <ErrorBoundaryHandler> error boundary.',
+    ].join('\n'),
+  };
+  const options = {
+    entry,
+    finalUrl: 'http://127.0.0.1:4101/chat/550e8400-e29b-41d4-a716-446655440000',
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: {
+        ...entry,
+        text: entry.text.replace('<ChatConversationView>', '<Unknown>'),
+      },
+    })
+  ).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: { ...entry, text: 'different error' },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: { ...scenario, path: '/chat/not-a-uuid' },
+    })
+  ).toBe(false);
+});
+
+test('only exact pinned viem BigInt errors are explained', () => {
+  const scenario: Scenario = {
+    id: 'pr2.permissions.verified',
+    surface: 'frontend',
+    path: '/permissions',
+    title: 'Pinned permissions',
+    state: { id: 'permissions-verified', session: 'authenticated' },
+    actions: [],
+    outcomes: [],
+    fixtureRequirements: [],
+  };
+  const entry = {
+    type: 'error',
+    location:
+      'http://127.0.0.1:4100/_next/static/chunks/6063a_next_dist_client_7dd5190d._.js:1375:24',
+    text: [
+      '%o',
+      'TypeError: Cannot convert a BigInt value to a number',
+      'at Math.pow (<anonymous>)',
+      'at module evaluation (http://127.0.0.1:4100/_next/static/chunks/node_modules_viem__esm_f2746204._.js:1061:180)',
+      'It was handled by the <GlobalErrorBoundary> error boundary.',
+    ].join('\n'),
+  };
+  const options = {
+    entry,
+    finalUrl: 'http://127.0.0.1:4100/permissions',
+    finalStatus: 200,
+    scenario,
+    side: 'source' as const,
+    networkEntries: [] as NetworkEntry[],
+  };
+
+  expect(expectedDocumentConsoleError(options)).toBe(true);
+  expect(expectedDocumentConsoleError({ ...options, side: 'target' })).toBe(
+    false
+  );
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      entry: { ...entry, text: entry.text.replace('Math.pow', 'Math.max') },
+    })
+  ).toBe(false);
+
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
+        id: 'pr4.frontend.analytics-malformed',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+      entry: {
+        ...entry,
+        location:
+          'http://127.0.0.1:4100/_next/static/chunks/6063a_next_dist_client_7dd5190d._.js:1375:24',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
+        id: 'pr4.frontend.analytics-unavailable',
+        path: '/analytics',
+      },
+      finalUrl: 'http://127.0.0.1:4100/analytics',
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      scenario: {
+        ...scenario,
+        id: 'pr4.frontend.home-rankings',
+        path: '/',
+      },
+      finalUrl: 'http://127.0.0.1:4100/',
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: {
+        ...scenario,
+        id: 'pr2.profile.verified',
+        path: '/profile',
+      },
+      finalUrl: 'http://127.0.0.1:4200/profile',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: { ...scenario, id: 'pr2.account.verified', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4200/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4200/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/push:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(true);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'source',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4100/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4100/api/v1/notifications/push:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+  expect(
+    expectedDocumentConsoleError({
+      ...options,
+      side: 'target',
+      scenario: { ...scenario, id: 'pr2.auth.logout', path: '/account' },
+      finalUrl: 'http://127.0.0.1:4200/account',
+      entry: {
+        ...entry,
+        location: 'http://127.0.0.1:4200/api/v1/notifications/unread-count:0:0',
+        text: 'Failed to load resource: the server responded with a status of 503 (Service Unavailable)',
+      },
+    })
+  ).toBe(false);
+});
+
+test('only exact pinned source viem scenarios patch BigInt exponentiation', () => {
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath(
+      'source',
+      'pr4.frontend.analytics-limited'
+    )
+  ).toBe(true);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath('source', 'pr5.frontend.manual')
+  ).toBe(true);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath(
+      'target',
+      'pr4.frontend.analytics-limited'
+    )
+  ).toBe(false);
+  expect(
+    shouldPatchPinnedSourceViemBigIntMath('source', 'pr4.admin.dashboard')
   ).toBe(false);
 });
 

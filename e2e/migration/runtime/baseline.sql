@@ -14,16 +14,6 @@ CREATE TABLE IF NOT EXISTS infra_logs.outbox_events (
     payload JSONB NOT NULL DEFAULT '{}'::jsonb
 );
 
-CREATE TABLE IF NOT EXISTS public.notification_outbox (
-    event_id TEXT PRIMARY KEY,
-    payload JSONB NOT NULL DEFAULT '{}'::jsonb
-);
-
-CREATE TABLE IF NOT EXISTS public.notification_channel_jobs (
-    id TEXT PRIMARY KEY,
-    source_event_id TEXT
-);
-
 CREATE TABLE IF NOT EXISTS public.provider_callback_fixtures (
     id TEXT PRIMARY KEY,
     payload JSONB NOT NULL DEFAULT '{}'::jsonb
