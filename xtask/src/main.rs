@@ -1852,7 +1852,7 @@ fn embedded_inventory_sha256(
         digest.update(file_sha.as_bytes());
         digest.update([0]);
         digest.update(markers.join(",").as_bytes());
-        digest.update([b'\n']);
+        digest.update(*b"\n");
     }
     Ok(format!("{:x}", digest.finalize()))
 }
