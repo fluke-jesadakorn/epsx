@@ -141,9 +141,8 @@ mod tests {
         let addr = "0x1234567890abcdef";
         let truncated = format!(
             "{}...{}",
-            &addr.chars().take(6).collect::<String>(),
-            &addr
-                .chars()
+            addr.chars().take(6).collect::<String>(),
+            addr.chars()
                 .rev()
                 .take(4)
                 .collect::<String>()
