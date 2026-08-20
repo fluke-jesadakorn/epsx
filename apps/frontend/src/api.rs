@@ -643,6 +643,10 @@ fn try_clear_session_response(
     Ok(response)
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "BFF authentication helpers preserve complete HTTP error responses"
+)]
 async fn verified_bearer(
     state: &AppState,
     headers: &axum::http::HeaderMap,
@@ -652,6 +656,10 @@ async fn verified_bearer(
         .map(|(token, _)| token)
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "BFF authentication helpers preserve complete HTTP error responses"
+)]
 async fn verified_bearer_and_user(
     state: &AppState,
     headers: &axum::http::HeaderMap,
@@ -3171,6 +3179,10 @@ fn notification_preferences_upstream_error(status: StatusCode) -> Response {
     }
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "BFF upstream validation preserves the complete safe HTTP error response"
+)]
 async fn read_notification_preferences_response(
     response: reqwest::Response,
 ) -> Result<NotificationPreferencesResponse, Response> {
@@ -3868,6 +3880,10 @@ fn notification_stream_ack_upstream_error(status: StatusCode) -> Response {
     }
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "BFF upstream validation preserves the complete safe HTTP error response"
+)]
 async fn read_notification_stream_ack_response(
     response: reqwest::Response,
     expected_event_id: &str,
@@ -4066,6 +4082,10 @@ fn validate_notification_push_endpoint(endpoint: &str) -> Result<(), ()> {
     Ok(())
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "BFF upstream validation preserves the complete safe HTTP error response"
+)]
 async fn read_notification_push_response(
     response: reqwest::Response,
 ) -> Result<NotificationPushResponse, Response> {

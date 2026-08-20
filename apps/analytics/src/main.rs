@@ -63,6 +63,10 @@ use epsx_analytics_service::{
 //   - `GetWalletRankingOffsetRequest` /
 //     `GetWalletRankingOffsetResponse` (used by
 //     `grpc_client.rs`)
+#[allow(
+    clippy::result_large_err,
+    reason = "Tonic owns the generated Result<_, tonic::Status> client signatures"
+)]
 pub mod identity_proto {
     tonic::include_proto!("epsx.identity.v1");
 }

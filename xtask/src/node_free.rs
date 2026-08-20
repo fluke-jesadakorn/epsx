@@ -2206,7 +2206,7 @@ fn validate_key_value_flags(flags: &[String], allowed: &[&str]) -> Result<(), St
     if !flags.len().is_multiple_of(2) {
         return Err("flags must use --name value pairs".into());
     }
-    for pair in flags.chunks_exact(2) {
+    for pair in flags.as_chunks::<2>().0 {
         if !allowed.contains(&pair[0].as_str()) {
             return Err(format!("unsupported flag {}", pair[0]));
         }

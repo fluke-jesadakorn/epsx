@@ -2395,6 +2395,10 @@ async fn stream_cursor_belongs_to_owner(
     })
 }
 
+#[allow(
+    clippy::result_large_err,
+    reason = "the Axum handler preserves complete HTTP error responses for stream setup failures"
+)]
 async fn notification_stream(
     State(state): State<AppState>,
     Extension(principal): Extension<VerifiedPrincipal>,
