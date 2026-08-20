@@ -32,6 +32,39 @@ const INLINE_RUNTIME_MARKERS: &[&str] = &[
     "dangerous_inner_html: AUTH_REDIRECT_SCRIPT",
 ];
 const W3C_ELEMENT_KEY: &str = "element-6066-11e4-a52e-4f735466cecf";
+const PRODUCTION_ACCESS_COOKIE: &str = "__Host-epsx.access_token";
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum E2eRuntimeProfile {
+    Local,
+    ProductionShaped,
+}
+
+impl E2eRuntimeProfile {
+    fn parse(value: &str) -> Result<Self, String> {
+        match value {
+            "local" => Ok(Self::Local),
+            "production-shaped" => Ok(Self::ProductionShaped),
+            _ => Err("E2E runtime profile must be local or production-shaped".into()),
+        }
+    }
+
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::Local => "local",
+            Self::ProductionShaped => "production-shaped",
+        }
+    }
+
+    fn access_cookie(self, surface: &str) -> Result<(&'static str, bool), String> {
+        match (self, surface) {
+            (Self::ProductionShaped, "frontend" | "admin") => Ok((PRODUCTION_ACCESS_COOKIE, true)),
+            (Self::Local, "frontend") => Ok(("epsx.frontend.access_token", false)),
+            (Self::Local, "admin") => Ok(("epsx.admin.access_token", false)),
+            (_, _) => Err("unsupported scenario surface for access cookie".into()),
+        }
+    }
+}
 
 #[derive(Debug, Deserialize)]
 struct ScenarioManifest {
@@ -465,11 +498,50 @@ fn e2e_doctor(flags: &[String]) -> Result<(), String> {
     if let Some(group) = group_id(flags)? {
         require_group(&manifest, group)?;
     }
+    let workflow = fs::read_to_string(root.join(".github/workflows/migration-e2e.yml"))
+        .map_err(|error| format!("could not read migration E2E workflow: {error}"))?;
+    let edge = fs::read_to_string(root.join("e2e/production-shape/nginx.conf"))
+        .map_err(|error| format!("could not read production-shaped edge config: {error}"))?;
+    validate_production_shape_contract(&workflow, &edge)?;
     let matrix_count = manifest.matrices.values().map(Vec::len).sum::<usize>();
     println!(
-        "rust e2e doctor: PASS — baseline={}, groups=0-9, scenarios={}, actions={action_count}, asserted_outcomes={outcome_count}, matrices={matrix_count}",
+        "rust e2e doctor: PASS — baseline={}, groups=0-9, scenarios={}, actions={action_count}, asserted_outcomes={outcome_count}, matrices={matrix_count}, production_shape=pass",
         lock.commit, scenario_ids.len()
     );
+    Ok(())
+}
+
+fn validate_production_shape_contract(workflow: &str, edge: &str) -> Result<(), String> {
+    let workflow_markers = [
+        "EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1",
+        "E2E_RUNTIME_PROFILE: production-shaped",
+        "E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443",
+        "E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443",
+        "curl -kfsS https://epsx.e2e.localhost:4443/api/health",
+        "curl -kfsS https://admin.e2e.localhost:4443/api/health",
+    ];
+    let edge_markers = [
+        "ssl_protocols TLSv1.2 TLSv1.3;",
+        "server_name epsx.e2e.localhost;",
+        "server_name admin.e2e.localhost;",
+        "proxy_pass http://127.0.0.1:4200;",
+        "proxy_pass http://127.0.0.1:4201;",
+        "proxy_set_header Host $http_host;",
+        "proxy_set_header X-Forwarded-Proto https;",
+    ];
+    if let Some(missing) = workflow_markers
+        .iter()
+        .find(|marker| !workflow.contains(**marker))
+    {
+        return Err(format!(
+            "migration E2E workflow lost production-shaped marker: {missing}"
+        ));
+    }
+    if let Some(missing) = edge_markers.iter().find(|marker| !edge.contains(**marker)) {
+        return Err(format!(
+            "migration E2E edge lost production-shaped marker: {missing}"
+        ));
+    }
     Ok(())
 }
 
@@ -745,6 +817,7 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         "--group",
         "--webdriver-url",
         "--browser",
+        "--runtime-profile",
         "--frontend-url",
         "--admin-url",
         "--fixture-url",
@@ -769,6 +842,12 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         "safari" => "safari",
         _ => return Err("browser must be chromium, firefox, or safari".into()),
     };
+    let runtime_profile = flag_value(flags, "--runtime-profile")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_RUNTIME_PROFILE").ok())
+        .map(|value| E2eRuntimeProfile::parse(&value))
+        .transpose()?
+        .unwrap_or(E2eRuntimeProfile::Local);
     let frontend = flag_value(flags, "--frontend-url")
         .map(str::to_owned)
         .or_else(|| env::var("E2E_TARGET_FRONTEND_URL").ok())
@@ -785,6 +864,7 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         .map_err(|error| format!("could not create {}: {error}", output_root.display()))?;
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
+        .danger_accept_invalid_certs(true)
         .build()
         .map_err(|error| format!("could not create WebDriver client: {error}"))?;
     let fixture_url = flag_value(flags, "--fixture-url")
@@ -826,7 +906,12 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
                         .as_ref()
                         .and_then(|provisioned| provisioned.access_token.as_deref())
                     {
-                        session.install_access_cookie(base, &scenario.surface, access_token)?;
+                        session.install_access_cookie(
+                            base,
+                            &scenario.surface,
+                            access_token,
+                            runtime_profile,
+                        )?;
                     }
                     run_scenario(&mut session, scenario, base, matrix, &run_root)
                 })();
@@ -844,8 +929,8 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         }
     }
     println!(
-        "rust e2e run: PASS — group={group_id}, browser={browser}, matrices={}, repeats={}, executions={passed}",
-        matrices.len(), group.repeat
+        "rust e2e run: PASS — group={group_id}, browser={browser}, profile={}, matrices={}, repeats={}, executions={passed}",
+        runtime_profile.as_str(), matrices.len(), group.repeat
     );
     Ok(())
 }
@@ -1193,6 +1278,7 @@ impl<'a> WebDriverSession<'a> {
         matrix: &Matrix,
     ) -> Result<Self, String> {
         let mut always_match = json!({"browserName":browser});
+        always_match["acceptInsecureCerts"] = json!(true);
         match browser {
             "chrome" => {
                 let mut arguments = vec![
@@ -1402,17 +1488,14 @@ impl<'a> WebDriverSession<'a> {
         base_url: &str,
         surface: &str,
         access_token: &str,
+        runtime_profile: E2eRuntimeProfile,
     ) -> Result<(), String> {
         if access_token.contains(['\r', '\n', ';']) || access_token.len() >= 16 * 1024 {
             return Err("fixture access token is unsafe for a browser cookie".into());
         }
         self.navigate(base_url)?;
         self.command("DELETE", "/cookie", None)?;
-        let name = match surface {
-            "frontend" => "epsx.frontend.access_token",
-            "admin" => "epsx.admin.access_token",
-            _ => return Err("unsupported scenario surface for access cookie".into()),
-        };
+        let (name, secure) = runtime_profile.access_cookie(surface)?;
         self.command(
             "POST",
             "/cookie",
@@ -1422,12 +1505,30 @@ impl<'a> WebDriverSession<'a> {
                     "value":access_token,
                     "path":"/",
                     "httpOnly":true,
-                    "secure":false,
+                    "secure":secure,
                     "sameSite":"Lax"
                 }
             })),
-        )
-        .map(|_| ())
+        )?;
+        let cookies = self.command("GET", "/cookie", None)?;
+        let cookie = cookies
+            .as_array()
+            .and_then(|cookies| {
+                cookies
+                    .iter()
+                    .find(|cookie| cookie.get("name").and_then(Value::as_str) == Some(name))
+            })
+            .ok_or_else(|| format!("WebDriver did not retain the {name} access cookie"))?;
+        if cookie.get("secure").and_then(Value::as_bool) != Some(secure)
+            || cookie.get("httpOnly").and_then(Value::as_bool) != Some(true)
+            || cookie.get("sameSite").and_then(Value::as_str) != Some("Lax")
+            || cookie.get("path").and_then(Value::as_str) != Some("/")
+        {
+            return Err(format!(
+                "WebDriver access cookie did not satisfy the {runtime_profile:?} security contract"
+            ));
+        }
+        Ok(())
     }
 
     fn http_status(&self, url: &str) -> Result<u16, String> {
@@ -1531,8 +1632,13 @@ fn run_scenario(
         .or_else(|| target_path_outcome(scenario))
         .or_else(|| target_navigation_path(scenario, &matrix.id))
         .unwrap_or_else(|| requested_path(&scenario.path));
-    let current_url =
-        wait_for_url_contract(session, scenario, expected_path, Duration::from_secs(10))?;
+    let current_url = wait_for_url_contract(
+        session,
+        scenario,
+        base,
+        expected_path,
+        Duration::from_secs(10),
+    )?;
     let current =
         Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
     if current.path() != expected_path {
@@ -1656,9 +1762,13 @@ fn run_scenario(
 fn wait_for_url_contract(
     session: &WebDriverSession<'_>,
     scenario: &Scenario,
+    base: &str,
     expected_path: &str,
     timeout: Duration,
 ) -> Result<String, String> {
+    let expected_origin = Url::parse(base)
+        .map_err(|error| format!("invalid scenario base URL: {error}"))?
+        .origin();
     let start = Instant::now();
     let mut current_url = session.current_url()?;
     loop {
@@ -1678,12 +1788,13 @@ fn wait_for_url_contract(
                 .query_pairs()
                 .any(|(candidate, actual)| candidate == key && actual == value)
         });
-        if current.path() == expected_path && query_matches {
+        let origin_matches = current.origin() == expected_origin;
+        if origin_matches && current.path() == expected_path && query_matches {
             return Ok(current_url);
         }
         if start.elapsed() >= timeout {
             return Err(format!(
-                "browser URL {} did not satisfy path/query contract for {} within {} seconds",
+                "browser URL {} did not satisfy origin/path/query contract for {} within {} seconds",
                 current_url,
                 scenario.id,
                 timeout.as_secs()
@@ -2229,7 +2340,14 @@ fn run_status(command: &mut Command, label: &str) -> Result<(), String> {
 
 fn require_loopback(raw: &str, label: &str) -> Result<(), String> {
     let url = Url::parse(raw).map_err(|error| format!("invalid {label} URL: {error}"))?;
-    if !matches!(url.host_str(), Some("127.0.0.1" | "localhost" | "::1")) {
+    let is_loopback = url.host_str().is_some_and(|host| {
+        host.eq_ignore_ascii_case("localhost")
+            || host.to_ascii_lowercase().ends_with(".localhost")
+            || host
+                .parse::<std::net::IpAddr>()
+                .is_ok_and(|address| address.is_loopback())
+    });
+    if !is_loopback {
         return Err(format!("{label} must use a loopback URL"));
     }
     Ok(())
@@ -2249,9 +2367,10 @@ fn is_hex(value: &str, len: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        contains_node_command, environment_name, is_hex, matrix_matches,
+        contains_node_command, environment_name, is_hex, matrix_matches, require_loopback,
         require_runtime_state_provisioning, safe_relative_path, selector_nth, selector_text_filter,
-        split_selector_branches, Scenario, ScenarioGroup,
+        split_selector_branches, validate_production_shape_contract, E2eRuntimeProfile, Scenario,
+        ScenarioGroup,
     };
     use serde_json::json;
     use std::path::Path;
@@ -2267,6 +2386,42 @@ mod tests {
     fn hashes_require_the_exact_width() {
         assert!(is_hex(&"a".repeat(64), 64));
         assert!(!is_hex(&"g".repeat(64), 64));
+    }
+
+    #[test]
+    fn production_shaped_runtime_contract_is_explicit_and_local_only() {
+        assert_eq!(
+            E2eRuntimeProfile::parse("production-shaped").unwrap(),
+            E2eRuntimeProfile::ProductionShaped
+        );
+        assert_eq!(
+            E2eRuntimeProfile::ProductionShaped
+                .access_cookie("frontend")
+                .unwrap(),
+            ("__Host-epsx.access_token", true)
+        );
+        assert!(require_loopback("https://epsx.e2e.localhost:4443", "frontend").is_ok());
+        assert!(require_loopback("https://localhost.example:4443", "frontend").is_err());
+
+        let workflow = "EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1\n\
+            E2E_RUNTIME_PROFILE: production-shaped\n\
+            E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443\n\
+            E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443\n\
+            curl -kfsS https://epsx.e2e.localhost:4443/api/health\n\
+            curl -kfsS https://admin.e2e.localhost:4443/api/health";
+        let edge = "ssl_protocols TLSv1.2 TLSv1.3;\n\
+            server_name epsx.e2e.localhost;\n\
+            server_name admin.e2e.localhost;\n\
+            proxy_pass http://127.0.0.1:4200;\n\
+            proxy_pass http://127.0.0.1:4201;\n\
+            proxy_set_header Host $http_host;\n\
+            proxy_set_header X-Forwarded-Proto https;";
+        assert!(validate_production_shape_contract(workflow, edge).is_ok());
+        assert!(validate_production_shape_contract(
+            &workflow.replace("E2E_RUNTIME_PROFILE: production-shaped", ""),
+            edge
+        )
+        .is_err());
     }
 
     #[test]

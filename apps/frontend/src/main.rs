@@ -21,6 +21,7 @@ use axum::{
 use epsx_bff::{
     cookies::CookieEnvironment,
     middleware::security_headers,
+    runtime::production_shaped_e2e_enabled,
     session::{JwksVerifier, JwksVerifierConfig, FRONTEND_CLIENT_ID, JWKS_PATH},
 };
 use epsx_client::ServiceClient;
@@ -109,6 +110,7 @@ async fn main() {
 
 fn state_from_env() -> Result<AppState, String> {
     let cookie_environment = CookieEnvironment::from_env().map_err(|error| error.to_string())?;
+    let production_shaped_e2e = production_shaped_e2e_enabled();
     let api_url = std::env::var("API_URL")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "API_URL or BACKEND_URL is required".to_string())?;
@@ -118,14 +120,30 @@ fn state_from_env() -> Result<AppState, String> {
     let issuer = std::env::var("OIDC_ISSUER")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "OIDC_ISSUER or BACKEND_URL is required".to_string())?;
-    validate_auth_url(&api_url, cookie_environment, "API_URL/BACKEND_URL")?;
+    validate_auth_url(
+        &api_url,
+        cookie_environment,
+        production_shaped_e2e,
+        "API_URL/BACKEND_URL",
+    )?;
     validate_auth_url(
         &notification_url,
         cookie_environment,
+        production_shaped_e2e,
         "NOTIFICATION_SERVICE_URL",
     )?;
-    validate_auth_url(&content_url, cookie_environment, "CONTENT_SERVICE_URL")?;
-    validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
+    validate_auth_url(
+        &content_url,
+        cookie_environment,
+        production_shaped_e2e,
+        "CONTENT_SERVICE_URL",
+    )?;
+    validate_auth_url(
+        &issuer,
+        cookie_environment,
+        production_shaped_e2e,
+        "OIDC_ISSUER/BACKEND_URL",
+    )?;
 
     let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
     let dev_bypass_enabled = std::env::var("EPSX_DEV_AUTH_BYPASS").ok().as_deref() == Some("1");
@@ -177,6 +195,7 @@ fn state_from_env() -> Result<AppState, String> {
 fn validate_auth_url(
     value: &str,
     environment: CookieEnvironment,
+    allow_local_production_e2e: bool,
     label: &str,
 ) -> Result<(), String> {
     let url = reqwest::Url::parse(value).map_err(|_| format!("{label} must be an absolute URL"))?;
@@ -188,9 +207,6 @@ fn validate_auth_url(
     {
         return Err(format!("{label} has forbidden URL components"));
     }
-    if environment == CookieEnvironment::Production && url.scheme() != "https" {
-        return Err(format!("{label} must use HTTPS in production"));
-    }
     if environment == CookieEnvironment::Production {
         let host = url
             .host_str()
@@ -200,6 +216,12 @@ fn validate_auth_url(
             || host
                 .parse::<std::net::IpAddr>()
                 .is_ok_and(|address| address.is_loopback());
+        if local_host && allow_local_production_e2e {
+            return Ok(());
+        }
+        if url.scheme() != "https" {
+            return Err(format!("{label} must use HTTPS in production"));
+        }
         if local_host {
             return Err(format!("{label} must not use a local host in production"));
         }
@@ -216,24 +238,28 @@ mod configuration_tests {
         assert!(validate_auth_url(
             "https://api.epsx.io",
             CookieEnvironment::Production,
+            false,
             "API_URL"
         )
         .is_ok());
         assert!(validate_auth_url(
             "http://api.epsx.io",
             CookieEnvironment::Production,
+            false,
             "API_URL"
         )
         .is_err());
         assert!(validate_auth_url(
             "https://localhost:8080",
             CookieEnvironment::Production,
+            false,
             "API_URL"
         )
         .is_err());
         assert!(validate_auth_url(
             "https://127.0.0.1:8080",
             CookieEnvironment::Production,
+            false,
             "API_URL"
         )
         .is_err());
@@ -241,12 +267,35 @@ mod configuration_tests {
 
     #[test]
     fn local_mode_allows_http_but_rejects_ambiguous_components() {
-        assert!(
-            validate_auth_url("http://localhost:8080", CookieEnvironment::Local, "API_URL").is_ok()
-        );
+        assert!(validate_auth_url(
+            "http://localhost:8080",
+            CookieEnvironment::Local,
+            false,
+            "API_URL"
+        )
+        .is_ok());
         assert!(validate_auth_url(
             "http://localhost:8080?issuer=other",
             CookieEnvironment::Local,
+            false,
+            "API_URL"
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn production_shaped_e2e_allows_only_local_insecure_upstreams() {
+        assert!(validate_auth_url(
+            "http://127.0.0.1:48080",
+            CookieEnvironment::Production,
+            true,
+            "API_URL"
+        )
+        .is_ok());
+        assert!(validate_auth_url(
+            "http://api.epsx.io",
+            CookieEnvironment::Production,
+            true,
             "API_URL"
         )
         .is_err());

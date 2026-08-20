@@ -83,9 +83,15 @@ runner rejects authenticated or fixture-mode scenarios when that authority is
 absent or incomplete. Chromium groups 1–9, including the 440-execution group 9
 full regression, have passed against the current local Rust BFFs; this is
 ephemeral local evidence, not immutable staging, live-database, provider,
-cross-browser, or production proof. Pushes to the migration branch and manual
-workflow dispatches now start the same Rust fixture and can run the full
-Chromium plus Firefox matrix (or a selected group for manual dispatch).
+cross-browser, or production proof. The branch workflow now adds a self-signed
+TLS edge with distinct frontend/admin `*.localhost` hosts, runs both BFFs with
+production cookie semantics, checks the exact secure `__Host-` access-cookie
+contract, and rejects cross-origin path-only false positives. Its loopback HTTP
+fixture exception is explicit and debug-build-only. Pushes and manual workflow
+dispatches can run the full Chromium plus Firefox matrix (or one selected
+group). This is closer to the production browser/BFF request shape but still
+does not prove Cloudflare, production certificates, release containers,
+Kubernetes networking, live databases/providers, or production traffic.
 
 A disposable PostgreSQL 17 shadow run now applies the complete embedded Core,
 Analytics, Payments, and Notifications chains from fresh databases: 22, 4, 8,

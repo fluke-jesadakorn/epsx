@@ -14,8 +14,9 @@ cargo xtask e2e verify-artifacts
 
 The runner uses W3C WebDriver at a loopback URL. Chromium and Firefox run on
 Linux; Safari uses the macOS WebDriver. Target frontend and admin URLs must also
-be loopback-only. Browser-generated wasm-bindgen glue is created under
-`target/` and is not repository source.
+be loopback-only; dedicated `*.localhost` hostnames are accepted while lookalike
+external domains are rejected. Browser-generated wasm-bindgen glue is created
+under `target/` and is not repository source.
 
 Every selected group executes every declared viewport/color matrix and every
 declared repeat. `wait-for`, `click`, `fill`, and `set-input-files` issue real
@@ -23,6 +24,30 @@ WebDriver element commands. Path, query, text, selector, attribute, HTTP status,
 and horizontal-overflow outcomes are asserted rather than accepted as metadata.
 Artifacts are separated by browser, matrix, repeat, and scenario so later
 executions do not overwrite earlier evidence.
+
+## Production-shaped CI profile
+
+The migration workflow puts a tracked Nginx TLS edge in front of the two local
+BFFs. The browser reaches `https://epsx.e2e.localhost:4443` and
+`https://admin.e2e.localhost:4443`, while Nginx proxies to the separate internal
+HTTP listeners. The BFFs run with `EPSX_ENV=production`, so the campaign uses
+the real `__Host-epsx.access_token` name and verifies `Secure`, `HttpOnly`,
+`SameSite=Lax`, and `Path=/` through WebDriver. The runner also requires the
+final browser URL to retain the configured scheme, host, and port; a redirect
+to another origin can no longer satisfy a path-only assertion.
+
+The fixture is intentionally loopback HTTP. Production-mode BFF validation
+accepts it only when a debug binary also has
+`EPSX_PRODUCTION_SHAPED_E2E=1`; release binaries cannot enable this exception.
+Set `E2E_RUNTIME_PROFILE=production-shaped` together with the two HTTPS target
+URLs when reproducing the CI topology. `cargo xtask e2e doctor` pins the TLS,
+host separation, production runtime markers, and proxy contract so CI cannot
+silently fall back to the local cookie profile.
+
+This profile approximates the production request shape, not the complete
+production system. It does not include Cloudflare, production certificates,
+release containers, live databases/providers, Kubernetes networking, or
+production traffic.
 
 Groups 0–9 use the loopback-only Rust fixture authority. Start it before the
 frontend and admin BFFs, point `API_URL`, `BACKEND_URL`,

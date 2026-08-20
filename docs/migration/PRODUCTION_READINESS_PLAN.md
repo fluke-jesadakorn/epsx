@@ -123,6 +123,13 @@ migrated merely because a binary and route table exist.
 
 ### Interaction and UI behavior
 
+- Migration CI now places the Rust BFFs behind a local TLS edge with distinct
+  frontend/admin hosts, executes them with production runtime/cookie semantics,
+  verifies the secure host-only access-cookie attributes in Chromium/Firefox,
+  and requires same-origin final navigation. This closes the previous HTTP,
+  shared-host, local-cookie blind spot but remains fixture-backed debug-binary
+  evidence rather than Cloudflare, release-container, live-data, or staging
+  proof.
 - Frontend account, rankings, plans, subscriptions, news, portfolio, credits,
   developer/API-key, usage, analytics, dashboard, and payment responses include
   static/sample payloads in `apps/frontend/src/api.rs`.
@@ -309,8 +316,8 @@ passed`. It is not a percentage estimate of engineering effort.
 | Admin path presence | 2 | 27/27 counterparts; three fixed redirects | Redirects and dynamic params have contract tests. |
 | Shared UI package baseline | 2 | Targeted unit/doctest repair in this slice | `cargo test -p epsx-dioxus-ui --lib` and `--doc` pass. |
 | Visual/responsive/accessibility | 1 | Historical screenshots exist; current accepted baseline is incomplete | All routes pass agreed viewport, state, keyboard, and accessibility thresholds. |
-| Interaction parity | 0 | No complete click/form/wallet/navigation matrix | Every interactive control has E2E success and failure coverage. |
-| Auth/session parity | 1 | The cumulative A1 auth gate covers 108 focused tests plus three fixture checks across both BFFs, including closed refresh outcomes, hermetic browser coordination, authenticated customer/admin logout reachability, and a one-shot automatic recovery entrypoint; durable PostgreSQL rotation/revocation, commit-loss fault injection, and real-browser recovery behavior remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
+| Interaction parity | 0 | The campaign now exercises a production-shaped HTTPS edge and rejects cross-origin path false positives, but no complete click/form/wallet/navigation matrix exists | Every interactive control has E2E success and failure coverage. |
+| Auth/session parity | 1 | The cumulative A1 auth gate covers 108 focused tests plus three fixture checks across both BFFs, and migration WebDriver CI now uses the production secure `__Host-` cookie contract on isolated HTTPS hosts. Durable PostgreSQL rotation/revocation, commit-loss fault injection, real-wallet login/recovery, and staging browser behavior remain unproven | SIWE -> SSR me -> client-bound rotation -> revocation works across both BFFs. |
 | Backend authorization | 1 | Gateway is fail-closed with exact RS256/JWKS and granular edge policy; the 119-route service matrix is 11 aligned, 48 partial, and 60 blocked | Anonymous/cross-owner calls fail at both gateway and service boundaries; granular backend permissions pass. |
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
@@ -418,8 +425,11 @@ bounded path set. Shared contract files require coordination through package A0.
   return-target contracts, and the A1.8 one-shot recovery entrypoint. It
   deliberately does not satisfy the full A1
   acceptance condition: real wallet signing, nonce consumption, durable
-  database-backed old-token rejection/revocation, and production-shaped browser
-  behavior remain blocked. See `docs/migration/A1_4_AUTH_SESSION_GATE.md`.
+  database-backed old-token rejection/revocation, real-wallet browser recovery,
+  and staging behavior remain blocked. Migration CI separately proves the
+  production secure-cookie and isolated-host browser shape against a local
+  fixture, not the durable lifecycle. See
+  `docs/migration/A1_4_AUTH_SESSION_GATE.md`.
 
 - **A1.5 status:** `scripts/migration/verify-refresh-client-binding.sh` pins the
   additive forward-only expansion, both Diesel schemas, canonical shared
