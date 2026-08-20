@@ -86,13 +86,16 @@ workflow dispatches now start the same Rust fixture and can run the full
 Chromium plus Firefox matrix (or a selected group for manual dispatch).
 
 A disposable PostgreSQL 17 shadow run now applies the complete embedded Core,
-Analytics, Payments, and Notifications chains from fresh databases: 22, 3, 7,
+Analytics, Payments, and Notifications chains from fresh databases: 22, 4, 7,
 and 11 versions respectively. A second application is idempotent and preserves
 pre-migration sentinel rows in every database. The latest migration in each
 root was rolled back and reapplied; the security-sensitive refresh replay
 expansion correctly stops a deeper rollback rather than deleting durable replay
 state. CI repeats the fresh apply, idempotency, sentinel, version-count, and
-split-payments projection checks. The payments database receives an empty
+split-payments projection checks. Analytics routes writes beyond the last
+explicit monthly range into an additive default partition; its rollback proof
+detaches that partition without deleting the retained row and reattaches it on
+reapply. The payments database receives an empty
 `payments.plans` projection schema without invented authority data; population,
 continuous replication, reconciliation, and production-shaped upgrade proof
 remain explicit cutover blockers.
