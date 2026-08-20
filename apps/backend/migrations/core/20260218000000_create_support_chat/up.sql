@@ -39,12 +39,12 @@ CREATE TABLE IF NOT EXISTS chat_messages (
 );
 
 -- Indexes
-CREATE INDEX idx_chat_conversations_wallet ON chat_conversations(wallet_address);
-CREATE INDEX idx_chat_conversations_status ON chat_conversations(status);
-CREATE INDEX idx_chat_conversations_agent ON chat_conversations(assigned_agent);
-CREATE INDEX idx_chat_conversations_last_msg ON chat_conversations(last_message_at DESC);
-CREATE INDEX idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
-CREATE INDEX idx_chat_messages_sender ON chat_messages(sender_address);
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_wallet ON chat_conversations(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_status ON chat_conversations(status);
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_agent ON chat_conversations(assigned_agent);
+CREATE INDEX IF NOT EXISTS idx_chat_conversations_last_msg ON chat_conversations(last_message_at DESC);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_conversation ON chat_messages(conversation_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_chat_messages_sender ON chat_messages(sender_address);
 
 -- Seed default topics
 INSERT INTO chat_topics (name, label, description, icon, sort_order) VALUES
@@ -53,4 +53,5 @@ INSERT INTO chat_topics (name, label, description, icon, sort_order) VALUES
     ('account', 'Account', 'Account and wallet management', 'user', 2),
     ('analytics', 'Analytics', 'Data and analytics questions', 'bar-chart', 3),
     ('bug', 'Bug Report', 'Report a bug or technical issue', 'bug', 4),
-    ('feature', 'Feature Request', 'Suggest a new feature', 'lightbulb', 5);
+    ('feature', 'Feature Request', 'Suggest a new feature', 'lightbulb', 5)
+ON CONFLICT (name) DO NOTHING;

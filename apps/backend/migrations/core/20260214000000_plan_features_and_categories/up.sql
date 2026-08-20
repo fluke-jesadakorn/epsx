@@ -2,7 +2,7 @@
 -- Adds feature registry, plan-feature junction, and plan categories
 
 -- 1. Feature definitions registry
-CREATE TABLE features (
+CREATE TABLE IF NOT EXISTS features (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     key VARCHAR(100) UNIQUE NOT NULL,
     name VARCHAR(200) NOT NULL,
@@ -17,11 +17,11 @@ CREATE TABLE features (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_features_key ON features(key);
-CREATE INDEX idx_features_active ON features(is_active);
+CREATE INDEX IF NOT EXISTS idx_features_key ON features(key);
+CREATE INDEX IF NOT EXISTS idx_features_active ON features(is_active);
 
 -- 2. Junction: plan -> feature values
-CREATE TABLE plan_features (
+CREATE TABLE IF NOT EXISTS plan_features (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     plan_id UUID NOT NULL REFERENCES plans(id) ON DELETE CASCADE,
     feature_id UUID NOT NULL REFERENCES features(id) ON DELETE CASCADE,
@@ -30,15 +30,26 @@ CREATE TABLE plan_features (
     UNIQUE(plan_id, feature_id)
 );
 
-CREATE INDEX idx_plan_features_plan ON plan_features(plan_id);
-CREATE INDEX idx_plan_features_feature ON plan_features(feature_id);
+CREATE INDEX IF NOT EXISTS idx_plan_features_plan ON plan_features(plan_id);
+CREATE INDEX IF NOT EXISTS idx_plan_features_feature ON plan_features(feature_id);
 
 -- 3. Add plan_category to plans
-ALTER TABLE plans ADD COLUMN plan_category VARCHAR(20) NOT NULL DEFAULT 'base';
-ALTER TABLE plans ADD CONSTRAINT valid_plan_category
-    CHECK (plan_category IN ('base', 'addon', 'system', 'exclusive'));
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS plan_category VARCHAR(20) NOT NULL DEFAULT 'base';
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conrelid = 'public.plans'::regclass
+          AND conname = 'valid_plan_category'
+    ) THEN
+        ALTER TABLE plans ADD CONSTRAINT valid_plan_category
+            CHECK (plan_category IN ('base', 'addon', 'system', 'exclusive'));
+    END IF;
+END
+$$;
 
-CREATE INDEX idx_plans_category ON plans(plan_category);
+CREATE INDEX IF NOT EXISTS idx_plans_category ON plans(plan_category);
 
 -- 4. Seed features from current PlanFeatures struct defaults
 INSERT INTO features (key, name, description, feature_type, merge_strategy, default_value, tags, sort_order) VALUES
@@ -50,7 +61,8 @@ INSERT INTO features (key, name, description, feature_type, merge_strategy, defa
     ('rate_limit_per_min', 'Rate Limit (per min)', 'Requests per minute', 'numeric', 'max', '60', '{}', 6),
     ('rate_limit_per_hour', 'Rate Limit (per hour)', 'Requests per hour', 'numeric', 'max', '1000', '{}', 7),
     ('rate_limit_per_day', 'Rate Limit (per day)', 'Requests per day', 'numeric', 'max', '10000', '{}', 8),
-    ('burst_capacity', 'Burst Capacity', 'Maximum burst request count', 'numeric', 'max', '10', '{}', 9);
+    ('burst_capacity', 'Burst Capacity', 'Maximum burst request count', 'numeric', 'max', '10', '{}', 9)
+ON CONFLICT (key) DO NOTHING;
 
 -- 5. Migrate existing plan data into plan_features
 -- Extract rate limits and metadata from plans into plan_features rows

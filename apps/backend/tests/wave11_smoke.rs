@@ -121,10 +121,10 @@ fn three_r8_orphan_events_construct_and_dispatch() {
     // can fan them out.
 }
 
-// 4. The wave-11 schema cutover migration has the 4 expected
-//    DDL statements in the up.sql. The integration gate wrote
-//    this file; a regression here (e.g. someone deleting the
-//    trigger) silently breaks the production cutover.
+// 4. The wave-11 schema cutover migration supports both the legacy
+//    same-database topology and a dedicated payments database. The
+//    latter must receive an explicit empty projection without
+//    inventing authoritative rows.
 #[test]
 fn cutover_migration_has_required_ddl_statements() {
     let up = include_str!(
@@ -132,7 +132,9 @@ fn cutover_migration_has_required_ddl_statements() {
     );
     let required = [
         "CREATE SCHEMA IF NOT EXISTS payments",
-        "CREATE TABLE IF NOT EXISTS payments.plans",
+        "IF to_regclass('payments.plans') IS NULL",
+        "CREATE TABLE payments.plans (LIKE public.plans INCLUDING ALL)",
+        "CREATE TABLE payments.plans (",
         "CREATE OR REPLACE FUNCTION payments.sync_plans_from_public",
         "CREATE TRIGGER sync_plans_to_payments_schema",
     ];

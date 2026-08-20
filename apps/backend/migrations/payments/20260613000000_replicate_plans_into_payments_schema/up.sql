@@ -16,12 +16,65 @@
 
 CREATE SCHEMA IF NOT EXISTS payments;
 
--- Create the replica if it doesn't exist yet. `LIKE ... INCLUDING
--- ALL` copies the schema (columns + indexes + constraints) but
--- NOT the data — the one-shot script handles the initial bulk
--- copy. The trigger (below) keeps the replica in sync on
--- subsequent INSERT/UPDATE/DELETE.
-CREATE TABLE IF NOT EXISTS payments.plans (LIKE public.plans INCLUDING ALL);
+-- Create the replica if it doesn't exist yet. Legacy single-database
+-- deployments can clone public.plans directly. A dedicated payments database
+-- has no public.plans relation, so create the same bounded projection
+-- explicitly; data replication and reconciliation remain a separate cutover
+-- step and this migration never invents authoritative plan rows.
+DO $$
+BEGIN
+  IF to_regclass('payments.plans') IS NULL THEN
+    IF to_regclass('public.plans') IS NOT NULL THEN
+      EXECUTE 'CREATE TABLE payments.plans (LIKE public.plans INCLUDING ALL)';
+    ELSE
+      CREATE TABLE payments.plans (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        name VARCHAR(100) NOT NULL UNIQUE,
+        slug VARCHAR(100) NOT NULL UNIQUE,
+        description TEXT NOT NULL DEFAULT '',
+        plan_type VARCHAR(20) NOT NULL DEFAULT 'manual',
+        plan_category VARCHAR(20) NOT NULL DEFAULT 'base',
+        plan_group VARCHAR(20) NOT NULL DEFAULT 'personal',
+        plan_metadata JSONB NOT NULL DEFAULT '{}',
+        price NUMERIC(10,2) DEFAULT 0.00,
+        currency VARCHAR(3) DEFAULT 'USD',
+        billing_cycle VARCHAR(20) DEFAULT 'pay_per_use',
+        is_active BOOLEAN NOT NULL DEFAULT TRUE,
+        is_promoted BOOLEAN NOT NULL DEFAULT FALSE,
+        is_public BOOLEAN NOT NULL DEFAULT TRUE,
+        is_system BOOLEAN NOT NULL DEFAULT FALSE,
+        tier_level INTEGER NOT NULL DEFAULT 0,
+        max_members INTEGER,
+        auto_assign_enabled BOOLEAN DEFAULT FALSE,
+        assignment_rules JSONB DEFAULT '{}',
+        grace_period_hours INTEGER NOT NULL DEFAULT 0,
+        rate_limit_per_minute INTEGER NOT NULL DEFAULT 60,
+        rate_limit_per_hour INTEGER NOT NULL DEFAULT 1000,
+        rate_limit_per_day INTEGER NOT NULL DEFAULT 10000,
+        burst_capacity INTEGER NOT NULL DEFAULT 10,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_by VARCHAR(42),
+        last_modified_by VARCHAR(42),
+        CONSTRAINT valid_plan_type CHECK (plan_type IN ('manual', 'subscription', 'web3_asset', 'dao_membership', 'admin')),
+        CONSTRAINT valid_plan_category CHECK (plan_category IN ('base', 'addon', 'system', 'exclusive')),
+        CONSTRAINT valid_plan_group CHECK (plan_group IN ('personal', 'enterprise', 'api', 'custom')),
+        CONSTRAINT valid_currency CHECK (currency IN ('USD', 'EUR', 'BTC', 'ETH', 'BNB')),
+        CONSTRAINT valid_billing_cycle CHECK (billing_cycle IN ('monthly', 'yearly', 'one_time', 'lifetime', 'pay_per_use'))
+      );
+    END IF;
+  END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_plans_active_tier ON payments.plans(is_active, tier_level);
+CREATE INDEX IF NOT EXISTS idx_plans_category ON payments.plans(plan_category);
+CREATE INDEX IF NOT EXISTS idx_plans_created ON payments.plans(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_plans_group ON payments.plans(plan_group);
+CREATE INDEX IF NOT EXISTS idx_plans_metadata_gin ON payments.plans USING GIN(plan_metadata);
+CREATE INDEX IF NOT EXISTS idx_plans_price ON payments.plans(price, currency) WHERE plan_type = 'subscription';
+CREATE INDEX IF NOT EXISTS idx_plans_slug ON payments.plans(slug);
+CREATE INDEX IF NOT EXISTS idx_plans_type ON payments.plans(plan_type, is_active);
 
 -- A short comment so future readers understand the relationship
 -- to the canonical `public.plans` table.
@@ -58,11 +111,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- The trigger itself. `AFTER` so the source row is committed
--- before we replicate. `FOR EACH ROW` — we need the NEW/OLD
--- values, not per-statement. Idempotent on the up migration via
--- the `DROP TRIGGER IF EXISTS` in the down file.
-DROP TRIGGER IF EXISTS sync_plans_to_payments_schema ON public.plans;
-CREATE TRIGGER sync_plans_to_payments_schema
-  AFTER INSERT OR UPDATE OR DELETE ON public.plans
-  FOR EACH ROW EXECUTE FUNCTION payments.sync_plans_from_public();
+-- A same-database legacy deployment can keep the projection current with a
+-- trigger. Dedicated databases deliberately skip this trigger because
+-- PostgreSQL triggers cannot cross database boundaries; their external
+-- replication/reconciliation gate remains explicit.
+DO $$
+BEGIN
+  IF to_regclass('public.plans') IS NOT NULL THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS sync_plans_to_payments_schema ON public.plans';
+    EXECUTE 'CREATE TRIGGER sync_plans_to_payments_schema
+      AFTER INSERT OR UPDATE OR DELETE ON public.plans
+      FOR EACH ROW EXECUTE FUNCTION payments.sync_plans_from_public()';
+  END IF;
+END
+$$;

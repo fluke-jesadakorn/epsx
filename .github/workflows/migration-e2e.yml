@@ -1,6 +1,8 @@
 name: Rust migration E2E
 
 on:
+  push:
+    branches: [migration/dioxus-microservices]
   pull_request:
     branches: [migration/dioxus-microservices, development]
   workflow_dispatch:
@@ -44,7 +46,7 @@ jobs:
           fi
 
   webdriver-linux:
-    if: ${{ github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
     name: WebDriver group ${{ matrix.group }} (${{ matrix.browser }})
     runs-on: ubuntu-latest
     timeout-minutes: 60

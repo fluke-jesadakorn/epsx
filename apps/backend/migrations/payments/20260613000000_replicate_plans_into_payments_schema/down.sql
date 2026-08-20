@@ -6,7 +6,13 @@
 -- production confirmation; the wave-11 spec leaves it as a
 -- wave-12 cleanup if the team wants to retire the replica).
 
-DROP TRIGGER IF EXISTS sync_plans_to_payments_schema ON public.plans;
+DO $$
+BEGIN
+  IF to_regclass('public.plans') IS NOT NULL THEN
+    EXECUTE 'DROP TRIGGER IF EXISTS sync_plans_to_payments_schema ON public.plans';
+  END IF;
+END
+$$;
 DROP FUNCTION IF EXISTS payments.sync_plans_from_public();
 -- Intentionally NOT dropping payments.plans or the payments
 -- schema — they're safe to keep around for the wave-12 cleanup

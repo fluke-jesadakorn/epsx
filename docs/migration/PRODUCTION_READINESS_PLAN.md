@@ -1,6 +1,6 @@
 # Production readiness plan: Dioxus and Rust microservices
 
-Last evidence review: 2026-07-22 (Asia/Bangkok)
+Last evidence review: 2026-08-20 (Asia/Bangkok)
 
 ## Purpose and safety boundary
 
@@ -169,14 +169,14 @@ migrated merely because a binary and route table exist.
   `not_rotated` outcome preserves a refresh session; rejected, unknown, missing,
   transport-ambiguous, and invalid post-rotation outcomes clear locally without
   retry; and production `__Host-` names remain host-bound.
-- Exact-audience lifecycle remains STOP because the duplicate core baseline
-  version blocks safe root execution and no disposable PostgreSQL proof covers
-  migration application, cross-client non-consumption, concurrent rotation,
-  rollback, restart persistence, family-lock ordering, or legacy cutover. The
-  A1.6 additive expansion now defines guarded nullable digest metadata and exact
-  active/consumed/revoked row shapes, but it has not run against PostgreSQL and
-  is not runtime, cutover, key-lifecycle, plaintext-scrub, or replay-response
-  proof.
+- Exact-audience lifecycle remains STOP even though the duplicate-version and
+  fresh-root blockers are resolved: a disposable PostgreSQL 17 run applies all
+  22 core versions and preserves pre-migration sentinel data, but it does not
+  cover cross-client non-consumption, concurrent rotation, restart persistence,
+  family-lock ordering, populated legacy cutover, or plaintext scrubbing. The
+  A1.6 additive expansion defines guarded nullable digest metadata and exact
+  active/consumed/revoked row shapes; its down migration intentionally refuses
+  to erase durable replay state.
 - A1.4 provides hermetic mock-backed proof for these contracts, but no real
   wallet/nonces or disposable-database test yet proves old-token rejection and
   durable revocation across the complete flow.
@@ -244,7 +244,9 @@ and revocation behavior remain canonical.
   current pay candidate and deployment use `epsx_pay`, provisioning creates
   `epsx_payments_{dev,staging,prod}`, and the historical prototype used
   `epsx_payment`. Their table and route models also differ, so the A3.13 guarded
-  fresh-schema migration is not adoption, backfill, or authority evidence.
+  fresh-schema chain now creates an empty `payments.plans` projection in a
+  dedicated payments database, but this is not adoption, backfill,
+  reconciliation, or authority evidence.
 
 ### Data and migration safety
 
@@ -257,14 +259,14 @@ and revocation behavior remain canonical.
   have removed their startup DDL and now have pinned candidate migrations plus
   read-only schema compatibility checks. Identity has a schema-only additive
   lifecycle migration while its lifecycle routes remain disabled. The combined
-  static inventory is 15/15 registered roots, 175 migration SQL files, and 511
-  destructive-token findings. All 16 migration risks remain blocked: zero
-  startup mutation is useful static remediation, but these packages still lack
-  the required runner/adoption, populated-upgrade, reconciliation,
+  static inventory covers all 15/15 registered roots, and its destructive-token
+  findings remain classified. The embedded Core, Analytics, Payments, and
+  Notifications roots now pass a PostgreSQL 17 fresh apply with 22/3/7/11
+  versions, a no-op second apply, and sentinel preservation; CI repeats that
+  proof. The latest migration in every root also passes rollback/reapply, while
+  the refresh replay migration correctly blocks a deeper destructive rollback.
+  The packages still lack populated upgrades, data reconciliation,
   concurrent-startup, runtime-lifecycle, and production-shaped database proof.
-  A3.13's isolated disposable PostgreSQL 18 fresh-schema exercise validates
-  catalog behavior only; it is explicitly not payment-authority, adoption,
-  populated-upgrade, deployed-database, or production-readiness evidence.
 - Provisioning creates `epsx_payments_*` databases while pay service manifests
   and compose files also refer to `epsx_pay`; other candidate service database
   names are not consistently provisioned.
@@ -310,12 +312,12 @@ passed`. It is not a percentage estimate of engineering effort.
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 0 | Static remediation reduced runtime DDL to 9 findings (6 reviewed exceptions + 3 actionable) and service-startup mutations to 0; 15 roots and 175 SQL files are inventoried, but all 16 migration risks remain blocked and 511 destructive-token findings, naming drift, baseline edits, and expired partitions remain. The isolated A3.13 PostgreSQL 18 fresh-schema proof is not an upgrade or readiness gate. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Migration/data safety | 1 | Static gates pass and disposable PostgreSQL 17 proves fresh apply/idempotency/sentinel preservation for the embedded 22/3/7/11 Core/Analytics/Payments/Notifications versions, including the restored durable CQRS tables, plus latest-version rollback/reapply. Populated upgrades, reconciliation, naming drift, baseline edits, expired partitions, and production-shaped rollback remain. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
 
-**Current evidence score: 10/28.** This score records gate evidence only. It must
+**Current evidence score: 11/28.** This score records gate evidence only. It must
 not be used to forecast dates or authorize production traffic.
 
 ## Dependency DAG
@@ -624,9 +626,9 @@ bounded path set. Shared contract files require coordination through package A0.
   are zero after the combined analytics, subscription, wallet, content,
   notification, indexer, and pay remediation. It invents no priority,
   dependency, database state, or forward SQL and exits `2` with `STOP` for
-  readiness. The wider migration-safety inventory covers all 15/15 roots and
-  175 SQL files; its 511 destructive-token findings remain classified, and all
-  16/16 risks remain blocked. Both static integrity gates and the A3.3 tamper
+  readiness. The wider migration-safety inventory covers all 15/15 roots; its
+  destructive-token findings remain classified, and all 16/16 risks remain
+  blocked. Both static integrity gates and the A3.3 tamper
   self-test pass. No production-shaped migration, adoption, upgrade,
   reconciliation, or rollout proof was run.
 

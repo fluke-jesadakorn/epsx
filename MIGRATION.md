@@ -81,9 +81,24 @@ runner rejects authenticated or fixture-mode scenarios when that authority is
 absent or incomplete. Chromium groups 1–9, including the 440-execution group 9
 full regression, have passed against the current local Rust BFFs; this is
 ephemeral local evidence, not immutable staging, live-database, provider,
-cross-browser, or production proof. The workflow-dispatch campaign now starts
-the same Rust fixture and can run the selected group or the full Chromium plus
-Firefox matrix.
+cross-browser, or production proof. Pushes to the migration branch and manual
+workflow dispatches now start the same Rust fixture and can run the full
+Chromium plus Firefox matrix (or a selected group for manual dispatch).
+
+A disposable PostgreSQL 17 shadow run now applies the complete embedded Core,
+Analytics, Payments, and Notifications chains from fresh databases: 22, 3, 7,
+and 11 versions respectively. A second application is idempotent and preserves
+pre-migration sentinel rows in every database. The latest migration in each
+root was rolled back and reapplied; the security-sensitive refresh replay
+expansion correctly stops a deeper rollback rather than deleting durable replay
+state. CI repeats the fresh apply, idempotency, sentinel, version-count, and
+split-payments projection checks. The payments database receives an empty
+`payments.plans` projection schema without invented authority data; population,
+continuous replication, reconciliation, and production-shaped upgrade proof
+remain explicit cutover blockers.
+The core proof also requires the three durable CQRS tables (`event_store`,
+`outbox_events`, and `aggregate_snapshots`) that were omitted when the archived
+incremental history was consolidated into the active baseline.
 The compatibility audit checks all 23 reviewed BFF/service method-path
 registrations against the checked-in Rust routers; payload, envelope, status,
 legacy-source, live-service, and browser parity remain separate gates.

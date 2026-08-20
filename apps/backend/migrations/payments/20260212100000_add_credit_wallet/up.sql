@@ -18,7 +18,7 @@ SET client_encoding = 'UTF8';
 -- Stores the current credit balance for each wallet
 -- Separate from core.wallet_users for better separation of concerns
 
-CREATE TABLE wallet_credits (
+CREATE TABLE IF NOT EXISTS wallet_credits (
     wallet_address VARCHAR(42) PRIMARY KEY,
     balance NUMERIC(10,2) NOT NULL DEFAULT 0,
     pending_balance NUMERIC(10,2) NOT NULL DEFAULT 0,
@@ -37,15 +37,15 @@ CREATE TABLE wallet_credits (
     CONSTRAINT non_negative_lifetime_spent CHECK (lifetime_spent >= 0)
 );
 
-CREATE INDEX idx_wallet_credits_balance ON wallet_credits(balance) WHERE balance > 0;
-CREATE INDEX idx_wallet_credits_updated ON wallet_credits(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_wallet_credits_balance ON wallet_credits(balance) WHERE balance > 0;
+CREATE INDEX IF NOT EXISTS idx_wallet_credits_updated ON wallet_credits(updated_at DESC);
 
 -- ============================================================================
 -- CREDIT TRANSACTIONS TABLE
 -- ============================================================================
 -- Tracks all credit movements (grants, debits, refunds, etc.)
 
-CREATE TABLE credit_transactions (
+CREATE TABLE IF NOT EXISTS credit_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     wallet_address VARCHAR(42) NOT NULL,
     amount NUMERIC(10,2) NOT NULL,
@@ -71,12 +71,37 @@ CREATE TABLE credit_transactions (
     )
 );
 
-CREATE INDEX idx_credit_tx_wallet ON credit_transactions(wallet_address);
-CREATE INDEX idx_credit_tx_type ON credit_transactions(tx_type);
-CREATE INDEX idx_credit_tx_created ON credit_transactions(created_at DESC);
-CREATE INDEX idx_credit_tx_reference ON credit_transactions(reference_id) WHERE reference_id IS NOT NULL;
-CREATE INDEX idx_credit_tx_expires ON credit_transactions(expires_at) WHERE expires_at IS NOT NULL;
-CREATE INDEX idx_credit_tx_granted_by ON credit_transactions(granted_by) WHERE granted_by IS NOT NULL;
+-- The consolidated v4 baseline already creates both tables with a smaller
+-- constraint set. Add only the missing invariants when upgrading that schema.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.wallet_credits'::regclass AND conname = 'valid_wallet_address') THEN
+        ALTER TABLE wallet_credits ADD CONSTRAINT valid_wallet_address CHECK (wallet_address ~ '^0x[a-fA-F0-9]{40}$');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.wallet_credits'::regclass AND conname = 'non_negative_pending') THEN
+        ALTER TABLE wallet_credits ADD CONSTRAINT non_negative_pending CHECK (pending_balance >= 0);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.wallet_credits'::regclass AND conname = 'non_negative_lifetime_earned') THEN
+        ALTER TABLE wallet_credits ADD CONSTRAINT non_negative_lifetime_earned CHECK (lifetime_earned >= 0);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.wallet_credits'::regclass AND conname = 'non_negative_lifetime_spent') THEN
+        ALTER TABLE wallet_credits ADD CONSTRAINT non_negative_lifetime_spent CHECK (lifetime_spent >= 0);
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.credit_transactions'::regclass AND conname = 'valid_granted_by') THEN
+        ALTER TABLE credit_transactions ADD CONSTRAINT valid_granted_by CHECK (granted_by IS NULL OR granted_by ~ '^0x[a-fA-F0-9]{40}$');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.credit_transactions'::regclass AND conname = 'valid_reference_type') THEN
+        ALTER TABLE credit_transactions ADD CONSTRAINT valid_reference_type CHECK (reference_type IS NULL OR reference_type IN ('payment', 'subscription', 'refund', 'admin_action'));
+    END IF;
+END
+$$;
+
+CREATE INDEX IF NOT EXISTS idx_credit_tx_wallet ON credit_transactions(wallet_address);
+CREATE INDEX IF NOT EXISTS idx_credit_tx_type ON credit_transactions(tx_type);
+CREATE INDEX IF NOT EXISTS idx_credit_tx_created ON credit_transactions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_credit_tx_reference ON credit_transactions(reference_id) WHERE reference_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_credit_tx_expires ON credit_transactions(expires_at) WHERE expires_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_credit_tx_granted_by ON credit_transactions(granted_by) WHERE granted_by IS NOT NULL;
 
 -- ============================================================================
 -- TRIGGERS
@@ -91,6 +116,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS wallet_credits_updated_at ON wallet_credits;
 CREATE TRIGGER wallet_credits_updated_at
     BEFORE UPDATE ON wallet_credits
     FOR EACH ROW

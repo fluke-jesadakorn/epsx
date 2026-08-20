@@ -13,10 +13,10 @@ CREATE TABLE IF NOT EXISTS news_articles (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_news_slug ON news_articles(slug);
-CREATE INDEX idx_news_status ON news_articles(status);
-CREATE INDEX idx_news_published_at ON news_articles(published_at DESC NULLS LAST);
-CREATE INDEX idx_news_author ON news_articles(author_wallet);
+CREATE INDEX IF NOT EXISTS idx_news_slug ON news_articles(slug);
+CREATE INDEX IF NOT EXISTS idx_news_status ON news_articles(status);
+CREATE INDEX IF NOT EXISTS idx_news_published_at ON news_articles(published_at DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_news_author ON news_articles(author_wallet);
 
 COMMENT ON TABLE news_articles IS 'News/blog articles with markdown content, managed by admins';
 COMMENT ON COLUMN news_articles.slug IS 'URL-friendly identifier, auto-generated from title, unique';

@@ -54,7 +54,7 @@
 //!
 //! Every `*_with_plan_name` method returns `(T, Option<String>)`
 //! where the `Option<String>` is the plan name. The SQL
-//! JOIN uses `LEFT JOIN plans ON payments.plan_id = plans.id`
+//! JOIN uses `LEFT JOIN payments.plans ON payments.plan_id = payments.plans.id`
 //! so payments whose plan row has been deleted (admin hard
 //! delete) still come back, with `plan_name = None`.
 
@@ -241,7 +241,7 @@ impl PaymentRepositoryAdapter {
                 p.metadata, p.last_checked_at, p.error_message, p.network,
                 pl.name as plan_name
             FROM payments p
-            LEFT JOIN plans pl ON p.plan_id = pl.id
+            LEFT JOIN payments.plans pl ON p.plan_id = pl.id
             WHERE p.transaction_hash = $1
             LIMIT 1
         "#;
@@ -353,7 +353,7 @@ impl PaymentRepositoryAdapter {
                 p.metadata, p.last_checked_at, p.error_message, p.network,
                 pl.name as plan_name
             FROM payments p
-            LEFT JOIN plans pl ON p.plan_id = pl.id
+            LEFT JOIN payments.plans pl ON p.plan_id = pl.id
             WHERE p.wallet_address = $1
             ORDER BY p.created_at DESC NULLS LAST
             LIMIT $2 OFFSET $3
@@ -458,7 +458,7 @@ impl PaymentRepositoryAdapter {
                 p.metadata, p.last_checked_at, p.error_message, p.network,
                 pl.name as plan_name
             FROM payments p
-            LEFT JOIN plans pl ON p.plan_id = pl.id
+            LEFT JOIN payments.plans pl ON p.plan_id = pl.id
             WHERE p.id = $1
             LIMIT 1
         "#;
@@ -548,7 +548,7 @@ impl PaymentRepositoryAdapter {
         ) {
             (Some(w), Some(p), Some(s)) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.wallet_address = $1 AND s.plan_id = $2 AND s.status = $3 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $4 OFFSET $5",
             )
@@ -560,7 +560,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (3f): {}", e))?,
             (Some(w), Some(p), None) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.wallet_address = $1 AND s.plan_id = $2 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $3 OFFSET $4",
             )
@@ -571,7 +571,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (wp): {}", e))?,
             (Some(w), None, Some(s)) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.wallet_address = $1 AND s.status = $2 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $3 OFFSET $4",
             )
@@ -582,7 +582,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (ws): {}", e))?,
             (None, Some(p), Some(s)) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.plan_id = $1 AND s.status = $2 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $3 OFFSET $4",
             )
@@ -593,7 +593,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (ps): {}", e))?,
             (Some(w), None, None) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.wallet_address = $1 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $2 OFFSET $3",
             )
@@ -603,7 +603,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (w): {}", e))?,
             (None, Some(p), None) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.plan_id = $1 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $2 OFFSET $3",
             )
@@ -613,7 +613,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (p): {}", e))?,
             (None, None, Some(s)) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  WHERE s.status = $1 \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $2 OFFSET $3",
             )
@@ -623,7 +623,7 @@ impl PaymentRepositoryAdapter {
             .load::<Row>(&mut conn).await.map_err(|e| format!("list_admin_subs (s): {}", e))?,
             (None, None, None) => diesel::sql_query(
                 "SELECT s.id, s.wallet_address, s.plan_id, s.payment_id, s.status, s.started_at, s.expires_at, s.cancelled_at, s.auto_renew, s.metadata, pl.name as plan_name \
-                 FROM subscriptions s LEFT JOIN plans pl ON s.plan_id = pl.id \
+                 FROM subscriptions s LEFT JOIN payments.plans pl ON s.plan_id = pl.id \
                  ORDER BY s.started_at DESC NULLS LAST LIMIT $1 OFFSET $2",
             )
             .bind::<diesel::sql_types::BigInt, _>(limit)
@@ -776,7 +776,7 @@ impl PaymentRepositoryAdapter {
             })
             .collect();
 
-        // 2. Plan breakdown — JOIN plans inline
+        // 2. Plan breakdown — JOIN the reconciled payments plan projection inline
         #[derive(QueryableByName)]
         struct PlanBreakdownRow {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
@@ -796,7 +796,7 @@ impl PaymentRepositoryAdapter {
                 COUNT(*) as subscription_count,
                 pl.name as plan_name
             FROM payments p
-            LEFT JOIN plans pl ON p.plan_id = pl.id
+            LEFT JOIN payments.plans pl ON p.plan_id = pl.id
             WHERE p.status = 'completed' OR p.status = 'confirmed'
             GROUP BY p.plan_id, pl.name
             ORDER BY total_revenue DESC NULLS LAST
@@ -972,7 +972,8 @@ impl PaymentRepositoryAdapter {
     }
 
     /// Replaces `web/payments/submit_tx_handler.rs:158-184` +
-    /// `285-294`. Reads the authoritative plan across schemas.
+    /// `285-294`. Reads the payments-side plan projection; production cutover
+    /// remains gated on replication and reconciliation with backend authority.
     pub async fn validate_submit_tx_impl(
         &self,
         plan_id: Uuid,
@@ -992,7 +993,7 @@ impl PaymentRepositoryAdapter {
             plan_metadata: Option<serde_json::Value>,
         }
         let plan: PlanRow = diesel::sql_query(
-            "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1",
+            "SELECT COALESCE(price, 0) as price, is_active, COALESCE(plan_type, 'subscription') as plan_type, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM payments.plans WHERE id = $1",
         )
         .bind::<diesel::sql_types::Uuid, _>(plan_id)
         .get_result::<PlanRow>(&mut conn)
@@ -1445,7 +1446,7 @@ mod tests {
         // block starts at the fn signature and ends at the
         // matching closing brace — for a structural canary, we
         // check the whole file (the impl is the only place
-        // that uses `LEFT JOIN plans` for the user-payments
+        // that uses `LEFT JOIN payments.plans` for the user-payments
         // read). The count should be exactly 1.
         let count = src.matches("diesel::sql_query").count();
         // NOTE: this counts ALL sql_query calls in the file
