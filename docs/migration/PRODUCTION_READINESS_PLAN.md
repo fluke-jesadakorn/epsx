@@ -261,9 +261,11 @@ and revocation behavior remain canonical.
   lifecycle migration while its lifecycle routes remain disabled. The combined
   static inventory covers all 15/15 registered roots, and its destructive-token
   findings remain classified. The embedded Core, Analytics, Payments, and
-  Notifications roots now pass a PostgreSQL 17 fresh apply with 22/3/7/11
+  Notifications roots now pass a PostgreSQL 17 fresh apply with 22/4/7/11
   versions, a no-op second apply, and sentinel preservation; CI repeats that
-  proof. The latest migration in every root also passes rollback/reapply, while
+  proof. Analytics also has an additive default usage-log partition whose
+  rollback detaches rather than deletes retained rows. The latest migration in
+  every root also passes rollback/reapply, while
   the refresh replay migration correctly blocks a deeper destructive rollback.
   The packages still lack populated upgrades, data reconciliation,
   concurrent-startup, runtime-lifecycle, and production-shaped database proof.
@@ -273,8 +275,8 @@ and revocation behavior remain canonical.
 - Applied migration history has been removed or edited relative to development.
   Existing databases will not rerun an edited baseline, while new databases can
   receive a different schema.
-- Analytics request-usage partitions stop at 2026-04-01 without a default
-  partition, so current writes can fail.
+- Analytics request-usage writes after 2026-04-01 route to an additive default
+  partition; production still needs a reviewed rolling partition/retention job.
 - Payments plan replication creates a future-write trigger but delegates the
   initial copy to a separate manual script.
 - A notification migration drops `notification_subscriptions CASCADE`; data
@@ -312,7 +314,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 1 | Static gates pass and disposable PostgreSQL 17 proves fresh apply/idempotency/sentinel preservation for the embedded 22/3/7/11 Core/Analytics/Payments/Notifications versions, including the restored durable CQRS tables, plus latest-version rollback/reapply. Populated upgrades, reconciliation, naming drift, baseline edits, expired partitions, and production-shaped rollback remain. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Migration/data safety | 1 | Static gates pass and disposable PostgreSQL 17 proves fresh apply/idempotency/sentinel preservation for the embedded 22/4/7/11 Core/Analytics/Payments/Notifications versions, including the restored durable CQRS tables and data-preserving default usage partition, plus latest-version rollback/reapply. Populated upgrades, reconciliation, naming drift, baseline edits, rolling partition operations, and production-shaped rollback remain. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |

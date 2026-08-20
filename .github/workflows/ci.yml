@@ -103,7 +103,7 @@ jobs:
         run: |
           expected_rows=(
             'epsx_core_shadow|preserve-me|22'
-            'epsx_analytics_shadow|preserve-me|3'
+            'epsx_analytics_shadow|preserve-me|4'
             'epsx_payments_shadow|preserve-me|7'
             'epsx_notifications_shadow|preserve-me|11'
           )
@@ -116,6 +116,15 @@ jobs:
           test "$projection" = 't|t|0'
           cqrs_tables="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('event_store', 'outbox_events', 'aggregate_snapshots')")"
           test "$cqrs_tables" = '3'
+          usage_id="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "INSERT INTO infra_logs.api_key_usage_logs (api_key_id, endpoint, method, request_at) VALUES (gen_random_uuid(), '/migration-shadow', 'GET', '2035-08-20T00:00:00Z') RETURNING id")"
+          usage_partition="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT tableoid::regclass::text FROM infra_logs.api_key_usage_logs WHERE id = '$usage_id'")"
+          test "$usage_partition" = 'infra_logs.api_key_usage_logs_default'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -f apps/backend/migrations/analytics/20260820070000_add_api_key_usage_default_partition/down.sql
+          detached_row="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT COUNT(*) FROM infra_logs.api_key_usage_logs_default WHERE id = '$usage_id'")"
+          test "$detached_row" = '1'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -f apps/backend/migrations/analytics/20260820070000_add_api_key_usage_default_partition/up.sql
+          reattached_row="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT COUNT(*) FROM infra_logs.api_key_usage_logs WHERE id = '$usage_id' AND tableoid = 'infra_logs.api_key_usage_logs_default'::regclass")"
+          test "$reattached_row" = '1'
 
   contracts:
     name: Foundry contracts
