@@ -3,6 +3,7 @@
 //! This crate intentionally has no runtime dependencies. It is the first
 //! migration tool that can run after the Bun/Node toolchain is removed.
 
+mod e2e_fixture;
 mod node_free;
 mod workspace_tools;
 
@@ -197,7 +198,9 @@ cargo xtask commands:
   audit no-node [--strict]
                          reject tracked Node/JS sources, tooling, active commands, and inline runtimes
   e2e doctor [--group 0..9]
+  e2e fixture-serve [--bind LOOPBACK_ADDR] [--token TOKEN]
   e2e run --group 0..9 [--webdriver-url URL] [--browser chromium|firefox|safari]
+          [--fixture-url LOOPBACK_URL] [--fixture-token TOKEN]
   e2e report [--group 0..9]
   e2e verify-artifacts [--group 0..9]
                          Rust-native migration scenario and evidence commands

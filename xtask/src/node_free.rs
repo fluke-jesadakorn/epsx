@@ -108,6 +108,25 @@ struct EvidenceEntry {
     sha256: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FixtureCapabilities {
+    schema_version: u64,
+    authority: String,
+    session_algorithm: String,
+    key_id: String,
+    supported_groups: Vec<u8>,
+    supported_modes: Vec<String>,
+    reset_proof: bool,
+}
+
+struct StateProvisioner<'a> {
+    client: &'a Client,
+    endpoint: String,
+    token: String,
+    capabilities: FixtureCapabilities,
+}
+
 pub fn audit(flags: &[String]) -> Result<(), String> {
     let Some(kind) = flags.first() else {
         return Err("audit requires a target; supported target: no-node".into());
@@ -196,6 +215,7 @@ pub fn e2e(flags: &[String]) -> Result<(), String> {
     match command {
         "doctor" => e2e_doctor(args),
         "run" => e2e_run(args),
+        "fixture-serve" => crate::e2e_fixture::serve(args),
         "report" => e2e_report(args),
         "verify-artifacts" => e2e_verify_artifacts(args),
         _ => Err(format!("unknown e2e command {command}")),
@@ -727,12 +747,13 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         "--browser",
         "--frontend-url",
         "--admin-url",
+        "--fixture-url",
+        "--fixture-token",
     ];
     validate_key_value_flags(flags, &allowed)?;
     let root = repo_root()?;
     let manifest = load_manifest(&root)?;
     let group = require_group(&manifest, group_id)?;
-    require_runtime_state_provisioning(group)?;
     let matrices = manifest
         .matrices
         .get(&group.matrix)
@@ -766,6 +787,18 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         .timeout(Duration::from_secs(30))
         .build()
         .map_err(|error| format!("could not create WebDriver client: {error}"))?;
+    let fixture_url = flag_value(flags, "--fixture-url")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_FIXTURE_URL").ok());
+    let fixture_token = flag_value(flags, "--fixture-token")
+        .map(str::to_owned)
+        .or_else(|| env::var("E2E_FIXTURE_TOKEN").ok())
+        .unwrap_or_else(|| "epsx-e2e-local-reset-token".into());
+    let provisioner = fixture_url
+        .as_deref()
+        .map(|endpoint| StateProvisioner::connect(&client, endpoint, &fixture_token))
+        .transpose()?;
+    require_runtime_state_provisioning(group, provisioner.as_ref())?;
     let mut passed = 0usize;
     for matrix in matrices {
         for repeat in 1..=group.repeat {
@@ -783,10 +816,29 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
                 };
                 let mut session =
                     WebDriverSession::create(&client, &webdriver_url, browser_name, matrix)?;
-                session.set_window(matrix.viewport.width, matrix.viewport.height)?;
-                let result = run_scenario(&mut session, scenario, base, matrix, &run_root);
-                let _ = session.close();
-                result?;
+                let mut provisioned = None;
+                let result = (|| {
+                    session.set_window(matrix.viewport.width, matrix.viewport.height)?;
+                    if let Some(state_authority) = provisioner.as_ref() {
+                        provisioned = Some(state_authority.prepare(scenario)?);
+                    }
+                    if let Some(access_token) = provisioned
+                        .as_ref()
+                        .and_then(|provisioned| provisioned.access_token.as_deref())
+                    {
+                        session.install_access_cookie(base, &scenario.surface, access_token)?;
+                    }
+                    run_scenario(&mut session, scenario, base, matrix, &run_root)
+                })();
+                let close_result = session.close();
+                let reset_result = provisioner.as_ref().map(|state_authority| {
+                    if let Some(provisioned) = provisioned.as_ref() {
+                        state_authority.finish(scenario, provisioned, &run_root)
+                    } else {
+                        state_authority.cleanup_failed_setup(scenario)
+                    }
+                });
+                combine_scenario_results(result, close_result, reset_result)?;
                 passed += 1;
             }
         }
@@ -798,7 +850,10 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
     Ok(())
 }
 
-fn require_runtime_state_provisioning(group: &ScenarioGroup) -> Result<(), String> {
+fn require_runtime_state_provisioning(
+    group: &ScenarioGroup,
+    provisioner: Option<&StateProvisioner<'_>>,
+) -> Result<(), String> {
     let blocked = group
         .scenarios
         .iter()
@@ -818,12 +873,304 @@ fn require_runtime_state_provisioning(group: &ScenarioGroup) -> Result<(), Strin
     if blocked.is_empty() {
         return Ok(());
     }
+    if let Some(provisioner) = provisioner {
+        return provisioner.supports(group);
+    }
     Err(format!(
         "group {} requires authenticated or target-fixture scenario provisioning for {} scenarios (first: {}); refusing an unprovisioned false-positive run",
         group.id,
         blocked.len(),
         blocked.iter().take(5).copied().collect::<Vec<_>>().join(", ")
     ))
+}
+
+#[derive(Debug)]
+struct ProvisionedScenario {
+    reset_before: Value,
+    configured_state: Value,
+    access_token: Option<String>,
+}
+
+impl<'a> StateProvisioner<'a> {
+    fn connect(client: &'a Client, endpoint: &str, token: &str) -> Result<Self, String> {
+        require_loopback(endpoint, "E2E fixture provisioner")?;
+        if token.len() < 16 || token.len() > 256 {
+            return Err("E2E fixture token must contain 16 through 256 bytes".into());
+        }
+        let mut provisioner = Self {
+            client,
+            endpoint: endpoint.trim_end_matches('/').into(),
+            token: token.into(),
+            capabilities: FixtureCapabilities {
+                schema_version: 0,
+                authority: String::new(),
+                session_algorithm: String::new(),
+                key_id: String::new(),
+                supported_groups: Vec::new(),
+                supported_modes: Vec::new(),
+                reset_proof: false,
+            },
+        };
+        provisioner.capabilities =
+            serde_json::from_value(provisioner.control("GET", "/__e2e/capabilities", None)?)
+                .map_err(|error| format!("invalid fixture capability contract: {error}"))?;
+        let capabilities = &provisioner.capabilities;
+        if capabilities.schema_version != 1
+            || capabilities.authority != "epsx-rust-e2e-fixture"
+            || capabilities.session_algorithm != "RS256"
+            || capabilities.key_id != "epsx-e2e-rs256-v1"
+            || !capabilities.reset_proof
+        {
+            return Err(
+                "fixture provisioner does not satisfy the Rust E2E authority contract".into(),
+            );
+        }
+        Ok(provisioner)
+    }
+
+    fn supports(&self, group: &ScenarioGroup) -> Result<(), String> {
+        if !self.capabilities.supported_groups.contains(&group.id) {
+            return Err(format!(
+                "fixture provisioner does not support migration group {}; supported groups: {}",
+                group.id,
+                self.capabilities
+                    .supported_groups
+                    .iter()
+                    .map(u8::to_string)
+                    .collect::<Vec<_>>()
+                    .join(",")
+            ));
+        }
+        for scenario in &group.scenarios {
+            if target_fixture_mode(scenario).is_some_and(|mode| {
+                !self
+                    .capabilities
+                    .supported_modes
+                    .iter()
+                    .any(|supported| supported == mode)
+            }) {
+                return Err(format!(
+                    "fixture provisioner does not support mode required by {}",
+                    scenario.id
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    fn prepare(&self, scenario: &Scenario) -> Result<ProvisionedScenario, String> {
+        let reset_before = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset_before, &scenario.id, "pre")?;
+        if let Some(mode) = target_fixture_mode(scenario) {
+            let configured = self.control("PUT", "/__e2e/mode", Some(json!({"mode":mode})))?;
+            if configured.get("mode").and_then(Value::as_str) != Some(mode) {
+                return Err(format!(
+                    "fixture provisioner did not select {mode} for {}",
+                    scenario.id
+                ));
+            }
+        }
+        let access_token =
+            if scenario.state.get("session").and_then(Value::as_str) == Some("authenticated") {
+                Some(self.session(scenario)?)
+            } else {
+                None
+            };
+        let configured_state = self.control("GET", "/__e2e/state", None)?;
+        Ok(ProvisionedScenario {
+            reset_before,
+            configured_state,
+            access_token,
+        })
+    }
+
+    fn finish(
+        &self,
+        scenario: &Scenario,
+        provisioned: &ProvisionedScenario,
+        output_root: &Path,
+    ) -> Result<(), String> {
+        let observed_before_reset = self.control("GET", "/__e2e/state", None)?;
+        let reset_after = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset_after, &scenario.id, "post")?;
+        let observed_after_reset = self.control("GET", "/__e2e/state", None)?;
+        let clean_after = fixture_state_is_clean(&observed_after_reset);
+        let proof = json!({
+            "schemaVersion":1,
+            "scenarioId":scenario.id,
+            "authority":self.capabilities.authority,
+            "sessionAlgorithm":self.capabilities.session_algorithm,
+            "resetBefore":provisioned.reset_before,
+            "configuredState":provisioned.configured_state,
+            "observedBeforeReset":observed_before_reset,
+            "resetAfter":reset_after,
+            "observedAfterReset":observed_after_reset,
+            "checks":{
+                "preResetClean":true,
+                "postResetClean":clean_after,
+                "accessTokenProvisioned":provisioned.access_token.is_some(),
+                "accessTokenRequired":scenario.state.get("session").and_then(Value::as_str) == Some("authenticated")
+            },
+            "passed":clean_after
+        });
+        let path = output_root.join(format!("{}.fixture-reset-proof.json", scenario.id));
+        fs::write(
+            &path,
+            serde_json::to_vec_pretty(&proof)
+                .map_err(|error| format!("could not serialize fixture reset proof: {error}"))?,
+        )
+        .map_err(|error| format!("could not write {}: {error}", path.display()))?;
+        if !clean_after {
+            return Err(format!(
+                "fixture reset proof failed for {}; see {}",
+                scenario.id,
+                path.display()
+            ));
+        }
+        Ok(())
+    }
+
+    fn cleanup_failed_setup(&self, scenario: &Scenario) -> Result<(), String> {
+        let reset = self.control("POST", "/__e2e/reset", Some(json!({})))?;
+        require_clean_reset(&reset, &scenario.id, "failed-setup")
+    }
+
+    fn session(&self, scenario: &Scenario) -> Result<String, String> {
+        let audience = scenario
+            .state
+            .get("audience")
+            .and_then(Value::as_str)
+            .ok_or_else(|| format!("{} authenticated state omitted audience", scenario.id))?;
+        let permissions = scenario
+            .state
+            .get("permissions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("{} authenticated state omitted permissions", scenario.id))?
+            .iter()
+            .map(|permission| {
+                permission
+                    .as_str()
+                    .ok_or_else(|| format!("{} has a non-text permission", scenario.id))
+            })
+            .collect::<Result<Vec<_>, String>>()?
+            .join(" ");
+        let key_id = scenario
+            .state
+            .get("tokenKeyId")
+            .and_then(Value::as_str)
+            .unwrap_or(&self.capabilities.key_id);
+        let mut url = Url::parse(&format!("{}/__e2e/session", self.endpoint))
+            .map_err(|error| format!("invalid fixture session URL: {error}"))?;
+        url.query_pairs_mut()
+            .append_pair("audience", audience)
+            .append_pair("permissions", &permissions)
+            .append_pair("key_id", key_id);
+        let path = match url.query() {
+            Some(query) => format!("{}?{query}", url.path()),
+            None => url.path().to_string(),
+        };
+        let response = self.control("GET", &path, None)?;
+        let access_token = response
+            .get("accessToken")
+            .and_then(Value::as_str)
+            .filter(|token| token.split('.').count() == 3 && token.len() < 16 * 1024)
+            .ok_or_else(|| format!("fixture session response was invalid for {}", scenario.id))?;
+        Ok(access_token.into())
+    }
+
+    fn control(&self, method: &str, path: &str, body: Option<Value>) -> Result<Value, String> {
+        let url = format!("{}{}", self.endpoint, path);
+        let request = match method {
+            "GET" => self.client.get(&url),
+            "POST" => self.client.post(&url),
+            "PUT" => self.client.put(&url),
+            _ => return Err("unsupported fixture control method".into()),
+        }
+        .header("x-epsx-e2e-token", &self.token);
+        let response = if let Some(body) = body {
+            request.json(&body)
+        } else {
+            request
+        }
+        .send()
+        .map_err(|error| format!("fixture control {method} failed: {error}"))?;
+        let status = response.status();
+        let value = response
+            .json::<Value>()
+            .map_err(|error| format!("fixture control {method} returned invalid JSON: {error}"))?;
+        if !status.is_success() {
+            return Err(format!(
+                "fixture control {method} {} failed with {status}: {}",
+                path.split('?').next().unwrap_or(path),
+                value
+                    .get("error")
+                    .and_then(Value::as_str)
+                    .unwrap_or("unknown")
+            ));
+        }
+        Ok(value)
+    }
+}
+
+fn target_fixture_mode(scenario: &Scenario) -> Option<&str> {
+    let side = scenario
+        .state
+        .get("fixtureModeSide")
+        .and_then(Value::as_str)
+        .unwrap_or("both");
+    (side != "source")
+        .then(|| scenario.state.get("fixtureMode").and_then(Value::as_str))
+        .flatten()
+}
+
+fn require_clean_reset(value: &Value, scenario_id: &str, phase: &str) -> Result<(), String> {
+    if value.get("schemaVersion").and_then(Value::as_u64) == Some(1)
+        && value.get("reset").and_then(Value::as_bool) == Some(true)
+        && value.get("mode").and_then(Value::as_str) == Some("healthy")
+        && value.get("requestCount").and_then(Value::as_u64) == Some(0)
+        && value.get("mutationCount").and_then(Value::as_u64) == Some(0)
+    {
+        return Ok(());
+    }
+    Err(format!(
+        "fixture {phase}-reset was not clean for {scenario_id}"
+    ))
+}
+
+fn fixture_state_is_clean(value: &Value) -> bool {
+    value.get("schemaVersion").and_then(Value::as_u64) == Some(1)
+        && value.get("mode").and_then(Value::as_str) == Some("healthy")
+        && value.get("requestCount").and_then(Value::as_u64) == Some(0)
+        && value
+            .get("requests")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty)
+        && value
+            .get("mutations")
+            .and_then(Value::as_array)
+            .is_some_and(Vec::is_empty)
+}
+
+fn combine_scenario_results(
+    scenario: Result<(), String>,
+    close: Result<(), String>,
+    reset: Option<Result<(), String>>,
+) -> Result<(), String> {
+    let mut failures = Vec::new();
+    if let Err(error) = scenario {
+        failures.push(format!("scenario failed: {error}"));
+    }
+    if let Err(error) = close {
+        failures.push(format!("WebDriver cleanup failed: {error}"));
+    }
+    if let Some(Err(error)) = reset {
+        failures.push(format!("fixture rollback failed: {error}"));
+    }
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(failures.join("; "))
+    }
 }
 
 struct WebDriverSession<'a> {
@@ -1049,6 +1396,39 @@ impl<'a> WebDriverSession<'a> {
         .map(|_| ())
     }
 
+    fn install_access_cookie(
+        &self,
+        base_url: &str,
+        surface: &str,
+        access_token: &str,
+    ) -> Result<(), String> {
+        if access_token.contains(['\r', '\n', ';']) || access_token.len() >= 16 * 1024 {
+            return Err("fixture access token is unsafe for a browser cookie".into());
+        }
+        self.navigate(base_url)?;
+        self.command("DELETE", "/cookie", None)?;
+        let name = match surface {
+            "frontend" => "epsx.frontend.access_token",
+            "admin" => "epsx.admin.access_token",
+            _ => return Err("unsupported scenario surface for access cookie".into()),
+        };
+        self.command(
+            "POST",
+            "/cookie",
+            Some(json!({
+                "cookie":{
+                    "name":name,
+                    "value":access_token,
+                    "path":"/",
+                    "httpOnly":true,
+                    "secure":false,
+                    "sameSite":"Lax"
+                }
+            })),
+        )
+        .map(|_| ())
+    }
+
     fn http_status(&self, url: &str) -> Result<u16, String> {
         require_loopback(url, "browser status probe")?;
         let cookies = self.command("GET", "/cookie", None)?;
@@ -1144,13 +1524,16 @@ fn run_scenario(
             None => return Err(format!("{} action omitted type", scenario.id)),
         }
     }
-    let current_url = session.current_url()?;
-    let current =
-        Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
     let expected_path = scenario
         .expected_target_path
         .as_deref()
-        .unwrap_or(&scenario.path);
+        .or_else(|| target_path_outcome(scenario))
+        .or_else(|| target_navigation_path(scenario, &matrix.id))
+        .unwrap_or_else(|| requested_path(&scenario.path));
+    let current_url =
+        wait_for_url_contract(session, scenario, expected_path, Duration::from_secs(10))?;
+    let current =
+        Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
     if current.path() != expected_path {
         return Err(format!(
             "{} path {} != {}",
@@ -1267,6 +1650,79 @@ fn run_scenario(
     fs::write(output_root.join(format!("{}.html", scenario.id)), source)
         .map_err(|error| format!("could not write page source: {error}"))?;
     Ok(())
+}
+
+fn wait_for_url_contract(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+    expected_path: &str,
+    timeout: Duration,
+) -> Result<String, String> {
+    let start = Instant::now();
+    let mut current_url = session.current_url()?;
+    loop {
+        let current =
+            Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
+        let query_matches = scenario.outcomes.iter().all(|outcome| {
+            if action_type(outcome) != Some("query") || action_side(outcome) == Some("source") {
+                return true;
+            }
+            let Some(key) = outcome.get("key").and_then(Value::as_str) else {
+                return false;
+            };
+            let Some(value) = outcome.get("value").and_then(Value::as_str) else {
+                return false;
+            };
+            current
+                .query_pairs()
+                .any(|(candidate, actual)| candidate == key && actual == value)
+        });
+        if current.path() == expected_path && query_matches {
+            return Ok(current_url);
+        }
+        if start.elapsed() >= timeout {
+            return Err(format!(
+                "browser URL {} did not satisfy path/query contract for {} within {} seconds",
+                current_url,
+                scenario.id,
+                timeout.as_secs()
+            ));
+        }
+        thread::sleep(Duration::from_millis(100));
+        current_url = session.current_url()?;
+    }
+}
+
+fn target_path_outcome(scenario: &Scenario) -> Option<&str> {
+    let mut paths = scenario.outcomes.iter().filter_map(|outcome| {
+        (action_type(outcome) == Some("path") && action_side(outcome) != Some("source"))
+            .then(|| outcome.get("value").and_then(Value::as_str))
+            .flatten()
+    });
+    let path = paths.next()?;
+    paths.next().is_none().then_some(path)
+}
+
+fn requested_path(path_and_query: &str) -> &str {
+    path_and_query
+        .split_once('?')
+        .map(|(path, _)| path)
+        .unwrap_or(path_and_query)
+}
+
+fn target_navigation_path<'a>(scenario: &'a Scenario, matrix_id: &str) -> Option<&'a str> {
+    scenario.actions.iter().rev().find_map(|action| {
+        (action_type(action) == Some("navigate")
+            && action_side(action) != Some("source")
+            && matrix_matches(action, matrix_id))
+        .then(|| {
+            action
+                .get("path")
+                .and_then(Value::as_str)
+                .map(requested_path)
+        })
+        .flatten()
+    })
 }
 
 fn action_selector(value: &Value) -> Result<&str, String> {
@@ -1491,6 +1947,25 @@ fn set_input_file(
 }
 
 fn assert_no_horizontal_overflow(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+) -> Result<(), String> {
+    let start = Instant::now();
+    loop {
+        match assert_no_horizontal_overflow_once(session, scenario) {
+            Err(error)
+                if (error.contains("stale element reference")
+                    || error.contains("document has no html element"))
+                    && start.elapsed() < Duration::from_secs(10) =>
+            {
+                thread::sleep(Duration::from_millis(100));
+            }
+            result => return result,
+        }
+    }
+}
+
+fn assert_no_horizontal_overflow_once(
     session: &WebDriverSession<'_>,
     scenario: &Scenario,
 ) -> Result<(), String> {
@@ -1851,7 +2326,7 @@ mod tests {
                 json!({"id":"public","session":"signed-out"}),
             )],
         };
-        assert!(require_runtime_state_provisioning(&signed_out).is_ok());
+        assert!(require_runtime_state_provisioning(&signed_out, None).is_ok());
 
         let authenticated = ScenarioGroup {
             id: 1,
@@ -1868,7 +2343,7 @@ mod tests {
                 }),
             )],
         };
-        assert!(require_runtime_state_provisioning(&authenticated)
+        assert!(require_runtime_state_provisioning(&authenticated, None)
             .unwrap_err()
             .contains("refusing an unprovisioned false-positive run"));
     }

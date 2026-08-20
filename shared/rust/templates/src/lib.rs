@@ -1518,11 +1518,13 @@ pub fn design_system_head_with_keywords(
     background: rgba(0,0,0,0.5);
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
-    display: flex;
+    display: none;
     align-items: flex-end;
     justify-content: center;
     padding: 0;
   }}
+  .epsx-mobile-sheet.open {{ display: flex; }}
+  @media (min-width: 640px) {{ .epsx-mobile-sheet {{ display: none !important; }} }}
   .epsx-mobile-sheet-inner {{
     width: 100%;
     max-height: 85vh;
@@ -6814,6 +6816,28 @@ pub fn epsx_header_for_session_and_wallet_with_network(
     } else {
         ""
     };
+    let mobile_auth = if is_authenticated {
+        r##"<a href="/account" class="epsx-mobile-link">
+        <i data-lucide="user"></i> Account
+      </a>
+      <button class="epsx-mobile-link" type="button" data-epsx-logout style="width:100%;border:0;background:transparent;text-align:left;">
+        <i data-lucide="log-out"></i> Sign out
+      </button>"##
+            .to_string()
+    } else if let Some(address) = wallet_address.filter(|value| !value.trim().is_empty()) {
+        format!(
+            r##"<a href="{auth_href}" class="epsx-mobile-link" data-epsx-wallet-pill>
+        <i data-lucide="wallet"></i> Sign in {short}
+      </a>"##,
+            short = html_attr_escape(&short_wallet_address(address)),
+        )
+    } else {
+        format!(
+            r##"<a href="{auth_href}" class="epsx-mobile-link" data-epsx-auth-link>
+        <i data-lucide="wallet"></i> Connect Wallet
+      </a>"##
+        )
+    };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
         let id = label.to_ascii_lowercase();
         format!(
@@ -6868,7 +6892,40 @@ pub fn epsx_header_for_session_and_wallet_with_network(
       </button>
     </div>
   </div>
-</header>"##,
+</header>
+<div id="epsx-mobile-sheet" class="epsx-mobile-sheet" aria-hidden="true">
+  <div class="epsx-mobile-sheet-inner" role="dialog" aria-modal="true" aria-label="Mobile navigation">
+    <div class="flex items-center justify-between mb-4">
+      <strong>Menu</strong>
+      <button class="epsx-theme-btn" type="button" aria-label="Close menu" aria-controls="epsx-mobile-sheet" data-epsx-action="toggle-mobile-menu">
+        <i data-lucide="x"></i>
+      </button>
+    </div>
+    <nav aria-label="Mobile">
+      <div class="epsx-mobile-section">
+        <div class="epsx-mobile-section-title">Market</div>
+        <a href="/" class="epsx-mobile-link"><i data-lucide="house"></i> Home</a>
+        <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column"></i> Analytics</a>
+        <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="briefcase-business"></i> Portfolio</a>
+      </div>
+      <div class="epsx-mobile-section">
+        <div class="epsx-mobile-section-title">Developer</div>
+        <a href="/developer" class="epsx-mobile-link"><i data-lucide="code"></i> Developer Portal</a>
+        <a href="/developer/docs" class="epsx-mobile-link"><i data-lucide="book"></i> Documentation</a>
+      </div>
+      <div class="epsx-mobile-section">
+        <div class="epsx-mobile-section-title">Company</div>
+        <a href="/about" class="epsx-mobile-link"><i data-lucide="info"></i> About</a>
+        <a href="/news" class="epsx-mobile-link"><i data-lucide="newspaper"></i> News</a>
+        <a href="/contact" class="epsx-mobile-link"><i data-lucide="mail"></i> Contact</a>
+      </div>
+      <div class="epsx-mobile-section">
+        <div class="epsx-mobile-section-title">Session</div>
+        {mobile_auth}
+      </div>
+    </nav>
+  </div>
+</div>"##,
         logo = logo,
         market = nav_block("Market", "chart-column", market_items),
         developer = nav_block("Developer", "code", developer_items),
@@ -6876,6 +6933,7 @@ pub fn epsx_header_for_session_and_wallet_with_network(
         notification_action = notification_action,
         desktop_auth = desktop_auth,
         compact_auth = compact_auth,
+        mobile_auth = mobile_auth,
         authenticated = is_authenticated,
     )
 }

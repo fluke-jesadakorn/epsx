@@ -6137,6 +6137,7 @@
           "id": "pr9.admin.auth",
           "surface": "admin",
           "path": "/auth",
+          "expectedTargetPath": "/",
           "title": "Admin /auth",
           "state": { "id": "signed-out", "session": "signed-out" },
           "actions": [],
@@ -6267,6 +6268,7 @@
           "id": "pr9.admin.notifications",
           "surface": "admin",
           "path": "/notifications",
+          "expectedTargetPath": "/notifications/manage",
           "title": "Admin /notifications",
           "state": {
             "id": "admin-user",
@@ -6352,6 +6354,7 @@
           "id": "pr9.admin.wallet-management",
           "surface": "admin",
           "path": "/wallet-management",
+          "expectedTargetPath": "/wallet-management/wallets",
           "title": "Admin /wallet-management",
           "state": {
             "id": "admin-user",

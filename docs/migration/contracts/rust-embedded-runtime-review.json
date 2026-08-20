@@ -1,12 +1,12 @@
 {
   "schemaVersion": 1,
   "hashAlgorithm": "sha256",
-  "inventorySha256": "7f7e190b0a799462cf0cc2de27b3567fbca7f2d72749fca633fac9516592c3ba",
+  "inventorySha256": "2abbb47525c8e9ac2539eae9ac5f7e8e4c72734b6b08bbc790b86c380ef05d07",
   "approvedRuntimeFiles": [
     {
       "path": "shared/rust/browser-runtime/src/lib.rs",
       "category": "rust-wasm-browser-runtime",
-      "sha256": "f29bfb0f540086e8dd785de762be722c45d951c775f24d8036bc84b0d0db7cc3",
+      "sha256": "65aa49ef8db5cd43a5d3d6635dde52be8791ee7f513487b08fc192f46e0fbff2",
       "reason": "Rust/wasm-bindgen browser behavior; no authored JavaScript source is committed."
     },
     {
@@ -18,7 +18,7 @@
     {
       "path": "shared/rust/templates/src/lib.rs",
       "category": "wasm-bootstrap-script-tag",
-      "sha256": "3e599299062f4b985e9434bf44f501213ef0ef558d16adbd5e9c4577846194bf",
+      "sha256": "0ab0a1acc15821f3ef1a078432c5fede268e51680d94e78928ccfc940f5032d5",
       "reason": "One module tag loads generated wasm-bindgen output; inline application code is forbidden."
     }
   ]

@@ -236,6 +236,7 @@ mod browser {
         let Some(target) = target else { return };
         let open = !target.class_list().contains(class_name);
         let _ = target.class_list().toggle_with_force(class_name, open);
+        let _ = target.set_attribute("aria-hidden", if open { "false" } else { "true" });
         let _ = element.set_attribute("aria-expanded", if open { "true" } else { "false" });
     }
 

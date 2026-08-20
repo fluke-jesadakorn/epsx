@@ -73,11 +73,17 @@ artifacts still describe the older `373bd231...` source and are historical
 evidence only; they are not current-pair runtime proof.
 
 The Rust WebDriver runner now executes all declared matrices and repeats and
-performs real element actions and outcome assertions. It refuses groups that
-require authenticated or target-fixture state until an audience/permission-aware
-scenario-state provisioner and per-repeat reset proof exist. Consequently group
-0 is runnable, while groups 1–9 remain explicit staging blockers rather than
-false-positive E2E passes.
+performs real element actions and outcome assertions. Its loopback-only Rust
+fixture authority supports groups 0–9, mints audience/permission-specific RS256
+sessions, selects only declared failure modes, records dependency mutations,
+and emits a distinct pre/post reset proof for every scenario execution. The
+runner rejects authenticated or fixture-mode scenarios when that authority is
+absent or incomplete. Chromium groups 1–9, including the 440-execution group 9
+full regression, have passed against the current local Rust BFFs; this is
+ephemeral local evidence, not immutable staging, live-database, provider,
+cross-browser, or production proof. The workflow-dispatch campaign now starts
+the same Rust fixture and can run the selected group or the full Chromium plus
+Firefox matrix.
 The compatibility audit checks all 23 reviewed BFF/service method-path
 registrations against the checked-in Rust routers; payload, envelope, status,
 legacy-source, live-service, and browser parity remain separate gates.

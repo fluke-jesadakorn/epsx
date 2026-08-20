@@ -72,10 +72,11 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
-        if: ${{ matrix.browser == 'chromium' }}
+        if: ${{ matrix.browser == 'chromium' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
       - uses: browser-actions/setup-geckodriver@bf8266f624ca122cedb6d0381a031f18f6c431cd
-        if: ${{ matrix.browser == 'firefox' }}
+        if: ${{ matrix.browser == 'firefox' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
       - name: Start WebDriver
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
         env:
           BROWSER: ${{ matrix.browser }}
         run: |
@@ -85,26 +86,34 @@ jobs:
             geckodriver --port 4444 > /tmp/webdriver.log 2>&1 &
           fi
       - name: Build browser runtime and start Dioxus surfaces
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
+        env:
+          E2E_FIXTURE_TOKEN: epsx-e2e-ci-reset-token
         run: |
           cargo install wasm-bindgen-cli --version 0.2.123 --locked
           cargo xtask browser-runtime build
-          PORT=4200 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" cargo run -p epsx-frontend --bin bff-frontend > /tmp/frontend.log 2>&1 &
-          PORT=4201 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" cargo run -p epsx-admin --bin bff-admin > /tmp/admin.log 2>&1 &
+          cargo build -p xtask -p epsx-frontend -p epsx-admin
+          target/debug/xtask e2e fixture-serve --bind 127.0.0.1:48080 --token "$E2E_FIXTURE_TOKEN" > /tmp/fixture.log 2>&1 &
+          EPSX_ENV=local PORT=4200 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=http://127.0.0.1:48080 BACKEND_URL=http://127.0.0.1:48080 CONTENT_SERVICE_URL=http://127.0.0.1:48080 NOTIFICATION_SERVICE_URL=http://127.0.0.1:48080 OIDC_ISSUER=http://127.0.0.1:48080 target/debug/bff-frontend > /tmp/frontend.log 2>&1 &
+          EPSX_ENV=local PORT=4201 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=http://127.0.0.1:48080 BACKEND_URL=http://127.0.0.1:48080 CONTENT_SERVICE_URL=http://127.0.0.1:48080 NOTIFICATION_SERVICE_URL=http://127.0.0.1:48080 OIDC_ISSUER=http://127.0.0.1:48080 target/debug/bff-admin > /tmp/admin.log 2>&1 &
           for attempt in $(seq 1 120); do
-            if curl -fsS http://127.0.0.1:4200/api/health >/dev/null && curl -fsS http://127.0.0.1:4201/api/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:48080/api/health >/dev/null && curl -fsS http://127.0.0.1:4200/api/health >/dev/null && curl -fsS http://127.0.0.1:4201/api/health >/dev/null; then
               exit 0
             fi
             sleep 1
           done
-          tail -n 100 /tmp/frontend.log /tmp/admin.log
+          tail -n 100 /tmp/fixture.log /tmp/frontend.log /tmp/admin.log
           exit 1
       - name: Run Rust WebDriver campaign
+        if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
         env:
           GROUP: ${{ matrix.group }}
           BROWSER: ${{ matrix.browser }}
+          E2E_FIXTURE_URL: http://127.0.0.1:48080
+          E2E_FIXTURE_TOKEN: epsx-e2e-ci-reset-token
         run: cargo xtask e2e run --group "$GROUP" --browser "$BROWSER"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        if: always()
+        if: ${{ always() && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
         with:
           name: rust-e2e-group-${{ matrix.group }}-${{ matrix.browser }}
           path: e2e/rust-artifacts/

@@ -2618,8 +2618,8 @@ mod tests {
         let header =
             frontend_navigation_html("/news/example", "q=eps&category=markets", false, None);
         let expected = "href=\"/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets\"";
-        assert_eq!(header.matches(expected).count(), 2);
-        assert_eq!(header.matches("data-epsx-auth-link").count(), 2);
+        assert_eq!(header.matches(expected).count(), 3);
+        assert_eq!(header.matches("data-epsx-auth-link").count(), 3);
         assert!(!header.contains("href=\"/auth\""));
 
         let encoded_query = "q=a%20b&q=c%2Bd&next=%2Fportfolio&probe=%3Ctag%3E";
@@ -2630,7 +2630,7 @@ mod tests {
             encoded_header
                 .matches(&format!("href=\"/auth?return_url={encoded_return_url}\""))
                 .count(),
-            2
+            3
         );
         assert_eq!(
             safe_return_url(&format!("return_url={encoded_return_url}")),
@@ -2651,7 +2651,7 @@ mod tests {
             let header = frontend_navigation_html(hostile_path, "", false, None);
             assert_eq!(
                 header.matches("href=\"/auth?return_url=%2F\"").count(),
-                2,
+                3,
                 "{hostile_path:?}"
             );
             assert!(!header.contains("evil.example"), "{hostile_path:?}");

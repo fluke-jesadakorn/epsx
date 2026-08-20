@@ -281,7 +281,7 @@ fn media_mutation_url(
     key: &str,
 ) -> Result<String, AdminMediaMutationError> {
     let mut url = reqwest::Url::parse(&format!(
-        "{}/api/admin/media/",
+        "{}/api/admin/media",
         client.base_url().trim_end_matches('/')
     ))
     .map_err(|_| AdminMediaMutationError::Malformed)?;
@@ -591,6 +591,11 @@ mod tests {
         assert!(validate_filename("../secret").is_err());
         assert!(validate_idempotency_key("media-upload-1").is_ok());
         assert!(validate_idempotency_key(" media-upload-1").is_err());
+        let client = loopback_client("127.0.0.1:4000".parse().unwrap());
+        assert_eq!(
+            media_mutation_url(&client, "news", "images/launch.webp").unwrap(),
+            "http://127.0.0.1:4000/api/admin/media/news/images%2Flaunch.webp"
+        );
 
         let projection = decode_admin_media_mutation(serde_json::json!({
             "bucket": "public",
