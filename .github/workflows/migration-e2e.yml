@@ -18,9 +18,13 @@ jobs:
     name: Migration manifest and immutable evidence
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - name: Verify migration source and evidence ancestry
+        run: cargo xtask sync-audit
       - name: Validate selected group
         env:
           GROUP: ${{ inputs.group }}
@@ -60,14 +64,16 @@ jobs:
           - { group: 9, browser: chromium }
           - { group: 9, browser: firefox }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: browser-actions/setup-chrome@v1
+      - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
         if: ${{ matrix.browser == 'chromium' }}
-      - uses: browser-actions/setup-geckodriver@latest
+      - uses: browser-actions/setup-geckodriver@bf8266f624ca122cedb6d0381a031f18f6c431cd
         if: ${{ matrix.browser == 'firefox' }}
       - name: Start WebDriver
         env:
@@ -97,7 +103,7 @@ jobs:
           GROUP: ${{ matrix.group }}
           BROWSER: ${{ matrix.browser }}
         run: cargo xtask e2e run --group "$GROUP" --browser "$BROWSER"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
         with:
           name: rust-e2e-group-${{ matrix.group }}-${{ matrix.browser }}

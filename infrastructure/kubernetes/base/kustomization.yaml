@@ -9,15 +9,6 @@ resources:
   - frontend/service.yaml
   - admin/deployment.yaml
   - admin/service.yaml
-  - analytics/deployment.yaml
-  - analytics/service.yaml
-  - identity/deployment.yaml
-  - identity/service.yaml
-  - notification/deployment.yaml
-  - notification/service.yaml
-  # wave49(slice-1): pay.epsx.io microservice — backend
-  # service (epsx-pay-svc) + SSR BFF (epsx-pay-bff).
-  - pay/deployment.yaml
-  - pay/deployment-bff.yaml
-  - pay/service.yaml
-  - pay/service-bff.yaml
+
+# Keep this base limited to the production-authorized core inventory.
+# Dev and staging opt into migration services explicitly in their overlays.

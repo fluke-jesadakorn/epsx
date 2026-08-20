@@ -19,9 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
@@ -36,4 +37,9 @@ jobs:
           forge build --root apps/contracts
           forge test --root apps/contracts
       - name: Enforce Rust-only promotion inputs
-        run: cargo xtask audit no-node --strict
+        run: |
+          cargo xtask audit no-node --strict
+          cargo xtask rust-audit --strict
+          cargo xtask migration-audit --strict
+          cargo xtask authority-audit --strict
+          cargo xtask k8s-audit --strict

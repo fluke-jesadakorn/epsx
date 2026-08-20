@@ -14,9 +14,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy,rustfmt
@@ -37,7 +38,14 @@ jobs:
           cargo xtask e2e doctor
           cargo xtask e2e verify-artifacts
       - name: Enforce the Rust-only workspace
-        run: cargo xtask audit no-node --strict
+        run: |
+          cargo xtask audit no-node --strict
+          cargo xtask rust-audit --strict
+      - name: Verify migration and authority contracts
+        run: |
+          cargo xtask migration-audit --strict
+          cargo xtask authority-audit --strict
+          cargo xtask k8s-audit --strict
       - name: Release build
         run: cargo xtask build --profile production
 
@@ -46,9 +54,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: foundry-rs/foundry-toolchain@v1
       - run: forge build --root apps/contracts
       - run: forge test --root apps/contracts

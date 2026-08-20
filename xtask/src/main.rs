@@ -96,6 +96,52 @@ const EMBEDDED_MARKERS: &[&str] = &[
     "window.",
     "document.",
 ];
+const APPROVED_EMBEDDED_RUNTIME_FILES: &[(&str, &str)] = &[
+    (
+        "shared/rust/browser-runtime/src/lib.rs",
+        "rust-wasm-browser-runtime",
+    ),
+    (
+        "shared/rust/service-worker/src/lib.rs",
+        "rust-wasm-service-worker",
+    ),
+    (
+        "shared/rust/templates/src/lib.rs",
+        "wasm-bootstrap-script-tag",
+    ),
+];
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct MigrationBaseline {
+    schema_version: u64,
+    source_ref: String,
+    source_sha: String,
+    target_branch: String,
+    target_sha: String,
+    evidence_sha: String,
+    readiness_level: String,
+    staging_ready: bool,
+    production_ready: bool,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct RustEmbeddedRuntimeReview {
+    schema_version: u64,
+    hash_algorithm: String,
+    inventory_sha256: String,
+    approved_runtime_files: Vec<ApprovedEmbeddedRuntimeFile>,
+}
+
+#[derive(Debug, serde::Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct ApprovedEmbeddedRuntimeFile {
+    path: String,
+    category: String,
+    sha256: String,
+    reason: String,
+}
 
 fn main() -> ExitCode {
     let mut args = env::args().skip(1);
@@ -114,6 +160,7 @@ fn main() -> ExitCode {
         "notification-privacy-audit" => notification_privacy_audit(&flags),
         "notification-migration-audit" => notification_migration_audit(&flags),
         "sync-audit" => sync_audit(),
+        "k8s-audit" => k8s_audit(&flags),
         "audit" => node_free::audit(&flags),
         "e2e" => node_free::e2e(&flags),
         "env" => node_free::env_command(&flags),
@@ -186,6 +233,7 @@ cargo xtask commands:
   notification-migration-audit [--strict]
                          verify notification migration chain and ledger evidence
   sync-audit             prove development is a reference ancestor only
+  k8s-audit [--strict]   render overlays and enforce environment service inventories
   verify                 run the strict Rust-only audit
 "
     );
@@ -1729,6 +1777,20 @@ fn rust_audit(flags: &[String]) -> Result<(), String> {
             embedded.push((relative, markers));
         }
     }
+    embedded.sort_by(|left, right| left.0.cmp(right.0));
+
+    let review_path = root.join("docs/migration/contracts/rust-embedded-runtime-review.json");
+    let review: RustEmbeddedRuntimeReview = serde_json::from_str(
+        &std::fs::read_to_string(&review_path)
+            .map_err(|error| format!("could not read {}: {error}", review_path.display()))?,
+    )
+    .map_err(|error| format!("embedded runtime review is invalid: {error}"))?;
+    let inventory_sha256 = embedded_inventory_sha256(&root, &embedded)?;
+    let approved_runtime_valid = validate_approved_embedded_runtimes(&root, &review, &embedded)?;
+    let inventory_reviewed = review.schema_version == 1
+        && review.hash_algorithm == "sha256"
+        && is_hex_digest(&review.inventory_sha256)
+        && review.inventory_sha256 == inventory_sha256;
 
     println!(
         "rust-only-audit: tracked authored JS/TS-family files={}",
@@ -1749,11 +1811,23 @@ fn rust_audit(flags: &[String]) -> Result<(), String> {
         );
     }
 
-    if strict && (!authored_scripts.is_empty() || !embedded.is_empty()) {
+    println!(
+        "rust-only-audit: embedded inventory sha256={inventory_sha256} reviewed={}",
+        if inventory_reviewed { "yes" } else { "no" }
+    );
+    println!(
+        "rust-only-audit: approved Rust/WASM runtime files={} marker-only reviewed files={} approval={}",
+        review.approved_runtime_files.len(),
+        embedded
+            .len()
+            .saturating_sub(review.approved_runtime_files.len()),
+        if approved_runtime_valid { "pass" } else { "fail" }
+    );
+
+    if strict && (!authored_scripts.is_empty() || !inventory_reviewed || !approved_runtime_valid) {
         return Err(format!(
-            "strict Rust gate failed: {} authored JS/TS-family files and {} Rust files with embedded runtime markers remain",
-            authored_scripts.len(),
-            embedded.len()
+            "strict Rust gate failed: authored_scripts={} inventory_reviewed={} approved_runtime_review={}",
+            authored_scripts.len(), inventory_reviewed, approved_runtime_valid
         ));
     }
     if !strict && !report_only {
@@ -1762,27 +1836,263 @@ fn rust_audit(flags: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+fn embedded_inventory_sha256(
+    root: &Path,
+    embedded: &[(&PathBuf, Vec<&str>)],
+) -> Result<String, String> {
+    let mut digest = Sha256::new();
+    for (relative, markers) in embedded {
+        let file_sha = sha256_file(&root.join(relative))
+            .ok_or_else(|| format!("could not hash embedded marker file {}", relative.display()))?;
+        digest.update(relative.to_string_lossy().as_bytes());
+        digest.update([0]);
+        digest.update(file_sha.as_bytes());
+        digest.update([0]);
+        digest.update(markers.join(",").as_bytes());
+        digest.update([b'\n']);
+    }
+    Ok(format!("{:x}", digest.finalize()))
+}
+
+fn validate_approved_embedded_runtimes(
+    root: &Path,
+    review: &RustEmbeddedRuntimeReview,
+    embedded: &[(&PathBuf, Vec<&str>)],
+) -> Result<bool, String> {
+    let detected = embedded
+        .iter()
+        .map(|(path, _)| path.to_string_lossy().to_string())
+        .collect::<BTreeSet<_>>();
+    let expected = APPROVED_EMBEDDED_RUNTIME_FILES
+        .iter()
+        .map(|(path, category)| ((*path).to_string(), (*category).to_string()))
+        .collect::<BTreeMap<_, _>>();
+    let mut actual = BTreeMap::new();
+    for approved in &review.approved_runtime_files {
+        if actual
+            .insert(approved.path.clone(), approved.category.clone())
+            .is_some()
+            || approved.reason.trim().is_empty()
+            || !is_hex_digest(&approved.sha256)
+            || !detected.contains(&approved.path)
+            || sha256_file(&root.join(&approved.path)).as_deref() != Some(&approved.sha256)
+        {
+            return Ok(false);
+        }
+    }
+    Ok(actual == expected)
+}
+
+fn is_hex_digest(value: &str) -> bool {
+    value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 fn sync_audit() -> Result<(), String> {
     let root = repo_root()?;
-    let branch = git_text(&root, &["branch", "--show-current"])?;
-    let source = git_text(&root, &["rev-parse", "origin/development^{commit}"])?;
-    let target = git_text(&root, &["rev-parse", "HEAD"])?;
-    let ancestor = Command::new("git")
-        .args(["merge-base", "--is-ancestor", "origin/development", "HEAD"])
-        .current_dir(&root)
-        .status()
-        .map_err(|error| format!("could not run git merge-base: {error}"))?;
+    let contract_path = root.join("docs/migration/contracts/migration-baseline.json");
+    let contract: MigrationBaseline = serde_json::from_str(
+        &std::fs::read_to_string(&contract_path)
+            .map_err(|error| format!("could not read {}: {error}", contract_path.display()))?,
+    )
+    .map_err(|error| format!("migration baseline contract is invalid: {error}"))?;
 
-    println!("sync-audit: branch={branch}");
-    println!("sync-audit: source=origin/development {source}");
-    println!("sync-audit: target=HEAD {target}");
-    if ancestor.success() {
-        println!("sync-audit: source is an ancestor; development remains a behavior reference");
-        println!("sync-audit: action=translate behavior, do not merge or cherry-pick");
-        Ok(())
-    } else {
-        Err("origin/development is not an ancestor of the migration target".into())
+    if contract.schema_version != 1
+        || !is_hex_sha(&contract.source_sha)
+        || !is_hex_sha(&contract.target_sha)
+        || !is_hex_sha(&contract.evidence_sha)
+        || contract.readiness_level != "source-integrated-static-only"
+        || contract.staging_ready
+        || contract.production_ready
+    {
+        return Err(
+            "migration baseline contract has an unsafe or unsupported readiness claim".into(),
+        );
     }
+
+    let branch = git_text(&root, &["branch", "--show-current"])?;
+    if !branch.is_empty() && branch != contract.target_branch {
+        return Err(format!(
+            "migration target branch mismatch: contract={} checkout={branch}",
+            contract.target_branch
+        ));
+    }
+
+    for (label, commit) in [
+        ("source", contract.source_sha.as_str()),
+        ("target", contract.target_sha.as_str()),
+        ("evidence", contract.evidence_sha.as_str()),
+    ] {
+        if !git_success(&root, &["cat-file", "-e", &format!("{commit}^{{commit}}")])? {
+            return Err(format!("migration {label} commit is unavailable: {commit}"));
+        }
+    }
+
+    if !git_success(
+        &root,
+        &[
+            "merge-base",
+            "--is-ancestor",
+            &contract.source_sha,
+            &contract.target_sha,
+        ],
+    )? {
+        return Err("pinned development source is not an ancestor of the target baseline".into());
+    }
+    for (label, commit) in [
+        ("target", contract.target_sha.as_str()),
+        ("evidence", contract.evidence_sha.as_str()),
+    ] {
+        if !git_success(&root, &["merge-base", "--is-ancestor", commit, "HEAD"])? {
+            return Err(format!("pinned {label} commit is not an ancestor of HEAD"));
+        }
+    }
+
+    let local_source_ref = format!("{}^{{commit}}", contract.source_ref);
+    if git_success(
+        &root,
+        &["rev-parse", "--verify", "--quiet", &local_source_ref],
+    )? {
+        let local_source = git_text(&root, &["rev-parse", &local_source_ref])?;
+        if local_source != contract.source_sha {
+            return Err(format!(
+                "local {} moved: contract={} checkout={local_source}",
+                contract.source_ref, contract.source_sha
+            ));
+        }
+    }
+
+    let head = git_text(&root, &["rev-parse", "HEAD^{commit}"])?;
+    println!(
+        "sync-audit: branch={}",
+        if branch.is_empty() {
+            "DETACHED"
+        } else {
+            &branch
+        }
+    );
+    println!(
+        "sync-audit: source={} {}",
+        contract.source_ref, contract.source_sha
+    );
+    println!("sync-audit: target-baseline={}", contract.target_sha);
+    println!("sync-audit: evidence-baseline={}", contract.evidence_sha);
+    println!("sync-audit: head={head}");
+    println!("sync-audit: readiness={}", contract.readiness_level);
+    println!("sync-audit: staging_ready=false production_ready=false");
+    println!("sync-audit: PASS — source, target, evidence, and HEAD ancestry verified");
+    Ok(())
+}
+
+fn k8s_audit(flags: &[String]) -> Result<(), String> {
+    let strict = flags.iter().any(|flag| flag == "--strict");
+    if flags
+        .iter()
+        .any(|flag| flag != "--strict" && flag != "--report")
+    {
+        return Err("k8s-audit accepts only --strict and --report".into());
+    }
+
+    let root = repo_root()?;
+    let migration_services = [
+        "epsx-admin",
+        "epsx-analytics",
+        "epsx-backend",
+        "epsx-frontend",
+        "epsx-identity",
+        "epsx-notification",
+        "epsx-pay-bff",
+        "epsx-pay-svc",
+    ];
+    let production_services = ["epsx-admin", "epsx-backend", "epsx-frontend"];
+    let mut failed = false;
+
+    for (environment, expected_namespace, expected_services) in [
+        ("dev", "epsx-dev", migration_services.as_slice()),
+        ("staging", "epsx-staging", migration_services.as_slice()),
+        ("prod", "epsx-prod", production_services.as_slice()),
+    ] {
+        let overlay = format!("infrastructure/kubernetes/overlays/{environment}");
+        let output = Command::new("kubectl")
+            .args(["kustomize", &overlay])
+            .current_dir(&root)
+            .output()
+            .map_err(|error| format!("could not run kubectl kustomize {overlay}: {error}"))?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("could not render {environment} overlay: {stderr}"));
+        }
+        let rendered = String::from_utf8(output.stdout)
+            .map_err(|_| format!("{environment} overlay rendered non-UTF-8 YAML"))?;
+        let (namespace, inventory) = k8s_render_inventory(&rendered)?;
+        let expected = expected_services
+            .iter()
+            .flat_map(|name| [format!("Deployment/{name}"), format!("Service/{name}")])
+            .collect::<BTreeSet<_>>();
+        let matches = namespace.as_deref() == Some(expected_namespace) && inventory == expected;
+        println!(
+            "k8s-audit: environment={environment} namespace={} resources={} inventory={}",
+            namespace.as_deref().unwrap_or("MISSING"),
+            inventory.len(),
+            if matches { "pass" } else { "fail" }
+        );
+        if !matches {
+            let missing = expected.difference(&inventory).cloned().collect::<Vec<_>>();
+            let unexpected = inventory.difference(&expected).cloned().collect::<Vec<_>>();
+            println!("k8s-audit: {environment} missing={}", missing.join(","));
+            println!(
+                "k8s-audit: {environment} unexpected={}",
+                unexpected.join(",")
+            );
+            failed = true;
+        }
+    }
+
+    if strict && failed {
+        return Err("strict Kubernetes overlay inventory gate failed".into());
+    }
+    if !failed {
+        println!("k8s-audit: PASS — all overlays render with explicit service inventories");
+    }
+    Ok(())
+}
+
+fn k8s_render_inventory(rendered: &str) -> Result<(Option<String>, BTreeSet<String>), String> {
+    let mut namespace = None;
+    let mut inventory = BTreeSet::new();
+    for document in rendered.split("\n---\n") {
+        let kind = document
+            .lines()
+            .find_map(|line| line.strip_prefix("kind: "));
+        let name = document
+            .lines()
+            .skip_while(|line| *line != "metadata:")
+            .skip(1)
+            .find_map(|line| line.strip_prefix("  name: "));
+        match (kind, name) {
+            (Some("Namespace"), Some(name)) => namespace = Some(name.to_string()),
+            (Some(kind @ ("Deployment" | "Service")), Some(name)) => {
+                inventory.insert(format!("{kind}/{name}"));
+            }
+            (Some("Deployment" | "Service" | "Namespace"), None) => {
+                return Err("rendered Kubernetes resource has no metadata.name".into());
+            }
+            _ => {}
+        }
+    }
+    Ok((namespace, inventory))
+}
+
+fn is_hex_sha(value: &str) -> bool {
+    value.len() == 40 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
+fn git_success(root: &Path, args: &[&str]) -> Result<bool, String> {
+    Command::new("git")
+        .args(args)
+        .current_dir(root)
+        .output()
+        .map(|output| output.status.success())
+        .map_err(|error| format!("could not run git {}: {error}", args.join(" ")))
 }
 
 fn migration_audit(flags: &[String]) -> Result<(), String> {
@@ -2126,9 +2436,40 @@ fn git_text(root: &Path, args: &[&str]) -> Result<String, String> {
 #[cfg(test)]
 mod tests {
     use super::{
-        build_reconciliation_report, contains_destructive_sql, map_legacy_backfill_record,
-        migration_version, route_registration_present, valid_reconcile_record, ReconcileRecord,
+        build_reconciliation_report, contains_destructive_sql, k8s_render_inventory,
+        map_legacy_backfill_record, migration_version, route_registration_present,
+        valid_reconcile_record, ReconcileRecord,
     };
+
+    #[test]
+    fn kubernetes_inventory_reads_only_top_level_resources() {
+        let rendered = r#"apiVersion: v1
+kind: Namespace
+metadata:
+  name: epsx-staging
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-backend
+spec:
+  template:
+    spec:
+      containers:
+        - name: nested-container-name
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: epsx-backend
+"#;
+        let (namespace, inventory) = k8s_render_inventory(rendered).expect("valid inventory");
+        assert_eq!(namespace.as_deref(), Some("epsx-staging"));
+        assert_eq!(
+            inventory.into_iter().collect::<Vec<_>>(),
+            vec!["Deployment/epsx-backend", "Service/epsx-backend"]
+        );
+    }
 
     #[test]
     fn migration_versions_use_the_prefix_before_the_name() {

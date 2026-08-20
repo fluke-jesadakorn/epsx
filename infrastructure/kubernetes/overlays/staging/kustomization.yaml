@@ -5,7 +5,11 @@ namespace: epsx-staging
 
 resources:
   - ../../base
+  # Migration services are explicit and remain outside the production core base.
+  - ../../base/analytics
+  - ../../base/identity
   - ../../base/notification
+  - ../../base/pay
 
 images:
   - name: epsx-backend

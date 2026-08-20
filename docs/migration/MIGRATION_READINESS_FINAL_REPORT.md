@@ -1,4 +1,11 @@
-# Migration readiness handoff
+# Migration readiness handoff (historical)
+
+This 2026-07-27 handoff is retained as historical evidence. The current source,
+target/evidence baseline, and explicit readiness flags are maintained in
+[`contracts/migration-baseline.json`](contracts/migration-baseline.json) and
+[`../../MIGRATION.md`](../../MIGRATION.md). Historical E2E artifacts remain
+bound to their recorded commits and must not be interpreted as current-pair or
+staging runtime proof.
 
 Date: 2026-07-27
 Branch: `migration/dioxus-microservices`

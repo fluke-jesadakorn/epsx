@@ -2,9 +2,14 @@
 
 This branch is an active migration, not a completed production cutover.
 
-- Source baseline audited: `origin/development` at `373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`.
-- Target baseline audited: `migration/dioxus-microservices` at
-  `975c09567fe14ce278370720bd7a0e5aa571e116` before the readiness-document update.
+- Current source baseline: local `development` at
+  `6fe4d5bb3e170ba0644c07979735482bcc0f17c6`.
+- Current target and evidence baseline: `migration/dioxus-microservices` at
+  `fec45147534eae35b7a8ff40c26cc4f7ac21adbd`; later target commits must descend
+  from this commit.
+- Machine-readable readiness contract:
+  [`docs/migration/contracts/migration-baseline.json`](docs/migration/contracts/migration-baseline.json).
+  It explicitly records `stagingReady: false` and `productionReady: false`.
 - Production system of record: the Rust monolith in `apps/backend` until each
   extracted domain passes its contract, security, data, and rollback gates.
 - Deployment status: no production deployment is authorized by this document.
@@ -40,6 +45,7 @@ The active branch now has Rust-native repository checks that do not merge or
 modify development:
 
     cargo xtask sync-audit
+    cargo xtask k8s-audit --strict
     cargo xtask authority-audit --strict
     cargo xtask notification-compatibility-audit --strict
     cargo xtask notification-producer-audit --strict
@@ -57,10 +63,21 @@ modify development:
     cargo xtask notification-backfill --dry-run --legacy --input <legacy-wallet-notifications-jsonl>
     cargo xtask notification-reconcile --dry-run --source <source-jsonl> --target <target-jsonl>
     cargo xtask notification-migration-audit --report
-    cargo xtask rust-audit --report
-    cargo xtask migration-audit --report
+    cargo xtask rust-audit --strict
+    cargo xtask migration-audit --strict
 
-The sync audit treats origin/development as a behavior reference only.
+The sync audit verifies the pinned local-development source, target baseline,
+evidence baseline, and current HEAD ancestry. A stale `origin/development` ref is
+not accepted as the current source baseline. The immutable E2E comparison
+artifacts still describe the older `373bd231...` source and are historical
+evidence only; they are not current-pair runtime proof.
+
+The Rust WebDriver runner now executes all declared matrices and repeats and
+performs real element actions and outcome assertions. It refuses groups that
+require authenticated or target-fixture state until an audience/permission-aware
+scenario-state provisioner and per-repeat reset proof exist. Consequently group
+0 is runnable, while groups 1–9 remain explicit staging blockers rather than
+false-positive E2E passes.
 The compatibility audit checks all 23 reviewed BFF/service method-path
 registrations against the checked-in Rust routers; payload, envelope, status,
 legacy-source, live-service, and browser parity remain separate gates.
@@ -93,9 +110,13 @@ Set `CONTENT_SERVICE_URL` for the Rust/Dioxus frontend BFF to route public
 content/news requests to the extracted content service; it falls back to
 `API_URL` when unset. The local content service listens on `127.0.0.1:8105`
 when started with the development content database.
-The strict Rust and migration audits are completion gates and intentionally
-fail while the tracked legacy toolchain, embedded browser scripts,
-migration-version collision, and reviewed destructive SQL remain.
+The strict Rust audit rejects authored JS/TS and requires a checksum-bound
+review of every Rust file containing browser-runtime markers. Only the Rust/WASM
+browser runtime, Rust/WASM service worker, and generated wasm-bindgen bootstrap
+tag are approved executable runtime boundaries. The migration audit rejects
+active version collisions, unreviewed destructive SQL, and stale destructive
+history allowlist entries. These static gates currently pass, but do not prove
+live dependencies, staging operation, or production readiness.
 
 The current notification continuation slice is verified by the notification
 service tests, focused frontend/Dioxus notification tests, and deterministic

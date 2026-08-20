@@ -21,9 +21,10 @@ jobs:
           - { name: admin, dockerfile: apps/admin/Dockerfile }
           - { name: backend, dockerfile: apps/backend/Dockerfile }
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           submodules: recursive
+          fetch-depth: 0
       - uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}

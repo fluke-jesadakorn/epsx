@@ -31,6 +31,7 @@ const INLINE_RUNTIME_MARKERS: &[&str] = &[
     "document::eval",
     "dangerous_inner_html: AUTH_REDIRECT_SCRIPT",
 ];
+const W3C_ELEMENT_KEY: &str = "element-6066-11e4-a52e-4f735466cecf";
 
 #[derive(Debug, Deserialize)]
 struct ScenarioManifest {
@@ -78,6 +79,10 @@ struct Scenario {
     actions: Vec<Value>,
     #[serde(default)]
     outcomes: Vec<Value>,
+    #[serde(default)]
+    state: Value,
+    #[serde(default, rename = "fixtureRequirements")]
+    fixture_requirements: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -407,6 +412,8 @@ fn e2e_doctor(flags: &[String]) -> Result<(), String> {
         return Err("migration matrices require a positive viewport and light/dark scheme".into());
     }
     let mut scenario_ids = BTreeSet::new();
+    let mut action_count = 0usize;
+    let mut outcome_count = 0usize;
     for group in &manifest.groups {
         if group.repeat == 0
             || !manifest.matrices.contains_key(&group.matrix)
@@ -418,9 +425,21 @@ fn e2e_doctor(flags: &[String]) -> Result<(), String> {
             ));
         }
         for scenario in &group.scenarios {
-            if !scenario.path.starts_with('/') || !scenario_ids.insert(scenario.id.clone()) {
+            if !scenario.path.starts_with('/')
+                || scenario.outcomes.is_empty()
+                || !scenario_ids.insert(scenario.id.clone())
+            {
                 return Err(format!("invalid or duplicate scenario {}", scenario.id));
             }
+            validate_scenario_contract(
+                scenario,
+                manifest
+                    .matrices
+                    .get(&group.matrix)
+                    .ok_or("group matrix is missing")?,
+            )?;
+            action_count += scenario.actions.len();
+            outcome_count += scenario.outcomes.len();
         }
     }
     if let Some(group) = group_id(flags)? {
@@ -428,10 +447,220 @@ fn e2e_doctor(flags: &[String]) -> Result<(), String> {
     }
     let matrix_count = manifest.matrices.values().map(Vec::len).sum::<usize>();
     println!(
-        "rust e2e doctor: PASS — baseline={}, groups=0-9, scenarios={}, matrices={matrix_count}",
-        lock.commit,
-        scenario_ids.len()
+        "rust e2e doctor: PASS — baseline={}, groups=0-9, scenarios={}, actions={action_count}, asserted_outcomes={outcome_count}, matrices={matrix_count}",
+        lock.commit, scenario_ids.len()
     );
+    Ok(())
+}
+
+fn validate_scenario_contract(scenario: &Scenario, matrices: &[Matrix]) -> Result<(), String> {
+    let state = scenario
+        .state
+        .as_object()
+        .ok_or_else(|| format!("{} state must be an object", scenario.id))?;
+    let session = state
+        .get("session")
+        .and_then(Value::as_str)
+        .filter(|session| matches!(*session, "signed-out" | "authenticated"))
+        .ok_or_else(|| format!("{} state has an invalid session", scenario.id))?;
+    state
+        .get("id")
+        .and_then(Value::as_str)
+        .filter(|id| !id.trim().is_empty())
+        .ok_or_else(|| format!("{} state omitted id", scenario.id))?;
+    if session == "authenticated" {
+        state
+            .get("audience")
+            .and_then(Value::as_str)
+            .filter(|audience| matches!(*audience, "epsx-frontend" | "epsx-admin"))
+            .ok_or_else(|| format!("{} authenticated state omitted audience", scenario.id))?;
+        let permissions = state
+            .get("permissions")
+            .and_then(Value::as_array)
+            .ok_or_else(|| format!("{} authenticated state omitted permissions", scenario.id))?;
+        if permissions
+            .iter()
+            .any(|permission| permission.as_str().is_none_or(str::is_empty))
+        {
+            return Err(format!(
+                "{} state contains an invalid permission",
+                scenario.id
+            ));
+        }
+    }
+    if state
+        .get("fixtureModeSide")
+        .and_then(Value::as_str)
+        .is_some_and(|side| !matches!(side, "source" | "target"))
+    {
+        return Err(format!("{} state has an invalid fixture side", scenario.id));
+    }
+    if state
+        .get("fixtureMode")
+        .is_some_and(|mode| mode.as_str().is_none_or(str::is_empty))
+    {
+        return Err(format!("{} state has an invalid fixture mode", scenario.id));
+    }
+    if scenario
+        .fixture_requirements
+        .iter()
+        .any(|requirement| requirement.trim().is_empty())
+    {
+        return Err(format!("{} has an empty fixture requirement", scenario.id));
+    }
+
+    let matrix_ids = matrices
+        .iter()
+        .map(|matrix| matrix.id.as_str())
+        .collect::<BTreeSet<_>>();
+    for action in &scenario.actions {
+        validate_contract_scope(&scenario.id, action, &matrix_ids)?;
+        match action_type(action) {
+            Some("reload" | "clear-cookies") => {}
+            Some("navigate") => {
+                let path = require_string(action, "path", &scenario.id, "navigate action")?;
+                if !path.starts_with('/') {
+                    return Err(format!("{} navigate path must be absolute", scenario.id));
+                }
+            }
+            Some("wait-for" | "click") => {
+                validate_selector_syntax(action_selector(action)?)?;
+            }
+            Some("fill") => {
+                validate_selector_syntax(action_selector(action)?)?;
+                require_string(action, "value", &scenario.id, "fill action")?;
+            }
+            Some("set-input-files") => {
+                validate_selector_syntax(action_selector(action)?)?;
+                let name = require_string(action, "name", &scenario.id, "file action")?;
+                if Path::new(name).components().count() != 1 || !safe_relative_path(Path::new(name))
+                {
+                    return Err(format!("{} file action has an unsafe name", scenario.id));
+                }
+                let mime = require_string(action, "mimeType", &scenario.id, "file action")?;
+                if !mime.contains('/') || mime.bytes().any(|byte| byte.is_ascii_whitespace()) {
+                    return Err(format!(
+                        "{} file action has an invalid MIME type",
+                        scenario.id
+                    ));
+                }
+                let content = require_string(action, "contentBase64", &scenario.id, "file action")?;
+                BASE64.decode(content).map_err(|error| {
+                    format!("{} file action has invalid base64: {error}", scenario.id)
+                })?;
+            }
+            Some(other) => {
+                return Err(format!("{} has unsupported action {other}", scenario.id));
+            }
+            None => return Err(format!("{} action omitted type", scenario.id)),
+        }
+    }
+
+    for outcome in &scenario.outcomes {
+        validate_contract_scope(&scenario.id, outcome, &matrix_ids)?;
+        match action_type(outcome) {
+            Some("path") => {
+                let path = require_string(outcome, "value", &scenario.id, "path outcome")?;
+                if !path.starts_with('/') {
+                    return Err(format!("{} outcome path must be absolute", scenario.id));
+                }
+            }
+            Some("query") => {
+                require_string(outcome, "key", &scenario.id, "query outcome")?;
+                require_string(outcome, "value", &scenario.id, "query outcome")?;
+            }
+            Some("text" | "text-absent") => {
+                require_string(outcome, "value", &scenario.id, "text outcome")?;
+            }
+            Some("selector") => {
+                validate_selector_syntax(require_string(
+                    outcome,
+                    "value",
+                    &scenario.id,
+                    "selector outcome",
+                )?)?;
+            }
+            Some("attribute") => {
+                validate_selector_syntax(action_selector(outcome)?)?;
+                let name = require_string(outcome, "name", &scenario.id, "attribute outcome")?;
+                if !name
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b':'))
+                {
+                    return Err(format!(
+                        "{} attribute outcome has an invalid name",
+                        scenario.id
+                    ));
+                }
+                require_string(outcome, "value", &scenario.id, "attribute outcome")?;
+            }
+            Some("status") => {
+                let status = outcome
+                    .get("value")
+                    .and_then(Value::as_u64)
+                    .filter(|status| (100..=599).contains(status))
+                    .ok_or_else(|| format!("{} status outcome is invalid", scenario.id))?;
+                let _ = status;
+            }
+            Some("no-horizontal-overflow") => {}
+            Some(other) => {
+                return Err(format!("{} has unsupported outcome {other}", scenario.id));
+            }
+            None => return Err(format!("{} outcome omitted type", scenario.id)),
+        }
+    }
+    Ok(())
+}
+
+fn validate_contract_scope(
+    scenario_id: &str,
+    value: &Value,
+    matrix_ids: &BTreeSet<&str>,
+) -> Result<(), String> {
+    if value
+        .get("side")
+        .and_then(Value::as_str)
+        .is_some_and(|side| !matches!(side, "source" | "target"))
+    {
+        return Err(format!("{scenario_id} contract has an invalid side"));
+    }
+    if let Some(ids) = value.get("matrixIds") {
+        let ids = ids
+            .as_array()
+            .ok_or_else(|| format!("{scenario_id} matrixIds must be an array"))?;
+        if ids.is_empty()
+            || ids
+                .iter()
+                .any(|id| id.as_str().is_none_or(|id| !matrix_ids.contains(id)))
+        {
+            return Err(format!("{scenario_id} contract has an unknown matrix ID"));
+        }
+    }
+    Ok(())
+}
+
+fn require_string<'a>(
+    value: &'a Value,
+    key: &str,
+    scenario_id: &str,
+    label: &str,
+) -> Result<&'a str, String> {
+    value
+        .get(key)
+        .and_then(Value::as_str)
+        .filter(|value| !value.is_empty())
+        .ok_or_else(|| format!("{scenario_id} {label} omitted {key}"))
+}
+
+fn validate_selector_syntax(selector: &str) -> Result<(), String> {
+    for branch in split_selector_branches(selector)? {
+        let (branch, _) = selector_nth(&branch)?;
+        let branch = branch.replace(":visible", "");
+        let (css, _) = selector_text_filter(&branch)?;
+        if css.trim().is_empty() {
+            return Err("selector resolves to empty CSS".into());
+        }
+    }
     Ok(())
 }
 
@@ -503,10 +732,10 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
     let root = repo_root()?;
     let manifest = load_manifest(&root)?;
     let group = require_group(&manifest, group_id)?;
-    let matrix = manifest
+    require_runtime_state_provisioning(group)?;
+    let matrices = manifest
         .matrices
         .get(&group.matrix)
-        .and_then(|matrices| matrices.first())
         .ok_or("group matrix is missing")?;
     let webdriver_url = flag_value(flags, "--webdriver-url")
         .map(str::to_owned)
@@ -538,24 +767,63 @@ fn e2e_run(flags: &[String]) -> Result<(), String> {
         .build()
         .map_err(|error| format!("could not create WebDriver client: {error}"))?;
     let mut passed = 0usize;
-    for scenario in &group.scenarios {
-        let base = if scenario.surface == "admin" {
-            &admin
-        } else {
-            &frontend
-        };
-        let mut session = WebDriverSession::create(&client, &webdriver_url, browser_name)?;
-        session.set_window(matrix.viewport.width, matrix.viewport.height)?;
-        let result = run_scenario(&mut session, scenario, base, matrix, &output_root);
-        let _ = session.close();
-        result?;
-        passed += 1;
+    for matrix in matrices {
+        for repeat in 1..=group.repeat {
+            let run_root = output_root
+                .join(browser)
+                .join(&matrix.id)
+                .join(format!("repeat-{repeat}"));
+            fs::create_dir_all(&run_root)
+                .map_err(|error| format!("could not create {}: {error}", run_root.display()))?;
+            for scenario in &group.scenarios {
+                let base = if scenario.surface == "admin" {
+                    &admin
+                } else {
+                    &frontend
+                };
+                let mut session =
+                    WebDriverSession::create(&client, &webdriver_url, browser_name, matrix)?;
+                session.set_window(matrix.viewport.width, matrix.viewport.height)?;
+                let result = run_scenario(&mut session, scenario, base, matrix, &run_root);
+                let _ = session.close();
+                result?;
+                passed += 1;
+            }
+        }
     }
     println!(
-        "rust e2e run: PASS — group={group_id}, browser={browser}, matrix={}, color_scheme={}, scenarios={passed}",
-        matrix.id, matrix.color_scheme
+        "rust e2e run: PASS — group={group_id}, browser={browser}, matrices={}, repeats={}, executions={passed}",
+        matrices.len(), group.repeat
     );
     Ok(())
+}
+
+fn require_runtime_state_provisioning(group: &ScenarioGroup) -> Result<(), String> {
+    let blocked = group
+        .scenarios
+        .iter()
+        .filter(|scenario| {
+            let authenticated =
+                scenario.state.get("session").and_then(Value::as_str) == Some("authenticated");
+            let target_fixture = scenario.state.get("fixtureMode").is_some()
+                && scenario
+                    .state
+                    .get("fixtureModeSide")
+                    .and_then(Value::as_str)
+                    != Some("source");
+            authenticated || target_fixture
+        })
+        .map(|scenario| scenario.id.as_str())
+        .collect::<Vec<_>>();
+    if blocked.is_empty() {
+        return Ok(());
+    }
+    Err(format!(
+        "group {} requires authenticated or target-fixture scenario provisioning for {} scenarios (first: {}); refusing an unprovisioned false-positive run",
+        group.id,
+        blocked.len(),
+        blocked.iter().take(5).copied().collect::<Vec<_>>().join(", ")
+    ))
 }
 
 struct WebDriverSession<'a> {
@@ -564,11 +832,49 @@ struct WebDriverSession<'a> {
     id: String,
 }
 
+#[derive(Debug, Clone, Copy)]
+struct ElementRect {
+    x: f64,
+    width: f64,
+}
+
 impl<'a> WebDriverSession<'a> {
-    fn create(client: &'a Client, endpoint: &str, browser: &str) -> Result<Self, String> {
+    fn create(
+        client: &'a Client,
+        endpoint: &str,
+        browser: &str,
+        matrix: &Matrix,
+    ) -> Result<Self, String> {
+        let mut always_match = json!({"browserName":browser});
+        match browser {
+            "chrome" => {
+                let mut arguments = vec![
+                    "--headless=new".to_string(),
+                    "--no-sandbox".to_string(),
+                    "--disable-dev-shm-usage".to_string(),
+                    format!(
+                        "--window-size={},{}",
+                        matrix.viewport.width, matrix.viewport.height
+                    ),
+                ];
+                if matrix.color_scheme == "dark" {
+                    arguments.push("--force-dark-mode".into());
+                }
+                always_match["goog:chromeOptions"] = json!({"args": arguments});
+            }
+            "firefox" => {
+                always_match["moz:firefoxOptions"] = json!({
+                    "args": ["-headless"],
+                    "prefs": {
+                        "ui.systemUsesDarkTheme": if matrix.color_scheme == "dark" { 1 } else { 0 }
+                    }
+                });
+            }
+            _ => {}
+        }
         let response = client
             .post(format!("{}/session", endpoint.trim_end_matches('/')))
-            .json(&json!({"capabilities":{"alwaysMatch":{"browserName":browser}}}))
+            .json(&json!({"capabilities":{"alwaysMatch":always_match}}))
             .send()
             .map_err(|error| format!("could not create WebDriver session: {error}"))?;
         let status = response.status();
@@ -655,6 +961,124 @@ impl<'a> WebDriverSession<'a> {
         .map(|_| ())
     }
 
+    fn find_elements(&self, using: &str, value: &str) -> Result<Vec<String>, String> {
+        let response = self.command(
+            "POST",
+            "/elements",
+            Some(json!({"using":using,"value":value})),
+        )?;
+        response
+            .as_array()
+            .ok_or("WebDriver elements response was not an array")?
+            .iter()
+            .map(|element| {
+                element
+                    .get(W3C_ELEMENT_KEY)
+                    .or_else(|| element.get("ELEMENT"))
+                    .and_then(Value::as_str)
+                    .map(str::to_owned)
+                    .ok_or_else(|| "WebDriver element omitted its element ID".to_string())
+            })
+            .collect()
+    }
+
+    fn element_text(&self, element: &str) -> Result<String, String> {
+        self.command("GET", &format!("/element/{element}/text"), None)?
+            .as_str()
+            .map(str::to_owned)
+            .ok_or("WebDriver element text was not text".into())
+    }
+
+    fn element_displayed(&self, element: &str) -> Result<bool, String> {
+        self.command("GET", &format!("/element/{element}/displayed"), None)?
+            .as_bool()
+            .ok_or("WebDriver displayed result was not boolean".into())
+    }
+
+    fn element_attribute(&self, element: &str, name: &str) -> Result<Option<String>, String> {
+        let value = self.command("GET", &format!("/element/{element}/attribute/{name}"), None)?;
+        if value.is_null() {
+            Ok(None)
+        } else {
+            value
+                .as_str()
+                .map(|value| Some(value.to_string()))
+                .ok_or("WebDriver attribute result was not text or null".into())
+        }
+    }
+
+    fn element_rect(&self, element: &str) -> Result<ElementRect, String> {
+        let value = self.command("GET", &format!("/element/{element}/rect"), None)?;
+        Ok(ElementRect {
+            x: value
+                .get("x")
+                .and_then(Value::as_f64)
+                .ok_or("WebDriver element rect omitted x")?,
+            width: value
+                .get("width")
+                .and_then(Value::as_f64)
+                .ok_or("WebDriver element rect omitted width")?,
+        })
+    }
+
+    fn click(&self, element: &str) -> Result<(), String> {
+        self.command(
+            "POST",
+            &format!("/element/{element}/click"),
+            Some(json!({})),
+        )
+        .map(|_| ())
+    }
+
+    fn clear(&self, element: &str) -> Result<(), String> {
+        self.command(
+            "POST",
+            &format!("/element/{element}/clear"),
+            Some(json!({})),
+        )
+        .map(|_| ())
+    }
+
+    fn send_keys(&self, element: &str, value: &str) -> Result<(), String> {
+        let characters = value.chars().map(|ch| ch.to_string()).collect::<Vec<_>>();
+        self.command(
+            "POST",
+            &format!("/element/{element}/value"),
+            Some(json!({"text":value,"value":characters})),
+        )
+        .map(|_| ())
+    }
+
+    fn http_status(&self, url: &str) -> Result<u16, String> {
+        require_loopback(url, "browser status probe")?;
+        let cookies = self.command("GET", "/cookie", None)?;
+        let cookie_header = cookies
+            .as_array()
+            .ok_or("WebDriver cookie response was not an array")?
+            .iter()
+            .map(|cookie| {
+                let name = cookie
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .ok_or("WebDriver cookie omitted name")?;
+                let value = cookie
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("WebDriver cookie omitted value")?;
+                Ok(format!("{name}={value}"))
+            })
+            .collect::<Result<Vec<_>, String>>()?
+            .join("; ");
+        let mut request = self.client.get(url);
+        if !cookie_header.is_empty() {
+            request = request.header(reqwest::header::COOKIE, cookie_header);
+        }
+        request
+            .send()
+            .map(|response| response.status().as_u16())
+            .map_err(|error| format!("could not probe browser URL status: {error}"))
+    }
+
     fn close(&self) -> Result<(), String> {
         self.client
             .delete(format!("{}/session/{}", self.endpoint, self.id))
@@ -689,16 +1113,40 @@ fn run_scenario(
             Some("clear-cookies") => {
                 session.command("DELETE", "/cookie", None)?;
             }
-            Some("wait-for" | "click" | "fill" | "set-input-files") => {
-                wait_for_source_marker(session, action, Duration::from_secs(10))?;
+            Some("wait-for") => {
+                wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?;
+            }
+            Some("click") => {
+                let element =
+                    wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+                        .into_iter()
+                        .next()
+                        .ok_or("click action resolved no element")?;
+                session.click(&element)?;
+            }
+            Some("fill") => {
+                let value = action
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("fill action omitted value")?;
+                let element =
+                    wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+                        .into_iter()
+                        .next()
+                        .ok_or("fill action resolved no element")?;
+                session.clear(&element)?;
+                session.send_keys(&element, value)?;
+            }
+            Some("set-input-files") => {
+                set_input_file(session, scenario, action, output_root)?;
             }
             Some(other) => return Err(format!("unsupported Rust E2E action {other}")),
-            None => {}
+            None => return Err(format!("{} action omitted type", scenario.id)),
         }
     }
-    let current = Url::parse(&session.current_url()?)
-        .map_err(|error| format!("invalid browser URL: {error}"))?;
-    let source = session.source()?;
+    let current_url = session.current_url()?;
+    let current =
+        Url::parse(&current_url).map_err(|error| format!("invalid browser URL: {error}"))?;
     let expected_path = scenario
         .expected_target_path
         .as_deref()
@@ -746,24 +1194,74 @@ fn run_scenario(
                     .get("value")
                     .and_then(Value::as_str)
                     .ok_or("text outcome omitted value")?;
-                if !source.contains(value) {
-                    return Err(format!("{} missing expected text", scenario.id));
-                }
+                wait_for_rendered_text(session, value, Duration::from_secs(10))?;
             }
             Some("text-absent") => {
                 let value = outcome
                     .get("value")
                     .and_then(Value::as_str)
                     .ok_or("text-absent outcome omitted value")?;
-                if source.contains(value) {
+                if session.source()?.contains(value) {
                     return Err(format!("{} rendered forbidden text", scenario.id));
                 }
             }
-            Some("selector" | "attribute" | "status" | "no-horizontal-overflow") | None => {}
+            Some("selector") => {
+                let selector = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("selector outcome omitted value")?;
+                wait_for_elements(session, selector, Duration::from_secs(10))?;
+            }
+            Some("attribute") => {
+                let selector = action_selector(outcome)?;
+                let name = outcome
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .filter(|name| {
+                        name.bytes().all(|byte| {
+                            byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b':')
+                        })
+                    })
+                    .ok_or("attribute outcome has an invalid or missing name")?;
+                let expected = outcome
+                    .get("value")
+                    .and_then(Value::as_str)
+                    .ok_or("attribute outcome omitted value")?;
+                let element = wait_for_elements(session, selector, Duration::from_secs(10))?
+                    .into_iter()
+                    .next()
+                    .ok_or("attribute outcome resolved no element")?;
+                let actual = session.element_attribute(&element, name)?;
+                if actual.as_deref() != Some(expected) {
+                    return Err(format!(
+                        "{} attribute {name} was {:?}, expected {expected:?}",
+                        scenario.id, actual
+                    ));
+                }
+            }
+            Some("status") => {
+                let expected = outcome
+                    .get("value")
+                    .and_then(Value::as_u64)
+                    .and_then(|value| u16::try_from(value).ok())
+                    .ok_or("status outcome omitted a valid HTTP status")?;
+                let actual = session.http_status(&current_url)?;
+                if actual != expected {
+                    return Err(format!(
+                        "{} HTTP status {actual} != {expected}",
+                        scenario.id
+                    ));
+                }
+            }
+            Some("no-horizontal-overflow") => {
+                assert_no_horizontal_overflow(session, scenario)?;
+            }
+            None => return Err(format!("{} outcome omitted type", scenario.id)),
             Some(other) => return Err(format!("unsupported Rust E2E outcome {other}")),
         }
     }
     let screenshot = session.screenshot()?;
+    let source = session.source()?;
     fs::write(output_root.join(format!("{}.png", scenario.id)), screenshot)
         .map_err(|error| format!("could not write screenshot: {error}"))?;
     fs::write(output_root.join(format!("{}.html", scenario.id)), source)
@@ -771,30 +1269,253 @@ fn run_scenario(
     Ok(())
 }
 
-fn wait_for_source_marker(
-    session: &WebDriverSession<'_>,
-    action: &Value,
-    timeout: Duration,
-) -> Result<(), String> {
-    let selector = action
+fn action_selector(value: &Value) -> Result<&str, String> {
+    value
         .get("selector")
         .and_then(Value::as_str)
-        .ok_or("interactive action omitted selector")?;
-    let marker = selector
-        .strip_prefix("text=")
-        .unwrap_or(selector)
-        .split(":has-text")
-        .next()
-        .unwrap_or(selector)
-        .trim_matches(|ch| matches!(ch, '"' | '\''));
+        .filter(|selector| !selector.trim().is_empty())
+        .ok_or("interactive contract omitted selector".into())
+}
+
+fn wait_for_elements(
+    session: &WebDriverSession<'_>,
+    selector: &str,
+    timeout: Duration,
+) -> Result<Vec<String>, String> {
     let start = Instant::now();
     while start.elapsed() < timeout {
-        if session.source()?.contains(marker) {
-            return Ok(());
+        let elements = resolve_selector(session, selector)?;
+        if !elements.is_empty() {
+            return Ok(elements);
         }
         thread::sleep(Duration::from_millis(100));
     }
     Err(format!("timed out waiting for {selector}"))
+}
+
+fn wait_for_rendered_text(
+    session: &WebDriverSession<'_>,
+    text: &str,
+    timeout: Duration,
+) -> Result<(), String> {
+    let start = Instant::now();
+    while start.elapsed() < timeout {
+        let body = session
+            .find_elements("css selector", "body")?
+            .into_iter()
+            .next();
+        if body.is_some_and(|body| {
+            session
+                .element_text(&body)
+                .is_ok_and(|rendered| rendered.contains(text))
+        }) {
+            return Ok(());
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    Err(format!("timed out waiting for rendered text {text:?}"))
+}
+
+fn resolve_selector(session: &WebDriverSession<'_>, selector: &str) -> Result<Vec<String>, String> {
+    let mut resolved = Vec::new();
+    for branch in split_selector_branches(selector)? {
+        let (branch, nth) = selector_nth(&branch)?;
+        let visible = branch.contains(":visible");
+        let branch = branch.replace(":visible", "");
+        let (css, required_text) = selector_text_filter(&branch)?;
+        let candidates = session.find_elements("css selector", &css)?;
+        let mut matching = Vec::new();
+        for element in candidates {
+            if visible && !session.element_displayed(&element)? {
+                continue;
+            }
+            if let Some(text) = required_text.as_deref() {
+                if !session.element_text(&element)?.contains(text) {
+                    continue;
+                }
+            }
+            matching.push(element);
+        }
+        if let Some(index) = nth {
+            if let Some(element) = matching.get(index) {
+                resolved.push(element.clone());
+            }
+        } else {
+            resolved.extend(matching);
+        }
+        if !resolved.is_empty() {
+            break;
+        }
+    }
+    Ok(resolved)
+}
+
+fn split_selector_branches(selector: &str) -> Result<Vec<String>, String> {
+    let mut branches = Vec::new();
+    let mut start = 0usize;
+    let mut parentheses = 0usize;
+    let mut brackets = 0usize;
+    let mut quote = None;
+    let mut escaped = false;
+    for (index, character) in selector.char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        if character == '\\' {
+            escaped = true;
+            continue;
+        }
+        if let Some(active) = quote {
+            if character == active {
+                quote = None;
+            }
+            continue;
+        }
+        match character {
+            '"' | '\'' => quote = Some(character),
+            '(' => parentheses += 1,
+            ')' => {
+                parentheses = parentheses
+                    .checked_sub(1)
+                    .ok_or("selector has an unmatched parenthesis")?
+            }
+            '[' => brackets += 1,
+            ']' => {
+                brackets = brackets
+                    .checked_sub(1)
+                    .ok_or("selector has an unmatched bracket")?
+            }
+            ',' if parentheses == 0 && brackets == 0 => {
+                let branch = selector[start..index].trim();
+                if branch.is_empty() {
+                    return Err("selector contains an empty branch".into());
+                }
+                branches.push(branch.to_string());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    if quote.is_some() || parentheses != 0 || brackets != 0 {
+        return Err("selector has an unterminated quote or group".into());
+    }
+    let branch = selector[start..].trim();
+    if branch.is_empty() {
+        return Err("selector is empty".into());
+    }
+    branches.push(branch.to_string());
+    Ok(branches)
+}
+
+fn selector_nth(selector: &str) -> Result<(String, Option<usize>), String> {
+    let Some((selector, index)) = selector.rsplit_once(" >> nth=") else {
+        return Ok((selector.to_string(), None));
+    };
+    let index = index
+        .parse::<usize>()
+        .map_err(|_| "selector nth index is invalid")?;
+    Ok((selector.trim().to_string(), Some(index)))
+}
+
+fn selector_text_filter(selector: &str) -> Result<(String, Option<String>), String> {
+    if let Some(text) = selector.strip_prefix("text=") {
+        let text = text.trim_matches(|character| matches!(character, '"' | '\''));
+        if text.is_empty() {
+            return Err("text selector is empty".into());
+        }
+        return Ok(("body *".into(), Some(text.to_string())));
+    }
+    let Some(start) = selector.find(":has-text(") else {
+        return Ok((selector.to_string(), None));
+    };
+    let text_start = start + ":has-text(".len();
+    let end = selector[text_start..]
+        .find(')')
+        .map(|offset| text_start + offset)
+        .ok_or("has-text selector is unterminated")?;
+    let text = selector[text_start..end]
+        .trim()
+        .trim_matches(|character| matches!(character, '"' | '\''));
+    if text.is_empty() {
+        return Err("has-text selector is empty".into());
+    }
+    let mut css = selector.to_string();
+    css.replace_range(start..=end, "");
+    if css.trim().is_empty() {
+        css = "body *".into();
+    }
+    Ok((css, Some(text.to_string())))
+}
+
+fn set_input_file(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+    action: &Value,
+    output_root: &Path,
+) -> Result<(), String> {
+    let name = action
+        .get("name")
+        .and_then(Value::as_str)
+        .ok_or("set-input-files action omitted name")?;
+    let name_path = Path::new(name);
+    if name_path.components().count() != 1 || !safe_relative_path(name_path) {
+        return Err("set-input-files action has an unsafe name".into());
+    }
+    action
+        .get("mimeType")
+        .and_then(Value::as_str)
+        .filter(|mime| mime.contains('/') && !mime.bytes().any(|byte| byte.is_ascii_whitespace()))
+        .ok_or("set-input-files action has an invalid or missing MIME type")?;
+    let encoded = action
+        .get("contentBase64")
+        .and_then(Value::as_str)
+        .ok_or("set-input-files action omitted contentBase64")?;
+    let bytes = BASE64
+        .decode(encoded)
+        .map_err(|error| format!("set-input-files content is invalid base64: {error}"))?;
+    let upload_root = output_root.join("uploads");
+    fs::create_dir_all(&upload_root)
+        .map_err(|error| format!("could not create {}: {error}", upload_root.display()))?;
+    let path = upload_root.join(format!("{}-{name}", scenario.id));
+    fs::write(&path, bytes)
+        .map_err(|error| format!("could not write {}: {error}", path.display()))?;
+    let element = wait_for_elements(session, action_selector(action)?, Duration::from_secs(10))?
+        .into_iter()
+        .next()
+        .ok_or("set-input-files action resolved no element")?;
+    session.send_keys(
+        &element,
+        path.to_str().ok_or("upload path is not valid UTF-8")?,
+    )
+}
+
+fn assert_no_horizontal_overflow(
+    session: &WebDriverSession<'_>,
+    scenario: &Scenario,
+) -> Result<(), String> {
+    let html = session
+        .find_elements("css selector", "html")?
+        .into_iter()
+        .next()
+        .ok_or("document has no html element")?;
+    let viewport = session.element_rect(&html)?.width;
+    if viewport <= 0.0 {
+        return Err("document viewport width is not positive".into());
+    }
+    for element in session.find_elements("css selector", "body, body > *")? {
+        if !session.element_displayed(&element)? {
+            continue;
+        }
+        let rect = session.element_rect(&element)?;
+        if rect.x < -1.0 || rect.x + rect.width > viewport + 1.0 {
+            return Err(format!(
+                "{} horizontal overflow: x={} width={} viewport={viewport}",
+                scenario.id, rect.x, rect.width
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn action_type(value: &Value) -> Option<&str> {
@@ -1052,7 +1773,9 @@ fn is_hex(value: &str, len: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        contains_node_command, environment_name, is_hex, matrix_matches, safe_relative_path,
+        contains_node_command, environment_name, is_hex, matrix_matches,
+        require_runtime_state_provisioning, safe_relative_path, selector_nth, selector_text_filter,
+        split_selector_branches, Scenario, ScenarioGroup,
     };
     use serde_json::json;
     use std::path::Path;
@@ -1081,6 +1804,73 @@ mod tests {
             &json!({"matrixIds":["mobile-dark"]}),
             "desktop-light"
         ));
+    }
+
+    #[test]
+    fn webdriver_selector_contract_handles_playwright_compatibility_tokens() {
+        let branches = split_selector_branches(
+            r#"form:has(input[value="a,b"]), h2:has-text("Active Plans"):visible"#,
+        )
+        .unwrap();
+        assert_eq!(branches.len(), 2);
+        let (selector, nth) = selector_nth("text=Plan not found >> nth=1").unwrap();
+        assert_eq!(selector, "text=Plan not found");
+        assert_eq!(nth, Some(1));
+        assert_eq!(
+            selector_text_filter(r#"h2:has-text("Active Plans")"#).unwrap(),
+            ("h2".to_string(), Some("Active Plans".to_string()))
+        );
+        assert_eq!(
+            selector_text_filter("text=Total Credits Outstanding").unwrap(),
+            (
+                "body *".to_string(),
+                Some("Total Credits Outstanding".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn runtime_refuses_unprovisioned_authenticated_scenarios() {
+        let scenario = |id: &str, state| Scenario {
+            id: id.to_string(),
+            surface: "frontend".into(),
+            path: "/".into(),
+            expected_target_path: None,
+            actions: Vec::new(),
+            outcomes: Vec::new(),
+            state,
+            fixture_requirements: Vec::new(),
+        };
+        let signed_out = ScenarioGroup {
+            id: 0,
+            slug: "signed-out".into(),
+            matrix: "test".into(),
+            repeat: 1,
+            scenarios: vec![scenario(
+                "public",
+                json!({"id":"public","session":"signed-out"}),
+            )],
+        };
+        assert!(require_runtime_state_provisioning(&signed_out).is_ok());
+
+        let authenticated = ScenarioGroup {
+            id: 1,
+            slug: "authenticated".into(),
+            matrix: "test".into(),
+            repeat: 1,
+            scenarios: vec![scenario(
+                "owner",
+                json!({
+                    "id":"owner",
+                    "session":"authenticated",
+                    "audience":"epsx-frontend",
+                    "permissions":[]
+                }),
+            )],
+        };
+        assert!(require_runtime_state_provisioning(&authenticated)
+            .unwrap_err()
+            .contains("refusing an unprovisioned false-positive run"));
     }
 
     #[test]

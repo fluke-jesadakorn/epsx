@@ -18,14 +18,18 @@ namespace: epsx-dev
 
 resources:
   - ../../base
+  # Migration services are explicit and remain outside the production core base.
+  - ../../base/analytics
+  - ../../base/identity
   - ../../base/notification
+  - ../../base/pay
 
 images:
   - name: epsx-backend
     newTag: dev
   - name: epsx-frontend
     newTag: dev
-  - name: epsx-admin-frontend
+  - name: epsx-admin
     newTag: dev
   # wave13a(integration): bumped analytics tag from
   # `:wave12-dev` to `:wave13a-dev` so the dev overlay
