@@ -4874,6 +4874,11 @@
               "selector": "[data-admin-developer-create-submit=\"bff\"]",
               "side": "target"
             },
+            {
+              "type": "wait-for",
+              "selector": "[data-admin-developer-create-state=\"created\"]",
+              "side": "target"
+            },
             { "type": "reload", "side": "target" }
           ],
           "outcomes": [
