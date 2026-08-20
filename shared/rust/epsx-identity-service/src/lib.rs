@@ -49,6 +49,11 @@ pub mod sse_handler;
 /// The proto's package name lives in the **filename** (the
 /// `.rs` is named after the package) but not in the **module
 /// tree** — that's a tonic-build convention.
+// Tonic owns the generated `Result<_, tonic::Status>` client signatures.
+// Rust 1.98's lower `result_large_err` threshold flags those signatures, so
+// keep the exception scoped to generated code rather than weakening the
+// workspace lint policy.
+#[allow(clippy::result_large_err)]
 pub mod generated {
     include!(concat!(env!("OUT_DIR"), "/epsx.identity.v1.rs"));
 }
