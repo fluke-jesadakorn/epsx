@@ -11,10 +11,7 @@ use uuid::Uuid;
 
 /// Security headers middleware that adds essential security headers to all responses
 /// Allows iframe embedding for /docs routes by using permissive frame-ancestors
-pub async fn security_headers_middleware(
-    request: Request,
-    next: Next,
-) -> Result<Response, Response> {
+pub async fn security_headers_middleware(request: Request, next: Next) -> Response {
     // Check if this is a docs route that should allow iframe embedding
     let path = request.uri().path();
     let is_docs_route = path.starts_with("/docs") || path.starts_with("/api-docs");
@@ -28,11 +25,11 @@ pub async fn security_headers_middleware(
     // Add essential security headers (with iframe exception for docs)
     add_security_headers(headers, is_docs_route);
 
-    Ok(response)
+    response
 }
 
 /// Request ID middleware for tracing
-pub async fn request_id_middleware(mut request: Request, next: Next) -> Result<Response, Response> {
+pub async fn request_id_middleware(mut request: Request, next: Next) -> Response {
     // Generate request ID
     let request_id = Uuid::new_v4().to_string();
 
@@ -58,7 +55,7 @@ pub async fn request_id_middleware(mut request: Request, next: Next) -> Result<R
         );
     }
 
-    Ok(response)
+    response
 }
 
 // Request ID type for extensions
