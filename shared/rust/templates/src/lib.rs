@@ -1365,7 +1365,8 @@ pub fn design_system_head_with_keywords(
     display: none;
     animation: scaleIn 0.15s ease;
   }}
-  .epsx-nav-wrap.open .epsx-nav-menu {{ display: block; }}
+  .epsx-nav-wrap.open .epsx-nav-menu,
+  .epsx-nav-menu.open {{ display: block; }}
   html.dark .epsx-nav-menu {{ background: #0f172a; border-color: #334155; }}
 
   .epsx-nav-item {{
@@ -7123,6 +7124,16 @@ mod page_head_tests {
         let theme = theme_toggle_button();
         assert!(theme.contains("data-epsx-action=\"theme-toggle\""));
         assert!(!theme.contains("onclick=\""));
+    }
+
+    #[test]
+    fn navigation_menu_css_matches_the_runtime_open_state() {
+        let header = epsx_header();
+        assert!(header.contains("class=\"epsx-nav-menu\""));
+        assert!(header.contains(" hidden>"));
+
+        let shell = page_shell("Title", "Description", &header, "body", false);
+        assert!(shell.contains(".epsx-nav-menu.open { display: block; }"));
     }
 
     #[test]

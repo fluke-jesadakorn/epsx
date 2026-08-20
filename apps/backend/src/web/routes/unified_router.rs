@@ -421,31 +421,10 @@ impl UnifiedRouteBuilder {
             self.container.get_analytics_pool(),
         );
 
-        // Settings routes (protected - requires auth + admin permissions)
-        let settings_routes = Router::new()
-            .route(
-                "/settings",
-                get(crate::web::admin::system_settings_handlers::get_all_settings_handler)
-                    .put(crate::web::admin::system_settings_handlers::update_settings_handler),
-            )
-            .route(
-                "/settings/reset",
-                post(crate::web::admin::system_settings_handlers::reset_settings_handler),
-            )
-            .route(
-                "/settings/{category}",
-                get(crate::web::admin::system_settings_handlers::get_settings_by_category_handler),
-            )
-            .with_state(app_state.clone())
-            .layer(axum_middleware::from_fn(
-                crate::web::middleware::permission_validation_middleware,
-            ))
-            .layer(axum_middleware::from_fn_with_state(
-                app_state.clone(),
-                crate::web::middleware::bearer_middleware,
-            ));
-
         // Create admin routes with permission validation middleware
+        // This router owns settings as well as the other admin surfaces. Keep
+        // each path registered exactly once: merging a second settings router
+        // makes Axum reject the application at startup before it can bind.
         let admin_routes = crate::web::admin::routes::create_admin_routes()
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn(
@@ -456,7 +435,7 @@ impl UnifiedRouteBuilder {
                 crate::web::middleware::bearer_middleware,
             ));
 
-        Router::new().merge(settings_routes).merge(admin_routes)
+        Router::new().merge(admin_routes)
     }
 
     // ============================================================================
