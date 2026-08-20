@@ -23,6 +23,10 @@ jobs:
           components: clippy,rustfmt
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes protobuf-compiler
       - name: Install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: Format

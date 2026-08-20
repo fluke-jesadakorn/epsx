@@ -459,7 +459,7 @@ pub async fn get_user_access_overview(
     }
 
     // Sort by tier_level descending (best plan first, Free last)
-    plans.sort_by(|a, b| b.tier_level.cmp(&a.tier_level));
+    plans.sort_by_key(|plan| std::cmp::Reverse(plan.tier_level));
 
     // Current tier = highest tier plan (first after sorting)
     let current_tier = plans

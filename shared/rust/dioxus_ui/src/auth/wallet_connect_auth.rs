@@ -65,8 +65,8 @@ pub fn WalletConnectAuth(
     let truncated = address.as_ref().map(|a| {
         format!(
             "{}...{}",
-            &a.chars().take(6).collect::<String>(),
-            &a.chars()
+            a.chars().take(6).collect::<String>(),
+            a.chars()
                 .rev()
                 .take(4)
                 .collect::<String>()

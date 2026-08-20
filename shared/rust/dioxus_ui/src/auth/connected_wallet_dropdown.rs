@@ -46,9 +46,8 @@ pub fn ConnectedWalletDropdown(
     let cls = class_name.clone().unwrap_or_default();
     let truncated = format!(
         "{}...{}",
-        &addr.chars().take(6).collect::<String>(),
-        &addr
-            .chars()
+        addr.chars().take(6).collect::<String>(),
+        addr.chars()
             .rev()
             .take(4)
             .collect::<String>()

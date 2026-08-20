@@ -313,7 +313,7 @@ impl UsageMetrics {
             .map(|(resource_type, stats)| (resource_type.clone(), stats.count))
             .collect();
 
-        resource_counts.sort_by(|a, b| b.1.cmp(&a.1));
+        resource_counts.sort_by_key(|item| std::cmp::Reverse(item.1));
         resource_counts.truncate(limit);
         resource_counts
     }

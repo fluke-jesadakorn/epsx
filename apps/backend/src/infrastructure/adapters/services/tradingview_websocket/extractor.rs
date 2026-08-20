@@ -140,7 +140,7 @@ pub fn extract_eps_from_st4(
     }
 
     if !quarterly_data.is_empty() {
-        quarterly_data.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        quarterly_data.sort_by_key(|item| std::cmp::Reverse(item.timestamp));
         quarterly_data = correlate_fn(quarterly_data);
     } else {
         warn!("No EPS data extracted from st4 for {}", symbol);

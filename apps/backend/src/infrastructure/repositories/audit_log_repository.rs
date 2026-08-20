@@ -389,7 +389,7 @@ impl DieselAuditLogRepository {
             Ok((all_entries, total))
         } else {
             // Sort by timestamp desc, then paginate in Rust
-            all_entries.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+            all_entries.sort_by_key(|item| std::cmp::Reverse(item.timestamp));
             let result: Vec<AuditLogEntry> = all_entries
                 .into_iter()
                 .skip(offset as usize)

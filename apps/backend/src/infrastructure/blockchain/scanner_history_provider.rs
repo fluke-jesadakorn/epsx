@@ -78,7 +78,7 @@ impl TransactionHistoryProvider for ScannerTransactionHistoryProvider {
         // Format wallet address for topic1 (pad to 32 bytes)
         let wallet_topic = format!(
             "0x000000000000000000000000{}",
-            &wallet_address[2..].to_lowercase()
+            wallet_address[2..].to_lowercase()
         );
 
         let url = format!(

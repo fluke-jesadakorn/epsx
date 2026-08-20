@@ -87,7 +87,7 @@ impl TransactionHistoryProvider for RpcTransactionHistoryProvider {
         let total = history.len() as u64;
 
         // Sort by timestamp desc
-        history.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
+        history.sort_by_key(|item| std::cmp::Reverse(item.timestamp));
 
         Ok((history, total))
     }

@@ -68,8 +68,8 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         // 3. Build dynamic update query
         let mut updates = Vec::new();
 
-        if command.is_active.is_some() {
-            updates.push(format!("is_active = {}", command.is_active.unwrap()));
+        if let Some(is_active) = command.is_active {
+            updates.push(format!("is_active = {is_active}"));
         }
 
         // Handle metadata update - merge with existing wallet_metadata
