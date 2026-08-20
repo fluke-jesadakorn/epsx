@@ -104,7 +104,7 @@ jobs:
           expected_rows=(
             'epsx_core_shadow|preserve-me|22'
             'epsx_analytics_shadow|preserve-me|4'
-            'epsx_payments_shadow|preserve-me|7'
+            'epsx_payments_shadow|preserve-me|8'
             'epsx_notifications_shadow|preserve-me|11'
           )
           for expected in "${expected_rows[@]}"; do
@@ -125,6 +125,47 @@ jobs:
           psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -f apps/backend/migrations/analytics/20260820070000_add_api_key_usage_default_partition/up.sql
           reattached_row="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT COUNT(*) FROM infra_logs.api_key_usage_logs WHERE id = '$usage_id' AND tableoid = 'infra_logs.api_key_usage_logs_default'::regclass")"
           test "$reattached_row" = '1'
+      - name: Verify bounded split-database plan projection
+        env:
+          CORE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_payments_shadow
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          set +e
+          ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
+          initial_status=$?
+          set -e
+          test "$initial_status" = '2'
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
+          source_count="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc 'SELECT COUNT(*) FROM public.plans')"
+          target_count="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc 'SELECT COUNT(*) FROM payments.plans')"
+          test "$source_count" = "$target_count"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -c "INSERT INTO payments.plans (id, name, slug, description) VALUES ('33333333-3333-4333-8333-333333333333', 'Destination only', 'destination-only', 'preservation proof')"
+          set +e
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          refusal_status=$?
+          set -e
+          test "$refusal_status" != '0'
+          retained="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc "SELECT COUNT(*) FROM payments.plans WHERE id = '33333333-3333-4333-8333-333333333333'")"
+          test "$retained" = '1'
+      - name: Verify same-database plan trigger preservation
+        env:
+          CORE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow \
+            -f apps/backend/migrations/payments/20260613000000_replicate_plans_into_payments_schema/up.sql \
+            -f apps/backend/migrations/payments/20260820100000_harden_plan_projection_sync/up.sql
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "INSERT INTO public.plans (id, name, slug, description) VALUES ('44444444-4444-4444-8444-444444444444', 'Trigger proof', 'trigger-proof', 'before update')"
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "UPDATE public.plans SET slug = 'trigger-proof-updated', description = 'after update', plan_category = 'addon', plan_group = 'enterprise', is_promoted = TRUE, tier_level = 2, updated_at = '2030-01-01T00:00:00Z' WHERE id = '44444444-4444-4444-8444-444444444444'"
+          exact="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT to_jsonb(source) = to_jsonb(target) FROM public.plans source JOIN payments.plans target USING (id) WHERE id = '44444444-4444-4444-8444-444444444444'")"
+          test "$exact" = 't'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "DELETE FROM public.plans WHERE id = '44444444-4444-4444-8444-444444444444'"
+          retired="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT NOT is_active AND NOT is_public AND NOT is_promoted FROM payments.plans WHERE id = '44444444-4444-4444-8444-444444444444'")"
+          test "$retired" = 't'
 
   contracts:
     name: Foundry contracts

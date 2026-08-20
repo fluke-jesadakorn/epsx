@@ -11,6 +11,10 @@ spec:
     spec:
       containers:
         - name: epsx-pay-svc
+          env:
+            - { name: RUST_ENV, value: "staging" }
+            - { name: ENV, value: "staging" }
+            - { name: EPSX_ENV, value: "staging" }
           resources:
             limits: { memory: 256Mi, cpu: "0.5" }
             requests: { memory: 64Mi, cpu: "0.1" }
@@ -24,6 +28,9 @@ spec:
     spec:
       containers:
         - name: epsx-pay-bff
+          env:
+            - { name: RUST_ENV, value: "staging" }
+            - { name: ENV, value: "staging" }
           resources:
             limits: { memory: 256Mi, cpu: "0.5" }
             requests: { memory: 64Mi, cpu: "0.1" }

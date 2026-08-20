@@ -134,8 +134,10 @@ services:
     environment:
       ENV: ${ENV}
       RUST_ENV: staging
+      EPSX_ENV: staging
       RUST_LOG: info,epsx=debug
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_staging?sslmode=disable
+      OIDC_ISSUER: ${BACKEND_URL}
       CHAIN_ID: ${CHAIN_ID}
       ESCROW_CONTRACT: ${PAYMENT_ESCROW_CONTRACT_MAINNET:-}
       PORT: 8103
@@ -145,7 +147,7 @@ services:
     networks:
       - epsx_staging
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/ready || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

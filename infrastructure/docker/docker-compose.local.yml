@@ -314,8 +314,10 @@ services:
     environment:
       ENV: development
       RUST_ENV: development
+      EPSX_ENV: development
       RUST_LOG: info,epsx=debug
-      DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_pay?sslmode=disable
+      DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_payments_prod?sslmode=disable
+      OIDC_ISSUER: ${BACKEND_URL}
       CHAIN_ID: 56
       ESCROW_CONTRACT: "0"
       PORT: 8103
@@ -325,7 +327,7 @@ services:
     networks:
       - epsx_prod
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/ready || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

@@ -115,6 +115,19 @@ apply_secret epsx-backend \
   --from-literal=NOTIFICATION_SERVICE_URL="${NOTIFICATION_SERVICE_URL:-}" \
   --from-literal=NOTIFICATION_SERVICE_TOKEN="${NOTIFICATION_SERVICE_TOKEN:-}"
 
+# ── epsx-pay ──────────────────────────────────────────────────────────────────
+# Keep the extracted pay service on the same environment-specific payments
+# database migrated by the backend init container. Financial mutations remain
+# fail-closed in the application until the separate chain/finality gates pass.
+apply_secret epsx-pay \
+  -n "$NAMESPACE" \
+  --from-literal=DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_${DB_SUFFIX}?sslmode=disable" \
+  --from-literal=OIDC_ISSUER="${OIDC_ISSUER:-${IDENTITY_PUBLIC_URL:-${BACKEND_URL}}}" \
+  --from-literal=OIDC_JWKS_URL="${OIDC_JWKS_URL:-}" \
+  --from-literal=CHAIN_ID="${CHAIN_ID:-56}" \
+  --from-literal=ESCROW_CONTRACT="${PAYMENT_ESCROW_CONTRACT_MAINNET:-}" \
+  --from-literal=EPSX_PAY_WEBHOOK_SECRET="${EPSX_PAY_WEBHOOK_SECRET:-}"
+
 # ── epsx-notification ────────────────────────────────────────────────────────
 # The notification microservice has its own database URL and identity/provider
 # credentials. Empty optional provider values deliberately leave those

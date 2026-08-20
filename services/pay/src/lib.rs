@@ -82,7 +82,7 @@ enum AccessPolicy {
 }
 
 fn classify(method: &Method, path: &str) -> AccessPolicy {
-    if matches!(method, &Method::GET | &Method::HEAD) && path == "/health" {
+    if matches!(method, &Method::GET | &Method::HEAD) && matches!(path, "/health" | "/ready") {
         return AccessPolicy::Public;
     }
     if path.contains('%') || path.contains('\\') {
@@ -435,11 +435,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn health_and_safe_link_lookup_are_the_only_public_surfaces() {
+    async fn health_readiness_and_safe_link_lookup_are_the_only_public_surfaces() {
         let (app, downstream) = app();
         for (method, path) in [
             (Method::GET, "/health"),
             (Method::HEAD, "/health"),
+            (Method::GET, "/ready"),
+            (Method::HEAD, "/ready"),
             (Method::GET, "/api/v1/pay/links/epsx-abc123"),
         ] {
             let mut req = request(method, path, Some("admin-manage"));
@@ -447,7 +449,7 @@ mod tests {
                 .insert("x-wallet-address", "attacker".parse().unwrap());
             assert_eq!(status(&app, req).await, StatusCode::OK);
         }
-        assert_eq!(downstream.hits.load(Ordering::SeqCst), 3);
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 5);
         assert_eq!(downstream.authorization_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.spoofed_identity_seen.load(Ordering::SeqCst), 0);
         assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 0);

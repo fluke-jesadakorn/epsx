@@ -89,6 +89,7 @@ struct Args {
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum Environment {
     Development,
+    Staging,
     Production,
 }
 
@@ -1360,7 +1361,10 @@ async fn main() {
     epsx_observability::Observability::init("notification");
     let args = Args::parse();
 
-    let production = matches!(args.environment, Environment::Production);
+    let production = matches!(
+        args.environment,
+        Environment::Staging | Environment::Production
+    );
     let jwks_url = args.jwks_url.unwrap_or_else(|| {
         format!(
             "{}/.well-known/jwks.json",

@@ -1,146 +1,318 @@
 #!/usr/bin/env bash
+# Reconcile the canonical core public.plans table into payments.plans.
 #
-# Wave 11 / integration gate — production cutover step 2.
-#
-# One-shot bulk copy: replicate every row from `public.plans`
-# into `payments.plans`. Run AFTER
-# `apps/backend/migrations/payments/20260613000000_replicate_plans_into_payments_schema/up.sql`
-# has applied (so the table + trigger exist).
-#
-# Why this is a separate script (not in the migration):
-#   - The migration only creates the schema + the sync trigger
-#     for FUTURE writes. The initial bulk copy is a one-shot
-#     data move that the production team runs by hand after
-#     applying the migration.
-#   - Doing the bulk copy inside the migration would lock
-#     `public.plans` for the duration of the INSERT, which
-#     can be a multi-minute outage on a populated prod DB.
-#     The script runs in a single transaction with explicit
-#     batching, so the lock window is short.
-#
-# Usage:
-#   DATABASE_URL=postgres://... ./infrastructure/scripts/wave11-replicate-plans.sh
-#
-# Or, for a dry-run that shows the row count without writing:
-#   WAVE11_DRY_RUN=1 DATABASE_URL=postgres://... ./infrastructure/scripts/wave11-replicate-plans.sh
-#
-# The script:
-#   1. Counts the source rows in `public.plans` for the audit log.
-#   2. Runs `INSERT INTO payments.plans SELECT * FROM public.plans
-#      ON CONFLICT (id) DO NOTHING` (idempotent — re-runs are safe).
-#   3. Counts the destination rows and asserts the count matches.
-#   4. Exits 0 on success, 1 on any failure (and rolls back the txn).
-#
-# CLAUDE.md "Migration safety" compliance:
-#   - The script is IDEMPOTENT (ON CONFLICT DO NOTHING).
-#   - The script does NOT touch `public.plans` (read-only on the
-#     source).
-#   - The script is a one-shot — production teams run it once
-#     at cutover time, then the trigger keeps the replica in sync.
+# This tool supports both the legacy single-database topology and the current
+# split core/payments databases. It never deletes destination-only rows: such
+# drift stops the transaction for operator review. Dry-run is the default.
 
 set -euo pipefail
 
-# ---------------------------------------------------------------------------
-# Preflight
-# ---------------------------------------------------------------------------
+usage() {
+  cat <<'EOF'
+Usage:
+  CORE_DATABASE_URL=postgresql://... \
+  PAYMENTS_DATABASE_URL=postgresql://... \
+    ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
 
-if [[ -z "${DATABASE_URL:-}" ]]; then
-  echo "ERROR: DATABASE_URL must be set" >&2
-  echo "  export DATABASE_URL=postgres://user:pass@host:5432/epsx_prod" >&2
-  exit 1
+  CORE_DATABASE_URL=postgresql://... \
+  PAYMENTS_DATABASE_URL=postgresql://... \
+    ./infrastructure/scripts/wave11-replicate-plans.sh \
+      --apply --environment development|staging
+
+Production requires all of:
+  --apply --environment production --confirm-production PLAN-PROJECTION
+
+The source is read through a repeatable-read, read-only snapshot. Apply uses
+one destination transaction, refuses destination-only rows, upserts every
+source column, and commits only when the staged and destination rows match
+exactly. At most 10,000 plan rows are accepted. URLs and row contents are
+never printed.
+EOF
+}
+
+fail() {
+  echo "plan-projection: ERROR: $1" >&2
+  exit "${2:-1}"
+}
+
+mode="dry-run"
+environment=""
+production_confirmation=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run)
+      mode="dry-run"
+      shift
+      ;;
+    --apply)
+      mode="apply"
+      shift
+      ;;
+    --environment)
+      [[ $# -ge 2 ]] || fail "--environment requires a value" 64
+      environment="$2"
+      shift 2
+      ;;
+    --confirm-production)
+      [[ $# -ge 2 ]] || fail "--confirm-production requires a value" 64
+      production_confirmation="$2"
+      shift 2
+      ;;
+    --help|-h)
+      usage
+      exit 0
+      ;;
+    *)
+      fail "unknown option: $1" 64
+      ;;
+  esac
+done
+
+command -v psql >/dev/null 2>&1 || fail "psql is required" 64
+if command -v shasum >/dev/null 2>&1; then
+  hash_file() { shasum -a 256 "$1" | awk '{print $1}'; }
+elif command -v sha256sum >/dev/null 2>&1; then
+  hash_file() { sha256sum "$1" | awk '{print $1}'; }
+else
+  fail "shasum or sha256sum is required" 64
 fi
 
-DRY_RUN="${WAVE11_DRY_RUN:-0}"
+source_url="${CORE_DATABASE_URL:-${DATABASE_URL:-}}"
+target_url="${PAYMENTS_DATABASE_URL:-}"
+[[ -n "$source_url" ]] || fail "CORE_DATABASE_URL is required" 64
+[[ -n "$target_url" ]] || fail "PAYMENTS_DATABASE_URL is required" 64
 
-# Use psql for the transaction. If psql isn't on PATH, fail loud.
-if ! command -v psql >/dev/null 2>&1; then
-  echo "ERROR: psql not found in PATH" >&2
-  echo "  Install Postgres client tools (brew install libpq on macOS)" >&2
-  exit 1
+validate_url() {
+  local label="$1"
+  local value="$2"
+  case "$value" in
+    postgres://*|postgresql://*) ;;
+    *) fail "$label must use postgres:// or postgresql://" 64 ;;
+  esac
+  local sanitized
+  sanitized="$(printf '%s' "$value" | LC_ALL=C tr -d '[:space:]#')"
+  [[ "$sanitized" == "$value" ]] || fail "$label contains whitespace, control data, or a fragment" 64
+}
+validate_url CORE_DATABASE_URL "$source_url"
+validate_url PAYMENTS_DATABASE_URL "$target_url"
+
+if [[ "$mode" == "apply" ]]; then
+  case "$environment" in
+    development|staging) ;;
+    production)
+      [[ "$production_confirmation" == "PLAN-PROJECTION" ]] || \
+        fail "production apply requires --confirm-production PLAN-PROJECTION" 64
+      ;;
+    *) fail "--apply requires --environment development, staging, or production" 64 ;;
+  esac
+elif [[ -n "$environment" || -n "$production_confirmation" ]]; then
+  fail "environment/production confirmation are accepted only with --apply" 64
 fi
 
-# ---------------------------------------------------------------------------
-# Step 1: Count the source rows for the audit log
-# ---------------------------------------------------------------------------
+work_root="$(mktemp -d "/tmp/epsx-plan-projection.XXXXXX")"
+chmod 700 "$work_root"
+snapshot_file="$work_root/plans.snapshot"
+target_file="$work_root/plans.target"
+trap 'rm -rf -- "$work_root"' EXIT
 
-echo "[wave11] Counting source rows in public.plans ..."
-SOURCE_COUNT=$(psql "$DATABASE_URL" -t -A -c "SELECT COUNT(*) FROM public.plans;")
-echo "[wave11]   source count: $SOURCE_COUNT"
+psql_read() {
+  local url="$1"
+  local sql="$2"
+  PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=3000' \
+    psql -X -v ON_ERROR_STOP=1 -qAt --dbname "$url" -c "$sql"
+}
 
-if [[ "$SOURCE_COUNT" -eq 0 ]]; then
-  echo "[wave11] WARN: public.plans is empty — nothing to replicate." >&2
-  echo "[wave11]   This is OK if the prod DB has no plans yet, but" >&2
-  echo "[wave11]   unusual for a payments-table system. Verify before" >&2
-  echo "[wave11]   continuing." >&2
+source_relation="$(psql_read "$source_url" "SELECT to_regclass('public.plans')::text")"
+target_relation="$(psql_read "$target_url" "SELECT to_regclass('payments.plans')::text")"
+[[ "$source_relation" == "plans" || "$source_relation" == "public.plans" ]] || \
+  fail "source public.plans is missing"
+[[ "$target_relation" == "payments.plans" ]] || fail "target payments.plans is missing"
+
+schema_sql() {
+  local schema="$1"
+  cat <<SQL
+SELECT string_agg(
+  ordinal_position::text || ':' || column_name || ':' || data_type || ':' ||
+  udt_name || ':' || is_nullable,
+  ',' ORDER BY ordinal_position
+)
+FROM information_schema.columns
+WHERE table_schema = '$schema' AND table_name = 'plans'
+SQL
+}
+
+source_schema="$(psql_read "$source_url" "$(schema_sql public)")"
+target_schema="$(psql_read "$target_url" "$(schema_sql payments)")"
+[[ -n "$source_schema" && "$source_schema" == "$target_schema" ]] || \
+  fail "source and target plan schemas differ; refusing projection"
+
+plan_json_sql() {
+  local relation="$1"
+  cat <<SQL
+SELECT jsonb_build_object(
+  'id', id,
+  'name', name,
+  'slug', slug,
+  'description', description,
+  'plan_type', plan_type,
+  'plan_category', plan_category,
+  'plan_group', plan_group,
+  'plan_metadata', plan_metadata,
+  'price', price,
+  'currency', currency,
+  'billing_cycle', billing_cycle,
+  'is_active', is_active,
+  'is_promoted', is_promoted,
+  'is_public', is_public,
+  'is_system', is_system,
+  'tier_level', tier_level,
+  'max_members', max_members,
+  'auto_assign_enabled', auto_assign_enabled,
+  'assignment_rules', assignment_rules,
+  'grace_period_hours', grace_period_hours,
+  'rate_limit_per_minute', rate_limit_per_minute,
+  'rate_limit_per_hour', rate_limit_per_hour,
+  'rate_limit_per_day', rate_limit_per_day,
+  'burst_capacity', burst_capacity,
+  'created_at', created_at,
+  'updated_at', updated_at,
+  'created_by', created_by,
+  'last_modified_by', last_modified_by
+)::text
+FROM $relation
+ORDER BY id
+SQL
+}
+
+source_export_sql="COPY ($(plan_json_sql public.plans)) TO STDOUT"
+target_export_sql="COPY ($(plan_json_sql payments.plans)) TO STDOUT"
+
+PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=3000' \
+  psql -X -v ON_ERROR_STOP=1 -qAt --dbname "$source_url" <<SQL > "$snapshot_file"
+BEGIN TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY;
+$source_export_sql;
+COMMIT;
+SQL
+chmod 600 "$snapshot_file"
+
+source_count="$(wc -l < "$snapshot_file" | tr -d ' ')"
+[[ "$source_count" =~ ^[0-9]+$ ]] || fail "source row count is invalid"
+(( source_count <= 10000 )) || fail "source exceeds the 10,000-row safety bound"
+source_digest="$(hash_file "$snapshot_file")"
+
+PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=3000' \
+  psql -X -v ON_ERROR_STOP=1 -qAt --dbname "$target_url" -c "$target_export_sql" > "$target_file"
+chmod 600 "$target_file"
+target_count="$(wc -l < "$target_file" | tr -d ' ')"
+target_digest="$(hash_file "$target_file")"
+
+echo "plan-projection: mode=$mode source_rows=$source_count target_rows=$target_count"
+echo "plan-projection: source_sha256=$source_digest target_sha256=$target_digest"
+
+if [[ "$mode" == "dry-run" ]]; then
+  if [[ "$source_count" == "$target_count" && "$source_digest" == "$target_digest" ]]; then
+    echo "plan-projection: PASS — source and target are already exact; writes=0"
+    exit 0
+  fi
+  echo "plan-projection: DRIFT — run an approved --apply for development/staging; writes=0" >&2
+  exit 2
 fi
 
-# ---------------------------------------------------------------------------
-# Step 2: Bulk copy
-# ---------------------------------------------------------------------------
-
-if [[ "$DRY_RUN" == "1" ]]; then
-  echo "[wave11] DRY RUN: would INSERT $SOURCE_COUNT rows into payments.plans"
-  echo "[wave11]   (set WAVE11_DRY_RUN=0 to actually run)"
-  exit 0
-fi
-
-echo "[wave11] Replicating $SOURCE_COUNT rows into payments.plans ..."
-
-# Run the INSERT in a single transaction. ON CONFLICT DO NOTHING
-# means the script is idempotent — re-runs on a partially-replicated
-# DB will only fill in the missing rows.
-psql "$DATABASE_URL" <<SQL
+# The temporary stage is populated from a bounded, read-only source snapshot.
+# Destination-only IDs are never removed; they abort before the upsert. The
+# final full-row comparison runs inside the same transaction as the write.
+PGOPTIONS='-c statement_timeout=60000 -c lock_timeout=5000' \
+  psql -X -v ON_ERROR_STOP=1 -q --dbname "$target_url" <<SQL
 BEGIN;
+LOCK TABLE payments.plans IN SHARE ROW EXCLUSIVE MODE;
+CREATE TEMP TABLE plan_projection_stage (raw jsonb NOT NULL) ON COMMIT DROP;
+\copy plan_projection_stage(raw) FROM '$snapshot_file' WITH (FORMAT text)
+
+DO \$\$
+DECLARE
+  staged_count bigint;
+  destination_only bigint;
+BEGIN
+  SELECT COUNT(*) INTO staged_count FROM plan_projection_stage;
+  IF staged_count > 10000 THEN
+    RAISE EXCEPTION 'plan projection exceeds bounded row count';
+  END IF;
+  IF EXISTS (
+    SELECT 1
+    FROM plan_projection_stage
+    GROUP BY raw->>'id'
+    HAVING COUNT(*) > 1 OR raw->>'id' IS NULL
+  ) THEN
+    RAISE EXCEPTION 'plan projection contains duplicate or missing IDs';
+  END IF;
+  SELECT COUNT(*) INTO destination_only
+  FROM payments.plans target
+  WHERE NOT EXISTS (
+    SELECT 1 FROM plan_projection_stage source
+    WHERE (source.raw->>'id')::uuid = target.id
+  );
+  IF destination_only <> 0 THEN
+    RAISE EXCEPTION 'destination has % rows absent from source; refusing deletion', destination_only;
+  END IF;
+END
+\$\$;
 
 INSERT INTO payments.plans
-SELECT * FROM public.plans
-ON CONFLICT (id) DO NOTHING;
+SELECT (jsonb_populate_record(NULL::payments.plans, raw)).*
+FROM plan_projection_stage
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  slug = EXCLUDED.slug,
+  description = EXCLUDED.description,
+  plan_type = EXCLUDED.plan_type,
+  plan_category = EXCLUDED.plan_category,
+  plan_group = EXCLUDED.plan_group,
+  plan_metadata = EXCLUDED.plan_metadata,
+  price = EXCLUDED.price,
+  currency = EXCLUDED.currency,
+  billing_cycle = EXCLUDED.billing_cycle,
+  is_active = EXCLUDED.is_active,
+  is_promoted = EXCLUDED.is_promoted,
+  is_public = EXCLUDED.is_public,
+  is_system = EXCLUDED.is_system,
+  tier_level = EXCLUDED.tier_level,
+  max_members = EXCLUDED.max_members,
+  auto_assign_enabled = EXCLUDED.auto_assign_enabled,
+  assignment_rules = EXCLUDED.assignment_rules,
+  grace_period_hours = EXCLUDED.grace_period_hours,
+  rate_limit_per_minute = EXCLUDED.rate_limit_per_minute,
+  rate_limit_per_hour = EXCLUDED.rate_limit_per_hour,
+  rate_limit_per_day = EXCLUDED.rate_limit_per_day,
+  burst_capacity = EXCLUDED.burst_capacity,
+  created_at = EXCLUDED.created_at,
+  updated_at = EXCLUDED.updated_at,
+  created_by = EXCLUDED.created_by,
+  last_modified_by = EXCLUDED.last_modified_by;
 
+DO \$\$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM payments.plans target
+    FULL JOIN plan_projection_stage source
+      ON (source.raw->>'id')::uuid = target.id
+    WHERE target.id IS NULL
+       OR source.raw IS NULL
+       OR to_jsonb(target) IS DISTINCT FROM source.raw
+  ) THEN
+    RAISE EXCEPTION 'post-upsert plan projection reconciliation failed';
+  END IF;
+END
+\$\$;
 COMMIT;
 SQL
 
-# ---------------------------------------------------------------------------
-# Step 3: Verify the count matches
-# ---------------------------------------------------------------------------
+PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=30000 -c lock_timeout=3000' \
+  psql -X -v ON_ERROR_STOP=1 -qAt --dbname "$target_url" -c "$target_export_sql" > "$target_file"
+target_count="$(wc -l < "$target_file" | tr -d ' ')"
+target_digest="$(hash_file "$target_file")"
+[[ "$source_count" == "$target_count" && "$source_digest" == "$target_digest" ]] || \
+  fail "post-commit checksum reconciliation failed"
 
-DEST_COUNT=$(psql "$DATABASE_URL" -t -A -c "SELECT COUNT(*) FROM payments.plans;")
-echo "[wave11]   destination count after copy: $DEST_COUNT"
-
-if [[ "$DEST_COUNT" -ne "$SOURCE_COUNT" ]]; then
-  echo "ERROR: row count mismatch after replication" >&2
-  echo "  source:      $SOURCE_COUNT" >&2
-  echo "  destination: $DEST_COUNT" >&2
-  echo "  (this should be impossible — the INSERT is ON CONFLICT DO NOTHING)" >&2
-  exit 1
-fi
-
-# ---------------------------------------------------------------------------
-# Step 4: Sanity-check the sync trigger is firing
-# ---------------------------------------------------------------------------
-
-echo "[wave11] Verifying the sync_plans_to_payments_schema trigger ..."
-TRIGGER_EXISTS=$(psql "$DATABASE_URL" -t -A -c "
-  SELECT COUNT(*) FROM pg_trigger
-  WHERE tgname = 'sync_plans_to_payments_schema';
-")
-if [[ "$TRIGGER_EXISTS" -ne "1" ]]; then
-  echo "ERROR: sync_plans_to_payments_schema trigger is missing" >&2
-  echo "  Did the migration apply? Check:" >&2
-  echo "  psql \$DATABASE_URL -c \"\\dft sync_plans_from_public\"" >&2
-  exit 1
-fi
-echo "[wave11]   trigger present: OK"
-
-# ---------------------------------------------------------------------------
-# Done
-# ---------------------------------------------------------------------------
-
-echo ""
-echo "[wave11] DONE: replicated $DEST_COUNT plan rows to payments.plans"
-echo "[wave11]   The sync trigger will keep the replica in sync on"
-echo "[wave11]   subsequent INSERT/UPDATE/DELETE on public.plans."
-echo ""
-echo "[wave11] Next step in the production cutover checklist:"
-echo "[wave11]   - Set PAYMENTS_DATABASE_URL in .env.prod (step 3)"
-echo "[wave11]   - Restart the backend (step 4)"
-echo "[wave11]   - Verify /api/payments/* routes are healthy (step 5)"
+echo "plan-projection: PASS — rows=$target_count sha256=$target_digest"
+echo "plan-projection: source snapshot was applied atomically; rerun before cutover if canonical plans changed"

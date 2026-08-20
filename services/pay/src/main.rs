@@ -51,6 +51,7 @@
 //! - POST   /api/v1/admin/pay/escrows/{id}/force-refund     (slice-3)
 
 use axum::{
+    extract::State,
     http::StatusCode,
     routing::{get, post},
     Router,
@@ -83,7 +84,7 @@ struct Args {
     #[arg(
         long,
         env = "DATABASE_URL",
-        default_value = "postgres://epsx:epsx@localhost:5432/epsx_pay"
+        default_value = "postgres://epsx:epsx@localhost:5432/epsx_payments_dev"
     )]
     database_url: String,
     // CHAIN_ID + ESCROW_CONTRACT defaults match the kustomize
@@ -104,6 +105,7 @@ struct Args {
 #[derive(Clone, Copy, Debug, ValueEnum)]
 enum Environment {
     Development,
+    Staging,
     Production,
 }
 
@@ -119,12 +121,25 @@ async fn health() -> StatusCode {
     StatusCode::OK
 }
 
+async fn ready(State(state): State<AppState>) -> StatusCode {
+    match sqlx::query_scalar::<_, i32>("SELECT 1")
+        .fetch_one(&state.db)
+        .await
+    {
+        Ok(1) => StatusCode::OK,
+        Ok(_) | Err(_) => StatusCode::SERVICE_UNAVAILABLE,
+    }
+}
+
 #[tokio::main]
 async fn main() {
     epsx_observability::Observability::init("pay-svc");
     let args = Args::parse();
 
-    let production = matches!(args.environment, Environment::Production);
+    let production = matches!(
+        args.environment,
+        Environment::Staging | Environment::Production
+    );
     let jwks_url = args.jwks_url.unwrap_or_else(|| {
         format!(
             "{}/.well-known/jwks.json",
@@ -152,6 +167,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         // === Pay intents (5) ===
         .route(
             "/api/v1/pay/intents",

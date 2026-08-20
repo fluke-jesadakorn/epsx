@@ -2048,6 +2048,47 @@ fn k8s_audit(flags: &[String]) -> Result<(), String> {
             );
             failed = true;
         }
+
+        if environment != "prod" {
+            let pay = k8s_resource_document(&rendered, "Deployment", "epsx-pay-svc")
+                .ok_or_else(|| format!("{environment} overlay has no pay deployment"))?;
+            let expected_environment = if environment == "dev" {
+                "development"
+            } else {
+                "staging"
+            };
+            let pay_contract = yaml_uses_secret(pay, "epsx-pay")
+                && named_yaml_value(pay, "EPSX_ENV") == Some(expected_environment)
+                && pay.contains("path: /ready")
+                && !pay.contains("postgresql://")
+                && !pay.contains("epsx_pay?")
+                && !pay.contains("epsx_payment");
+            println!(
+                "k8s-audit: environment={environment} pay_database_secret_and_readiness={}",
+                if pay_contract { "pass" } else { "fail" }
+            );
+            if !pay_contract {
+                failed = true;
+            }
+        }
+    }
+
+    let database_topology = canonical_database_topology(&root)?;
+    println!(
+        "k8s-audit: canonical_database_topology={}",
+        if database_topology { "pass" } else { "fail" }
+    );
+    if !database_topology {
+        failed = true;
+    }
+
+    let compose_contract = canonical_pay_compose_contract(&root)?;
+    println!(
+        "k8s-audit: canonical_pay_compose_contract={}",
+        if compose_contract { "pass" } else { "fail" }
+    );
+    if !compose_contract {
+        failed = true;
     }
 
     if strict && failed {
@@ -2083,6 +2124,142 @@ fn k8s_render_inventory(rendered: &str) -> Result<(Option<String>, BTreeSet<Stri
         }
     }
     Ok((namespace, inventory))
+}
+
+fn k8s_resource_document<'a>(
+    rendered: &'a str,
+    expected_kind: &str,
+    expected_name: &str,
+) -> Option<&'a str> {
+    rendered.split("\n---\n").find(|document| {
+        let kind = document
+            .lines()
+            .find_map(|line| line.strip_prefix("kind: "));
+        let name = document
+            .lines()
+            .skip_while(|line| *line != "metadata:")
+            .skip(1)
+            .find_map(|line| line.strip_prefix("  name: "));
+        kind == Some(expected_kind) && name == Some(expected_name)
+    })
+}
+
+fn named_yaml_value<'a>(document: &'a str, expected_name: &str) -> Option<&'a str> {
+    let lines = document.lines().collect::<Vec<_>>();
+    let marker = format!("name: {expected_name}");
+    lines.windows(2).find_map(|window| {
+        (window[0].trim_start().trim_start_matches("- ") == marker)
+            .then(|| window[1].trim_start().strip_prefix("value: "))
+            .flatten()
+    })
+}
+
+fn yaml_uses_secret(document: &str, expected_name: &str) -> bool {
+    let lines = document.lines().map(str::trim).collect::<Vec<_>>();
+    let marker = format!("name: {expected_name}");
+    lines.windows(3).any(|window| {
+        window[0].trim_start_matches("- ") == "envFrom:"
+            && window[1] == "- secretRef:"
+            && window[2] == marker
+    })
+}
+
+fn canonical_database_topology(root: &Path) -> Result<bool, String> {
+    let required = [
+        (
+            "infrastructure/docker/docker-compose.backend.yml",
+            "5432/epsx_payments_dev",
+        ),
+        (
+            "infrastructure/docker/docker-compose.dev.yml",
+            "5432/epsx_payments_dev",
+        ),
+        (
+            "infrastructure/docker/docker-compose.staging.yml",
+            "5432/epsx_payments_staging",
+        ),
+        (
+            "infrastructure/docker/docker-compose.prod.yml",
+            "5432/epsx_payments_prod",
+        ),
+        (
+            "infrastructure/docker/docker-compose.local.yml",
+            "5432/epsx_payments_prod",
+        ),
+        (
+            "infrastructure/kubernetes/scripts/create-secrets.sh",
+            "5432/epsx_payments_${DB_SUFFIX}",
+        ),
+    ];
+    let mut valid = true;
+    for (relative, marker) in required {
+        let path = root.join(relative);
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+        if !contents.contains(marker) {
+            println!("k8s-audit: database topology missing {marker} in {relative}");
+            valid = false;
+        }
+        if contents.contains("5432/epsx_pay?")
+            || contents.contains("5432/epsx_pay_dev")
+            || contents.contains("5432/epsx_payment?")
+            || contents.contains("5432/epsx_payment\"")
+        {
+            println!("k8s-audit: database topology contains a legacy pay database in {relative}");
+            valid = false;
+        }
+    }
+    Ok(valid)
+}
+
+fn canonical_pay_compose_contract(root: &Path) -> Result<bool, String> {
+    let required = [
+        (
+            "infrastructure/docker/docker-compose.dev.yml",
+            [
+                "EPSX_ENV: development",
+                "OIDC_ISSUER: ${BACKEND_URL}",
+                "localhost:8103/ready",
+            ],
+        ),
+        (
+            "infrastructure/docker/docker-compose.staging.yml",
+            [
+                "EPSX_ENV: staging",
+                "OIDC_ISSUER: ${BACKEND_URL}",
+                "localhost:8103/ready",
+            ],
+        ),
+        (
+            "infrastructure/docker/docker-compose.prod.yml",
+            [
+                "EPSX_ENV: production",
+                "OIDC_ISSUER: ${BACKEND_URL}",
+                "localhost:8103/ready",
+            ],
+        ),
+        (
+            "infrastructure/docker/docker-compose.local.yml",
+            [
+                "EPSX_ENV: development",
+                "OIDC_ISSUER: ${BACKEND_URL}",
+                "localhost:8103/ready",
+            ],
+        ),
+    ];
+    let mut valid = true;
+    for (relative, markers) in required {
+        let path = root.join(relative);
+        let contents = std::fs::read_to_string(&path)
+            .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+        for marker in markers {
+            if !contents.contains(marker) {
+                println!("k8s-audit: pay compose contract missing {marker} in {relative}");
+                valid = false;
+            }
+        }
+    }
+    Ok(valid)
 }
 
 fn is_hex_sha(value: &str) -> bool {
@@ -2440,8 +2617,8 @@ fn git_text(root: &Path, args: &[&str]) -> Result<String, String> {
 mod tests {
     use super::{
         build_reconciliation_report, contains_destructive_sql, k8s_render_inventory,
-        map_legacy_backfill_record, migration_version, route_registration_present,
-        valid_reconcile_record, ReconcileRecord,
+        k8s_resource_document, map_legacy_backfill_record, migration_version, named_yaml_value,
+        route_registration_present, valid_reconcile_record, yaml_uses_secret, ReconcileRecord,
     };
 
     #[test]
@@ -2472,6 +2649,38 @@ metadata:
             inventory.into_iter().collect::<Vec<_>>(),
             vec!["Deployment/epsx-backend", "Service/epsx-backend"]
         );
+    }
+
+    #[test]
+    fn kubernetes_pay_contract_reads_the_named_deployment_and_environment() {
+        let rendered = r#"apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-other
+spec: {}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: epsx-pay-svc
+spec:
+  template:
+    spec:
+      containers:
+      - envFrom:
+        - secretRef:
+            name: epsx-pay
+        env:
+        - name: EPSX_ENV
+          value: staging
+        name: epsx-pay-svc
+"#;
+        let pay =
+            k8s_resource_document(rendered, "Deployment", "epsx-pay-svc").expect("pay deployment");
+        assert_eq!(named_yaml_value(pay, "EPSX_ENV"), Some("staging"));
+        assert!(yaml_uses_secret(pay, "epsx-pay"));
+        assert!(!yaml_uses_secret(pay, "epsx-backend"));
+        assert!(k8s_resource_document(rendered, "Deployment", "missing").is_none());
     }
 
     #[test]

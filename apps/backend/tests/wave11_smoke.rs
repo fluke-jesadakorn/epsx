@@ -155,10 +155,18 @@ fn cutover_script_has_required_production_steps() {
     let script = include_str!("../../../infrastructure/scripts/wave11-replicate-plans.sh");
     let required = [
         "psql",
+        "CORE_DATABASE_URL",
+        "PAYMENTS_DATABASE_URL",
+        "--dry-run",
+        "--apply",
+        "REPEATABLE READ READ ONLY",
+        "LOCK TABLE payments.plans IN SHARE ROW EXCLUSIVE MODE",
+        "jsonb_populate_record",
         "INSERT INTO payments.plans",
         "ON CONFLICT",
-        "DATABASE_URL",
-        "sync_plans_to_payments_schema",
+        "to_jsonb(target) IS DISTINCT FROM source.raw",
+        "source_sha256",
+        "refusing deletion",
     ];
     for needle in &required {
         assert!(

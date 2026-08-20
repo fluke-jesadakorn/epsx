@@ -62,6 +62,8 @@ modify development:
     cargo xtask notification-backfill --dry-run --input <bounded-jsonl>
     cargo xtask notification-backfill --dry-run --legacy --input <legacy-wallet-notifications-jsonl>
     cargo xtask notification-reconcile --dry-run --source <source-jsonl> --target <target-jsonl>
+    CORE_DATABASE_URL=<core-postgres-url> PAYMENTS_DATABASE_URL=<payments-postgres-url> \
+      ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
     cargo xtask notification-migration-audit --report
     cargo xtask rust-audit --strict
     cargo xtask migration-audit --strict
@@ -86,7 +88,7 @@ workflow dispatches now start the same Rust fixture and can run the full
 Chromium plus Firefox matrix (or a selected group for manual dispatch).
 
 A disposable PostgreSQL 17 shadow run now applies the complete embedded Core,
-Analytics, Payments, and Notifications chains from fresh databases: 22, 4, 7,
+Analytics, Payments, and Notifications chains from fresh databases: 22, 4, 8,
 and 11 versions respectively. A second application is idempotent and preserves
 pre-migration sentinel rows in every database. The latest migration in each
 root was rolled back and reapplied; the security-sensitive refresh replay
@@ -95,10 +97,16 @@ state. CI repeats the fresh apply, idempotency, sentinel, version-count, and
 split-payments projection checks. Analytics routes writes beyond the last
 explicit monthly range into an additive default partition; its rollback proof
 detaches that partition without deleting the retained row and reattaches it on
-reapply. The payments database receives an empty
-`payments.plans` projection schema without invented authority data; population,
-continuous replication, reconciliation, and production-shaped upgrade proof
-remain explicit cutover blockers.
+reapply. The payments database initially receives an empty `payments.plans`
+projection without invented authority data. A bounded source-to-payments tool
+now defaults to dry-run, accepts at most 10,000 rows, compares exact schemas and
+SHA-256 snapshots, performs an atomic all-column upsert, and refuses to delete
+destination-only rows. CI proves initial drift, apply, exact rerun, and
+destination-only retention across separate databases. The same-database trigger
+also has a new additive all-column forward fix and preserves deleted source
+plans as inactive, non-public historical projections. Continuous split-database
+replication, production-shaped populated upgrade, and authority selection remain
+explicit cutover blockers.
 The core proof also requires the three durable CQRS tables (`event_store`,
 `outbox_events`, and `aggregate_snapshots`) that were omitted when the archived
 incremental history was consolidated into the active baseline.

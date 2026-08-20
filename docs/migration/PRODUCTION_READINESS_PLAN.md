@@ -235,18 +235,18 @@ and revocation behavior remain canonical.
   receipt, chain, amount, token, payer, payee, or confirmations.
 - Escrow release/refund/dispute handlers update PostgreSQL state rather than
   submitting and confirming escrow-contract operations.
-- Kubernetes supplies `ESCROW_CONTRACT=0`; the on-chain webhook secret is not
-  configured in the pay deployment.
+- Kubernetes now sources the pay database, OIDC, chain, escrow, and webhook
+  values from an environment secret. Non-empty production escrow/webhook values
+  and their external behavior are still unproved.
 - Cloudflare currently exposes the pay service port rather than the pay BFF
   port, expanding the unauthenticated service surface.
-- Payment database names are not proven aliases: the canonical backend compose
-  runtime uses `epsx_payments_dev` while its migrator uses `epsx_pay_dev`, the
-  current pay candidate and deployment use `epsx_pay`, provisioning creates
-  `epsx_payments_{dev,staging,prod}`, and the historical prototype used
-  `epsx_payment`. Their table and route models also differ, so the A3.13 guarded
-  fresh-schema chain now creates an empty `payments.plans` projection in a
-  dedicated payments database, but this is not adoption, backfill,
-  reconciliation, or authority evidence.
+- Current compose, migrator, secret generation, and pay-service manifests now
+  select the canonical `epsx_payments_{dev,staging,prod}` names. The historical
+  `epsx_payment` prototype still has a different table/route model and has not
+  been adopted. The dedicated backend payments schema now has a bounded,
+  atomic, exact plan-projection backfill/reconciliation path, but this does not
+  choose the financial write authority or continuously replicate split-database
+  plan changes.
 
 ### Data and migration safety
 
@@ -261,7 +261,7 @@ and revocation behavior remain canonical.
   lifecycle migration while its lifecycle routes remain disabled. The combined
   static inventory covers all 15/15 registered roots, and its destructive-token
   findings remain classified. The embedded Core, Analytics, Payments, and
-  Notifications roots now pass a PostgreSQL 17 fresh apply with 22/4/7/11
+  Notifications roots now pass a PostgreSQL 17 fresh apply with 22/4/8/11
   versions, a no-op second apply, and sentinel preservation; CI repeats that
   proof. Analytics also has an additive default usage-log partition whose
   rollback detaches rather than deletes retained rows. The latest migration in
@@ -269,16 +269,17 @@ and revocation behavior remain canonical.
   the refresh replay migration correctly blocks a deeper destructive rollback.
   The packages still lack populated upgrades, data reconciliation,
   concurrent-startup, runtime-lifecycle, and production-shaped database proof.
-- Provisioning creates `epsx_payments_*` databases while pay service manifests
-  and compose files also refer to `epsx_pay`; other candidate service database
-  names are not consistently provisioned.
+- Backend/pay provisioning and checked compose/Kubernetes artifacts now agree
+  on `epsx_payments_{dev,staging,prod}`; other candidate service databases are
+  not yet consistently provisioned.
 - Applied migration history has been removed or edited relative to development.
   Existing databases will not rerun an edited baseline, while new databases can
   receive a different schema.
 - Analytics request-usage writes after 2026-04-01 route to an additive default
   partition; production still needs a reviewed rolling partition/retention job.
-- Payments plan replication creates a future-write trigger but delegates the
-  initial copy to a separate manual script.
+- Payments plan projection has a dry-run-first split-database reconciler with
+  schema, row-bound, atomic-upsert, SHA-256, and no-delete guards. Continuous
+  cross-database replication and production-volume timing remain open.
 - A notification migration drops `notification_subscriptions CASCADE`; data
   preservation and dependency impact are not demonstrated.
 
@@ -314,7 +315,7 @@ passed`. It is not a percentage estimate of engineering effort.
 | Live data parity | 0 | The notification owner page, global redacted admin notification inventory, and focused news routes have sample-free explicit dependency outcomes, and notifications adds a statically verified authenticated read-only shared-header count; browser/live database proof is absent, 17 frontend routes remain blocked, other frontend mocks remain, and most admin routes still lack authoritative page data | Sample payloads removed and real empty/error states proven. |
 | Checkout/on-chain parity | 0 | Route mismatch and DB-only escrow transitions | Verified receipts and contract transactions drive state. |
 | Backend/API contract parity | 1 | Both BFFs now return explicit HTML/JSON 404s and preserve 405/redirect semantics; payment prefixes and broader payload/status drift remain | Versioned contract matrix passes for monolith and replacement. |
-| Migration/data safety | 1 | Static gates pass and disposable PostgreSQL 17 proves fresh apply/idempotency/sentinel preservation for the embedded 22/4/7/11 Core/Analytics/Payments/Notifications versions, including the restored durable CQRS tables and data-preserving default usage partition, plus latest-version rollback/reapply. Populated upgrades, reconciliation, naming drift, baseline edits, rolling partition operations, and production-shaped rollback remain. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
+| Migration/data safety | 1 | Static gates pass and disposable PostgreSQL 17 proves fresh apply/idempotency/sentinel preservation for the embedded 22/4/8/11 Core/Analytics/Payments/Notifications versions, including durable CQRS tables, the data-preserving default usage partition, and exact bounded plan-projection reconciliation across split databases. Populated full-domain upgrades, baseline adoption, continuous plan replication, rolling partitions, and production-shaped rollback remain. | Upgrade/backfill/reconcile/rollback tests pass on production-shaped data. |
 | Production manifests/routing | 0 | Admin/frontend/pay transforms are repaired, but identity still uses `:dev`, images lack digests, and direct pay-service ingress remains | Rendered manifests use approved immutable images and intended BFF ingress. |
 | Observability/readiness | 0 | Shallow health checks and incomplete cross-service traces | Dependency readiness, SLO metrics, alerts, and trace IDs pass drills. |
 | Canary/rollback | 0 | Not demonstrated | Shadow, canary, abort thresholds, and rollback rehearsal are approved. |
@@ -715,6 +716,17 @@ bounded path set. Shared contract files require coordination through package A0.
   execution, a deployed database, or production readiness. All eight A3.13 and
   17 A6 blockers remain open.
 
+- **A3.14 status:** payment database naming is canonical across checked
+  provisioning, compose, migrator, and pay Kubernetes artifacts. Pay reads its
+  URL and OIDC/chain configuration from a secret and exposes DB-backed `/ready`.
+  The backend plan projection has an additive all-column trigger forward fix
+  that soft-retires deleted source plans without losing financial history, plus
+  a dry-run-first, 10,000-row-bounded split-database reconciler. A
+  disposable PostgreSQL 17 proof covers initial drift, atomic apply, exact
+  rerun, changed-row convergence, and retention/rollback when the destination
+  contains an unowned row. This does not resolve canonical payment authority,
+  continuous replication, historical `epsx_payment` adoption, or chain safety.
+
 ### A4 — Canonical permission and entitlement authority (P0)
 
 - **Scope:** move/adapter-wrap the backend `UnifiedPermissionService` behavior
@@ -800,9 +812,9 @@ bounded path set. Shared contract files require coordination through package A0.
   exits `3`. The authority crosswalk leaves `productionWriteAuthority` null and
   explicitly forbids cutover or dual write: the canonical backend, historical
   prototype, current pay candidate, and subscription candidate have distinct
-  route, table, reachability, and database models. The canonical backend's
-  compose runtime/migrator split (`epsx_payments_dev` versus `epsx_pay_dev`) is
-  itself unresolved. A3.13 removes all ten pay startup-DDL findings and supplies
+  route, table, reachability, and historical database models. A3.14 resolves
+  current environment naming and adds bounded plan projection reconciliation,
+  while A3.13 removes all ten pay startup-DDL findings and supplies
   an exact candidate schema boundary, but does not choose the payment system of
   record or add runner/adoption, populated upgrade, durable financial
   constraints, idempotency transactions, receipt/finality, escrow transactions,
@@ -1174,6 +1186,14 @@ bounded path set. Shared contract files require coordination through package A0.
   no image has an immutable digest, and 17 STOP blockers remain. Readiness
   intentionally exits `3`; the evidence used no live cluster and performed no
   deployment or infrastructure mutation.
+
+- **A13.2 status:** dev/staging pay manifests now use the environment-specific
+  `epsx-pay` secret rather than literal credentials, set explicit
+  development/staging security modes, and probe DB-backed `/ready`. The strict
+  Rust Kustomize audit also rejects legacy pay database names across checked
+  compose/provisioning files. Production still excludes pay from its authorized
+  base and still lacks immutable image digests, verified secrets, ingress
+  correction, dependency drills, canary thresholds, and rollback rehearsal.
 
 ## Release gates
 

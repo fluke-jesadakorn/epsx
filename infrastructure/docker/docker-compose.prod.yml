@@ -33,9 +33,9 @@ services:
       DATABASE_MIN_CONNECTIONS: ${DATABASE_MIN_CONNECTIONS}
       DATABASE_ACQUIRE_TIMEOUT: ${DATABASE_ACQUIRE_TIMEOUT}
       DATABASE_IDLE_TIMEOUT: ${DATABASE_IDLE_TIMEOUT}
-      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics?sslmode=disable
-      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications?sslmode=disable
-      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
+      ANALYTICS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_analytics_prod?sslmode=disable
+      NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_notifications_prod?sslmode=disable
+      PAYMENTS_DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_prod?sslmode=disable
       REDIS_URL: redis://:${REDIS_PASSWORD}@host.docker.internal:6379
       WEB3_APP_SECRET: ${WEB3_APP_SECRET}
       WALLET_SIGNATURE_SECRET: ${WALLET_SIGNATURE_SECRET}
@@ -208,8 +208,10 @@ services:
     environment:
       ENV: ${ENV}
       RUST_ENV: production
+      EPSX_ENV: production
       RUST_LOG: info,epsx=info
-      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_pay?sslmode=disable
+      DATABASE_URL: postgresql://${DB_USER}:${DB_PASSWORD}@host.docker.internal:5432/epsx_payments_prod?sslmode=disable
+      OIDC_ISSUER: ${BACKEND_URL}
       CHAIN_ID: ${CHAIN_ID}
       ESCROW_CONTRACT: ${PAYMENT_ESCROW_CONTRACT_MAINNET:-}
       PORT: 8103
@@ -221,7 +223,7 @@ services:
         aliases:
           - epsx-pay-svc.epsx-prod.svc.cluster.local
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:8103/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:8103/ready || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3

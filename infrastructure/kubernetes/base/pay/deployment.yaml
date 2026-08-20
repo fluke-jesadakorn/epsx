@@ -34,6 +34,9 @@ spec:
         - name: epsx-pay-svc
           image: epsx-pay-svc:prod
           imagePullPolicy: IfNotPresent
+          envFrom:
+            - secretRef:
+                name: epsx-pay
           env:
             - { name: HOST, value: "0.0.0.0" }
             - { name: PORT, value: "8103" }
@@ -41,27 +44,15 @@ spec:
             - { name: RUST_BACKTRACE, value: "0" }
             - { name: RUST_ENV, value: "production" }
             - { name: ENV, value: "production" }
+            - { name: EPSX_ENV, value: "production" }
             # wave49 marker: lets ops distinguish the
             # pay.epsx.io microservice build from the pre-extraction
             # monolith `payment` handler paths.
             - { name: EPSX_PAY_SVC_VERSION, value: "wave49" }
-            # Database connection string — the old
-            # `epsx_payment` Postgres database was renamed to
-            # `epsx_pay` in wave49(slice-1.M) via
-            # `ALTER DATABASE epsx_payment RENAME TO epsx_pay`.
-            # Same role, same password, same host — only the
-            # database name in the connection string changed.
-            - name: DATABASE_URL
-              value: "postgresql://epsx:epsx@host.docker.internal:5432/epsx_pay?sslmode=disable"
-            # BSC mainnet chain id; the pay-svc binary listens
-            # to this via `--chain-id` (default 56).
-            - { name: CHAIN_ID, value: "56" }
-            # Escrow contract address — wired through the
-            # `epsx_contracts` crate. The "0" default is the
-            # placeholder used by the stub; the real address is
-            # injected from a K8s secret in a follow-up wave
-            # (slice-3 will add the secret + production escrow).
-            - { name: ESCROW_CONTRACT, value: "0" }
+            # DATABASE_URL, OIDC configuration, chain ID and the escrow
+            # address come from epsx-pay. The secret generator selects the
+            # canonical epsx_payments_{dev,staging,prod} database and keeps
+            # credentials out of this manifest.
           ports:
             - { containerPort: 8103 }
           livenessProbe:
@@ -71,7 +62,7 @@ spec:
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
-            httpGet: { path: /health, port: 8103 }
+            httpGet: { path: /ready, port: 8103 }
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 5
