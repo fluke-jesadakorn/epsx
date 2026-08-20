@@ -75,7 +75,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: browser-actions/setup-chrome@48ad923757ca74d66703209fe939badbdf80f2f4 # v2.2.0
         if: ${{ matrix.browser == 'chromium' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
-      - uses: browser-actions/setup-geckodriver@bf8266f624ca122cedb6d0381a031f18f6c431cd
+      - uses: browser-actions/setup-geckodriver@eb8b0670366f719ca31703766a8cb7e3ea2c56ed # v0.0.0
         if: ${{ matrix.browser == 'firefox' && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
       - name: Start WebDriver
         if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
