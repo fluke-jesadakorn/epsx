@@ -793,10 +793,10 @@ impl Input {
             }
         };
 
-        let field_html = if icon_html.is_some() {
+        let field_html = if let Some(icon) = icon_html {
             format!(
                 r#"<div class="input-icon-wrap">{icon}{control}</div>"#,
-                icon = icon_html.unwrap(),
+                icon = icon,
                 control = control
             )
         } else {
