@@ -401,24 +401,50 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
             &format!("wasm-bindgen for {crate_name}"),
         )?;
     }
-    // This loader is build output, never repository source. It is the minimum
-    // module bridge required to initialize wasm-bindgen's generated `web`
-    // target without an application-owned JavaScript toolchain.
+    // These loaders are build output, never repository source. The worker
+    // bridge captures `install` synchronously because service workers reject
+    // module graphs with top-level await; the event then owns the asynchronous
+    // Rust/WASM initialization and install work.
     for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
         let bootstrap = output.join(format!("{crate_name}_bootstrap.js"));
-        fs::write(
-            &bootstrap,
-            format!(
-                "import init from './{crate_name}.js';\nawait init();\n//# sourceURL=wasm-bindgen:{crate_name}\n"
-            ),
-        )
-        .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
+        fs::write(&bootstrap, runtime_bootstrap(crate_name))
+            .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
     }
     println!(
         "browser-runtime: PASS — generated untracked assets in {}",
         output.display()
     );
     Ok(())
+}
+
+fn runtime_bootstrap(crate_name: &str) -> String {
+    if crate_name == "epsx_service_worker" {
+        return format!(
+            "import init, {{ activate, fetch_navigation, install, notification_click, push }} from './{crate_name}.js';\n\
+             const runtime = init();\n\
+             self.addEventListener('install', (event) => {{\n\
+               event.waitUntil(runtime.then(() => install()));\n\
+             }});\n\
+             self.addEventListener('activate', (event) => {{\n\
+               event.waitUntil(runtime.then(() => activate()));\n\
+             }});\n\
+             self.addEventListener('fetch', (event) => {{\n\
+               if (event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
+                 event.respondWith(runtime.then(() => fetch_navigation(event.request)));\n\
+               }}\n\
+             }});\n\
+             self.addEventListener('push', (event) => {{\n\
+               event.waitUntil(runtime.then(() => push(event)));\n\
+             }});\n\
+             self.addEventListener('notificationclick', (event) => {{\n\
+               event.waitUntil(runtime.then(() => notification_click(event)));\n\
+             }});\n\
+             //# sourceURL=wasm-bindgen:{crate_name}\n"
+        );
+    }
+    format!(
+        "import init from './{crate_name}.js';\nawait init();\n//# sourceURL=wasm-bindgen:{crate_name}\n"
+    )
 }
 
 pub fn test(flags: &[String]) -> Result<(), String> {
@@ -513,17 +539,26 @@ fn e2e_doctor(flags: &[String]) -> Result<(), String> {
 
 fn validate_production_shape_contract(workflow: &str, edge: &str) -> Result<(), String> {
     let workflow_markers = [
-        "EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1",
+        "cargo build --release -p epsx-frontend -p epsx-admin",
+        "--issuer https://api.epsx.test:4443",
+        "EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt",
+        "API_URL=https://api.epsx.test:4443",
+        "target/release/bff-frontend",
+        "target/release/bff-admin",
+        "openssl verify -CAfile /tmp/epsx-e2e-ca.crt",
         "E2E_RUNTIME_PROFILE: production-shaped",
         "E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443",
         "E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443",
-        "curl -kfsS https://epsx.e2e.localhost:4443/api/health",
-        "curl -kfsS https://admin.e2e.localhost:4443/api/health",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health",
+        "curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health",
     ];
     let edge_markers = [
         "ssl_protocols TLSv1.2 TLSv1.3;",
+        "server_name api.epsx.test;",
         "server_name epsx.e2e.localhost;",
         "server_name admin.e2e.localhost;",
+        "proxy_pass http://127.0.0.1:48080;",
         "proxy_pass http://127.0.0.1:4200;",
         "proxy_pass http://127.0.0.1:4201;",
         "proxy_set_header Host $http_host;",
@@ -536,6 +571,18 @@ fn validate_production_shape_contract(workflow: &str, edge: &str) -> Result<(), 
         return Err(format!(
             "migration E2E workflow lost production-shaped marker: {missing}"
         ));
+    }
+    for forbidden in [
+        "EPSX_PRODUCTION_SHAPED_E2E",
+        "target/debug/bff-frontend",
+        "target/debug/bff-admin",
+        "curl -k",
+    ] {
+        if workflow.contains(forbidden) {
+            return Err(format!(
+                "migration E2E workflow contains forbidden production-shaped bypass: {forbidden}"
+            ));
+        }
     }
     if let Some(missing) = edge_markers.iter().find(|marker| !edge.contains(**marker)) {
         return Err(format!(
@@ -2368,9 +2415,9 @@ fn is_hex(value: &str, len: usize) -> bool {
 mod tests {
     use super::{
         contains_node_command, environment_name, is_hex, matrix_matches, require_loopback,
-        require_runtime_state_provisioning, safe_relative_path, selector_nth, selector_text_filter,
-        split_selector_branches, validate_production_shape_contract, E2eRuntimeProfile, Scenario,
-        ScenarioGroup,
+        require_runtime_state_provisioning, runtime_bootstrap, safe_relative_path, selector_nth,
+        selector_text_filter, split_selector_branches, validate_production_shape_contract,
+        E2eRuntimeProfile, Scenario, ScenarioGroup,
     };
     use serde_json::json;
     use std::path::Path;
@@ -2389,6 +2436,23 @@ mod tests {
     }
 
     #[test]
+    fn service_worker_bootstrap_owns_async_initialization_from_install() {
+        let worker = runtime_bootstrap("epsx_service_worker");
+        assert!(!worker.contains("await init()"));
+        assert!(worker.contains("self.addEventListener('install'"));
+        assert!(worker.contains("event.waitUntil(runtime.then(() => install()))"));
+        assert!(worker.contains("self.addEventListener('activate'"));
+        assert!(worker.contains("self.addEventListener('fetch'"));
+        assert!(worker.contains("event.respondWith(runtime.then(() => fetch_navigation"));
+        assert!(worker.contains("self.addEventListener('push'"));
+        assert!(worker.contains("self.addEventListener('notificationclick'"));
+
+        let browser = runtime_bootstrap("epsx_browser_runtime");
+        assert!(browser.contains("await init()"));
+        assert!(!browser.contains("addEventListener('install'"));
+    }
+
+    #[test]
     fn production_shaped_runtime_contract_is_explicit_and_local_only() {
         assert_eq!(
             E2eRuntimeProfile::parse("production-shaped").unwrap(),
@@ -2403,20 +2467,34 @@ mod tests {
         assert!(require_loopback("https://epsx.e2e.localhost:4443", "frontend").is_ok());
         assert!(require_loopback("https://localhost.example:4443", "frontend").is_err());
 
-        let workflow = "EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1\n\
+        let workflow = "cargo build --release -p epsx-frontend -p epsx-admin\n\
+            --issuer https://api.epsx.test:4443\n\
+            EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt\n\
+            API_URL=https://api.epsx.test:4443\n\
+            target/release/bff-frontend\n\
+            target/release/bff-admin\n\
+            openssl verify -CAfile /tmp/epsx-e2e-ca.crt\n\
             E2E_RUNTIME_PROFILE: production-shaped\n\
             E2E_TARGET_FRONTEND_URL: https://epsx.e2e.localhost:4443\n\
             E2E_TARGET_ADMIN_URL: https://admin.e2e.localhost:4443\n\
-            curl -kfsS https://epsx.e2e.localhost:4443/api/health\n\
-            curl -kfsS https://admin.e2e.localhost:4443/api/health";
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health\n\
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health\n\
+            curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health";
         let edge = "ssl_protocols TLSv1.2 TLSv1.3;\n\
+            server_name api.epsx.test;\n\
             server_name epsx.e2e.localhost;\n\
             server_name admin.e2e.localhost;\n\
+            proxy_pass http://127.0.0.1:48080;\n\
             proxy_pass http://127.0.0.1:4200;\n\
             proxy_pass http://127.0.0.1:4201;\n\
             proxy_set_header Host $http_host;\n\
             proxy_set_header X-Forwarded-Proto https;";
         assert!(validate_production_shape_contract(workflow, edge).is_ok());
+        assert!(validate_production_shape_contract(
+            &format!("{workflow}\nEPSX_PRODUCTION_SHAPED_E2E=1"),
+            edge
+        )
+        .is_err());
         assert!(validate_production_shape_contract(
             &workflow.replace("E2E_RUNTIME_PROFILE: production-shaped", ""),
             edge

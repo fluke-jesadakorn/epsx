@@ -127,9 +127,16 @@ migrated merely because a binary and route table exist.
   frontend/admin hosts, executes them with production runtime/cookie semantics,
   verifies the secure host-only access-cookie attributes in Chromium/Firefox,
   and requires same-origin final navigation. This closes the previous HTTP,
-  shared-host, local-cookie blind spot but remains fixture-backed debug-binary
-  evidence rather than Cloudflare, release-container, live-data, or staging
-  proof.
+  shared-host, local-cookie blind spot. It now uses release BFF binaries and a
+  CA-trusted HTTPS fixture upstream without a test-only runtime bypass, but
+  remains fixture-backed evidence rather than Cloudflare, release-container,
+  live-data, or staging proof.
+- Trusted local release-browser verification now proves the generated
+  Rust/WASM recovery worker starts without top-level-await failures, controls
+  the root scope, caches only the marked public `/offline` shell, and serves it
+  after the TLS edge is stopped. Focused contracts guard the generated bridge
+  and bootstrap-only root-scope header; durable cross-browser offline CI proof
+  is still pending.
 - Frontend account, rankings, plans, subscriptions, news, portfolio, credits,
   developer/API-key, usage, analytics, dashboard, and payment responses include
   static/sample payloads in `apps/frontend/src/api.rs`.

@@ -5,6 +5,9 @@
 
 /// Canonical generated module name used by the BFFs and build tooling.
 pub const GENERATED_MODULE: &str = "epsx_browser_runtime_bootstrap.js";
+/// The recovery worker must control the entire browser surface, not only the
+/// `/runtime/` directory that contains its generated module.
+pub const GENERATED_WORKER_SCOPE: &str = "/";
 
 /// Accept only same-origin absolute-path redirects.
 pub fn safe_return_path(raw: &str) -> &str {
@@ -21,7 +24,7 @@ pub fn safe_return_path(raw: &str) -> &str {
 
 #[cfg(target_arch = "wasm32")]
 mod browser {
-    use super::safe_return_path;
+    use super::{safe_return_path, GENERATED_WORKER_SCOPE};
     use js_sys::{Array, Function, Object, Promise, Reflect, Uint8Array};
     use serde::Deserialize;
     use serde_json::{json, Value};
@@ -1151,6 +1154,7 @@ mod browser {
         let container = window.navigator().service_worker();
         let options = web_sys::RegistrationOptions::new();
         options.set_type("module");
+        options.set_scope(GENERATED_WORKER_SCOPE);
         let _ = container.register_with_options(GENERATED_WORKER, &options);
     }
 

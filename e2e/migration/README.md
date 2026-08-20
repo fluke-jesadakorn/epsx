@@ -36,24 +36,38 @@ the real `__Host-epsx.access_token` name and verifies `Secure`, `HttpOnly`,
 final browser URL to retain the configured scheme, host, and port; a redirect
 to another origin can no longer satisfy a path-only assertion.
 
-The fixture is intentionally loopback HTTP. Production-mode BFF validation
-accepts it only when a debug binary also has
-`EPSX_PRODUCTION_SHAPED_E2E=1`; release binaries cannot enable this exception.
-Set `E2E_RUNTIME_PROFILE=production-shaped` together with the two HTTPS target
-URLs when reproducing the CI topology. `cargo xtask e2e doctor` pins the TLS,
-host separation, production runtime markers, and proxy contract so CI cannot
-silently fall back to the local cookie profile.
+The generated Rust/WASM recovery worker uses a synchronous generated module
+bridge for `install`, `activate`, `fetch`, `push`, and notification-click
+events, then delegates the work into Rust after WASM initialization. The BFF
+authorizes only its bootstrap module to claim `/`; the worker caches only an
+`/offline` response carrying the exact reviewed public-cache marker. This keeps
+private SSR and API data outside the recovery cache.
+
+The fixture listener remains loopback-only HTTP behind the edge, but release
+BFF binaries reach it through the distinct `https://api.epsx.test:4443`
+origin. CI creates a short-lived local CA, signs the three-host edge
+certificate, and exposes that CA to the BFF HTTP client through
+`SSL_CERT_FILE`. Production URL validation stays fully enabled; there is no
+debug-build or insecure-upstream exception. Set
+`E2E_RUNTIME_PROFILE=production-shaped` together with the two HTTPS browser
+targets when reproducing the CI topology. `cargo xtask e2e doctor` pins the
+release binaries, trusted TLS upstream, host separation, production runtime
+markers, and proxy contract so CI cannot silently fall back to the local cookie
+profile.
 
 This profile approximates the production request shape, not the complete
-production system. It does not include Cloudflare, production certificates,
-release containers, live databases/providers, Kubernetes networking, or
-production traffic.
+production system. It does not include Cloudflare, publicly issued production
+certificates, release container images, live databases/providers, Kubernetes
+networking, or production traffic.
 
-Groups 0–9 use the loopback-only Rust fixture authority. Start it before the
-frontend and admin BFFs, point `API_URL`, `BACKEND_URL`,
-`CONTENT_SERVICE_URL`, `NOTIFICATION_SERVICE_URL`, and `OIDC_ISSUER` at its
-loopback URL, then pass `--fixture-url` and `--fixture-token` to `e2e run` (or
-set `E2E_FIXTURE_URL` and `E2E_FIXTURE_TOKEN`). The fixture mints bounded RS256
+Groups 0–9 use the loopback-only Rust fixture authority. For ordinary local
+runs, start it before the frontend and admin BFFs and point their service URLs
+at the loopback listener. The production-shaped profile instead starts it with
+`--issuer https://api.epsx.test:4443`, points `API_URL`, `BACKEND_URL`,
+`CONTENT_SERVICE_URL`, `NOTIFICATION_SERVICE_URL`, and `OIDC_ISSUER` at that
+trusted HTTPS origin, and retains the loopback URL only for runner control.
+Pass `--fixture-url` and `--fixture-token` to `e2e run` (or set
+`E2E_FIXTURE_URL` and `E2E_FIXTURE_TOKEN`). The fixture mints bounded RS256
 sessions for the declared audience and permissions, selects only declared
 failure modes, records dependency requests and mutation hashes, and resets
 state before and after every execution. A per-scenario

@@ -198,7 +198,7 @@ cargo xtask commands:
   audit no-node [--strict]
                          reject tracked Node/JS sources, tooling, active commands, and inline runtimes
   e2e doctor [--group 0..9]
-  e2e fixture-serve [--bind LOOPBACK_ADDR] [--token TOKEN]
+  e2e fixture-serve [--bind LOOPBACK_ADDR] [--token TOKEN] [--issuer HTTPS_ORIGIN]
   e2e run --group 0..9 [--webdriver-url URL] [--browser chromium|firefox|safari]
           [--fixture-url LOOPBACK_URL] [--fixture-token TOKEN]
   e2e report [--group 0..9]

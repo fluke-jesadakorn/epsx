@@ -82,12 +82,29 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install --yes nginx
-          printf '%s\n' '127.0.0.1 epsx.e2e.localhost admin.e2e.localhost' | sudo tee -a /etc/hosts
+          printf '%s\n' '127.0.0.1 epsx.e2e.localhost admin.e2e.localhost api.epsx.test' | sudo tee -a /etc/hosts
           openssl req -x509 -newkey rsa:2048 -sha256 -nodes -days 1 \
+            -subj '/CN=EPSX E2E Local CA' \
+            -addext 'basicConstraints=critical,CA:TRUE' \
+            -addext 'keyUsage=critical,keyCertSign,cRLSign' \
+            -keyout /tmp/epsx-e2e-ca.key \
+            -out /tmp/epsx-e2e-ca.crt
+          openssl req -new -newkey rsa:2048 -sha256 -nodes \
             -subj '/CN=epsx.e2e.localhost' \
-            -addext 'subjectAltName=DNS:epsx.e2e.localhost,DNS:admin.e2e.localhost' \
+            -addext 'subjectAltName=DNS:epsx.e2e.localhost,DNS:admin.e2e.localhost,DNS:api.epsx.test' \
+            -addext 'basicConstraints=critical,CA:FALSE' \
+            -addext 'keyUsage=critical,digitalSignature,keyEncipherment' \
+            -addext 'extendedKeyUsage=serverAuth' \
             -keyout /tmp/epsx-e2e-edge.key \
+            -out /tmp/epsx-e2e-edge.csr
+          openssl x509 -req -days 1 -sha256 \
+            -in /tmp/epsx-e2e-edge.csr \
+            -CA /tmp/epsx-e2e-ca.crt \
+            -CAkey /tmp/epsx-e2e-ca.key \
+            -CAcreateserial \
+            -copy_extensions copy \
             -out /tmp/epsx-e2e-edge.crt
+          openssl verify -CAfile /tmp/epsx-e2e-ca.crt /tmp/epsx-e2e-edge.crt
           sudo nginx -t -c "$PWD/e2e/production-shape/nginx.conf"
       - name: Start WebDriver
         if: ${{ inputs.group == '' || inputs.group == format('{0}', matrix.group) }}
@@ -106,13 +123,14 @@ jobs:
         run: |
           cargo install wasm-bindgen-cli --version 0.2.123 --locked
           cargo xtask browser-runtime build
-          cargo build -p xtask -p epsx-frontend -p epsx-admin
-          target/debug/xtask e2e fixture-serve --bind 127.0.0.1:48080 --token "$E2E_FIXTURE_TOKEN" > /tmp/fixture.log 2>&1 &
-          EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1 PORT=4200 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=http://127.0.0.1:48080 BACKEND_URL=http://127.0.0.1:48080 CONTENT_SERVICE_URL=http://127.0.0.1:48080 NOTIFICATION_SERVICE_URL=http://127.0.0.1:48080 OIDC_ISSUER=http://127.0.0.1:48080 target/debug/bff-frontend > /tmp/frontend.log 2>&1 &
-          EPSX_ENV=production EPSX_PRODUCTION_SHAPED_E2E=1 PORT=4201 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=http://127.0.0.1:48080 BACKEND_URL=http://127.0.0.1:48080 CONTENT_SERVICE_URL=http://127.0.0.1:48080 NOTIFICATION_SERVICE_URL=http://127.0.0.1:48080 OIDC_ISSUER=http://127.0.0.1:48080 target/debug/bff-admin > /tmp/admin.log 2>&1 &
+          cargo build -p xtask
+          cargo build --release -p epsx-frontend -p epsx-admin
+          target/debug/xtask e2e fixture-serve --bind 127.0.0.1:48080 --token "$E2E_FIXTURE_TOKEN" --issuer https://api.epsx.test:4443 > /tmp/fixture.log 2>&1 &
+          EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt PORT=4200 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=https://api.epsx.test:4443 BACKEND_URL=https://api.epsx.test:4443 CONTENT_SERVICE_URL=https://api.epsx.test:4443 NOTIFICATION_SERVICE_URL=https://api.epsx.test:4443 OIDC_ISSUER=https://api.epsx.test:4443 target/release/bff-frontend > /tmp/frontend.log 2>&1 &
+          EPSX_ENV=production SSL_CERT_FILE=/tmp/epsx-e2e-ca.crt PORT=4201 EPSX_BROWSER_RUNTIME_DIR="$PWD/target/epsx-browser-runtime" API_URL=https://api.epsx.test:4443 BACKEND_URL=https://api.epsx.test:4443 CONTENT_SERVICE_URL=https://api.epsx.test:4443 NOTIFICATION_SERVICE_URL=https://api.epsx.test:4443 OIDC_ISSUER=https://api.epsx.test:4443 target/release/bff-admin > /tmp/admin.log 2>&1 &
           sudo nginx -c "$PWD/e2e/production-shape/nginx.conf"
           for attempt in $(seq 1 120); do
-            if curl -fsS http://127.0.0.1:48080/api/health >/dev/null && curl -kfsS https://epsx.e2e.localhost:4443/api/health >/dev/null && curl -kfsS https://admin.e2e.localhost:4443/api/health >/dev/null; then
+            if curl -fsS http://127.0.0.1:48080/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://api.epsx.test:4443/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://epsx.e2e.localhost:4443/api/health >/dev/null && curl --cacert /tmp/epsx-e2e-ca.crt -fsS https://admin.e2e.localhost:4443/api/health >/dev/null; then
               exit 0
             fi
             sleep 1

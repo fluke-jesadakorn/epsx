@@ -12,7 +12,7 @@ serde_json.workspace = true
 thiserror.workspace = true
 async-trait.workspace = true
 jsonwebtoken.workspace = true
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
 http.workspace = true
 tower = { workspace = true, features = ["util"] }
 tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }

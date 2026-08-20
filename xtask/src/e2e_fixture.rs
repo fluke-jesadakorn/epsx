@@ -161,19 +161,22 @@ pub fn serve(flags: &[String]) -> Result<(), String> {
     let mut bind = env::var("E2E_FIXTURE_BIND").unwrap_or_else(|_| DEFAULT_BIND.into());
     let mut control_token =
         env::var("E2E_FIXTURE_TOKEN").unwrap_or_else(|_| DEFAULT_CONTROL_TOKEN.into());
+    let mut external_issuer = env::var("E2E_FIXTURE_ISSUER").ok();
     let mut index = 0;
     while index < flags.len() {
-        let destination = match flags[index].as_str() {
-            "--bind" => &mut bind,
-            "--token" => &mut control_token,
-            unknown => return Err(format!("e2e fixture-serve does not accept {unknown}")),
-        };
+        let flag = flags[index].clone();
         index += 1;
-        *destination = flags
+        let value = flags
             .get(index)
             .filter(|value| !value.starts_with("--"))
-            .ok_or_else(|| format!("{} requires a value", flags[index - 1]))?
+            .ok_or_else(|| format!("{flag} requires a value"))?
             .clone();
+        match flag.as_str() {
+            "--bind" => bind = value,
+            "--token" => control_token = value,
+            "--issuer" => external_issuer = Some(value),
+            unknown => return Err(format!("e2e fixture-serve does not accept {unknown}")),
+        }
         index += 1;
     }
     let address: SocketAddr = bind
@@ -185,13 +188,17 @@ pub fn serve(flags: &[String]) -> Result<(), String> {
     if control_token.len() < 16 || control_token.len() > 256 {
         return Err("fixture control token must contain 16 through 256 bytes".into());
     }
+    let issuer = external_issuer
+        .as_deref()
+        .map(validate_external_issuer)
+        .transpose()?
+        .unwrap_or_else(|| format!("http://{address}"));
     let listener = TcpListener::bind(address)
         .map_err(|error| format!("could not bind fixture server to {address}: {error}"))?;
-    let issuer = format!("http://{address}");
     let encoding_key = EncodingKey::from_rsa_pem(SIGNING_PRIVATE_KEY.as_bytes())
         .map_err(|error| format!("invalid fixture signing key: {error}"))?;
     let mut state = FixtureState::default();
-    println!("rust e2e fixture: listening on {issuer}");
+    println!("rust e2e fixture: listening on http://{address} (issuer {issuer})");
     for connection in listener.incoming() {
         match connection {
             Ok(mut stream) => {
@@ -209,6 +216,25 @@ pub fn serve(flags: &[String]) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn validate_external_issuer(value: &str) -> Result<String, String> {
+    if value.len() > 512 {
+        return Err("fixture issuer must contain at most 512 bytes".into());
+    }
+    let issuer = Url::parse(value)
+        .map_err(|_| "fixture issuer must be an absolute HTTPS origin".to_string())?;
+    if issuer.scheme() != "https"
+        || issuer.host_str().is_none()
+        || !issuer.username().is_empty()
+        || issuer.password().is_some()
+        || issuer.query().is_some()
+        || issuer.fragment().is_some()
+        || issuer.path() != "/"
+    {
+        return Err("fixture issuer must be an absolute HTTPS origin".into());
+    }
+    Ok(issuer.origin().ascii_serialization())
 }
 
 fn serve_connection(
@@ -1865,6 +1891,22 @@ mod tests {
             serde_json::from_slice(&URL_SAFE_NO_PAD.decode(payload).unwrap()).unwrap();
         assert_eq!(claims["aud"], json!(["epsx-admin"]));
         assert_eq!(claims["scope"], "admin:wallets:read");
+    }
+
+    #[test]
+    fn external_issuer_requires_a_canonical_https_origin() {
+        assert_eq!(
+            validate_external_issuer("https://api.epsx.test:4443/").unwrap(),
+            "https://api.epsx.test:4443"
+        );
+        for invalid in [
+            "http://api.epsx.test:4443",
+            "https://api.epsx.test:4443/oauth",
+            "https://user@api.epsx.test:4443",
+            "https://api.epsx.test:4443?tenant=e2e",
+        ] {
+            assert!(validate_external_issuer(invalid).is_err(), "{invalid}");
+        }
     }
 
     #[test]

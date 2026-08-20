@@ -1,18 +1,18 @@
 {
   "schemaVersion": 1,
   "hashAlgorithm": "sha256",
-  "inventorySha256": "2189ce73628d62ed4087f15fd78871f832ea5649a2cf8018ae5f71017a8b7a2e",
+  "inventorySha256": "53d63132b09dcba47d2ffab7fe833299f42d3142c4ff1d88e63e313dcad40189",
   "approvedRuntimeFiles": [
     {
       "path": "shared/rust/browser-runtime/src/lib.rs",
       "category": "rust-wasm-browser-runtime",
-      "sha256": "65aa49ef8db5cd43a5d3d6635dde52be8791ee7f513487b08fc192f46e0fbff2",
+      "sha256": "a7cbfa690fe449d1491f0201f18386b082359746d7a145f84b1801b1b3682384",
       "reason": "Rust/wasm-bindgen browser behavior; no authored JavaScript source is committed."
     },
     {
       "path": "shared/rust/service-worker/src/lib.rs",
       "category": "rust-wasm-service-worker",
-      "sha256": "378fe3910ec8776919d8c6be228826f5439d3f5bc0df68f4322aca119f9b1c9c",
+      "sha256": "75678f4b180422a17d7ab1f94f0d68efc9af229b26ed37e5cb5ad0fdce027da1",
       "reason": "Rust/wasm-bindgen service-worker event handling; no authored JavaScript source is committed."
     },
     {
