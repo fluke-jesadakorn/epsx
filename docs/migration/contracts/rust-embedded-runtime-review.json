@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "hashAlgorithm": "sha256",
-  "inventorySha256": "2abbb47525c8e9ac2539eae9ac5f7e8e4c72734b6b08bbc790b86c380ef05d07",
+  "inventorySha256": "ebd0649b14f080c3b41ceadde3325a2d61d73b519ad6180398015fa7e0d88fb0",
   "approvedRuntimeFiles": [
     {
       "path": "shared/rust/browser-runtime/src/lib.rs",
