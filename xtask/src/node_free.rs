@@ -1221,6 +1221,7 @@ impl<'a> WebDriverSession<'a> {
         }
         let response = client
             .post(format!("{}/session", endpoint.trim_end_matches('/')))
+            .timeout(Duration::from_secs(90))
             .json(&json!({"capabilities":{"alwaysMatch":always_match}}))
             .send()
             .map_err(|error| format!("could not create WebDriver session: {error}"))?;

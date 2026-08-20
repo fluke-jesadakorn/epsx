@@ -113,7 +113,11 @@ jobs:
           BROWSER: ${{ matrix.browser }}
           E2E_FIXTURE_URL: http://127.0.0.1:48080
           E2E_FIXTURE_TOKEN: epsx-e2e-ci-reset-token
-        run: cargo xtask e2e run --group "$GROUP" --browser "$BROWSER"
+        run: |
+          if ! cargo xtask e2e run --group "$GROUP" --browser "$BROWSER"; then
+            tail -n 200 /tmp/webdriver.log /tmp/fixture.log /tmp/frontend.log /tmp/admin.log || true
+            exit 1
+          fi
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ always() && (inputs.group == '' || inputs.group == format('{0}', matrix.group)) }}
         with:
