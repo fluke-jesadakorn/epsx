@@ -62,7 +62,8 @@ pub struct NewsQuery {
 
 const NEWS_PAGE_SIZE: u32 = 12;
 const NEWS_UPSTREAM_FETCH_LIMIT: u32 = 100;
-const NEWS_LIST_PATH: &str = "/api/v1/content/news?page=1&limit=100";
+const NEWS_LIST_PATH: &str = "/api/public/news?page=1&limit=100";
+const NEWS_DETAIL_PATH: &str = "/api/public/news";
 const NEWS_CATEGORIES: [&str; 4] = ["all", "updates", "engineering", "product"];
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -165,6 +166,17 @@ struct UpstreamNewsArticle {
     read_time: Option<String>,
     #[serde(default)]
     featured: bool,
+    // The backend public-news DTO includes lifecycle metadata that the public
+    // page does not display. Declare it explicitly so the strict decoder can
+    // accept the authoritative response without relaxing unknown-field checks.
+    #[serde(default, rename = "created_at")]
+    _created_at: Option<String>,
+    #[serde(default, rename = "updated_at")]
+    _updated_at: Option<String>,
+    #[serde(default, rename = "is_pinned")]
+    _is_pinned: Option<bool>,
+    #[serde(default, rename = "pinned_at")]
+    _pinned_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -225,6 +237,183 @@ pub(crate) enum NewsDetailLoadOutcome {
     Ready { article: NewsDetailArticle },
     NotFound,
     Error { code: String },
+}
+
+const PUBLIC_PLANS_PATH: &str = "/api/public/plans";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpstreamPublicPlansEnvelope {
+    success: bool,
+    data: Option<Vec<epsx_dioxus_ui::pages::plans::PublicPlan>>,
+    error: Option<serde_json::Value>,
+    meta: Option<serde_json::Value>,
+}
+
+fn safe_plan_text(value: &str, max_chars: usize) -> bool {
+    !value.trim().is_empty()
+        && value.chars().count() <= max_chars
+        && !value.chars().any(char::is_control)
+}
+
+fn decode_public_plans(
+    value: serde_json::Value,
+) -> Result<Vec<epsx_dioxus_ui::pages::plans::PublicPlan>, ()> {
+    let envelope: UpstreamPublicPlansEnvelope = serde_json::from_value(value).map_err(|_| ())?;
+    let _ = envelope.meta;
+    if !envelope.success || envelope.error.is_some() {
+        return Err(());
+    }
+    let mut plans = envelope.data.ok_or(())?;
+    if plans.len() > 100 {
+        return Err(());
+    }
+    let mut ids = std::collections::HashSet::new();
+    for plan in &mut plans {
+        let current_price = plan.current_price.parse::<f64>().map_err(|_| ())?;
+        if uuid::Uuid::parse_str(&plan.id).is_err()
+            || !ids.insert(plan.id.to_ascii_lowercase())
+            || !safe_plan_text(&plan.name, 160)
+            || !safe_plan_text(&plan.plan_type, 100)
+            || !safe_plan_text(&plan.currency, 12)
+            || !safe_plan_text(&plan.billing_cycle, 40)
+            || !safe_plan_text(&plan.plan_group, 80)
+            || !safe_plan_text(&plan.promotion_status, 40)
+            || !current_price.is_finite()
+            || current_price < 0.0
+            || !plan.effective_price.is_finite()
+            || plan.effective_price < 0.0
+            || !plan.promotion_discount.is_finite()
+            || !(0.0..=100.0).contains(&plan.promotion_discount)
+            || !(-10_000..=10_000).contains(&plan.tier_level)
+            || plan.features.len() > 100
+            || plan.permissions.len() > 500
+            || plan
+                .features
+                .iter()
+                .any(|feature| !safe_plan_text(feature, 500))
+            || plan
+                .permissions
+                .iter()
+                .any(|permission| !safe_plan_text(permission, 300))
+        {
+            return Err(());
+        }
+        if plan
+            .promotion_ends_at
+            .as_deref()
+            .is_some_and(|value| value.trim().is_empty())
+        {
+            plan.promotion_ends_at = None;
+        }
+        if plan
+            .promotion_ends_at
+            .as_deref()
+            .is_some_and(|value| value.chars().count() > 80 || value.chars().any(char::is_control))
+        {
+            return Err(());
+        }
+    }
+    Ok(plans)
+}
+
+pub(crate) async fn load_public_plans(
+    client: &ServiceClient,
+) -> epsx_dioxus_ui::pages::plans::PublicPlansLoadOutcome {
+    use epsx_dioxus_ui::pages::plans::PublicPlansLoadOutcome;
+    let value = match client.get_plain(PUBLIC_PLANS_PATH).await {
+        Ok(value) => value,
+        Err(_) => {
+            return PublicPlansLoadOutcome::Error {
+                code: "plans_unavailable".to_string(),
+            };
+        }
+    };
+    match decode_public_plans(value) {
+        Ok(plans) if plans.is_empty() => PublicPlansLoadOutcome::Empty,
+        Ok(plans) => PublicPlansLoadOutcome::Ready { plans },
+        Err(()) => PublicPlansLoadOutcome::Error {
+            code: "malformed_plans_response".to_string(),
+        },
+    }
+}
+
+#[cfg(test)]
+mod public_plans_adapter_tests {
+    use super::*;
+    use axum::{routing::get, Router};
+    use epsx_dioxus_ui::pages::plans::PublicPlansLoadOutcome;
+    use std::time::Duration;
+
+    async fn client(payload: serde_json::Value) -> ServiceClient {
+        let router = Router::new().route(
+            PUBLIC_PLANS_PATH,
+            get(move || {
+                let payload = payload.clone();
+                async move { Json(payload) }
+            }),
+        );
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
+        ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            timeout: Duration::from_secs(1),
+        })
+    }
+
+    fn plan() -> serde_json::Value {
+        serde_json::json!({
+            "id": "61a62cbe-3371-41db-bd90-321c53a71e06",
+            "name": "Verified Pro",
+            "plan_type": "PRO",
+            "current_price": "20.00",
+            "effective_price": 15.0,
+            "promotion_active": true,
+            "promotion_status": "active",
+            "promotion_discount": 25.0,
+            "promotion_ends_at": "",
+            "currency": "USD",
+            "billing_cycle": "monthly",
+            "features": ["Live analytics"],
+            "permissions": ["epsx:analytics:read"],
+            "is_active": true,
+            "tier_level": 2,
+            "plan_group": "personal"
+        })
+    }
+
+    #[tokio::test]
+    async fn accepts_the_backend_public_plan_envelope() {
+        let payload = serde_json::json!({
+            "success": true,
+            "data": [plan()],
+            "error": null,
+            "meta": {"timestamp": "2026-08-21T00:00:00Z"}
+        });
+        match load_public_plans(&client(payload).await).await {
+            PublicPlansLoadOutcome::Ready { plans } => {
+                assert_eq!(plans.len(), 1);
+                assert_eq!(plans[0].name, "Verified Pro");
+                assert_eq!(plans[0].promotion_ends_at, None);
+            }
+            other => panic!("expected ready public plans, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn rejects_untrusted_or_ambiguous_plan_payloads() {
+        for payload in [
+            serde_json::json!({"success": true, "data": [{"name": "partial"}], "error": null, "meta": null}),
+            serde_json::json!({"success": true, "data": [plan()], "error": {"code": "boom"}, "meta": null}),
+            serde_json::json!({"success": true, "data": [plan(), plan()], "error": null, "meta": null}),
+        ] {
+            assert!(matches!(
+                load_public_plans(&client(payload).await).await,
+                PublicPlansLoadOutcome::Error { code } if code == "malformed_plans_response"
+            ));
+        }
+    }
 }
 
 pub async fn api_health() -> &'static str {
@@ -670,7 +859,11 @@ async fn verified_bearer_and_user(
 }
 
 const WATCHLIST_PATH: &str = "/api/users/watchlist";
+const WATCHLIST_LAYOUT_PATH: &str = "/api/users/watchlist/layout";
+const WATCHLIST_GROUPS_PATH: &str = "/api/users/watchlist/groups";
 const WATCHLIST_BODY_MAX: usize = 4 * 1024;
+const WATCHLIST_LAYOUT_BODY_MAX: usize = 256 * 1024;
+const WATCHLIST_FORM_MAX: usize = 1024;
 
 #[derive(Debug, Deserialize)]
 struct UpstreamWatchlistEnvelope {
@@ -682,12 +875,59 @@ struct UpstreamWatchlistEnvelope {
 #[serde(deny_unknown_fields)]
 struct WatchlistMutationRequest {
     symbol: String,
+    group_ids: Option<Vec<uuid::Uuid>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct UpstreamWatchlistLayoutEnvelope {
+    success: bool,
+    data: Option<epsx_dioxus_ui::pages::portfolio::WatchlistLayoutData>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct WatchlistGroupNameMutation {
+    name: String,
+}
+
+fn parse_watchlist_form(body: &[u8]) -> Result<(String, Vec<uuid::Uuid>), ()> {
+    let body = std::str::from_utf8(body).map_err(|_| ())?;
+    let mut symbol = None;
+    let mut group_ids = Vec::new();
+    for (key, value) in url::form_urlencoded::parse(body.as_bytes()) {
+        match key.as_ref() {
+            "symbol" if symbol.is_none() => symbol = Some(value.into_owned()),
+            "group_ids" if group_ids.len() < 200 => {
+                let id = value.parse::<uuid::Uuid>().map_err(|_| ())?;
+                if group_ids.contains(&id) {
+                    return Err(());
+                }
+                group_ids.push(id);
+            }
+            _ => return Err(()),
+        }
+    }
+    let symbol = symbol
+        .and_then(|symbol| epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(&symbol))
+        .ok_or(())?;
+    Ok((symbol, group_ids))
 }
 
 pub(crate) fn decode_watchlist_response(
     value: serde_json::Value,
 ) -> Result<epsx_dioxus_ui::pages::analytics::WatchlistData, ()> {
     let envelope = serde_json::from_value::<UpstreamWatchlistEnvelope>(value).map_err(|_| ())?;
+    if !envelope.success {
+        return Err(());
+    }
+    envelope.data.ok_or(())?.validated().map_err(|_| ())
+}
+
+pub(crate) fn decode_watchlist_layout_response(
+    value: serde_json::Value,
+) -> Result<epsx_dioxus_ui::pages::portfolio::WatchlistLayoutData, ()> {
+    let envelope =
+        serde_json::from_value::<UpstreamWatchlistLayoutEnvelope>(value).map_err(|_| ())?;
     if !envelope.success {
         return Err(());
     }
@@ -730,6 +970,25 @@ fn watchlist_malformed_error() -> Response {
         StatusCode::BAD_GATEWAY,
         "watchlist_upstream_malformed",
     ))
+}
+
+fn watchlist_client_error(error: ClientError) -> Response {
+    let (status, code) = match error {
+        ClientError::Unauthorized => (StatusCode::UNAUTHORIZED, "invalid_access_token"),
+        ClientError::NotFound => (StatusCode::NOT_FOUND, "watchlist_group_not_found"),
+        ClientError::UpstreamStatus(400) => (StatusCode::BAD_REQUEST, "invalid_watchlist_layout"),
+        ClientError::UpstreamStatus(409) => (StatusCode::CONFLICT, "watchlist_group_name_conflict"),
+        ClientError::UpstreamStatus(422) => {
+            (StatusCode::UNPROCESSABLE_ENTITY, "invalid_watchlist_layout")
+        }
+        ClientError::UpstreamStatus(429) => {
+            (StatusCode::TOO_MANY_REQUESTS, "watchlist_rate_limited")
+        }
+        _ => {
+            return watchlist_upstream_error();
+        }
+    };
+    private_watchlist_response(safe_error(status, code))
 }
 
 fn watchlist_result(value: serde_json::Value) -> Response {
@@ -798,17 +1057,235 @@ pub async fn watchlist_post(State(state): State<AppState>, request: Request) -> 
         }
     };
     let context = verified_watchlist_context(token);
+    let body = serde_json::json!({
+        "symbol": symbol,
+        "group_ids": request.group_ids.unwrap_or_default(),
+    });
     match state
         .wallet
-        .post_with_ctx(
-            WATCHLIST_PATH,
-            &serde_json::json!({ "symbol": symbol }),
-            &context,
-        )
+        .post_with_ctx(WATCHLIST_PATH, &body, &context)
         .await
     {
         Ok(value) => watchlist_result(value),
         Err(_) => watchlist_upstream_error(),
+    }
+}
+
+fn watchlist_layout_success_response(
+    layout: epsx_dioxus_ui::pages::portfolio::WatchlistLayoutData,
+) -> Response {
+    private_watchlist_response(
+        Json(serde_json::json!({
+            "success": true,
+            "data": layout,
+            "error": null
+        }))
+        .into_response(),
+    )
+}
+
+fn watchlist_layout_result(value: serde_json::Value) -> Response {
+    match decode_watchlist_layout_response(value) {
+        Ok(layout) => watchlist_layout_success_response(layout),
+        Err(()) => watchlist_malformed_error(),
+    }
+}
+
+fn valid_layout_update(update: &epsx_dioxus_ui::pages::portfolio::WatchlistLayoutUpdate) -> bool {
+    use std::collections::HashSet;
+
+    if update.groups.len() > 200 || update.ungrouped.len() > 1_000 {
+        return false;
+    }
+    let mut group_ids = HashSet::new();
+    let mut grouped = HashSet::new();
+    for group in &update.groups {
+        if !group_ids.insert(group.id) || group.symbols.len() > 1_000 {
+            return false;
+        }
+        let mut local = HashSet::new();
+        for raw in &group.symbols {
+            let Some(symbol) = epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(raw)
+            else {
+                return false;
+            };
+            if !local.insert(symbol.clone()) {
+                return false;
+            }
+            grouped.insert(symbol);
+        }
+    }
+    let mut ungrouped = HashSet::new();
+    update.ungrouped.iter().all(|raw| {
+        epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(raw)
+            .is_some_and(|symbol| !grouped.contains(&symbol) && ungrouped.insert(symbol))
+    })
+}
+
+async fn watchlist_json_body<T: serde::de::DeserializeOwned>(body: Body) -> Result<T, Response> {
+    let body = axum::body::to_bytes(body, WATCHLIST_LAYOUT_BODY_MAX)
+        .await
+        .map_err(|_| {
+            private_watchlist_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "watchlist_body_too_large",
+            ))
+        })?;
+    serde_json::from_slice(&body).map_err(|_| {
+        private_watchlist_response(safe_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_watchlist_layout",
+        ))
+    })
+}
+
+pub async fn watchlist_layout_get(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    match state
+        .wallet
+        .get_with_ctx(WATCHLIST_LAYOUT_PATH, &verified_watchlist_context(token))
+        .await
+    {
+        Ok(value) => watchlist_layout_result(value),
+        Err(error) => watchlist_client_error(error),
+    }
+}
+
+pub async fn watchlist_layout_put(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !watchlist_mutation_origin_allowed(&parts.headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    let update =
+        match watchlist_json_body::<epsx_dioxus_ui::pages::portfolio::WatchlistLayoutUpdate>(body)
+            .await
+        {
+            Ok(update) if valid_layout_update(&update) => update,
+            Ok(_) => {
+                return private_watchlist_response(safe_error(
+                    StatusCode::BAD_REQUEST,
+                    "invalid_watchlist_layout",
+                ));
+            }
+            Err(response) => return response,
+        };
+    let body = serde_json::to_value(update).expect("validated layout update is serializable");
+    match state
+        .wallet
+        .put_with_ctx(
+            WATCHLIST_LAYOUT_PATH,
+            &body,
+            &verified_watchlist_context(token),
+        )
+        .await
+    {
+        Ok(value) => watchlist_layout_result(value),
+        Err(error) => watchlist_client_error(error),
+    }
+}
+
+pub async fn watchlist_group_post(State(state): State<AppState>, request: Request) -> Response {
+    watchlist_group_mutation(state, request, None).await
+}
+
+pub async fn watchlist_group_put(
+    State(state): State<AppState>,
+    AxPath(group_id): AxPath<uuid::Uuid>,
+    request: Request,
+) -> Response {
+    watchlist_group_mutation(state, request, Some(group_id)).await
+}
+
+async fn watchlist_group_mutation(
+    state: AppState,
+    request: Request,
+    group_id: Option<uuid::Uuid>,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !watchlist_mutation_origin_allowed(&parts.headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    let mut mutation = match watchlist_json_body::<WatchlistGroupNameMutation>(body).await {
+        Ok(mutation) => mutation,
+        Err(response) => return response,
+    };
+    mutation.name = mutation.name.trim().to_string();
+    if !(1..=50).contains(&mutation.name.chars().count())
+        || mutation.name.chars().any(char::is_control)
+    {
+        return private_watchlist_response(safe_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_watchlist_group_name",
+        ));
+    }
+    let body = serde_json::to_value(mutation).expect("validated group name is serializable");
+    let context = verified_watchlist_context(token);
+    let result = if let Some(group_id) = group_id {
+        state
+            .wallet
+            .put_with_ctx(
+                &format!("{WATCHLIST_GROUPS_PATH}/{group_id}"),
+                &body,
+                &context,
+            )
+            .await
+    } else {
+        state
+            .wallet
+            .post_with_ctx(WATCHLIST_GROUPS_PATH, &body, &context)
+            .await
+    };
+    match result {
+        Ok(value) => watchlist_layout_result(value),
+        Err(error) => watchlist_client_error(error),
+    }
+}
+
+pub async fn watchlist_group_delete(
+    State(state): State<AppState>,
+    AxPath(group_id): AxPath<uuid::Uuid>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    if !watchlist_mutation_origin_allowed(&headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    match state
+        .wallet
+        .delete_with_ctx(
+            &format!("{WATCHLIST_GROUPS_PATH}/{group_id}"),
+            &verified_watchlist_context(token),
+        )
+        .await
+    {
+        Ok(value) => watchlist_layout_result(value),
+        Err(error) => watchlist_client_error(error),
     }
 }
 
@@ -847,6 +1324,1100 @@ pub async fn watchlist_delete(
     }
 }
 
+async fn watchlist_form_mutation(state: AppState, request: Request, remove: bool) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return private_watchlist_response(safe_error(
+            StatusCode::FORBIDDEN,
+            "watchlist_mutation_origin_rejected",
+        ));
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return private_watchlist_response(response),
+    };
+    let content_type = parts
+        .headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("");
+    if !content_type.split(';').next().is_some_and(|value| {
+        value
+            .trim()
+            .eq_ignore_ascii_case("application/x-www-form-urlencoded")
+    }) {
+        return private_watchlist_response(safe_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "watchlist_form_content_type",
+        ));
+    }
+    let body = match axum::body::to_bytes(body, WATCHLIST_FORM_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return private_watchlist_response(safe_error(
+                StatusCode::PAYLOAD_TOO_LARGE,
+                "watchlist_body_too_large",
+            ));
+        }
+    };
+    let (symbol, group_ids) = match parse_watchlist_form(&body) {
+        Ok(parsed) => parsed,
+        Err(()) => {
+            return private_watchlist_response(safe_error(
+                StatusCode::BAD_REQUEST,
+                "invalid_watchlist_symbol",
+            ));
+        }
+    };
+    let context = verified_watchlist_context(token);
+    let result = if remove {
+        let path = format!("{WATCHLIST_PATH}/{symbol}");
+        state.wallet.delete_with_ctx(&path, &context).await
+    } else {
+        state
+            .wallet
+            .post_with_ctx(
+                WATCHLIST_PATH,
+                &serde_json::json!({"symbol": symbol, "group_ids": group_ids}),
+                &context,
+            )
+            .await
+    };
+    match result {
+        Ok(value) => {
+            if decode_watchlist_response(value).is_ok() {
+                let mut response = Redirect::to("/portfolio").into_response();
+                mark_session_no_store(&mut response);
+                response
+            } else {
+                watchlist_malformed_error()
+            }
+        }
+        Err(_) => watchlist_upstream_error(),
+    }
+}
+
+/// No-JavaScript fallback for the Portfolio Watch form. The JSON endpoint is
+/// canonical; this adapter keeps the server-rendered control functional and
+/// reloads the owner-scoped list after a successful save.
+pub async fn watchlist_add_form(State(state): State<AppState>, request: Request) -> Response {
+    watchlist_form_mutation(state, request, false).await
+}
+
+pub async fn watchlist_remove_form(State(state): State<AppState>, request: Request) -> Response {
+    watchlist_form_mutation(state, request, true).await
+}
+
+// ---------------------------------------------------------------------------
+// Developer Portal BFF
+// ---------------------------------------------------------------------------
+
+const DEVELOPER_REQUEST_MAX: usize = 32 * 1024;
+const DEVELOPER_RESPONSE_MAX: usize = 512 * 1024;
+const DEVELOPER_TRY_RESPONSE_MAX: usize = 256 * 1024;
+const DEVELOPER_OVERVIEW_PATH: &str = "/api/developer-portal/overview";
+const DEVELOPER_KEYS_PATH: &str = "/api/developer-portal/my-keys";
+const DEVELOPER_OPENAPI_PATH: &str = "/api-docs/openapi.json";
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperOverviewQuery {
+    days: Option<i32>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperKeysQuery {
+    limit: Option<i64>,
+    offset: Option<i64>,
+    status: Option<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperCreateRequest {
+    name: String,
+    description: Option<String>,
+    scopes: Vec<String>,
+    expires_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperRevokeRequest {
+    reason: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperEnvelope<T> {
+    success: bool,
+    data: Option<T>,
+    error: Option<serde_json::Value>,
+    meta: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperKeyList {
+    api_keys: Vec<epsx_dioxus_ui::pages::developer::DeveloperApiKey>,
+    total: i64,
+    limit: i64,
+    offset: i64,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperCreateResult {
+    api_key: epsx_dioxus_ui::pages::developer::DeveloperApiKey,
+    secret: Option<String>,
+    replayed: bool,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperRevokeResult {
+    id: uuid::Uuid,
+    status: String,
+    replayed: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DeveloperTryRequest {
+    operation_id: String,
+    api_key: String,
+    query: Option<String>,
+    body: Option<serde_json::Value>,
+    confirm_mutation: Option<bool>,
+    idempotency_key: Option<String>,
+}
+
+fn developer_private(mut response: Response) -> Response {
+    mark_session_no_store(&mut response);
+    response.headers_mut().insert(
+        header::VARY,
+        HeaderValue::from_static("Cookie, Authorization"),
+    );
+    response
+}
+
+fn developer_error(status: StatusCode, code: &'static str) -> Response {
+    developer_private(safe_error(status, code))
+}
+
+fn developer_success<T: Serialize>(status: StatusCode, data: T) -> Response {
+    developer_private(
+        (
+            status,
+            Json(serde_json::json!({
+                "success": true,
+                "data": data,
+                "error": null
+            })),
+        )
+            .into_response(),
+    )
+}
+
+#[allow(
+    clippy::result_large_err,
+    reason = "developer adapters preserve the complete safe HTTP error response"
+)]
+fn valid_developer_days(days: Option<i32>) -> Result<i32, Response> {
+    let days = days.unwrap_or(30);
+    if matches!(days, 7 | 30 | 90) {
+        Ok(days)
+    } else {
+        Err(developer_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_developer_usage_window",
+        ))
+    }
+}
+
+fn valid_idempotency_key(value: &str) -> bool {
+    (8..=128).contains(&value.len())
+        && value
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b':'))
+}
+
+fn valid_create_request(request: &DeveloperCreateRequest) -> bool {
+    let valid_text = |value: &str, max: usize, empty: bool| {
+        (empty || !value.trim().is_empty())
+            && value.chars().count() <= max
+            && !value.chars().any(char::is_control)
+    };
+    valid_text(&request.name, 255, false)
+        && request
+            .description
+            .as_deref()
+            .is_none_or(|value| valid_text(value, 2_000, true))
+        && (1..=100).contains(&request.scopes.len())
+        && request
+            .scopes
+            .iter()
+            .collect::<std::collections::BTreeSet<_>>()
+            .len()
+            == request.scopes.len()
+        && request.scopes.iter().all(|scope| {
+            !scope.is_empty()
+                && scope.len() <= 255
+                && !scope.starts_with("admin:")
+                && !scope.chars().any(char::is_control)
+        })
+        && request.expires_at.as_deref().is_none_or(|value| {
+            chrono::DateTime::parse_from_rfc3339(value)
+                .ok()
+                .is_some_and(|expiry| {
+                    let now = chrono::Utc::now();
+                    expiry > now && expiry <= now + chrono::Duration::days(3_653)
+                })
+        })
+}
+
+fn developer_upstream_error(status: StatusCode) -> Response {
+    match status {
+        StatusCode::BAD_REQUEST
+        | StatusCode::UNAUTHORIZED
+        | StatusCode::FORBIDDEN
+        | StatusCode::NOT_FOUND
+        | StatusCode::CONFLICT
+        | StatusCode::UNPROCESSABLE_ENTITY
+        | StatusCode::TOO_MANY_REQUESTS => developer_error(status, "developer_request_rejected"),
+        StatusCode::SERVICE_UNAVAILABLE | StatusCode::GATEWAY_TIMEOUT => developer_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "developer_upstream_unavailable",
+        ),
+        _ => developer_error(StatusCode::BAD_GATEWAY, "developer_upstream_rejected"),
+    }
+}
+
+async fn developer_response_value(
+    response: reqwest::Response,
+    limit: usize,
+) -> Result<(StatusCode, serde_json::Value), Response> {
+    let status = response.status();
+    if !status.is_success() {
+        return Err(developer_upstream_error(status));
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(developer_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_developer_response",
+        ));
+    }
+    let body = read_notification_body_limited(response, limit)
+        .await
+        .map_err(|_| developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response"))?;
+    let value = serde_json::from_slice(&body)
+        .map_err(|_| developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response"))?;
+    Ok((status, value))
+}
+
+#[allow(
+    clippy::result_large_err,
+    reason = "developer adapters preserve the complete safe HTTP error response"
+)]
+fn decode_developer_data<T: serde::de::DeserializeOwned>(
+    value: serde_json::Value,
+) -> Result<T, Response> {
+    let envelope = serde_json::from_value::<DeveloperEnvelope<T>>(value)
+        .map_err(|_| developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response"))?;
+    let _ = &envelope.meta;
+    if !envelope.success || envelope.error.is_some() {
+        return Err(developer_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_developer_response",
+        ));
+    }
+    envelope
+        .data
+        .ok_or_else(|| developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response"))
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum DeveloperLoadError {
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+pub(crate) async fn load_developer_overview_for_ssr(
+    client: &ServiceClient,
+    bearer: &str,
+    days: i32,
+) -> Result<epsx_dioxus_ui::pages::developer::DeveloperOverview, DeveloperLoadError> {
+    if !matches!(days, 7 | 30 | 90) {
+        return Err(DeveloperLoadError::Malformed);
+    }
+    let url = format!(
+        "{}{}?days={days}",
+        client.base_url().trim_end_matches('/'),
+        DEVELOPER_OVERVIEW_PATH
+    );
+    let response = client
+        .auth_client()
+        .get(url)
+        .bearer_auth(bearer)
+        .send()
+        .await
+        .map_err(|_| DeveloperLoadError::Unavailable)?;
+    if matches!(
+        response.status(),
+        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN
+    ) {
+        return Err(DeveloperLoadError::Forbidden);
+    }
+    if !response.status().is_success() {
+        return Err(DeveloperLoadError::Unavailable);
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(DeveloperLoadError::Malformed);
+    }
+    let body = read_notification_body_limited(response, DEVELOPER_RESPONSE_MAX)
+        .await
+        .map_err(|error| match error {
+            NotificationBodyReadError::TooLarge => DeveloperLoadError::Malformed,
+            NotificationBodyReadError::Transport => DeveloperLoadError::Unavailable,
+        })?;
+    let envelope = serde_json::from_slice::<DeveloperEnvelope<serde_json::Value>>(&body)
+        .map_err(|_| DeveloperLoadError::Malformed)?;
+    if !envelope.success || envelope.error.is_some() {
+        return Err(DeveloperLoadError::Malformed);
+    }
+    let value = envelope.data.ok_or(DeveloperLoadError::Malformed)?;
+    epsx_dioxus_ui::pages::developer::decode_developer_overview(value)
+        .ok_or(DeveloperLoadError::Malformed)
+}
+
+async fn load_developer_overview(
+    state: &AppState,
+    bearer: &str,
+    days: i32,
+) -> Result<epsx_dioxus_ui::pages::developer::DeveloperOverview, Response> {
+    load_developer_overview_for_ssr(state.wallet.as_ref(), bearer, days)
+        .await
+        .map_err(|error| match error {
+            DeveloperLoadError::Forbidden => {
+                developer_error(StatusCode::FORBIDDEN, "developer_access_forbidden")
+            }
+            DeveloperLoadError::Unavailable => developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_upstream_unavailable",
+            ),
+            DeveloperLoadError::Malformed => {
+                developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response")
+            }
+        })
+}
+
+pub async fn developer_overview(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<DeveloperOverviewQuery>,
+) -> Response {
+    let days = match valid_developer_days(query.days) {
+        Ok(days) => days,
+        Err(response) => return response,
+    };
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    match load_developer_overview(&state, &token, days).await {
+        Ok(data) => developer_success(StatusCode::OK, data),
+        Err(response) => response,
+    }
+}
+
+pub async fn developer_usage(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<DeveloperOverviewQuery>,
+) -> Response {
+    let days = match valid_developer_days(query.days) {
+        Ok(days) => days,
+        Err(response) => return response,
+    };
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    match load_developer_overview(&state, &token, days).await {
+        Ok(data) => developer_success(StatusCode::OK, data.usage),
+        Err(response) => response,
+    }
+}
+
+pub async fn developer_keys(
+    State(state): State<AppState>,
+    headers: axum::http::HeaderMap,
+    Query(query): Query<DeveloperKeysQuery>,
+) -> Response {
+    let limit = query.limit.unwrap_or(50);
+    let offset = query.offset.unwrap_or(0);
+    if !(1..=100).contains(&limit)
+        || !(0..=1_000_000).contains(&offset)
+        || query
+            .status
+            .as_deref()
+            .is_some_and(|value| !matches!(value, "active" | "revoked" | "expired"))
+    {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_key_query");
+    }
+    let token = match verified_bearer(&state, &headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    let mut path = format!("{DEVELOPER_KEYS_PATH}?limit={limit}&offset={offset}");
+    if let Some(status) = query.status {
+        path.push_str("&status=");
+        path.push_str(&status);
+    }
+    let response = match state
+        .wallet
+        .auth_client()
+        .get(auth_url(&state, &path))
+        .bearer_auth(token)
+        .send()
+        .await
+    {
+        Ok(response) => response,
+        Err(_) => {
+            return developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_upstream_unavailable",
+            )
+        }
+    };
+    let (_, value) = match developer_response_value(response, DEVELOPER_RESPONSE_MAX).await {
+        Ok(result) => result,
+        Err(response) => return response,
+    };
+    let data = match decode_developer_data::<DeveloperKeyList>(value) {
+        Ok(data)
+            if data.total >= 0
+                && data.limit == limit
+                && data.offset == offset
+                && data.api_keys.len() <= limit as usize
+                && data
+                    .api_keys
+                    .iter()
+                    .all(|key| key.clone().validated().is_ok()) =>
+        {
+            data
+        }
+        Ok(_) => return developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_response"),
+        Err(response) => return response,
+    };
+    developer_success(StatusCode::OK, data)
+}
+
+async fn parse_developer_create_body(body: Body) -> Result<DeveloperCreateRequest, Response> {
+    let body = axum::body::to_bytes(body, DEVELOPER_REQUEST_MAX)
+        .await
+        .map_err(|_| {
+            developer_error(StatusCode::PAYLOAD_TOO_LARGE, "developer_request_too_large")
+        })?;
+    let request = serde_json::from_slice::<DeveloperCreateRequest>(&body).map_err(|_| {
+        developer_error(StatusCode::BAD_REQUEST, "invalid_developer_create_request")
+    })?;
+    if valid_create_request(&request) {
+        Ok(request)
+    } else {
+        Err(developer_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_developer_create_request",
+        ))
+    }
+}
+
+async fn create_developer_key_upstream(
+    state: &AppState,
+    token: &str,
+    idempotency_key: &str,
+    request: &DeveloperCreateRequest,
+) -> Result<(StatusCode, DeveloperCreateResult), Response> {
+    let url = auth_url(state, DEVELOPER_KEYS_PATH);
+    let response = state
+        .wallet
+        .auth_client()
+        .post(url)
+        .bearer_auth(token)
+        .header("idempotency-key", idempotency_key)
+        .json(request)
+        .send()
+        .await
+        .map_err(|_| {
+            developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_upstream_unavailable",
+            )
+        })?;
+    let (status, value) = developer_response_value(response, DEVELOPER_RESPONSE_MAX).await?;
+    let data = decode_developer_data::<DeveloperCreateResult>(value)?;
+    let valid_secret = match (data.replayed, data.secret.as_deref()) {
+        (false, Some(secret)) => {
+            secret.len() == 69
+                && secret.starts_with("epsx_")
+                && secret[5..].bytes().all(|byte| byte.is_ascii_hexdigit())
+        }
+        (true, None) => true,
+        _ => false,
+    };
+    if !valid_secret || data.api_key.clone().validated().is_err() {
+        return Err(developer_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_developer_response",
+        ));
+    }
+    Ok((status, data))
+}
+
+pub async fn developer_key_create(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return developer_error(StatusCode::FORBIDDEN, "developer_mutation_origin_rejected");
+    }
+    if !valid_notification_json_content_type(&parts.headers) {
+        return developer_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "developer_json_required",
+        );
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    let idempotency_key = match parts
+        .headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| valid_idempotency_key(value))
+    {
+        Some(value) => value.to_string(),
+        None => return developer_error(StatusCode::BAD_REQUEST, "invalid_idempotency_key"),
+    };
+    let request = match parse_developer_create_body(body).await {
+        Ok(request) => request,
+        Err(response) => return response,
+    };
+    match create_developer_key_upstream(&state, &token, &idempotency_key, &request).await {
+        Ok((status, data)) => developer_success(status, data),
+        Err(response) => response,
+    }
+}
+
+async fn revoke_developer_key_upstream(
+    state: &AppState,
+    token: &str,
+    id: uuid::Uuid,
+    idempotency_key: &str,
+    request: &DeveloperRevokeRequest,
+) -> Result<DeveloperRevokeResult, Response> {
+    let url = auth_url(state, &format!("{DEVELOPER_KEYS_PATH}/{id}/revoke"));
+    let response = state
+        .wallet
+        .auth_client()
+        .post(url)
+        .bearer_auth(token)
+        .header("idempotency-key", idempotency_key)
+        .json(&serde_json::json!({"reason": request.reason}))
+        .send()
+        .await
+        .map_err(|_| {
+            developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_upstream_unavailable",
+            )
+        })?;
+    let (_, value) = developer_response_value(response, DEVELOPER_RESPONSE_MAX).await?;
+    let data = decode_developer_data::<DeveloperRevokeResult>(value)?;
+    if data.id != id || data.status != "revoked" {
+        return Err(developer_error(
+            StatusCode::BAD_GATEWAY,
+            "malformed_developer_response",
+        ));
+    }
+    Ok(data)
+}
+
+pub async fn developer_key_revoke(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<uuid::Uuid>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return developer_error(StatusCode::FORBIDDEN, "developer_mutation_origin_rejected");
+    }
+    if !valid_notification_json_content_type(&parts.headers) {
+        return developer_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "developer_json_required",
+        );
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    let idempotency_key = match parts
+        .headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .filter(|value| valid_idempotency_key(value))
+    {
+        Some(value) => value.to_string(),
+        None => return developer_error(StatusCode::BAD_REQUEST, "invalid_idempotency_key"),
+    };
+    let body = match axum::body::to_bytes(body, DEVELOPER_REQUEST_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return developer_error(StatusCode::PAYLOAD_TOO_LARGE, "developer_request_too_large")
+        }
+    };
+    let request = match serde_json::from_slice::<DeveloperRevokeRequest>(&body) {
+        Ok(request)
+            if request.reason.as_deref().is_none_or(|reason| {
+                !reason.trim().is_empty()
+                    && reason.chars().count() <= 500
+                    && !reason.chars().any(char::is_control)
+            }) =>
+        {
+            request
+        }
+        _ => return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_revoke_request"),
+    };
+    match revoke_developer_key_upstream(&state, &token, id, &idempotency_key, &request).await {
+        Ok(data) => developer_success(StatusCode::OK, data),
+        Err(response) => response,
+    }
+}
+
+async fn load_developer_openapi_value(state: &AppState) -> Result<serde_json::Value, Response> {
+    let response = state
+        .wallet
+        .auth_client()
+        .get(auth_url(state, DEVELOPER_OPENAPI_PATH))
+        .send()
+        .await
+        .map_err(|_| {
+            developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_openapi_unavailable",
+            )
+        })?;
+    let (_, value) = developer_response_value(response, DEVELOPER_RESPONSE_MAX).await?;
+    epsx_dioxus_ui::pages::developer::decode_openapi(value.clone())
+        .ok_or_else(|| developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_openapi"))?;
+    Ok(value)
+}
+
+pub(crate) async fn load_developer_openapi_for_ssr(
+    client: &ServiceClient,
+) -> Result<serde_json::Value, DeveloperLoadError> {
+    let response = client
+        .auth_client()
+        .get(format!(
+            "{}{}",
+            client.base_url().trim_end_matches('/'),
+            DEVELOPER_OPENAPI_PATH
+        ))
+        .send()
+        .await
+        .map_err(|_| DeveloperLoadError::Unavailable)?;
+    if !response.status().is_success() {
+        return Err(DeveloperLoadError::Unavailable);
+    }
+    if !valid_notification_json_content_type(response.headers()) {
+        return Err(DeveloperLoadError::Malformed);
+    }
+    let body = read_notification_body_limited(response, DEVELOPER_RESPONSE_MAX)
+        .await
+        .map_err(|error| match error {
+            NotificationBodyReadError::TooLarge => DeveloperLoadError::Malformed,
+            NotificationBodyReadError::Transport => DeveloperLoadError::Unavailable,
+        })?;
+    let value = serde_json::from_slice::<serde_json::Value>(&body)
+        .map_err(|_| DeveloperLoadError::Malformed)?;
+    epsx_dioxus_ui::pages::developer::decode_openapi(value.clone())
+        .ok_or(DeveloperLoadError::Malformed)?;
+    Ok(value)
+}
+
+pub async fn developer_openapi(State(state): State<AppState>) -> Response {
+    match load_developer_openapi_value(&state).await {
+        Ok(value) => developer_private(Json(value).into_response()),
+        Err(response) => response,
+    }
+}
+
+#[allow(
+    clippy::result_large_err,
+    reason = "Try It validation preserves the complete safe HTTP error response"
+)]
+fn normalize_try_query(value: Option<&str>) -> Result<String, Response> {
+    let value = value.unwrap_or("");
+    if value.len() > 2_048
+        || value.starts_with('?')
+        || value.contains('#')
+        || value.chars().any(char::is_control)
+    {
+        return Err(developer_error(
+            StatusCode::BAD_REQUEST,
+            "invalid_developer_try_query",
+        ));
+    }
+    let url = reqwest::Url::parse(&format!("https://query.invalid/?{value}"))
+        .map_err(|_| developer_error(StatusCode::BAD_REQUEST, "invalid_developer_try_query"))?;
+    Ok(url.query().unwrap_or("").to_string())
+}
+
+pub async fn developer_try(State(state): State<AppState>, request: Request) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return developer_error(StatusCode::FORBIDDEN, "developer_try_origin_rejected");
+    }
+    if !valid_notification_json_content_type(&parts.headers) {
+        return developer_error(
+            StatusCode::UNSUPPORTED_MEDIA_TYPE,
+            "developer_json_required",
+        );
+    }
+    let body = match axum::body::to_bytes(body, DEVELOPER_REQUEST_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return developer_error(StatusCode::PAYLOAD_TOO_LARGE, "developer_request_too_large")
+        }
+    };
+    let request = match serde_json::from_slice::<DeveloperTryRequest>(&body) {
+        Ok(request) => request,
+        Err(_) => return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_try_request"),
+    };
+    if request.api_key.len() != 69
+        || !request.api_key.starts_with("epsx_")
+        || !request.api_key[5..]
+            .bytes()
+            .all(|byte| byte.is_ascii_hexdigit())
+    {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_api_key");
+    }
+    let spec = match load_developer_openapi_value(&state).await {
+        Ok(value) => value,
+        Err(response) => return response,
+    };
+    let operations = match epsx_dioxus_ui::pages::developer::decode_openapi(spec) {
+        Some(operations) => operations,
+        None => return developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_openapi"),
+    };
+    let operation = match operations
+        .into_iter()
+        .find(|operation| operation.operation_id == request.operation_id)
+    {
+        Some(operation)
+            if operation.api_key_callable
+                && !operation.path.contains('{')
+                && !operation.path.contains('}') =>
+        {
+            operation
+        }
+        _ => return developer_error(StatusCode::FORBIDDEN, "developer_operation_not_callable"),
+    };
+    if operation.mutation && request.confirm_mutation != Some(true) {
+        return developer_error(
+            StatusCode::PRECONDITION_REQUIRED,
+            "developer_mutation_confirmation_required",
+        );
+    }
+    let idempotency_key = request.idempotency_key.as_deref();
+    if operation.mutation
+        && (!operation.idempotent || !idempotency_key.is_some_and(valid_idempotency_key))
+    {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_idempotency_key");
+    }
+    if !operation.mutation && request.body.is_some() {
+        return developer_error(StatusCode::BAD_REQUEST, "developer_try_body_not_allowed");
+    }
+    let query = match normalize_try_query(request.query.as_deref()) {
+        Ok(query) => query,
+        Err(response) => return response,
+    };
+    let mut url = auth_url(&state, &operation.path);
+    if !query.is_empty() {
+        url.push('?');
+        url.push_str(&query);
+    }
+    let method = match reqwest::Method::from_bytes(operation.method.as_bytes()) {
+        Ok(method) => method,
+        Err(_) => return developer_error(StatusCode::BAD_GATEWAY, "malformed_developer_openapi"),
+    };
+    let mut upstream = state
+        .wallet
+        .auth_client()
+        .request(method, url)
+        .bearer_auth(&request.api_key)
+        .header(header::ACCEPT, "application/json");
+    if let Some(idempotency_key) = idempotency_key {
+        upstream = upstream.header("idempotency-key", idempotency_key);
+    }
+    if let Some(body) = request.body {
+        upstream = upstream.json(&body);
+    }
+    let response = match upstream.send().await {
+        Ok(response) => response,
+        Err(_) => {
+            return developer_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "developer_try_upstream_unavailable",
+            )
+        }
+    };
+    let status = response.status().as_u16();
+    let content_type = response
+        .headers()
+        .get(header::CONTENT_TYPE)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or("application/octet-stream")
+        .chars()
+        .take(128)
+        .collect::<String>();
+    let response_body =
+        match read_notification_body_limited(response, DEVELOPER_TRY_RESPONSE_MAX).await {
+            Ok(body) => body,
+            Err(_) => {
+                return developer_error(StatusCode::BAD_GATEWAY, "developer_try_response_too_large")
+            }
+        };
+    let response_body = String::from_utf8_lossy(&response_body).into_owned();
+    developer_success(
+        StatusCode::OK,
+        serde_json::json!({
+            "status": status,
+            "content_type": content_type,
+            "body": response_body
+        }),
+    )
+}
+
+fn parse_form_pairs(body: &[u8]) -> BTreeMap<String, Vec<String>> {
+    let mut fields = BTreeMap::<String, Vec<String>>::new();
+    for (key, value) in url::form_urlencoded::parse(body) {
+        fields
+            .entry(key.into_owned())
+            .or_default()
+            .push(value.into_owned());
+    }
+    fields
+}
+
+fn take_single(
+    fields: &mut BTreeMap<String, Vec<String>>,
+    name: &str,
+) -> Result<Option<String>, ()> {
+    match fields.remove(name) {
+        None => Ok(None),
+        Some(mut values) if values.len() == 1 => Ok(values.pop()),
+        Some(_) => Err(()),
+    }
+}
+
+fn html_escape(value: &str) -> String {
+    value
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&#39;")
+}
+
+pub async fn developer_key_create_form(
+    State(state): State<AppState>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return developer_error(StatusCode::FORBIDDEN, "developer_mutation_origin_rejected");
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    let body = match axum::body::to_bytes(body, DEVELOPER_REQUEST_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return developer_error(StatusCode::PAYLOAD_TOO_LARGE, "developer_request_too_large")
+        }
+    };
+    let mut fields = parse_form_pairs(&body);
+    let (idempotency_key, name, description, expires_at) = match (
+        take_single(&mut fields, "idempotency_key"),
+        take_single(&mut fields, "name"),
+        take_single(&mut fields, "description"),
+        take_single(&mut fields, "expires_at"),
+    ) {
+        (Ok(idempotency_key), Ok(name), Ok(description), Ok(expires_at)) => (
+            idempotency_key.filter(|value| valid_idempotency_key(value)),
+            name,
+            description.filter(|value| !value.is_empty()),
+            expires_at.filter(|value| !value.is_empty()),
+        ),
+        _ => return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_create_request"),
+    };
+    let scopes = fields.remove("scopes").unwrap_or_default();
+    if !fields.is_empty() || idempotency_key.is_none() || name.is_none() {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_create_request");
+    }
+    let request = DeveloperCreateRequest {
+        name: name.unwrap_or_default(),
+        description,
+        scopes,
+        expires_at,
+    };
+    if !valid_create_request(&request) {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_create_request");
+    }
+    let result = create_developer_key_upstream(
+        &state,
+        &token,
+        idempotency_key.as_deref().unwrap_or_default(),
+        &request,
+    )
+    .await;
+    let (status, body) = match result {
+        Ok((_, data)) => {
+            let message = data.secret.as_deref().map_or_else(
+                || {
+                    "This request was already completed. The secret cannot be shown again."
+                        .to_string()
+                },
+                |secret| {
+                    format!(
+                        "<code id=\"developer-secret\">{}</code>",
+                        html_escape(secret)
+                    )
+                },
+            );
+            (
+                StatusCode::OK,
+                format!("<!doctype html><meta name=\"robots\" content=\"noindex\"><title>API key created</title><main><h1>API key created</h1><p>Save this secret now. It will not be shown again.</p>{message}<p><a href=\"/developer\">Back to Developer Portal</a></p></main>"),
+            )
+        }
+        Err(response) => return response,
+    };
+    let mut response = (
+        status,
+        [(header::CONTENT_TYPE, "text/html; charset=utf-8")],
+        body,
+    )
+        .into_response();
+    mark_session_no_store(&mut response);
+    response
+}
+
+pub async fn developer_key_revoke_form(
+    State(state): State<AppState>,
+    AxPath(id): AxPath<uuid::Uuid>,
+    request: Request,
+) -> Response {
+    let (parts, body) = request.into_parts();
+    if !same_origin_preferences_form(&parts.headers) {
+        return developer_error(StatusCode::FORBIDDEN, "developer_mutation_origin_rejected");
+    }
+    let token = match verified_bearer(&state, &parts.headers).await {
+        Ok(token) => token,
+        Err(response) => return developer_private(response),
+    };
+    let body = match axum::body::to_bytes(body, DEVELOPER_REQUEST_MAX).await {
+        Ok(body) => body,
+        Err(_) => {
+            return developer_error(StatusCode::PAYLOAD_TOO_LARGE, "developer_request_too_large")
+        }
+    };
+    let mut fields = parse_form_pairs(&body);
+    let (idempotency_key, reason, confirm_revoke) = match (
+        take_single(&mut fields, "idempotency_key"),
+        take_single(&mut fields, "reason"),
+        take_single(&mut fields, "confirm_revoke"),
+    ) {
+        (Ok(idempotency_key), Ok(reason), Ok(confirm_revoke)) => (
+            idempotency_key.filter(|value| valid_idempotency_key(value)),
+            reason,
+            confirm_revoke,
+        ),
+        _ => return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_revoke_request"),
+    };
+    if !fields.is_empty() || idempotency_key.is_none() || confirm_revoke.as_deref() != Some("yes") {
+        return developer_error(StatusCode::BAD_REQUEST, "invalid_developer_revoke_request");
+    }
+    let request = DeveloperRevokeRequest { reason };
+    match revoke_developer_key_upstream(
+        &state,
+        &token,
+        id,
+        idempotency_key.as_deref().unwrap_or_default(),
+        &request,
+    )
+    .await
+    {
+        Ok(_) => {
+            let mut response = Redirect::to("/developer").into_response();
+            mark_session_no_store(&mut response);
+            response
+        }
+        Err(response) => response,
+    }
+}
+
+#[cfg(test)]
+mod developer_contract_tests {
+    use super::*;
+
+    #[test]
+    fn create_contract_cannot_select_wallet_plans_or_rate_limits() {
+        for authority_field in ["wallet_address", "plan_ids", "rate_limit_per_minute"] {
+            let mut value = serde_json::json!({
+                "name": "integration",
+                "description": null,
+                "scopes": ["epsx:analytics:view"],
+                "expires_at": null
+            });
+            value[authority_field] = serde_json::json!("attacker-controlled");
+            assert!(serde_json::from_value::<DeveloperCreateRequest>(value).is_err());
+        }
+    }
+
+    #[test]
+    fn try_contract_has_no_arbitrary_url_or_header_surface() {
+        let valid = serde_json::json!({
+            "operation_id": "getAnalyticsRankings",
+            "api_key": format!("epsx_{}", "a".repeat(64)),
+            "query": "country=US",
+            "body": null,
+            "confirm_mutation": false,
+            "idempotency_key": null
+        });
+        assert!(serde_json::from_value::<DeveloperTryRequest>(valid.clone()).is_ok());
+        for field in ["url", "headers", "authorization"] {
+            let mut unsafe_value = valid.clone();
+            unsafe_value[field] = serde_json::json!("https://evil.test");
+            assert!(serde_json::from_value::<DeveloperTryRequest>(unsafe_value).is_err());
+        }
+    }
+
+    #[test]
+    fn usage_windows_and_try_queries_fail_closed() {
+        for days in [7, 30, 90] {
+            assert_eq!(valid_developer_days(Some(days)).unwrap(), days);
+        }
+        assert!(valid_developer_days(Some(31)).is_err());
+        assert!(normalize_try_query(Some("https://evil.test")).is_ok());
+        assert!(normalize_try_query(Some("?url=https://evil.test")).is_err());
+        assert!(normalize_try_query(Some("country=US#fragment")).is_err());
+    }
+}
+
 #[cfg(test)]
 mod watchlist_contract_tests {
     use super::*;
@@ -874,6 +2445,73 @@ mod watchlist_contract_tests {
     }
 
     #[test]
+    fn layout_decoder_counts_distinct_symbols_and_rejects_invalid_virtual_ungrouped() {
+        let group_id = uuid::Uuid::new_v4();
+        let decoded = decode_watchlist_layout_response(serde_json::json!({
+            "success": true,
+            "data": {
+                "groups": [{
+                    "id": group_id,
+                    "name": " Growth ",
+                    "position": 0,
+                    "symbols": ["aapl", "MSFT"]
+                }],
+                "ungrouped": ["BRK.B"],
+                "watched": 3
+            }
+        }))
+        .unwrap();
+        assert_eq!(decoded.groups[0].name, "Growth");
+        assert_eq!(decoded.groups[0].symbols, ["AAPL", "MSFT"]);
+        assert_eq!(decoded.watched, 3);
+
+        for malformed in [
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "groups": [{"id": group_id, "name": "Growth", "position": 0, "symbols": ["AAPL"]}],
+                    "ungrouped": ["AAPL"],
+                    "watched": 1
+                }
+            }),
+            serde_json::json!({
+                "success": true,
+                "data": {"groups": [], "ungrouped": ["AAPL"], "watched": 2}
+            }),
+        ] {
+            assert!(decode_watchlist_layout_response(malformed).is_err());
+        }
+    }
+
+    #[test]
+    fn layout_mutation_validation_allows_multi_group_but_not_local_duplicates() {
+        use epsx_dioxus_ui::pages::portfolio::{WatchlistGroupLayoutUpdate, WatchlistLayoutUpdate};
+
+        let first = uuid::Uuid::new_v4();
+        let second = uuid::Uuid::new_v4();
+        assert!(valid_layout_update(&WatchlistLayoutUpdate {
+            groups: vec![
+                WatchlistGroupLayoutUpdate {
+                    id: first,
+                    symbols: vec!["AAPL".into()],
+                },
+                WatchlistGroupLayoutUpdate {
+                    id: second,
+                    symbols: vec!["aapl".into()],
+                },
+            ],
+            ungrouped: vec!["MSFT".into()],
+        }));
+        assert!(!valid_layout_update(&WatchlistLayoutUpdate {
+            groups: vec![WatchlistGroupLayoutUpdate {
+                id: first,
+                symbols: vec!["AAPL".into(), " aapl ".into()],
+            }],
+            ungrouped: vec![],
+        }));
+    }
+
+    #[test]
     fn watchlist_symbols_are_bounded_and_canonical() {
         for accepted in ["aapl", "BRK.B", "BTC-USD", "2317"] {
             assert!(
@@ -891,6 +2529,28 @@ mod watchlist_contract_tests {
             assert!(
                 epsx_dioxus_ui::pages::analytics::normalize_watchlist_symbol(rejected).is_none()
             );
+        }
+    }
+
+    #[test]
+    fn portfolio_form_accepts_exactly_one_canonical_symbol() {
+        assert_eq!(
+            parse_watchlist_form(b"symbol=brk.b").unwrap(),
+            ("BRK.B".to_string(), vec![])
+        );
+        let group_id = uuid::Uuid::new_v4();
+        assert_eq!(
+            parse_watchlist_form(format!("symbol=BTC-USD&group_ids={group_id}").as_bytes())
+                .unwrap(),
+            ("BTC-USD".to_string(), vec![group_id])
+        );
+        for invalid in [
+            b"".as_slice(),
+            b"symbol=..%2FAAPL".as_slice(),
+            b"symbol=AAPL&symbol=MSFT".as_slice(),
+            b"symbol=AAPL&owner=other".as_slice(),
+        ] {
+            assert!(parse_watchlist_form(invalid).is_err());
         }
     }
 }
@@ -4618,7 +6278,7 @@ fn upstream_success_data(value: serde_json::Value) -> Result<DecodedNewsPayload,
         return Err(());
     };
     if object.contains_key("success") {
-        if !object_has_only_keys(object, &["success", "data", "error"])
+        if !object_has_only_keys(object, &["success", "data", "error", "meta"])
             || object.get("success").and_then(serde_json::Value::as_bool) != Some(true)
             || !upstream_error_is_clear(object.get("error"))
         {
@@ -4831,7 +6491,11 @@ fn parse_news_list(value: serde_json::Value) -> Result<Vec<NewsListArticle>, ()>
     raw_articles
         .iter()
         .cloned()
-        .map(|value| serde_json::from_value(value).map_err(|_| ()))
+        .map(|value| {
+            serde_json::from_value(value).map_err(|error| {
+                tracing::warn!(%error, "public news article did not match the backend DTO");
+            })
+        })
         .map(|result| result.and_then(normalize_list_article))
         .collect()
 }
@@ -4954,7 +6618,7 @@ pub(crate) async fn load_news_post(client: &ServiceClient, slug: &str) -> NewsDe
     if !valid_news_slug(slug) {
         return NewsDetailLoadOutcome::NotFound;
     }
-    let path = format!("/api/v1/content/news/{slug}");
+    let path = format!("{NEWS_DETAIL_PATH}/{slug}");
     let value = match client.get_plain(&path).await {
         Ok(value) => value,
         Err(ClientError::NotFound) => return NewsDetailLoadOutcome::NotFound,
@@ -5088,7 +6752,7 @@ mod news_adapter_tests {
             "error": null
         });
         let router = Router::new().route(
-            "/api/v1/content/news",
+            "/api/public/news",
             get(move || {
                 let payload = payload.clone();
                 async move { Json(payload) }
@@ -5132,7 +6796,7 @@ mod news_adapter_tests {
     #[tokio::test]
     async fn empty_malformed_and_unavailable_list_outcomes_never_become_articles() {
         let empty_router = Router::new().route(
-            "/api/v1/content/news",
+            "/api/public/news",
             get(|| async { Json(serde_json::json!({"articles": [], "total": 0})) }),
         );
         assert!(matches!(
@@ -5145,7 +6809,7 @@ mod news_adapter_tests {
         ));
 
         let malformed_router = Router::new().route(
-            "/api/v1/content/news",
+            "/api/public/news",
             get(|| async { Json(serde_json::json!({"articles": [{"slug": "fake"}]})) }),
         );
         assert!(matches!(
@@ -5174,7 +6838,7 @@ mod news_adapter_tests {
     async fn detail_adapter_preserves_slug_ownership_not_found_and_malformed_states() {
         let valid = article("live-article", "Live article", &["engineering"]);
         let valid_router = Router::new().route(
-            "/api/v1/content/news/live-article",
+            "/api/public/news/live-article",
             get(move || {
                 let valid = valid.clone();
                 async move { Json(serde_json::json!({"success": true, "data": valid})) }
@@ -5188,7 +6852,7 @@ mod news_adapter_tests {
         ));
 
         let missing_router = Router::new().route(
-            "/api/v1/content/news/missing",
+            "/api/public/news/missing",
             get(|| async { StatusCode::NOT_FOUND }),
         );
         assert!(matches!(
@@ -5198,7 +6862,7 @@ mod news_adapter_tests {
 
         let mismatch = article("other-article", "Wrong owner", &["engineering"]);
         let mismatch_router = Router::new().route(
-            "/api/v1/content/news/live-article",
+            "/api/public/news/live-article",
             get(move || {
                 let mismatch = mismatch.clone();
                 async move {

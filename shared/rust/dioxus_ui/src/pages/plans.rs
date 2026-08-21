@@ -1,36 +1,200 @@
-//! `/plans` — public, truthful plan-catalog availability shell.
+//! `/plans` — public, backend-owned plan catalog.
 //!
-//! The pinned development source (`origin/development` at
-//! `373bd231cb7a616c3d4c0ddc1d60e0099a88a5db`) obtains public plans from the
-//! subscription backend, then derives prices, promotions, grouping, features,
-//! eligibility, credits, and selection behavior from that response. The Rust
-//! BFF does not yet expose a frozen subscription-owned public-plan DTO, and
-//! payment mutation authority is outside this migration slice. Therefore this
-//! page deliberately ignores the legacy `data_plans` compatibility parameter
-//! and renders no plan, price, access, eligibility, or purchase claim.
+//! The frontend only renders the public projection returned by the Rust
+//! backend. Pricing, promotion, visibility, grouping, and lifecycle values are
+//! never derived from permissions or local sample data here.
 
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
 use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
 const CONTACT_PATH: &str = "/contact";
+pub const PLANS_DATA_PARAM: &str = "data_plans";
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct PublicPlan {
+    pub id: String,
+    pub name: String,
+    pub plan_type: String,
+    pub current_price: String,
+    pub effective_price: f64,
+    pub promotion_active: bool,
+    pub promotion_status: String,
+    pub promotion_discount: f64,
+    pub promotion_ends_at: Option<String>,
+    pub currency: String,
+    pub billing_cycle: String,
+    pub features: Vec<String>,
+    pub permissions: Vec<String>,
+    pub is_active: bool,
+    pub tier_level: i32,
+    pub plan_group: String,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PublicPlansLoadOutcome {
+    Ready { plans: Vec<PublicPlan> },
+    Empty,
+    Error { code: String },
+}
+
+#[derive(Clone, Debug, PartialEq)]
+enum PlansLoad {
+    Ready(Vec<PublicPlan>),
+    Empty,
+    Unavailable,
+    Malformed,
+}
+
+fn plans_load(ctx: &PageContext) -> PlansLoad {
+    let Some(raw) = ctx.params.get(PLANS_DATA_PARAM) else {
+        return PlansLoad::Unavailable;
+    };
+    match serde_json::from_str::<PublicPlansLoadOutcome>(raw) {
+        Ok(PublicPlansLoadOutcome::Ready { plans }) if !plans.is_empty() => PlansLoad::Ready(plans),
+        Ok(PublicPlansLoadOutcome::Ready { .. } | PublicPlansLoadOutcome::Empty) => {
+            PlansLoad::Empty
+        }
+        Ok(PublicPlansLoadOutcome::Error { code }) if code == "malformed_plans_response" => {
+            PlansLoad::Malformed
+        }
+        Ok(PublicPlansLoadOutcome::Error { .. }) => PlansLoad::Unavailable,
+        Err(_) => PlansLoad::Malformed,
+    }
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Plans");
-
-    // `ctx.params["data_plans"]` is intentionally not read. Until the BFF has
-    // a verified backend-owned DTO, compatibility input cannot be used to
-    // create catalog, subscription, access, or payment state.
-    (meta, rsx! { PlansUnavailablePage { ctx: ctx.clone() } })
+    (meta, rsx! { PlansPage { ctx: ctx.clone() } })
 }
 
 #[component]
-fn PlansUnavailablePage(ctx: PageContext) -> Element {
+fn PlansPage(ctx: PageContext) -> Element {
+    let content = match plans_load(&ctx) {
+        PlansLoad::Ready(plans) => rsx! { PlansReadyContent { plans } },
+        PlansLoad::Empty => rsx! { PlansEmptyContent {} },
+        PlansLoad::Unavailable => rsx! { PlansUnavailableContent {} },
+        PlansLoad::Malformed => rsx! { PlansMalformedContent {} },
+    };
     rsx! {
         MainLayout { ctx,
-            PlansUnavailableContent {}
+            {content}
+        }
+    }
+}
+
+fn display_price(plan: &PublicPlan) -> String {
+    let value = if plan.promotion_active {
+        plan.effective_price
+    } else {
+        plan.current_price.parse::<f64>().unwrap_or_default()
+    };
+    format!("{} {value:.2}", plan.currency)
+}
+
+fn billing_label(value: &str) -> String {
+    value.replace('_', " ")
+}
+
+#[component]
+fn PlansReadyContent(plans: Vec<PublicPlan>) -> Element {
+    rsx! {
+        div {
+            class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
+            "data-plans-state": "ready",
+            div { class: "relative z-10 mx-auto max-w-7xl px-4 py-12",
+                header { class: "mx-auto mb-12 max-w-3xl text-center",
+                    h1 { class: "bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6",
+                        "Choose Your EPSX Plan"
+                    }
+                    p { class: "text-xl leading-relaxed text-gray-600 dark:text-gray-300",
+                        "Compare the current public plans and features provided by EPSX."
+                    }
+                }
+                section {
+                    class: "grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3",
+                    aria_label: "Available EPSX plans",
+                    for plan in plans {
+                        article {
+                            class: "relative flex min-h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800/90",
+                            "data-plan-id": plan.id.clone(),
+                            "data-plan-group": plan.plan_group.clone(),
+                            div { class: "mb-4 flex items-start justify-between gap-3",
+                                div {
+                                    p { class: "text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-300", "{plan.plan_group}" }
+                                    h2 { class: "mt-1 text-2xl font-bold text-slate-950 dark:text-white", "{plan.name}" }
+                                }
+                                if plan.promotion_active {
+                                    span { class: "shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200",
+                                        "{plan.promotion_discount:.0}% off"
+                                    }
+                                }
+                            }
+                            div { class: "mb-5",
+                                p { class: "text-3xl font-black text-slate-950 dark:text-white", "{display_price(&plan)}" }
+                                if plan.promotion_active {
+                                    p { class: "mt-1 text-sm text-slate-500 line-through dark:text-slate-400", "{plan.currency} {plan.current_price}" }
+                                }
+                                p { class: "mt-1 text-sm capitalize text-slate-500 dark:text-slate-400", "{billing_label(&plan.billing_cycle)}" }
+                            }
+                            ul { class: "mb-6 flex-1 space-y-3",
+                                for feature in plan.features.iter() {
+                                    li { class: "flex items-start gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200",
+                                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("mt-1 shrink-0 text-emerald-600".to_string()) }
+                                        span { "{feature}" }
+                                    }
+                                }
+                            }
+                            a {
+                                class: "inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700",
+                                href: CONTACT_PATH,
+                                "Ask about this plan"
+                            }
+                        }
+                    }
+                }
+                PlansFaq {}
+            }
+        }
+    }
+}
+
+#[component]
+fn PlansEmptyContent() -> Element {
+    rsx! { PlansProblemContent {
+        state: "empty",
+        title: "No public plans are available",
+        message: "The backend returned an authoritative empty plan catalog.",
+    } }
+}
+
+#[component]
+fn PlansMalformedContent() -> Element {
+    rsx! { PlansProblemContent {
+        state: "malformed",
+        title: "Plan data could not be verified",
+        message: "The plan service returned an unexpected response, so no pricing claims are shown.",
+    } }
+}
+
+#[component]
+fn PlansProblemContent(state: &'static str, title: &'static str, message: &'static str) -> Element {
+    rsx! {
+        div { class: "plans-prod-page min-h-screen bg-slate-50 px-4 py-12 dark:bg-slate-900", "data-plans-state": state,
+            div { class: "mx-auto max-w-4xl",
+                h1 { class: "mb-8 text-center text-4xl font-bold text-slate-950 dark:text-white", "Choose Your EPSX Plan" }
+                section { class: "rounded-xl border border-slate-300 bg-white p-6 text-center shadow dark:border-slate-700 dark:bg-slate-800", role: "status",
+                    h2 { class: "text-xl font-semibold text-slate-950 dark:text-white", "{title}" }
+                    p { class: "mt-2 text-slate-600 dark:text-slate-300", "{message}" }
+                    a { class: "mt-5 inline-flex rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white", href: "/plans", "Try again" }
+                }
+                PlansFaq {}
+            }
         }
     }
 }
@@ -60,17 +224,20 @@ fn PlansUnavailableContent() -> Element {
                         display: inline-flex;
                         align-items: center;
                         gap: 0.5rem;
-                        color: #e2e8f0;
+                        color: #334155;
                         font-size: 1rem;
                         font-weight: 600;
                         text-decoration: none;
                         transition: color 0.15s ease, transform 0.15s ease;
                     }}
                     .plans-catalog-alternatives a:hover {{
-                        color: #ffffff;
+                        color: #0f172a;
                         transform: translateY(-1px);
                     }}
-                    .plans-catalog-alternatives i {{ color: #f8fafc; flex-shrink: 0; }}
+                    .plans-catalog-alternatives i {{ color: #475569; flex-shrink: 0; }}
+                    html.dark .plans-catalog-alternatives a {{ color: #e2e8f0; }}
+                    html.dark .plans-catalog-alternatives a:hover {{ color: #ffffff; }}
+                    html.dark .plans-catalog-alternatives i {{ color: #f8fafc; }}
                     @media (max-width: 639px) {{
                         .plans-catalog-alternatives {{ flex-direction: column; gap: 1.25rem; }}
                     }}
@@ -130,11 +297,11 @@ fn PlansUnavailableContent() -> Element {
                         div { class: "space-y-6",
                             FaqItem {
                                 title: "Can I change my plan later?",
-                                body: "Yes! You can upgrade or downgrade your plan at any time. Changes take effect immediately, and we'll prorate any billing adjustments.",
+                                body: "Plan-change availability and timing depend on the terms confirmed by the backend for your account.",
                             }
                             FaqItem {
                                 title: "What happens to my API keys when I change plans?",
-                                body: "Your API keys remain valid when upgrading. If downgrading removes API access, we'll notify you 7 days in advance so you can adjust your integrations.",
+                                body: "API access is enforced by backend permissions. Review the developer portal after any confirmed plan change.",
                             }
                             FaqItem {
                                 title: "Do you offer custom enterprise plans?",
@@ -144,7 +311,7 @@ fn PlansUnavailableContent() -> Element {
                             }
                             FaqItem {
                                 title: "Is there a free trial?",
-                                body: "We offer a 7-day free trial for all premium plans. No credit card required - just sign up and start exploring advanced features immediately.",
+                                body: "A trial or promotion is available only when it appears in the current backend-provided plan catalog.",
                             }
                         }
                         nav {
@@ -171,6 +338,51 @@ fn PlansUnavailableContent() -> Element {
 }
 
 #[component]
+fn PlansFaq() -> Element {
+    rsx! {
+        section {
+            class: "plans-faq mx-auto mt-20 max-w-3xl",
+            aria_labelledby: "plans-faq-title",
+            h2 { id: "plans-faq-title", class: "mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white",
+                "Frequently Asked Questions"
+            }
+            div { class: "space-y-6",
+                FaqItem {
+                    title: "Can I change my plan later?",
+                    body: "Plan-change availability and timing depend on the terms confirmed by the backend for your account.",
+                }
+                FaqItem {
+                    title: "What happens to my API keys when I change plans?",
+                    body: "API access is enforced by backend permissions. Review the developer portal after any confirmed plan change.",
+                }
+                FaqItem {
+                    title: "Do you offer custom enterprise plans?",
+                    body: "Absolutely! We can create custom plans with specific features, higher limits, and dedicated support.",
+                    link_label: Some("Contact us"),
+                    link_href: Some(CONTACT_PATH),
+                }
+                FaqItem {
+                    title: "Is there a free trial?",
+                    body: "A trial or promotion is available only when it appears in the current backend-provided plan catalog.",
+                }
+            }
+            nav {
+                class: "plans-catalog-alternatives",
+                "aria-label": "Plan catalog alternatives",
+                a { href: CONTACT_PATH,
+                    Icon { name: "mail".to_string(), size: Some(16) }
+                    "Contact support"
+                }
+                a { href: "/",
+                    Icon { name: "home".to_string(), size: Some(16) }
+                    "Return home"
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn FaqItem(
     title: &'static str,
     body: &'static str,
@@ -184,7 +396,7 @@ fn FaqItem(
                     "{body}"
                 if let (Some(label), Some(href)) = (link_label, link_href) {
                     " "
-                    a { class: "text-emerald-500 hover:underline", href, "{label}" }
+                    a { class: "text-emerald-700 hover:underline dark:text-emerald-400", href, "{label}" }
                     " to discuss your needs."
                                 }
                             }
@@ -210,6 +422,27 @@ mod tests {
 
     fn render_unavailable_content() -> String {
         dioxus_ssr::render_element(rsx! { PlansUnavailableContent {} })
+    }
+
+    fn verified_plan() -> PublicPlan {
+        PublicPlan {
+            id: "61a62cbe-3371-41db-bd90-321c53a71e06".to_string(),
+            name: "Verified Pro".to_string(),
+            plan_type: "PRO".to_string(),
+            current_price: "20.00".to_string(),
+            effective_price: 15.0,
+            promotion_active: true,
+            promotion_status: "active".to_string(),
+            promotion_discount: 25.0,
+            promotion_ends_at: None,
+            currency: "USD".to_string(),
+            billing_cycle: "monthly".to_string(),
+            features: vec!["Live analytics".to_string()],
+            permissions: vec!["epsx:analytics:read".to_string()],
+            is_active: true,
+            tier_level: 2,
+            plan_group: "personal".to_string(),
+        }
     }
 
     fn assert_no_catalog_or_purchase_claims(html: &str) {
@@ -285,7 +518,7 @@ mod tests {
                 .insert("data_plans".to_string(), payload.to_string());
             let html = render_html(&ctx);
 
-            assert!(html.contains("data-plans-state=\"unavailable\""));
+            assert!(html.contains("data-plans-state=\"malformed\""));
             for canary in [
                 "CANARY-PLAN",
                 "CANARY-FEATURE",
@@ -302,6 +535,29 @@ mod tests {
             }
             assert_no_catalog_or_purchase_claims(&html);
         }
+    }
+
+    #[test]
+    fn verified_backend_projection_renders_catalog_without_permission_claims() {
+        let mut ctx = page_ctx();
+        ctx.params.insert(
+            PLANS_DATA_PARAM.to_string(),
+            serde_json::to_string(&PublicPlansLoadOutcome::Ready {
+                plans: vec![verified_plan()],
+            })
+            .unwrap(),
+        );
+        let html = render_html(&ctx);
+
+        assert!(html.contains("data-plans-state=\"ready\""));
+        assert!(html.contains("Verified Pro"));
+        assert!(html.contains("USD 15.00"));
+        assert!(html.contains("USD 20.00"));
+        assert!(html.contains("25% off"));
+        assert!(html.contains("Live analytics"));
+        assert!(!html.contains("epsx:analytics:read"));
+        assert!(!html.contains("Subscribe"));
+        assert!(html.contains("Ask about this plan"));
     }
 
     #[test]

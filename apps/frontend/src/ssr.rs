@@ -40,7 +40,19 @@ use epsx_dioxus_ui::pages::auth_page::{
     AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_RECOVERING,
     AUTH_PAGE_SESSION_STATE_SIGNED_OUT, AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
 };
+use epsx_dioxus_ui::pages::chat::{
+    CHAT_DETAIL_DATA_PARAM, CHAT_DETAIL_STATE_PARAM, CHAT_EMPTY, CHAT_FORBIDDEN,
+    CHAT_INBOX_DATA_PARAM, CHAT_INBOX_STATE_PARAM, CHAT_MALFORMED, CHAT_READY, CHAT_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::developer::{
+    DEVELOPER_DATA_PARAM, DEVELOPER_OPENAPI_DATA_PARAM, DEVELOPER_OPENAPI_STATE_PARAM,
+    DEVELOPER_STATE_PARAM, DEVELOPER_USAGE_DATA_PARAM, DEVELOPER_USAGE_STATE_PARAM, LOAD_EMPTY,
+    LOAD_FORBIDDEN, LOAD_MALFORMED, LOAD_READY, LOAD_UNAVAILABLE,
+};
 use epsx_dioxus_ui::pages::home::{HOME_ANALYTICS_DATA_PARAM, HOME_ANALYTICS_STATE_PARAM};
+use epsx_dioxus_ui::pages::portfolio::{
+    WatchlistLayoutData, PORTFOLIO_WATCHLIST_DATA_PARAM, PORTFOLIO_WATCHLIST_STATE_PARAM,
+};
 use epsx_dioxus_ui::pages::{
     is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
 };
@@ -97,6 +109,7 @@ const ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED: &str = "malformed";
 const ANALYTICS_RANKINGS_PATH: &str = "/api/analytics/rankings";
 const ANALYTICS_FILTERS_PATH: &str = "/api/analytics/filters";
 const ANALYTICS_WATCHLIST_PATH: &str = "/api/users/watchlist";
+const PORTFOLIO_WATCHLIST_LAYOUT_PATH: &str = "/api/users/watchlist/layout";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum AnalyticsLoadError {
@@ -693,8 +706,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // The two supplied homepage references intentionally cover both sides of
     // the auth boundary: `/` shows a connected wallet that still needs SIWE,
     // while private-style captures use the UI-only identity fixture. Keep the
-    // homepage wallet-only so its header renders the wallet pill + sign-in
-    // banner instead of bell/profile/sign-out controls.
+    // homepage wallet-only so its header renders the wallet pill instead of
+    // bell/profile/sign-out controls. The pill remains the unobtrusive route
+    // back to SIWE when the server session is absent.
     let design_bypass_identity = design_bypass_identity_enabled(design_bypass, &path);
     let design_bypass_wallet = design_bypass_wallet_enabled(design_bypass, &path);
     let preference_flash_state = account_notification_preferences_flash_state(&headers, &query);
@@ -838,8 +852,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // NOT from the cookie (which tracks wallet-connection lifetime).
     //
     // The wallet address is also retained for the SSR navigation shell so a
-    // connected-but-not-signed-in browser gets the same wallet pill and
-    // sign-in banner as the development navigation client.
+    // connected browser gets a truthful wallet pill. We deliberately avoid a
+    // second full-width sign-in recommendation: the pill itself remains the
+    // route to `/auth` whenever the verified server session is absent.
     if wallet.address.is_none() {
         if let Some(design_wallet) = auth::design_bypass_wallet_state(design_bypass_wallet) {
             wallet = design_wallet;
@@ -849,6 +864,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     }
     let wallet_address = wallet.address.clone();
     let is_authenticated = user.is_some();
+    let navigation_wallet_address =
+        authoritative_navigation_wallet(&user, wallet_address.as_deref());
     let user_id = user
         .as_ref()
         .map(|value| value.id.clone())
@@ -885,17 +902,19 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Contact / Support pages from the navbar.
     //
     // The fix: use `epsx_templates::epsx_header()` (the static HTML
-    // sticky header that mirrors prod's `epsx.io` NavMenu) which
-    // emits raw `onclick="epsx.toggleNav(this)"` attributes that the
-    // `global_js()` controller already understands. The dropdown
-    // menu items are rendered unconditionally (visibility is
-    // controlled by CSS `.epsx-nav-wrap.open .epsx-nav-menu { display:
-    // block; }`) — so every link is in the DOM and clickable.
+    // sticky header that mirrors the production NavMenu). It emits
+    // progressive `data-epsx-action` attributes handled by the generated
+    // Rust/WASM runtime. Dropdown items remain in the DOM while CSS and the
+    // runtime coordinate their open state, so every link stays reachable.
     //
     // The auth page hides the navbar via the `path == "/auth"`
     // short-circuit (the dedicated `<AuthLayout>` is full-bleed).
-    let nav_html =
-        frontend_navigation_html(&path, &query, is_authenticated, wallet_address.as_deref());
+    let nav_html = frontend_navigation_html(
+        &path,
+        &query,
+        is_authenticated,
+        navigation_wallet_address.as_deref(),
+    );
 
     // Source-compatible shell: the development root has no global footer.
     // Page bodies remain responsible for any route-specific footer content.
@@ -986,7 +1005,12 @@ fn apply_ssr_cache_policy(
             "x-epsx-public-cache",
             HeaderValue::from_static("offline-shell-v1"),
         );
-    } else if is_authenticated || recover_session || auth_page_verifier_unavailable {
+    } else if is_authenticated
+        || recover_session
+        || auth_page_verifier_unavailable
+        || path == "/developer"
+        || path.starts_with("/developer/")
+    {
         response.headers_mut().insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-store"),
@@ -1047,6 +1071,16 @@ async fn fetch_page_data(
             serde_json::to_string(&outcome).expect("news list outcome is serializable"),
         );
     }
+    // /plans: render only the backend-owned public plan projection. The
+    // frontend validates the transport shape but does not derive prices,
+    // promotions, visibility, permissions, or eligibility.
+    if path == "/plans" {
+        let outcome = crate::api::load_public_plans(state.content.as_ref()).await;
+        params.insert(
+            epsx_dioxus_ui::pages::plans::PLANS_DATA_PARAM.to_string(),
+            serde_json::to_string(&outcome).expect("public plans outcome is serializable"),
+        );
+    }
     // /analytics: rankings and public filter options are independent and load
     // concurrently. Authenticated sessions also load the owner-scoped
     // watchlist through the same locally verified bearer.
@@ -1078,6 +1112,14 @@ async fn fetch_page_data(
         record_analytics_filters_load(params, filters);
         record_analytics_watchlist_load(params, watchlist);
     }
+    // /portfolio consumes the same strict owner-scoped watchlist contract as
+    // Analytics. The token is forwarded only after local session verification;
+    // a connected-wallet cookie never selects or authorizes portfolio data.
+    if path == "/portfolio" {
+        let layout =
+            load_portfolio_watchlist_layout(state.wallet.as_ref(), verified_access_token).await;
+        record_portfolio_watchlist_load(params, layout);
+    }
     // /news/[slug]: the content service owns slug resolution. Unknown records
     // remain not-found, while dependency/malformed responses remain errors.
     if let Some(slug) = news_detail_route_slug(path) {
@@ -1087,8 +1129,48 @@ async fn fetch_page_data(
             serde_json::to_string(&outcome).expect("news detail outcome is serializable"),
         );
     }
-    // `/developer/usage` intentionally has no loader. No owner-safe metering
-    // contract exists, so the page renders an explicit unavailable state.
+    if matches!(path, "/developer" | "/developer/usage") {
+        let (data_param, state_param) = if path == "/developer/usage" {
+            (DEVELOPER_USAGE_DATA_PARAM, DEVELOPER_USAGE_STATE_PARAM)
+        } else {
+            (DEVELOPER_DATA_PARAM, DEVELOPER_STATE_PARAM)
+        };
+        let days = developer_usage_days(query).unwrap_or(-1);
+        let outcome = match (verified_access_token, days) {
+            (Some(bearer), 7 | 30 | 90) => {
+                crate::api::load_developer_overview_for_ssr(state.wallet.as_ref(), bearer, days)
+                    .await
+            }
+            (None, _) => Err(crate::api::DeveloperLoadError::Forbidden),
+            _ => Err(crate::api::DeveloperLoadError::Malformed),
+        };
+        match outcome {
+            Ok(data) => {
+                let empty = data.api_keys.is_empty() && data.usage.total_requests == 0;
+                params.insert(
+                    data_param.to_string(),
+                    serde_json::to_string(&data)
+                        .expect("validated developer overview is serializable"),
+                );
+                params.insert(
+                    state_param.to_string(),
+                    if empty { LOAD_EMPTY } else { LOAD_READY }.to_string(),
+                );
+            }
+            Err(crate::api::DeveloperLoadError::Forbidden) => {
+                params.insert(state_param.to_string(), LOAD_FORBIDDEN.to_string());
+            }
+            Err(crate::api::DeveloperLoadError::Unavailable) => {
+                params.insert(state_param.to_string(), LOAD_UNAVAILABLE.to_string());
+            }
+            Err(crate::api::DeveloperLoadError::Malformed) => {
+                params.insert(state_param.to_string(), LOAD_MALFORMED.to_string());
+            }
+        }
+    }
+    if matches!(path, "/chat" | "/chat/history") || chat_route_id(path).is_some() {
+        load_chat_page_data(state, path, query, user, params, verified_access_token).await;
+    }
     // /notifications: fetch the authenticated owner's list. Preserve an
     // explicit dependency outcome so an upstream failure never renders as an
     // empty or sample-backed success state.
@@ -1121,9 +1203,6 @@ async fn fetch_page_data(
     // `/plans` intentionally has no loader. Pricing, eligibility, features,
     // sale windows, and subscription decisions remain unavailable until a
     // subscription-owned public catalog contract is frozen end to end.
-    // `/portfolio` intentionally has no loader. No frozen owner-scoped
-    // holdings/watchlist contract exists, so the page fails closed instead of
-    // treating an ambiguous wallet-service path as authoritative.
     // `/account` renders identity details only from the locally verified
     // session. It deliberately performs no ambiguous profile/credit read;
     // owner payment history and notification preferences each use their own
@@ -1165,15 +1244,163 @@ async fn fetch_page_data(
     }
     // `/account/credits` intentionally has no loader. A6 has not selected a
     // credit-ledger authority, so failure must not become a zero balance.
-    // `/developer` intentionally has no loader. API-key and rate-limit data
-    // remain unavailable until A4/A5 provide owner-scoped reads and secret-once
-    // mutation contracts.
-    // `/developer/docs` intentionally does not fetch the historical
-    // `/api/v1/developer/docs` canned fixture. Its version-pinned catalog is
-    // rendered directly until A5 provides a generated contract that can prove
-    // route/auth/rate-limit drift end to end.
+    if path == "/developer/docs" {
+        match crate::api::load_developer_openapi_for_ssr(state.wallet.as_ref()).await {
+            Ok(spec) => {
+                params.insert(
+                    DEVELOPER_OPENAPI_DATA_PARAM.to_string(),
+                    serde_json::to_string(&spec)
+                        .expect("validated developer OpenAPI is serializable"),
+                );
+                params.insert(
+                    DEVELOPER_OPENAPI_STATE_PARAM.to_string(),
+                    LOAD_READY.to_string(),
+                );
+            }
+            Err(crate::api::DeveloperLoadError::Malformed) => {
+                params.insert(
+                    DEVELOPER_OPENAPI_STATE_PARAM.to_string(),
+                    LOAD_MALFORMED.to_string(),
+                );
+            }
+            Err(crate::api::DeveloperLoadError::Forbidden)
+            | Err(crate::api::DeveloperLoadError::Unavailable) => {
+                params.insert(
+                    DEVELOPER_OPENAPI_STATE_PARAM.to_string(),
+                    LOAD_UNAVAILABLE.to_string(),
+                );
+            }
+        }
+    }
     // Dynamic payment pages intentionally perform no intent lookup until A6
     // provides an owner-safe intent and finality contract.
+}
+
+async fn load_chat_page_data(
+    state: &AppState,
+    path: &str,
+    query: &str,
+    user: &Option<User>,
+    params: &mut HashMap<String, String>,
+    verified_access_token: Option<&str>,
+) {
+    let Some(owner) = user.as_ref().map(|user| user.address.as_str()) else {
+        params.insert(CHAT_INBOX_STATE_PARAM.into(), CHAT_FORBIDDEN.into());
+        params.insert(CHAT_DETAIL_STATE_PARAM.into(), CHAT_FORBIDDEN.into());
+        return;
+    };
+    let Some(bearer) = verified_access_token else {
+        params.insert(CHAT_INBOX_STATE_PARAM.into(), CHAT_FORBIDDEN.into());
+        params.insert(CHAT_DETAIL_STATE_PARAM.into(), CHAT_FORBIDDEN.into());
+        return;
+    };
+
+    if matches!(path, "/chat" | "/chat/history") {
+        let inbox =
+            crate::chat_adapter::load_chat_inbox_for_ssr(state.wallet.as_ref(), bearer, owner)
+                .await;
+        let first_id = inbox
+            .as_ref()
+            .ok()
+            .and_then(|inbox| inbox.conversations.first())
+            .and_then(|conversation| uuid::Uuid::parse_str(&conversation.id).ok());
+        record_chat_inbox(params, inbox);
+
+        if path == "/chat" && !chat_new_requested(query) {
+            if let Some(id) = first_id {
+                let detail = crate::chat_adapter::load_chat_detail_for_ssr(
+                    state.wallet.as_ref(),
+                    bearer,
+                    owner,
+                    id,
+                )
+                .await;
+                record_chat_detail(params, detail);
+            }
+        }
+    } else if let Some(id) = chat_route_id(path) {
+        let detail =
+            crate::chat_adapter::load_chat_detail_for_ssr(state.wallet.as_ref(), bearer, owner, id)
+                .await;
+        record_chat_detail(params, detail);
+    }
+}
+
+fn record_chat_inbox(
+    params: &mut HashMap<String, String>,
+    result: Result<epsx_dioxus_ui::pages::chat::ChatInboxData, crate::chat_adapter::ChatLoadError>,
+) {
+    params.remove(CHAT_INBOX_DATA_PARAM);
+    let state = match result {
+        Ok(inbox) => {
+            let state = if inbox.conversations.is_empty() {
+                CHAT_EMPTY
+            } else {
+                CHAT_READY
+            };
+            params.insert(
+                CHAT_INBOX_DATA_PARAM.into(),
+                serde_json::to_string(&inbox).expect("validated chat inbox is serializable"),
+            );
+            state
+        }
+        Err(crate::chat_adapter::ChatLoadError::Forbidden) => CHAT_FORBIDDEN,
+        Err(crate::chat_adapter::ChatLoadError::Unavailable) => CHAT_UNAVAILABLE,
+        Err(crate::chat_adapter::ChatLoadError::Malformed) => CHAT_MALFORMED,
+    };
+    params.insert(CHAT_INBOX_STATE_PARAM.into(), state.into());
+}
+
+fn record_chat_detail(
+    params: &mut HashMap<String, String>,
+    result: Result<epsx_dioxus_ui::pages::chat::ChatDetailData, crate::chat_adapter::ChatLoadError>,
+) {
+    params.remove(CHAT_DETAIL_DATA_PARAM);
+    let state = match result {
+        Ok(detail) => {
+            params.insert(
+                CHAT_DETAIL_DATA_PARAM.into(),
+                serde_json::to_string(&detail).expect("validated chat detail is serializable"),
+            );
+            CHAT_READY
+        }
+        Err(crate::chat_adapter::ChatLoadError::Forbidden) => CHAT_FORBIDDEN,
+        Err(crate::chat_adapter::ChatLoadError::Unavailable) => CHAT_UNAVAILABLE,
+        Err(crate::chat_adapter::ChatLoadError::Malformed) => CHAT_MALFORMED,
+    };
+    params.insert(CHAT_DETAIL_STATE_PARAM.into(), state.into());
+}
+
+fn chat_route_id(path: &str) -> Option<uuid::Uuid> {
+    let value = path.strip_prefix("/chat/")?;
+    if value == "history" || value.is_empty() || value.contains('/') {
+        return None;
+    }
+    uuid::Uuid::parse_str(value).ok()
+}
+
+fn chat_new_requested(query: &str) -> bool {
+    url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| key == "new" && value == "1")
+}
+
+fn developer_usage_days(raw_query: &str) -> Result<i32, ()> {
+    if raw_query.is_empty() {
+        return Ok(30);
+    }
+    let url =
+        reqwest::Url::parse(&format!("https://frontend.invalid/?{raw_query}")).map_err(|_| ())?;
+    let mut days = None;
+    for (key, value) in url.query_pairs() {
+        if key != "days" {
+            continue;
+        }
+        if days.is_some() {
+            return Err(());
+        }
+        days = Some(value.parse::<i32>().map_err(|_| ())?);
+    }
+    let days = days.unwrap_or(30);
+    matches!(days, 7 | 30 | 90).then_some(days).ok_or(())
 }
 
 fn analytics_query(raw_query: &str) -> Result<String, ()> {
@@ -1321,6 +1548,30 @@ async fn load_analytics_watchlist(
         })
 }
 
+async fn load_portfolio_watchlist_layout(
+    client: &epsx_client::ServiceClient,
+    token: Option<&str>,
+) -> Result<Option<WatchlistLayoutData>, AnalyticsLoadError> {
+    let Some(token) = token else {
+        return Ok(None);
+    };
+    let mut context = epsx_client::RequestContext::new();
+    context.auth_token = Some(token.to_string());
+    let value = client
+        .get_with_ctx(PORTFOLIO_WATCHLIST_LAYOUT_PATH, &context)
+        .await
+        .map_err(|error| {
+            tracing::warn!("portfolio watchlist layout dependency unavailable: {error}");
+            AnalyticsLoadError::Unavailable
+        })?;
+    crate::api::decode_watchlist_layout_response(value)
+        .map(Some)
+        .map_err(|()| {
+            tracing::warn!("portfolio watchlist layout response malformed");
+            AnalyticsLoadError::Malformed
+        })
+}
+
 fn record_analytics_query(params: &mut HashMap<String, String>, normalized_query: &str) {
     let query = AnalyticsQueryState::from_normalized_query(normalized_query)
         .expect("the bounded SSR query is valid analytics query state");
@@ -1399,6 +1650,30 @@ fn record_analytics_watchlist_load(
     );
 }
 
+fn record_portfolio_watchlist_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<Option<WatchlistLayoutData>, AnalyticsLoadError>,
+) {
+    params.remove(PORTFOLIO_WATCHLIST_DATA_PARAM);
+    let state = match outcome {
+        Ok(Some(watchlist)) => {
+            params.insert(
+                PORTFOLIO_WATCHLIST_DATA_PARAM.to_string(),
+                serde_json::to_string(&watchlist)
+                    .expect("validated portfolio watchlist is serializable"),
+            );
+            "ready"
+        }
+        Ok(None) => "signed_out",
+        Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(
+        PORTFOLIO_WATCHLIST_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
 fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
     let (key, is_list) = if path == "/news" {
         ("data_news", true)
@@ -1448,6 +1723,24 @@ fn normalized_request_target(path: &str, query: &str) -> String {
     }
 }
 
+/// Pick the identity displayed in the public navigation. An authenticated
+/// session always wins over the provider cookie so a stale/disconnected
+/// browser wallet cannot replace the backend-verified owner identity.
+fn authoritative_navigation_wallet(
+    user: &Option<User>,
+    connected_wallet: Option<&str>,
+) -> Option<String> {
+    user.as_ref()
+        .map(|user| user.address.trim())
+        .filter(|address| !address.is_empty())
+        .or_else(|| {
+            connected_wallet
+                .map(str::trim)
+                .filter(|address| !address.is_empty())
+        })
+        .map(str::to_owned)
+}
+
 fn frontend_navigation_html(
     path: &str,
     query: &str,
@@ -1459,21 +1752,14 @@ fn frontend_navigation_html(
     }
 
     let return_target = normalized_request_target(path, query);
-    // Keep the supplied home references unchanged: their compact action
-    // cluster intentionally has no network label. Other public routes mirror
-    // the development tablet/desktop shell, which shows the read-only
-    // BSC Testnet target beside the wallet action.
-    let show_network = !matches!(path, "/" | "/index");
-    let mut html = epsx_templates::epsx_header_for_session_and_wallet_with_network(
+    // Production keeps the chain selector out of the global navigation. The
+    // current network remains available inside wallet-owned flows where it is
+    // actionable, rather than occupying the public header as a read-only tag.
+    epsx_templates::epsx_header_for_session_and_wallet(
         is_authenticated,
         &return_target,
         wallet_address,
-        show_network,
-    );
-    if !is_authenticated && wallet_address.is_some() {
-        html.push_str(&epsx_templates::epsx_wallet_sign_in_banner(&return_target));
-    }
-    html
+    )
 }
 
 fn urlencode(value: &str) -> String {
@@ -1528,6 +1814,7 @@ mod tests {
     use super::analytics_query;
     use super::apply_ssr_cache_policy;
     use super::auth_page_session_state;
+    use super::authoritative_navigation_wallet;
     use super::design_bypass_chat_enabled;
     use super::design_bypass_identity_enabled;
     use super::design_bypass_requested;
@@ -1549,6 +1836,7 @@ mod tests {
     use super::record_home_analytics_load;
     use super::record_home_news_load;
     use super::record_notification_load;
+    use super::record_portfolio_watchlist_load;
     use super::safe_return_url;
     use super::urlencode;
     use super::AnalyticsLoadError;
@@ -1557,6 +1845,7 @@ mod tests {
     use crate::api::{NotificationPreferencesLoadError, NotificationPreferencesLoadOutcome};
     use axum::http::{header, HeaderMap, HeaderValue};
     use epsx_bff::session::AccessVerification;
+    use epsx_dioxus_ui::auth::User;
     use epsx_dioxus_ui::pages::auth_page::{
         AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
         AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
@@ -2142,7 +2431,7 @@ mod tests {
         let calls = std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0));
         let route_calls = std::sync::Arc::clone(&calls);
         let router = axum::Router::new().route(
-            "/api/v1/content/news",
+            "/api/public/news",
             axum::routing::get(move || {
                 let route_calls = std::sync::Arc::clone(&route_calls);
                 async move {
@@ -2587,6 +2876,58 @@ mod tests {
     use axum::response::IntoResponse;
 
     #[test]
+    fn portfolio_watchlist_loader_records_ready_signed_out_and_fail_closed_states() {
+        use epsx_dioxus_ui::pages::portfolio::{
+            WatchlistLayoutData, PORTFOLIO_WATCHLIST_DATA_PARAM, PORTFOLIO_WATCHLIST_STATE_PARAM,
+        };
+
+        let mut params = HashMap::new();
+        record_portfolio_watchlist_load(
+            &mut params,
+            Ok(Some(WatchlistLayoutData {
+                groups: vec![],
+                ungrouped: vec!["AAPL".to_string()],
+                watched: 1,
+            })),
+        );
+        assert_eq!(
+            params
+                .get(PORTFOLIO_WATCHLIST_STATE_PARAM)
+                .map(String::as_str),
+            Some("ready")
+        );
+        assert_eq!(
+            params
+                .get(PORTFOLIO_WATCHLIST_DATA_PARAM)
+                .map(String::as_str),
+            Some(r#"{"groups":[],"ungrouped":["AAPL"],"watched":1}"#)
+        );
+
+        record_portfolio_watchlist_load(&mut params, Ok(None));
+        assert_eq!(
+            params
+                .get(PORTFOLIO_WATCHLIST_STATE_PARAM)
+                .map(String::as_str),
+            Some("signed_out")
+        );
+        assert!(!params.contains_key(PORTFOLIO_WATCHLIST_DATA_PARAM));
+
+        for (error, expected) in [
+            (AnalyticsLoadError::Malformed, "malformed"),
+            (AnalyticsLoadError::Unavailable, "unavailable"),
+        ] {
+            record_portfolio_watchlist_load(&mut params, Err(error));
+            assert_eq!(
+                params
+                    .get(PORTFOLIO_WATCHLIST_STATE_PARAM)
+                    .map(String::as_str),
+                Some(expected)
+            );
+            assert!(!params.contains_key(PORTFOLIO_WATCHLIST_DATA_PARAM));
+        }
+    }
+
+    #[test]
     fn urlencode_passes_alnum() {
         // Matches Vercel's prod middleware `epsx.return_url=%2F<path>` shape.
         assert_eq!(urlencode("/notifications"), "%2Fnotifications");
@@ -2660,13 +3001,129 @@ mod tests {
     }
 
     #[test]
-    fn shared_navigation_keeps_home_reference_clean_and_marks_non_home_network() {
+    fn shared_navigation_matches_production_without_a_network_badge() {
         let home = frontend_navigation_html("/", "", false, None);
         assert!(!home.contains("data-epsx-network=\"bsc-testnet\""));
 
         let plans = frontend_navigation_html("/plans", "", false, None);
-        assert!(plans.contains("data-epsx-network=\"bsc-testnet\""));
-        assert!(plans.contains("Current network: BSC Testnet"));
+        assert!(!plans.contains("data-epsx-network=\"bsc-testnet\""));
+        assert!(!plans.contains("Current network: BSC Testnet"));
+    }
+
+    #[test]
+    fn shared_navigation_connected_wallet_omits_full_width_sign_in_recommendation() {
+        let header = frontend_navigation_html(
+            "/analytics",
+            "page=1&limit=10",
+            false,
+            Some("0x2ae30000000000000000000000000000000023be"),
+        );
+
+        assert_eq!(header.matches("data-epsx-wallet-pill").count(), 3);
+        assert!(header.contains("href=\"/auth?return_url=%2Fanalytics%3Fpage%3D1%26limit%3D10\""));
+        assert!(!header.contains("epsx-sign-in-banner"));
+        assert!(!header.contains("Your wallet is connected"));
+    }
+
+    #[test]
+    fn authenticated_navigation_prefers_the_verified_session_wallet() {
+        let user = Some(User {
+            id: "verified-user".to_string(),
+            address: "0x2ae30000000000000000000000000000000023be".to_string(),
+            ..Default::default()
+        });
+
+        assert_eq!(
+            authoritative_navigation_wallet(
+                &user,
+                Some("0x9999000000000000000000000000000000009999")
+            )
+            .as_deref(),
+            Some("0x2ae30000000000000000000000000000000023be")
+        );
+
+        let header = frontend_navigation_html(
+            "/analytics",
+            "",
+            true,
+            authoritative_navigation_wallet(&user, None).as_deref(),
+        );
+        assert!(header.contains("Wallet menu for 0x2ae3…23be"));
+        assert!(header.contains("data-copy=\"0x2ae30000000000000000000000000000000023be\""));
+        assert!(!header.contains("class=\"epsx-connect-btn\" type=\"button\" data-epsx-logout"));
+    }
+
+    #[test]
+    fn shared_navigation_inlines_icons_and_preserves_progressive_actions() {
+        let header = frontend_navigation_html(
+            "/analytics",
+            "",
+            true,
+            Some("0x2ae30000000000000000000000000000000023be"),
+        );
+
+        assert!(!header.contains("data-lucide"));
+        assert!(!header.contains("<i "));
+        for icon in [
+            "lucide-chart-column",
+            "lucide-code",
+            "lucide-building",
+            "lucide-chevron-down",
+            "lucide-bell",
+            "lucide-sun",
+            "lucide-moon",
+            "lucide-wallet",
+            "lucide-user",
+            "lucide-copy",
+            "lucide-log-out",
+            "lucide-menu",
+        ] {
+            assert!(header.contains(icon), "missing inline navbar icon {icon}");
+        }
+
+        assert_eq!(header.matches("data-epsx-action=\"toggle-nav\"").count(), 6);
+        assert_eq!(
+            header
+                .matches("data-epsx-action=\"toggle-mobile-menu\"")
+                .count(),
+            2
+        );
+        assert_eq!(header.matches("data-epsx-logout").count(), 3);
+        assert!(header.contains("data-epsx-action=\"theme-toggle\""));
+        assert!(header.contains("href=\"/notifications\""));
+        assert!(header.contains("href=\"/account\""));
+    }
+
+    #[test]
+    fn shared_navigation_uses_lg_desktop_and_mobile_contract() {
+        let header = frontend_navigation_html("/analytics", "", false, None);
+
+        assert!(
+            header.contains("class=\"epsx-desktop-navigation hidden lg:flex items-center gap-6\"")
+        );
+        assert!(header
+            .contains("class=\"epsx-compact-brand lg:hidden flex items-center gap-2.5 group\""));
+        assert!(header.contains("class=\"epsx-theme-btn lg:hidden\""));
+        assert!(header.contains("id=\"epsx-mobile-menu-btn\""));
+        assert!(header.contains("aria-controls=\"epsx-mobile-sheet\""));
+        assert!(header.contains("id=\"epsx-mobile-sheet\""));
+        assert!(header.contains("aria-label=\"Primary\""));
+        assert!(header.contains("aria-label=\"Mobile\""));
+        assert!(header.contains("id=\"epsx-nav-market-trigger\" class=\"epsx-nav-trigger active\""));
+        assert!(header.contains(
+            "id=\"epsx-mobile-market-trigger\" class=\"epsx-mobile-group-trigger active\""
+        ));
+        assert!(header.contains(
+            "id=\"epsx-mobile-market-trigger\" class=\"epsx-mobile-group-trigger active\" type=\"button\" aria-expanded=\"true\""
+        ));
+        assert!(header.contains(
+            "id=\"epsx-mobile-developer-panel\" class=\"epsx-mobile-group-items\" aria-labelledby=\"epsx-mobile-developer-trigger\" hidden"
+        ));
+
+        let article_header = frontend_navigation_html("/news/example", "", false, None);
+        assert!(article_header
+            .contains("id=\"epsx-nav-company-trigger\" class=\"epsx-nav-trigger active\""));
+        assert!(article_header.contains("href=\"/news\" class=\"epsx-mobile-link active\""));
     }
 
     /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.
