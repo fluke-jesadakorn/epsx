@@ -11,7 +11,7 @@
 //! - Matches any path under `/api/v1/pay/{*rest}`
 //! - Reads `PAY_URL` env var (defaults to
 //!   `http://epsx-pay-svc:8103` in-cluster,
-//!   `http://localhost:18103` in dev).
+//!   `http://127.0.0.1:8103` in dev).
 //! - Forwards method + path + body + query params to the upstream.
 //! - Returns the upstream's status + body unchanged.
 //! - Logs a `tracing::warn!` per call so we can spot when the
@@ -45,14 +45,34 @@ pub struct PayProxyState {
 
 impl PayProxyState {
     pub fn from_env() -> Self {
-        let pay_base_url =
-            std::env::var("PAY_URL").unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
+        let environment = std::env::var("EPSX_ENV")
+            .or_else(|_| std::env::var("ENV"))
+            .or_else(|_| std::env::var("ENVIRONMENT"))
+            .unwrap_or_default();
+        let pay_base_url = std::env::var("PAY_URL")
+            .unwrap_or_else(|_| default_pay_base_url(&environment).to_string());
         let http = reqwest::Client::builder()
             .timeout(Duration::from_secs(30))
             .build()
             .expect("reqwest client builder");
         Self { pay_base_url, http }
     }
+}
+
+fn default_pay_base_url(environment: &str) -> &'static str {
+    if matches!(environment, "development" | "dev" | "local" | "test") {
+        "http://127.0.0.1:8103"
+    } else {
+        "http://epsx-pay-svc:8103"
+    }
+}
+
+fn pay_rest_path(path: &str) -> &str {
+    path.strip_prefix("/api/v1/pay/")
+        .or_else(|| path.strip_prefix("/api/v1/pay"))
+        // Axum strips the prefix before dispatching into a nested router.
+        .unwrap_or(path)
+        .trim_start_matches('/')
 }
 
 fn log_method(method: &str) -> &'static str {
@@ -97,10 +117,7 @@ pub async fn pay_proxy(
     let headers = req.headers().clone();
 
     // Extract the path after `/api/v1/pay/`.
-    let rest = full_path
-        .strip_prefix("/api/v1/pay/")
-        .or_else(|| full_path.strip_prefix("/api/v1/pay"))
-        .unwrap_or("");
+    let rest = pay_rest_path(&full_path);
 
     // Build the upstream URL.
     let upstream = format!(
@@ -196,6 +213,17 @@ mod tests {
             log_method("0x1111111111111111111111111111111111111111"),
             "OTHER"
         );
+        assert_eq!(default_pay_base_url("development"), "http://127.0.0.1:8103");
+        assert_eq!(
+            default_pay_base_url("production"),
+            "http://epsx-pay-svc:8103"
+        );
+        assert_eq!(
+            pay_rest_path("/api/v1/pay/history/0x1111"),
+            "history/0x1111"
+        );
+        assert_eq!(pay_rest_path("/history/0x1111"), "history/0x1111");
+        assert_eq!(pay_rest_path("/"), "");
     }
 
     #[tokio::test]

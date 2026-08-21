@@ -2641,9 +2641,21 @@ fn vapid_private_key_from_env_name(name: &str) -> Option<Arc<Vec<u8>>> {
     let valid = if raw.contains("BEGIN") {
         VapidSignatureBuilder::from_pem_no_sub(raw.as_bytes()).is_ok()
     } else {
-        valid_push_token(&raw, 256) && VapidSignatureBuilder::from_base64_no_sub(&raw).is_ok()
+        valid_vapid_base64_private_key(&raw)
     };
     valid.then(|| Arc::new(raw.into_bytes()))
+}
+
+fn valid_vapid_base64_private_key(value: &str) -> bool {
+    if !valid_push_token(value, 256)
+        || URL_SAFE_NO_PAD
+            .decode(value)
+            .map_or(true, |decoded| decoded.len() != 32)
+    {
+        return false;
+    }
+    std::panic::catch_unwind(|| VapidSignatureBuilder::from_base64_no_sub(value).is_ok())
+        .unwrap_or(false)
 }
 
 fn vapid_private_key_matches_public(private_key: &[u8], public_key: &str) -> bool {
@@ -2654,7 +2666,11 @@ fn vapid_private_key_matches_public(private_key: &[u8], public_key: &str) -> boo
     } else {
         std::str::from_utf8(private_key)
             .ok()
-            .and_then(|encoded| VapidSignatureBuilder::from_base64_no_sub(encoded).ok())
+            .and_then(|encoded| {
+                std::panic::catch_unwind(|| VapidSignatureBuilder::from_base64_no_sub(encoded))
+                    .ok()
+                    .and_then(Result::ok)
+            })
             .map(|builder| builder.get_public_key())
     };
     derived.is_some_and(|key| URL_SAFE_NO_PAD.encode(key) == public_key)
@@ -5958,6 +5974,8 @@ mod tests {
         assert!(!valid_vapid_key_id("previous key"));
         assert!(!valid_vapid_key_id("active/key"));
         assert!(!valid_vapid_key_id(""));
+        assert!(!valid_vapid_base64_private_key(&"A".repeat(32)));
+        assert!(!valid_vapid_base64_private_key("private key with spaces"));
     }
 
     #[tokio::test]
