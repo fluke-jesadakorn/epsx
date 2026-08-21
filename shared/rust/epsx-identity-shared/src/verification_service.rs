@@ -1,6 +1,6 @@
 // Wallet Verification and User Lifecycle
 // Handles: get_or_create_user, emit_new_wallet_event, assign_free_plan_to_wallet
-// Also handles blockchain permission queries: NFT, Token, DAO
+// Also handles explicitly configured blockchain permission queries: NFT and DAO
 
 use chrono::Utc;
 use diesel::prelude::*;
@@ -8,7 +8,7 @@ use diesel_async::RunQueryDsl;
 use ethers::{
     abi::Abi,
     contract::Contract,
-    providers::{Http, Middleware, Provider},
+    providers::{Http, Provider},
     types::{Address, U256},
 };
 use std::str::FromStr;
@@ -336,55 +336,6 @@ impl UnifiedWeb3AuthService {
             }
         } else {
             warn!("Failed to parse NFT contract ABI");
-        }
-
-        Ok(permissions)
-    }
-
-    /// Get token-based permissions based on BNB balance
-    pub(super) async fn get_token_permissions(
-        &self,
-        wallet_address: &str,
-    ) -> Result<Vec<String>, Web3AuthError> {
-        let mut permissions = Vec::new();
-
-        let provider = match self.bsc_provider() {
-            Ok(p) => p,
-            Err(e) => {
-                warn!("Failed to create BSC provider: {}", e);
-                return Ok(permissions);
-            }
-        };
-
-        let address = match Address::from_str(wallet_address) {
-            Ok(addr) => addr,
-            Err(e) => {
-                warn!("Invalid wallet address {}: {}", wallet_address, e);
-                return Ok(permissions);
-            }
-        };
-
-        match provider.get_balance(address, None).await {
-            Ok(balance) => {
-                let bnb = balance.as_u128() as f64 / 1e18;
-                if bnb >= 10.0 {
-                    permissions.push("epsx:premium:lifetime".to_string());
-                    permissions.push("epsx:analytics:unlimited".to_string());
-                } else if bnb >= 1.0 {
-                    permissions.push("epsx:premium:annual".to_string());
-                    permissions.push("epsx:analytics:premium".to_string());
-                } else if bnb >= 0.1 {
-                    permissions.push("epsx:premium:monthly".to_string());
-                    permissions.push("epsx:analytics:standard".to_string());
-                }
-                debug!(
-                    "Wallet {} has {} BNB, granted {} token permissions",
-                    wallet_address,
-                    bnb,
-                    permissions.len()
-                );
-            }
-            Err(e) => warn!("Failed to get BNB balance for {}: {}", wallet_address, e),
         }
 
         Ok(permissions)

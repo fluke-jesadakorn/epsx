@@ -316,7 +316,8 @@ impl UnifiedWeb3AuthService {
         })
     }
 
-    /// Get wallet permissions (DB manual + blockchain: NFT, Token, DAO)
+    /// Get wallet permissions from persisted assignments and configured
+    /// contract-based grants.
     pub async fn get_wallet_permissions(
         &self,
         wallet_address: &str,
@@ -329,9 +330,8 @@ impl UnifiedWeb3AuthService {
         let manual_perms = self.get_manual_permissions(wallet_address_str).await?;
         permissions.extend(manual_perms);
 
-        let (nft_perms, token_perms, dao_perms) = tokio::join!(
+        let (nft_perms, dao_perms) = tokio::join!(
             self.get_nft_permissions(wallet_address_str),
-            self.get_token_permissions(wallet_address_str),
             self.get_dao_permissions(wallet_address_str)
         );
 
@@ -339,13 +339,6 @@ impl UnifiedWeb3AuthService {
             Ok(perms) => permissions.extend(perms),
             Err(e) => warn!(
                 "Failed to check NFT permissions for {}: {}",
-                wallet_address_str, e
-            ),
-        }
-        match token_perms {
-            Ok(perms) => permissions.extend(perms),
-            Err(e) => warn!(
-                "Failed to check token permissions for {}: {}",
                 wallet_address_str, e
             ),
         }
