@@ -104,8 +104,8 @@ impl EPSRepository for TradingViewEPSRepository {
         limit: i32,
     ) -> Result<Vec<EPSRanking>, AppError> {
         // Apply rank offset: skip to the user's accessible rank range
-        // rank_offset is 1-based (e.g. 1 means start at top, 100 means skip 99)
-        let skip = (rank_offset - 1).max(0) + (page - 1) * limit;
+        // `rank_offset` is the number of leading ranks hidden by the plan.
+        let skip = rank_offset.max(0) + (page - 1) * limit;
 
         tracing::debug!(
             "EPS Ranking Query - Offset: {}, Page: {}, Limit: {}, Calculated Skip: {}",

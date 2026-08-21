@@ -29,6 +29,63 @@ pub struct PublicPlanResponse {
     pub is_active: bool,
     pub tier_level: i32,
     pub plan_group: String,
+    pub ranking_offset: i32,
+    pub rankings_limit: i32,
+    /// Exact backend-owned amount submitted to the payment verifier.
+    pub checkout_price: String,
+    /// Stablecoin used to settle the plan price on chain.
+    pub settlement_currency: String,
+    /// Access duration owned by the plan catalog. `None` is lifetime access.
+    pub duration_days: Option<i64>,
+}
+
+fn ranking_access(plan_metadata: &serde_json::Value) -> (i32, i32) {
+    let ranking_offset = plan_metadata
+        .get("ranking_offset")
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .filter(|value| (0..=10_000).contains(value))
+        .unwrap_or(epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET);
+    let rankings_limit = plan_metadata
+        .get("rankings_limit")
+        .and_then(serde_json::Value::as_i64)
+        .and_then(|value| i32::try_from(value).ok())
+        .filter(|value| *value == -1 || (1..=10_000).contains(value))
+        .unwrap_or(-1);
+    (ranking_offset, rankings_limit)
+}
+
+fn checkout_terms(
+    plan_metadata: &serde_json::Value,
+    billing_cycle: Option<&str>,
+    base_price: &str,
+    effective_price: f64,
+    promotion_active: bool,
+) -> (String, String, Option<i64>) {
+    let checkout_price = if promotion_active {
+        format!("{effective_price:.2}")
+    } else {
+        base_price.to_string()
+    };
+    let settlement_currency = std::env::var("PAYMENT_SETTLEMENT_CURRENCY")
+        .ok()
+        .map(|value| value.trim().to_ascii_uppercase())
+        .filter(|value| matches!(value.as_str(), "USDT" | "USDC"))
+        .unwrap_or_else(|| "USDT".to_string());
+    let duration_days = plan_metadata
+        .get("duration_days")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|days| (1..=3_650).contains(days))
+        .or_else(|| match billing_cycle.unwrap_or_default() {
+            "daily" => Some(1),
+            "weekly" => Some(7),
+            "monthly" => Some(30),
+            "quarterly" => Some(90),
+            "yearly" | "annual" => Some(365),
+            "lifetime" => None,
+            _ => Some(30),
+        });
+    (checkout_price, settlement_currency, duration_days)
 }
 
 /// Get public pricing plans (no authentication required)
@@ -96,9 +153,11 @@ pub async fn get_public_plans(
     // First filter by is_public to only show public plans
     let plans: Vec<PublicPlanResponse> = db_plans
         .into_iter()
-        .filter(|plan| plan.is_public) // Only include public plans
+        .filter(|plan| plan.is_public && plan.is_active.unwrap_or(true))
         .map(|plan| {
             use crate::domain::subscription_management::Promotion;
+
+            let (ranking_offset, rankings_limit) = ranking_access(&plan.plan_metadata);
 
             // Extract permissions array from JSONB
             let permissions = plan
@@ -199,6 +258,14 @@ pub async fn get_public_plans(
                 )
             };
 
+            let (checkout_price, settlement_currency, duration_days) = checkout_terms(
+                &plan.plan_metadata,
+                plan.billing_cycle.as_deref(),
+                &price_str,
+                effective_price,
+                promotion_active,
+            );
+
             PublicPlanResponse {
                 id: plan.id.to_string(),
                 name: plan.name,
@@ -216,6 +283,11 @@ pub async fn get_public_plans(
                 is_active: plan.is_active.unwrap_or(true),
                 tier_level: plan.tier_level,
                 plan_group: plan.plan_group.clone(),
+                ranking_offset,
+                rankings_limit,
+                checkout_price,
+                settlement_currency,
+                duration_days,
             }
         })
         .filter(|p| {
@@ -321,7 +393,10 @@ pub async fn get_public_plan_by_id(
     };
 
     // Find the specific plan
-    let plan = match db_plans.into_iter().find(|p| p.id == plan_uuid) {
+    let plan = match db_plans
+        .into_iter()
+        .find(|plan| plan.id == plan_uuid && plan.is_public && plan.is_active.unwrap_or(true))
+    {
         Some(p) => p,
         None => {
             tracing::warn!(plan_id = %plan_id, "Plan not found");
@@ -372,6 +447,7 @@ pub async fn get_public_plan_by_id(
         .unwrap_or_else(|| "0.00".to_string());
 
     let base_price = price_str.parse::<f64>().unwrap_or(0.0);
+    let (ranking_offset, rankings_limit) = ranking_access(&plan.plan_metadata);
 
     // Extract and process promotion
     let promotion_data = plan.plan_metadata.get("promotion");
@@ -412,6 +488,14 @@ pub async fn get_public_plan_by_id(
         )
     };
 
+    let (checkout_price, settlement_currency, duration_days) = checkout_terms(
+        &plan.plan_metadata,
+        plan.billing_cycle.as_deref(),
+        &price_str,
+        effective_price,
+        promotion_active,
+    );
+
     let plan_data = PublicPlanResponse {
         id: plan.id.to_string(),
         name: plan.name,
@@ -429,6 +513,11 @@ pub async fn get_public_plan_by_id(
         is_active: plan.is_active.unwrap_or(true),
         tier_level: plan.tier_level,
         plan_group: plan.plan_group.clone(),
+        ranking_offset,
+        rankings_limit,
+        checkout_price,
+        settlement_currency,
+        duration_days,
     };
 
     if let Some(redis_pool) = &app_state.redis_pool {

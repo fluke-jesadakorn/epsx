@@ -15,13 +15,40 @@ use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::{
-    infrastructure::database::get_payments_pool,
+    infrastructure::database::{get_diesel_pool, get_payments_pool},
     prelude::*,
     web::{
         auth::AppState,
         middleware::{OpenIDUserContext, UnifiedErrorResponse},
     },
 };
+
+fn plan_assignment_expiry(
+    now: chrono::DateTime<chrono::Utc>,
+    metadata: &serde_json::Value,
+    billing_cycle: &str,
+    existing_expiry: Option<chrono::DateTime<chrono::Utc>>,
+) -> Option<chrono::DateTime<chrono::Utc>> {
+    let duration_days = metadata
+        .get("duration_days")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|days| (1..=3_650).contains(days))
+        .or_else(|| match billing_cycle {
+            "daily" => Some(1),
+            "weekly" => Some(7),
+            "monthly" => Some(30),
+            "quarterly" => Some(90),
+            "yearly" | "annual" => Some(365),
+            "lifetime" => None,
+            _ => Some(30),
+        });
+    duration_days.map(|days| {
+        existing_expiry
+            .filter(|expiry| *expiry > now)
+            .unwrap_or(now)
+            + chrono::Duration::days(days)
+    })
+}
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -493,12 +520,43 @@ pub async fn submit_transaction_handler(
 
     // Fix 1: Assign plan immediately for credit-only payments
     if payment_status == "confirmed" {
+        let primary_pool = get_diesel_pool().await.map_err(|e| {
+            error!(
+                "Failed to get primary database pool for plan assignment: {}",
+                e
+            );
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
+        let mut primary_conn = primary_pool.get().await.map_err(|e| {
+            error!("Failed to get primary database connection: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
+
+        #[derive(diesel::QueryableByName)]
+        struct CreditPlanTerms {
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            plan_metadata: serde_json::Value,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            billing_cycle: Option<String>,
+        }
+
+        let plan_terms: CreditPlanTerms = diesel::sql_query(
+            "SELECT plan_metadata, billing_cycle FROM plans WHERE id = $1 AND is_active = true",
+        )
+        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
+        .get_result(&mut primary_conn)
+        .await
+        .map_err(|e| {
+            error!("Unable to load plan terms for credit assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
+
         #[derive(diesel::QueryableByName)]
         struct CreditAssignment {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            expires_at: chrono::DateTime<chrono::Utc>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
             #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
         }
@@ -516,29 +574,34 @@ pub async fn submit_transaction_handler(
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .execute(&mut conn)
+        .execute(&mut primary_conn)
         .await
-        .ok();
+        .map_err(|e| {
+            error!("Unable to deactivate previous plan assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
 
         let existing_assign: Option<CreditAssignment> = diesel::sql_query(
             "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .get_result(&mut conn)
+        .get_result(&mut primary_conn)
         .await
         .optional()
-        .ok()
-        .flatten();
+        .map_err(|e| {
+            error!("Unable to inspect existing plan assignment: {}", e);
+            UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+        })?;
 
         let now = chrono::Utc::now();
         if let Some(existing) = existing_assign {
-            let base = if existing.is_active && existing.expires_at > now {
-                existing.expires_at
-            } else {
-                now
-            };
-            let new_expiry = base + chrono::Duration::days(30);
+            let new_expiry = plan_assignment_expiry(
+                now,
+                &plan_terms.plan_metadata,
+                plan_terms.billing_cycle.as_deref().unwrap_or_default(),
+                existing.is_active.then_some(existing.expires_at).flatten(),
+            );
             diesel::sql_query(
                 r#"
                 UPDATE wallet_plan_assignments
@@ -546,18 +609,26 @@ pub async fn submit_transaction_handler(
                 WHERE id = $3
                 "#,
             )
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(new_expiry)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .bind::<diesel::sql_types::Uuid, _>(existing.id)
-            .execute(&mut conn)
+            .execute(&mut primary_conn)
             .await
-            .ok();
+            .map_err(|e| {
+                error!("Unable to extend purchased plan assignment: {}", e);
+                UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+            })?;
             info!(
-                "Extended/reactivated plan {} for wallet {} via credits until {}",
+                "Extended/reactivated plan {} for wallet {} via credits until {:?}",
                 plan_uuid, wallet_address, new_expiry
             );
         } else {
-            let new_expiry = now + chrono::Duration::days(30);
+            let new_expiry = plan_assignment_expiry(
+                now,
+                &plan_terms.plan_metadata,
+                plan_terms.billing_cycle.as_deref().unwrap_or_default(),
+                None,
+            );
             diesel::sql_query(
                 r#"
                 INSERT INTO wallet_plan_assignments (
@@ -570,13 +641,16 @@ pub async fn submit_transaction_handler(
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_address)
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(new_expiry)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .execute(&mut conn)
+            .execute(&mut primary_conn)
             .await
-            .ok();
+            .map_err(|e| {
+                error!("Unable to create purchased plan assignment: {}", e);
+                UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
+            })?;
             info!(
-                "Created plan assignment for wallet {} → plan {} via credits (expires: {})",
+                "Created plan assignment for wallet {} → plan {} via credits (expires: {:?})",
                 wallet_address, plan_uuid, new_expiry
             );
         }

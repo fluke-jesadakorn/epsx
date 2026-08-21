@@ -134,8 +134,8 @@ pub async fn get_eps_rankings(
             has_prev: pg.has_prev(),
         },
         access_info: super::types::AccessInfo {
-            min_accessible_rank: rank_offset,
-            locked_ranks_count: rank_offset.max(1) - 1, // Ranks 1 to (offset-1) are locked
+            min_accessible_rank: rank_offset.max(0).saturating_add(1),
+            locked_ranks_count: rank_offset.max(0),
         },
     };
 

@@ -33,6 +33,17 @@ pub struct PublicPlan {
     pub is_active: bool,
     pub tier_level: i32,
     pub plan_group: String,
+    /// Backend-owned number of leading market ranks hidden by this plan.
+    /// `0` and `1` both represent top-rank access for legacy catalog rows.
+    pub ranking_offset: i32,
+    /// Backend-owned maximum ranking inventory for the plan. `-1` is unlimited.
+    pub rankings_limit: i32,
+    /// Exact backend-owned stablecoin amount used by checkout.
+    pub checkout_price: String,
+    /// Stablecoin used for on-chain settlement (USDT or USDC).
+    pub settlement_currency: String,
+    /// Backend-owned access duration. `None` represents lifetime access.
+    pub duration_days: Option<i64>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -101,6 +112,18 @@ fn billing_label(value: &str) -> String {
     value.replace('_', " ")
 }
 
+fn ranking_access_label(plan: &PublicPlan) -> String {
+    let first_rank = if plan.ranking_offset <= 1 {
+        1
+    } else {
+        plan.ranking_offset.saturating_add(1)
+    };
+    match plan.rankings_limit {
+        -1 => format!("Stock rankings from rank {first_rank} · unlimited inventory"),
+        limit => format!("Stock rankings from rank {first_rank} · up to {limit} results"),
+    }
+}
+
 #[component]
 fn PlansReadyContent(plans: Vec<PublicPlan>) -> Element {
     rsx! {
@@ -150,10 +173,14 @@ fn PlansReadyContent(plans: Vec<PublicPlan>) -> Element {
                                     }
                                 }
                             }
+                            p {
+                                class: "mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200",
+                                "{ranking_access_label(&plan)}"
+                            }
                             a {
                                 class: "inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700",
-                                href: CONTACT_PATH,
-                                "Ask about this plan"
+                                href: format!("/payment/plan/{}", plan.id),
+                                "Get Started"
                             }
                         }
                     }
@@ -442,6 +469,11 @@ mod tests {
             is_active: true,
             tier_level: 2,
             plan_group: "personal".to_string(),
+            ranking_offset: 0,
+            rankings_limit: -1,
+            checkout_price: "9.90".to_string(),
+            settlement_currency: "USDT".to_string(),
+            duration_days: Some(30),
         }
     }
 
@@ -557,7 +589,9 @@ mod tests {
         assert!(html.contains("Live analytics"));
         assert!(!html.contains("epsx:analytics:read"));
         assert!(!html.contains("Subscribe"));
-        assert!(html.contains("Ask about this plan"));
+        assert!(html.contains("Get Started"));
+        assert!(html.contains("/payment/plan/61a62cbe-3371-41db-bd90-321c53a71e06"));
+        assert!(html.contains("Stock rankings from rank 1 · unlimited inventory"));
     }
 
     #[test]

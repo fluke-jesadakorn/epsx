@@ -197,8 +197,8 @@ pub async fn get_unified_analytics_rankings_cached(
         },
         metadata,
         access_info: Some(AccessInfo {
-            min_accessible_rank: rank_offset,
-            locked_ranks_count: if rank_offset > 0 { rank_offset - 1 } else { 0 },
+            min_accessible_rank: rank_offset.max(0).saturating_add(1),
+            locked_ranks_count: rank_offset.max(0),
         }),
         message: Some(format!(
             "Fetched {} card dashboard rankings successfully from TradingView API",
@@ -262,10 +262,9 @@ fn prepare_market_rankings_request(
     let page = params.page.unwrap_or(1).max(1);
     let sort_by = normalize_market_rankings_sort(params.sort_by.as_deref())?;
 
-    let rank_start = rank_offset
-        .checked_sub(1)
-        .ok_or_else(rankings_pagination_overflow)?
-        .max(0);
+    // Catalog `ranking_offset` is the number of leading ranks hidden from the
+    // wallet: 5 means the first visible result is rank 6, while 0 means rank 1.
+    let rank_start = rank_offset.max(0);
     let page_index = page
         .checked_sub(1)
         .ok_or_else(rankings_pagination_overflow)?;
@@ -544,7 +543,7 @@ mod tests {
 
         assert_eq!(prepared.page, 1);
         assert_eq!(prepared.request.limit, 10);
-        assert_eq!(prepared.request.skip, 99);
+        assert_eq!(prepared.request.skip, 100);
     }
 
     #[test]
@@ -554,7 +553,7 @@ mod tests {
                 .expect("authenticated request should be valid");
 
         assert_eq!(prepared.request.limit, 100);
-        assert_eq!(prepared.request.skip, 0);
+        assert_eq!(prepared.request.skip, 1);
     }
 
     #[tokio::test]

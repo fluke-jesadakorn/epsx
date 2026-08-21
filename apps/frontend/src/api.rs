@@ -264,13 +264,19 @@ fn decode_public_plans(
     if !envelope.success || envelope.error.is_some() {
         return Err(());
     }
-    let mut plans = envelope.data.ok_or(())?;
+    validate_public_plan_collection(envelope.data.ok_or(())?)
+}
+
+fn validate_public_plan_collection(
+    mut plans: Vec<epsx_dioxus_ui::pages::plans::PublicPlan>,
+) -> Result<Vec<epsx_dioxus_ui::pages::plans::PublicPlan>, ()> {
     if plans.len() > 100 {
         return Err(());
     }
     let mut ids = std::collections::HashSet::new();
     for plan in &mut plans {
         let current_price = plan.current_price.parse::<f64>().map_err(|_| ())?;
+        let checkout_price = plan.checkout_price.parse::<f64>().map_err(|_| ())?;
         if uuid::Uuid::parse_str(&plan.id).is_err()
             || !ids.insert(plan.id.to_ascii_lowercase())
             || !safe_plan_text(&plan.name, 160)
@@ -281,11 +287,24 @@ fn decode_public_plans(
             || !safe_plan_text(&plan.promotion_status, 40)
             || !current_price.is_finite()
             || current_price < 0.0
+            || !checkout_price.is_finite()
+            || checkout_price <= 0.0
+            || plan.checkout_price.len() > 32
+            || !plan
+                .checkout_price
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || byte == b'.')
+            || !matches!(plan.settlement_currency.as_str(), "USDT" | "USDC")
+            || plan
+                .duration_days
+                .is_some_and(|days| !(1..=3_650).contains(&days))
             || !plan.effective_price.is_finite()
             || plan.effective_price < 0.0
             || !plan.promotion_discount.is_finite()
             || !(0.0..=100.0).contains(&plan.promotion_discount)
             || !(-10_000..=10_000).contains(&plan.tier_level)
+            || !(0..=10_000).contains(&plan.ranking_offset)
+            || !(plan.rankings_limit == -1 || (1..=10_000).contains(&plan.rankings_limit))
             || plan.features.len() > 100
             || plan.permissions.len() > 500
             || plan
@@ -315,6 +334,48 @@ fn decode_public_plans(
         }
     }
     Ok(plans)
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct UpstreamPublicPlanEnvelope {
+    success: bool,
+    data: Option<epsx_dioxus_ui::pages::plans::PublicPlan>,
+    error: Option<serde_json::Value>,
+    meta: Option<serde_json::Value>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum PublicPlanLoadError {
+    NotFound,
+    Unavailable,
+    Malformed,
+}
+
+pub(crate) async fn load_public_plan_by_id(
+    client: &ServiceClient,
+    plan_id: &str,
+) -> Result<epsx_dioxus_ui::pages::plans::PublicPlan, PublicPlanLoadError> {
+    if uuid::Uuid::parse_str(plan_id).is_err() {
+        return Err(PublicPlanLoadError::Malformed);
+    }
+    let value = client
+        .get_plain(&format!("{PUBLIC_PLANS_PATH}/{plan_id}"))
+        .await
+        .map_err(|error| match error {
+            ClientError::NotFound => PublicPlanLoadError::NotFound,
+            _ => PublicPlanLoadError::Unavailable,
+        })?;
+    let envelope: UpstreamPublicPlanEnvelope =
+        serde_json::from_value(value).map_err(|_| PublicPlanLoadError::Malformed)?;
+    let _ = envelope.meta;
+    if !envelope.success || envelope.error.is_some() {
+        return Err(PublicPlanLoadError::Malformed);
+    }
+    validate_public_plan_collection(vec![envelope.data.ok_or(PublicPlanLoadError::Malformed)?])
+        .map_err(|()| PublicPlanLoadError::Malformed)?
+        .pop()
+        .ok_or(PublicPlanLoadError::Malformed)
 }
 
 pub(crate) async fn load_public_plans(
@@ -379,7 +440,12 @@ mod public_plans_adapter_tests {
             "permissions": ["epsx:analytics:read"],
             "is_active": true,
             "tier_level": 2,
-            "plan_group": "personal"
+            "plan_group": "personal",
+            "ranking_offset": 0,
+            "rankings_limit": -1,
+            "checkout_price": "9.90",
+            "settlement_currency": "USDT",
+            "duration_days": 30
         })
     }
 

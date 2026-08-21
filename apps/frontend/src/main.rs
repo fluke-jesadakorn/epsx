@@ -32,6 +32,8 @@ use std::time::Duration;
 
 mod api;
 mod auth;
+mod chat_adapter;
+mod payment_adapter;
 mod ssr;
 mod widgets;
 
@@ -98,14 +100,33 @@ async fn main() {
     let api_url = state.api_url.clone();
     let app = build_app(state);
 
-    let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
-    tracing::info!(
-        "Frontend BFF listening on http://{} (api={})",
-        addr,
-        api_url
-    );
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    if host.eq_ignore_ascii_case("localhost") {
+        let ipv4 = SocketAddr::from(([127, 0, 0, 1], port));
+        let ipv6 = SocketAddr::from(([0, 0, 0, 0, 0, 0, 0, 1], port));
+        tracing::info!(
+            "Frontend BFF listening on http://localhost:{} via {} and {} (api={})",
+            port,
+            ipv4,
+            ipv6,
+            api_url
+        );
+        let ipv4_listener = tokio::net::TcpListener::bind(ipv4).await.unwrap();
+        let ipv6_listener = tokio::net::TcpListener::bind(ipv6).await.unwrap();
+        tokio::try_join!(
+            axum::serve(ipv4_listener, app.clone()),
+            axum::serve(ipv6_listener, app)
+        )
+        .unwrap();
+    } else {
+        let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
+        tracing::info!(
+            "Frontend BFF listening on http://{} (api={})",
+            addr,
+            api_url
+        );
+        let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+        axum::serve(listener, app).await.unwrap();
+    }
 }
 
 fn state_from_env() -> Result<AppState, String> {
@@ -408,11 +429,71 @@ pub fn build_app(state: AppState) -> Router {
             get(watchlist_get).post(watchlist_post),
         )
         .route("/api/users/watchlist/{symbol}", delete(watchlist_delete))
+        .route(
+            "/api/users/watchlist/layout",
+            get(watchlist_layout_get).put(watchlist_layout_put),
+        )
+        .route(
+            "/api/users/watchlist/groups",
+            get(watchlist_layout_get).post(watchlist_group_post),
+        )
+        .route(
+            "/api/users/watchlist/groups/{group_id}",
+            put(watchlist_group_put).delete(watchlist_group_delete),
+        )
+        .route("/portfolio/watch", post(watchlist_add_form))
+        .route("/portfolio/unwatch", post(watchlist_remove_form))
         // Ranking compatibility producers remain intentionally absent. SSR
         // reads the canonical analytics service without moving rank policy
         // into the frontend.
         .route("/api/v1/news", get(api_news))
         .route("/api/v1/news/{slug}", get(api_news_post))
+        .route(
+            "/api/v1/payments/submit",
+            post(payment_adapter::submit_plan_payment),
+        )
+        .route(
+            "/api/v1/payments/status/{tx_hash}",
+            get(payment_adapter::payment_status),
+        )
+        .route("/api/v1/chat/inbox", get(chat_adapter::chat_inbox_api))
+        .route(
+            "/api/v1/chat/conversations",
+            post(chat_adapter::chat_create_api),
+        )
+        .route(
+            "/api/v1/chat/conversations/{id}/full",
+            get(chat_adapter::chat_detail_api),
+        )
+        .route(
+            "/api/v1/chat/conversations/{id}/messages",
+            post(chat_adapter::chat_send_api),
+        )
+        .route("/api/v1/developer/overview", get(developer_overview))
+        .route("/api/v1/developer/usage", get(developer_usage))
+        .route(
+            "/api/v1/developer/keys",
+            get(developer_keys).post(developer_key_create),
+        )
+        .route(
+            "/api/v1/developer/keys/{id}/revoke",
+            post(developer_key_revoke),
+        )
+        .route("/api/v1/developer/openapi", get(developer_openapi))
+        .route("/api/v1/developer/try", post(developer_try))
+        .route("/developer/keys/create", post(developer_key_create_form))
+        .route(
+            "/developer/keys/{id}/revoke",
+            post(developer_key_revoke_form),
+        )
+        .route(
+            "/chat",
+            get(ssr::ssr_handler).post(chat_adapter::chat_create_form),
+        )
+        .route(
+            "/chat/{id}",
+            get(ssr::ssr_handler).post(chat_adapter::chat_conversation_form),
+        )
         // Unowned dashboard and portfolio compatibility producers are
         // intentionally absent until owner-scoped backend contracts exist.
         // Unowned wallet/session and subscription compatibility producers are
@@ -896,7 +977,6 @@ mod routing_tests {
             "/api/v1/account",
             "/api/v1/developer",
             "/api/v1/developer/docs",
-            "/api/v1/developer/usage",
             "/api/v1/analytics/summary",
             "/api/v1/dashboard",
             "/api/v1/dashboard/stats",
@@ -921,6 +1001,28 @@ mod routing_tests {
         let head = request(Method::HEAD, "/api/v1/plans/extra").await;
         assert_eq!(head.status(), StatusCode::NOT_FOUND);
         assert_eq!(head.headers()[header::CONTENT_TYPE], "application/json");
+
+        assert_eq!(
+            request(Method::GET, "/api/v1/developer/usage")
+                .await
+                .status(),
+            StatusCode::UNAUTHORIZED,
+            "the developer usage adapter must exist and require a locally verified session"
+        );
+        assert_eq!(
+            request(Method::POST, "/api/v1/developer/try")
+                .await
+                .status(),
+            StatusCode::FORBIDDEN,
+            "Try It must reject requests without same-origin evidence"
+        );
+        assert_eq!(
+            request(Method::POST, "/developer/keys/create")
+                .await
+                .status(),
+            StatusCode::FORBIDDEN,
+            "the native create fallback must exist and reject cross-origin submission"
+        );
 
         assert_eq!(
             request(Method::POST, "/api/v1/news").await.status(),

@@ -1081,6 +1081,30 @@ async fn fetch_page_data(
             serde_json::to_string(&outcome).expect("public plans outcome is serializable"),
         );
     }
+    if let Some(plan_id) = path
+        .strip_prefix("/payment/plan/")
+        .filter(|id| !id.is_empty() && !id.contains('/') && uuid::Uuid::parse_str(id).is_ok())
+    {
+        use epsx_dioxus_ui::pages::payment::{
+            PaymentCheckoutLoadOutcome, PAYMENT_CHECKOUT_DATA_PARAM,
+        };
+        let outcome = match crate::payment_adapter::load_plan_checkout(state, plan_id).await {
+            Ok(checkout) => PaymentCheckoutLoadOutcome::Ready { checkout },
+            Err(crate::payment_adapter::CheckoutLoadError::NotFound) => {
+                PaymentCheckoutLoadOutcome::NotFound
+            }
+            Err(
+                crate::payment_adapter::CheckoutLoadError::Unavailable
+                | crate::payment_adapter::CheckoutLoadError::Malformed,
+            ) => PaymentCheckoutLoadOutcome::Error {
+                code: "checkout_unavailable".to_string(),
+            },
+        };
+        params.insert(
+            PAYMENT_CHECKOUT_DATA_PARAM.to_string(),
+            serde_json::to_string(&outcome).expect("checkout load outcome is serializable"),
+        );
+    }
     // /analytics: rankings and public filter options are independent and load
     // concurrently. Authenticated sessions also load the owner-scoped
     // watchlist through the same locally verified bearer.
@@ -1272,8 +1296,6 @@ async fn fetch_page_data(
             }
         }
     }
-    // Dynamic payment pages intentionally perform no intent lookup until A6
-    // provides an owner-safe intent and finality contract.
 }
 
 async fn load_chat_page_data(

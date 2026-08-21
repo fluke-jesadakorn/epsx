@@ -24,6 +24,33 @@ use crate::{
 const ERC20_TRANSFER_TOPIC: &str =
     "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef";
 
+fn plan_expiry_for_assignment(
+    now: chrono::DateTime<Utc>,
+    metadata: &serde_json::Value,
+    billing_cycle: &str,
+    existing_expiry: Option<chrono::DateTime<Utc>>,
+) -> Option<chrono::DateTime<Utc>> {
+    let duration_days = metadata
+        .get("duration_days")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|days| (1..=3_650).contains(days))
+        .or_else(|| match billing_cycle {
+            "daily" => Some(1),
+            "weekly" => Some(7),
+            "monthly" => Some(30),
+            "quarterly" => Some(90),
+            "yearly" | "annual" => Some(365),
+            "lifetime" => None,
+            _ => Some(30),
+        });
+    duration_days.map(|days| {
+        existing_expiry
+            .filter(|expiry| *expiry > now)
+            .unwrap_or(now)
+            + chrono::Duration::days(days)
+    })
+}
+
 /// Transaction monitor service configuration
 pub struct TransactionMonitorConfig {
     /// RPC URL for blockchain queries
@@ -657,10 +684,12 @@ impl TransactionMonitorService {
             currency: String,
             #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             metadata: Option<serde_json::Value>,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            payment_reference: String,
         }
 
         let payment: Option<PaymentRow> = diesel::sql_query(
-            "SELECT plan_id, wallet_address, amount, currency, metadata FROM payments WHERE transaction_hash = $1 LIMIT 1"
+            "SELECT plan_id, wallet_address, amount, currency, metadata, payment_reference FROM payments WHERE transaction_hash = $1 LIMIT 1"
         )
         .bind::<diesel::sql_types::Text, _>(tx_hash)
         .get_result(&mut payments_conn)
@@ -702,6 +731,7 @@ impl TransactionMonitorService {
 
         let plan_uuid = payment.plan_id;
         let wallet_address = payment.wallet_address;
+        let payment_reference = payment.payment_reference.clone();
 
         // Determine the blockchain amount to verify
         // If credits were used, verify only the blockchain portion
@@ -738,7 +768,6 @@ impl TransactionMonitorService {
         ).await;
 
         let block_number = receipt.block_number.map(|b| b.as_u64() as i64);
-        let expires_at = Utc::now() + chrono::Duration::days(30);
         let token_addr = format!("{:?}", verified_token);
 
         // 2. Ensure wallet_users entry exists
@@ -764,18 +793,23 @@ impl TransactionMonitorService {
             name: String,
             #[diesel(sql_type = diesel::sql_types::Integer)]
             tier_level: i32,
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            plan_metadata: serde_json::Value,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
+            billing_cycle: Option<String>,
         }
 
         let group_check: Option<GroupCheck> = diesel::sql_query(
-            "SELECT id, name, tier_level FROM plans WHERE id = $1 AND is_active = true",
+            "SELECT id, name, tier_level, plan_metadata, billing_cycle FROM plans WHERE id = $1 AND is_active = true",
         )
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
         .get_result(&mut primary_conn)
         .await
-        .ok();
+        .optional()
+        .map_err(|e| format!("Failed to load plan terms: {e}"))?;
 
-        let (plan_name, tier_level) = match group_check {
-            Some(g) => (g.name, g.tier_level),
+        let (plan_name, tier_level, plan_metadata, billing_cycle) = match group_check {
+            Some(g) => (g.name, g.tier_level, g.plan_metadata, g.billing_cycle),
             None => {
                 error!(
                     "Plan {} not found or inactive for wallet {}",
@@ -801,8 +835,8 @@ impl TransactionMonitorService {
         struct ExistingAssignment {
             #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            expires_at: chrono::DateTime<Utc>,
+            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
+            expires_at: Option<chrono::DateTime<Utc>>,
             #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
         }
@@ -815,21 +849,21 @@ impl TransactionMonitorService {
         .get_result(&mut primary_conn)
         .await
         .optional()
-        .ok()
-        .flatten();
+        .map_err(|e| format!("Failed to inspect existing plan assignment: {e}"))?;
 
-        let payment_reference = format!("PAY-{}", Uuid::new_v4());
+        let assignment_expires_at: Option<chrono::DateTime<Utc>>;
 
         if let Some(existing) = existing {
-            let base_time = if existing.is_active && existing.expires_at > Utc::now() {
-                existing.expires_at
-            } else {
-                Utc::now()
-            };
-            let new_expiry = base_time + chrono::Duration::days(30);
+            let new_expiry = plan_expiry_for_assignment(
+                Utc::now(),
+                &plan_metadata,
+                billing_cycle.as_deref().unwrap_or_default(),
+                existing.is_active.then_some(existing.expires_at).flatten(),
+            );
+            assignment_expires_at = new_expiry;
 
             info!(
-                "{} plan {} for wallet {}. Old: {}, New: {}",
+                "{} plan {} for wallet {}. Old: {:?}, New: {:?}",
                 if existing.is_active {
                     "Extending"
                 } else {
@@ -856,7 +890,7 @@ impl TransactionMonitorService {
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .execute(&mut primary_conn)
             .await
-            .ok();
+            .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
             diesel::sql_query(
                 r#"
@@ -865,13 +899,22 @@ impl TransactionMonitorService {
                 WHERE id = $3
                 "#,
             )
-            .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(
+                assignment_expires_at,
+            )
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .bind::<diesel::sql_types::Uuid, _>(existing.id)
             .execute(&mut primary_conn)
             .await
             .map_err(|e| format!("Failed to extend plan: {}", e))?;
         } else {
+            let expires_at = plan_expiry_for_assignment(
+                Utc::now(),
+                &plan_metadata,
+                billing_cycle.as_deref().unwrap_or_default(),
+                None,
+            );
+            assignment_expires_at = expires_at;
             // Deactivate other subscription plans
             diesel::sql_query(
                 r#"
@@ -885,7 +928,7 @@ impl TransactionMonitorService {
             .bind::<diesel::sql_types::Text, _>(&wallet_address)
             .execute(&mut primary_conn)
             .await
-            .ok();
+            .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
             diesel::sql_query(
                 r#"
@@ -899,7 +942,9 @@ impl TransactionMonitorService {
             )
             .bind::<diesel::sql_types::Text, _>(&wallet_address)
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
+            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(
+                assignment_expires_at,
+            )
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .execute(&mut primary_conn)
             .await
@@ -949,13 +994,18 @@ impl TransactionMonitorService {
         .ok();
 
         info!(
-            "Payment finalized: wallet={}, plan='{}' ({}), tier={}, expires={}, ref={}",
-            wallet_address, plan_name, plan_uuid, tier_name, expires_at, payment_reference
+            "Payment finalized: wallet={}, plan='{}' ({}), tier={}, expires={:?}, ref={}",
+            wallet_address,
+            plan_name,
+            plan_uuid,
+            tier_name,
+            assignment_expires_at,
+            payment_reference
         );
 
         self.emit_audit_event(
             tx_hash, "plan_assigned", "confirmed", None,
-            serde_json::json!({ "plan_id": plan_uuid.to_string(), "plan_name": plan_name, "expires_at": expires_at.to_rfc3339(), "payment_reference": payment_reference }),
+            serde_json::json!({ "plan_id": plan_uuid.to_string(), "plan_name": plan_name, "expires_at": assignment_expires_at, "payment_reference": payment_reference }),
         ).await;
 
         Ok(())
@@ -1041,6 +1091,32 @@ mod tests {
     use super::*;
     use ethers::types::{Bytes, Log, TransactionReceipt, H160, H256, U256, U64};
     use std::str::FromStr;
+
+    #[test]
+    fn catalog_duration_controls_assignment_expiry() {
+        let now = Utc::now();
+        let one_day = plan_expiry_for_assignment(
+            now,
+            &serde_json::json!({"duration_days": 1}),
+            "one_time",
+            None,
+        )
+        .expect("one-day plan expires");
+        assert_eq!((one_day - now).num_days(), 1);
+
+        let extended = plan_expiry_for_assignment(
+            now,
+            &serde_json::json!({"duration_days": 30}),
+            "monthly",
+            Some(one_day),
+        )
+        .expect("monthly plan expires");
+        assert_eq!((extended - one_day).num_days(), 30);
+        assert_eq!(
+            plan_expiry_for_assignment(now, &serde_json::json!({}), "lifetime", None),
+            None
+        );
+    }
 
     fn make_service(receiver: H160, token: H160) -> TransactionMonitorService {
         let mut receivers = HashSet::new();

@@ -1,93 +1,93 @@
-//! `/payment` and `/payment/:type/:id` — fail-closed payment surfaces.
+//! `/payment` and `/payment/plan/:id` checkout surfaces.
 //!
-//! The frontend does not own payment intent, price, token, entitlement, or
-//! transaction state. Until the backend contracts for those values and their
-//! authenticated mutation flow are available, both routes remain read-only.
+//! Pricing and entitlement inputs are rendered only from the backend-owned
+//! public plan projection. The browser can submit only the selected plan ID
+//! and a wallet-produced transaction hash; confirmation remains server-owned.
 
-use super::{PageContext, PageMeta};
+use super::{plans::PublicPlan, PageContext, PageMeta};
 use crate::auth::GlobalAuthGuard;
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
 
-const MAX_ROUTE_CONTEXT_BYTES: usize = 128;
-const MAX_ROUTE_CONTEXT_CHARS: usize = 64;
+pub const PAYMENT_CHECKOUT_DATA_PARAM: &str = "data_payment_checkout";
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct PaymentRouteContext {
-    payment_type: Option<String>,
-    reference: Option<String>,
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+pub struct PlanCheckoutData {
+    pub plan: PublicPlan,
+    pub chain_id: u64,
+    pub network: String,
+    pub token_address: String,
+    pub receiver_address: String,
+    pub token_decimals: u8,
 }
 
-/// Render the legacy payment entry point without forwarding request data or
-/// implying that a payment intent, price, token, or current access exists.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum PaymentCheckoutLoadOutcome {
+    Ready { checkout: PlanCheckoutData },
+    NotFound,
+    Error { code: String },
+}
+
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Payment");
     (
         meta,
-        rsx! { PaymentUnavailablePage { ctx: ctx.clone(), route_context: None } },
+        rsx! { PaymentPage { ctx: ctx.clone(), outcome: None } },
     )
 }
 
-/// Render the dynamic payment route. Route segments are display-only context:
-/// they are bounded, control-free, escaped by Dioxus, and never used to select
-/// a redirect, form target, price, token, entitlement, or payment state.
 pub fn render_dynamic(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Payment");
-    let route_context = PaymentRouteContext {
-        payment_type: bounded_route_context(ctx.params.get("type")),
-        reference: bounded_route_context(ctx.params.get("id")),
-    };
-    let route_context = (route_context.payment_type.is_some() || route_context.reference.is_some())
-        .then_some(route_context);
-
-    (
-        meta,
-        rsx! { PaymentUnavailablePage { ctx: ctx.clone(), route_context } },
-    )
-}
-
-fn bounded_route_context(value: Option<&String>) -> Option<String> {
-    let value = value?.trim();
-    if value.is_empty()
-        || value.len() > MAX_ROUTE_CONTEXT_BYTES
-        || value.chars().count() > MAX_ROUTE_CONTEXT_CHARS
-        || !value.is_ascii()
-        || value.chars().any(char::is_control)
-    {
-        return None;
-    }
-    Some(value.to_string())
+    let meta = PageMeta::app("Checkout");
+    let outcome = ctx
+        .param(PAYMENT_CHECKOUT_DATA_PARAM)
+        .and_then(|value| serde_json::from_str::<PaymentCheckoutLoadOutcome>(value).ok());
+    (meta, rsx! { PaymentPage { ctx: ctx.clone(), outcome } })
 }
 
 #[component]
-fn PaymentUnavailablePage(ctx: PageContext, route_context: Option<PaymentRouteContext>) -> Element {
+fn PaymentPage(ctx: PageContext, outcome: Option<PaymentCheckoutLoadOutcome>) -> Element {
     let user_authenticated = ctx.user.is_some();
     rsx! {
-        MainLayout { ctx,
-            if user_authenticated {
-                PaymentUnavailableContent { route_context }
-            } else {
+        MainLayout { ctx: ctx.clone(),
+            if !user_authenticated {
                 PaymentAuthRequiredContent {}
+            } else if let Some(outcome) = outcome {
+                match outcome {
+                    PaymentCheckoutLoadOutcome::Ready { checkout } => rsx! {
+                        CheckoutContent {
+                            checkout,
+                            session_wallet: ctx.user.as_ref().map(|user| user.address.clone()).unwrap_or_default()
+                        }
+                    },
+                    PaymentCheckoutLoadOutcome::NotFound => rsx! {
+                        CheckoutErrorContent {
+                            title: "Plan not found".to_string(),
+                            body: "This plan is no longer available. Choose another current plan.".to_string()
+                        }
+                    },
+                    PaymentCheckoutLoadOutcome::Error { .. } => rsx! {
+                        CheckoutErrorContent {
+                            title: "Checkout unavailable".to_string(),
+                            body: "Payment configuration could not be verified. Please try again shortly.".to_string()
+                        }
+                    },
+                }
+            } else {
+                PaymentEntryContent {}
             }
         }
     }
 }
 
-/// The source payment page stops before rendering any checkout copy when no
-/// verified session is available. Keep the route's decorative shell, then
-/// let the shared auth guard own the sign-in modal.
 #[component]
 fn PaymentAuthRequiredContent() -> Element {
     rsx! {
         div {
-            class: "payment-auth-required relative flex min-h-screen items-center justify-center overflow-hidden bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800",
+            class: "payment-auth-required relative flex min-h-[70vh] items-center justify-center overflow-hidden bg-gradient-to-br from-purple-50 via-indigo-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-gray-800",
             "data-payment-state": "auth-required",
-            div { class: "pointer-events-none absolute inset-0",
-                div { class: "absolute left-10 top-10 h-32 w-32 rounded-full bg-gradient-to-br from-purple-400/30 to-indigo-500/30 blur-xl" }
-                div { class: "absolute right-20 top-40 h-24 w-24 rounded-full bg-gradient-to-br from-blue-400/30 to-cyan-500/30 blur-xl" }
-                div { class: "absolute bottom-20 left-20 h-40 w-40 rounded-full bg-gradient-to-br from-pink-400/30 to-purple-500/30 blur-xl" }
-            }
             div { class: "relative z-10 mx-auto w-full max-w-6xl p-6",
                 GlobalAuthGuard { user_authenticated: false }
             }
@@ -96,98 +96,160 @@ fn PaymentAuthRequiredContent() -> Element {
 }
 
 #[component]
-fn PaymentUnavailableContent(route_context: Option<PaymentRouteContext>) -> Element {
+fn PaymentEntryContent() -> Element {
     rsx! {
-        div { class: "payment-prod-page relative min-h-screen overflow-hidden px-4 pb-20 sm:px-6",
-            style: "background: radial-gradient(circle at 25% 25%, rgba(118,69,217,0.20), transparent 34%), radial-gradient(circle at 75% 70%, rgba(31,199,212,0.12), transparent 35%), linear-gradient(135deg, #111827 0%, #1f1530 55%, #111827 100%);",
-            style { "
-                .payment-alternatives {{ display: flex; align-items: center; justify-content: center; gap: 0.75rem; margin: 3rem auto 0; flex-wrap: wrap; }}
-                .payment-alternatives a {{ text-decoration: none; }}
-                .payment-security {{
-                    display: grid;
-                    grid-template-columns: repeat(3, minmax(0, 1fr));
-                    gap: 1rem;
-                    width: 100%;
-                    padding: 2rem;
-                    border: 1px solid rgba(148, 163, 184, 0.22);
-                    border-radius: 1rem;
-                    background: rgba(15, 23, 42, 0.55);
-                    backdrop-filter: blur(12px);
-                }}
-                .payment-boundary-item {{
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.75rem;
-                    min-width: 0;
-                    padding: 1.25rem;
-                    border: 1px solid rgba(148, 163, 184, 0.18);
-                    border-radius: 1rem;
-                    color: #cbd5e1;
-                }}
-                .payment-boundary-title {{ display: flex; align-items: center; gap: 0.5rem; color: #f8fafc; font-weight: 600; }}
-                .payment-boundary-body {{ margin: 0; color: #cbd5e1; font-size: 0.95rem; line-height: 1.55; }}
-                @media (max-width: 639px) {{
-                    .payment-alternatives {{ flex-direction: column; align-items: stretch; }}
-                    .payment-alternatives a:first-child {{ width: 100%; }}
-                    .payment-alternatives a:last-child {{ align-self: center; }}
-                    .payment-security {{ grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }}
-                    .payment-boundary-item {{ padding: 1.25rem; }}
-                }}
-            " }
-            div { class: "relative z-10 mx-auto max-w-6xl py-12",
-                header { class: "mx-auto mb-12 max-w-4xl text-center",
-                    div { class: "mx-auto mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-purple-500 to-blue-600 text-white shadow-2xl shadow-purple-500/30",
-                        Icon { name: "gem".to_string(), size: Some(40) }
+        div { class: "mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center px-4 py-16",
+            section { class: "w-full rounded-3xl border border-slate-200 bg-white p-8 text-center shadow-xl dark:border-slate-700 dark:bg-slate-900",
+                Icon { name: "wallet".to_string(), size: Some(44) }
+                h1 { class: "mt-4 text-3xl font-black text-slate-900 dark:text-white", "Choose a plan first" }
+                p { class: "mt-3 text-slate-600 dark:text-slate-300", "Checkout starts from a current backend-verified plan and price." }
+                a { class: "mt-6 inline-flex rounded-xl bg-blue-600 px-6 py-3 font-bold text-white hover:bg-blue-700", href: "/plans", "View plans" }
+            }
+        }
+    }
+}
+
+fn first_visible_rank(offset: i32) -> i32 {
+    offset.max(0).saturating_add(1)
+}
+
+fn duration_label(plan: &PublicPlan) -> String {
+    match plan.duration_days {
+        None => "Lifetime access".to_string(),
+        Some(1) => "1 day of access".to_string(),
+        Some(days) => format!("{days} days of access"),
+    }
+}
+
+fn ranking_limit_label(plan: &PublicPlan) -> String {
+    match plan.rankings_limit {
+        -1 => "Unlimited ranking inventory".to_string(),
+        limit => format!("Up to {limit} ranking results"),
+    }
+}
+
+#[component]
+fn CheckoutContent(checkout: PlanCheckoutData, session_wallet: String) -> Element {
+    let plan = checkout.plan.clone();
+    let chain_hex = format!("0x{:x}", checkout.chain_id);
+    let first_rank = first_visible_rank(plan.ranking_offset);
+    let billing_cycle = plan.billing_cycle.replace('_', " ");
+    rsx! {
+        div {
+            class: "payment-checkout min-h-screen bg-gradient-to-br from-slate-50 via-violet-50 to-blue-50 px-4 py-12 dark:from-slate-950 dark:via-violet-950/30 dark:to-slate-900 sm:px-6",
+            "data-payment-state": "ready",
+            div { class: "mx-auto max-w-5xl",
+                header { class: "mb-8 text-center",
+                    div { class: "mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-600 to-blue-600 text-white shadow-lg",
+                        Icon { name: "gem".to_string(), size: Some(32) }
                     }
-                    h1 { class: "mb-4 bg-gradient-to-r from-purple-500 via-blue-500 to-cyan-400 bg-clip-text text-4xl font-black text-transparent lg:text-5xl",
-                        "Choose Your Plan"
+                    h1 { class: "mt-5 text-4xl font-black text-slate-950 dark:text-white", "Complete your plan purchase" }
+                    p { class: "mt-2 text-slate-600 dark:text-slate-300", "Confirm one stablecoin transfer in your wallet. Access activates only after on-chain verification." }
+                }
+
+                div { class: "grid gap-6 lg:grid-cols-[1.1fr_0.9fr]",
+                    section { class: "rounded-3xl border border-slate-200 bg-white p-7 shadow-xl dark:border-slate-700 dark:bg-slate-900",
+                        div { class: "flex flex-wrap items-start justify-between gap-4",
+                            div {
+                                p { class: "text-sm font-bold uppercase tracking-wider text-violet-600", "Selected plan" }
+                                h2 { class: "mt-1 text-3xl font-black text-slate-950 dark:text-white", "{plan.name}" }
+                                p { class: "mt-1 capitalize text-slate-500", "{billing_cycle}" }
+                            }
+                            div { class: "text-right",
+                                p { class: "text-4xl font-black text-slate-950 dark:text-white", "{plan.checkout_price}" }
+                                p { class: "font-bold text-violet-600", "{plan.settlement_currency}" }
+                            }
+                        }
+
+                        div { class: "mt-6 grid gap-3 sm:grid-cols-3",
+                            AccessFact { icon: "bar-chart-2".to_string(), title: format!("Ranks {first_rank}+"), body: "First stock rank visible".to_string() }
+                            AccessFact { icon: "list".to_string(), title: ranking_limit_label(&plan), body: "Backend-enforced ranking range".to_string() }
+                            AccessFact { icon: "clock".to_string(), title: duration_label(&plan), body: "Starts after confirmation".to_string() }
+                        }
+
+                        ul { class: "mt-6 grid gap-3 text-sm text-slate-700 dark:text-slate-200 sm:grid-cols-2",
+                            for feature in plan.features.iter().take(8) {
+                                li { class: "flex items-start gap-2",
+                                    span { class: "mt-0.5 text-emerald-500", "✓" }
+                                    span { "{feature}" }
+                                }
+                            }
+                        }
                     }
-                    p { class: "mx-auto max-w-2xl text-lg text-slate-200",
-                        "Unlock powerful analytics, API access, and premium features with blockchain-secured payments"
+
+                    aside { class: "rounded-3xl border border-slate-200 bg-white p-7 shadow-xl dark:border-slate-700 dark:bg-slate-900",
+                        h2 { class: "text-xl font-black text-slate-950 dark:text-white", "Pay with MetaMask" }
+                        div { class: "mt-5 space-y-3 rounded-2xl bg-slate-50 p-4 text-sm dark:bg-slate-800",
+                            PaymentDetail { label: "Network".to_string(), value: checkout.network.clone() }
+                            PaymentDetail { label: "Wallet".to_string(), value: abbreviated(&session_wallet) }
+                            PaymentDetail { label: "Token".to_string(), value: plan.settlement_currency.clone() }
+                            PaymentDetail { label: "Amount".to_string(), value: plan.checkout_price.clone() }
+                        }
+
+                        button {
+                            class: "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-base font-black text-white shadow-lg transition hover:from-violet-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60",
+                            r#type: "button",
+                            "data-action": "submit-plan-payment",
+                            "data-plan-id": plan.id.clone(),
+                            "data-amount": plan.checkout_price.clone(),
+                            "data-currency": plan.settlement_currency.clone(),
+                            "data-chain-id": "{checkout.chain_id}",
+                            "data-chain-hex": chain_hex,
+                            "data-network": checkout.network.clone(),
+                            "data-token-address": checkout.token_address.clone(),
+                            "data-receiver-address": checkout.receiver_address.clone(),
+                            "data-token-decimals": "{checkout.token_decimals}",
+                            "data-session-wallet": session_wallet,
+                            Icon { name: "wallet".to_string(), size: Some(20) }
+                            span { "Confirm {plan.checkout_price} {plan.settlement_currency}" }
+                        }
+                        div {
+                            id: "plan-payment-status",
+                            class: "mt-4 min-h-12 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800 dark:bg-blue-950/50 dark:text-blue-200",
+                            role: "status",
+                            "aria-live": "polite",
+                            "data-epsx-runtime-status": "",
+                            "Review the amount and confirm the transfer in MetaMask."
+                        }
+                        a { class: "mt-4 inline-flex w-full items-center justify-center rounded-xl px-4 py-2 font-semibold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800", href: "/plans", "Choose another plan" }
                     }
                 }
 
-                section {
-                    class: "mx-auto max-w-lg rounded-2xl border border-red-700/50 bg-slate-800/80 p-8 text-center shadow-xl backdrop-blur-xl",
-                    "aria-labelledby": "payment-unavailable-title",
-                    role: "alert",
-                    div { class: "mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20 text-red-400",
-                        Icon { name: "alert-triangle".to_string(), size: Some(32) }
-                    }
-                    h2 { id: "payment-unavailable-title", class: "text-xl font-bold text-red-400", "Failed to Load Plans" }
-                    p { class: "mt-2 text-base text-slate-300",
-                        "fetch failed. Please refresh or try again."
-                    }
-                    a { class: "mt-4 inline-flex items-center justify-center rounded-lg bg-blue-600 px-6 py-2 font-semibold text-white hover:bg-blue-500", href: "/plans",
-                        "Try Again"
-                    }
-                    p { class: "sr-only",
-                        "Payment flow unavailable. Checkout is not available right now. This page has not loaded or created a payment intent. No amount, asset, account access, or transaction result is asserted here."
-                    }
-                }
-
-                if let Some(context) = route_context {
-                    div { class: "sr-only", role: "note",
-                        "Unverified route context. These route labels do not confirm that a payment or intent exists."
-                        if let Some(payment_type) = context.payment_type { span { " Requested type: {payment_type}." } }
-                        if let Some(reference) = context.reference { span { " Requested reference: {reference}." } }
-                    }
-                }
-
-                div { class: "payment-security mx-auto mt-16 max-w-6xl",
-                    PaymentBoundaryItem { icon: "database".to_string(), title: "Verified checkout".to_string(), body: "Details are shown only from a verified checkout response.".to_string() }
-                    PaymentBoundaryItem { icon: "wallet".to_string(), title: "Wallet confirmation".to_string(), body: "A wallet submission alone cannot assert completion.".to_string() }
-                    PaymentBoundaryItem { icon: "check-circle".to_string(), title: "Access after confirmation".to_string(), body: "Entitlements require a verified completed payment.".to_string() }
-                }
-
-                // The source payment composition keeps these recovery links
-                // visible below the security boundary. They do not imply a
-                // payment result and remain safe while checkout is offline.
-                nav { class: "payment-alternatives", "aria-label": "Payment alternatives",
-                    a { class: "btn btn-outline", href: "/account", Icon { name: "user".to_string(), size: Some(16) } " Return to account" }
-                    a { class: "btn btn-ghost", href: "/", Icon { name: "home".to_string(), size: Some(16) } " Go home" }
+                section { class: "mt-6 grid gap-3 rounded-2xl border border-slate-200 bg-white/80 p-5 text-sm text-slate-600 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-300 sm:grid-cols-3",
+                    PaymentBoundaryItem { icon: "shield".to_string(), title: "Verified amount".to_string(), body: "The BFF reloads the current plan price before submission.".to_string() }
+                    PaymentBoundaryItem { icon: "link".to_string(), title: "On-chain proof".to_string(), body: "The backend validates sender, recipient, token, amount, and confirmations.".to_string() }
+                    PaymentBoundaryItem { icon: "check-circle".to_string(), title: "Real entitlement".to_string(), body: "Confirmation writes the plan assignment used by ranking authorization.".to_string() }
                 }
             }
+        }
+    }
+}
+
+fn abbreviated(value: &str) -> String {
+    if value.len() == 42 {
+        format!("{}…{}", &value[..8], &value[36..])
+    } else {
+        value.to_string()
+    }
+}
+
+#[component]
+fn PaymentDetail(label: String, value: String) -> Element {
+    rsx! {
+        div { class: "flex items-center justify-between gap-3",
+            span { class: "text-slate-500 dark:text-slate-400", "{label}" }
+            span { class: "max-w-[70%] truncate font-bold text-slate-900 dark:text-white", "{value}" }
+        }
+    }
+}
+
+#[component]
+fn AccessFact(icon: String, title: String, body: String) -> Element {
+    rsx! {
+        div { class: "rounded-2xl border border-violet-100 bg-violet-50 p-4 dark:border-violet-900 dark:bg-violet-950/40",
+            Icon { name: icon, size: Some(20) }
+            p { class: "mt-2 font-black text-slate-900 dark:text-white", "{title}" }
+            p { class: "mt-1 text-xs text-slate-500 dark:text-slate-400", "{body}" }
         }
     }
 }
@@ -195,12 +257,26 @@ fn PaymentUnavailableContent(route_context: Option<PaymentRouteContext>) -> Elem
 #[component]
 fn PaymentBoundaryItem(icon: String, title: String, body: String) -> Element {
     rsx! {
-        div { class: "payment-boundary-item",
-            div { class: "payment-boundary-title",
-                Icon { name: icon, size: Some(18) }
-                "{title}"
+        div { class: "flex items-start gap-3",
+            span { class: "text-violet-600", Icon { name: icon, size: Some(18) } }
+            div {
+                p { class: "font-bold text-slate-900 dark:text-white", "{title}" }
+                p { class: "mt-1", "{body}" }
             }
-            p { class: "payment-boundary-body", "{body}" }
+        }
+    }
+}
+
+#[component]
+fn CheckoutErrorContent(title: String, body: String) -> Element {
+    rsx! {
+        div { class: "mx-auto flex min-h-[70vh] max-w-3xl items-center justify-center px-4 py-16",
+            section { class: "w-full rounded-3xl border border-red-200 bg-white p-8 text-center shadow-xl dark:border-red-900 dark:bg-slate-900", role: "alert", "data-payment-state": "unavailable",
+                Icon { name: "alert-triangle".to_string(), size: Some(44) }
+                h1 { class: "mt-4 text-3xl font-black text-slate-950 dark:text-white", "{title}" }
+                p { class: "mt-3 text-slate-600 dark:text-slate-300", "{body}" }
+                a { class: "mt-6 inline-flex rounded-xl bg-blue-600 px-6 py-3 font-bold text-white", href: "/plans", "Back to plans" }
+            }
         }
     }
 }
@@ -209,20 +285,40 @@ fn PaymentBoundaryItem(icon: String, title: String, body: String) -> Element {
 mod tests {
     use super::*;
 
-    fn page_ctx(path: &str) -> PageContext {
-        PageContext {
-            path: path.to_string(),
-            ..Default::default()
+    fn plan() -> PublicPlan {
+        PublicPlan {
+            id: "61a62cbe-3371-41db-bd90-321c53a71e06".into(),
+            name: "1 Day Package".into(),
+            plan_type: "1_DAY_PACKAGE".into(),
+            current_price: "5.00".into(),
+            effective_price: 1.0,
+            promotion_active: true,
+            promotion_status: "active".into(),
+            promotion_discount: 80.0,
+            promotion_ends_at: None,
+            currency: "USD".into(),
+            billing_cycle: "one_time".into(),
+            features: vec!["24-hour access".into()],
+            permissions: vec!["epsx:rankings:offset:5".into()],
+            is_active: true,
+            tier_level: 0,
+            plan_group: "personal".into(),
+            ranking_offset: 5,
+            rankings_limit: 5,
+            checkout_price: "1.00".into(),
+            settlement_currency: "USDT".into(),
+            duration_days: Some(1),
         }
     }
 
-    fn signed_in_ctx(path: &str) -> PageContext {
+    fn signed_in_ctx() -> PageContext {
         PageContext {
+            path: "/payment/plan/61a62cbe-3371-41db-bd90-321c53a71e06".into(),
             user: Some(crate::auth::User {
-                id: "payment-user".to_string(),
-                address: "0xpayment".to_string(),
-                chain_id: "56".to_string(),
-                roles: vec!["user".to_string()],
+                id: "user".into(),
+                address: "0x1111111111111111111111111111111111111111".into(),
+                chain_id: "31337".into(),
+                roles: vec![],
                 email: None,
                 tier: None,
                 permissions: vec![],
@@ -230,138 +326,64 @@ mod tests {
                 auth_method: crate::auth::user::AuthMethod::Wallet,
                 display_name: None,
             }),
-            ..page_ctx(path)
+            ..Default::default()
         }
-    }
-
-    fn render_content(route_context: Option<PaymentRouteContext>) -> String {
-        dioxus_ssr::render_element(rsx! { PaymentUnavailableContent { route_context } })
-    }
-
-    fn assert_no_payment_mutation(html: &str) {
-        for forbidden in [
-            "<form",
-            "<input",
-            "<select",
-            "<button",
-            "onclick=",
-            "location.href",
-            "/api/v1/payments/confirm",
-            "payments:read",
-            "29.00",
-            "USDT",
-            "Current plan",
-            "Payment submitted",
-            "Payment successful",
-            "pay.epsx.io",
-        ] {
-            assert!(
-                !html.contains(forbidden),
-                "unsafe payment output: {forbidden}"
-            );
-        }
-    }
-
-    fn assert_no_payment_claims(html: &str) {
-        for forbidden in [
-            "<form",
-            "<input",
-            "<select",
-            "onclick=",
-            "location.href",
-            "/api/v1/payments/confirm",
-            "payments:read",
-            "29.00",
-            "USDT",
-            "Current plan",
-            "Payment submitted",
-            "Payment successful",
-            "pay.epsx.io",
-        ] {
-            assert!(
-                !html.contains(forbidden),
-                "unauthenticated payment output contains checkout state: {forbidden}"
-            );
-        }
-    }
-
-    fn assert_fail_closed_content(html: &str) {
-        assert!(!html.contains("<script"));
-        assert_no_payment_mutation(html);
     }
 
     #[test]
-    fn payment_entry_is_read_only_and_ignores_query_data() {
-        let mut ctx = page_ctx("/payment");
-        ctx.query = "amount=999&token=EVIL&next=https://attacker.invalid".to_string();
-        let (_, element) = render(&ctx);
-        let html = dioxus_ssr::render_element(element);
-
-        assert!(html.contains("data-payment-state=\"auth-required\""));
-        assert!(html.contains("frontend-auth-gate"));
-        assert!(
-            !html.contains("<main"),
-            "payment body must not nest the shared shell main landmark"
-        );
-        assert!(!html.contains("Choose Your Plan"));
-        assert!(!html.contains("Failed to Load Plans"));
-        assert!(!html.contains("attacker.invalid"));
-        assert!(!html.contains("amount=999"));
-        assert!(!html.contains("token=EVIL"));
-        assert_no_payment_claims(&html);
-
-        let (_, authenticated_element) = render(&signed_in_ctx("/payment"));
-        let authenticated_html = dioxus_ssr::render_element(authenticated_element);
-        assert!(authenticated_html.contains("Payment flow unavailable"));
-        assert!(authenticated_html.contains("role=\"alert\""));
-        assert!(authenticated_html.contains("href=\"/plans\""));
-        assert!(authenticated_html.contains("href=\"/account\""));
-        assert!(authenticated_html.contains("payment-alternatives"));
-        assert_no_payment_mutation(&authenticated_html);
-
-        assert_fail_closed_content(&render_content(None));
-    }
-
-    #[test]
-    fn dynamic_context_is_bounded_and_html_escaped() {
-        let context = PaymentRouteContext {
-            payment_type: bounded_route_context(Some(
-                &"plan<script>alert('x')</script>".to_string(),
-            )),
-            reference: bounded_route_context(Some(&"ref<&\"'42".to_string())),
+    fn ready_checkout_renders_only_backend_owned_terms() {
+        let checkout = PlanCheckoutData {
+            plan: plan(),
+            chain_id: 31_337,
+            network: "localhost".into(),
+            token_address: "0x55d398326f99059fF775485246999027B3197955".into(),
+            receiver_address: "0x2222222222222222222222222222222222222222".into(),
+            token_decimals: 18,
         };
-        let html = render_content(Some(context));
-
-        assert!(html.contains("plan&#60;script&#62;alert(&#39;x&#39;)&#60;/script&#62;"));
-        assert!(html.contains("ref&#60;&#38;&#34;&#39;42"));
-        assert!(!html.contains("<script>alert('x')</script>"));
-        assert!(html.contains("do not confirm that a payment or intent exists"));
-        assert_fail_closed_content(&html);
-
-        let overlong = "x".repeat(MAX_ROUTE_CONTEXT_CHARS + 1);
-        assert_eq!(bounded_route_context(Some(&overlong)), None);
-        assert_eq!(
-            bounded_route_context(Some(&"safe\nunsafe".to_string())),
-            None
-        );
-        assert_eq!(
-            bounded_route_context(Some(&"bidirectional-\u{202e}value".to_string())),
-            None
-        );
+        let html = dioxus_ssr::render_element(rsx! {
+            CheckoutContent {
+                checkout,
+                session_wallet: "0x1111111111111111111111111111111111111111".to_string()
+            }
+        });
+        assert!(html.contains("data-action=\"submit-plan-payment\""));
+        assert!(html.contains("Ranks 6+"));
+        assert!(html.contains("1.00"));
+        assert!(html.contains("USDT"));
+        assert!(html.contains("1 day of access"));
+        assert!(!html.contains("expected_amount"));
     }
 
     #[test]
-    fn dynamic_route_does_not_require_an_invented_frontend_permission() {
-        let mut ctx = signed_in_ctx("/payment/plan/reference");
-        ctx.params.insert("type".to_string(), "plan".to_string());
-        ctx.params.insert("id".to_string(), "reference".to_string());
+    fn unauthenticated_checkout_stops_at_auth_guard() {
+        let ctx = PageContext {
+            path: "/payment/plan/id".into(),
+            ..Default::default()
+        };
         let (_, element) = render_dynamic(&ctx);
         let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("data-payment-state=\"auth-required\""));
+        assert!(!html.contains("submit-plan-payment"));
+    }
 
-        assert!(html.contains("Checkout is not available right now"));
-        assert!(html.contains("Requested type"));
-        assert!(html.contains("plan"));
-        assert!(!html.contains("Permission required"));
-        assert_no_payment_mutation(&html);
+    #[test]
+    fn dynamic_checkout_decodes_only_server_load_outcome() {
+        let checkout = PlanCheckoutData {
+            plan: plan(),
+            chain_id: 31_337,
+            network: "localhost".into(),
+            token_address: "0x55d398326f99059fF775485246999027B3197955".into(),
+            receiver_address: "0x2222222222222222222222222222222222222222".into(),
+            token_decimals: 18,
+        };
+        let mut ctx = signed_in_ctx();
+        ctx.params.insert(
+            PAYMENT_CHECKOUT_DATA_PARAM.into(),
+            serde_json::to_string(&PaymentCheckoutLoadOutcome::Ready { checkout }).unwrap(),
+        );
+        let (_, element) = render_dynamic(&ctx);
+        let html = dioxus_ssr::render_element(element);
+        assert!(html.contains("Complete your plan purchase"));
+        assert!(html.contains("data-payment-state=\"ready\""));
     }
 }

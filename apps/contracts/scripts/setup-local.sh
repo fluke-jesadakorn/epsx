@@ -77,35 +77,28 @@ CONTRACT_ADDR=$(grep "PaymentEscrow deployed to:" $OUTPUT_FILE | awk '{print $NF
 if [ ! -z "$CONTRACT_ADDR" ]; then
     echo -e "${GREEN}✅ PaymentEscrow deployed to $CONTRACT_ADDR${NC}"
     
-    # Update local development override first, then legacy fallbacks
+    # Keep local-chain settings in the ignored development override. Never
+    # rewrite the shared `.env`, which may intentionally target BSC testnet.
     ENV_FILE="../../.env.development.local"
-    if [ ! -f "$ENV_FILE" ]; then
-        ENV_FILE="../../.env.local"
-    fi
-    if [ ! -f "$ENV_FILE" ]; then
-        ENV_FILE="../../.env"
-    fi
-
-    if [ -f "$ENV_FILE" ]; then
-        # Replace existing or append
-        if grep -q "PAYMENT_ESCROW_ADDRESS=" "$ENV_FILE"; then
-            # Use perl for cross-platform in-place editing (sed -i differences on mac/linux)
-            sed -i.bak "s/^PAYMENT_ESCROW_ADDRESS=.*/PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
-            echo -e "${GREEN}🔄 Updated PAYMENT_ESCROW_ADDRESS in $(basename "$ENV_FILE")${NC}"
+    touch "$ENV_FILE"
+    set_env_value() {
+        local KEY="$1"
+        local VALUE="$2"
+        if grep -q "^${KEY}=" "$ENV_FILE"; then
+            sed -i.bak "s|^${KEY}=.*|${KEY}=${VALUE}|" "$ENV_FILE" && rm "$ENV_FILE.bak"
         else
-            echo "PAYMENT_ESCROW_ADDRESS=$CONTRACT_ADDR" >> "$ENV_FILE"
-            echo -e "${GREEN}➕ Added PAYMENT_ESCROW_ADDRESS to $(basename "$ENV_FILE")${NC}"
+            echo "${KEY}=${VALUE}" >> "$ENV_FILE"
         fi
-        
-        # Also update NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL for frontend
-        if grep -q "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=" "$ENV_FILE"; then
-            sed -i.bak "s/^NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=.*/NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR/" "$ENV_FILE" && rm "$ENV_FILE.bak"
-            echo -e "${GREEN}🔄 Updated NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL in $(basename "$ENV_FILE")${NC}"
-        else
-            echo "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL=$CONTRACT_ADDR" >> "$ENV_FILE"
-            echo -e "${GREEN}➕ Added NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL to $(basename "$ENV_FILE")${NC}"
-        fi
-    fi
+    }
+    set_env_value "PAYMENT_ESCROW_ADDRESS" "$CONTRACT_ADDR"
+    set_env_value "NEXT_PUBLIC_PAYMENT_ESCROW_LOCAL" "$CONTRACT_ADDR"
+    set_env_value "BSC_RPC_URL" "$RPC_URL"
+    set_env_value "BLOCKCHAIN_NETWORK" "local"
+    set_env_value "NEXT_PUBLIC_BLOCKCHAIN_NETWORK" "local"
+    set_env_value "CHAIN_ID" "31337"
+    set_env_value "NEXT_PUBLIC_CHAIN_ID" "31337"
+    set_env_value "SUPPORTED_PAYMENT_TOKENS" "$USDT_ADDRESS,$USDC_ADDRESS"
+    echo -e "${GREEN}🔄 Updated local payment network in $(basename "$ENV_FILE")${NC}"
 else
     echo -e "${YELLOW}⚠️ Could not extract contract address. Check output above.${NC}"
 fi
