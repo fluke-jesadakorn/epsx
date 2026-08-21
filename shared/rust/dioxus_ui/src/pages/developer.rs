@@ -1,779 +1,429 @@
-//! /developer + /developer/usage + /developer/docs — developer portal.
-//!
-//! Wave 6A Track B port: expands the page from a thin shell (130 LoC) to a
-//! section-level port of the Next.js source (`app/developer/page.tsx` 27
-//! LoC + 15 sub-components ~1,522 LoC; design doc target ≥500 LoC).
-//!
-//! ## Sections (per design doc)
-//!
-//! ### Overview (`render_overview`)
-//! 1. Authenticated unavailable state — API key, plan, permission, and usage
-//!    claims are withheld until the Rust route has backend-owned contracts.
-//!
-//! ### Usage (`render_usage`)
-//! 7. Authenticated unavailable state — usage reporting is withheld until a
-//!    production-owned data contract is available to the Rust page.
-//!
-//! ### Docs (`render_docs`)
-//! 8. Endpoints sidebar + endpoint cards. Source: `docs-sidebar.tsx`
-//!    74 LoC + `endpoint-section.tsx` (kept as inlined cards).
-//!
-//! ## Section markers (used by `tests::test_section_markers`)
-//!   - `developer-overview-unavailable`
-//!   - `developer-usage-unavailable`
-//!   - `developer-docs`
+//! Backend-owned Developer Portal views.
 
-use crate::primitives::*;
-
-use super::PageContext;
-use super::PageMeta;
 use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
 use crate::layout::PageHeader;
 use dioxus::prelude::*;
-use std::sync::OnceLock;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeSet;
+use uuid::Uuid;
 
-// ─────────────────────────────────────────────────────────────────────────
-// API docs types + endpoint catalog. Ported from
-// `apps-old/frontend/components/developer/docs/data/endpoints.ts` (263
-// LoC). The catalog is cached in a `OnceLock` so the per-page render
-// path doesn't pay the construction cost on every request.
-// ─────────────────────────────────────────────────────────────────────────
+use super::{PageContext, PageMeta};
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct EndpointParam {
+pub const DEVELOPER_DATA_PARAM: &str = "data_developer";
+pub const DEVELOPER_STATE_PARAM: &str = "data_developer_state";
+pub const DEVELOPER_USAGE_DATA_PARAM: &str = "data_developer_usage";
+pub const DEVELOPER_USAGE_STATE_PARAM: &str = "data_developer_usage_state";
+pub const DEVELOPER_OPENAPI_DATA_PARAM: &str = "data_developer_openapi";
+pub const DEVELOPER_OPENAPI_STATE_PARAM: &str = "data_developer_openapi_state";
+
+pub const LOAD_READY: &str = "ready";
+pub const LOAD_EMPTY: &str = "empty";
+pub const LOAD_UNAVAILABLE: &str = "unavailable";
+pub const LOAD_MALFORMED: &str = "malformed";
+pub const LOAD_FORBIDDEN: &str = "forbidden";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DeveloperContractError;
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperPlan {
+    pub id: Uuid,
     pub name: String,
-    pub kind: String,
-    pub required: bool,
-    pub desc: String,
-    pub default: Option<String>,
+    pub slug: String,
+    pub expires_at: Option<String>,
 }
 
-impl EndpointParam {
-    /// Helper for building a `EndpointParam` with the most common
-    /// shape (no default). Mirrors the source's `param()` helper.
-    pub fn param(name: &str, kind: &str, required: bool, desc: &str) -> Self {
-        Self {
-            name: name.to_string(),
-            kind: kind.to_string(),
-            required,
-            desc: desc.to_string(),
-            default: None,
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperRateLimits {
+    pub per_minute: u32,
+    pub per_hour: u32,
+    pub per_day: u32,
+    pub burst: u32,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperEntitlement {
+    pub plans: Vec<DeveloperPlan>,
+    pub assignable_scopes: Vec<String>,
+    pub rate_limits: DeveloperRateLimits,
+    pub can_read: bool,
+    pub can_write: bool,
+    pub has_active_api_entitlement: bool,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperApiKey {
+    pub id: Uuid,
+    pub key_prefix: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub scopes: Vec<String>,
+    pub total_requests: i64,
+    pub expires_at: Option<String>,
+    pub last_used_at: Option<String>,
+    pub created_at: String,
+}
+
+impl DeveloperApiKey {
+    pub fn validated(self) -> Result<Self, DeveloperContractError> {
+        if self.name.is_empty()
+            || self.key_prefix.is_empty()
+            || !self.key_prefix.ends_with('…')
+            || !matches!(self.status.as_str(), "active" | "revoked" | "expired")
+            || self.total_requests < 0
+            || self.scopes.len() > 100
+            || self.scopes.iter().any(|scope| !valid_scope(scope))
+            || !valid_timestamp(&self.created_at)
+            || self
+                .expires_at
+                .as_deref()
+                .is_some_and(|value| !valid_timestamp(value))
+            || self
+                .last_used_at
+                .as_deref()
+                .is_some_and(|value| !valid_timestamp(value))
+        {
+            return Err(DeveloperContractError);
         }
+        Ok(self)
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct EndpointDef {
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperDailyUsage {
+    pub date: String,
+    pub total_requests: i64,
+    pub error_requests: i64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperEndpointUsage {
+    pub endpoint: String,
+    pub method: String,
+    pub request_count: i64,
+    pub error_count: i64,
+    pub average_response_time_ms: f64,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperUsage {
+    pub days: i32,
+    pub total_requests: i64,
+    pub successful_requests: i64,
+    pub error_requests: i64,
+    pub success_rate: f64,
+    pub error_rate: f64,
+    pub average_response_time_ms: f64,
+    pub daily: Vec<DeveloperDailyUsage>,
+    pub top_endpoints: Vec<DeveloperEndpointUsage>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct DeveloperOverview {
+    pub entitlement: DeveloperEntitlement,
+    pub api_keys: Vec<DeveloperApiKey>,
+    pub total_api_keys: i64,
+    pub usage: DeveloperUsage,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeveloperOperation {
+    pub operation_id: String,
     pub method: String,
     pub path: String,
-    pub title: String,
-    pub desc: String,
-    pub tier: String,
-    pub params: Vec<EndpointParam>,
-    pub headers: Vec<(String, bool, String)>,
-    /// JSON-serialized response example, pre-serialized so the
-    /// component doesn't have to plumb a JSON value through
-    /// Dioxus's signal/type system.
-    pub response_example: String,
-    pub rate_limits: Vec<(String, String)>,
+    pub summary: String,
+    pub required_scopes: Vec<String>,
+    pub api_key_callable: bool,
+    pub mutation: bool,
+    pub idempotent: bool,
 }
 
-#[derive(Clone, Debug, PartialEq)]
-pub struct EndpointCategory {
-    pub id: String,
-    pub title: String,
-    pub desc: String,
-    pub endpoints: Vec<EndpointDef>,
+fn valid_timestamp(value: &str) -> bool {
+    chrono::DateTime::parse_from_rfc3339(value).is_ok()
 }
 
-/// Immutable source snapshot used by the documentation renderer. The route is
-/// intentionally static until A5 supplies a generated, runtime-owned OpenAPI
-/// contract; keeping the pin beside the catalog makes drift explicit instead
-/// of pretending the unused BFF fixture is authoritative.
-pub const DEVELOPER_DOCS_SOURCE_BASELINE: &str =
-    "origin/development@373bd231cb7a616c3d4c0ddc1d60e0099a88a5db";
-const DEVELOPER_DOCS_EXAMPLE_ORIGIN: &str = "https://api.example.invalid";
-
-fn endpoint_categories() -> Vec<EndpointCategory> {
-    // Default rate limits per tier — mirrors the source's
-    // `defaultRateLimits` constant.
-    let default_rate_limits: Vec<(String, String)> = vec![
-        ("free".into(), "30/min".into()),
-        ("basic".into(), "60/min".into()),
-        ("premium".into(), "120/min".into()),
-        ("enterprise".into(), "600/min".into()),
-    ];
-    let bearer = (
-        "Authorization".to_string(),
-        true,
-        "Bearer <api_key>".to_string(),
-    );
-    let optional_bearer = (
-        "Authorization".to_string(),
-        false,
-        "Bearer <api_key> — optional, unlocks premium columns".to_string(),
-    );
-
-    vec![
-        EndpointCategory {
-            id: "auth".into(),
-            title: "Authentication".into(),
-            desc: "Pinned Authorization Bearer-header reference; accepted credential types are not verified here.".into(),
-            endpoints: vec![EndpointDef {
-                method: "GET".into(),
-                path: "/api/auth/session/verify".into(),
-                title: "Verify session".into(),
-                desc: "Verify that your API key is valid and return associated permissions.".into(),
-                tier: "free".into(),
-                params: vec![],
-                headers: vec![bearer.clone()],
-                response_example: r#"{"success":true,"data":{"wallet_address":"0x1234...abcd","permissions":["epsx:analytics:read","epsx:export:csv"],"auth_method":"api_key"}}"#.into(),
-                rate_limits: default_rate_limits.clone(),
-            }],
-        },
-        EndpointCategory {
-            id: "analytics".into(),
-            title: "Analytics".into(),
-            desc: "Market data, stock rankings, filters, countries, and sector breakdowns.".into(),
-            endpoints: vec![
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/analytics/rankings".into(),
-                    title: "Get stock rankings".into(),
-                    desc: "Returns paginated EPS rankings with optional filters. Free tier gets limited columns; premium unlocks all fields.".into(),
-                    tier: "free".into(),
-                    params: vec![
-                        EndpointParam { default: Some("1".into()), ..EndpointParam::param("page", "number", false, "Page number") },
-                        EndpointParam { default: Some("20".into()), ..EndpointParam::param("per_page", "number", false, "Results per page (max 100)") },
-                        EndpointParam { default: Some("eps_growth".into()), ..EndpointParam::param("sort_by", "string", false, "Sort column (e.g. eps_growth, market_cap)") },
-                        EndpointParam { default: Some("desc".into()), ..EndpointParam::param("sort_dir", "string", false, "asc or desc") },
-                        EndpointParam::param("country", "string", false, "ISO country code filter (e.g. US, TH)"),
-                        EndpointParam::param("sector", "string", false, "Sector filter"),
-                        EndpointParam::param("search", "string", false, "Search by ticker or company name"),
-                    ],
-                    headers: vec![optional_bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"items":[{"ticker":"AAPL","name":"Apple Inc.","country":"US","sector":"Technology","eps_growth":12.5,"market_cap":3200000000000,"rank":1}],"pagination":{"page":1,"per_page":20,"total":5420,"total_pages":271}}}"#.into(),
-                    rate_limits: vec![
-                        ("free".into(), "10/min".into()),
-                        ("basic".into(), "60/min".into()),
-                        ("premium".into(), "120/min".into()),
-                        ("enterprise".into(), "600/min".into()),
-                    ],
-                },
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/analytics/filters".into(),
-                    title: "Get filter options".into(),
-                    desc: "Returns available filter values for countries, sectors, and sort columns.".into(),
-                    tier: "free".into(),
-                    params: vec![],
-                    headers: vec![optional_bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"countries":[{"code":"US","name":"United States","count":2100}],"sectors":[{"name":"Technology","count":450}],"sort_options":["eps_growth","market_cap","revenue"]}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/analytics/countries".into(),
-                    title: "Get countries".into(),
-                    desc: "Returns list of countries with stock data available.".into(),
-                    tier: "free".into(),
-                    params: vec![],
-                    headers: vec![optional_bearer.clone()],
-                    response_example: r#"{"success":true,"data":[{"code":"US","name":"United States","count":2100}]}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/analytics/sectors".into(),
-                    title: "Get sectors".into(),
-                    desc: "Returns available sector categories.".into(),
-                    tier: "free".into(),
-                    params: vec![],
-                    headers: vec![optional_bearer.clone()],
-                    response_example: r#"{"success":true,"data":[{"name":"Technology","count":450}]}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-            ],
-        },
-        EndpointCategory {
-            id: "portfolio".into(),
-            title: "Portfolio & Watchlist".into(),
-            desc: "Manage your stock watchlist. Requires authentication.".into(),
-            endpoints: vec![
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/users/watchlist".into(),
-                    title: "Get watchlist".into(),
-                    desc: "Returns current user watchlist with stock data.".into(),
-                    tier: "basic".into(),
-                    params: vec![],
-                    headers: vec![bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"items":[{"ticker":"AAPL","name":"Apple Inc.","added_at":"2025-01-15T10:30:00Z"}],"count":1}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-                EndpointDef {
-                    method: "POST".into(),
-                    path: "/api/users/watchlist".into(),
-                    title: "Add to watchlist".into(),
-                    desc: "Add a stock ticker to your watchlist.".into(),
-                    tier: "basic".into(),
-                    params: vec![EndpointParam::param("ticker", "string", true, "Stock ticker symbol (e.g. AAPL)")],
-                    headers: vec![bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"ticker":"AAPL","added_at":"2025-01-15T10:30:00Z"}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-                EndpointDef {
-                    method: "DELETE".into(),
-                    path: "/api/users/watchlist".into(),
-                    title: "Remove from watchlist".into(),
-                    desc: "Remove a stock ticker from your watchlist.".into(),
-                    tier: "basic".into(),
-                    params: vec![EndpointParam::param("ticker", "string", true, "Stock ticker symbol to remove")],
-                    headers: vec![bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"removed":true}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-            ],
-        },
-        EndpointCategory {
-            id: "user".into(),
-            title: "User".into(),
-            desc: "User profile and access information.".into(),
-            endpoints: vec![
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/users/profile".into(),
-                    title: "Get profile".into(),
-                    desc: "Returns the authenticated user profile including wallet address and plan info.".into(),
-                    tier: "free".into(),
-                    params: vec![],
-                    headers: vec![bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"wallet_address":"0x1234...abcd","plans":[{"name":"Premium","slug":"premium"}],"created_at":"2025-01-01T00:00:00Z"}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-                EndpointDef {
-                    method: "GET".into(),
-                    path: "/api/users/access-overview".into(),
-                    title: "Get access overview".into(),
-                    desc: "Returns a summary of permissions and plan features available to the user.".into(),
-                    tier: "free".into(),
-                    params: vec![],
-                    headers: vec![bearer.clone()],
-                    response_example: r#"{"success":true,"data":{"permissions":["epsx:analytics:read"],"plans":[{"name":"Premium","features":["Full rankings","CSV export"]}]}}"#.into(),
-                    rate_limits: default_rate_limits.clone(),
-                },
-            ],
-        },
-    ]
+fn valid_scope(scope: &str) -> bool {
+    !scope.is_empty()
+        && scope.len() <= 255
+        && !scope.starts_with("admin:")
+        && !scope.chars().any(char::is_control)
 }
 
-/// Public accessor for the cached endpoint catalog. Caches the
-/// categories behind a `OnceLock` so the per-page render path
-/// doesn't pay the construction cost on every request.
-pub fn cached_endpoint_categories() -> &'static Vec<EndpointCategory> {
-    static CACHE: OnceLock<Vec<EndpointCategory>> = OnceLock::new();
-    CACHE.get_or_init(endpoint_categories)
-}
-
-/// Public method-color helper. Mirrors the `methodColor` map at
-/// `usage-monitor.tsx:13-17` and `endpoint-card.tsx:10-14`.
-pub fn method_color_class(method: &str) -> &'static str {
-    match method {
-        "GET" => "bg-blue-500/10 text-blue-500",
-        "POST" => "bg-green-500/10 text-green-500",
-        "DELETE" => "bg-red-500/10 text-red-500",
-        _ => "text-muted-foreground",
+impl DeveloperOverview {
+    pub fn validated(self) -> Result<Self, DeveloperContractError> {
+        let scopes = self
+            .entitlement
+            .assignable_scopes
+            .iter()
+            .collect::<BTreeSet<_>>();
+        if self.total_api_keys < 0
+            || self.total_api_keys < self.api_keys.len() as i64
+            || self.entitlement.assignable_scopes.len() > 100
+            || scopes.len() != self.entitlement.assignable_scopes.len()
+            || self
+                .entitlement
+                .assignable_scopes
+                .iter()
+                .any(|scope| !valid_scope(scope))
+            || self.entitlement.plans.iter().any(|plan| {
+                plan.name.is_empty()
+                    || plan.slug.is_empty()
+                    || plan
+                        .expires_at
+                        .as_deref()
+                        .is_some_and(|value| !valid_timestamp(value))
+            })
+            || !matches!(self.usage.days, 7 | 30 | 90)
+            || self.usage.daily.len() != self.usage.days as usize
+            || self.usage.total_requests < 0
+            || self.usage.successful_requests < 0
+            || self.usage.error_requests < 0
+            || self.usage.successful_requests + self.usage.error_requests
+                != self.usage.total_requests
+            || !self.usage.success_rate.is_finite()
+            || !self.usage.error_rate.is_finite()
+            || !self.usage.average_response_time_ms.is_finite()
+            || self.api_keys.iter().any(|key| {
+                key.clone().validated().is_err()
+                    || key.scopes.iter().any(|scope| !scopes.contains(scope))
+            })
+            || self.usage.daily.iter().any(|point| {
+                chrono::NaiveDate::parse_from_str(&point.date, "%Y-%m-%d").is_err()
+                    || point.total_requests < 0
+                    || point.error_requests < 0
+                    || point.error_requests > point.total_requests
+            })
+            || self.usage.top_endpoints.iter().any(|endpoint| {
+                endpoint.endpoint.is_empty()
+                    || !endpoint.endpoint.starts_with('/')
+                    || endpoint.method.is_empty()
+                    || endpoint.request_count < 0
+                    || endpoint.error_count < 0
+                    || endpoint.error_count > endpoint.request_count
+                    || !endpoint.average_response_time_ms.is_finite()
+            })
+        {
+            return Err(DeveloperContractError);
+        }
+        Ok(self)
     }
 }
 
-/// Public tier-color helper. Mirrors the pinned `tier-badge.tsx` mapping.
-pub fn tier_color_class(tier: &str) -> &'static str {
-    match tier {
-        "free" => "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-        "basic" => "bg-green-500/10 text-green-400 border-green-500/20",
-        "premium" => "bg-purple-500/10 text-purple-400 border-purple-500/20",
-        "enterprise" => "bg-orange-500/10 text-orange-400 border-orange-500/20",
-        _ => "text-muted-foreground",
-    }
+pub fn decode_developer_overview(value: serde_json::Value) -> Option<DeveloperOverview> {
+    serde_json::from_value::<DeveloperOverview>(value)
+        .ok()?
+        .validated()
+        .ok()
 }
 
-fn code_snippet(endpoint: &EndpointDef, language: &str) -> String {
-    let url = format!("{DEVELOPER_DOCS_EXAMPLE_ORIGIN}{}", endpoint.path);
-    match language {
-        "rust" => format!(
-            "let response = reqwest::Client::new()\n    .request(reqwest::Method::{}, \"{}\")\n    .bearer_auth(\"YOUR_API_KEY\")\n    .send()\n    .await?;\nlet data: serde_json::Value = response.json().await?;",
-            endpoint.method, url
-        ),
-        _ => {
-            let mut lines = vec![
-                format!("curl -X {} \"{url}\"", endpoint.method),
-                "  -H \"Authorization: Bearer YOUR_API_KEY\"".to_string(),
-            ];
-            if endpoint.method == "POST" {
-                lines.push("  -H \"Content-Type: application/json\"".to_string());
-                lines.push("  -d '{\"ticker\": \"AAPL\"}'".to_string());
+pub fn decode_openapi(value: serde_json::Value) -> Option<Vec<DeveloperOperation>> {
+    if value.get("openapi")?.as_str()?.is_empty() {
+        return None;
+    }
+    let paths = value.get("paths")?.as_object()?;
+    let mut operations = Vec::new();
+    let mut ids = BTreeSet::new();
+    for (path, item) in paths {
+        if !path.starts_with("/api/") || path.contains("..") {
+            return None;
+        }
+        let item = item.as_object()?;
+        for method in ["get", "post", "put", "patch", "delete"] {
+            let Some(operation) = item.get(method) else {
+                continue;
+            };
+            let operation_id = operation.get("operationId")?.as_str()?.to_string();
+            let summary = operation
+                .get("summary")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("API operation")
+                .to_string();
+            let required_scopes = operation
+                .get("x-epsx-required-scopes")?
+                .as_array()?
+                .iter()
+                .map(|scope| scope.as_str().map(str::to_string))
+                .collect::<Option<Vec<_>>>()?;
+            if !ids.insert(operation_id.clone())
+                || required_scopes.iter().any(|scope| !valid_scope(scope))
+            {
+                return None;
             }
-            lines.join(" \\\n")
+            operations.push(DeveloperOperation {
+                operation_id,
+                method: method.to_ascii_uppercase(),
+                path: path.clone(),
+                summary,
+                required_scopes,
+                api_key_callable: operation.get("x-epsx-api-key-callable")?.as_bool()?,
+                mutation: operation.get("x-epsx-mutation")?.as_bool()?,
+                idempotent: operation.get("x-epsx-idempotent")?.as_bool()?,
+            });
         }
     }
+    (!operations.is_empty()).then_some(operations)
 }
 
-fn pretty_response(response: &str) -> String {
-    serde_json::from_str::<serde_json::Value>(response)
-        .and_then(|value| serde_json::to_string_pretty(&value))
-        .unwrap_or_else(|_| response.to_string())
+#[derive(Clone, Debug)]
+enum Load<T> {
+    Ready(T),
+    Empty(T),
+    Forbidden,
+    Unavailable,
+    Malformed,
 }
 
-// ─────────────────────────────────────────────────────────────────────────
-// Developer overview (`/developer`) — truthful migration state.
-// ─────────────────────────────────────────────────────────────────────────
+fn overview_load(
+    ctx: &PageContext,
+    data_param: &str,
+    state_param: &str,
+) -> Load<DeveloperOverview> {
+    let state = ctx.params.get(state_param).map(String::as_str);
+    let decoded = ctx
+        .params
+        .get(data_param)
+        .and_then(|raw| serde_json::from_str(raw).ok())
+        .and_then(decode_developer_overview);
+    match (state, decoded) {
+        (Some(LOAD_READY), Some(data)) => Load::Ready(data),
+        (Some(LOAD_EMPTY), Some(data)) => Load::Empty(data),
+        (Some(LOAD_FORBIDDEN), _) => Load::Forbidden,
+        (Some(LOAD_UNAVAILABLE), _) | (None, _) => Load::Unavailable,
+        _ => Load::Malformed,
+    }
+}
 
-/// Authenticated state for developer API management.
-///
-/// The pinned source populates this surface through authenticated plan and
-/// API-key actions. Until equivalent backend-owned Rust contracts exist, the
-/// page must not render compatibility payloads or simulate mutations locally.
 #[component]
-fn DeveloperOverviewUnavailable() -> Element {
+fn ProblemState(kind: &'static str, title: &'static str, detail: &'static str) -> Element {
     rsx! {
         section {
-            class: "developer-overview-unavailable rounded-2xl border border-white/70 bg-black/20 p-5 shadow-xl sm:p-8",
-            "data-section": "developer-overview-unavailable",
+            class: "rounded-2xl border border-border/30 bg-card p-8 text-center shadow-xl",
+            "data-developer-state": kind,
             role: "status",
-            "aria-live": "polite",
-            "aria-labelledby": "developer-overview-unavailable-title",
-            div { class: "flex flex-wrap items-center justify-between gap-3 border-b border-white/60 pb-4",
-                a { class: "inline-flex items-center gap-2 rounded-2xl border border-white/70 px-4 py-2 text-purple-300", href: "/developer/docs",
-                    "Developer Menu"
-                    Icon { name: "chevron-right".to_string(), size: Some(16) }
-                }
-                span { class: "rounded-2xl border border-white/70 px-5 py-2 text-sm font-medium text-white", "API Keys" }
-            }
-            h2 { id: "developer-overview-unavailable-title", class: "sr-only", "Developer tools unavailable" }
-            p { class: "sr-only",
-                "API key and plan management are not available right now. No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."
-            }
-            div { class: "mt-8 grid gap-4 sm:grid-cols-2",
-                DeveloperMetricPreview { label: "API Access", value: "Unavailable", accent: "text-amber-400" }
-                DeveloperMetricPreview { label: "Rate Limit", value: "Unavailable", accent: "text-blue-400" }
-                DeveloperMetricPreview { label: "Total Usage", value: "Not projected", accent: "text-purple-400" }
-                DeveloperMetricPreview { label: "Expires", value: "Not projected", accent: "text-emerald-400" }
-            }
-            section { class: "mt-6 rounded-2xl border border-white/70 p-5 sm:p-8",
-                div { class: "rounded-2xl border border-white/70 p-5 text-center",
-                    span { class: "inline-flex rounded-full bg-purple-600 px-4 py-1 text-sm font-semibold text-white", "Plan state unavailable" }
-                    p { class: "mt-4 text-lg text-white", "API key generation remains unavailable until the backend plan contract is verified." }
-                }
-                div { class: "mt-8 rounded-2xl border border-white/70 p-5 sm:p-8",
-                    div { class: "flex items-center justify-between gap-3 border-b border-white/70 pb-4",
-                        h3 { class: "text-2xl font-bold text-white", "Your API Keys" }
-                        span { class: "text-sm text-slate-300", "Unavailable" }
-                    }
-                    p { class: "py-16 text-center text-lg text-slate-300", "No API key data is available yet." }
-                }
-                aside { class: "mt-6 rounded-2xl border border-blue-500/30 bg-blue-500/5 p-5 text-blue-300",
-                    h3 { class: "text-xl font-semibold", "Security Best Practices" }
-                    ul { class: "mt-3 list-disc space-y-1 pl-5",
-                        li { "Never commit API keys to version control" }
-                        li { "Use environment variables for key storage" }
-                        li { "Rotate keys regularly for production apps" }
-                        li { "Revoke unused keys promptly" }
-                    }
-                }
-            }
-            nav { class: "sr-only mt-6", aria_label: "Developer page actions",
-                a { href: "/developer/docs", "Read API documentation" }
-            }
+            h2 { class: "text-xl font-semibold text-foreground", "{title}" }
+            p { class: "mt-3 text-sm text-muted-foreground", "{detail}" }
+        }
+    }
+}
+
+fn format_number(value: i64) -> String {
+    let chars = value.max(0).to_string().chars().rev().collect::<Vec<_>>();
+    chars
+        .chunks(3)
+        .map(|chunk| chunk.iter().collect::<String>())
+        .collect::<Vec<_>>()
+        .join(",")
+        .chars()
+        .rev()
+        .collect()
+}
+
+#[component]
+fn Metric(label: &'static str, value: String, detail: String) -> Element {
+    rsx! {
+        article { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-lg",
+            p { class: "text-xs font-semibold uppercase tracking-wider text-muted-foreground", "{label}" }
+            p { class: "mt-2 text-2xl font-bold text-foreground", "{value}" }
+            p { class: "mt-1 text-xs text-muted-foreground", "{detail}" }
         }
     }
 }
 
 #[component]
-fn DeveloperMetricPreview(
-    label: &'static str,
-    value: &'static str,
-    accent: &'static str,
-) -> Element {
+fn OverviewReady(data: DeveloperOverview) -> Element {
+    let entitlement = data.entitlement.clone();
+    let plan_names = if entitlement.plans.is_empty() {
+        "No active API plan".to_string()
+    } else {
+        entitlement
+            .plans
+            .iter()
+            .map(|plan| plan.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
     rsx! {
-        article { class: "rounded-2xl border border-white/70 bg-black/10 p-5 sm:p-7",
-            p { class: "text-base font-medium text-white", "{label}" }
-            p { class: "mt-5 text-3xl font-bold {accent}", "{value}" }
-        }
-    }
-}
-
-// ─────────────────────────────────────────────────────────────────────────
-// Usage sub-page (`/developer/usage`) — truthful migration state.
-// ─────────────────────────────────────────────────────────────────────────
-
-/// Authenticated state for usage reporting.
-///
-/// No metrics are rendered until the Rust page has a production-owned,
-/// authenticated usage contract. Documentation remains an ordinary link so it
-/// works in server-rendered output without hydration.
-#[component]
-fn DeveloperUsageUnavailable() -> Element {
-    rsx! {
-        section {
-            class: "developer-usage-unavailable rounded-2xl border border-border/20 bg-card p-8 shadow-xl",
-            "data-section": "developer-usage-unavailable",
-            role: "status",
-            "aria-live": "polite",
-            "aria-labelledby": "developer-usage-unavailable-title",
-            div { class: "mx-auto max-w-2xl text-center",
-                div { class: "mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted",
-                    Icon { name: "chart-line".to_string(), size: Some(24) }
-                }
-                h2 {
-                    id: "developer-usage-unavailable-title",
-                    class: "text-xl font-bold text-foreground",
-                    "Usage data unavailable"
-                }
-                p { class: "mt-3 text-sm text-muted-foreground",
-                    "Authenticated usage reporting is temporarily unavailable. No request counts, limits, reliability figures, or activity rows are shown."
-                }
-                nav {
-                    class: "mt-6 flex flex-wrap justify-center gap-3",
-                    "aria-label": "Usage page actions",
-                    a {
-                        class: "btn btn-outline",
-                        href: "/developer/docs",
-                        "Read API documentation"
-                    }
-                }
+        div { class: "space-y-6", "data-developer-state": "ready",
+            div { class: "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
+                Metric { label: "API access", value: if entitlement.has_active_api_entitlement { "Active".to_string() } else { "Inactive".to_string() }, detail: plan_names }
+                Metric { label: "Rate limit", value: format!("{}/min", entitlement.rate_limits.per_minute), detail: format!("{} requests/day", format_number(i64::from(entitlement.rate_limits.per_day))) }
+                Metric { label: "30-day usage", value: format_number(data.usage.total_requests), detail: format!("{:.1}% success", data.usage.success_rate) }
+                Metric { label: "API keys", value: data.total_api_keys.to_string(), detail: "Owner-scoped, secrets redacted".to_string() }
             }
-        }
-    }
-}
 
-// ─────────────────────────────────────────────────────────────────────────
-// Top-level render functions — three views (overview, usage, docs).
-// These match the existing `pub use developer::render_overview as Developer`
-// re-export in `pages.rs`, so the page-routing integration is
-// unchanged.
-// ─────────────────────────────────────────────────────────────────────────
-
-/// `DeveloperOverviewBody` — authentication-only overview state.
-#[component]
-fn DeveloperOverviewBody(ctx: PageContext) -> Element {
-    let can_preview = ctx.user.is_some() || ctx.wallet.address.is_some();
-    rsx! {
-        MainLayout { ctx: ctx.clone(),
-            if can_preview {
-                div { class: "container page-content",
-                    DeveloperOverviewUnavailable {}
-                }
-            } else {
-                AuthGate {
-                    user: ctx.user.clone(),
-                    feature: Some("the developer portal".to_string()),
-                    return_url: Some(ctx.path.clone()),
-                    div { class: "container page-content space-y-6",
-                        PageHeader {
-                            title: "Developer portal".to_string(),
-                            description: Some("Developer API management is not currently available.".to_string()),
-                            icon: Some("code".to_string()),
+            if entitlement.can_write && entitlement.has_active_api_entitlement {
+                section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+                    h2 { class: "text-lg font-semibold text-foreground", "Create API key" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Choose only the scopes this integration needs. The secret appears once." }
+                    form { class: "mt-5 grid gap-4", "data-developer-create-form": "true", action: "/developer/keys/create", method: "post",
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("developer.create.{}", Uuid::new_v4()) }
+                        label { class: "grid gap-1 text-sm text-foreground", "Name",
+                            input { class: "input", name: "name", maxlength: "255", required: true, autocomplete: "off" }
                         }
-                        DeveloperOverviewUnavailable {}
-                    }
-                }
-            }
-        }
-    }
-}
-
-/// `DeveloperUsageBody` — authentication-only usage state.
-#[component]
-fn DeveloperUsageBody(ctx: PageContext) -> Element {
-    rsx! {
-        MainLayout { ctx: ctx.clone(),
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("API usage".to_string()),
-                return_url: Some(ctx.path.clone()),
-                div { class: "developer-usage-prod container page-content space-y-6",
-                    PageHeader {
-                        title: "API usage".to_string(),
-                        description: Some("Usage reporting is not currently available.".to_string()),
-                        icon: Some("chart-line".to_string()),
-                    }
-                    DeveloperUsageUnavailable {}
-                }
-            }
-        }
-    }
-}
-
-/// `/developer` — overview.
-pub fn render_overview(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Developer");
-    let body = rsx! { DeveloperOverviewBody { ctx: ctx.clone() } };
-    (meta, body)
-}
-
-/// `/developer/usage` — usage monitor.
-pub fn render_usage(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("API usage");
-    let body = rsx! { DeveloperUsageBody { ctx: ctx.clone() } };
-    (meta, body)
-}
-
-/// `/developer/docs` — endpoints sidebar + endpoint cards.
-/// Wave 22 T4 — replaces the 3-card stub (auth/payments/
-/// subscriptions) with the real `ENDPOINT_CATEGORIES` (4
-/// categories, 10 endpoints) ported from
-/// `apps-old/frontend/components/developer/docs/data/endpoints.ts`.
-/// Renders a sidebar (categories nav + quick-start card) on the
-/// left and a stacked list of `EndpointCard` components on the
-/// right. Each card is collapsible with a click on the header
-/// row. Mirrors the `endpoint-card.tsx` + `docs-sidebar.tsx` +
-/// `api-docs.tsx` source structure.
-pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
-    // The pinned page has no route-owned metadata and therefore inherits the
-    // exact root metadata from `app/layout.tsx`.
-    let mut meta = PageMeta::app("API documentation");
-    meta.title = "EPSX - Stock Analytics Platform".to_string();
-    meta.description = "Advanced stock data analytics platform".to_string();
-    // Next's metadata generator serializes keyword arrays with `join(',')`.
-    meta.keywords = Some("stock analytics,financial data,EPSX,market insights".to_string());
-    let categories = cached_endpoint_categories();
-
-    (
-        meta,
-        rsx! {
-            MainLayout { ctx: ctx.clone(),
-                div {
-                    class: "developer-docs-page container page-content",
-                    "data-docs-source-baseline": DEVELOPER_DOCS_SOURCE_BASELINE,
-                    // 8. Endpoints sidebar + endpoint cards.
-                    div { class: "developer-docs flex gap-6",
-                        "data-section": "developer-docs",
-                        DocsSidebar { categories: categories.clone() }
-                        div { class: "min-w-0 flex-1 space-y-8",
-                                // Hero
-                                div { class: "developer-docs-hero mb-8",
-                                    div { class: "h-[3px] w-16 rounded-full bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]" }
-                                    h1 { class: "mt-3 text-3xl font-bold text-foreground", "API Reference" }
-                                    p { class: "mt-2 text-muted-foreground",
-                                        "Pinned migration reference for reviewing endpoint, schema, and example structure."
-                                    }
-                                }
-                                aside {
-                                    class: "developer-docs-reference-warning rounded-2xl border border-amber-500/40 bg-amber-500/10 p-5",
-                                    "data-docs-reference-warning": "true",
-                                    role: "note",
-                                    "aria-labelledby": "developer-docs-reference-warning-title",
-                                    h2 {
-                                        id: "developer-docs-reference-warning-title",
-                                        class: "text-base font-semibold text-foreground",
-                                        "Pinned migration reference"
-                                    }
-                                    p { class: "mt-2 text-sm text-muted-foreground",
-                                        "Endpoint, authentication, tier, rate-limit, schema, and example content below comes from the pinned migration source "
-                                        code { class: "font-mono text-xs", "{DEVELOPER_DOCS_SOURCE_BASELINE}" }
-                                        ". It is not a verified production contract. Do not use real credentials."
-                                    }
-                                }
-                                // Auth guide card
-                                div { class: "developer-docs-auth-card rounded-2xl border border-border/20 bg-card p-5 shadow-xl",
-                                    h3 { class: "text-sm font-semibold text-foreground", "Authentication" }
-                                    p { class: "mt-1 text-sm text-muted-foreground",
-                                        "The pinned reference shows an "
-                                        code { class: "rounded bg-background px-1.5 py-0.5 text-xs", "Authorization: Bearer <token>" }
-                                        " header. Accepted credential types and middleware behavior are not verified here."
-                                    }
-                                    pre { class: "developer-docs-curl mt-3 rounded-xl bg-slate-900 p-3 font-mono text-xs text-gray-300",
-                                        "curl -H \"Authorization: Bearer YOUR_API_KEY\" https://api.example.invalid/api/analytics/rankings"
-                                    }
-                                }
-                                // Endpoint sections
-                                div { class: "space-y-10",
-                                    for cat in categories.iter() {
-                                        EndpointSection { category: cat.clone() }
-                                    }
-                                }
+                        label { class: "grid gap-1 text-sm text-foreground", "Description",
+                            textarea { class: "input min-h-24", name: "description", maxlength: "2000" }
                         }
-                    }
-                }
-            }
-        },
-    )
-}
-
-/// `DocsSidebar` — left rail with category links + a quick-start
-/// card. Mirrors `apps-old/frontend/components/developer/docs/docs-sidebar.tsx`.
-#[component]
-fn DocsSidebar(categories: Vec<EndpointCategory>) -> Element {
-    rsx! {
-        button {
-            r#type: "button",
-            class: "docs-sidebar-toggle",
-            "data-docs-sidebar-toggle": "true",
-            "aria-controls": "developer-docs-sidebar",
-            "aria-expanded": "false",
-            "aria-label": "Open API reference navigation",
-            span { "☰" }
-        }
-        aside {
-            id: "developer-docs-sidebar",
-            class: "docs-sidebar",
-            "data-docs-sidebar": "true",
-            "aria-label": "API reference sections",
-            div { class: "px-4 py-4",
-                h3 { class: "mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "API Reference" }
-                nav { class: "space-y-1", "aria-label": "Endpoint categories",
-                    for cat in categories.iter() {
-                        a {
-                            class: "docs-sidebar-link flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
-                            href: "#section-{cat.id}",
-                            "data-docs-section-link": "{cat.id}",
-                            key: "{cat.id}",
-                            span { class: "h-1.5 w-1.5 rounded-full bg-current opacity-50" }
-                            "{cat.title}"
-                            span { class: "ml-auto text-xs text-muted-foreground/50", "{cat.endpoints.len()}" }
-                        }
-                    }
-                }
-            }
-            // Quick start card
-            div { class: "docs-sidebar-quickstart mx-1 mt-4 rounded-xl border border-border/10 bg-background p-3",
-                p { class: "text-xs font-medium text-foreground", "Header reference" }
-                p { class: "mt-1 text-[11px] leading-relaxed text-muted-foreground",
-                    "Pinned Bearer-header example only. Do not use real credentials."
-                }
-                code { class: "mt-2 block rounded-lg bg-slate-900 p-2 font-mono text-[10px] text-gray-300",
-                    "Authorization: Bearer <key>"
-                }
-            }
-        }
-        button {
-            r#type: "button",
-            class: "docs-sidebar-overlay",
-            "data-docs-sidebar-overlay": "true",
-            "aria-label": "Close API reference navigation",
-            hidden: true,
-        }
-    }
-}
-
-/// `EndpointSection` — one section per category. Mirrors
-/// `apps-old/frontend/components/developer/docs/endpoint-section.tsx`.
-#[component]
-fn EndpointSection(category: EndpointCategory) -> Element {
-    rsx! {
-        section { class: "docs-endpoint-section space-y-4", id: "section-{category.id}",
-            key: "{category.id}",
-            div { class: "docs-endpoint-section-header",
-                h2 { class: "text-2xl font-bold text-foreground", "{category.title}" }
-                p { class: "mt-1 text-sm text-muted-foreground", "{category.desc}" }
-            }
-            for ep in category.endpoints.iter() {
-                EndpointCard { endpoint: ep.clone() }
-            }
-        }
-    }
-}
-
-/// `EndpointCard` — collapsible card per endpoint. Mirrors
-/// `apps-old/frontend/components/developer/docs/endpoint-card.tsx`.
-/// The header row shows the method badge, the path, the tier
-/// badge, and a chevron. Click toggles the expanded body which
-/// renders params table, rate limits, example curl, and the
-/// response example.
-#[component]
-fn EndpointCard(endpoint: EndpointDef) -> Element {
-    let method_cls = method_color_class(&endpoint.method);
-    let tier_cls = tier_color_class(&endpoint.tier);
-    let card_id = format!(
-        "docs-endpoint-{}-{}",
-        endpoint.method.to_ascii_lowercase(),
-        endpoint.path.trim_matches('/').replace('/', "-")
-    );
-    let body_id = format!("{card_id}-body");
-    let curl = code_snippet(&endpoint, "curl");
-    let rust = code_snippet(&endpoint, "rust");
-    let response = pretty_response(&endpoint.response_example);
-    let curl_tab_id = format!("{card_id}-tab-curl");
-    let rust_tab_id = format!("{card_id}-tab-rust");
-    let curl_panel_id = format!("{card_id}-panel-curl");
-    let rust_panel_id = format!("{card_id}-panel-rust");
-    let code_copy_status_id = format!("{card_id}-copy-code-status");
-    let response_copy_status_id = format!("{card_id}-copy-response-status");
-    let code_copy_label = format!(
-        "Copy selected code example for {} {}",
-        endpoint.method, endpoint.path
-    );
-    let response_copy_label = format!(
-        "Copy response example for {} {}",
-        endpoint.method, endpoint.path
-    );
-    let code_copy_success = format!(
-        "Copied code example for {} {} to clipboard.",
-        endpoint.method, endpoint.path
-    );
-    let code_copy_failure = format!(
-        "Could not copy code example for {} {}.",
-        endpoint.method, endpoint.path
-    );
-    let response_copy_success = format!(
-        "Copied response example for {} {} to clipboard.",
-        endpoint.method, endpoint.path
-    );
-    let response_copy_failure = format!(
-        "Could not copy response example for {} {}.",
-        endpoint.method, endpoint.path
-    );
-    rsx! {
-        article { class: "docs-endpoint-card rounded-2xl border border-border/20 bg-card shadow-xl",
-            id: "{card_id}",
-            key: "{endpoint.method}-{endpoint.path}",
-            button {
-                r#type: "button",
-                class: "flex w-full items-center gap-3 px-5 py-4 text-left",
-                "data-docs-endpoint-toggle": "true",
-                "aria-expanded": "false",
-                "aria-controls": "{body_id}",
-                span { class: "rounded-lg px-2.5 py-1 text-xs font-bold {method_cls}", "{endpoint.method}" }
-                code { class: "flex-1 font-mono text-sm text-foreground", "{endpoint.path}" }
-                span { class: "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium capitalize {tier_cls}", "{endpoint.tier}" }
-                span { class: "docs-endpoint-card-chevron h-4 w-4 text-muted-foreground", "aria-hidden": "true", "▸" }
-            }
-            div {
-                id: "{body_id}",
-                class: "docs-endpoint-card-body border-t border-border/10 px-5 py-4 space-y-5",
-                hidden: true,
-                p { class: "text-sm text-muted-foreground", "{endpoint.desc}" }
-                // Params table
-                if !endpoint.params.is_empty() {
-                    div { class: "docs-endpoint-card-params",
-                        h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Parameters" }
-                        div { class: "overflow-x-auto rounded-xl border border-border/10",
-                            table { class: "w-full text-sm",
-                                thead {
-                                    tr { class: "border-b border-border/10 text-left text-xs text-muted-foreground",
-                                        th { class: "px-3 py-2 font-medium", "Name" }
-                                        th { class: "px-3 py-2 font-medium", "Type" }
-                                        th { class: "px-3 py-2 font-medium", "Required" }
-                                        th { class: "px-3 py-2 font-medium", "Description" }
-                                    }
+                        fieldset { class: "grid gap-2", legend { class: "text-sm font-medium text-foreground", "Scopes" }
+                            for scope in entitlement.assignable_scopes.iter() {
+                                label { class: "flex items-center gap-2 rounded-xl border border-border/20 p-3 text-sm",
+                                    input { r#type: "checkbox", name: "scopes", value: "{scope}" }
+                                    code { "{scope}" }
                                 }
-                                tbody {
-                                    for p in endpoint.params.iter() {
-                                        tr { class: "border-b border-border/5",
-                                            td { class: "px-3 py-2 font-mono text-xs text-foreground", "{p.name}" }
-                                            td { class: "px-3 py-2 text-xs text-muted-foreground", "{p.kind}" }
-                                            td { class: "px-3 py-2",
-                                                if p.required {
-                                                    span { class: "text-xs text-red-400", "yes" }
-                                                } else {
-                                                    span { class: "text-xs text-muted-foreground/50", "no" }
-                                                }
-                                            }
-                                            td { class: "px-3 py-2 text-xs text-muted-foreground",
-                                                "{p.desc}"
-                                                if let Some(default) = &p.default { " (default: {default})" }
-                                            }
+                            }
+                        }
+                        label { class: "grid gap-1 text-sm text-foreground", "Expires at (optional)",
+                            input { class: "input font-mono", r#type: "text", name: "expires_at", placeholder: "2030-01-01T00:00:00Z", inputmode: "text" }
+                        }
+                        button { class: "btn btn-primary justify-self-start", r#type: "submit", "data-developer-create": "true", "Create key" }
+                    }
+                    div { id: "developer-secret-once", class: "mt-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4", hidden: true, "data-developer-secret-panel": "true", role: "status",
+                        p { class: "text-sm font-semibold text-foreground", "Save this secret now. It will not be shown again." }
+                        code { id: "developer-secret-value", class: "mt-2 block break-all font-mono text-sm" }
+                        button { id: "developer-secret-copy", class: "btn btn-outline mt-3", r#type: "button", "data-epsx-action": "copy", "Copy secret" }
+                    }
+                }
+            }
+
+            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+                div { class: "flex flex-wrap items-center justify-between gap-3",
+                    h2 { class: "text-lg font-semibold text-foreground", "Your API keys" }
+                    a { class: "btn btn-outline", href: "/developer/usage", "View usage" }
+                }
+                if data.api_keys.is_empty() {
+                    p { class: "py-12 text-center text-muted-foreground", "No API keys yet." }
+                } else {
+                    div { class: "mt-5 grid gap-3",
+                        for key in data.api_keys.iter() {
+                            article { class: "rounded-xl border border-border/20 p-4", "data-api-key-id": "{key.id}",
+                                div { class: "flex flex-wrap items-start justify-between gap-3",
+                                    div {
+                                        h3 { class: "font-semibold text-foreground", "{key.name}" }
+                                        code { class: "mt-1 block text-sm text-muted-foreground", "{key.key_prefix}" }
+                                    }
+                                    span { class: "rounded-full border px-2 py-1 text-xs", "{key.status}" }
+                                }
+                                if let Some(description) = &key.description { p { class: "mt-3 text-sm text-muted-foreground", "{description}" } }
+                                div { class: "mt-3 flex flex-wrap gap-2",
+                                    for scope in key.scopes.iter() { code { class: "rounded bg-background px-2 py-1 text-xs", "{scope}" } }
+                                }
+                                div { class: "mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground",
+                                    span { "{format_number(key.total_requests)} requests" }
+                                    if key.status == "active" && entitlement.can_write {
+                                        form { "data-developer-revoke-form": "true", action: format!("/developer/keys/{}/revoke", key.id), method: "post",
+                                            input { r#type: "hidden", name: "idempotency_key", value: format!("developer.revoke.{}", Uuid::new_v4()) }
+                                            input { r#type: "hidden", name: "reason", value: "Revoked from Developer Portal" }
+                                            label { class: "mr-2 inline-flex items-center gap-1", input { r#type: "checkbox", name: "confirm_revoke", value: "yes", required: true } "Confirm" }
+                                            button { class: "btn btn-outline text-red-400", r#type: "submit", "data-developer-revoke": "true", "data-key-id": "{key.id}", "Revoke" }
                                         }
                                     }
                                 }
@@ -781,753 +431,216 @@ fn EndpointCard(endpoint: EndpointDef) -> Element {
                         }
                     }
                 }
-                // Rate limits
-                div { class: "docs-endpoint-card-rate-limits",
-                    h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Rate Limits" }
-                    div { class: "flex flex-wrap gap-2",
-                        for (tier, limit) in endpoint.rate_limits.iter() {
-                            span { class: "rounded-lg bg-background px-2.5 py-1 text-xs text-muted-foreground",
-                                span { class: "capitalize", "{tier}" }
-                                ": "
-                                span { class: "font-mono", "{limit}" }
-                            }
-                        }
-                    }
-                }
-                // Example
-                div { class: "docs-endpoint-card-example",
-                    h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Example" }
-                    div { class: "docs-code-example",
-                        div {
-                            class: "docs-code-toolbar",
-                            role: "tablist",
-                            "aria-label": "Code language",
-                            for (lang, label, tab_id, panel_id) in [
-                                ("curl", "cURL", curl_tab_id.clone(), curl_panel_id.clone()),
-                                ("rust", "Rust", rust_tab_id.clone(), rust_panel_id.clone()),
-                            ] {
-                                button {
-                                    id: "{tab_id}",
-                                    r#type: "button",
-                                    class: if lang == "curl" { "docs-code-tab active" } else { "docs-code-tab" },
-                                    role: "tab",
-                                    "data-docs-code-tab": "{lang}",
-                                    "aria-controls": "{panel_id}",
-                                    "aria-selected": if lang == "curl" { "true" } else { "false" },
-                                    tabindex: if lang == "curl" { "0" } else { "-1" },
-                                    "{label}"
-                                }
-                            }
-                            button {
-                                r#type: "button",
-                                class: "docs-copy-button",
-                                "data-docs-copy-code": "true",
-                                "data-copy-status-target": "{code_copy_status_id}",
-                                "data-copy-success-message": "{code_copy_success}",
-                                "data-copy-failure-message": "{code_copy_failure}",
-                                "data-copy-flash-result": "true",
-                                "aria-label": "{code_copy_label}",
-                                "aria-describedby": "{code_copy_status_id}",
-                                span { "Copy" }
-                            }
-                            span {
-                                id: "{code_copy_status_id}",
-                                class: "sr-only",
-                                role: "status",
-                                "aria-live": "polite",
-                                "aria-atomic": "true",
-                            }
-                        }
-                        pre {
-                            id: "{curl_panel_id}",
-                            class: "docs-code-panel",
-                            role: "tabpanel",
-                            tabindex: "0",
-                            "aria-labelledby": "{curl_tab_id}",
-                            "data-docs-code-panel": "curl",
-                            code { "{curl}" }
-                        }
-                        pre {
-                            id: "{rust_panel_id}",
-                            class: "docs-code-panel",
-                            role: "tabpanel",
-                            tabindex: "0",
-                            "aria-labelledby": "{rust_tab_id}",
-                            "data-docs-code-panel": "rust",
-                            hidden: true,
-                            code { "{rust}" }
-                        }
-                    }
-                }
-                // Response example
-                div { class: "docs-endpoint-card-response",
-                    h4 { class: "mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground", "Response" }
-                    div { class: "docs-response-example",
-                        button {
-                            r#type: "button",
-                            class: "docs-copy-button docs-response-copy",
-                            "data-docs-copy-response": "true",
-                            "data-copy-status-target": "{response_copy_status_id}",
-                            "data-copy-success-message": "{response_copy_success}",
-                            "data-copy-failure-message": "{response_copy_failure}",
-                            "data-copy-flash-result": "true",
-                            "aria-label": "{response_copy_label}",
-                            "aria-describedby": "{response_copy_status_id}",
-                            span { "Copy" }
-                        }
-                        span {
-                            id: "{response_copy_status_id}",
-                            class: "sr-only",
-                            role: "status",
-                            "aria-live": "polite",
-                            "aria-atomic": "true",
-                        }
-                        pre { class: "docs-response-panel", code { "{response}" } }
-                    }
-                }
-
-                div {
-                    class: "docs-live-request-unavailable rounded-2xl border border-border/20 bg-card p-4 shadow-xl",
-                    "data-docs-live-request-notice": "true",
-                    role: "note",
-                    "aria-label": "Live requests unavailable",
-                    h4 { class: "text-sm font-semibold text-foreground", "Live requests unavailable" }
-                    p { class: "mt-1 text-sm text-muted-foreground",
-                        "This endpoint is reference-only. It does not accept credentials or send a request."
-                    }
-                }
             }
         }
     }
+}
+
+#[component]
+fn OverviewBody(ctx: PageContext) -> Element {
+    rsx! { MainLayout { ctx: ctx.clone(), AuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()), return_url: Some(ctx.path.clone()), wallet_connected: ctx.wallet.address.is_some(),
+        div { class: "container page-content space-y-6",
+            PageHeader { title: "Developer portal".to_string(), description: Some("Manage scoped API credentials backed by your live plan entitlement.".to_string()), icon: Some("code".to_string()) }
+            match overview_load(&ctx, DEVELOPER_DATA_PARAM, DEVELOPER_STATE_PARAM) {
+                Load::Ready(data) | Load::Empty(data) => rsx! { OverviewReady { data } },
+                Load::Forbidden => rsx! { ProblemState { kind: LOAD_FORBIDDEN, title: "API access required", detail: "Your current plan does not include epsx:api:read." } },
+                Load::Unavailable => rsx! { ProblemState { kind: LOAD_UNAVAILABLE, title: "Developer portal unavailable", detail: "The authoritative backend contract could not be reached." } },
+                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Developer data rejected", detail: "The backend response did not match the developer contract." } },
+            }
+        }
+    } } }
+}
+
+#[component]
+fn UsageReady(data: DeveloperOverview) -> Element {
+    let maximum = data
+        .usage
+        .daily
+        .iter()
+        .map(|point| point.total_requests)
+        .max()
+        .unwrap_or(0)
+        .max(1);
+    rsx! {
+        div { class: "space-y-6", "data-developer-usage-state": "ready",
+            nav { class: "flex gap-2", "aria-label": "Usage range",
+                for days in [7, 30, 90] {
+                    a { class: if data.usage.days == days { "btn btn-primary" } else { "btn btn-outline" }, href: format!("/developer/usage?days={days}"), "{days} days" }
+                }
+            }
+            div { class: "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
+                Metric { label: "Requests", value: format_number(data.usage.total_requests), detail: format!("Last {} days", data.usage.days) }
+                Metric { label: "Success rate", value: format!("{:.1}%", data.usage.success_rate), detail: format!("{} successful", format_number(data.usage.successful_requests)) }
+                Metric { label: "Errors", value: format_number(data.usage.error_requests), detail: format!("{:.1}% error rate", data.usage.error_rate) }
+                Metric { label: "Average latency", value: format!("{:.0} ms", data.usage.average_response_time_ms), detail: "Completed API-key requests".to_string() }
+            }
+            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+                h2 { class: "text-lg font-semibold text-foreground", "Daily requests" }
+                if data.usage.total_requests == 0 {
+                    p { class: "py-12 text-center text-muted-foreground", "No API-key requests in this period." }
+                } else {
+                    div { class: "mt-5 flex h-56 items-end gap-1 overflow-x-auto", role: "img", "aria-label": "Daily API request chart",
+                        for point in data.usage.daily.iter() {
+                            div { class: "group flex min-w-2 flex-1 flex-col items-center justify-end", title: format!("{}: {} requests", point.date, point.total_requests),
+                                div { class: "w-full rounded-t bg-purple-500", style: format!("height: {}%", (point.total_requests * 100 / maximum).max(2)) }
+                            }
+                        }
+                    }
+                }
+            }
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
+                h2 { class: "p-6 text-lg font-semibold text-foreground", "Top endpoints" }
+                if data.usage.top_endpoints.is_empty() { p { class: "px-6 pb-8 text-muted-foreground", "No endpoint activity in this period." } }
+                else { div { class: "overflow-x-auto", table { class: "w-full text-sm",
+                    thead { tr { class: "border-t border-b border-border/20 text-left text-muted-foreground", th { class: "p-3", "Method" } th { class: "p-3", "Endpoint" } th { class: "p-3", "Requests" } th { class: "p-3", "Errors" } th { class: "p-3", "Avg latency" } } }
+                    tbody { for endpoint in data.usage.top_endpoints.iter() { tr { class: "border-b border-border/10", td { class: "p-3 font-mono", "{endpoint.method}" } td { class: "p-3 font-mono", "{endpoint.endpoint}" } td { class: "p-3", "{format_number(endpoint.request_count)}" } td { class: "p-3", "{format_number(endpoint.error_count)}" } td { class: "p-3", "{endpoint.average_response_time_ms:.0} ms" } } } }
+                } } }
+            }
+        }
+    }
+}
+
+#[component]
+fn UsageBody(ctx: PageContext) -> Element {
+    rsx! { MainLayout { ctx: ctx.clone(), AuthGate { user: ctx.user.clone(), feature: Some("API usage".to_string()), return_url: Some(ctx.path.clone()), wallet_connected: ctx.wallet.address.is_some(),
+        div { class: "container page-content space-y-6",
+            PageHeader { title: "API usage".to_string(), description: Some("Request volume, reliability, and endpoint activity from real API-key logs.".to_string()), icon: Some("chart-line".to_string()) }
+            match overview_load(&ctx, DEVELOPER_USAGE_DATA_PARAM, DEVELOPER_USAGE_STATE_PARAM) {
+                Load::Ready(data) | Load::Empty(data) => rsx! { UsageReady { data } },
+                Load::Forbidden => rsx! { ProblemState { kind: LOAD_FORBIDDEN, title: "API access required", detail: "Your current plan does not include usage reporting." } },
+                Load::Unavailable => rsx! { ProblemState { kind: LOAD_UNAVAILABLE, title: "Usage unavailable", detail: "Usage analytics could not be reached." } },
+                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Usage data rejected", detail: "The analytics response did not match the usage contract." } },
+            }
+        }
+    } } }
+}
+
+#[component]
+fn DocsBody(ctx: PageContext) -> Element {
+    let state = ctx
+        .params
+        .get(DEVELOPER_OPENAPI_STATE_PARAM)
+        .map(String::as_str);
+    let operations = ctx
+        .params
+        .get(DEVELOPER_OPENAPI_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str(raw).ok())
+        .and_then(decode_openapi);
+    rsx! { MainLayout { ctx: ctx.clone(),
+        div { class: "container page-content space-y-6",
+            PageHeader { title: "API documentation".to_string(), description: Some("Generated from the backend operation registry.".to_string()), icon: Some("book-open".to_string()) }
+            if state == Some(LOAD_READY) && operations.is_some() {
+                div { class: "space-y-6", "data-developer-docs-state": "ready",
+                    section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+                        label { class: "grid gap-2 text-sm font-medium text-foreground", "API key for Try It",
+                            input { id: "developer-try-api-key", class: "input font-mono", r#type: "password", autocomplete: "off", spellcheck: "false", placeholder: "epsx_…", "data-developer-api-key-memory": "true" }
+                        }
+                        p { class: "mt-2 text-xs text-muted-foreground", "Kept only in this tab's memory and cleared on reload or close." }
+                    }
+                    for operation in operations.unwrap_or_default() {
+                        article { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl", id: format!("operation-{}", operation.operation_id),
+                            div { class: "flex flex-wrap items-center gap-3",
+                                span { class: "rounded-lg bg-purple-500/15 px-2 py-1 text-xs font-bold text-purple-700 dark:text-purple-300", "{operation.method}" }
+                                code { class: "font-mono text-sm text-foreground", "{operation.path}" }
+                            }
+                            h2 { class: "mt-3 text-lg font-semibold text-foreground", "{operation.summary}" }
+                            div { class: "mt-3 flex flex-wrap gap-2", for scope in operation.required_scopes.iter() { code { class: "rounded bg-background px-2 py-1 text-xs", "{scope}" } } }
+                            if operation.api_key_callable {
+                                div { class: "mt-5 grid gap-3",
+                                    label { class: "grid gap-1 text-xs text-muted-foreground", "Query string (optional)", input { class: "input font-mono", "data-try-query": "true", placeholder: "country=US&limit=20" } }
+                                    if operation.mutation { label { class: "grid gap-1 text-xs text-muted-foreground", "JSON body", textarea { class: "input min-h-28 font-mono", "data-try-body": "true", value: "{{}}" } } }
+                                    button { class: "btn btn-primary justify-self-start", r#type: "button", "data-developer-try": "true", "data-operation-id": "{operation.operation_id}", "data-operation-mutation": if operation.mutation { "true" } else { "false" }, "Try It" }
+                                    pre { class: "max-h-96 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-200", "data-try-response": "true", hidden: true }
+                                }
+                            } else {
+                                p { class: "mt-4 text-sm text-muted-foreground", "Browser-session operation; Try It is disabled for API keys." }
+                            }
+                        }
+                    }
+                }
+            } else if state == Some(LOAD_MALFORMED) {
+                ProblemState { kind: LOAD_MALFORMED, title: "API specification rejected", detail: "The OpenAPI document did not match the operation registry contract. Try It is disabled." }
+            } else {
+                ProblemState { kind: LOAD_UNAVAILABLE, title: "API specification unavailable", detail: "The backend OpenAPI document could not be loaded. Try It is disabled." }
+            }
+        }
+    } }
+}
+
+pub fn render_overview(ctx: &PageContext) -> (PageMeta, Element) {
+    (
+        PageMeta::app("Developer"),
+        rsx! { OverviewBody { ctx: ctx.clone() } },
+    )
+}
+
+pub fn render_usage(ctx: &PageContext) -> (PageMeta, Element) {
+    (
+        PageMeta::app("API usage"),
+        rsx! { UsageBody { ctx: ctx.clone() } },
+    )
+}
+
+pub fn render_docs(ctx: &PageContext) -> (PageMeta, Element) {
+    (
+        PageMeta::app("API documentation"),
+        rsx! { DocsBody { ctx: ctx.clone() } },
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn empty_ctx() -> PageContext {
-        PageContext {
-            path: "/developer".to_string(),
-            ..Default::default()
-        }
-    }
-
-    fn authed_ctx() -> PageContext {
-        PageContext {
-            user: Some(crate::auth::User {
-                id: "test-user".to_string(),
-                address: "0xtest".to_string(),
-                chain_id: "56".to_string(),
-                roles: vec!["user".to_string()],
-                email: None,
-                tier: Some("Pro".to_string()),
-                permissions: vec!["developer:read".to_string()],
-                last_login_at: None,
-                auth_method: crate::auth::AuthMethod::Wallet,
-                display_name: Some("Test".to_string()),
-            }),
-            path: "/developer".to_string(),
-            ..Default::default()
-        }
-    }
-
-    fn usage_ctx() -> PageContext {
-        let mut ctx = authed_ctx();
-        ctx.path = "/developer/usage".to_string();
-        ctx
-    }
-
-    fn render_overview_to_string(ctx: &PageContext) -> String {
-        let (_, element) = render_overview(ctx);
-        dioxus_ssr::render_element(element)
+    #[test]
+    fn openapi_decoder_requires_safe_registry_extensions() {
+        let valid = serde_json::json!({
+            "openapi": "3.1.0",
+            "paths": {"/api/analytics/rankings": {"get": {
+                "operationId": "getRankings",
+                "summary": "Rankings",
+                "x-epsx-required-scopes": ["epsx:analytics:view"],
+                "x-epsx-api-key-callable": true,
+                "x-epsx-mutation": false,
+                "x-epsx-idempotent": false
+            }}}
+        });
+        assert_eq!(decode_openapi(valid).unwrap().len(), 1);
+        let unsafe_spec = serde_json::json!({
+            "openapi": "3.1.0",
+            "paths": {"https://evil.test/": {"get": {}}}
+        });
+        assert!(decode_openapi(unsafe_spec).is_none());
     }
 
     #[test]
-    fn developer_overview_authenticated_state_is_truthfully_unavailable() {
-        let mut ctx = authed_ctx();
-        ctx.user
-            .as_mut()
-            .expect("authenticated fixture")
-            .permissions
-            .clear();
-        let html = render_overview_to_string(&ctx);
+    fn overview_decoder_rejects_plaintext_and_admin_shaped_fields() {
+        let value = serde_json::json!({
+            "entitlement": {
+                "plans": [], "assignable_scopes": ["admin:users:manage"],
+                "rate_limits": {"per_minute": 0, "per_hour": 0, "per_day": 0, "burst": 0},
+                "can_read": true, "can_write": true, "has_active_api_entitlement": true
+            },
+            "api_keys": [], "total_api_keys": 0,
+            "usage": {"days": 7, "total_requests": 0, "successful_requests": 0,
+                "error_requests": 0, "success_rate": 0.0, "error_rate": 0.0,
+                "average_response_time_ms": 0.0, "daily": [], "top_endpoints": []}
+        });
+        assert!(decode_developer_overview(value).is_none());
 
-        assert!(html.contains("developer-overview-unavailable"));
-        assert!(html.contains("Developer tools unavailable"));
-        assert!(html.contains("No keys, secrets, plan assignments, permissions, usage, rate limits, or expiration values are shown."));
-        assert!(!html.contains("Permission required"));
-    }
-
-    #[test]
-    fn developer_overview_ignores_payload_fixtures_secrets_and_business_claims() {
-        let mut ctx = authed_ctx();
-        ctx.params.insert(
-            "data_developer".to_string(),
-            r#"{
-                "stats": {
-                    "tier": "fixture-tier-probe",
-                    "rate_limit": "fixture-rate-probe",
-                    "total_usage": 987654321,
-                    "expires": "fixture-expiry-probe"
-                },
-                "api_keys": [{
-                    "id": "fixture-key-id",
-                    "name": "fixture-key-name",
-                    "key": "epsx_secret_overview_probe",
-                    "scopes": ["backend:permission:probe"],
-                    "is_active": true,
-                    "created_at": "fixture-created-probe",
-                    "usage_count": 7654321
-                }]
-            }"#
-            .to_string(),
-        );
-        let html = render_overview_to_string(&ctx);
-
-        for forbidden in [
-            "fixture-tier-probe",
-            "fixture-rate-probe",
-            "987654321",
-            "fixture-expiry-probe",
-            "fixture-key-id",
-            "fixture-key-name",
-            "epsx_secret_overview_probe",
-            "backend:permission:probe",
-            "fixture-created-probe",
-            "7654321",
-            "epsx_live_4f8a2c1b9d3e7f5a",
-            "170,414",
-            "1000/min",
-            "50,000/day",
-            "2026-08-15",
-            "288 days left",
-            "Pro, Enterprise",
-        ] {
-            assert!(
-                !html.contains(forbidden),
-                "rendered overview fixture or claim: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn developer_overview_unavailable_state_is_accessible_and_native() {
-        let html = dioxus_ssr::render_element(rsx! { DeveloperOverviewUnavailable {} });
-
-        assert!(html.contains("role=\"status\""));
-        assert!(html.contains("aria-live=\"polite\""));
-        assert!(html.contains("aria-labelledby=\"developer-overview-unavailable-title\""));
-        assert!(html.contains("href=\"/developer/docs\""));
-        assert!(html.contains(">Read API documentation</a>"));
-        assert!(!html.contains("href=\"/developer\""));
-        assert!(!html.contains(">Retry</a>"));
-
-        for control in ["<button", "<form", "<input", "onclick=", "oninput="] {
-            assert!(
-                !html.contains(control),
-                "rendered local mutation control: {control}"
-            );
-        }
-        for mutation in [
-            "Create key",
-            "Create API Key",
-            "Revoke Key",
-            "Refresh",
-            "30 Days",
-            "90 Days",
-            "1 Year",
-        ] {
-            assert!(
-                !html.contains(mutation),
-                "rendered unsupported mutation: {mutation}"
-            );
-        }
-    }
-
-    #[test]
-    fn developer_overview_signed_out_uses_native_auth_gate() {
-        let html = render_overview_to_string(&empty_ctx());
-
-        assert!(html.contains("class=\"auth-gate "));
-        assert!(html.contains("role=\"alert\""));
-        assert!(html.contains("Sign in required"));
-        assert!(html.contains("href=\"/auth?return_url=%2Fdeveloper\""));
-        assert!(!html.contains("developer-overview-unavailable"));
-    }
-
-    fn render_usage_to_string(ctx: &PageContext) -> String {
-        let (_, element) = render_usage(ctx);
-        dioxus_ssr::render_element(element)
-    }
-
-    #[test]
-    fn developer_usage_authenticated_state_is_truthfully_unavailable() {
-        let mut ctx = usage_ctx();
-        ctx.user
-            .as_mut()
-            .expect("authenticated fixture")
-            .permissions
-            .clear();
-        let html = render_usage_to_string(&ctx);
-
-        assert!(html.contains("developer-usage-unavailable"));
-        assert!(html.contains("Usage data unavailable"));
-        assert!(html.contains(
-            "No request counts, limits, reliability figures, or activity rows are shown."
-        ));
-        assert!(!html.contains("Permission required"));
-    }
-
-    #[test]
-    fn developer_usage_ignores_payloads_and_renders_no_metrics_or_sample_rows() {
-        let mut ctx = usage_ctx();
-        ctx.params.insert(
-            "data_developer_usage".to_string(),
-            r#"{
-                "summary": {
-                    "calls_today": 12481,
-                    "calls_30d": 358910,
-                    "error_rate": "0.42%",
-                    "success_rate": "99.6%",
-                    "uptime": "99.99%"
-                },
-                "per_key": [{
-                    "name": "Production",
-                    "key": "epsx_secret_usage_probe",
-                    "calls_today": 8231
-                }],
-                "history": [{"date": "2025-01-15", "calls": 9812}]
-            }"#
-            .to_string(),
-        );
-        let html = render_usage_to_string(&ctx);
-
-        for forbidden in [
-            "170414",
-            "2891",
-            "0.42%",
-            "99.6%",
-            "99.99%",
-            "1000/min",
-            "234/min",
-            "12481",
-            "358910",
-            "8231",
-            "9812",
-            "Production",
-            "epsx_secret_usage_probe",
-            "Usage History",
-            "Usage by API Key",
-            "Top Endpoints",
-            "usage-monitor",
-        ] {
-            assert!(
-                !html.contains(forbidden),
-                "rendered usage fixture or claim: {forbidden}"
-            );
-        }
-    }
-
-    #[test]
-    fn developer_usage_unavailable_state_is_accessible_and_native() {
-        let html = dioxus_ssr::render_element(rsx! { DeveloperUsageUnavailable {} });
-
-        assert!(html.contains("role=\"status\""));
-        assert!(html.contains("aria-live=\"polite\""));
-        assert!(html.contains("aria-labelledby=\"developer-usage-unavailable-title\""));
-        assert!(html.contains("href=\"/developer/docs\""));
-        assert!(html.contains(">Read API documentation</a>"));
-        assert!(!html.contains("href=\"/developer/usage\""));
-        assert!(!html.contains(">Retry</a>"));
-        for control in ["<button", "<form", "<input", "onclick="] {
-            assert!(!html.contains(control), "rendered inert control: {control}");
-        }
-    }
-
-    #[test]
-    fn developer_usage_signed_out_uses_native_auth_gate() {
-        let ctx = PageContext {
-            path: "/developer/usage".to_string(),
-            ..Default::default()
-        };
-        let html = render_usage_to_string(&ctx);
-
-        assert!(html.contains("class=\"auth-gate "));
-        assert!(html.contains("role=\"alert\""));
-        assert!(html.contains("Sign in required"));
-        assert!(html.contains("href=\"/auth?return_url=%2Fdeveloper%2Fusage\""));
-        assert!(!html.contains("developer-usage-unavailable"));
-        for simulated_wallet_ui in ["Select Wallet", "WalletConnect", "Base Account"] {
-            assert!(!html.contains(simulated_wallet_ui));
-        }
-    }
-
-    /// Wave 22 T4 — `test_docs_categories`. Renders the
-    /// /developer/docs body and asserts the real `ENDPOINT_CATEGORIES`
-    /// (4 categories, auth + analytics) are present, the auth
-    /// card is rendered, and a real endpoint path shows up.
-    #[test]
-    fn test_docs_categories() {
-        let ctx = authed_ctx();
-        let (meta, el) = render_docs(&ctx);
-        let html = dioxus_ssr::render_element(el);
-        assert_eq!(meta.title, "EPSX - Stock Analytics Platform");
-        assert_eq!(meta.description, "Advanced stock data analytics platform");
-        assert_eq!(
-            meta.keywords.as_deref(),
-            Some("stock analytics,financial data,EPSX,market insights")
-        );
-        assert!(html.contains(DEVELOPER_DOCS_SOURCE_BASELINE));
-        // 4 category titles from ENDPOINT_CATEGORIES. The `&` is
-        // HTML-encoded by dioxus_ssr as `&#38;`, so we check for
-        // the encoded form for "Portfolio & Watchlist".
-        for title in &[
-            "Authentication",
-            "Analytics",
-            "Portfolio &#38; Watchlist",
-            "User",
-        ] {
-            assert!(
-                html.contains(title),
-                "docs page should render category title `{title}`. Got (truncated): {}",
-                &html[..html.len().min(2000)]
-            );
-        }
-        // Auth card is rendered.
-        assert!(
-            html.contains("developer-docs-auth-card"),
-            "docs page should render the auth card"
-        );
-        // Real endpoint path from the catalog shows up.
-        assert!(
-            html.contains("/api/auth/session/verify"),
-            "docs page should render a real endpoint path from the catalog"
-        );
-        // Quick-start card.
-        assert!(
-            html.contains("docs-sidebar-quickstart"),
-            "docs page should render the quick-start sidebar card"
-        );
-        assert_eq!(html.matches("docs-endpoint-card rounded-2xl").count(), 10);
-        assert_eq!(
-            html.matches("data-docs-endpoint-toggle=\"true\"").count(),
-            10
-        );
-        assert_eq!(html.matches("docs-endpoint-card-params").count(), 3);
-        assert_eq!(html.matches("docs-endpoint-card-rate-limits").count(), 10);
-        assert_eq!(html.matches("data-docs-code-tab=").count(), 20);
-        assert_eq!(html.matches("data-docs-code-panel=").count(), 20);
-        assert_eq!(html.matches("data-docs-copy-code=\"true\"").count(), 10);
-        assert_eq!(html.matches("data-docs-copy-response=\"true\"").count(), 10);
-        assert_eq!(html.matches("docs-response-panel").count(), 10);
-        assert_eq!(
-            html.matches("data-docs-reference-warning=\"true\"").count(),
-            1
-        );
-        assert_eq!(
-            html.matches("data-docs-live-request-notice=\"true\"")
-                .count(),
-            10
-        );
-        assert_eq!(html.matches("role=\"note\"").count(), 11);
-        assert!(html.contains("It is not a verified production contract."));
-        assert!(html.contains("Do not use real credentials."));
-        assert_eq!(html.matches("Live requests unavailable").count(), 20);
-        assert_eq!(html.matches("https://api.example.invalid").count(), 21);
-        assert!(html.contains(
-            "curl -H &#34;Authorization: Bearer YOUR_API_KEY&#34; https://api.example.invalid/api/analytics/rankings"
-        ));
-        assert!(!html.contains("api.epsx.io"));
-        assert!(!html.contains("same endpoints, same data"));
-        assert!(!html.contains("works like a JWT"));
-        for removed_control in [
-            "docs-field-control",
-            "<select",
-            "<input",
-            "docs-send-button",
-            "Try it",
-            "Try It",
-            "Send Request",
-            "No key",
-            "-api-key\"",
-            "<form",
-            "docs-request-executor",
-            "data-docs-fetch",
-        ] {
-            assert!(
-                !html.contains(removed_control),
-                "docs page retained live-request control or executor: {removed_control}"
-            );
-        }
-        assert_eq!(html.matches("reqwest::Client::new()").count(), 10);
-        assert!(!html.contains("REST endpoints, request/response schemas, and examples"));
-        assert!(!html.contains("API documentation</h1>"));
-    }
-
-    #[test]
-    fn docs_code_tabs_reference_unique_panels() {
-        fn opening_tag_with_id<'a>(html: &'a str, tag: &str, id: &str) -> &'a str {
-            let id_attribute = format!(r#"id="{id}""#);
-            html.split('<')
-                .filter_map(|tail| tail.split_once('>').map(|(opener, _)| opener))
-                .find(|opener| {
-                    opener.starts_with(tag)
-                        && opener.as_bytes().get(tag.len()) == Some(&b' ')
-                        && opener.contains(&id_attribute)
-                })
-                .unwrap_or_else(|| panic!("missing <{tag}> with {id_attribute}"))
-        }
-
-        let (_meta, element) = render_docs(&authed_ctx());
-        let html = dioxus_ssr::render_element(element);
-        let mut tab_ids = std::collections::HashSet::new();
-        let mut panel_ids = std::collections::HashSet::new();
-        let mut endpoint_count = 0;
-
-        for category in cached_endpoint_categories() {
-            for endpoint in &category.endpoints {
-                endpoint_count += 1;
-                let card_id = format!(
-                    "docs-endpoint-{}-{}",
-                    endpoint.method.to_ascii_lowercase(),
-                    endpoint.path.trim_matches('/').replace('/', "-")
-                );
-                for (language, selected) in [("curl", true), ("rust", false)] {
-                    let tab_id = format!("{card_id}-tab-{language}");
-                    let panel_id = format!("{card_id}-panel-{language}");
-                    assert!(tab_ids.insert(tab_id.clone()), "duplicate tab id {tab_id}");
-                    assert!(
-                        panel_ids.insert(panel_id.clone()),
-                        "duplicate panel id {panel_id}"
-                    );
-
-                    let tab = opening_tag_with_id(&html, "button", &tab_id);
-                    assert!(tab.contains(r#"role="tab""#));
-                    assert!(tab.contains(&format!(r#"data-docs-code-tab="{language}""#)));
-                    assert!(tab.contains(&format!(r#"aria-controls="{panel_id}""#)));
-                    assert!(tab.contains(if selected {
-                        r#"aria-selected="true""#
-                    } else {
-                        r#"aria-selected="false""#
-                    }));
-                    assert!(tab.contains(if selected {
-                        r#"tabindex="0""#
-                    } else {
-                        r#"tabindex="-1""#
-                    }));
-
-                    let panel = opening_tag_with_id(&html, "pre", &panel_id);
-                    assert!(panel.contains(r#"role="tabpanel""#));
-                    assert!(panel.contains(r#"tabindex="0""#));
-                    assert!(panel.contains(&format!(r#"aria-labelledby="{tab_id}""#)));
-                    assert!(panel.contains(&format!(r#"data-docs-code-panel="{language}""#)));
-                    assert_eq!(panel.contains(" hidden"), !selected);
-                    assert_eq!(html.matches(&format!(r#"id="{tab_id}""#)).count(), 1);
-                    assert_eq!(html.matches(&format!(r#"id="{panel_id}""#)).count(), 1);
-                }
-            }
-        }
-
-        assert_eq!(endpoint_count, 10);
-        assert_eq!(tab_ids.len(), 20);
-        assert_eq!(panel_ids.len(), 20);
-        assert!(tab_ids.is_disjoint(&panel_ids));
-        assert_eq!(html.matches(r#"role="tablist""#).count(), 10);
-        assert_eq!(html.matches(r#"role="tab""#).count(), 20);
-        assert_eq!(html.matches(r#"role="tabpanel""#).count(), 20);
-        assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-tab-curl""#));
-        assert!(html.contains(r#"id="docs-endpoint-get-api-auth-session-verify-panel-curl""#));
-    }
-
-    #[test]
-    fn developer_docs_copy_controls_have_unique_contextual_status_contracts() {
-        fn opening_tag_with<'a>(html: &'a str, marker: &str) -> &'a str {
-            html.split('<')
-                .filter_map(|tail| tail.split_once('>').map(|(opener, _)| opener))
-                .find(|opener| opener.contains(marker))
-                .unwrap_or_else(|| panic!("missing opening tag with {marker}"))
-        }
-
-        let (_meta, element) = render_docs(&authed_ctx());
-        let html = dioxus_ssr::render_element(element);
-        let mut status_ids = std::collections::HashSet::new();
-        let mut endpoint_count = 0;
-
-        for category in cached_endpoint_categories() {
-            for endpoint in &category.endpoints {
-                endpoint_count += 1;
-                let card_id = format!(
-                    "docs-endpoint-{}-{}",
-                    endpoint.method.to_ascii_lowercase(),
-                    endpoint.path.trim_matches('/').replace('/', "-")
-                );
-                for (kind, control_marker) in [
-                    ("code", r#"data-docs-copy-code="true""#),
-                    ("response", r#"data-docs-copy-response="true""#),
-                ] {
-                    let status_id = format!("{card_id}-copy-{kind}-status");
-                    assert!(
-                        status_ids.insert(status_id.clone()),
-                        "duplicate status id {status_id}"
-                    );
-                    let status_target = format!(r#"data-copy-status-target="{status_id}""#);
-                    let button = opening_tag_with(&html, &status_target);
-                    assert!(button.starts_with("button "));
-                    assert!(button.contains(control_marker));
-                    let accessible_name = if kind == "code" {
-                        format!(
-                            "Copy selected code example for {} {}",
-                            endpoint.method, endpoint.path
-                        )
-                    } else {
-                        format!(
-                            "Copy response example for {} {}",
-                            endpoint.method, endpoint.path
-                        )
-                    };
-                    assert!(button.contains(&format!(r#"aria-label="{accessible_name}""#)));
-                    assert!(button.contains(&format!(r#"aria-describedby="{status_id}""#)));
-                    assert!(button.contains(&format!(
-                        r#"data-copy-success-message="Copied {kind} example for {} {} to clipboard.""#,
-                        endpoint.method, endpoint.path,
-                    )));
-                    assert!(button.contains(&format!(
-                        r#"data-copy-failure-message="Could not copy {kind} example for {} {}.""#,
-                        endpoint.method, endpoint.path,
-                    )));
-                    assert!(button.contains(r#"data-copy-flash-result="true""#));
-
-                    let status = opening_tag_with(&html, &format!(r#"id="{status_id}""#));
-                    assert!(status.starts_with("span "));
-                    assert!(status.contains(r#"class="sr-only""#));
-                    assert!(status.contains(r#"role="status""#));
-                    assert!(status.contains(r#"aria-live="polite""#));
-                    assert!(status.contains(r#"aria-atomic="true""#));
-                    assert!(html.contains(&format!("<{status}></span>")));
-                    assert_eq!(html.matches(&format!(r#"id="{status_id}""#)).count(), 1);
-                    assert_eq!(
-                        html.matches(&format!(r#"data-copy-status-target="{status_id}""#))
-                            .count(),
-                        1
-                    );
-                    assert_eq!(
-                        html.matches(&format!(r#"aria-describedby="{status_id}""#))
-                            .count(),
-                        1
-                    );
-                    assert_eq!(html.matches(&status_id).count(), 3);
-                }
-            }
-        }
-
-        assert_eq!(endpoint_count, 10);
-        assert_eq!(status_ids.len(), 20);
-        assert_eq!(html.matches("data-copy-status-target=").count(), 20);
-        assert_eq!(html.matches("data-copy-success-message=").count(), 20);
-        assert_eq!(html.matches("data-copy-failure-message=").count(), 20);
-        assert_eq!(html.matches(r#"data-copy-flash-result="true""#).count(), 20);
-        assert_eq!(html.matches(">Copy</span>").count(), 20);
-    }
-
-    /// Wave 22 T4 — `test_endpoint_catalog_units`. Cached catalog
-    /// must have 4 categories, 10 endpoints, and
-    /// contain a `param()` helper signature.
-    #[test]
-    fn test_endpoint_catalog_units() {
-        let cats = cached_endpoint_categories();
-        assert_eq!(cats.len(), 4, "expected 4 endpoint categories");
-        let auth = cats.iter().find(|c| c.id == "auth").expect("auth category");
-        assert_eq!(auth.title, "Authentication");
-        assert!(auth
-            .endpoints
-            .iter()
-            .any(|e| e.path == "/api/auth/session/verify"));
-        // Auth category has 1 endpoint, Analytics has 4, Portfolio has 3, User has 2.
-        let analytics = cats
-            .iter()
-            .find(|c| c.id == "analytics")
-            .expect("analytics category");
-        assert_eq!(analytics.endpoints.len(), 4);
-        let portfolio = cats
-            .iter()
-            .find(|c| c.id == "portfolio")
-            .expect("portfolio category");
-        assert_eq!(portfolio.endpoints.len(), 3);
-        let user = cats.iter().find(|c| c.id == "user").expect("user category");
-        assert_eq!(user.endpoints.len(), 2);
-        // Total = 1 + 4 + 3 + 2 = 10 in the pinned source.
-        let total: usize = cats.iter().map(|c| c.endpoints.len()).sum();
-        assert_eq!(
-            total, 10,
-            "endpoint catalog must keep the exact pinned endpoint count"
-        );
-
-        // param() helper unit-check.
-        let p = EndpointParam::param("ticker", "string", true, "test");
-        assert_eq!(p.name, "ticker");
-        assert_eq!(p.kind, "string");
-        assert!(p.required);
-        assert_eq!(p.desc, "test");
-        assert!(p.default.is_none());
-
-        // method_color_class + tier_color_class return non-empty strings.
-        assert!(!method_color_class("GET").is_empty());
-        assert!(!method_color_class("POST").is_empty());
-        assert!(!method_color_class("DELETE").is_empty());
-        assert!(!tier_color_class("free").is_empty());
-        assert!(!tier_color_class("enterprise").is_empty());
-    }
-
-    #[test]
-    fn developer_docs_catalog_matches_pinned_visible_contract() {
-        let cats = cached_endpoint_categories();
-        let ids: Vec<&str> = cats.iter().map(|category| category.id.as_str()).collect();
-        assert_eq!(ids, vec!["auth", "analytics", "portfolio", "user"]);
-        let endpoints: Vec<(&str, &str)> = cats
-            .iter()
-            .flat_map(|category| category.endpoints.iter())
-            .map(|endpoint| (endpoint.method.as_str(), endpoint.path.as_str()))
-            .collect();
-        assert_eq!(
-            endpoints,
-            vec![
-                ("GET", "/api/auth/session/verify"),
-                ("GET", "/api/analytics/rankings"),
-                ("GET", "/api/analytics/filters"),
-                ("GET", "/api/analytics/countries"),
-                ("GET", "/api/analytics/sectors"),
-                ("GET", "/api/users/watchlist"),
-                ("POST", "/api/users/watchlist"),
-                ("DELETE", "/api/users/watchlist"),
-                ("GET", "/api/users/profile"),
-                ("GET", "/api/users/access-overview"),
-            ]
-        );
-        let rankings = &cats[1].endpoints[0];
-        let defaults: Vec<Option<&str>> = rankings
-            .params
-            .iter()
-            .take(4)
-            .map(|param| param.default.as_deref())
-            .collect();
-        assert_eq!(
-            defaults,
-            vec![Some("1"), Some("20"), Some("eps_growth"), Some("desc")]
-        );
-    }
-
-    #[test]
-    fn developer_docs_code_examples_use_non_routable_reference_origin() {
-        let post = &cached_endpoint_categories()[2].endpoints[1];
-        assert_eq!(
-            code_snippet(post, "curl"),
-            "curl -X POST \"https://api.example.invalid/api/users/watchlist\" \\\n  -H \"Authorization: Bearer YOUR_API_KEY\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\"ticker\": \"AAPL\"}'"
-        );
-        assert_eq!(
-            code_snippet(post, "rust"),
-            "let response = reqwest::Client::new()\n    .request(reqwest::Method::POST, \"https://api.example.invalid/api/users/watchlist\")\n    .bearer_auth(\"YOUR_API_KEY\")\n    .send()\n    .await?;\nlet data: serde_json::Value = response.json().await?;"
-        );
-        let pretty = pretty_response(&post.response_example);
-        assert!(pretty.contains("\n  \"success\": true"));
+        let key_with_secret = serde_json::json!({
+            "id": Uuid::nil(),
+            "key_prefix": "epsx_deadbee…",
+            "name": "integration",
+            "description": null,
+            "status": "active",
+            "scopes": ["epsx:analytics:view"],
+            "total_requests": 0,
+            "expires_at": null,
+            "last_used_at": null,
+            "created_at": "2026-08-21T00:00:00Z",
+            "full_key": format!("epsx_{}", "a".repeat(64))
+        });
+        assert!(serde_json::from_value::<DeveloperApiKey>(key_with_secret).is_err());
     }
 }

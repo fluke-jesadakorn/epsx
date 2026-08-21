@@ -99,8 +99,10 @@ pub fn design_system_head_with_keywords(
     --text:            #0f172a;
     --text-muted:      #475569;
     --text-subtle:     #64748b;
-    --primary:         #3b82f6;
-    --primary-hover:   #2563eb;
+    /* White text on blue-500 is only 3.68:1.  Use the darker pair for
+     * light-theme controls so normal-sized button copy clears WCAG AA. */
+    --primary:         #2563eb;
+    --primary-hover:   #1d4ed8;
     --focus-ring:      #c2410c;
     --shadow-sm:       0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow:          0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
@@ -574,7 +576,7 @@ pub fn design_system_head_with_keywords(
   }}
   .btn-outline {{
     background: transparent;
-    color: var(--text);
+    color: var(--text) !important;
     border: 1px solid var(--border-strong);
   }}
   .btn-outline:hover {{ background: var(--bg-secondary); border-color: var(--text-muted); }}
@@ -613,15 +615,23 @@ pub fn design_system_head_with_keywords(
     font-weight: 600;
     line-height: 1;
   }}
-  .badge-primary {{ background: rgba(59,130,246,0.15); color: #3b82f6; }}
-  .badge-success {{ background: rgba(16,185,129,0.15); color: #10b981; }}
-  .badge-warning {{ background: rgba(245,158,11,0.15); color: #f59e0b; }}
-  .badge-danger  {{ background: rgba(239,68,68,0.15);  color: #ef4444; }}
-  .badge-info    {{ background: rgba(6,182,212,0.15);  color: #06b6d4; }}
-  .badge-purple  {{ background: rgba(168,85,247,0.15); color: #a855f7; }}
-  .badge-pink    {{ background: rgba(236,72,153,0.15); color: #ec4899; }}
-  .badge-pending {{ background: rgba(245,158,11,0.15); color: #f59e0b; }}
-  .badge-active  {{ background: rgba(16,185,129,0.15); color: #10b981; }}
+  .badge-primary {{ background: rgba(37,99,235,0.12); color: #1d4ed8; }}
+  .badge-success {{ background: rgba(5,150,105,0.12); color: #047857; }}
+  .badge-warning {{ background: rgba(217,119,6,0.12); color: #92400e; }}
+  .badge-danger  {{ background: rgba(220,38,38,0.12); color: #b91c1c; }}
+  .badge-info    {{ background: rgba(2,132,199,0.12); color: #0369a1; }}
+  .badge-purple  {{ background: rgba(147,51,234,0.12); color: #7e22ce; }}
+  .badge-pink    {{ background: rgba(219,39,119,0.12); color: #be185d; }}
+  .badge-pending {{ background: rgba(217,119,6,0.12); color: #92400e; }}
+  .badge-active  {{ background: rgba(5,150,105,0.12); color: #047857; }}
+  html.dark .badge-primary {{ background: rgba(59,130,246,0.15); color: #60a5fa; }}
+  html.dark .badge-success {{ background: rgba(16,185,129,0.15); color: #34d399; }}
+  html.dark .badge-warning,
+  html.dark .badge-pending {{ background: rgba(245,158,11,0.15); color: #fbbf24; }}
+  html.dark .badge-danger {{ background: rgba(239,68,68,0.15); color: #f87171; }}
+  html.dark .badge-info {{ background: rgba(6,182,212,0.15); color: #22d3ee; }}
+  html.dark .badge-purple {{ background: rgba(168,85,247,0.15); color: #c084fc; }}
+  html.dark .badge-pink {{ background: rgba(236,72,153,0.15); color: #f472b6; }}
   .badge-glass   {{
     background: var(--glass-bg);
     backdrop-filter: blur(8px);
@@ -798,6 +808,16 @@ pub fn design_system_head_with_keywords(
     background: rgba(255,255,255,0.10);
     border-color: rgba(139,92,246,0.4);
     transform: translateY(-1px);
+  }}
+  .auth-wallet-btn:disabled {{
+    cursor: not-allowed;
+    opacity: 0.45;
+    transform: none;
+  }}
+  .auth-wallet-btn:disabled:hover {{
+    background: rgba(255,255,255,0.05);
+    border-color: transparent;
+    transform: none;
   }}
   .auth-wallet-icon {{
     font-size: 1.5rem;
@@ -1324,7 +1344,8 @@ pub fn design_system_head_with_keywords(
 
   /* === Nav trigger (epsx.io: rounded-md, 8.5px icon, slate colors) === */
   .epsx-nav-trigger {{
-    display: inline-flex; align-items: center; gap: 0.25rem;
+    display: flex; align-items: center; gap: 0.25rem;
+    height: 2rem;
     padding: 0.375rem 0.75rem;
     font-size: 0.875rem; font-weight: 500;
     color: var(--text-muted);
@@ -1332,9 +1353,12 @@ pub fn design_system_head_with_keywords(
     background: transparent; border: none; cursor: pointer;
     transition: color 0.15s ease;
   }}
+  html:not(.dark) .epsx-nav-trigger {{ color: #475569; }}
   .epsx-nav-trigger:hover {{ color: var(--text); }}
+  .epsx-nav-trigger.active {{ color: var(--text); }}
   html.dark .epsx-nav-trigger {{ color: #94a3b8; }}
-  html.dark .epsx-nav-trigger:hover {{ color: white; }}
+  html.dark .epsx-nav-trigger:hover,
+  html.dark .epsx-nav-trigger.active {{ color: white; }}
   .epsx-nav-trigger .nav-icon {{ color: var(--epsx-orange); width: 1rem; height: 1rem; flex-shrink: 0; }}
   .epsx-nav-trigger .nav-chev {{ color: var(--epsx-orange); width: 0.75rem; height: 0.75rem; transition: transform 0.2s ease; }}
   /* === Position anchor for the absolute-positioned `.epsx-nav-menu` ===
@@ -1415,6 +1439,46 @@ pub fn design_system_head_with_keywords(
   .epsx-wallet-pill svg, .epsx-wallet-pill i {{ color: var(--epsx-orange); }}
   html.dark .epsx-wallet-pill {{ color: #e2e8f0; background: #1e293b; border-color: #334155; }}
 
+  /* Authenticated wallet identity. Sign-out lives inside this disclosure so
+     the public header keeps the same compact wallet shape as production. */
+  .epsx-session-menu-wrap {{ position: relative; }}
+  .epsx-session-trigger {{ cursor: pointer; white-space: nowrap; }}
+  .epsx-session-chevron {{ width: 0.75rem; height: 0.75rem; transition: transform 0.15s ease; }}
+  .epsx-session-trigger[aria-expanded="true"] .epsx-session-chevron {{ transform: rotate(180deg); }}
+  .epsx-session-menu {{
+    position: absolute; top: calc(100% + 0.625rem); right: 0; z-index: 9999;
+    width: min(18rem, calc(100vw - 2rem)); overflow: hidden;
+    border: 1px solid var(--border); border-radius: 1rem;
+    background: var(--surface-solid); color: var(--text);
+    box-shadow: var(--shadow-xl); transform-origin: top right;
+  }}
+  .epsx-session-menu[hidden] {{ display: none !important; }}
+  .epsx-session-menu.open {{ animation: scaleIn 0.15s ease; }}
+  html.dark .epsx-session-menu {{ background: #0f172a; border-color: #334155; }}
+  .epsx-session-summary {{ padding: 0.75rem; border-bottom: 1px solid var(--border); }}
+  .epsx-session-label {{
+    display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.25rem;
+    color: var(--epsx-orange); font-size: 0.625rem; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }}
+  .epsx-session-address {{
+    display: block; overflow-wrap: anywhere; color: var(--text);
+    font-family: var(--font-mono); font-size: 0.75rem; line-height: 1.4;
+  }}
+  .epsx-session-actions {{ padding: 0.25rem; }}
+  .epsx-session-menu-item {{
+    display: flex; width: 100%; align-items: center; gap: 0.625rem;
+    min-height: 2.5rem; padding: 0.625rem 0.75rem; border: 0;
+    border-radius: 0.625rem; background: transparent; color: var(--text);
+    font: inherit; font-size: 0.8125rem; text-align: left;
+    text-decoration: none; cursor: pointer;
+  }}
+  .epsx-session-menu-item:hover {{ background: var(--bg-secondary); color: var(--text); }}
+  .epsx-session-menu-item svg {{ color: var(--epsx-orange); flex-shrink: 0; }}
+  .epsx-session-sign-out {{ color: var(--epsx-red); }}
+  .epsx-session-sign-out svg {{ color: var(--epsx-red); }}
+  html.dark .epsx-session-menu-item:hover {{ background: #1e293b; color: white; }}
+
   /* Wallet-connected prompt from the development navigation client. */
   .epsx-sign-in-banner {{
     position: sticky; top: 3.5rem; z-index: 40;
@@ -1437,16 +1501,26 @@ pub fn design_system_head_with_keywords(
   .epsx-theme-btn {{
     display: inline-flex; align-items: center; justify-content: center;
     width: 2.5rem; height: 2.5rem;
-    border-radius: 0.5rem;
-    background: var(--bg-secondary);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
+    padding: 0.5rem;
+    border-radius: 1rem;
+    background: transparent;
+    color: #475569;
+    border: 0;
     cursor: pointer;
     transition: all 0.15s ease;
   }}
-  .epsx-theme-btn:hover {{ background: var(--bg-tertiary); color: var(--text); }}
-  html.dark .epsx-theme-btn {{ background: #1e293b; border-color: #334155; color: #cbd5e1; }}
-  html.dark .epsx-theme-btn:hover {{ background: #334155; color: white; }}
+  .epsx-theme-btn:hover {{ background: #fefce8; color: #ea580c; }}
+  html.dark .epsx-theme-btn {{ background: rgba(30, 41, 59, 0.5); color: #cbd5e1; }}
+  html.dark .epsx-theme-btn:hover {{ background: rgba(255, 255, 255, 0.1); color: #fb923c; }}
+  .epsx-theme-btn [data-epsx-theme-icon] {{ color: var(--epsx-orange); }}
+  .epsx-theme-btn [data-epsx-theme-icon="sun"],
+  #epsx-theme-toggle [data-epsx-theme-icon="sun"] {{ display: none !important; }}
+  .epsx-theme-btn [data-epsx-theme-icon="moon"],
+  #epsx-theme-toggle [data-epsx-theme-icon="moon"] {{ display: inline-flex !important; }}
+  html.dark .epsx-theme-btn [data-epsx-theme-icon="sun"],
+  html.dark #epsx-theme-toggle [data-epsx-theme-icon="sun"] {{ display: inline-flex !important; }}
+  html.dark .epsx-theme-btn [data-epsx-theme-icon="moon"],
+  html.dark #epsx-theme-toggle [data-epsx-theme-icon="moon"] {{ display: none !important; }}
   /* Development's chain selector is read-only in the SSR shell. Keep its
      tablet/desktop label visually aligned with the source action cluster;
      hydrated wallet switching can replace this slot later. */
@@ -1455,39 +1529,24 @@ pub fn design_system_head_with_keywords(
     color: #94a3b8; font-size: 0.875rem; font-weight: 500;
     white-space: nowrap; line-height: 1;
   }}
-  .epsx-network-badge i {{ color: var(--epsx-orange); flex-shrink: 0; }}
+  .epsx-network-badge svg {{ color: var(--epsx-orange); flex-shrink: 0; }}
   html.dark .epsx-network-badge {{ color: #94a3b8; }}
-  @media (max-width: 639px) {{ .epsx-network-badge {{ display: none; }} }}
-  /* The page shell emits Tailwind's `md:hidden` markers, but the source
-     navigation switches between its full desktop composition and its
-     compact action/header composition at the `lg` breakpoint (1024px).
-     The SSR shell does not run the frontend Tailwind build, so make that
-     breakpoint explicit here. */
+  @media (max-width: 767px) {{ .epsx-network-badge {{ display: none; }} }}
+  .epsx-desktop-navigation {{ display: none !important; }}
+  .epsx-compact-brand {{ display: flex !important; }}
+  .epsx-desktop-session {{ display: none !important; }}
+  .epsx-tablet-session {{ display: none !important; }}
+  .epsx-header #epsx-mobile-menu-btn {{ display: inline-flex !important; }}
+  @media (min-width: 640px) and (max-width: 767px) {{
+    .epsx-tablet-session {{ display: flex !important; }}
+  }}
   @media (min-width: 768px) {{
+    .epsx-desktop-session {{ display: flex !important; }}
+  }}
+  @media (min-width: 1024px) {{
+    .epsx-desktop-navigation {{ display: flex !important; }}
+    .epsx-compact-brand {{ display: none !important; }}
     .epsx-header #epsx-mobile-menu-btn {{ display: none !important; }}
-  }}
-  @media (max-width: 1023px) {{
-    /* Hide the desktop brand/nav group and reveal the duplicate compact
-       brand. The `md:*` utility classes are still present in the emitted
-       markup for parity, but these rules are authoritative in SSR. */
-    .epsx-header > div > div:first-child {{ display: none !important; }}
-    .epsx-header > div > a {{ display: flex !important; }}
-
-    /* Swap the full wallet action for the source's compact tablet action. */
-    .epsx-header > div > div:last-child > div[class~="md:flex"] {{ display: none !important; }}
-    .epsx-header > div > div:last-child > div[class~="md:hidden"] {{ display: flex !important; }}
-    .epsx-header #epsx-mobile-menu-btn {{ display: inline-flex !important; }}
-  }}
-  /* The signed-out reference keeps the compact menu affordance beside the
-     desktop nav at the narrower desktop capture width. Authenticated wider
-     captures retain the uncluttered wallet-only action cluster. */
-  @media (min-width: 768px) and (max-width: 1535px) {{
-    .epsx-header[data-epsx-authenticated="false"] #epsx-mobile-menu-btn {{ display: inline-flex !important; }}
-  }}
-  /* The signed-out desktop reference reserves the center of the shell for
-     the primary menu, leaving a generous breathing space after the brand. */
-  @media (min-width: 1200px) and (max-width: 1535px) {{
-    .epsx-header[data-epsx-authenticated="false"] > div > div:first-child {{ gap: 17.75rem; }}
   }}
   /* The development mobile nav keeps the header minimal: theme, wallet,
      and notification actions move into the sheet below 640px. */
@@ -1511,7 +1570,7 @@ pub fn design_system_head_with_keywords(
   }}
   .epsx-notification-badge[hidden] {{ display: none !important; }}
 
-  /* === Mobile menu sheet (< 640px) === */
+  /* === Mobile menu sheet (< 1024px) === */
   .epsx-mobile-sheet {{
     position: fixed;
     inset: 0;
@@ -1520,48 +1579,119 @@ pub fn design_system_head_with_keywords(
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
     display: none;
-    align-items: flex-end;
-    justify-content: center;
+    align-items: stretch;
+    justify-content: flex-end;
     padding: 0;
   }}
   .epsx-mobile-sheet.open {{ display: flex; }}
-  @media (min-width: 640px) {{ .epsx-mobile-sheet {{ display: none !important; }} }}
+  @media (min-width: 1024px) {{ .epsx-mobile-sheet {{ display: none !important; }} }}
   .epsx-mobile-sheet-inner {{
-    width: 100%;
-    max-height: 85vh;
-    overflow-y: auto;
-    background: var(--bg);
-    border-top-left-radius: 1.5rem;
-    border-top-right-radius: 1.5rem;
-    padding: 1.5rem;
-    box-shadow: 0 -25px 50px -12px rgba(0,0,0,0.5);
+    display: flex;
+    flex-direction: column;
+    width: 85vw;
+    max-width: 24rem;
+    height: 100dvh;
+    max-height: none;
+    margin-left: auto;
+    overflow: hidden;
+    background: #fff;
+    border-left: 1px solid #e2e8f0;
+    border-radius: 0;
+    padding: 0;
+    box-shadow: -25px 0 50px -12px rgba(0,0,0,0.35);
   }}
-  html.dark .epsx-mobile-sheet-inner {{ background: #0f172a; border-top: 1px solid #334155; }}
-  .epsx-mobile-section {{
-    margin-bottom: 1rem;
-    padding-bottom: 1rem;
+  html.dark .epsx-mobile-sheet-inner {{ background: #0f172a; border-left-color: #334155; }}
+  .epsx-mobile-sheet-header {{
+    display: flex;
+    min-height: 4rem;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1rem;
     border-bottom: 1px solid var(--border);
   }}
-  .epsx-mobile-section:last-of-type {{ border-bottom: none; }}
-  .epsx-mobile-section-title {{
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--text-subtle);
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    margin-bottom: 0.5rem;
+  .epsx-mobile-navigation {{
+    flex: 1;
+    overflow-y: auto;
+    padding: 1rem;
   }}
+  .epsx-mobile-group {{ margin-bottom: 0.25rem; }}
+  .epsx-mobile-group-trigger {{
+    display: flex;
+    width: 100%;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0.625rem 0.75rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: #475569;
+    font: inherit;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+  }}
+  .epsx-mobile-group-trigger:hover {{ color: #0f172a; background: #f8fafc; }}
+  .epsx-mobile-group-trigger.active {{ color: #0f172a; }}
+  html.dark .epsx-mobile-group-trigger {{ color: #94a3b8; }}
+  html.dark .epsx-mobile-group-trigger:hover,
+  html.dark .epsx-mobile-group-trigger.active {{ color: #fff; background: #1e293b; }}
+  .epsx-mobile-group-label {{ display: flex; align-items: center; gap: 0.5rem; }}
+  .epsx-mobile-group-trigger .epsx-mobile-icon,
+  .epsx-mobile-group-trigger .epsx-mobile-chevron {{ color: var(--epsx-orange); flex-shrink: 0; }}
+  .epsx-mobile-chevron {{ transition: transform 0.2s ease; }}
+  .epsx-mobile-group-trigger[aria-expanded="true"] .epsx-mobile-chevron {{ transform: rotate(90deg); }}
+  .epsx-mobile-group-items {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    margin-left: 0.75rem;
+    padding-left: 0.75rem;
+    border-left: 1px solid var(--border);
+  }}
+  .epsx-mobile-group-items[hidden] {{ display: none !important; }}
   .epsx-mobile-link {{
     display: flex; align-items: center; gap: 0.625rem;
-    padding: 0.75rem 0.5rem;
-    border-radius: 0.5rem;
-    color: var(--text);
+    padding: 0.5rem 0.75rem;
+    border-radius: 0.375rem;
+    color: #64748b;
     text-decoration: none;
-    font-size: 0.9375rem;
-    font-weight: 500;
+    font-size: 0.875rem;
+    font-weight: 400;
     transition: background 0.15s ease;
   }}
+  .epsx-mobile-link.active {{ color: #0f172a; background: #f1f5f9; }}
+  html.dark .epsx-mobile-link {{ color: #94a3b8; }}
+  html.dark .epsx-mobile-link.active {{ color: #fff; background: #1e293b; }}
+  .epsx-mobile-link .epsx-mobile-icon,
+  #epsx-mobile-menu-btn .epsx-mobile-menu-icon {{
+    color: var(--epsx-orange);
+    flex-shrink: 0;
+  }}
   .epsx-mobile-link:hover, .epsx-mobile-link:active {{ background: var(--bg-secondary); }}
+  .epsx-mobile-session {{ padding: 1rem; border-top: 1px solid var(--border); }}
+  .epsx-mobile-session .epsx-mobile-link {{ width: 100%; min-height: 2.5rem; }}
+  .epsx-mobile-session .epsx-mobile-connect {{
+    display: flex;
+    width: 100%;
+    min-height: 2.5rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0 1rem;
+    border: 0;
+    border-radius: 1rem;
+    background: linear-gradient(90deg, #fb923c, #ea580c);
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-decoration: none;
+  }}
+  .epsx-mobile-session .epsx-mobile-connect .epsx-mobile-icon {{ color: #fff; }}
+  #epsx-mobile-menu-btn {{ border-radius: 0.375rem; background: transparent; }}
+  html.dark .epsx-header #epsx-mobile-menu-btn {{ background: transparent; }}
   .epsx-header :where(a[href], button):focus-visible, .epsx-mobile-sheet :where(a[href], button):focus-visible, .footer a[href]:focus-visible {{
     outline: 3px solid var(--focus-ring);
     outline-offset: 2px;
@@ -1654,9 +1784,13 @@ pub fn design_system_head_with_keywords(
   .home-prod-plan-card {{
     background: rgba(255,255,255,0.8);
     border-color: rgba(249,115,22,0.5);
+    color: var(--text);
   }}
   .home-prod-plan-title {{ color: var(--text); }}
   .home-prod-plan-sub {{ color: var(--text-muted); }}
+  html:not(.dark) .home-prod-plan-card > div > p,
+  html:not(.dark) .home-prod-plan-card > ul {{ color: #475569; }}
+  html:not(.dark) .home-prod-plan-card > div > h3 {{ color: #7e22ce; }}
   /* The local utility bundle intentionally contains only a bounded subset of
      arbitrary responsive classes. Pin the reference landing measurements in
      stable selectors so the Rust SSR remains visually deterministic. */
@@ -1682,6 +1816,40 @@ pub fn design_system_head_with_keywords(
   }}
   html.dark .home-prod-plan-title {{ color: #ffffff; }}
   html.dark .home-prod-plan-sub {{ color: #cbd5e1; }}
+
+  /* Empty/error news states used a dark translucent gradient in both themes,
+     leaving slate-300 and white copy washed out over the light page. */
+  html:not(.dark) .home-prod-news[data-home-news-state="empty"] > div,
+  html:not(.dark) .home-prod-news[data-home-news-state="unavailable"] > div {{
+    background: rgba(255,255,255,0.82) !important;
+    border-color: #cbd5e1 !important;
+    box-shadow: var(--shadow-lg);
+  }}
+  html:not(.dark) .home-prod-news[data-home-news-state] > div > p {{ color: #475569; }}
+  html:not(.dark) .home-prod-news[data-home-news-state] > div a {{
+    color: #0e7490;
+    border-color: #94a3b8;
+  }}
+
+  /* This shared sign-in banner is rendered on several public data surfaces.
+     Its essential gradient colors must not depend on optional Tailwind
+     utilities being present in the frozen browser bundle. */
+  html:not(.dark) .auth-access-banner {{
+    border-color: #d8b4fe !important;
+    background: linear-gradient(90deg, #faf5ff 0%, #ffffff 50%, #fdf2f8 100%) !important;
+  }}
+  .auth-access-banner-icon,
+  .auth-access-banner-cta {{
+    background: linear-gradient(90deg, #7e22ce 0%, #be185d 100%) !important;
+    color: #ffffff !important;
+  }}
+  .auth-access-banner-cta:hover {{
+    background: linear-gradient(90deg, #6b21a8 0%, #9d174d 100%) !important;
+  }}
+  html.dark .auth-access-banner {{
+    border-color: rgba(168, 85, 247, 0.5) !important;
+    background: linear-gradient(90deg, rgba(168,85,247,0.15) 0%, rgba(15,23,42,0.82) 50%, rgba(236,72,153,0.15) 100%) !important;
+  }}
 
   /* === Company card (Performance Companies) === */
   .company-card {{
@@ -3036,11 +3204,22 @@ pub fn design_system_head_with_keywords(
   .admin-sidebar-cta {{
     text-decoration: none;
   }}
+  html:not(.dark) .admin-sidebar-cta {{ background: #0e7490 !important; }}
   .admin-nav-row {{
     text-decoration: none;
   }}
   .admin-nav-row-active {{
     font-weight: 600;
+  }}
+  html:not(.dark) .admin-nav-row:not(.admin-nav-row-active) {{ color: #475569; }}
+  html:not(.dark) .admin-nav-row-active,
+  html:not(.dark) .admin-nav-children a[aria-current="page"] {{ color: #0e7490 !important; }}
+  html:not(.dark) aside[aria-label="Sidebar"] .text-\[\#FF512F\] {{ color: #c2410c !important; }}
+  .admin-nav-row[aria-expanded="true"] .admin-nav-chevron {{
+    transform: rotate(90deg);
+  }}
+  .admin-nav-children[hidden] {{
+    display: none !important;
   }}
   .admin-footer {{
     flex-shrink: 0;
@@ -3050,6 +3229,176 @@ pub fn design_system_head_with_keywords(
   }}
   .admin-header-theme-toggle {{
     /* matches the `btn-ghost btn-icon` look for the default theme toggle */
+  }}
+  .admin-theme-icon {{ display: inline-flex; align-items: center; justify-content: center; }}
+  .admin-theme-icon-sun {{ display: none; }}
+  html.dark .admin-theme-icon-sun {{ display: inline-flex; }}
+  html.dark .admin-theme-icon-moon {{ display: none; }}
+  .admin-header-menu-wrap {{ position: relative; }}
+  .admin-header-popover {{
+    position: absolute;
+    top: calc(100% + 0.625rem);
+    right: 0;
+    z-index: 99999;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    background: var(--surface-solid);
+    color: var(--text);
+    box-shadow: 0 18px 48px -16px rgba(0, 0, 0, 0.55);
+    transform-origin: top right;
+  }}
+  .admin-header-popover[hidden] {{ display: none !important; }}
+  .admin-header-popover.open {{ animation: scaleIn 0.15s ease; }}
+  .admin-header-bell-icon {{ color: #f97316; }}
+  .admin-notifications-menu {{ width: min(22rem, calc(100vw - 2rem)); }}
+  .admin-notifications-heading {{
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+  }}
+  .admin-notifications-heading h2 {{ margin: 0; font-size: 0.875rem; font-weight: 600; }}
+  .admin-notifications-heading span {{ font-size: 0.75rem; color: #f97316; }}
+  .admin-notifications-empty {{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 2rem 1rem;
+    text-align: center;
+    color: var(--text-muted);
+  }}
+  .admin-notifications-empty p {{ margin: 0.5rem 0 0; color: var(--text); font-size: 0.875rem; font-weight: 600; }}
+  .admin-notifications-empty span {{ font-size: 0.75rem; }}
+  .admin-notifications-list {{ max-height: 24rem; overflow-y: auto; }}
+  .admin-notification-item {{
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    text-decoration: none;
+  }}
+  .admin-notification-item:hover {{ background: var(--bg-tertiary); }}
+  .admin-notification-item-unread {{ box-shadow: inset 3px 0 #f97316; }}
+  .admin-notification-item strong {{ font-size: 0.8125rem; }}
+  .admin-notification-item span {{ font-size: 0.75rem; color: var(--text-muted); }}
+  .admin-notifications-view-all {{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1rem;
+    color: var(--text-muted);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-decoration: none;
+  }}
+  .admin-notifications-view-all:hover {{ background: var(--bg-tertiary); color: var(--text); }}
+  .admin-wallet-connect {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1.25rem;
+    border-radius: 1rem;
+    background: #1fc7d4;
+    color: #fff;
+    font-size: 0.875rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow: 0 10px 24px -12px rgba(31, 199, 212, 0.55);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }}
+  .admin-wallet-connect:hover {{ transform: scale(1.02); box-shadow: 0 12px 28px -12px rgba(31, 199, 212, 0.75); }}
+  .admin-wallet-trigger {{
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 2.25rem;
+    padding: 0.5rem 0.625rem;
+    border: 0;
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--text);
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s ease;
+  }}
+  .admin-wallet-trigger:hover,
+  .admin-wallet-trigger[aria-expanded="true"] {{ background: var(--bg-tertiary); }}
+  .admin-wallet-trigger[aria-expanded="true"] .admin-wallet-chevron {{ transform: rotate(180deg); }}
+  .admin-wallet-trigger > .epsx-icon:first-child {{ color: #f97316; }}
+  .admin-wallet-short-address,
+  .admin-wallet-connect-label {{ display: inline; white-space: nowrap; }}
+  .admin-wallet-chevron {{ transition: transform 0.2s ease; }}
+  .admin-wallet-menu {{ width: 16rem; }}
+  .admin-wallet-accent {{ height: 3px; background: linear-gradient(90deg, #ffb237, #f97316); }}
+  .admin-wallet-address-block {{ padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); }}
+  .admin-wallet-label {{
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    margin-bottom: 0.25rem;
+    color: #f97316;
+    font-size: 0.625rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }}
+  .admin-wallet-address-block p {{
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    line-height: 1.4;
+  }}
+  .admin-wallet-menu .wallet-meta-grid {{
+    padding: 0.625rem 0.75rem;
+    border-top: 0;
+    background: transparent;
+  }}
+  .admin-wallet-menu .wallet-meta-label {{ color: var(--text-muted); }}
+  .admin-wallet-menu .wallet-meta-value {{ color: var(--text); }}
+  .admin-wallet-menu .wallet-meta-value-role {{ color: #a78bfa; }}
+  .admin-wallet-menu .wallet-meta-value-tier {{ color: #0891b2; }}
+  .admin-wallet-menu .wallet-network-badge {{
+    border-top-color: var(--border);
+    background: transparent;
+    color: var(--text-muted);
+  }}
+  .admin-wallet-actions {{ padding: 0.25rem; }}
+  .admin-wallet-menu-item {{
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border: 0;
+    border-radius: 0.375rem;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.8125rem;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+  }}
+  .admin-wallet-menu-item:hover {{ background: var(--bg-tertiary); }}
+  .admin-wallet-menu-separator {{ height: 1px; margin: 0.25rem 0; background: var(--border); }}
+  .admin-wallet-disconnect {{ color: #ef4444; }}
+  @media (max-width: 1023px) {{
+    .admin-wallet-short-address,
+    .admin-wallet-connect-label {{ display: none; }}
+  }}
+  .admin-wallet-disconnect:hover {{ background: rgba(239, 68, 68, 0.1); }}
+  @media (max-width: 639px) {{
+    .admin-notifications-menu {{ position: fixed; top: 4.5rem; right: 1rem; }}
   }}
   .developer-shell {{
     display: flex;
@@ -3135,7 +3484,7 @@ pub fn design_system_head_with_keywords(
   /* --- auth modal (focus trap, role=dialog, gradient) --- */
   .auth-modal {{
     background: var(--surface-solid, #191923);
-    color: #ffffff;
+    color: var(--text);
     border: 1px solid var(--border);
     border-radius: 1.5rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
@@ -3216,6 +3565,26 @@ pub fn design_system_head_with_keywords(
   .wallet-name {{ flex: 1; }}
   .wallet-chev {{ opacity: 0.5; }}
 
+  /* The modal surface follows the active theme. Its original copy and wallet
+     rows were hard-coded white, which made the complete sign-in flow vanish
+     when `--surface-solid` switched to white. */
+  html:not(.dark) .auth-modal-headline,
+  html:not(.dark) .auth-modal-title {{ color: #0f172a; }}
+  html:not(.dark) .auth-modal-sub,
+  html:not(.dark) .auth-modal-description {{ color: #475569; }}
+  html:not(.dark) .auth-modal-features li {{ color: #334155; }}
+  html:not(.dark) .auth-modal-content {{ background: rgba(248,250,252,0.8); }}
+  html:not(.dark) .wallet-option {{
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+    color: #0f172a;
+  }}
+  html:not(.dark) .wallet-option:not(:disabled):hover {{
+    background: #e2e8f0;
+    border-color: #8b5cf6;
+  }}
+  html:not(.dark) .wallet-icon {{ background: #e2e8f0; }}
+
   /* --- auth gate (sign-in / permission-missing / admin variants) --- */
   .auth-gate {{
     display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -3226,7 +3595,7 @@ pub fn design_system_head_with_keywords(
     border: 1px solid var(--border);
     border-radius: 1.5rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
-    color: #ffffff;
+    color: var(--text);
   }}
   .auth-gate-icon {{
     width: 4rem; height: 4rem;
@@ -3237,18 +3606,18 @@ pub fn design_system_head_with_keywords(
     margin-bottom: 1.25rem;
   }}
   .auth-gate-title {{ font-size: 1.5rem; font-weight: 700; margin: 0 0 0.75rem 0; }}
-  .auth-gate-description {{ color: rgba(255,255,255,0.65); margin: 0 0 1.5rem 0; line-height: 1.5; }}
+  .auth-gate-description {{ color: var(--text-muted); margin: 0 0 1.5rem 0; line-height: 1.5; }}
   .auth-gate-perms {{
     text-align: left;
-    background: rgba(255,255,255,0.04);
+    background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: 0.75rem;
     padding: 0.875rem 1rem;
     margin: 0 0 1.5rem 0;
     width: 100%;
   }}
-  .auth-gate-perms p {{ margin: 0 0 0.5rem 0; font-size: 0.75rem; color: rgba(255,255,255,0.55); text-transform: uppercase; letter-spacing: 0.05em; }}
-  .auth-gate-perms ul {{ margin: 0; padding-left: 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; color: rgba(255,255,255,0.85); }}
+  .auth-gate-perms p {{ margin: 0 0 0.5rem 0; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }}
+  .auth-gate-perms ul {{ margin: 0; padding-left: 1.25rem; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.8125rem; color: var(--text); }}
   .auth-gate-actions {{ display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center; }}
   .auth-gate-badge {{
     display: inline-block;
@@ -3262,6 +3631,17 @@ pub fn design_system_head_with_keywords(
   }}
   .auth-gate-admin .auth-gate-icon {{ background: rgba(118,69,217,0.15); color: #a78bfa; }}
   .auth-gate-missing .auth-gate-icon {{ background: rgba(245,158,11,0.15); color: #fbbf24; }}
+  html.dark .auth-gate {{ color: #ffffff; }}
+  html.dark .auth-gate-description {{ color: rgba(255,255,255,0.65); }}
+  html.dark .auth-gate-perms {{ background: rgba(255,255,255,0.04); }}
+  html.dark .auth-gate-perms p {{ color: rgba(255,255,255,0.55); }}
+  html.dark .auth-gate-perms ul {{ color: rgba(255,255,255,0.85); }}
+
+  /* The wallet selector is intentionally a dark surface in either theme. Its
+     semantic foreground utilities must therefore stay light in light mode. */
+  .auth-modal-inner .text-foreground {{ color: #ffffff !important; }}
+  .auth-modal-inner .text-muted-foreground {{ color: #cbd5e1 !important; }}
+  .auth-modal-inner .auth-step-number {{ color: #c4b5fd; }}
 
   /* --- access denied (full page panel) --- */
   .access-denied {{
@@ -4634,7 +5014,6 @@ pub fn design_system_head_with_keywords(
   .credits-ledger-kind {{ display: block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }}
 
   /* end wave6-auth-pages-depth-track-a */
-=======
   /* === wave6-auth-pages-depth-track-b ===
    * Analytics + developer depth — filter panel, export dialog
    * primitive, analytics card grid responsive breakpoints, and
@@ -4775,7 +5154,6 @@ pub fn design_system_head_with_keywords(
   }}
 
   /* end wave6-auth-pages-depth-track-b */
-=======
   /* === wave6-auth-pages-depth-track-c ===
    * Chat + chat_history + chat_conversation + notifications depth.
    *
@@ -5248,6 +5626,24 @@ pub fn design_system_head_with_keywords(
   .chat-conv-hint {{ font-size: 0.625rem; color: var(--text-muted, #94a3b8); opacity: 0.4;
                       text-align: center; margin: 0.375rem 0 0; }}
 
+  /* Production chat switches from the two-pane desktop inbox to one focused
+   * surface on narrow viewports. Conversation cards navigate to `/chat/:id`,
+   * while `?new=1` replaces the list with the topic composer. */
+  .chat-mobile-back {{ display: none; }}
+  @media (max-width: 767px) {{
+    .chat-inbox-row {{ display: block; }}
+    .chat-inbox-row > .chat-inbox {{ width: 100%; height: 100%; border-right: 0; }}
+    .chat-inbox-row > .chat-panel {{ display: none; }}
+    .chat-inbox-row.chat-new-active > .chat-inbox {{ display: none; }}
+    .chat-inbox-row.chat-new-active > .chat-panel {{ display: flex; height: 100%; }}
+    .chat-mobile-back {{ display: inline-flex; }}
+    .chat-conversation {{ width: 100%; max-width: none; padding: 0; }}
+    .chat-conv {{ height: calc(100vh - 3.5rem); min-height: 0; border: 0; border-radius: 0; }}
+    .chat-header-row {{ padding-left: 0.75rem; padding-right: 0.75rem; }}
+    .chat-messages {{ padding: 1rem 0.75rem; }}
+    .chat-input {{ padding-left: 0.75rem; padding-right: 0.75rem; }}
+  }}
+
   /* --- /notifications list + browser prompt + settings --- */
   .notifications-page {{ max-width: 960px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.5rem;
                          --notification-state-accent: #9a3412; }}
@@ -5260,9 +5656,14 @@ pub fn design_system_head_with_keywords(
                                   background: var(--card-bg, rgba(248,250,252,0.04)); }}
   .notifications-filter-option {{ min-height: 2.5rem; width: 100%; display: flex; align-items: center;
                                   justify-content: space-between; gap: 0.5rem; padding: 0.375rem 0.75rem;
-                                  border: 1px solid rgba(71,85,105,0.7); border-radius: 0.5rem;
-                                  background: rgba(51,65,85,0.7); color: rgba(203,213,225,0.7);
+                                  border: 1px solid #cbd5e1; border-radius: 0.5rem;
+                                  background: #f8fafc; color: #334155;
                                   font-size: 0.75rem; font-weight: 500; }}
+  html.dark .notifications-filter-option {{
+    border-color: rgba(71,85,105,0.7);
+    background: rgba(51,65,85,0.7);
+    color: #e2e8f0;
+  }}
   .notifications-filter-option .epsx-icon {{ flex-shrink: 0; opacity: 0.7; }}
   .notifications-unread-count {{ font-size: 0.75rem; color: var(--notification-state-accent); font-weight: 600; opacity: 1; }}
   .notifications-list-card {{ padding: 0; }}
@@ -5366,7 +5767,6 @@ pub fn design_system_head_with_keywords(
                                    padding-left: 1.5rem; border-left: 2px solid var(--card-border, rgba(255,255,255,0.10)); }}
 
   /* end wave6-auth-pages-depth-track-c */
-=======
   /* === wave6-auth-pages-depth-track-d ===
    * Track D — payment + permissions + portfolio + profile + news +
    * news_detail (6 small/medium pages). Adds the new
@@ -6021,15 +6421,17 @@ pub fn design_system_head_with_keywords(
 
 /// Returns the external wasm-bindgen module generated from the Rust browser runtime.
 /// The referenced files live under `target/` and are never committed.
+/// Bump the revision when the bootstrap/runtime contract changes so an already-open
+/// browser cannot keep executing an older ES module graph after a local rebuild.
 pub fn global_js() -> &'static str {
-    r#"<script type="module" src="/runtime/epsx_browser_runtime_bootstrap.js" data-epsx-generated-runtime="wasm-bindgen"></script>"#
+    r#"<script type="module" src="/runtime/epsx_browser_runtime_bootstrap.js?rev=2" data-epsx-generated-runtime="wasm-bindgen"></script>"#
 }
 
 /// Returns a theme toggle button handled by the Rust/WASM event delegate.
 pub fn theme_toggle_button() -> &'static str {
     r##"<button id="epsx-theme-toggle" type="button" class="nav-link" data-epsx-theme-toggle data-epsx-action="theme-toggle" aria-label="Toggle theme" style="width:2.25rem;height:2.25rem;padding:0;justify-content:center;">
-  <i data-epsx-theme-icon="sun" data-lucide="sun" style="display:none;width:1.125rem;height:1.125rem;"></i>
-  <i data-epsx-theme-icon="moon" data-lucide="moon" style="width:1.125rem;height:1.125rem;"></i>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-sun" data-epsx-theme-icon="sun" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-moon" data-epsx-theme-icon="moon" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
 </button>"##
 }
 
@@ -6285,6 +6687,21 @@ pub fn lucide_icon(name: &str) -> &'static str {
         "file-text" => {
             r#"<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/>"#
         }
+        "file" => {
+            r#"<path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/>"#
+        }
+        "folder-open" => {
+            r#"<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>"#
+        }
+        "list" => {
+            r#"<path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/>"#
+        }
+        "upload" => {
+            r#"<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>"#
+        }
+        "save" => {
+            r#"<path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>"#
+        }
         "history" => {
             r#"<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>"#
         }
@@ -6500,11 +6917,16 @@ pub fn lucide_icon(name: &str) -> &'static str {
 /// Returns a complete `<svg>` element for a Lucide icon.
 /// `size` defaults to 16; pass a number string (e.g. "20") to override.
 pub fn lucide(name: &str, size: &str, class: &str) -> String {
+    lucide_with_attributes(name, size, class, "")
+}
+
+fn lucide_with_attributes(name: &str, size: &str, class: &str, attributes: &str) -> String {
     format!(
-        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{sz}" height="{sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-{name} {class}" aria-hidden="true">{body}</svg>"#,
+        r#"<svg xmlns="http://www.w3.org/2000/svg" width="{sz}" height="{sz}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-{name} {class}" {attributes} aria-hidden="true">{body}</svg>"#,
         sz = size,
         name = name,
         class = class,
+        attributes = attributes,
         body = lucide_icon(name),
     )
 }
@@ -6635,8 +7057,8 @@ pub fn epsx_header_for_session_and_return_target(
 ///
 /// The wallet cookie only describes the connected provider; it never grants
 /// access. When present without a server-authenticated session we show the
-/// compact wallet identity in the header and leave the sign-in action to the
-/// native `/auth` route.
+/// compact wallet identity alongside an explicit sign-in label in the header
+/// and leave the verification action to the native `/auth` route.
 pub fn epsx_header_for_session_and_wallet(
     is_authenticated: bool,
     return_target: &str,
@@ -6664,23 +7086,40 @@ pub fn epsx_header_for_session_and_wallet_with_network(
 ) -> String {
     let auth_href = auth_href_for_return_target(return_target);
     let auth_href = html_attr_escape(&auth_href);
+    let current_path = return_target
+        .split_once(['?', '#'])
+        .map_or(return_target, |(path, _)| path);
+
+    let nav_item = |href: &str, icon_name: &str, label: &str, description: &str| {
+        format!(
+            r##"
+      <a href="{href}" class="epsx-nav-item">
+        {icon}
+        <div>
+          <div class="item-label">{label}</div>
+          <div class="item-desc">{description}</div>
+        </div>
+      </a>"##,
+            icon = lucide(icon_name, "16", "item-icon"),
+        )
+    };
 
     // Market dropdown items (rankings, portfolio)
-    let market_items = r##"
-      <a href="/analytics" class="epsx-nav-item">
-        <i data-lucide="chart-column" class="item-icon"></i>
-        <div>
-          <div class="item-label">Rankings</div>
-          <div class="item-desc">Rankings availability</div>
-        </div>
-      </a>
-      <a href="/portfolio" class="epsx-nav-item">
-        <i data-lucide="trending-up" class="item-icon"></i>
-        <div>
-          <div class="item-label">Portfolio</div>
-          <div class="item-desc">Portfolio availability</div>
-        </div>
-      </a>"##;
+    let market_items = format!(
+        "{}{}",
+        nav_item(
+            "/analytics",
+            "chart-column",
+            "Rankings",
+            "Rankings availability"
+        ),
+        nav_item(
+            "/portfolio",
+            "trending-up",
+            "Portfolio",
+            "Portfolio availability"
+        )
+    );
 
     // Developer dropdown items
     //
@@ -6692,188 +7131,313 @@ pub fn epsx_header_for_session_and_wallet_with_network(
     // navbar (Usage is reached from the Developer Portal page,
     // not the global nav). Removing the third item brings the
     // dev BFF to 2+2+4 = 8 nav items, identical to prod.
-    let developer_items = r##"
-      <a href="/developer" class="epsx-nav-item">
-        <i data-lucide="key" class="item-icon"></i>
-        <div>
-          <div class="item-label">API Keys</div>
-          <div class="item-desc">API access status</div>
-        </div>
-      </a>
-      <a href="/developer/docs" class="epsx-nav-item">
-        <i data-lucide="book" class="item-icon"></i>
-        <div>
-          <div class="item-label">Documentation</div>
-          <div class="item-desc">Pinned API reference</div>
-        </div>
-      </a>"##;
+    let developer_items = format!(
+        "{}{}",
+        nav_item("/developer", "key", "API Keys", "API access status"),
+        nav_item(
+            "/developer/docs",
+            "book",
+            "Documentation",
+            "Pinned API reference"
+        )
+    );
 
     // Company dropdown items
-    let company_items = r##"
-      <a href="/about" class="epsx-nav-item">
-        <i data-lucide="info" class="item-icon"></i>
-        <div>
-          <div class="item-label">About</div>
-          <div class="item-desc">Mission &amp; vision</div>
-        </div>
-      </a>
-      <a href="/news" class="epsx-nav-item">
-        <i data-lucide="newspaper" class="item-icon"></i>
-        <div>
-          <div class="item-label">News</div>
-          <div class="item-desc">News availability</div>
-        </div>
-      </a>
-      <a href="/contact" class="epsx-nav-item">
-        <i data-lucide="mail" class="item-icon"></i>
-        <div>
-          <div class="item-label">Contact</div>
-          <div class="item-desc">Contact by email</div>
-        </div>
-      </a>
-      <a href="/chat" class="epsx-nav-item">
-        <i data-lucide="help-circle" class="item-icon"></i>
-        <div>
-          <div class="item-label">Support</div>
-          <div class="item-desc">Support status</div>
-        </div>
-      </a>"##;
+    let company_items = format!(
+        "{}{}{}{}",
+        nav_item("/about", "info", "About", "Mission &amp; vision"),
+        nav_item("/news", "newspaper", "News", "News availability"),
+        nav_item("/contact", "mail", "Contact", "Contact by email"),
+        nav_item("/chat", "help-circle", "Support", "Support status")
+    );
 
     let logo = epsx_icon_svg();
     let notification_action = if is_authenticated {
-        r##"<a href="/notifications" class="epsx-theme-btn epsx-notification-link" aria-label="Notifications" data-epsx-notification-badge-target="true">
-        <i data-lucide="bell" style="width:1rem;height:1rem;"></i>
+        format!(
+            r##"<a href="/notifications" class="epsx-theme-btn epsx-notification-link" aria-label="Notifications" data-epsx-notification-badge-target="true">
+        {icon}
         <span class="epsx-notification-badge" data-epsx-notification-unread-badge="true" data-notification-count="true" data-state="unavailable" aria-hidden="true" hidden></span>
-      </a>"##
+      </a>"##,
+            icon = lucide("bell", "16", "epsx-action-icon"),
+        )
     } else {
-        ""
+        String::new()
     };
     let (desktop_auth, compact_auth) = if is_authenticated {
-        (
-            r##"<div class="hidden md:flex items-center gap-1.5">
-        <a href="/account" class="epsx-theme-btn" aria-label="Account">
-          <i data-lucide="user" style="width:1rem;height:1rem;"></i>
-        </a>
-        <button class="epsx-connect-btn" type="button" data-epsx-logout>
-          <i data-lucide="log-out" style="width:1rem;height:1rem;"></i>
-          Sign out
-        </button>
-      </div>"##
-                .to_string(),
-            r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
-        <button class="epsx-connect-btn" type="button" data-epsx-logout style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
-          <i data-lucide="log-out" style="width:0.75rem;height:0.75rem;"></i>
-          Sign out
-        </button>
-      </div>"##
-                .to_string(),
-        )
+        if let Some(address) = wallet_address.filter(|value| !value.trim().is_empty()) {
+            let safe_address = html_attr_escape(address.trim());
+            let safe_short = html_attr_escape(&short_wallet_address(address));
+            (
+                format!(
+                    r##"<div class="epsx-desktop-session hidden md:flex items-center gap-1.5">
+        <div class="epsx-session-menu-wrap">
+          <button class="epsx-wallet-pill epsx-session-trigger" type="button" aria-label="Wallet menu for {safe_short}" aria-haspopup="menu" aria-expanded="false" aria-controls="epsx-session-menu-desktop" data-epsx-action="toggle-dropdown">
+            {wallet_icon}
+            <span>{safe_short}</span>
+            {chevron_icon}
+          </button>
+          <div id="epsx-session-menu-desktop" class="epsx-session-menu" role="menu" data-epsx-dropdown aria-hidden="true" hidden>
+            <div class="epsx-session-summary">
+              <div class="epsx-session-label">{summary_icon} Wallet</div>
+              <code class="epsx-session-address">{safe_address}</code>
+            </div>
+            <div class="epsx-session-actions">
+              <a href="/account" class="epsx-session-menu-item" role="menuitem">{account_icon} Account</a>
+              <button class="epsx-session-menu-item" type="button" role="menuitem" data-epsx-action="copy" data-copy="{safe_address}">{copy_icon} Copy address</button>
+              <button class="epsx-session-menu-item epsx-session-sign-out" type="button" role="menuitem" data-epsx-logout>{logout_icon} Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>"##,
+                    wallet_icon = lucide("wallet", "16", "epsx-action-icon"),
+                    chevron_icon = lucide("chevron-down", "12", "epsx-session-chevron"),
+                    summary_icon = lucide("wallet", "12", "epsx-action-icon"),
+                    account_icon = lucide("user", "16", "epsx-action-icon"),
+                    copy_icon = lucide("copy", "16", "epsx-action-icon"),
+                    logout_icon = lucide("log-out", "16", "epsx-action-icon"),
+                ),
+                format!(
+                    r##"<div class="epsx-tablet-session hidden sm:flex md:hidden items-center gap-1.5">
+        <div class="epsx-session-menu-wrap">
+          <button class="epsx-wallet-pill epsx-session-trigger" type="button" aria-label="Wallet menu for {safe_short}" aria-haspopup="menu" aria-expanded="false" aria-controls="epsx-session-menu-tablet" data-epsx-action="toggle-dropdown" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+            {wallet_icon}
+            <span>{safe_short}</span>
+            {chevron_icon}
+          </button>
+          <div id="epsx-session-menu-tablet" class="epsx-session-menu" role="menu" data-epsx-dropdown aria-hidden="true" hidden>
+            <div class="epsx-session-summary">
+              <div class="epsx-session-label">{summary_icon} Wallet</div>
+              <code class="epsx-session-address">{safe_address}</code>
+            </div>
+            <div class="epsx-session-actions">
+              <a href="/account" class="epsx-session-menu-item" role="menuitem">{account_icon} Account</a>
+              <button class="epsx-session-menu-item" type="button" role="menuitem" data-epsx-action="copy" data-copy="{safe_address}">{copy_icon} Copy address</button>
+              <button class="epsx-session-menu-item epsx-session-sign-out" type="button" role="menuitem" data-epsx-logout>{logout_icon} Sign out</button>
+            </div>
+          </div>
+        </div>
+      </div>"##,
+                    wallet_icon = lucide("wallet", "12", "epsx-action-icon"),
+                    chevron_icon = lucide("chevron-down", "10", "epsx-session-chevron"),
+                    summary_icon = lucide("wallet", "12", "epsx-action-icon"),
+                    account_icon = lucide("user", "14", "epsx-action-icon"),
+                    copy_icon = lucide("copy", "14", "epsx-action-icon"),
+                    logout_icon = lucide("log-out", "14", "epsx-action-icon"),
+                ),
+            )
+        } else {
+            (
+                format!(
+                    r##"<div class="epsx-desktop-session hidden md:flex items-center gap-1.5">
+        <a href="/account" class="epsx-theme-btn" aria-label="Account">{account_icon}</a>
+        <button class="epsx-connect-btn" type="button" data-epsx-logout>{logout_icon} Sign out</button>
+      </div>"##,
+                    account_icon = lucide("user", "16", "epsx-action-icon"),
+                    logout_icon = lucide("log-out", "16", "epsx-action-icon"),
+                ),
+                format!(
+                    r##"<div class="epsx-tablet-session hidden sm:flex md:hidden items-center gap-1.5">
+        <button class="epsx-connect-btn" type="button" data-epsx-logout style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">{logout_icon} Sign out</button>
+      </div>"##,
+                    logout_icon = lucide("log-out", "12", "epsx-action-icon"),
+                ),
+            )
+        }
     } else if let Some(address) = wallet_address.filter(|value| !value.trim().is_empty()) {
         let short = short_wallet_address(address);
         let safe_short = html_attr_escape(&short);
         (
             format!(
-                r##"<div class="hidden md:flex items-center gap-1.5">
-        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Connected wallet {safe_short}">
-          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
-          {safe_short}
+                r##"<div class="epsx-desktop-session hidden md:flex items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Wallet {safe_short} connected; sign in required">
+          {wallet_icon}
+          Sign in · {safe_short}
         </a>
-      </div>"##
+      </div>"##,
+                wallet_icon = lucide("wallet", "16", "epsx-action-icon"),
             ),
             format!(
-                r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
-        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Connected wallet {safe_short}" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
-          <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
-          {safe_short}
+                r##"<div class="epsx-tablet-session hidden sm:flex md:hidden items-center gap-1.5">
+        <a href="{auth_href}" class="epsx-wallet-pill" data-epsx-wallet-pill aria-label="Wallet {safe_short} connected; sign in required" style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;">
+          {wallet_icon}
+          Sign in · {safe_short}
         </a>
-      </div>"##
+      </div>"##,
+                wallet_icon = lucide("wallet", "12", "epsx-action-icon"),
             ),
         )
     } else {
         (
             format!(
-                r##"<div class="hidden md:flex items-center gap-1.5">
+                r##"<div class="epsx-desktop-session hidden md:flex items-center gap-1.5">
         <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="text-decoration:none;">
-          <i data-lucide="wallet" style="width:1rem;height:1rem;"></i>
+          {wallet_icon}
           Connect
         </a>
-      </div>"##
+      </div>"##,
+                wallet_icon = lucide("wallet", "16", "epsx-action-icon"),
             ),
             format!(
-                r##"<div class="hidden sm:flex md:hidden items-center gap-1.5">
+                r##"<div class="epsx-tablet-session hidden sm:flex md:hidden items-center gap-1.5">
         <a href="{auth_href}" class="epsx-connect-btn" data-epsx-auth-link style="height:2rem;padding:0 0.75rem;font-size:0.75rem;border-radius:1rem;text-decoration:none;">
-          <i data-lucide="wallet" style="width:0.75rem;height:0.75rem;"></i>
+          {wallet_icon}
           Connect
         </a>
-      </div>"##
+      </div>"##,
+                wallet_icon = lucide("wallet", "12", "epsx-action-icon"),
             ),
         )
     };
     let network_indicator = if show_network {
-        r##"<div class="epsx-network-badge" data-epsx-network="bsc-testnet" aria-label="Current network: BSC Testnet">
-        <i data-lucide="link" style="width:1rem;height:1rem;"></i>
+        format!(
+            r##"<div class="epsx-network-badge" data-epsx-network="bsc-testnet" aria-label="Current network: BSC Testnet">
+        {icon}
         <span>BSC Testnet</span>
-      </div>"##
+      </div>"##,
+            icon = lucide("link", "16", "epsx-action-icon"),
+        )
     } else {
-        ""
+        String::new()
     };
     let mobile_auth = if is_authenticated {
-        r##"<a href="/account" class="epsx-mobile-link">
-        <i data-lucide="user"></i> Account
+        let authenticated_wallet = wallet_address
+            .filter(|value| !value.trim().is_empty())
+            .map(|address| {
+                format!(
+                    "{} Wallet {}",
+                    lucide("wallet", "16", "epsx-mobile-icon"),
+                    html_attr_escape(&short_wallet_address(address))
+                )
+            })
+            .unwrap_or_else(|| format!("{} Account", lucide("user", "16", "epsx-mobile-icon")));
+        format!(
+            r##"<a href="/account" class="epsx-mobile-link">
+        {authenticated_wallet}
       </a>
       <button class="epsx-mobile-link" type="button" data-epsx-logout style="width:100%;border:0;background:transparent;text-align:left;">
-        <i data-lucide="log-out"></i> Sign out
-      </button>"##
-            .to_string()
+        {logout_icon} Sign out
+      </button>"##,
+            logout_icon = lucide("log-out", "16", "epsx-mobile-icon"),
+        )
     } else if let Some(address) = wallet_address.filter(|value| !value.trim().is_empty()) {
         format!(
             r##"<a href="{auth_href}" class="epsx-mobile-link" data-epsx-wallet-pill>
-        <i data-lucide="wallet"></i> Sign in {short}
+        {wallet_icon} Sign in {short}
       </a>"##,
+            wallet_icon = lucide("wallet", "16", "epsx-mobile-icon"),
             short = html_attr_escape(&short_wallet_address(address)),
         )
     } else {
         format!(
-            r##"<a href="{auth_href}" class="epsx-mobile-link" data-epsx-auth-link>
-        <i data-lucide="wallet"></i> Connect Wallet
-      </a>"##
+            r##"<a href="{auth_href}" class="epsx-mobile-connect" data-epsx-auth-link>
+        {wallet_icon} Connect
+      </a>"##,
+            wallet_icon = lucide("wallet", "16", "epsx-mobile-icon"),
         )
+    };
+    let path_is_active = |href: &str| {
+        current_path == href
+            || current_path
+                .strip_prefix(href)
+                .is_some_and(|suffix| suffix.starts_with('/'))
+    };
+    let group_is_active = |label: &str| match label {
+        "Market" => path_is_active("/analytics") || path_is_active("/portfolio"),
+        "Developer" => path_is_active("/developer"),
+        "Company" => ["/about", "/news", "/contact", "/chat"]
+            .into_iter()
+            .any(|href| path_is_active(href)),
+        _ => false,
     };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {
         let id = label.to_ascii_lowercase();
+        let active = group_is_active(label);
+        let active_class = if active { " active" } else { "" };
         format!(
             r##"<div class="epsx-nav-wrap" data-nav="{label}">
-  <button id="epsx-nav-{id}-trigger" class="epsx-nav-trigger" type="button" aria-expanded="false" aria-controls="epsx-nav-{id}-panel" data-epsx-action="toggle-nav">
-    <i data-lucide="{icon}" class="nav-icon"></i>
+  <button id="epsx-nav-{id}-trigger" class="epsx-nav-trigger{active_class}" type="button" aria-expanded="false" aria-controls="epsx-nav-{id}-panel" data-epsx-action="toggle-nav">
+    {nav_icon}
     {label}
-    <i data-lucide="chevron-down" class="nav-chev"></i>
+    {chevron_icon}
   </button>
   <div id="epsx-nav-{id}-panel" class="epsx-nav-menu" aria-labelledby="epsx-nav-{id}-trigger" hidden>{items}</div>
 </div>"##,
             id = id,
             label = label,
-            icon = icon,
+            active_class = active_class,
+            nav_icon = lucide(icon, "16", "nav-icon"),
+            chevron_icon = lucide("chevron-down", "12", "nav-chev"),
             items = items,
         )
     };
+    let mobile_item = |href: &str, icon_name: &str, label: &str| -> String {
+        let active_class = if path_is_active(href) { " active" } else { "" };
+        format!(
+            r##"<a href="{href}" class="epsx-mobile-link{active_class}">
+        {icon} {label}
+      </a>"##,
+            icon = lucide(icon_name, "16", "epsx-mobile-icon"),
+        )
+    };
+    let mobile_group = |label: &str, icon_name: &str, items: &str| -> String {
+        let id = label.to_ascii_lowercase();
+        let active = group_is_active(label);
+        let active_class = if active { " active" } else { "" };
+        let expanded = if active { "true" } else { "false" };
+        let hidden = if active { "" } else { " hidden" };
+        format!(
+            r##"<div class="epsx-mobile-group">
+      <button id="epsx-mobile-{id}-trigger" class="epsx-mobile-group-trigger{active_class}" type="button" aria-expanded="{expanded}" aria-controls="epsx-mobile-{id}-panel" data-epsx-action="toggle-nav">
+        <span class="epsx-mobile-group-label">
+          {icon} {label}
+        </span>
+        {chevron}
+      </button>
+      <div id="epsx-mobile-{id}-panel" class="epsx-mobile-group-items" aria-labelledby="epsx-mobile-{id}-trigger"{hidden}>
+        {items}
+      </div>
+    </div>"##,
+            icon = lucide(icon_name, "16", "epsx-mobile-icon"),
+            chevron = lucide("chevron-right", "16", "epsx-mobile-chevron"),
+        )
+    };
+    let mobile_market_items = format!(
+        "{}{}",
+        mobile_item("/analytics", "chart-line", "Rankings"),
+        mobile_item("/portfolio", "trending-up", "Portfolio")
+    );
+    let mobile_developer_items = format!(
+        "{}{}",
+        mobile_item("/developer", "key", "API Keys"),
+        mobile_item("/developer/docs", "book", "Documentation")
+    );
+    let mobile_company_items = format!(
+        "{}{}{}{}",
+        mobile_item("/about", "info", "About"),
+        mobile_item("/news", "newspaper", "News"),
+        mobile_item("/contact", "mail", "Contact"),
+        mobile_item("/chat", "help-circle", "Support")
+    );
+    let theme_sun = lucide_with_attributes("sun", "16", "sun", r#"data-epsx-theme-icon="sun""#);
+    let theme_moon = lucide_with_attributes("moon", "16", "moon", r#"data-epsx-theme-icon="moon""#);
 
     format!(
         r##"<header class="epsx-header" data-epsx-authenticated="{authenticated}">
   <div class="mx-auto flex h-14 max-w-7xl items-center justify-between px-4 md:px-6">
-    <div class="hidden md:flex items-center gap-6">
+    <div class="epsx-desktop-navigation hidden lg:flex items-center gap-6">
       <a href="/" class="flex items-center gap-2.5 group" style="text-decoration:none;">
         {logo}
         <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
       </a>
 
-      <nav class="hidden md:flex items-center gap-1" aria-label="Primary">
+      <nav class="flex items-center gap-0.5" aria-label="Primary">
         {market}
         {developer}
         {company}
       </nav>
     </div>
 
-    <a href="/" class="md:hidden flex items-center gap-2.5 group" style="text-decoration:none;">
+    <a href="/" class="epsx-compact-brand lg:hidden flex items-center gap-2.5 group" style="text-decoration:none;">
       {logo}
       <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
     </a>
@@ -6881,61 +7445,56 @@ pub fn epsx_header_for_session_and_wallet_with_network(
     <div class="flex items-center gap-2">
       {notification_action}
       <button class="epsx-theme-btn" type="button" data-epsx-theme-toggle data-epsx-action="theme-toggle" aria-label="Toggle theme">
-        <i data-epsx-theme-icon="sun" data-lucide="sun" class="sun" style="display:none;"></i>
-        <i data-epsx-theme-icon="moon" data-lucide="moon" class="moon"></i>
+        {theme_sun}
+        {theme_moon}
       </button>
       {network_indicator}
       {desktop_auth}
       {compact_auth}
-      <!-- Mobile menu toggle (< 640px) -->
-      <button class="epsx-theme-btn md:hidden" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="epsx-mobile-sheet" data-epsx-action="toggle-mobile-menu" id="epsx-mobile-menu-btn" style="width:2.25rem;height:2.25rem;padding:0;">
-        <i data-lucide="menu" style="width:1.125rem;height:1.125rem;"></i>
+      <!-- Mobile menu toggle (< 1024px) -->
+      <button class="epsx-theme-btn lg:hidden" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="epsx-mobile-sheet" data-epsx-action="toggle-mobile-menu" id="epsx-mobile-menu-btn" style="width:2.25rem;height:2.25rem;padding:0;">
+        {menu_icon}
       </button>
     </div>
   </div>
 </header>
-<div id="epsx-mobile-sheet" class="epsx-mobile-sheet" aria-hidden="true">
+<div id="epsx-mobile-sheet" class="epsx-mobile-sheet">
   <div class="epsx-mobile-sheet-inner" role="dialog" aria-modal="true" aria-label="Mobile navigation">
-    <div class="flex items-center justify-between mb-4">
-      <strong>Menu</strong>
+    <div class="epsx-mobile-sheet-header">
+      <a href="/" class="flex items-center gap-2.5 group" style="text-decoration:none;">
+        {logo}
+        <span class="text-xl font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-[#488BFA] to-[#A43FF3] leading-none mt-0.5">EPSX</span>
+      </a>
       <button class="epsx-theme-btn" type="button" aria-label="Close menu" aria-controls="epsx-mobile-sheet" data-epsx-action="toggle-mobile-menu">
-        <i data-lucide="x"></i>
+        {close_icon}
       </button>
     </div>
-    <nav aria-label="Mobile">
-      <div class="epsx-mobile-section">
-        <div class="epsx-mobile-section-title">Market</div>
-        <a href="/" class="epsx-mobile-link"><i data-lucide="house"></i> Home</a>
-        <a href="/analytics" class="epsx-mobile-link"><i data-lucide="chart-column"></i> Analytics</a>
-        <a href="/portfolio" class="epsx-mobile-link"><i data-lucide="briefcase-business"></i> Portfolio</a>
-      </div>
-      <div class="epsx-mobile-section">
-        <div class="epsx-mobile-section-title">Developer</div>
-        <a href="/developer" class="epsx-mobile-link"><i data-lucide="code"></i> Developer Portal</a>
-        <a href="/developer/docs" class="epsx-mobile-link"><i data-lucide="book"></i> Documentation</a>
-      </div>
-      <div class="epsx-mobile-section">
-        <div class="epsx-mobile-section-title">Company</div>
-        <a href="/about" class="epsx-mobile-link"><i data-lucide="info"></i> About</a>
-        <a href="/news" class="epsx-mobile-link"><i data-lucide="newspaper"></i> News</a>
-        <a href="/contact" class="epsx-mobile-link"><i data-lucide="mail"></i> Contact</a>
-      </div>
-      <div class="epsx-mobile-section">
-        <div class="epsx-mobile-section-title">Session</div>
-        {mobile_auth}
-      </div>
+    <nav class="epsx-mobile-navigation" aria-label="Mobile">
+      {mobile_market}
+      {mobile_developer}
+      {mobile_company}
     </nav>
+    <div class="epsx-mobile-session">
+      {mobile_auth}
+    </div>
   </div>
 </div>"##,
         logo = logo,
-        market = nav_block("Market", "chart-column", market_items),
-        developer = nav_block("Developer", "code", developer_items),
-        company = nav_block("Company", "building", company_items),
+        market = nav_block("Market", "chart-column", &market_items),
+        developer = nav_block("Developer", "code", &developer_items),
+        company = nav_block("Company", "building", &company_items),
         notification_action = notification_action,
         desktop_auth = desktop_auth,
         compact_auth = compact_auth,
         mobile_auth = mobile_auth,
         authenticated = is_authenticated,
+        theme_sun = theme_sun,
+        theme_moon = theme_moon,
+        menu_icon = lucide("menu", "18", "epsx-mobile-menu-icon"),
+        close_icon = lucide("x", "18", "epsx-mobile-menu-icon"),
+        mobile_market = mobile_group("Market", "chart-column", &mobile_market_items),
+        mobile_developer = mobile_group("Developer", "code", &mobile_developer_items),
+        mobile_company = mobile_group("Company", "building", &mobile_company_items),
     )
 }
 
@@ -7101,10 +7660,33 @@ mod page_head_tests {
     }
 
     #[test]
+    fn shared_theme_css_has_no_merge_artifacts_and_keeps_light_auth_readable() {
+        let head = design_system_head("Title", "Description");
+        assert!(
+            !head.lines().any(|line| line.trim() == "======="),
+            "standalone merge markers invalidate the following CSS rule"
+        );
+        assert!(head.contains("color: var(--text) !important;"));
+        assert!(head.contains("html:not(.dark) .auth-modal-headline"));
+        assert!(head.contains("html:not(.dark) .wallet-option"));
+    }
+
+    #[test]
+    fn admin_wallet_address_has_an_explicit_desktop_display_rule() {
+        let head = design_system_head("Title", "Description");
+        assert!(head.contains(".admin-wallet-short-address,"));
+        assert!(
+            head.contains(".admin-wallet-connect-label { display: inline; white-space: nowrap; }")
+        );
+        assert!(head.contains("@media (max-width: 1023px)"));
+        assert!(head.contains(".admin-wallet-connect-label { display: none; }"));
+    }
+
+    #[test]
     fn shell_loads_only_the_generated_rust_wasm_module() {
         let shell = page_shell("Title", "Description", "", "<p>body</p>", false);
         assert_eq!(shell.matches("<script").count(), 1);
-        assert!(shell.contains("epsx_browser_runtime_bootstrap.js"));
+        assert!(shell.contains("epsx_browser_runtime_bootstrap.js?rev=2"));
         assert!(shell.contains("data-epsx-generated-runtime=\"wasm-bindgen\""));
         assert!(!shell.contains("onclick=\""));
     }
@@ -7123,7 +7705,91 @@ mod page_head_tests {
 
         let theme = theme_toggle_button();
         assert!(theme.contains("data-epsx-action=\"theme-toggle\""));
+        assert!(theme.contains("<svg"));
+        assert!(!theme.contains("data-lucide"));
         assert!(!theme.contains("onclick=\""));
+    }
+
+    #[test]
+    fn public_header_renders_inline_svg_for_every_navigation_surface() {
+        let signed_out = epsx_header_for_session_and_wallet_with_network(
+            false,
+            "/analytics?country=america",
+            None,
+            true,
+        );
+        let signed_in = epsx_header_for_session_and_wallet_with_network(
+            true,
+            "/analytics?country=america",
+            Some("0x1234567890abcdef1234567890abcdef1234abcd"),
+            true,
+        );
+
+        for header in [&signed_out, &signed_in] {
+            assert!(header.contains("<svg"));
+            assert!(!header.contains("data-lucide"));
+            assert!(!header.contains("<i "));
+            assert_eq!(header.matches("data-epsx-action=\"toggle-nav\"").count(), 6);
+            assert_eq!(
+                header
+                    .matches("data-epsx-action=\"toggle-mobile-menu\"")
+                    .count(),
+                2
+            );
+            assert!(header.contains("data-epsx-action=\"theme-toggle\""));
+        }
+
+        assert_eq!(signed_out.matches("data-epsx-auth-link").count(), 3);
+        assert!(signed_in.contains("href=\"/notifications\""));
+        assert!(signed_in.contains("href=\"/account\""));
+        assert!(signed_in.contains("Wallet menu for 0x1234…abcd"));
+        assert_eq!(
+            signed_in
+                .matches("data-epsx-action=\"toggle-dropdown\"")
+                .count(),
+            2
+        );
+        assert_eq!(signed_in.matches("data-copy=\"").count(), 2);
+        assert_eq!(signed_in.matches("data-epsx-logout").count(), 3);
+        assert!(!signed_in.contains("class=\"epsx-connect-btn\" type=\"button\" data-epsx-logout"));
+    }
+
+    #[test]
+    fn connected_wallet_header_still_exposes_required_sign_in_action() {
+        let header = epsx_header_for_session_and_wallet(
+            false,
+            "/developer?tab=keys",
+            Some("0x1234567890abcdef1234567890abcdef1234abcd"),
+        );
+
+        assert!(header.contains("Sign in · 0x1234…abcd"));
+        assert!(header.contains("Wallet 0x1234…abcd connected; sign in required"));
+        assert!(header.contains("/auth?return_url=%2Fdeveloper%3Ftab%3Dkeys"));
+        assert!(!header.contains("data-epsx-authenticated=\"true\""));
+    }
+
+    #[test]
+    fn public_header_responsive_contract_has_no_navigation_gap() {
+        let header = epsx_header();
+        assert!(header.contains("epsx-desktop-navigation hidden lg:flex"));
+        assert!(header.contains("epsx-compact-brand lg:hidden flex"));
+        assert!(header.contains("class=\"epsx-theme-btn lg:hidden\""));
+        assert!(header.contains("aria-controls=\"epsx-mobile-sheet\""));
+        assert!(header.contains("id=\"epsx-mobile-market-trigger\""));
+        assert!(header.contains("id=\"epsx-mobile-developer-trigger\""));
+        assert!(header.contains("id=\"epsx-mobile-company-trigger\""));
+        assert!(
+            !header.contains("id=\"epsx-mobile-sheet\" class=\"epsx-mobile-sheet\" aria-hidden")
+        );
+
+        let shell = page_shell("Title", "Description", &header, "body", false);
+        assert!(shell.contains("@media (min-width: 1024px)"));
+        assert!(shell.contains(".epsx-header #epsx-mobile-menu-btn { display: none !important; }"));
+        assert!(shell.contains("width: 85vw;"));
+        assert!(shell.contains("height: 100dvh;"));
+        assert!(shell.contains(
+            "@media (min-width: 1024px) { .epsx-mobile-sheet { display: none !important; } }"
+        ));
     }
 
     #[test]

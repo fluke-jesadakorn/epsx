@@ -1,20 +1,110 @@
-//! `/portfolio` — truthful owner-portfolio availability shell.
+//! `/portfolio` — authenticated, owner-scoped watchlist management.
 //!
-//! The development source gates portfolio data behind authentication, but
-//! this Rust route does not yet have a frozen owner-scoped holdings/watchlist
-//! contract. Signed-out visitors retain the source-shaped sign-in experience.
-//! Authenticated visitors receive an explicit unavailable state instead of
-//! hard-coded stocks, prices, ranks, entitlement claims, or inert controls.
-//! Legacy `data_portfolio` parameters are intentionally ignored.
+//! The BFF supplies only the verified session owner's persisted symbols. This
+//! page renders that contract and exposes progressive Watch/Unwatch controls;
+//! it does not infer holdings, prices, ranks, or plan access in the frontend.
 
 use super::PageContext;
 use super::PageMeta;
 use crate::components::auth_access_banner::AuthAccessBanner;
 use crate::layout::main_layout::MainLayout;
+use crate::pages::analytics::normalize_watchlist_symbol;
 use crate::primitives::*;
 use dioxus::prelude::*;
+use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
+use uuid::Uuid;
 
 const PORTFOLIO_SIGN_IN_PATH: &str = "/auth?return_url=%2Fportfolio";
+const PORTFOLIO_SYMBOL_PATTERN: &str = "[A-Za-z0-9][A-Za-z0-9.-]{0,19}";
+pub const PORTFOLIO_WATCHLIST_DATA_PARAM: &str = "data_portfolio_watchlist";
+pub const PORTFOLIO_WATCHLIST_STATE_PARAM: &str = "data_portfolio_watchlist_state";
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WatchlistGroupData {
+    pub id: Uuid,
+    pub name: String,
+    pub position: i32,
+    pub symbols: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WatchlistLayoutData {
+    pub groups: Vec<WatchlistGroupData>,
+    pub ungrouped: Vec<String>,
+    pub watched: usize,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WatchlistGroupLayoutUpdate {
+    pub id: Uuid,
+    pub symbols: Vec<String>,
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(deny_unknown_fields)]
+pub struct WatchlistLayoutUpdate {
+    pub groups: Vec<WatchlistGroupLayoutUpdate>,
+    pub ungrouped: Vec<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct WatchlistLayoutValidationError;
+
+impl WatchlistLayoutData {
+    pub fn validated(mut self) -> Result<Self, WatchlistLayoutValidationError> {
+        if self.groups.len() > 200 || self.watched > 1_000 {
+            return Err(WatchlistLayoutValidationError);
+        }
+        let mut group_ids = HashSet::new();
+        let mut group_names = HashSet::new();
+        let mut grouped = HashSet::new();
+        for (position, group) in self.groups.iter_mut().enumerate() {
+            let name = group.name.trim();
+            if group.position
+                != i32::try_from(position).map_err(|_| WatchlistLayoutValidationError)?
+                || !(1..=50).contains(&name.chars().count())
+                || name.chars().any(char::is_control)
+                || !group_ids.insert(group.id)
+                || !group_names.insert(name.to_lowercase())
+                || group.symbols.len() > 1_000
+            {
+                return Err(WatchlistLayoutValidationError);
+            }
+            group.name = name.to_string();
+            let mut local = HashSet::new();
+            for symbol in &mut group.symbols {
+                *symbol =
+                    normalize_watchlist_symbol(symbol).ok_or(WatchlistLayoutValidationError)?;
+                if !local.insert(symbol.clone()) {
+                    return Err(WatchlistLayoutValidationError);
+                }
+                grouped.insert(symbol.clone());
+            }
+        }
+        let mut ungrouped = HashSet::new();
+        for symbol in &mut self.ungrouped {
+            *symbol = normalize_watchlist_symbol(symbol).ok_or(WatchlistLayoutValidationError)?;
+            if grouped.contains(symbol) || !ungrouped.insert(symbol.clone()) {
+                return Err(WatchlistLayoutValidationError);
+            }
+        }
+        if grouped.union(&ungrouped).count() != self.watched {
+            return Err(WatchlistLayoutValidationError);
+        }
+        Ok(self)
+    }
+
+    pub fn memberships_for(&self, symbol: &str) -> usize {
+        self.groups
+            .iter()
+            .filter(|group| group.symbols.iter().any(|candidate| candidate == symbol))
+            .count()
+    }
+}
 
 /// Inline CSS rules for Tailwind v2 CDN arbitrary-value classes
 /// that the CDN doesn't generate. We inject these into the page so
@@ -23,14 +113,53 @@ const PORTFOLIO_INLINE_CSS: &str = r#"
 .portfolio-prod-bg > div[style*="radial-gradient"] { opacity: 1 !important; }
 .absolute.-top-40.-left-40 { width: 400px !important; height: 400px !important; }
 .absolute.top-1\/3.-right-32 { width: 300px !important; height: 300px !important; }
-/* Sign-in card needs prod colors (bg-blue-50 border-blue-200
-   dark:bg-blue-900/20 dark:border-blue-700). The page renders in
-   dark mode so we use the dark-theme values (blue-900/20 + blue-700)
-   — these are what v2 CDN renders vs prod's v3 PostCSS pipeline. */
+.portfolio-prod-page { background: #f8fafc !important; color: #0f172a; }
+.portfolio-prod-bg > div:first-child { background: linear-gradient(to bottom, #f8fafc, #f1f5f9, #f8fafc) !important; }
+.portfolio-prod-title { color: #0f172a !important; }
+.portfolio-prod-subtitle { color: #475569 !important; }
+.portfolio-prod-header [data-portfolio-freshness="unavailable"] { color: #92400e !important; }
+.portfolio-prod-header [data-portfolio-freshness="ready"] { color: #047857 !important; }
+.portfolio-watchlist-search { background: rgba(255, 255, 255, 0.82) !important; border-color: #cbd5e1 !important; color: #475569 !important; }
+.portfolio-watchlist-input { background: transparent !important; color: #0f172a !important; }
+.portfolio-watchlist-input::placeholder { color: #64748b !important; }
+.portfolio-watchlist-item { background: rgba(255, 255, 255, 0.86) !important; border-color: #cbd5e1 !important; }
+.portfolio-watchlist-item h2 { color: #0f172a !important; }
+.portfolio-watchlist-item p { color: #475569 !important; }
+.portfolio-group { background: rgba(255, 255, 255, 0.56); border-color: #cbd5e1; }
+.portfolio-drop-target { border-color: #10b981 !important; box-shadow: 0 0 0 3px rgb(16 185 129 / 0.15); }
+.portfolio-dragging { opacity: .45; }
+.portfolio-drop-placeholder { min-height: 5rem; border: 2px dashed #10b981; border-radius: 1rem; background: rgb(16 185 129 / .08); }
+.portfolio-unavailable h2 { color: #0f172a !important; }
+.portfolio-unavailable p { color: #475569 !important; }
 .portfolio-signin-card {
-  background-color: rgb(30 58 138 / 0.2) !important;
-  border-color: rgb(29 78 216) !important;
+  background-color: #eff6ff !important;
+  border-color: #bfdbfe !important;
 }
+.portfolio-prod-signin-title { color: #1e3a8a !important; }
+.portfolio-prod-signin-sub,
+.portfolio-prod-signin-footer { color: #1d4ed8 !important; }
+.portfolio-prod-signin-link { color: #1d4ed8 !important; }
+.portfolio-prod-signin-btn { background: #1d4ed8 !important; }
+html.dark .portfolio-prod-page { background: #020617 !important; color: #f8fafc; }
+html.dark .portfolio-prod-bg > div:first-child { background: linear-gradient(to bottom, #020617, #0f172a, #020617) !important; }
+html.dark .portfolio-prod-title { color: #ffffff !important; }
+html.dark .portfolio-prod-subtitle { color: #94a3b8 !important; }
+html.dark .portfolio-prod-header [data-portfolio-freshness="unavailable"] { color: #fcd34d !important; }
+html.dark .portfolio-prod-header [data-portfolio-freshness="ready"] { color: #6ee7b7 !important; }
+html.dark .portfolio-watchlist-search { background: rgba(30, 41, 59, 0.7) !important; border-color: #475569 !important; color: #94a3b8 !important; }
+html.dark .portfolio-watchlist-input { color: #f8fafc !important; }
+html.dark .portfolio-watchlist-input::placeholder { color: #94a3b8 !important; }
+html.dark .portfolio-watchlist-item { background: rgba(15, 23, 42, 0.82) !important; border-color: #334155 !important; }
+html.dark .portfolio-watchlist-item h2 { color: #f8fafc !important; }
+html.dark .portfolio-watchlist-item p { color: #94a3b8 !important; }
+html.dark .portfolio-group { background: rgba(15, 23, 42, 0.66); border-color: #334155; }
+html.dark .portfolio-unavailable h2 { color: #ffffff !important; }
+html.dark .portfolio-unavailable p { color: #cbd5e1 !important; }
+html.dark .portfolio-signin-card { background-color: rgb(30 58 138 / 0.2) !important; border-color: rgb(29 78 216) !important; }
+html.dark .portfolio-prod-signin-title { color: #dbeafe !important; }
+html.dark .portfolio-prod-signin-sub { color: #93c5fd !important; }
+html.dark .portfolio-prod-signin-footer,
+html.dark .portfolio-prod-signin-link { color: #60a5fa !important; }
 /* Wave 28 T2 — Tailwind v2 CDN doesn't generate the arbitrary-
    value `min-h-[300px]` class, so force it on the prod's
    `<RequireSignIn>` wrapper (which reserves 300px of vertical
@@ -40,6 +169,26 @@ const PORTFOLIO_INLINE_CSS: &str = r#"
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Portfolio");
+    let watchlist_state = ctx
+        .param(PORTFOLIO_WATCHLIST_STATE_PARAM)
+        .map(String::as_str)
+        .unwrap_or("unavailable");
+    let watchlist = ctx
+        .param(PORTFOLIO_WATCHLIST_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<WatchlistLayoutData>(raw).ok())
+        .and_then(|layout| layout.validated().ok());
+    let ready_layout = (watchlist_state == "ready").then_some(watchlist).flatten();
+    let freshness = if ctx.user.is_none() {
+        "signed_out"
+    } else if ready_layout.is_some() {
+        "ready"
+    } else {
+        "unavailable"
+    };
+    let watched_count = ready_layout
+        .as_ref()
+        .map(|layout| layout.watched)
+        .unwrap_or_default();
     (
         meta,
         rsx! {
@@ -58,7 +207,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     }
                     div { class: "relative z-10",
                         div { class: "mx-auto max-w-7xl px-4 py-6 sm:py-8 portfolio-prod-container",
-                            PortfolioHeader {}
+                            PortfolioHeader { freshness, watched_count }
                             if ctx.user.is_none() {
                                 if ctx.wallet.address.is_none() {
                                     AuthAccessBanner { href: PORTFOLIO_SIGN_IN_PATH.to_string() }
@@ -68,6 +217,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                                         PortfolioSignInCard {}
                                     }
                                 }
+                            } else if let Some(layout) = ready_layout {
+                                PortfolioWatchlist { layout }
                             } else {
                                 PortfolioUnavailable { source_shape: true }
                             }
@@ -79,10 +230,25 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-/// Preserve the recognizable development-source heading without claiming
-/// that market data is live or that a watchlist has been loaded.
 #[component]
-fn PortfolioHeader() -> Element {
+fn PortfolioHeader(freshness: &'static str, watched_count: usize) -> Element {
+    let (badge_class, badge_label, icon) = match freshness {
+        "ready" => (
+            "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+            format!("{watched_count} watched"),
+            "check",
+        ),
+        "signed_out" => (
+            "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-300",
+            "Sign in to sync".to_string(),
+            "user",
+        ),
+        _ => (
+            "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-300",
+            "Data unavailable".to_string(),
+            "circle-alert",
+        ),
+    };
     rsx! {
         div { class: "portfolio-prod-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
             div { class: "flex items-center gap-3",
@@ -97,11 +263,306 @@ fn PortfolioHeader() -> Element {
                 }
             }
             span {
-                class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300 sm:self-center",
-                "data-portfolio-freshness": "unavailable",
-                Icon { name: "circle-alert".to_string(), size: Some(14) }
-                "Data unavailable"
+                class: "inline-flex w-max items-center gap-1.5 self-start rounded-lg border px-3 py-1.5 text-xs font-medium sm:self-center {badge_class}",
+                "data-portfolio-freshness": freshness,
+                Icon { name: icon.to_string(), size: Some(14) }
+                "{badge_label}"
             }
+        }
+    }
+}
+
+#[component]
+fn PortfolioWatchlist(layout: WatchlistLayoutData) -> Element {
+    let empty = layout.watched == 0;
+    let groups = layout.groups.clone();
+    rsx! {
+        section {
+            class: "space-y-6",
+            "data-portfolio-state": if empty { "empty" } else { "ready" },
+            "data-watchlist-organizer": "true",
+            form {
+                class: "portfolio-watchlist-search flex flex-col gap-3 rounded-2xl border p-3 sm:flex-row sm:items-center sm:p-4",
+                action: "/portfolio/watch",
+                method: "post",
+                "data-watchlist-form": "true",
+                label { class: "sr-only", r#for: "portfolio-watchlist-symbol", "Stock symbol" }
+                div { class: "flex min-w-0 flex-1 items-center gap-3",
+                    Icon { name: "search".to_string(), size: Some(20) }
+                    input {
+                        id: "portfolio-watchlist-symbol",
+                        class: "portfolio-watchlist-input min-w-0 flex-1 border-0 bg-transparent text-base font-semibold uppercase outline-none",
+                        r#type: "text",
+                        name: "symbol",
+                        maxlength: "20",
+                        pattern: PORTFOLIO_SYMBOL_PATTERN,
+                        autocomplete: "off",
+                        spellcheck: "false",
+                        required: true,
+                        placeholder: "Enter a symbol, e.g. AAPL",
+                    }
+                }
+                if !groups.is_empty() {
+                    details { class: "relative shrink-0", "data-watch-group-picker": "true",
+                        summary { class: "flex min-h-11 cursor-pointer list-none items-center rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold dark:border-slate-600",
+                            "Choose groups"
+                        }
+                        div { class: "absolute right-0 z-30 mt-2 min-w-56 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900",
+                            for group in groups.iter() {
+                                label { class: "flex min-h-10 cursor-pointer items-center gap-3 rounded-lg px-2 hover:bg-slate-100 dark:hover:bg-slate-800",
+                                    input { r#type: "checkbox", name: "group_ids", value: "{group.id}" }
+                                    span { "{group.name}" }
+                                }
+                            }
+                            p { class: "text-xs text-slate-500 dark:text-slate-400", "No selection means Ungrouped." }
+                        }
+                    }
+                }
+                button {
+                    class: "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-2.5 font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-wait disabled:opacity-60",
+                    r#type: "submit",
+                    "data-watchlist-add": "true",
+                    "aria-busy": "false",
+                    Icon { name: "heart".to_string(), size: Some(17) }
+                    "Watch"
+                }
+            }
+            p {
+                class: "min-h-5 text-sm text-slate-600 dark:text-slate-300",
+                role: "status",
+                "aria-live": "polite",
+                "data-watchlist-feedback": "true",
+            }
+
+            div { class: "flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white/70 p-4 sm:flex-row sm:items-center dark:border-slate-700 dark:bg-slate-900/60",
+                div { class: "min-w-0 flex-1",
+                    label { class: "text-sm font-semibold text-slate-800 dark:text-slate-100", r#for: "portfolio-new-group", "New group" }
+                    input {
+                        id: "portfolio-new-group",
+                        class: "mt-1 min-h-11 w-full rounded-xl border border-slate-300 bg-white px-3 text-slate-900 outline-none focus:border-emerald-500 dark:border-slate-600 dark:bg-slate-950 dark:text-white",
+                        r#type: "text",
+                        maxlength: "50",
+                        placeholder: "e.g. Long term",
+                        "data-watchlist-new-group-name": "true",
+                    }
+                }
+                button {
+                    class: "min-h-11 rounded-xl bg-slate-900 px-5 font-semibold text-white disabled:cursor-wait disabled:opacity-60 dark:bg-emerald-600",
+                    r#type: "button",
+                    "data-watchlist-group-create": "true",
+                    "aria-busy": "false",
+                    "Create group"
+                }
+            }
+
+            if empty {
+                div {
+                    class: "flex min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-slate-300 bg-white/60 px-6 text-center dark:border-slate-700 dark:bg-slate-900/50",
+                    "data-watchlist-empty": "true",
+                    div { class: "flex h-20 w-20 items-center justify-center rounded-3xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-300",
+                        Icon { name: "heart".to_string(), size: Some(38) }
+                    }
+                    h2 { class: "mt-6 text-2xl font-semibold text-slate-900 dark:text-white", "No stocks watched yet" }
+                    p { class: "mt-2 max-w-lg text-slate-600 dark:text-slate-300",
+                        "Enter a stock symbol above or use the heart on Analytics. Your watchlist is saved to your account."
+                    }
+                    a { class: "mt-6 inline-flex items-center gap-2 font-semibold text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200", href: "/analytics",
+                        "Browse Analytics"
+                    }
+                }
+            }
+
+            div { class: "space-y-5", "data-watchlist-groups": "true",
+                for group in groups.iter() {
+                    WatchlistGroupSection {
+                        group: group.clone(),
+                        all_groups: groups.clone(),
+                        layout: layout.clone(),
+                    }
+                }
+                WatchlistUngroupedSection {
+                    symbols: layout.ungrouped.clone(),
+                    all_groups: groups.clone(),
+                    layout: layout.clone(),
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn WatchlistGroupSection(
+    group: WatchlistGroupData,
+    all_groups: Vec<WatchlistGroupData>,
+    layout: WatchlistLayoutData,
+) -> Element {
+    rsx! {
+        section {
+            class: "portfolio-group rounded-2xl border p-4 sm:p-5",
+            "data-watchlist-group": "true",
+            "data-group-id": "{group.id}",
+            header {
+                class: "mb-4 flex flex-col gap-3 sm:flex-row sm:items-center",
+                draggable: "true",
+                "data-group-id": "{group.id}",
+                div { class: "flex min-w-0 flex-1 items-center gap-3",
+                    button { class: "cursor-grab touch-none text-slate-500", r#type: "button", title: "Drag group", "aria-label": "Drag {group.name}", "data-watchlist-group-handle": "true", "⋮⋮" }
+                    input {
+                        class: "min-h-10 min-w-0 flex-1 rounded-lg border border-transparent bg-transparent px-2 text-lg font-bold text-slate-900 hover:border-slate-300 focus:border-emerald-500 dark:text-white",
+                        r#type: "text",
+                        maxlength: "50",
+                        value: "{group.name}",
+                        "aria-label": "Rename {group.name}",
+                        "data-watchlist-group-name": "true",
+                    }
+                    span { class: "shrink-0 rounded-full bg-slate-200 px-2 py-1 text-xs dark:bg-slate-700", "{group.symbols.len()}" }
+                }
+                div { class: "flex flex-wrap gap-2",
+                    button { class: "min-h-10 rounded-lg border px-3 text-sm", r#type: "button", "data-watchlist-group-rename": "true", "data-group-id": "{group.id}", "Save name" }
+                    button { class: "min-h-10 rounded-lg border px-3 text-sm", r#type: "button", "data-watchlist-move-group": "up", "data-group-id": "{group.id}", "Move group up" }
+                    button { class: "min-h-10 rounded-lg border px-3 text-sm", r#type: "button", "data-watchlist-move-group": "down", "data-group-id": "{group.id}", "Move group down" }
+                    button { class: "min-h-10 rounded-lg border border-red-200 px-3 text-sm text-red-700 dark:border-red-900 dark:text-red-300", r#type: "button", "data-watchlist-group-delete": "true", "data-group-id": "{group.id}", "Delete" }
+                }
+            }
+            div {
+                class: "grid min-h-20 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3",
+                "data-watchlist-items": "true",
+                "data-group-id": "{group.id}",
+                for symbol in group.symbols.iter() {
+                    PortfolioSymbolCard {
+                        symbol: symbol.clone(),
+                        current_group: Some(group.id),
+                        all_groups: all_groups.clone(),
+                        membership_count: layout.memberships_for(symbol),
+                    }
+                }
+                if group.symbols.is_empty() {
+                    p { class: "col-span-full py-5 text-center text-sm text-slate-500 dark:text-slate-400", "Drop stocks here" }
+                }
+            }
+            p { class: "mt-3 min-h-5 text-sm", role: "status", "aria-live": "polite", "data-watchlist-group-feedback": "true" }
+        }
+    }
+}
+
+#[component]
+fn WatchlistUngroupedSection(
+    symbols: Vec<String>,
+    all_groups: Vec<WatchlistGroupData>,
+    layout: WatchlistLayoutData,
+) -> Element {
+    rsx! {
+        section {
+            class: "portfolio-group rounded-2xl border p-4 sm:p-5",
+            "data-watchlist-group": "true",
+            "data-group-id": "ungrouped",
+            header { class: "mb-4 flex items-center justify-between",
+                div {
+                    h2 { class: "text-lg font-bold text-slate-900 dark:text-white", "Ungrouped" }
+                    p { class: "text-sm text-slate-500 dark:text-slate-400", "Stocks without a group · always last" }
+                }
+                span { class: "rounded-full bg-slate-200 px-2 py-1 text-xs dark:bg-slate-700", "{symbols.len()}" }
+            }
+            div {
+                class: "grid min-h-20 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3",
+                "data-watchlist-items": "true",
+                "data-group-id": "ungrouped",
+                for symbol in symbols.iter() {
+                    PortfolioSymbolCard {
+                        symbol: symbol.clone(),
+                        current_group: None,
+                        all_groups: all_groups.clone(),
+                        membership_count: layout.memberships_for(symbol),
+                    }
+                }
+                if symbols.is_empty() {
+                    p { class: "col-span-full py-5 text-center text-sm text-slate-500 dark:text-slate-400", "No ungrouped stocks" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PortfolioSymbolCard(
+    symbol: String,
+    current_group: Option<Uuid>,
+    all_groups: Vec<WatchlistGroupData>,
+    membership_count: usize,
+) -> Element {
+    let current_group_value = current_group
+        .map(|id| id.to_string())
+        .unwrap_or_else(|| "ungrouped".to_string());
+    rsx! {
+        article {
+            class: "portfolio-watchlist-item flex flex-col gap-4 rounded-2xl border p-4 shadow-sm",
+            draggable: "true",
+            "data-watchlist-item": "true",
+            "data-symbol": "{symbol}",
+            "data-group-id": "{current_group_value}",
+            "data-membership-count": "{membership_count}",
+            div { class: "flex items-start justify-between gap-3",
+                div { class: "min-w-0",
+                    h3 { class: "truncate text-2xl font-black tracking-tight", "{symbol}" }
+                    p { class: "mt-1 text-sm", "{membership_count} group membership(s)" }
+                }
+                button { class: "cursor-grab touch-none rounded-lg px-2 py-1 text-slate-500", r#type: "button", title: "Drag stock", "aria-label": "Drag {symbol}", "data-watchlist-item-handle": "true", "⋮⋮" }
+            }
+            details { class: "relative", "data-watchlist-add-groups-menu": "true",
+                summary { class: "min-h-10 cursor-pointer list-none rounded-lg border px-3 py-2 text-center text-sm font-semibold", "Add to groups" }
+                div { class: "mt-2 space-y-2 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950",
+                    for group in all_groups.iter() {
+                        label { class: "flex min-h-10 cursor-pointer items-center gap-3",
+                            input {
+                                r#type: "checkbox",
+                                value: "{group.id}",
+                                checked: group.symbols.iter().any(|candidate| candidate == &symbol),
+                                disabled: group.symbols.iter().any(|candidate| candidate == &symbol),
+                                "data-watchlist-membership-choice": "true",
+                            }
+                            span { "{group.name}" }
+                        }
+                    }
+                    if all_groups.is_empty() {
+                        p { class: "text-sm text-slate-500", "Create a group first." }
+                    } else {
+                        button { class: "min-h-10 w-full rounded-lg bg-emerald-600 px-3 text-sm font-semibold text-white", r#type: "button", "data-watchlist-groups-save": "true", "data-symbol": "{symbol}", "Save groups" }
+                    }
+                }
+            }
+            div { class: "grid grid-cols-2 gap-2",
+                button { class: "min-h-10 rounded-lg border px-2 text-xs", r#type: "button", "data-watchlist-move-item": "up", "Move up" }
+                button { class: "min-h-10 rounded-lg border px-2 text-xs", r#type: "button", "data-watchlist-move-item": "down", "Move down" }
+            }
+            label { class: "text-xs font-semibold text-slate-600 dark:text-slate-300",
+                "Move to group"
+                select { class: "mt-1 min-h-10 w-full rounded-lg border bg-transparent px-2", "data-watchlist-move-to-group": "true",
+                    option { value: "ungrouped", selected: current_group.is_none(), "Ungrouped" }
+                    for group in all_groups.iter() {
+                        option { value: "{group.id}", selected: current_group == Some(group.id), "{group.name}" }
+                    }
+                }
+            }
+            div { class: "flex flex-wrap gap-2 border-t border-slate-200 pt-3 dark:border-slate-700",
+                if current_group.is_some() {
+                    button { class: "min-h-10 flex-1 rounded-lg border px-2 text-xs font-semibold", r#type: "button", "data-watchlist-remove-membership": "true", "Remove from this group" }
+                }
+                form { class: "flex-1", action: "/portfolio/unwatch", method: "post",
+                    input { r#type: "hidden", name: "symbol", value: "{symbol}" }
+                    button {
+                        class: "min-h-10 w-full rounded-lg border border-pink-200 bg-pink-50 px-3 text-sm font-semibold text-pink-700 disabled:cursor-wait disabled:opacity-60 dark:border-pink-900/70 dark:bg-pink-950/40 dark:text-pink-300",
+                        r#type: "submit",
+                        "data-watchlist-toggle": "true",
+                        "data-symbol": "{symbol}",
+                        "data-watchlisted": "true",
+                        "data-membership-count": "{membership_count}",
+                        "aria-label": "Unwatch {symbol}",
+                        "aria-busy": "false",
+                        "Unwatch"
+                    }
+                }
+            }
+            p { class: "min-h-4 text-xs text-red-600 dark:text-red-300", role: "status", "aria-live": "polite", "data-watchlist-item-feedback": "true" }
         }
     }
 }
@@ -140,7 +601,7 @@ fn PortfolioUnavailable(source_shape: bool) -> Element {
                         "No watchlist data available"
                     }
                     p { class: if source_shape { "mt-2 max-w-xs text-[11px] leading-4 text-slate-400 sm:max-w-2xl sm:text-xl sm:leading-relaxed" } else { "mt-3 max-w-2xl text-base leading-relaxed text-slate-400 sm:text-xl" },
-                        "The owner-scoped holdings and watchlist response is unavailable. Search and watchlist actions stay disabled until the backend contract is ready."
+                        "Your saved watchlist is temporarily unavailable. Watch and Unwatch actions stay disabled until the connection is restored."
                     }
                     p { class: "sr-only",
                         "Your portfolio cannot be verified right now. No securities, prices, rankings, plan access, or watchlist membership are being inferred."
@@ -281,6 +742,24 @@ mod tests {
         }
     }
 
+    fn watchlist_ctx(symbols: &[&str]) -> PageContext {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            PORTFOLIO_WATCHLIST_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        ctx.params.insert(
+            PORTFOLIO_WATCHLIST_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "groups": [],
+                "ungrouped": symbols,
+                "watched": symbols.len()
+            })
+            .to_string(),
+        );
+        ctx
+    }
+
     #[test]
     fn authenticated_portfolio_fails_closed_with_meaningful_alternatives() {
         let (_meta, el) = render(&authed_ctx());
@@ -356,6 +835,124 @@ mod tests {
             );
         }
         assert!(html.contains("data-portfolio-freshness=\"unavailable\""));
+    }
+
+    #[test]
+    fn authenticated_portfolio_renders_persisted_watchlist_and_mutation_controls() {
+        let (_meta, el) = render(&watchlist_ctx(&["AAPL", "BRK.B"]));
+        let html = dioxus_ssr::render_element(el);
+
+        for marker in [
+            "data-portfolio-state=\"ready\"",
+            "data-portfolio-freshness=\"ready\"",
+            "2 watched",
+            "data-watchlist-form=\"true\"",
+            "data-watchlist-add=\"true\"",
+            "action=\"/portfolio/watch\"",
+            "action=\"/portfolio/unwatch\"",
+            "data-watchlist-toggle=\"true\"",
+            "data-symbol=\"AAPL\"",
+            "data-symbol=\"BRK.B\"",
+            "Unwatch AAPL",
+            "Ungrouped",
+            "New group",
+            "Move to group",
+        ] {
+            assert!(
+                html.contains(marker),
+                "missing watchlist marker `{marker}`: {html}"
+            );
+        }
+        assert!(!html.contains("data-portfolio-state=\"unavailable\""));
+        assert!(!html.contains("$189.45"));
+        assert!(!html.contains("Premium"));
+    }
+
+    #[test]
+    fn authenticated_empty_watchlist_invites_a_real_first_watch() {
+        let (_meta, el) = render(&watchlist_ctx(&[]));
+        let html = dioxus_ssr::render_element(el);
+
+        for marker in [
+            "data-portfolio-state=\"empty\"",
+            "data-watchlist-empty=\"true\"",
+            "0 watched",
+            "No stocks watched yet",
+            "Your watchlist is saved to your account.",
+            ">Watch<",
+            "href=\"/analytics\"",
+        ] {
+            assert!(
+                html.contains(marker),
+                "missing empty marker `{marker}`: {html}"
+            );
+        }
+        assert!(!html.contains("Data unavailable"));
+    }
+
+    #[test]
+    fn malformed_owner_watchlist_fails_closed() {
+        let mut ctx = watchlist_ctx(&["AAPL"]);
+        ctx.params.insert(
+            PORTFOLIO_WATCHLIST_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "groups": [],
+                "ungrouped": ["../AAPL"],
+                "watched": 1
+            })
+            .to_string(),
+        );
+        let (_meta, el) = render(&ctx);
+        let html = dioxus_ssr::render_element(el);
+
+        assert!(html.contains("data-portfolio-state=\"unavailable\""));
+        assert!(!html.contains("data-watchlist-add=\"true\""));
+        assert!(!html.contains("../AAPL"));
+    }
+
+    #[test]
+    fn grouped_portfolio_exposes_drag_multi_group_and_keyboard_fallbacks() {
+        let group_id = Uuid::new_v4();
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            PORTFOLIO_WATCHLIST_STATE_PARAM.to_string(),
+            "ready".to_string(),
+        );
+        ctx.params.insert(
+            PORTFOLIO_WATCHLIST_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "groups": [{
+                    "id": group_id,
+                    "name": "Long term",
+                    "position": 0,
+                    "symbols": ["AAPL"]
+                }],
+                "ungrouped": ["MSFT"],
+                "watched": 2
+            })
+            .to_string(),
+        );
+        let (_meta, element) = render(&ctx);
+        let html = dioxus_ssr::render_element(element);
+        for marker in [
+            "data-watchlist-group-handle=\"true\"",
+            "data-watchlist-item-handle=\"true\"",
+            "data-watchlist-group-rename=\"true\"",
+            "data-watchlist-group-delete=\"true\"",
+            "data-watchlist-add-groups-menu=\"true\"",
+            "data-watchlist-remove-membership=\"true\"",
+            "data-watchlist-move-item=\"up\"",
+            "data-watchlist-move-group=\"down\"",
+            "Add to groups",
+            "Remove from this group",
+            "Unwatch",
+            "Ungrouped",
+        ] {
+            assert!(
+                html.contains(marker),
+                "missing organizer marker `{marker}`: {html}"
+            );
+        }
     }
 
     #[test]

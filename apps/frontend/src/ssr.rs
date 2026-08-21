@@ -2120,6 +2120,7 @@ mod tests {
             access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
                 min_accessible_rank: 100,
                 locked_ranks_count: 99,
+                max_accessible_rank: None,
             }),
             message: None,
             processing_time_ms: 1,
@@ -2169,6 +2170,7 @@ mod tests {
             access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
                 min_accessible_rank: 100,
                 locked_ranks_count: 99,
+                max_accessible_rank: None,
             }),
             message: None,
             processing_time_ms: 1,
@@ -2881,6 +2883,7 @@ mod tests {
             access_info: Some(epsx_dioxus_ui::pages::analytics::AnalyticsAccessInfo {
                 min_accessible_rank: 100,
                 locked_ranks_count: 99,
+                max_accessible_rank: None,
             }),
             message: None,
             processing_time_ms: 1,

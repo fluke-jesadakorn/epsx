@@ -3,7 +3,7 @@
 //! Wave 2 Track C additions:
 //! - `required_permissions: Vec<String>` — render the list of missing
 //!   permissions so the user knows why the gate fired.
-//! - `return_url: Option<String>` — appended to the "Connect Wallet"
+//! - `return_url: Option<String>` — appended to the primary sign-in
 //!   link as a `?return_url=<url>` query string so the SIWE flow can
 //!   bounce the user back to the original destination post-login.
 //!   Matches the prod (Next.js / Vercel middleware) convention
@@ -26,8 +26,8 @@ use crate::primitives::icon::Icon;
 use dioxus::prelude::*;
 
 /// Gate that renders `children` only when `user.is_some()`. When the
-/// user is signed out, a "Sign in required" panel is shown with a
-/// "Connect Wallet" link and a "Back to home" fallback.
+/// user is signed out, a sign-in panel is shown with a primary auth
+/// link and a "Back to home" fallback.
 ///
 /// New in Wave 2 Track C:
 /// - `required_permissions` — when the user is signed in but missing
@@ -53,6 +53,12 @@ pub fn AuthGate(
     /// link (matches the prod Vercel middleware convention).
     #[props(default = None)]
     return_url: Option<String>,
+    /// Presentation-only hint that a browser wallet is already connected.
+    /// This never grants access: only `user.is_some()` represents a verified
+    /// server session. It changes the gate copy from "connect" to "complete
+    /// sign-in" so the two states are not visually conflated.
+    #[props(default = false)]
+    wallet_connected: bool,
     /// Optional override for the gate headline. Defaults to
     /// "Sign in required".
     #[props(default = None)]
@@ -61,7 +67,7 @@ pub fn AuthGate(
     /// unconditionally. Defaults to `true`.
     #[props(default = true)]
     is_gated: bool,
-    /// Optional click handler for the "Connect Wallet" button. When
+    /// Optional click handler for the primary sign-in button. When
     /// set, the link is replaced with a button (useful when the
     /// caller wants to open an in-page modal rather than navigate).
     #[props(default = None)]
@@ -124,14 +130,34 @@ pub fn AuthGate(
         Some(u) if !u.is_empty() => format!("/auth?return_url={}", url_encode_query_value(u)),
         _ => "/auth".to_string(),
     };
-    let headline = reason.unwrap_or_else(|| "Sign in required".to_string());
+    let headline = reason.unwrap_or_else(|| {
+        if wallet_connected {
+            "Complete sign-in".to_string()
+        } else {
+            "Sign in required".to_string()
+        }
+    });
+    let primary_label = if wallet_connected {
+        "Continue sign-in"
+    } else {
+        "Connect Wallet"
+    };
     let extra_cls = class_name.unwrap_or_default();
     rsx! {
         div { class: "auth-gate {extra_cls}", role: "alert",
             div { class: "auth-gate-icon", Icon { name: "wallet".to_string(), size: Some(48) } }
             h2 { class: "auth-gate-title", "{headline}" }
             p { class: "auth-gate-description",
-                if let Some(f) = feature {
+                if wallet_connected {
+                    "Your wallet is connected. Complete wallet verification"
+                    if let Some(f) = feature {
+                        " to access "
+                        strong { "{f}" }
+                        "."
+                    } else {
+                        " to continue."
+                    }
+                } else if let Some(f) = feature {
                     "Sign in to access "
                     strong { "{f}" }
                     "."
@@ -153,10 +179,10 @@ pub fn AuthGate(
                         class: "btn btn-primary",
                         r#type: "button",
                         onclick: move |e| h.call(e),
-                        "Connect Wallet"
+                        "{primary_label}"
                     }
                 } else {
-                    a { class: "btn btn-primary", href: "{connect_href}", "Connect Wallet" }
+                    a { class: "btn btn-primary", href: "{connect_href}", "{primary_label}" }
                 }
                 a { class: "btn btn-outline", href: "/", "Back to home" }
             }
