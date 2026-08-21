@@ -21,6 +21,9 @@ pub struct EPSRankingQueryParams {
 pub struct AccessInfo {
     pub min_accessible_rank: i32, // Minimum rank user can access
     pub locked_ranks_count: i32,  // How many ranks are locked (same as min_accessible_rank - 1)
+    /// Inclusive backend-enforced final rank. `None` means unlimited or the
+    /// legacy endpoint cannot provide an inventory boundary.
+    pub max_accessible_rank: Option<i32>,
 }
 
 /// API response structure matching frontend pattern
@@ -303,6 +306,7 @@ impl EPSRankingsApiResponse {
             access_info: AccessInfo {
                 min_accessible_rank: 0, // Default: full access for DDD rankings
                 locked_ranks_count: 0,
+                max_accessible_rank: None,
             },
         }
     }

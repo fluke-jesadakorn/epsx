@@ -227,7 +227,7 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                     Icon { name: "credit-card".to_string(), size: Some(24), class_name: Some("text-blue-600 dark:text-blue-400".to_string()) }
                 }
                 div {
-                    h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Transaction History" }
+                    h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Payment Intents & Escrows" }
                     if !address.is_empty() {
                         p { class: "payment-history-tab-address font-mono text-xs text-muted-foreground mt-1 break-all",
                             "{address}"
@@ -324,8 +324,8 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                 PaymentHistoryLoad::Empty => rsx! {
                     HistoryMessage {
                         state: "empty",
-                        title: "No payment history yet",
-                        detail: "Payments and escrows owned by this wallet will appear here.",
+                        title: "No payment intents or escrows yet",
+                        detail: "Pay-service intents and escrows owned by this wallet will appear here.",
                         action_label: "Refresh",
                         action_href: "/account",
                     }
@@ -333,7 +333,7 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                 PaymentHistoryLoad::Unavailable => rsx! {
                     HistoryMessage {
                         state: "unavailable",
-                        title: "Payment history is temporarily unavailable",
+                        title: "Payment intents and escrows are temporarily unavailable",
                         detail: "The payment service could not be reached. No empty history was assumed.",
                         action_label: "Retry",
                         action_href: "/account",
@@ -528,7 +528,7 @@ mod tests {
         assert!(signed_out.contains("role=\"status\""));
 
         let empty = render_load(PaymentHistoryLoad::Empty);
-        assert!(empty.contains("No payment history yet"));
+        assert!(empty.contains("No payment intents or escrows yet"));
         assert!(empty.contains("href=\"/account\""));
         assert!(empty.contains("role=\"status\""));
 

@@ -28,8 +28,19 @@ use epsx_dioxus_ui::components::account::{
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::account::{
+    decode_account_access, decode_account_plan_payments, decode_account_profile,
+    ACCOUNT_ACCESS_DATA_PARAM, ACCOUNT_ACCESS_STATE_PARAM, ACCOUNT_DATA_EMPTY,
+    ACCOUNT_DATA_MALFORMED, ACCOUNT_DATA_READY, ACCOUNT_DATA_UNAVAILABLE,
     ACCOUNT_NOTIFICATION_PREFERENCES_DATA_PARAM, ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM,
-    ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM,
+    ACCOUNT_NOTIFICATION_PREFERENCES_STATE_PARAM, ACCOUNT_PLAN_PAYMENTS_DATA_PARAM,
+    ACCOUNT_PLAN_PAYMENTS_MAX_ITEMS, ACCOUNT_PLAN_PAYMENTS_STATE_PARAM, ACCOUNT_PROFILE_DATA_PARAM,
+    ACCOUNT_PROFILE_STATE_PARAM,
+};
+use epsx_dioxus_ui::pages::account_credits::{
+    decode_credit_balance, decode_credit_history, ACCOUNT_CREDIT_BALANCE_DATA_PARAM,
+    ACCOUNT_CREDIT_BALANCE_STATE_PARAM, ACCOUNT_CREDIT_EMPTY, ACCOUNT_CREDIT_HISTORY_DATA_PARAM,
+    ACCOUNT_CREDIT_HISTORY_MAX_ITEMS, ACCOUNT_CREDIT_HISTORY_STATE_PARAM, ACCOUNT_CREDIT_MALFORMED,
+    ACCOUNT_CREDIT_READY, ACCOUNT_CREDIT_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::analytics::{
     AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, WatchlistData, ANALYTICS_DATA_PARAM,
@@ -121,6 +132,11 @@ enum AnalyticsLoadError {
 enum AccountPaymentHistoryLoadError {
     Unavailable,
     Malformed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum AccountDataLoadError {
+    Unavailable,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -589,7 +605,7 @@ fn account_payment_history_path(owner: &str) -> Option<String> {
 
 /// Persist only a semantically validated owner-history payload. Dependency,
 /// contract, and genuine-empty outcomes remain distinct so the account page
-/// never turns an upstream failure into "No payment history yet."
+/// never turns an upstream failure into an authoritative empty state.
 fn record_account_payment_history_load(
     params: &mut HashMap<String, String>,
     expected_owner: &str,
@@ -622,6 +638,125 @@ fn record_account_payment_history_load(
     };
     params.insert(
         ACCOUNT_PAYMENT_HISTORY_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
+fn record_account_profile_load(
+    params: &mut HashMap<String, String>,
+    expected_owner: &str,
+    result: Result<serde_json::Value, AccountDataLoadError>,
+) {
+    params.remove(ACCOUNT_PROFILE_DATA_PARAM);
+    let state = match result {
+        Ok(value) if decode_account_profile(value.clone(), expected_owner).is_some() => {
+            params.insert(ACCOUNT_PROFILE_DATA_PARAM.to_string(), value.to_string());
+            ACCOUNT_DATA_READY
+        }
+        Ok(_) => ACCOUNT_DATA_MALFORMED,
+        Err(AccountDataLoadError::Unavailable) => ACCOUNT_DATA_UNAVAILABLE,
+    };
+    params.insert(ACCOUNT_PROFILE_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_account_access_load(
+    params: &mut HashMap<String, String>,
+    result: Result<serde_json::Value, AccountDataLoadError>,
+) {
+    params.remove(ACCOUNT_ACCESS_DATA_PARAM);
+    let state = match result {
+        Ok(value) if decode_account_access(value.clone()).is_some() => {
+            params.insert(ACCOUNT_ACCESS_DATA_PARAM.to_string(), value.to_string());
+            ACCOUNT_DATA_READY
+        }
+        Ok(_) => ACCOUNT_DATA_MALFORMED,
+        Err(AccountDataLoadError::Unavailable) => ACCOUNT_DATA_UNAVAILABLE,
+    };
+    params.insert(ACCOUNT_ACCESS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_account_plan_payments_load(
+    params: &mut HashMap<String, String>,
+    result: Result<serde_json::Value, AccountDataLoadError>,
+) {
+    params.remove(ACCOUNT_PLAN_PAYMENTS_DATA_PARAM);
+    let state = match result {
+        Ok(value) => {
+            match decode_account_plan_payments(value.clone(), ACCOUNT_PLAN_PAYMENTS_MAX_ITEMS) {
+                Some(history) => {
+                    params.insert(
+                        ACCOUNT_PLAN_PAYMENTS_DATA_PARAM.to_string(),
+                        value.to_string(),
+                    );
+                    if history.payments.is_empty() {
+                        ACCOUNT_DATA_EMPTY
+                    } else {
+                        ACCOUNT_DATA_READY
+                    }
+                }
+                None => ACCOUNT_DATA_MALFORMED,
+            }
+        }
+        Err(AccountDataLoadError::Unavailable) => ACCOUNT_DATA_UNAVAILABLE,
+    };
+    params.insert(
+        ACCOUNT_PLAN_PAYMENTS_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
+fn record_account_credit_balance_load(
+    params: &mut HashMap<String, String>,
+    expected_owner: &str,
+    result: Result<serde_json::Value, AccountDataLoadError>,
+) {
+    params.remove(ACCOUNT_CREDIT_BALANCE_DATA_PARAM);
+    let state = match result {
+        Ok(value) if decode_credit_balance(value.clone(), expected_owner).is_some() => {
+            params.insert(
+                ACCOUNT_CREDIT_BALANCE_DATA_PARAM.to_string(),
+                value.to_string(),
+            );
+            ACCOUNT_CREDIT_READY
+        }
+        Ok(_) => ACCOUNT_CREDIT_MALFORMED,
+        Err(AccountDataLoadError::Unavailable) => ACCOUNT_CREDIT_UNAVAILABLE,
+    };
+    params.insert(
+        ACCOUNT_CREDIT_BALANCE_STATE_PARAM.to_string(),
+        state.to_string(),
+    );
+}
+
+fn record_account_credit_history_load(
+    params: &mut HashMap<String, String>,
+    expected_owner: &str,
+    result: Result<serde_json::Value, AccountDataLoadError>,
+) {
+    params.remove(ACCOUNT_CREDIT_HISTORY_DATA_PARAM);
+    let state = match result {
+        Ok(value) => match decode_credit_history(
+            value.clone(),
+            expected_owner,
+            ACCOUNT_CREDIT_HISTORY_MAX_ITEMS,
+        ) {
+            Some(history) => {
+                params.insert(
+                    ACCOUNT_CREDIT_HISTORY_DATA_PARAM.to_string(),
+                    value.to_string(),
+                );
+                if history.transactions.is_empty() {
+                    ACCOUNT_CREDIT_EMPTY
+                } else {
+                    ACCOUNT_CREDIT_READY
+                }
+            }
+            None => ACCOUNT_CREDIT_MALFORMED,
+        },
+        Err(AccountDataLoadError::Unavailable) => ACCOUNT_CREDIT_UNAVAILABLE,
+    };
+    params.insert(
+        ACCOUNT_CREDIT_HISTORY_STATE_PARAM.to_string(),
         state.to_string(),
     );
 }
@@ -1227,11 +1362,75 @@ async fn fetch_page_data(
     // `/plans` intentionally has no loader. Pricing, eligibility, features,
     // sale windows, and subscription decisions remain unavailable until a
     // subscription-owned public catalog contract is frozen end to end.
-    // `/account` renders identity details only from the locally verified
-    // session. It deliberately performs no ambiguous profile/credit read;
-    // owner payment history and notification preferences each use their own
-    // strict owner-scoped read outcome below.
+    // Account and credits use only authenticated, owner-derived backend
+    // routes. Balance and ledger states remain independent so a partial
+    // dependency failure cannot be presented as a zero or empty result.
+    if matches!(path, "/account" | "/account/credits") {
+        if let Some(owner) = user.as_ref().map(|user| user.address.as_str()) {
+            let balance_result = if verified_access_token.is_some() {
+                state
+                    .payment
+                    .get_with_ctx("/api/payments/credits/balance", &request_context)
+                    .await
+                    .map_err(|_| AccountDataLoadError::Unavailable)
+            } else {
+                Err(AccountDataLoadError::Unavailable)
+            };
+            record_account_credit_balance_load(params, owner, balance_result);
+
+            if path == "/account/credits" {
+                let history_result = if verified_access_token.is_some() {
+                    state
+                        .payment
+                        .get_with_ctx(
+                            "/api/payments/credits/history?limit=20&offset=0",
+                            &request_context,
+                        )
+                        .await
+                        .map_err(|_| AccountDataLoadError::Unavailable)
+                } else {
+                    Err(AccountDataLoadError::Unavailable)
+                };
+                record_account_credit_history_load(params, owner, history_result);
+            }
+        }
+    }
+
+    // `/account` combines separately validated profile, access, subscription
+    // payment, pay-service history, and notification-preference reads.
     if path == "/account" {
+        if let Some(owner) = user.as_ref().map(|user| user.address.as_str()) {
+            if verified_access_token.is_some() {
+                let (profile_result, access_result, plan_payments_result) = tokio::join!(
+                    state
+                        .wallet
+                        .get_with_ctx("/api/users/profile", &request_context),
+                    state
+                        .wallet
+                        .get_with_ctx("/api/users/access-overview", &request_context),
+                    state
+                        .payment
+                        .get_with_ctx("/api/payments/history", &request_context),
+                );
+                record_account_profile_load(
+                    params,
+                    owner,
+                    profile_result.map_err(|_| AccountDataLoadError::Unavailable),
+                );
+                record_account_access_load(
+                    params,
+                    access_result.map_err(|_| AccountDataLoadError::Unavailable),
+                );
+                record_account_plan_payments_load(
+                    params,
+                    plan_payments_result.map_err(|_| AccountDataLoadError::Unavailable),
+                );
+            } else {
+                record_account_profile_load(params, owner, Err(AccountDataLoadError::Unavailable));
+                record_account_access_load(params, Err(AccountDataLoadError::Unavailable));
+                record_account_plan_payments_load(params, Err(AccountDataLoadError::Unavailable));
+            }
+        }
         // Source parity starts with the canonical first owner-history page.
         // The path owner is derived only from the locally verified session;
         // URL query, connected-wallet cookies, and account payloads never
@@ -1266,8 +1465,6 @@ async fn fetch_page_data(
             );
         }
     }
-    // `/account/credits` intentionally has no loader. A6 has not selected a
-    // credit-ledger authority, so failure must not become a zero balance.
     if path == "/developer/docs" {
         match crate::api::load_developer_openapi_for_ssr(state.wallet.as_ref()).await {
             Ok(spec) => {
@@ -1851,9 +2048,12 @@ mod tests {
     use super::notifications_ssr_status;
     use super::page_metadata;
     use super::pricing_redirect_response;
+    use super::record_account_credit_balance_load;
+    use super::record_account_credit_history_load;
     use super::record_account_notification_preferences_form_state;
     use super::record_account_notification_preferences_load;
     use super::record_account_payment_history_load;
+    use super::record_account_plan_payments_load;
     use super::record_analytics_load;
     use super::record_home_analytics_load;
     use super::record_home_news_load;
@@ -1868,6 +2068,12 @@ mod tests {
     use axum::http::{header, HeaderMap, HeaderValue};
     use epsx_bff::session::AccessVerification;
     use epsx_dioxus_ui::auth::User;
+    use epsx_dioxus_ui::pages::account::{ACCOUNT_DATA_EMPTY, ACCOUNT_PLAN_PAYMENTS_STATE_PARAM};
+    use epsx_dioxus_ui::pages::account_credits::{
+        ACCOUNT_CREDIT_BALANCE_DATA_PARAM, ACCOUNT_CREDIT_BALANCE_STATE_PARAM,
+        ACCOUNT_CREDIT_EMPTY, ACCOUNT_CREDIT_HISTORY_STATE_PARAM, ACCOUNT_CREDIT_MALFORMED,
+        ACCOUNT_CREDIT_READY,
+    };
     use epsx_dioxus_ui::pages::auth_page::{
         AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
         AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
@@ -2194,6 +2400,81 @@ mod tests {
         );
         assert!(!params
             .contains_key(epsx_dioxus_ui::components::account::ACCOUNT_PAYMENT_HISTORY_DATA_PARAM));
+    }
+
+    #[test]
+    fn account_owner_sources_record_ready_empty_and_fail_closed_states() {
+        let owner = "0x1111111111111111111111111111111111111111";
+        let mut params = HashMap::new();
+        record_account_credit_balance_load(
+            &mut params,
+            owner,
+            Ok(serde_json::json!({
+                "wallet_address": owner,
+                "balance": "0",
+                "pending_balance": "0",
+                "available_balance": "0",
+                "lifetime_earned": "0",
+                "lifetime_spent": "0",
+                "last_transaction_at": null
+            })),
+        );
+        assert_eq!(
+            params
+                .get(ACCOUNT_CREDIT_BALANCE_STATE_PARAM)
+                .map(String::as_str),
+            Some(ACCOUNT_CREDIT_READY)
+        );
+
+        record_account_credit_history_load(
+            &mut params,
+            owner,
+            Ok(serde_json::json!({"success": true, "data": [], "count": 0})),
+        );
+        assert_eq!(
+            params
+                .get(ACCOUNT_CREDIT_HISTORY_STATE_PARAM)
+                .map(String::as_str),
+            Some(ACCOUNT_CREDIT_EMPTY)
+        );
+
+        record_account_plan_payments_load(
+            &mut params,
+            Ok(serde_json::json!({
+                "success": true,
+                "data": {
+                    "payments": [],
+                    "pagination": {"page": 1, "per_page": 10, "total": 0, "total_pages": 0}
+                }
+            })),
+        );
+        assert_eq!(
+            params
+                .get(ACCOUNT_PLAN_PAYMENTS_STATE_PARAM)
+                .map(String::as_str),
+            Some(ACCOUNT_DATA_EMPTY)
+        );
+
+        record_account_credit_balance_load(
+            &mut params,
+            owner,
+            Ok(serde_json::json!({
+                "wallet_address": "0xother",
+                "balance": "0",
+                "pending_balance": "0",
+                "available_balance": "0",
+                "lifetime_earned": "0",
+                "lifetime_spent": "0",
+                "last_transaction_at": null
+            })),
+        );
+        assert_eq!(
+            params
+                .get(ACCOUNT_CREDIT_BALANCE_STATE_PARAM)
+                .map(String::as_str),
+            Some(ACCOUNT_CREDIT_MALFORMED)
+        );
+        assert!(!params.contains_key(ACCOUNT_CREDIT_BALANCE_DATA_PARAM));
     }
 
     #[test]

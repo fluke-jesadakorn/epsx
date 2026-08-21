@@ -203,6 +203,12 @@ pub async fn get_unified_analytics_rankings_cached(
         access_info: Some(AccessInfo {
             min_accessible_rank: access.rank_offset.max(0).saturating_add(1),
             locked_ranks_count: access.rank_offset.max(0),
+            max_accessible_rank: (access.rankings_limit != -1).then(|| {
+                access
+                    .rank_offset
+                    .max(0)
+                    .saturating_add(access.rankings_limit.max(1))
+            }),
         }),
         message: Some(format!(
             "Fetched {} card dashboard rankings successfully from TradingView API",
@@ -707,6 +713,7 @@ mod tests {
         let access = response.access_info.expect("anonymous access info");
         assert_eq!(access.min_accessible_rank, 101);
         assert_eq!(access.locked_ranks_count, 100);
+        assert_eq!(access.max_accessible_rank, Some(105));
     }
 
     #[tokio::test]
@@ -750,6 +757,7 @@ mod tests {
         let access = response.access_info.expect("authenticated access info");
         assert_eq!(access.min_accessible_rank, 6);
         assert_eq!(access.locked_ranks_count, 5);
+        assert_eq!(access.max_accessible_rank, None);
     }
 
     #[tokio::test]
@@ -790,6 +798,7 @@ mod tests {
         let access = response.access_info.expect("free-plan access info");
         assert_eq!(access.min_accessible_rank, 101);
         assert_eq!(access.locked_ranks_count, 100);
+        assert_eq!(access.max_accessible_rank, Some(105));
     }
 
     #[tokio::test]

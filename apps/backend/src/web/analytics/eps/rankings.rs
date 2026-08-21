@@ -136,6 +136,7 @@ pub async fn get_eps_rankings(
         access_info: super::types::AccessInfo {
             min_accessible_rank: rank_offset.max(0).saturating_add(1),
             locked_ranks_count: rank_offset.max(0),
+            max_accessible_rank: None,
         },
     };
 

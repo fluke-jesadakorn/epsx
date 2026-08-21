@@ -19,9 +19,11 @@ use crate::components::account::{
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
 use crate::layout::main_layout::MainLayout;
+use crate::pages::account_credits::{credit_balance_load, CreditBalanceLoad};
 use chrono::{DateTime, Utc};
 use dioxus::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::BTreeMap;
 
 const ACCOUNT_PATH: &str = "/account";
@@ -35,6 +37,333 @@ pub const ACCOUNT_NOTIFICATION_PREFERENCES_FORM_STATE_PARAM: &str =
 const ACCOUNT_NOTIFICATION_PREFERENCES_READY: &str = "ready";
 const ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE: &str = "unavailable";
 const ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED: &str = "malformed";
+pub const ACCOUNT_PROFILE_DATA_PARAM: &str = "data_account_profile";
+pub const ACCOUNT_PROFILE_STATE_PARAM: &str = "data_account_profile_state";
+pub const ACCOUNT_ACCESS_DATA_PARAM: &str = "data_account_access";
+pub const ACCOUNT_ACCESS_STATE_PARAM: &str = "data_account_access_state";
+pub const ACCOUNT_PLAN_PAYMENTS_DATA_PARAM: &str = "data_account_plan_payments";
+pub const ACCOUNT_PLAN_PAYMENTS_STATE_PARAM: &str = "data_account_plan_payments_state";
+pub const ACCOUNT_DATA_READY: &str = "ready";
+pub const ACCOUNT_DATA_EMPTY: &str = "empty";
+pub const ACCOUNT_DATA_UNAVAILABLE: &str = "unavailable";
+pub const ACCOUNT_DATA_MALFORMED: &str = "malformed";
+pub const ACCOUNT_PLAN_PAYMENTS_MAX_ITEMS: usize = 10;
+
+const ACCOUNT_MAX_TEXT: usize = 512;
+const ACCOUNT_MAX_WALLET: usize = 128;
+const ACCOUNT_MAX_PERMISSIONS: usize = 256;
+const ACCOUNT_MAX_GROUPS: usize = 64;
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountProfileProjection {
+    pub wallet_address: String,
+    pub created_at: String,
+    pub last_login: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountProfileWire {
+    wallet_address: String,
+    permissions: Vec<String>,
+    auth_method: String,
+    created_at: String,
+    last_login: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountAccessGroupProjection {
+    pub id: String,
+    pub name: String,
+    pub expires_at: Option<String>,
+    pub permissions: Vec<String>,
+    pub source_type: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountAccessProjection {
+    pub current_tier: String,
+    pub groups: Vec<AccountAccessGroupProjection>,
+    pub direct_permissions: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountAccessWire {
+    current_tier: String,
+    groups: Vec<AccountAccessGroupWire>,
+    direct_permissions: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountAccessGroupWire {
+    id: String,
+    name: String,
+    description: Option<String>,
+    expires_at: Option<String>,
+    permissions: Vec<String>,
+    source_type: String,
+    assigned_at: Option<String>,
+    assigned_by: Option<String>,
+    days_remaining: Option<i64>,
+    can_renew: bool,
+    renewal_price: Option<Value>,
+    billing_cycle: Option<String>,
+    tier_level: i32,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountPlanPaymentProjection {
+    pub id: String,
+    pub amount: String,
+    pub currency: String,
+    pub status: String,
+    pub tx_hash: Option<String>,
+    pub plan_name: Option<String>,
+    pub created_at: String,
+    pub completed_at: Option<String>,
+    pub payment_reference: String,
+}
+
+#[derive(Clone, Debug, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct AccountPlanPaymentsProjection {
+    pub payments: Vec<AccountPlanPaymentProjection>,
+    pub total: usize,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountPlanPaymentsDataWire {
+    payments: Vec<AccountPlanPaymentWire>,
+    pagination: AccountPlanPaymentsPaginationWire,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountPlanPaymentWire {
+    id: String,
+    amount: serde_json::Number,
+    currency: String,
+    status: String,
+    tx_hash: Option<String>,
+    plan_name: Option<String>,
+    permissions_granted: Vec<String>,
+    created_at: String,
+    completed_at: Option<String>,
+    payment_reference: String,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountPlanPaymentsPaginationWire {
+    page: usize,
+    per_page: usize,
+    total: usize,
+    total_pages: usize,
+}
+
+pub fn decode_account_profile(
+    value: Value,
+    expected_owner: &str,
+) -> Option<AccountProfileProjection> {
+    if value.get("success")?.as_bool()? != true {
+        return None;
+    }
+    let profile: AccountProfileWire = serde_json::from_value(value.get("data")?.clone()).ok()?;
+    if !profile.wallet_address.eq_ignore_ascii_case(expected_owner)
+        || !valid_account_text(&profile.wallet_address, ACCOUNT_MAX_WALLET)
+        || profile.permissions.len() > ACCOUNT_MAX_PERMISSIONS
+        || !profile
+            .permissions
+            .iter()
+            .all(|permission| valid_account_text(permission, ACCOUNT_MAX_TEXT))
+        || !valid_account_text(&profile.auth_method, ACCOUNT_MAX_TEXT)
+        || !valid_account_timestamp(&profile.created_at)
+        || !valid_account_timestamp(&profile.last_login)
+    {
+        return None;
+    }
+    Some(AccountProfileProjection {
+        wallet_address: profile.wallet_address,
+        created_at: profile.created_at,
+        last_login: profile.last_login,
+    })
+}
+
+pub fn decode_account_access(value: Value) -> Option<AccountAccessProjection> {
+    if value.get("success")?.as_bool()? != true {
+        return None;
+    }
+    let access: AccountAccessWire = serde_json::from_value(value.get("data")?.clone()).ok()?;
+    if !valid_account_text(&access.current_tier, ACCOUNT_MAX_TEXT)
+        || access.groups.len() > ACCOUNT_MAX_GROUPS
+        || access.direct_permissions.len() > ACCOUNT_MAX_PERMISSIONS
+        || !access
+            .direct_permissions
+            .iter()
+            .all(|permission| valid_account_text(permission, ACCOUNT_MAX_TEXT))
+        || !access.groups.iter().all(valid_account_access_group)
+    {
+        return None;
+    }
+    Some(AccountAccessProjection {
+        current_tier: access.current_tier,
+        groups: access
+            .groups
+            .into_iter()
+            .map(|group| AccountAccessGroupProjection {
+                id: group.id,
+                name: group.name,
+                expires_at: group.expires_at,
+                permissions: group.permissions,
+                source_type: group.source_type,
+            })
+            .collect(),
+        direct_permissions: access.direct_permissions,
+    })
+}
+
+fn valid_account_access_group(group: &AccountAccessGroupWire) -> bool {
+    valid_account_text(&group.id, ACCOUNT_MAX_TEXT)
+        && valid_account_text(&group.name, ACCOUNT_MAX_TEXT)
+        && group
+            .description
+            .as_deref()
+            .is_none_or(|value| valid_account_text(value, ACCOUNT_MAX_TEXT))
+        && group
+            .expires_at
+            .as_deref()
+            .is_none_or(valid_account_timestamp)
+        && group.permissions.len() <= ACCOUNT_MAX_PERMISSIONS
+        && group
+            .permissions
+            .iter()
+            .all(|permission| valid_account_text(permission, ACCOUNT_MAX_TEXT))
+        && valid_account_text(&group.source_type, ACCOUNT_MAX_TEXT)
+        && group
+            .assigned_at
+            .as_deref()
+            .is_none_or(valid_account_timestamp)
+        && group
+            .assigned_by
+            .as_deref()
+            .is_none_or(|value| valid_account_text(value, ACCOUNT_MAX_WALLET))
+        && group.days_remaining.is_none_or(|days| days >= 0)
+        && group
+            .billing_cycle
+            .as_deref()
+            .is_none_or(|value| valid_account_text(value, ACCOUNT_MAX_TEXT))
+        && group.tier_level >= 0
+        && (!group.can_renew || group.renewal_price.is_some())
+}
+
+pub fn decode_account_plan_payments(
+    value: Value,
+    max_items: usize,
+) -> Option<AccountPlanPaymentsProjection> {
+    if max_items == 0 || value.get("success")?.as_bool()? != true {
+        return None;
+    }
+    let data: AccountPlanPaymentsDataWire =
+        serde_json::from_value(value.get("data")?.clone()).ok()?;
+    if data.pagination.page != 1
+        || data.pagination.per_page != max_items
+        || data.payments.len() > max_items
+        || data.pagination.total < data.payments.len()
+        || (data.payments.is_empty() && data.pagination.total != 0)
+        || data.pagination.total_pages
+            != data
+                .pagination
+                .total
+                .div_ceil(data.pagination.per_page.max(1))
+        || !data.payments.iter().all(valid_account_plan_payment)
+    {
+        return None;
+    }
+    Some(AccountPlanPaymentsProjection {
+        total: data.pagination.total,
+        payments: data
+            .payments
+            .into_iter()
+            .map(|payment| AccountPlanPaymentProjection {
+                id: payment.id,
+                amount: payment.amount.to_string(),
+                currency: payment.currency,
+                status: payment.status,
+                tx_hash: payment.tx_hash,
+                plan_name: payment.plan_name,
+                created_at: payment.created_at,
+                completed_at: payment.completed_at,
+                payment_reference: payment.payment_reference,
+            })
+            .collect(),
+    })
+}
+
+fn valid_account_plan_payment(payment: &AccountPlanPaymentWire) -> bool {
+    valid_account_text(&payment.id, ACCOUNT_MAX_TEXT)
+        && payment.amount.as_f64().is_some_and(f64::is_finite)
+        && valid_account_text(&payment.currency, 32)
+        && valid_account_text(&payment.status, 64)
+        && payment
+            .tx_hash
+            .as_deref()
+            .is_none_or(|value| valid_account_text(value, ACCOUNT_MAX_TEXT))
+        && payment
+            .plan_name
+            .as_deref()
+            .is_none_or(|value| valid_account_text(value, ACCOUNT_MAX_TEXT))
+        && payment.permissions_granted.len() <= ACCOUNT_MAX_PERMISSIONS
+        && payment
+            .permissions_granted
+            .iter()
+            .all(|permission| valid_account_text(permission, ACCOUNT_MAX_TEXT))
+        && valid_account_timestamp(&payment.created_at)
+        && payment
+            .completed_at
+            .as_deref()
+            .is_none_or(valid_account_timestamp)
+        && valid_account_text(&payment.payment_reference, ACCOUNT_MAX_TEXT)
+}
+
+fn valid_account_text(value: &str, max_len: usize) -> bool {
+    !value.is_empty()
+        && value.trim() == value
+        && value.len() <= max_len
+        && !value.chars().any(char::is_control)
+}
+
+fn valid_account_timestamp(value: &str) -> bool {
+    valid_account_text(value, 64) && DateTime::parse_from_rfc3339(value).is_ok()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AccountProfileLoad {
+    Ready(AccountProfileProjection),
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AccountAccessLoad {
+    Ready(AccountAccessProjection),
+    Unavailable,
+    Malformed,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum AccountPlanPaymentsLoad {
+    Ready(AccountPlanPaymentsProjection),
+    Empty,
+    Unavailable,
+    Malformed,
+}
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Account");
@@ -44,6 +373,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderAccount(ctx: PageContext) -> Element {
     let session_user = ctx.user.clone();
+    let profile_load = account_profile_load(&ctx);
+    let access_load = account_access_load(&ctx);
+    let credit_balance = credit_balance_load(&ctx);
+    let plan_payments_load = account_plan_payments_load(&ctx);
     let payment_history_address = ctx.user.as_ref().map(|user| user.address.clone());
     let payment_history_load = payment_history_load(&ctx);
     let notification_preferences_load = notification_preferences_load(&ctx);
@@ -66,7 +399,7 @@ fn RenderAccount(ctx: PageContext) -> Element {
                     AccountSettingsHero {}
                     // 2. 4 stat cards
                     div { class: "mt-8",
-                        AccountStatsRow { user: session_user.clone() }
+                        AccountStatsRow { user: session_user.clone(), profile_load, credit_balance }
                     }
                     // 3. 3 quick-action cards
                     div { class: "mt-12",
@@ -74,23 +407,27 @@ fn RenderAccount(ctx: PageContext) -> Element {
                     }
                     // 4. Access & Plans
                     div { class: "mt-12",
-                        AccessAndPlansSection {}
+                        AccessAndPlansSection { load: access_load }
                     }
-                    // 5. Transaction History
+                    // 5. Plan payments confirmed by the subscription backend.
+                    div { class: "mt-8",
+                        PlanPaymentsSection { load: plan_payments_load }
+                    }
+                    // 6. Pay intents and escrow activity.
                     div { class: "mt-8",
                         PaymentHistorySection {
                             address: payment_history_address,
                             load: payment_history_load,
                         }
                     }
-                    // 6. Notification Preferences
+                    // 7. Notification Preferences
                     div { class: "mt-8",
                         NotificationPreferencesSection {
                             load: notification_preferences_load,
                             form_state: notification_preferences_form_state,
                         }
                     }
-                    // 7. Privacy & Data Security banner
+                    // 8. Privacy & Data Security banner
                     div { class: "mt-8",
                         PrivacyBannerSection {}
                     }
@@ -126,10 +463,14 @@ fn AccountSettingsHero() -> Element {
 // ----- 2. Stats row ------------------------------------------------------------
 
 /// Four source-like cards. The wallet and known authentication method are
-/// verified session claims; profile age and credits remain unavailable until
-/// authoritative reads are selected. `data_account` is intentionally ignored.
+/// verified session claims; profile age and credits are independent strict
+/// owner-scoped reads so either card can remain truthful if the other fails.
 #[component]
-fn AccountStatsRow(user: Option<User>) -> Element {
+fn AccountStatsRow(
+    user: Option<User>,
+    profile_load: AccountProfileLoad,
+    credit_balance: CreditBalanceLoad,
+) -> Element {
     let signed_in = user.is_some();
     let wallet = user
         .as_ref()
@@ -139,6 +480,14 @@ fn AccountStatsRow(user: Option<User>) -> Element {
     let auth_method = user
         .as_ref()
         .and_then(|user| verified_auth_method_label(&user.auth_method));
+    let member_since = match &profile_load {
+        AccountProfileLoad::Ready(profile) => Some(profile.created_at[..10].to_string()),
+        _ => None,
+    };
+    let available_credits = match &credit_balance {
+        CreditBalanceLoad::Ready(balance) => Some(balance.available_balance.clone()),
+        _ => None,
+    };
 
     rsx! {
         section {
@@ -169,35 +518,43 @@ fn AccountStatsRow(user: Option<User>) -> Element {
                     }
                 }
             }
-            // Membership date requires an authoritative profile read.
+            // Membership date is sourced from the owner profile endpoint.
             div {
                 class: "account-stat-member card card-glass p-3 sm:p-6 shadow-xl border-2 border-green-300/50",
-                "data-account-stat-state": "unavailable",
+                "data-account-stat-state": if member_since.is_some() { "verified" } else if matches!(profile_load, AccountProfileLoad::Malformed) { "malformed" } else { "unavailable" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "📅" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-slate-300/50 bg-secondary text-muted-foreground",
-                        "Unavailable"
+                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-green-200 bg-green-50/50 text-green-600",
+                        if member_since.is_some() { "Verified" } else { "Unavailable" }
                     }
                 }
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Member Since" }
-                    div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    if let Some(ref member_since) = member_since {
+                        time { class: "text-lg font-bold text-foreground", datetime: member_since.clone(), "{member_since}" }
+                    } else {
+                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    }
                 }
             }
-            // Credit authority is unresolved; link to its truthful detail page.
+            // Credit authority is the payments database owner endpoint.
             a {
                 class: "account-stat-balance card card-glass p-3 sm:p-6 shadow-xl border-2 border-orange-300/50 block",
-                "data-account-stat-state": "unavailable",
+                "data-account-stat-state": if available_credits.is_some() { "verified" } else if matches!(credit_balance, CreditBalanceLoad::Malformed) { "malformed" } else { "unavailable" },
                 href: "/account/credits",
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
                     span { "💰" }
                     span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-orange-200 bg-orange-50/50 text-orange-600",
-                        "Unavailable"
+                        if available_credits.is_some() { "Verified" } else { "Unavailable" }
                     }
                 }
                 div { class: "space-y-1",
                     div { class: "text-sm font-medium text-slate-400", "Available Balance" }
-                    div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    if let Some(ref available_credits) = available_credits {
+                        div { class: "text-lg font-bold text-foreground", "{available_credits} credits" }
+                    } else {
+                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                    }
                     // Keep the truthful navigation affordance available to
                     // assistive technology without adding a fourth visible
                     // line that changes the source card's height.
@@ -313,30 +670,161 @@ fn AccountQuickActions() -> Element {
 
 // ----- 4. Access & Plans -------------------------------------------------------
 
-/// Large rounded card with the "Access & Plans" header + a placeholder
-/// for the `AccessOverview` slot. Mirrors
-/// `account-client.tsx` lines 237-246 + `access-overview.tsx`. The
-/// placeholder matches the OLD prod render when the API returns the
-/// "Unable to load access details" error.
+/// Backend-authoritative access groups and their granted permissions.
 #[component]
-fn AccessAndPlansSection() -> Element {
+fn AccessAndPlansSection(load: AccountAccessLoad) -> Element {
+    let access_state = match &load {
+        AccountAccessLoad::Ready(_) => "ready",
+        AccountAccessLoad::Unavailable => "unavailable",
+        AccountAccessLoad::Malformed => "malformed",
+    };
     rsx! {
         div { class: "account-access-plans card card-glass p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50",
             "data-section": "account-access-plans",
+            "data-access-state": access_state,
             div { class: "flex items-center gap-3 mb-4 sm:mb-8",
                 div { class: "p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl",
                     Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-indigo-600 dark:text-indigo-400".to_string()) }
                 }
                 h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Access & Plans" }
+                a { class: "btn btn-primary ml-auto", href: "/plans", "Manage plans" }
             }
-            div {
-                class: "p-3 sm:p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10",
-                "data-access-state": "unavailable",
-                role: "alert",
-                div { class: "flex items-center gap-3",
-                    Icon { name: "alert-triangle".to_string(), size: Some(20), class_name: Some("text-red-500".to_string()) }
-                    p { class: "text-sm text-red-600 dark:text-red-400",
-                        "Access and plan details are unavailable. No access level is being inferred."
+            match load {
+                AccountAccessLoad::Ready(access) => rsx! {
+                    div { class: "rounded-2xl border border-indigo-300/30 bg-indigo-500/5 p-4 sm:p-6",
+                        p { class: "text-xs font-semibold uppercase tracking-widest text-indigo-500", "Current access" }
+                        h3 { class: "mt-2 text-2xl font-bold text-foreground", "{access.current_tier}" }
+                        p { class: "mt-2 text-sm text-muted-foreground",
+                            "{access.groups.len()} active access source(s) · {access.direct_permissions.len()} direct permission(s)"
+                        }
+                    }
+                    div { class: "mt-5 grid gap-4 lg:grid-cols-2", aria_label: "Active plans and access groups",
+                        for group in access.groups {
+                            article { class: "rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5",
+                                div { class: "flex flex-wrap items-start justify-between gap-3",
+                                    div {
+                                        h3 { class: "font-semibold text-foreground", "{group.name}" }
+                                        p { class: "mt-1 text-xs uppercase tracking-wide text-muted-foreground", "{group.source_type}" }
+                                    }
+                                    if let Some(expires_at) = group.expires_at {
+                                        time { class: "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-500", datetime: expires_at.clone(),
+                                            "Expires {expires_at}"
+                                        }
+                                    } else {
+                                        span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-500", "No expiry" }
+                                    }
+                                }
+                                if group.permissions.is_empty() {
+                                    p { class: "mt-4 text-sm text-muted-foreground", "No explicit permissions in this access source." }
+                                } else {
+                                    ul { class: "mt-4 flex flex-wrap gap-2", aria_label: "Granted permissions",
+                                        for permission in group.permissions {
+                                            li { class: "rounded-full border border-border bg-background/50 px-2.5 py-1 font-mono text-xs text-muted-foreground", "{permission}" }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                AccountAccessLoad::Unavailable => rsx! {
+                    AccountAccessProblem { state: "unavailable", detail: "Access and plan details are temporarily unavailable. No access level is being inferred." }
+                },
+                AccountAccessLoad::Malformed => rsx! {
+                    AccountAccessProblem { state: "malformed", detail: "Access details could not be verified safely. No plan or permission data was shown." }
+                },
+            }
+        }
+    }
+}
+
+#[component]
+fn AccountAccessProblem(state: &'static str, detail: &'static str) -> Element {
+    rsx! {
+        div { class: "p-3 sm:p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10", "data-access-problem": state, role: "alert",
+            div { class: "flex items-center gap-3",
+                Icon { name: "alert-triangle".to_string(), size: Some(20), class_name: Some("text-red-500".to_string()) }
+                p { class: "text-sm text-red-600 dark:text-red-400", "{detail}" }
+            }
+        }
+    }
+}
+
+// ----- 5. Plan payments ---------------------------------------------------------
+
+#[component]
+fn PlanPaymentsSection(load: AccountPlanPaymentsLoad) -> Element {
+    let state = match &load {
+        AccountPlanPaymentsLoad::Ready(_) => "ready",
+        AccountPlanPaymentsLoad::Empty => "empty",
+        AccountPlanPaymentsLoad::Unavailable => "unavailable",
+        AccountPlanPaymentsLoad::Malformed => "malformed",
+    };
+    rsx! {
+        section {
+            class: "account-plan-payments card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-emerald-200/50",
+            "data-section": "account-plan-payments",
+            "data-plan-payments-state": state,
+            div { class: "flex flex-wrap items-center gap-3 mb-6",
+                div { class: "p-3 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl",
+                    Icon { name: "receipt".to_string(), size: Some(24), class_name: Some("text-emerald-600 dark:text-emerald-400".to_string()) }
+                }
+                div {
+                    h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Plan Payments" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Confirmed checkout and subscription transactions" }
+                }
+                a { class: "btn btn-outline ml-auto", href: "/plans", "View plans" }
+            }
+            match load {
+                AccountPlanPaymentsLoad::Ready(history) => rsx! {
+                    p { class: "mb-4 text-sm text-muted-foreground", "Showing {history.payments.len()} of {history.total} payment(s)" }
+                    ol { class: "space-y-3", aria_label: "Plan payment history",
+                        for payment in history.payments {
+                            PlanPaymentRow { payment }
+                        }
+                    }
+                },
+                AccountPlanPaymentsLoad::Empty => rsx! {
+                    PlanPaymentsMessage { state: "empty", title: "No plan payments yet", detail: "Completed plan checkouts owned by this wallet will appear here." }
+                },
+                AccountPlanPaymentsLoad::Unavailable => rsx! {
+                    PlanPaymentsMessage { state: "unavailable", title: "Plan payments are temporarily unavailable", detail: "The subscription payment history could not be reached. No empty history was assumed." }
+                },
+                AccountPlanPaymentsLoad::Malformed => rsx! {
+                    PlanPaymentsMessage { state: "malformed", title: "Plan payments could not be displayed safely", detail: "The backend returned an unexpected payment response. No transactions were shown." }
+                },
+            }
+        }
+    }
+}
+
+#[component]
+fn PlanPaymentRow(payment: AccountPlanPaymentProjection) -> Element {
+    let plan_name = payment
+        .plan_name
+        .clone()
+        .unwrap_or_else(|| "Plan payment".to_string());
+    let payment_time = payment
+        .completed_at
+        .clone()
+        .unwrap_or_else(|| payment.created_at.clone());
+    rsx! {
+        li {
+            article { class: "rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5",
+                div { class: "flex flex-wrap items-start justify-between gap-3",
+                    div {
+                        h3 { class: "font-semibold text-foreground", "{plan_name}" }
+                        p { class: "mt-1 font-mono text-xs text-muted-foreground break-all", "{payment.payment_reference}" }
+                    }
+                    span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-500", "{payment.status}" }
+                }
+                div { class: "mt-4 flex flex-wrap items-end justify-between gap-3",
+                    div {
+                        p { class: "text-lg font-bold text-foreground", "{payment.amount} {payment.currency}" }
+                        time { class: "mt-1 block text-xs text-muted-foreground", datetime: payment_time.clone(), "{payment_time}" }
+                    }
+                    if let Some(tx_hash) = payment.tx_hash {
+                        span { class: "max-w-full truncate font-mono text-xs text-muted-foreground", title: tx_hash.clone(), "{tx_hash}" }
                     }
                 }
             }
@@ -344,9 +832,26 @@ fn AccessAndPlansSection() -> Element {
     }
 }
 
-// ----- 5. Transaction History --------------------------------------------------
+#[component]
+fn PlanPaymentsMessage(state: &'static str, title: &'static str, detail: &'static str) -> Element {
+    let role = if matches!(state, "unavailable" | "malformed") {
+        "alert"
+    } else {
+        "status"
+    };
+    rsx! {
+        div { class: "p-8 text-center", "data-plan-payments-message": state, role,
+            Icon { name: "receipt".to_string(), size: Some(40), class_name: Some("text-muted-foreground".to_string()) }
+            h3 { class: "mt-3 font-semibold text-foreground", "{title}" }
+            p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
+            a { class: "btn btn-outline mt-5", href: ACCOUNT_PATH, "Refresh" }
+        }
+    }
+}
 
-/// Transaction History section. Mirrors
+// ----- 6. Pay and escrow activity ---------------------------------------------
+
+/// Payment intent and escrow activity section. Mirrors
 /// `account-client.tsx` lines 248-257 + `payment-history-tab.tsx`.
 ///
 /// The BFF supplies an explicit state and an owner-scoped, bounded JSON
@@ -403,6 +908,82 @@ fn payment_history_load(ctx: &PageContext) -> PaymentHistoryLoad {
             }
         }
         Some(_) => PaymentHistoryLoad::Malformed,
+    }
+}
+
+fn account_profile_load(ctx: &PageContext) -> AccountProfileLoad {
+    let Some(user) = ctx.user.as_ref() else {
+        return AccountProfileLoad::Unavailable;
+    };
+    match ctx
+        .params
+        .get(ACCOUNT_PROFILE_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ACCOUNT_DATA_READY) => ctx
+            .params
+            .get(ACCOUNT_PROFILE_DATA_PARAM)
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .and_then(|value| decode_account_profile(value, &user.address))
+            .map(AccountProfileLoad::Ready)
+            .unwrap_or(AccountProfileLoad::Malformed),
+        Some(ACCOUNT_DATA_MALFORMED) => AccountProfileLoad::Malformed,
+        Some(ACCOUNT_DATA_UNAVAILABLE) | None => AccountProfileLoad::Unavailable,
+        Some(_) => AccountProfileLoad::Malformed,
+    }
+}
+
+fn account_access_load(ctx: &PageContext) -> AccountAccessLoad {
+    match ctx
+        .params
+        .get(ACCOUNT_ACCESS_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ACCOUNT_DATA_READY) => ctx
+            .params
+            .get(ACCOUNT_ACCESS_DATA_PARAM)
+            .and_then(|raw| serde_json::from_str(raw).ok())
+            .and_then(decode_account_access)
+            .map(AccountAccessLoad::Ready)
+            .unwrap_or(AccountAccessLoad::Malformed),
+        Some(ACCOUNT_DATA_MALFORMED) => AccountAccessLoad::Malformed,
+        Some(ACCOUNT_DATA_UNAVAILABLE) | None => AccountAccessLoad::Unavailable,
+        Some(_) => AccountAccessLoad::Malformed,
+    }
+}
+
+fn account_plan_payments_load(ctx: &PageContext) -> AccountPlanPaymentsLoad {
+    match ctx
+        .params
+        .get(ACCOUNT_PLAN_PAYMENTS_STATE_PARAM)
+        .map(String::as_str)
+    {
+        Some(ACCOUNT_DATA_READY) | Some(ACCOUNT_DATA_EMPTY) => {
+            let expected_empty = ctx
+                .params
+                .get(ACCOUNT_PLAN_PAYMENTS_STATE_PARAM)
+                .is_some_and(|state| state == ACCOUNT_DATA_EMPTY);
+            let history = ctx
+                .params
+                .get(ACCOUNT_PLAN_PAYMENTS_DATA_PARAM)
+                .and_then(|raw| serde_json::from_str(raw).ok())
+                .and_then(|value| {
+                    decode_account_plan_payments(value, ACCOUNT_PLAN_PAYMENTS_MAX_ITEMS)
+                });
+            match history {
+                Some(history) if expected_empty == history.payments.is_empty() => {
+                    if expected_empty {
+                        AccountPlanPaymentsLoad::Empty
+                    } else {
+                        AccountPlanPaymentsLoad::Ready(history)
+                    }
+                }
+                _ => AccountPlanPaymentsLoad::Malformed,
+            }
+        }
+        Some(ACCOUNT_DATA_MALFORMED) => AccountPlanPaymentsLoad::Malformed,
+        Some(ACCOUNT_DATA_UNAVAILABLE) | None => AccountPlanPaymentsLoad::Unavailable,
+        Some(_) => AccountPlanPaymentsLoad::Malformed,
     }
 }
 
@@ -1004,7 +1585,11 @@ mod tests {
             auth_method: AuthMethod::Siwe,
             display_name: Some("INVENTED_PROFILE_NAME".to_string()),
         };
-        let html = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: Some(user) } });
+        let html = dioxus_ssr::render_element(rsx! { AccountStatsRow {
+            user: Some(user),
+            profile_load: AccountProfileLoad::Unavailable,
+            credit_balance: CreditBalanceLoad::Unavailable,
+        } });
 
         assert!(html.contains("0xverified-owner"));
         assert!(html.contains(">SIWE<"));
@@ -1034,15 +1619,160 @@ mod tests {
     fn stats_escape_the_verified_owner_and_signed_out_navigation_is_native() {
         let mut user = authed_ctx().user.expect("test session");
         user.address = "<script>alert('owner')</script>".to_string();
-        let escaped = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: Some(user) } });
+        let escaped = dioxus_ssr::render_element(rsx! { AccountStatsRow {
+            user: Some(user),
+            profile_load: AccountProfileLoad::Unavailable,
+            credit_balance: CreditBalanceLoad::Unavailable,
+        } });
         assert!(!escaped.contains("<script>alert('owner')</script>"));
         assert!(escaped.contains("&#60;script&#62;alert(&#39;owner&#39;)&#60;/script&#62;"));
 
-        let signed_out = dioxus_ssr::render_element(rsx! { AccountStatsRow { user: None } });
+        let signed_out = dioxus_ssr::render_element(rsx! { AccountStatsRow {
+            user: None,
+            profile_load: AccountProfileLoad::Unavailable,
+            credit_balance: CreditBalanceLoad::SignedOut,
+        } });
         assert!(signed_out.contains("data-account-stat-state=\"signed-out\""));
         assert!(signed_out.contains("href=\"/auth?return_url=%2Faccount\""));
         assert!(!signed_out.contains("Not Connected"));
         assert_account_stats_fail_closed(&signed_out);
+    }
+
+    #[test]
+    fn verified_account_sources_render_profile_access_credit_and_plan_payment() {
+        let mut ctx = authed_ctx();
+        ctx.params.insert(
+            ACCOUNT_PROFILE_STATE_PARAM.to_string(),
+            ACCOUNT_DATA_READY.to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_PROFILE_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "wallet_address": "0x1234ABCD",
+                    "permissions": ["epsx:analytics:view"],
+                    "auth_method": "web3_siwe",
+                    "created_at": "2026-01-08T15:43:39Z",
+                    "last_login": "2026-08-21T18:56:22Z"
+                },
+                "meta": {}
+            })
+            .to_string(),
+        );
+        ctx.params.insert(
+            crate::pages::account_credits::ACCOUNT_CREDIT_BALANCE_STATE_PARAM.to_string(),
+            crate::pages::account_credits::ACCOUNT_CREDIT_READY.to_string(),
+        );
+        ctx.params.insert(
+            crate::pages::account_credits::ACCOUNT_CREDIT_BALANCE_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "wallet_address": "0x1234abcd",
+                "balance": "0",
+                "pending_balance": "0",
+                "available_balance": "0",
+                "lifetime_earned": "0",
+                "lifetime_spent": "0",
+                "last_transaction_at": null
+            })
+            .to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_ACCESS_STATE_PARAM.to_string(),
+            ACCOUNT_DATA_READY.to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_ACCESS_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "current_tier": "1 Day Package",
+                    "groups": [{
+                        "id": "plan-1",
+                        "name": "1 Day Package",
+                        "description": null,
+                        "expires_at": "2026-08-22T18:17:17Z",
+                        "permissions": ["epsx:analytics:view", "epsx:trading:basic"],
+                        "source_type": "plan",
+                        "assigned_at": "2026-08-21T18:17:17Z",
+                        "assigned_by": null,
+                        "days_remaining": 0,
+                        "can_renew": false,
+                        "renewal_price": null,
+                        "billing_cycle": null,
+                        "tier_level": 0
+                    }],
+                    "direct_permissions": []
+                },
+                "meta": {}
+            })
+            .to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_PLAN_PAYMENTS_STATE_PARAM.to_string(),
+            ACCOUNT_DATA_READY.to_string(),
+        );
+        ctx.params.insert(
+            ACCOUNT_PLAN_PAYMENTS_DATA_PARAM.to_string(),
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "payments": [{
+                        "id": "payment-1",
+                        "amount": 1.0,
+                        "currency": "USDT",
+                        "status": "confirmed",
+                        "tx_hash": "0xabc",
+                        "plan_name": "1 Day Package",
+                        "permissions_granted": [],
+                        "created_at": "2026-08-21T18:17:16Z",
+                        "completed_at": "2026-08-21T18:17:17Z",
+                        "payment_reference": "PAY-123"
+                    }],
+                    "pagination": {"page": 1, "per_page": 10, "total": 1, "total_pages": 1}
+                }
+            })
+            .to_string(),
+        );
+
+        let html = render_html(&ctx);
+        assert!(html.contains(">2026-01-08<"));
+        assert!(html.contains(">0 credits<"));
+        assert!(html.contains("data-access-state=\"ready\""));
+        assert!(html.contains("1 Day Package"));
+        assert!(html.contains("epsx:analytics:view"));
+        assert!(html.contains("data-plan-payments-state=\"ready\""));
+        assert!(html.contains("confirmed"));
+        assert!(html.contains("PAY-123"));
+    }
+
+    #[test]
+    fn account_decoders_reject_wrong_owner_and_inconsistent_payment_pagination() {
+        assert!(decode_account_profile(
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "wallet_address": "0xother",
+                    "permissions": [],
+                    "auth_method": "web3_siwe",
+                    "created_at": "2026-01-08T15:43:39Z",
+                    "last_login": "2026-08-21T18:56:22Z"
+                }
+            }),
+            "0x1234abcd"
+        )
+        .is_none());
+        assert!(decode_account_plan_payments(
+            serde_json::json!({
+                "success": true,
+                "data": {
+                    "payments": [],
+                    "pagination": {"page": 1, "per_page": 10, "total": 1, "total_pages": 1}
+                }
+            }),
+            10
+        )
+        .is_none());
     }
 
     #[test]
@@ -1183,8 +1913,8 @@ mod tests {
     fn payment_history_missing_payload_is_unavailable_not_empty() {
         let (_meta, element) = render(&authed_ctx());
         let html = dioxus_ssr::render_element(element);
-        assert!(html.contains("Payment history is temporarily unavailable"));
-        assert!(!html.contains("No payment history yet"));
+        assert!(html.contains("Payment intents and escrows are temporarily unavailable"));
+        assert!(!html.contains("No payment intents or escrows yet"));
     }
 
     #[test]
@@ -1213,7 +1943,7 @@ mod tests {
         let (_meta, element) = render(&ctx);
         let html = dioxus_ssr::render_element(element);
         assert!(html.contains("Sign in to view payment history"));
-        assert!(!html.contains("No payment history yet"));
+        assert!(!html.contains("No payment intents or escrows yet"));
     }
 
     #[test]

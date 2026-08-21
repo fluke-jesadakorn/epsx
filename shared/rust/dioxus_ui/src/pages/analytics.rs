@@ -90,6 +90,8 @@ pub struct AnalyticsMetadata {
 pub struct AnalyticsAccessInfo {
     pub min_accessible_rank: i32,
     pub locked_ranks_count: i32,
+    #[serde(default)]
+    pub max_accessible_rank: Option<i32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
@@ -224,7 +226,12 @@ impl AnalyticsResponse {
             return Err(AnalyticsValidationError);
         }
         if let Some(access) = &self.access_info {
-            if access.min_accessible_rank < 0 || access.locked_ranks_count < 0 {
+            if access.min_accessible_rank < 0
+                || access.locked_ranks_count < 0
+                || access
+                    .max_accessible_rank
+                    .is_some_and(|maximum| maximum < access.min_accessible_rank)
+            {
                 return Err(AnalyticsValidationError);
             }
         }
@@ -556,7 +563,9 @@ fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
 #[component]
 fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
     let viewing = access.as_ref().map(|access| {
-        if access.min_accessible_rank <= 1 {
+        if let Some(maximum) = access.max_accessible_rank {
+            format!("Ranks {}-{maximum}", access.min_accessible_rank.max(1))
+        } else if access.min_accessible_rank <= 1 {
             "All ranks".to_string()
         } else {
             format!("Ranks {}+", access.min_accessible_rank)
@@ -1060,7 +1069,8 @@ mod tests {
             },
             "access_info": {
                 "min_accessible_rank": 100,
-                "locked_ranks_count": 99
+                "locked_ranks_count": 99,
+                "max_accessible_rank": null
             },
             "message": "live",
             "processing_time_ms": 3

@@ -199,7 +199,7 @@ fn CheckoutContent(checkout: PlanCheckoutData, session_wallet: String) -> Elemen
                         button {
                             class: "mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-4 text-base font-black text-white shadow-lg transition hover:from-violet-700 hover:to-blue-700 disabled:cursor-not-allowed disabled:opacity-60",
                             r#type: "button",
-                            "data-action": "submit-plan-payment",
+                            "data-epsx-action": "submit-plan-payment",
                             "data-plan-id": plan.id.clone(),
                             "data-amount": plan.checkout_price.clone(),
                             "data-currency": plan.settlement_currency.clone(),
@@ -356,7 +356,7 @@ mod tests {
                 session_wallet: "0x1111111111111111111111111111111111111111".to_string()
             }
         });
-        assert!(html.contains("data-action=\"submit-plan-payment\""));
+        assert!(html.contains("data-epsx-action=\"submit-plan-payment\""));
         assert!(html.contains("Ranks 6-10"));
         assert!(html.contains("1.00"));
         assert!(html.contains("USDT"));
