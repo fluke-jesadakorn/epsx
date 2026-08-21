@@ -102,26 +102,30 @@ pub async fn get_unified_analytics_rankings_cached(
     // authority decision may select its rank range. Treating an authority
     // outage as free access would turn an operational failure into a false plan
     // decision and still amplify the request into market-provider work.
-    let rank_offset =
-        resolve_market_ranking_offset(permission_service.as_ref(), wallet_address.as_deref())
+    let access =
+        resolve_market_ranking_access(permission_service.as_ref(), wallet_address.as_deref())
             .await?;
-    let limit_cap = -1;
 
     debug!(
         "Rankings permission config resolved: offset={}, limit_cap={}",
-        rank_offset, limit_cap
+        access.rank_offset, access.rankings_limit
     );
 
     // `min_eps` and `min_growth` remain explicit A2.5 residuals until
     // the provider contract can enforce them instead of silently ignoring them.
-    let prepared = prepare_market_rankings_request(&params, rank_offset, is_authenticated)?;
+    let prepared = prepare_market_rankings_request(
+        &params,
+        access.rank_offset,
+        access.rankings_limit,
+        is_authenticated,
+    )?;
     let page = prepared.page;
-    let limit = prepared.request.limit;
+    let limit = prepared.page_size;
     let skip = prepared.request.skip;
     let rank_start = prepared.rank_start;
 
     // Generate cache key for this request (includes rank_offset so different plans get separate caches)
-    let cache_key = generate_cache_key(&params, rank_offset);
+    let cache_key = generate_cache_key(&params, access.rank_offset, access.rankings_limit);
     debug!("Generated cache key: {}", cache_key);
 
     // CACHE DISABLED FOR SECURITY CONTROL (Always fetch fresh from DB/TradingView)
@@ -144,7 +148,7 @@ pub async fn get_unified_analytics_rankings_cached(
     let MarketRankingsPage { items, total } =
         fetch_market_rankings(rankings_provider.as_ref(), prepared.request).await?;
     let (total_count, total_pages, has_next, has_prev) =
-        accessible_pagination(total, rank_start, page, limit);
+        accessible_pagination(total, rank_start, access.rankings_limit, page, limit);
     let card_data = map_market_rankings_to_cards(items, skip);
 
     // Prepare metadata - using direct TradingView API
@@ -197,8 +201,8 @@ pub async fn get_unified_analytics_rankings_cached(
         },
         metadata,
         access_info: Some(AccessInfo {
-            min_accessible_rank: rank_offset.max(0).saturating_add(1),
-            locked_ranks_count: rank_offset.max(0),
+            min_accessible_rank: access.rank_offset.max(0).saturating_add(1),
+            locked_ranks_count: access.rank_offset.max(0),
         }),
         message: Some(format!(
             "Fetched {} card dashboard rankings successfully from TradingView API",
@@ -224,15 +228,24 @@ pub async fn get_unified_analytics_rankings_cached(
 
 const RANKING_AUTHORITY_UNAVAILABLE_MESSAGE: &str = "Ranking access authority unavailable";
 
-async fn resolve_market_ranking_offset(
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct MarketRankingAccess {
+    rank_offset: i32,
+    rankings_limit: i32,
+}
+
+async fn resolve_market_ranking_access(
     permission_service: &dyn WalletRankingOffsetQuery,
     wallet_address: Option<&str>,
-) -> Result<i32, AppError> {
+) -> Result<MarketRankingAccess, AppError> {
     let Some(wallet) = wallet_address else {
-        return Ok(epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET);
+        return Ok(MarketRankingAccess {
+            rank_offset: epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET,
+            rankings_limit: epsx_contracts::constants::FREE_PLAN_RANKINGS_LIMIT,
+        });
     };
 
-    permission_service
+    let rank_offset = permission_service
         .get_wallet_ranking_offset(wallet)
         .await
         .map(|offset| offset.value())
@@ -242,12 +255,35 @@ async fn resolve_market_ranking_offset(
                 ErrorKind::ServiceUnavailable,
                 RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
             )
-        })
+        })?;
+    let rankings_limit = permission_service
+        .get_wallet_rankings_limit(wallet)
+        .await
+        .map_err(|_| {
+            warn!("Analytics ranking limit authority unavailable");
+            AppError::new(
+                ErrorKind::ServiceUnavailable,
+                RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+            )
+        })?;
+    if rankings_limit != -1 && !(1..=10_000).contains(&rankings_limit) {
+        warn!("Analytics ranking limit authority returned invalid data");
+        return Err(AppError::new(
+            ErrorKind::ServiceUnavailable,
+            RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+        ));
+    }
+
+    Ok(MarketRankingAccess {
+        rank_offset,
+        rankings_limit,
+    })
 }
 
 #[derive(Debug, PartialEq)]
 struct PreparedMarketRankingsQuery {
     page: i32,
+    page_size: i32,
     rank_start: i32,
     request: MarketRankingsRequest,
 }
@@ -255,10 +291,20 @@ struct PreparedMarketRankingsQuery {
 fn prepare_market_rankings_request(
     params: &EPSRankingQueryParams,
     rank_offset: i32,
+    rankings_limit: i32,
     is_authenticated: bool,
 ) -> Result<PreparedMarketRankingsQuery, AppError> {
-    let limit_cap = if is_authenticated { 100 } else { 10 };
-    let limit = params.limit.unwrap_or(10).clamp(1, limit_cap);
+    let transport_cap = if is_authenticated { 100 } else { 10 };
+    let entitlement_cap = if rankings_limit == -1 {
+        transport_cap
+    } else {
+        rankings_limit.clamp(1, transport_cap)
+    };
+    let page_size = params
+        .limit
+        .unwrap_or(10)
+        .clamp(1, transport_cap)
+        .min(entitlement_cap);
     let page = params.page.unwrap_or(1).max(1);
     let sort_by = normalize_market_rankings_sort(params.sort_by.as_deref())?;
 
@@ -269,18 +315,29 @@ fn prepare_market_rankings_request(
         .checked_sub(1)
         .ok_or_else(rankings_pagination_overflow)?;
     let page_skip = page_index
-        .checked_mul(limit)
+        .checked_mul(page_size)
         .ok_or_else(rankings_pagination_overflow)?;
+    if rankings_limit != -1 && page_skip >= rankings_limit {
+        return Err(AppError::validation_error(
+            "Analytics rankings page exceeds plan access",
+        ));
+    }
     let skip = rank_start
         .checked_add(page_skip)
         .ok_or_else(rankings_pagination_overflow)?;
+    let request_limit = if rankings_limit == -1 {
+        page_size
+    } else {
+        page_size.min(rankings_limit.saturating_sub(page_skip))
+    };
 
     Ok(PreparedMarketRankingsQuery {
         page,
+        page_size,
         rank_start,
         request: MarketRankingsRequest {
             skip,
-            limit,
+            limit: request_limit,
             country: params.country.clone(),
             sector: params.sector.clone(),
             sort_by: Some(sort_by),
@@ -309,10 +366,16 @@ fn rankings_pagination_overflow() -> AppError {
 fn accessible_pagination(
     provider_total: i32,
     rank_start: i32,
+    rankings_limit: i32,
     page: i32,
     limit: i32,
 ) -> (i32, i32, bool, bool) {
-    let accessible_total = provider_total.saturating_sub(rank_start).max(0);
+    let provider_accessible = provider_total.saturating_sub(rank_start).max(0);
+    let accessible_total = if rankings_limit == -1 {
+        provider_accessible
+    } else {
+        provider_accessible.min(rankings_limit.max(0))
+    };
     let total_pages =
         ((i64::from(accessible_total) + i64::from(limit) - 1) / i64::from(limit)) as i32;
 
@@ -377,12 +440,17 @@ fn map_market_rankings_to_cards(
         .collect()
 }
 
-/// Generate cache key from query parameters and rank offset for analytics rankings/// Generate cache key from query parameters and rank offset for analytics rankings
-pub fn generate_cache_key(params: &EPSRankingQueryParams, rank_offset: i32) -> String {
+/// Generate a cache key from query parameters and the resolved plan inventory.
+pub fn generate_cache_key(
+    params: &EPSRankingQueryParams,
+    rank_offset: i32,
+    rankings_limit: i32,
+) -> String {
     let mut hasher = DefaultHasher::new();
 
     // Hash rank_offset so different plan tiers get separate caches
     rank_offset.hash(&mut hasher);
+    rankings_limit.hash(&mut hasher);
 
     // Hash relevant parameters
     params.country.hash(&mut hasher);
@@ -447,8 +515,10 @@ mod tests {
 
     struct A2_6Authority {
         calls: AtomicUsize,
+        limit_calls: AtomicUsize,
         wallet: Mutex<Option<String>>,
         result: Result<RankingOffset, AppError>,
+        limit_result: Result<i32, AppError>,
     }
 
     #[async_trait::async_trait]
@@ -460,6 +530,11 @@ mod tests {
             self.calls.fetch_add(1, Ordering::SeqCst);
             *self.wallet.lock().expect("wallet recorder lock") = Some(wallet_address.to_string());
             self.result.clone()
+        }
+
+        async fn get_wallet_rankings_limit(&self, _wallet_address: &str) -> Result<i32, AppError> {
+            self.limit_calls.fetch_add(1, Ordering::SeqCst);
+            self.limit_result.clone()
         }
     }
 
@@ -522,46 +597,81 @@ mod tests {
             min_growth: None,
         };
 
-        let cache_key = generate_cache_key(&params, 100);
+        let cache_key = generate_cache_key(&params, 100, 5);
         assert!(cache_key.starts_with("analytics:rankings:"));
         assert!(cache_key.len() > 20); // Should be a hex hash
 
         // Same params + offset should generate same key
-        let cache_key2 = generate_cache_key(&params, 100);
+        let cache_key2 = generate_cache_key(&params, 100, 5);
         assert_eq!(cache_key, cache_key2);
 
         // Different offset should generate different key
-        let cache_key3 = generate_cache_key(&params, 0);
+        let cache_key3 = generate_cache_key(&params, 0, -1);
         assert_ne!(cache_key, cache_key3);
+
+        // Plans with the same starting rank but different inventory must
+        // never share a cached entitlement response.
+        let different_inventory = generate_cache_key(&params, 100, 25);
+        assert_ne!(cache_key, different_inventory);
     }
 
     #[test]
-    fn a2_5_anonymous_limit_is_capped_at_ten() {
+    fn a2_5_anonymous_limit_is_capped_by_free_entitlement() {
         let prepared =
-            prepare_market_rankings_request(&a2_5_params(Some(1), Some(100), None), 100, false)
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(100), None), 100, 5, false)
                 .expect("anonymous request should be valid");
 
         assert_eq!(prepared.page, 1);
-        assert_eq!(prepared.request.limit, 10);
+        assert_eq!(prepared.request.limit, 5);
         assert_eq!(prepared.request.skip, 100);
     }
 
     #[test]
     fn a2_5_authenticated_limit_is_capped_at_one_hundred() {
         let prepared =
-            prepare_market_rankings_request(&a2_5_params(Some(1), Some(1_000), None), 1, true)
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(1_000), None), 1, -1, true)
                 .expect("authenticated request should be valid");
 
         assert_eq!(prepared.request.limit, 100);
         assert_eq!(prepared.request.skip, 1);
     }
 
+    #[test]
+    fn a2_5_plan_inventory_caps_results_and_rejects_later_pages() {
+        let first_page =
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(10), None), 5, 5, true)
+                .expect("first entitlement page should be valid");
+        assert_eq!(first_page.page_size, 5);
+        assert_eq!(first_page.request.skip, 5);
+        assert_eq!(first_page.request.limit, 5);
+
+        let error =
+            prepare_market_rankings_request(&a2_5_params(Some(2), Some(10), None), 5, 5, true)
+                .expect_err("a second page would exceed the five-row plan inventory");
+        assert_eq!(error.kind, ErrorKind::ValidationError);
+        assert_eq!(error.message, "Analytics rankings page exceeds plan access");
+    }
+
+    #[test]
+    fn a2_5_partial_final_page_never_exposes_rows_past_plan_inventory() {
+        let final_page =
+            prepare_market_rankings_request(&a2_5_params(Some(3), Some(10), None), 1, 25, true)
+                .expect("the partial final page should be valid");
+        assert_eq!(final_page.request.skip, 21);
+        assert_eq!(final_page.request.limit, 5);
+        assert_eq!(final_page.page_size, 10);
+    }
+
     #[tokio::test]
     async fn a2_6_anonymous_bypasses_authority_and_keeps_free_input() {
         let authority = Arc::new(A2_6Authority {
             calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
             wallet: Mutex::new(None),
             result: Err(AppError::database_error(
+                "authority details must be unreachable for anonymous input",
+            )),
+            limit_result: Err(AppError::database_error(
                 "authority details must be unreachable for anonymous input",
             )),
         });
@@ -581,29 +691,32 @@ mod tests {
         .expect("anonymous rankings should remain available");
 
         assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
         assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
         let requests = provider.requests.lock().expect("provider requests lock");
         assert_eq!(
             requests.as_slice(),
             &[MarketRankingsRequest {
-                skip: 99,
-                limit: 10,
+                skip: 100,
+                limit: 5,
                 country: Some("america".to_string()),
                 sector: Some("Technology".to_string()),
                 sort_by: Some("eps_growth".to_string()),
             }]
         );
         let access = response.access_info.expect("anonymous access info");
-        assert_eq!(access.min_accessible_rank, 100);
-        assert_eq!(access.locked_ranks_count, 99);
+        assert_eq!(access.min_accessible_rank, 101);
+        assert_eq!(access.locked_ranks_count, 100);
     }
 
     #[tokio::test]
     async fn a2_6_authenticated_authoritative_offset_proceeds() {
         let authority = Arc::new(A2_6Authority {
             calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
             wallet: Mutex::new(None),
             result: Ok(RankingOffset::new(5).expect("valid offset")),
+            limit_result: Ok(-1),
         });
         let provider = Arc::new(A2_6RecordingProvider {
             calls: AtomicUsize::new(0),
@@ -621,6 +734,7 @@ mod tests {
         .expect("authoritative offset should proceed");
 
         assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 1);
         assert_eq!(
             authority
                 .wallet
@@ -631,19 +745,21 @@ mod tests {
         );
         assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
         let requests = provider.requests.lock().expect("provider requests lock");
-        assert_eq!(requests[0].skip, 104);
+        assert_eq!(requests[0].skip, 105);
         assert_eq!(requests[0].limit, 100);
         let access = response.access_info.expect("authenticated access info");
-        assert_eq!(access.min_accessible_rank, 5);
-        assert_eq!(access.locked_ranks_count, 4);
+        assert_eq!(access.min_accessible_rank, 6);
+        assert_eq!(access.locked_ranks_count, 5);
     }
 
     #[tokio::test]
     async fn a2_6_authenticated_no_plan_is_explicit_free_success() {
         let authority = Arc::new(A2_6Authority {
             calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
             wallet: Mutex::new(None),
             result: Ok(RankingOffset::free_plan()),
+            limit_result: Ok(epsx_contracts::constants::FREE_PLAN_RANKINGS_LIMIT),
         });
         let provider = Arc::new(A2_6RecordingProvider {
             calls: AtomicUsize::new(0),
@@ -661,14 +777,19 @@ mod tests {
         .expect("explicit free-plan authority success should proceed");
 
         assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 1);
         assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
         assert_eq!(
             provider.requests.lock().expect("provider requests lock")[0].skip,
-            99
+            100
+        );
+        assert_eq!(
+            provider.requests.lock().expect("provider requests lock")[0].limit,
+            5
         );
         let access = response.access_info.expect("free-plan access info");
-        assert_eq!(access.min_accessible_rank, 100);
-        assert_eq!(access.locked_ranks_count, 99);
+        assert_eq!(access.min_accessible_rank, 101);
+        assert_eq!(access.locked_ranks_count, 100);
     }
 
     #[tokio::test]
@@ -685,8 +806,10 @@ mod tests {
         for failure in failures {
             let authority = Arc::new(A2_6Authority {
                 calls: AtomicUsize::new(0),
+                limit_calls: AtomicUsize::new(0),
                 wallet: Mutex::new(None),
                 result: Err(failure),
+                limit_result: Ok(-1),
             });
             let provider = Arc::new(A2_6RecordingProvider {
                 calls: AtomicUsize::new(0),
@@ -704,6 +827,7 @@ mod tests {
             .expect_err("authority failure must fail closed");
 
             assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+            assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
             assert_eq!(error.kind, ErrorKind::ServiceUnavailable);
             assert_eq!(error.message, RANKING_AUTHORITY_UNAVAILABLE_MESSAGE);
             assert!(!error.message.contains("sensitive"));
@@ -724,6 +848,7 @@ mod tests {
         let prepared = prepare_market_rankings_request(
             &a2_5_params(Some(i32::MAX), Some(100), None),
             100,
+            -1,
             true,
         );
 
@@ -783,6 +908,7 @@ mod tests {
         let error = prepare_market_rankings_request(
             &a2_5_params(Some(1), Some(10), Some("unsupported")),
             100,
+            5,
             false,
         )
         .expect_err("unknown sort must be rejected");
@@ -793,16 +919,16 @@ mod tests {
 
     #[test]
     fn a2_5_accessible_pagination_excludes_locked_ranks() {
-        let (total, total_pages, has_next, has_prev) = accessible_pagination(105, 99, 1, 10);
+        let (total, total_pages, has_next, has_prev) = accessible_pagination(105, 100, 5, 1, 5);
 
-        assert_eq!(total, 6);
+        assert_eq!(total, 5);
         assert_eq!(total_pages, 1);
         assert!(!has_next);
         assert!(!has_prev);
 
         for provider_total in [99, 25, 0] {
             let (total, total_pages, has_next, has_prev) =
-                accessible_pagination(provider_total, 99, 1, 10);
+                accessible_pagination(provider_total, 100, 5, 1, 5);
             assert_eq!(total, 0);
             assert_eq!(total_pages, 0);
             assert!(!has_next);
@@ -816,7 +942,7 @@ mod tests {
             calls: AtomicUsize::new(0),
         };
         let request =
-            prepare_market_rankings_request(&a2_5_params(Some(1), Some(10), None), 100, false)
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(10), None), 100, 5, false)
                 .expect("request should be valid")
                 .request;
 

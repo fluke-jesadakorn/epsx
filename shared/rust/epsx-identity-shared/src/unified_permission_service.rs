@@ -933,6 +933,102 @@ impl UnifiedPermissionService {
         info!("Wallet {} has ranking offset: {}", wallet_lower, min_offset);
         Ok(min_offset)
     }
+
+    /// Get the maximum ranking inventory granted by active plans.
+    /// A value of `-1` means unlimited; otherwise the highest valid limit
+    /// across active plans wins. Wallets without an active plan retain the
+    /// Free Plan cap.
+    pub async fn get_wallet_rankings_limit(&self, wallet_address: &str) -> Result<i32, AppError> {
+        let wallet_lower = wallet_address.to_lowercase();
+        debug!("Getting rankings limit for wallet: {}", wallet_lower);
+
+        let mut conn = self.db_pool.get().await.map_err(|e| {
+            error!("Pool error: {}", e);
+            AppError::database_error(format!("Pool error: {}", e))
+        })?;
+
+        #[derive(QueryableByName)]
+        struct PlanRow {
+            #[diesel(sql_type = diesel::sql_types::Jsonb)]
+            plan_metadata: serde_json::Value,
+            #[diesel(sql_type = diesel::sql_types::Uuid)]
+            plan_id: uuid::Uuid,
+        }
+
+        let rows = diesel::sql_query(
+            r#"
+            SELECT g.plan_metadata, g.id AS plan_id
+            FROM wallet_plan_assignments wpa
+            JOIN plans g ON wpa.plan_id = g.id
+            WHERE LOWER(wpa.wallet_address) = $1
+              AND wpa.is_active = TRUE
+              AND g.is_active = TRUE
+              AND (wpa.expires_at IS NULL OR wpa.expires_at > NOW())
+            "#,
+        )
+        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+        .load::<PlanRow>(&mut conn)
+        .await
+        .map_err(|e| {
+            error!("Database error fetching ranking limits: {}", e);
+            AppError::database_error(format!("Failed to fetch ranking limits: {}", e))
+        })?;
+
+        if rows.is_empty() {
+            return Ok(crate::constants::FREE_PLAN_RANKINGS_LIMIT);
+        }
+
+        let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|row| row.plan_id).collect();
+        #[derive(QueryableByName)]
+        struct PermRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            permission_string: String,
+        }
+        let permission_rows = diesel::sql_query(
+            r#"
+            SELECT p.permission_string
+            FROM plan_permissions pp
+            JOIN permissions p ON pp.permission_id = p.id
+            WHERE pp.plan_id = ANY($1)
+              AND p.permission_string LIKE 'epsx:rankings:limit:%'
+            "#,
+        )
+        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
+        .load::<PermRow>(&mut conn)
+        .await
+        .unwrap_or_default();
+
+        let mut maximum = crate::constants::FREE_PLAN_RANKINGS_LIMIT;
+        let mut record = |candidate: i64| {
+            if candidate == -1 {
+                maximum = -1;
+            } else if maximum != -1 && (1..=10_000).contains(&candidate) {
+                maximum = maximum.max(candidate as i32);
+            }
+        };
+
+        for row in &rows {
+            if let Some(limit) = row
+                .plan_metadata
+                .get("rankings_limit")
+                .and_then(serde_json::Value::as_i64)
+            {
+                record(limit);
+            }
+        }
+        for row in &permission_rows {
+            if let Some(raw) = row.permission_string.strip_prefix("epsx:rankings:limit:") {
+                if raw.eq_ignore_ascii_case("unlimited") {
+                    record(-1);
+                } else if let Ok(limit) = raw.parse::<i64>() {
+                    record(limit);
+                }
+            }
+        }
+
+        info!("Wallet {} has rankings limit: {}", wallet_lower, maximum);
+        Ok(maximum)
+    }
 }
 
 // ============================================================================

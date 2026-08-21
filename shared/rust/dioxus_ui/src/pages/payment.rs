@@ -128,11 +128,21 @@ fn ranking_limit_label(plan: &PublicPlan) -> String {
     }
 }
 
+fn ranking_range_label(plan: &PublicPlan) -> String {
+    let first_rank = first_visible_rank(plan.ranking_offset);
+    match plan.rankings_limit {
+        -1 => format!("Ranks {first_rank}+"),
+        limit => {
+            let last_rank = first_rank.saturating_add(limit.max(1)).saturating_sub(1);
+            format!("Ranks {first_rank}-{last_rank}")
+        }
+    }
+}
+
 #[component]
 fn CheckoutContent(checkout: PlanCheckoutData, session_wallet: String) -> Element {
     let plan = checkout.plan.clone();
     let chain_hex = format!("0x{:x}", checkout.chain_id);
-    let first_rank = first_visible_rank(plan.ranking_offset);
     let billing_cycle = plan.billing_cycle.replace('_', " ");
     rsx! {
         div {
@@ -162,7 +172,7 @@ fn CheckoutContent(checkout: PlanCheckoutData, session_wallet: String) -> Elemen
                         }
 
                         div { class: "mt-6 grid gap-3 sm:grid-cols-3",
-                            AccessFact { icon: "bar-chart-2".to_string(), title: format!("Ranks {first_rank}+"), body: "First stock rank visible".to_string() }
+                            AccessFact { icon: "bar-chart-2".to_string(), title: ranking_range_label(&plan), body: "Backend-enforced rank range".to_string() }
                             AccessFact { icon: "list".to_string(), title: ranking_limit_label(&plan), body: "Backend-enforced ranking range".to_string() }
                             AccessFact { icon: "clock".to_string(), title: duration_label(&plan), body: "Starts after confirmation".to_string() }
                         }
@@ -347,7 +357,7 @@ mod tests {
             }
         });
         assert!(html.contains("data-action=\"submit-plan-payment\""));
-        assert!(html.contains("Ranks 6+"));
+        assert!(html.contains("Ranks 6-10"));
         assert!(html.contains("1.00"));
         assert!(html.contains("USDT"));
         assert!(html.contains("1 day of access"));

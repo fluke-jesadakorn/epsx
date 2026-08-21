@@ -49,7 +49,12 @@ fn resolve_repo_root() -> Option<PathBuf> {
 
     current_dir
         .ancestors()
-        .find(|candidate| candidate.join("turbo.json").exists())
+        .find(|candidate| {
+            candidate.join("turbo.json").is_file()
+                || (candidate.join("Cargo.toml").is_file()
+                    && candidate.join("apps").is_dir()
+                    && candidate.join("shared").is_dir())
+        })
         .map(Path::to_path_buf)
 }
 

@@ -92,7 +92,7 @@ mod tests {
             min_growth: None,
         };
 
-        let cache_key = cache::generate_cache_key(&params, 100);
+        let cache_key = cache::generate_cache_key(&params, 100, 5);
         assert!(cache_key.starts_with("analytics:rankings:"));
         assert!(cache_key.len() > 20);
     }

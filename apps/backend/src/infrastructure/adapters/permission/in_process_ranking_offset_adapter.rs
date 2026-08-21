@@ -63,6 +63,13 @@ impl WalletRankingOffsetQuery for InProcessWalletRankingOffsetAdapter {
             .map_err(shared_app_error_to_port)?;
         Ok(RankingOffset::from(raw))
     }
+
+    async fn get_wallet_rankings_limit(&self, wallet: &str) -> AppResult<i32> {
+        self.service
+            .get_wallet_rankings_limit(wallet)
+            .await
+            .map_err(shared_app_error_to_port)
+    }
 }
 
 fn shared_app_error_to_port(err: InProcessAppError) -> AppError {

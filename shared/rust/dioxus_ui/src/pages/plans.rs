@@ -113,14 +113,13 @@ fn billing_label(value: &str) -> String {
 }
 
 fn ranking_access_label(plan: &PublicPlan) -> String {
-    let first_rank = if plan.ranking_offset <= 1 {
-        1
-    } else {
-        plan.ranking_offset.saturating_add(1)
-    };
+    let first_rank = plan.ranking_offset.max(0).saturating_add(1);
     match plan.rankings_limit {
         -1 => format!("Stock rankings from rank {first_rank} · unlimited inventory"),
-        limit => format!("Stock rankings from rank {first_rank} · up to {limit} results"),
+        limit => {
+            let last_rank = first_rank.saturating_add(limit.max(1)).saturating_sub(1);
+            format!("Stock rankings {first_rank}-{last_rank} · {limit} results")
+        }
     }
 }
 

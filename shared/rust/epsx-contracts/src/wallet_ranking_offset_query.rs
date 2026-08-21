@@ -44,6 +44,13 @@ pub trait WalletRankingOffsetQuery: Send + Sync {
     /// plain-hex wallet address; the adapter is responsible for
     /// any further normalization.
     async fn get_wallet_ranking_offset(&self, wallet: &str) -> AppResult<RankingOffset>;
+
+    /// Return the maximum number of ranking rows this wallet may browse.
+    /// `-1` means unlimited inventory. Implementations that have not yet
+    /// migrated to the full access policy fail closed to the Free Plan cap.
+    async fn get_wallet_rankings_limit(&self, _wallet: &str) -> AppResult<i32> {
+        Ok(crate::constants::FREE_PLAN_RANKINGS_LIMIT)
+    }
 }
 
 #[cfg(test)]
