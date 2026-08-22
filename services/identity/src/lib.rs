@@ -181,11 +181,7 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            let literal_permission = principal
-                .permissions
-                .iter()
-                .any(|permission| permission == required);
-            if principal.audience != ADMIN_AUDIENCE || !literal_permission {
+            if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(required) {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);
@@ -444,7 +440,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn user_routes_require_exact_admin_audience_and_literal_permissions() {
+    async fn user_routes_require_admin_audience_and_canonical_permissions() {
         let cases = [
             (Method::GET, "/api/v1/identity/users", "admin-read"),
             (Method::POST, "/api/v1/identity/users", "admin-create"),
@@ -471,15 +467,7 @@ mod tests {
                 StatusCode::UNAUTHORIZED,
                 "missing token for {method} {path}"
             );
-            for denied in [
-                "invalid",
-                "admin",
-                "admin-resource-wildcard",
-                "admin-domain-wildcard",
-                "admin-global-wildcard",
-                "frontend-read",
-                "other",
-            ] {
+            for denied in ["invalid", "admin", "frontend-read", "other"] {
                 let expected = if denied == "invalid" {
                     StatusCode::UNAUTHORIZED
                 } else {
@@ -491,16 +479,23 @@ mod tests {
                     "{denied} for {method} {path}"
                 );
             }
-            let allowed_request = if matches!(method, Method::POST | Method::PUT) {
-                json_request(method.clone(), path, Some(allowed))
-            } else {
-                request(method.clone(), path, Some(allowed))
-            };
-            assert_eq!(
-                status(&app, allowed_request).await,
-                StatusCode::NOT_FOUND,
-                "literal permission still stops before candidate semantics for {method} {path}"
-            );
+            for permitted in [
+                allowed,
+                "admin-resource-wildcard",
+                "admin-domain-wildcard",
+                "admin-global-wildcard",
+            ] {
+                let allowed_request = if matches!(method, Method::POST | Method::PUT) {
+                    json_request(method.clone(), path, Some(permitted))
+                } else {
+                    request(method.clone(), path, Some(permitted))
+                };
+                assert_eq!(
+                    status(&app, allowed_request).await,
+                    StatusCode::NOT_FOUND,
+                    "canonical permission must reach candidate semantics for {method} {path}"
+                );
+            }
         }
     }
 

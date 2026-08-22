@@ -20,12 +20,22 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use tracing::debug;
+use uuid::Uuid;
 
 use crate::{
     auth::OpenIDTokenError,
+    domain::developer_portal::{DeveloperEntitlementService, EffectiveApiRateLimits},
     infrastructure::adapters::repositories::developer_portal::ApiKeyRepository,
-    infrastructure::cache::redis_cache::get_perm_invalidated, web::auth::AppState,
+    infrastructure::cache::redis_cache::get_perm_invalidated,
+    web::auth::AppState,
 };
+
+#[derive(Debug, Clone)]
+pub struct ApiKeyIdentity {
+    pub id: Uuid,
+    pub effective_scopes: Vec<String>,
+    pub rate_limits: EffectiveApiRateLimits,
+}
 
 /// OpenID Bearer Token User Context
 /// Extracted from validated JWT access tokens
@@ -44,6 +54,8 @@ pub struct OpenIDUserContext {
     /// authentication policy of existing routes.
     #[serde(default, skip_serializing, skip_deserializing)]
     pub token_audiences: Option<Vec<String>>,
+    #[serde(default, skip_serializing, skip_deserializing)]
+    pub api_key: Option<ApiKeyIdentity>,
     /// Authentication method
     pub auth_method: String,
     /// JWT ID (unique token identifier)
@@ -104,6 +116,9 @@ pub async fn bearer_middleware(
     mut request: Request,
     next: Next,
 ) -> Result<Response, (StatusCode, Json<UnifiedErrorResponse>)> {
+    if request.extensions().get::<OpenIDUserContext>().is_some() {
+        return Ok(next.run(request).await);
+    }
     let token = match extract_bearer_token_from_headers(request.headers()) {
         Some(token) => token,
         None => {
@@ -175,6 +190,32 @@ pub async fn require_exact_admin_audience(request: Request, next: Next) -> Respo
     response.headers_mut().insert(
         WWW_AUTHENTICATE,
         HeaderValue::from_static("Bearer realm=\"admin\", error=\"invalid_token\""),
+    );
+    response
+}
+
+/// Developer-portal management is a browser-session surface. API keys and
+/// tokens minted for another audience are never valid management credentials.
+pub async fn require_exact_frontend_audience(request: Request, next: Next) -> Response {
+    let is_exact_frontend = request
+        .extensions()
+        .get::<OpenIDUserContext>()
+        .and_then(|context| context.token_audiences.as_deref())
+        .is_some_and(|audiences| matches!(audiences, [audience] if audience == "epsx-frontend"));
+
+    if is_exact_frontend {
+        return next.run(request).await;
+    }
+
+    let mut response = create_auth_error(
+        StatusCode::UNAUTHORIZED,
+        "Frontend session token required",
+        "A valid epsx-frontend JWT is required for developer portal management",
+    )
+    .into_response();
+    response.headers_mut().insert(
+        WWW_AUTHENTICATE,
+        HeaderValue::from_static("Bearer realm=\"frontend\", error=\"invalid_token\""),
     );
     response
 }
@@ -252,6 +293,7 @@ pub async fn validate_bearer_token(
         wallet_address: claims.wallet_address,
         permissions, // Parsed from OIDC scope claim
         token_audiences: Some(claims.aud),
+        api_key: None,
         auth_method: claims.auth_method,
         jti: claims.jti,
         exp: claims.exp,
@@ -360,21 +402,38 @@ async fn validate_api_key(
         ));
     }
 
-    // Merge selected_permissions + plan permissions
-    let mut permissions = api_key.selected_permissions.clone();
-    for plan in &api_key.permission_plans {
-        // Plan permissions are loaded via the plan's features — use plan slug as permission prefix
-        // The selected_permissions already contain the actual IAM strings
-        let _ = plan; // Plans provide context but permissions are stored in selected_permissions
+    // Re-evaluate delegated scopes against the owner's live normalized grants
+    // on every request. Downgrade, expiry, or removal takes effect at once.
+    let entitlement_service = DeveloperEntitlementService::new(*app_state.db_pool);
+    let (permissions, entitlement) = entitlement_service
+        .effective_key_scopes(&api_key.wallet_address, &api_key.selected_permissions)
+        .await
+        .map_err(|_| {
+            create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Invalid token",
+                "authentication_failed",
+            )
+        })?;
+    if permissions.is_empty() || !entitlement.has_active_api_entitlement {
+        return Err(create_auth_error(
+            StatusCode::UNAUTHORIZED,
+            "API entitlement inactive",
+            "api_entitlement_inactive",
+        ));
     }
-    permissions.dedup();
 
     let now = chrono::Utc::now();
     let ctx = OpenIDUserContext {
         sub: api_key.wallet_address.clone(),
         wallet_address: api_key.wallet_address,
-        permissions,
+        permissions: permissions.clone(),
         token_audiences: None,
+        api_key: Some(ApiKeyIdentity {
+            id: api_key.id,
+            effective_scopes: permissions.clone(),
+            rate_limits: entitlement.rate_limits,
+        }),
         auth_method: "api_key".to_string(),
         jti: api_key.id.to_string(),
         exp: api_key
@@ -402,6 +461,9 @@ pub async fn optional_bearer_middleware(
     mut request: Request,
     next: Next,
 ) -> Response {
+    if request.extensions().get::<OpenIDUserContext>().is_some() {
+        return next.run(request).await;
+    }
     // Try to extract and validate token, but don't fail if missing
     let auth_header = request
         .headers()
@@ -409,27 +471,38 @@ pub async fn optional_bearer_middleware(
         .and_then(|header| header.to_str().ok());
 
     if let Some(header) = auth_header {
-        if let Some(token) = header.strip_prefix("Bearer ") {
-            if !token.is_empty() {
-                // Try JWT first, then API key fallback
-                match validate_bearer_token(token, &app_state).await {
+        let Some(token) = header
+            .strip_prefix("Bearer ")
+            .filter(|token| !token.is_empty())
+        else {
+            return create_auth_error(
+                StatusCode::UNAUTHORIZED,
+                "Invalid token format",
+                "Authorization must contain a non-empty Bearer credential",
+            )
+            .into_response();
+        };
+        // Try JWT first, then API key fallback
+        match validate_bearer_token(token, &app_state).await {
+            Ok(ctx) => {
+                debug!(
+                    "Optional auth: JWT validated for user: {}",
+                    ctx.wallet_address
+                );
+                request.extensions_mut().insert(ctx);
+            }
+            Err(_) => {
+                // A presented credential must never silently degrade to
+                // anonymous access when validation fails.
+                match validate_api_key(token, &app_state).await {
                     Ok(ctx) => {
                         debug!(
-                            "Optional auth: JWT validated for user: {}",
+                            "Optional auth: API key validated for user: {}",
                             ctx.wallet_address
                         );
                         request.extensions_mut().insert(ctx);
                     }
-                    Err(_) => {
-                        // JWT failed — try API key
-                        if let Ok(ctx) = validate_api_key(token, &app_state).await {
-                            debug!(
-                                "Optional auth: API key validated for user: {}",
-                                ctx.wallet_address
-                            );
-                            request.extensions_mut().insert(ctx);
-                        }
-                    }
+                    Err(error) => return error.into_response(),
                 }
             }
         }
@@ -487,6 +560,7 @@ mod tests {
                 "epsx:export:csv".to_string(),
             ],
             token_audiences: Some(vec!["epsx-frontend".to_string()]),
+            api_key: None,
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 0,
@@ -505,6 +579,7 @@ mod tests {
             wallet_address: "0x456".to_string(),
             permissions: vec!["admin:*:*".to_string()],
             token_audiences: Some(vec!["epsx-admin".to_string()]),
+            api_key: None,
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 0,
@@ -532,6 +607,7 @@ mod tests {
             wallet_address: "0x789".to_string(),
             permissions: vec!["admin:users:*".to_string()],
             token_audiences: Some(vec!["epsx-admin".to_string()]),
+            api_key: None,
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 0,
@@ -555,6 +631,7 @@ mod tests {
             permissions: permissions.into_iter().map(str::to_string).collect(),
             token_audiences: token_audiences
                 .map(|audiences| audiences.into_iter().map(str::to_string).collect()),
+            api_key: None,
             auth_method: "web3_siwe".to_string(),
             jti: "test".to_string(),
             exp: 9_999_999_999,
@@ -606,12 +683,28 @@ mod tests {
         (status, challenge, String::from_utf8(body.to_vec()).unwrap())
     }
 
+    async fn frontend_guard_status(context: OpenIDUserContext) -> StatusCode {
+        use axum::{body::Body, middleware::from_fn, routing::get, Router};
+        use tower::ServiceExt;
+
+        let app = Router::new()
+            .route("/test", get(|| async { StatusCode::OK }))
+            .layer(from_fn(require_exact_frontend_audience));
+        let mut request = axum::http::Request::builder()
+            .uri("/test")
+            .body(Body::empty())
+            .unwrap();
+        request.extensions_mut().insert(context);
+        app.oneshot(request).await.unwrap().status()
+    }
+
     #[test]
     fn token_audiences_are_server_only_context() {
         let context = guard_context(Some(vec!["epsx-admin"]), vec!["admin:dashboard:view"]);
         let serialized = serde_json::to_value(context).unwrap();
 
         assert!(serialized.get("token_audiences").is_none());
+        assert!(serialized.get("api_key").is_none());
     }
 
     #[tokio::test]
@@ -676,5 +769,23 @@ mod tests {
             guarded_status(Some(exact_audience_with_permission)).await.0,
             StatusCode::OK
         );
+    }
+
+    #[tokio::test]
+    async fn developer_management_accepts_only_exact_frontend_jwt_audience() {
+        assert_eq!(
+            frontend_guard_status(guard_context(Some(vec!["epsx-frontend"]), vec![])).await,
+            StatusCode::OK
+        );
+        for audiences in [
+            None,
+            Some(vec!["epsx-api"]),
+            Some(vec!["epsx-frontend", "epsx-api"]),
+        ] {
+            assert_eq!(
+                frontend_guard_status(guard_context(audiences, vec![])).await,
+                StatusCode::UNAUTHORIZED
+            );
+        }
     }
 }

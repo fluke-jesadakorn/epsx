@@ -4,7 +4,8 @@
 //! owns only typed transport, bounds, and backend projection validation.
 
 use epsx_dioxus_ui::pages::admin_pages::chat::{
-    decode_admin_chat_detail, decode_admin_chat_list, AdminChatDetail, AdminChatList,
+    decode_admin_chat_detail, decode_admin_chat_inbox, AdminChatDetail, AdminChatInbox,
+    AdminChatList, AdminChatStats, AdminChatTopicSummary,
 };
 use reqwest::{StatusCode, Url};
 use serde::{de::DeserializeOwned, Deserialize};
@@ -12,6 +13,8 @@ use serde::{de::DeserializeOwned, Deserialize};
 const CHAT_LIST_PATH: &str = "/api/admin/chat/conversations";
 const CHAT_DETAIL_PATH: &str = "/api/admin/chat/conversations/";
 const CHAT_MESSAGES_SUFFIX: &str = "/messages";
+const CHAT_STATS_PATH: &str = "/api/admin/chat/stats";
+const CHAT_TOPICS_PATH: &str = "/api/admin/chat/topics";
 const DEFAULT_LIMIT: u32 = 20;
 const MAX_PAGE: u32 = 50_001;
 const MAX_LIMIT: u32 = 50;
@@ -43,6 +46,10 @@ impl AdminChatQuery {
             }
             match key.as_ref() {
                 "status" => {
+                    if value.is_empty() {
+                        query.status = None;
+                        continue;
+                    }
                     if !matches!(
                         value.as_ref(),
                         "open" | "in_progress" | "resolved" | "closed"
@@ -52,6 +59,10 @@ impl AdminChatQuery {
                     query.status = Some(value.into_owned());
                 }
                 "topic_id" => {
+                    if value.is_empty() {
+                        query.topic_id = None;
+                        continue;
+                    }
                     let id = uuid::Uuid::parse_str(&value).map_err(|_| ())?;
                     query.topic_id = Some(id.to_string());
                 }
@@ -105,8 +116,8 @@ impl AdminChatQuery {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminChatListLoad {
-    Ready(AdminChatList),
-    Empty(AdminChatList),
+    Ready(AdminChatInbox),
+    Empty(AdminChatInbox),
     Forbidden,
     Unavailable,
     Malformed,
@@ -168,23 +179,47 @@ pub(crate) async fn load_admin_chat(
     query: &AdminChatQuery,
     ctx: &epsx_client::RequestContext,
 ) -> AdminChatListLoad {
-    let result = get_json::<AdminChatList>(client, &query.upstream_path(), ctx).await;
-    let payload = match result {
+    let list_path = query.upstream_path();
+    let (conversations, stats, topics) = tokio::join!(
+        get_json::<AdminChatList>(client, &list_path, ctx),
+        get_json::<AdminChatStats>(client, CHAT_STATS_PATH, ctx),
+        get_json::<Vec<AdminChatTopicSummary>>(client, CHAT_TOPICS_PATH, ctx),
+    );
+    let conversations = match conversations {
         Ok(payload) => payload,
-        Err(FetchError::Forbidden) => return AdminChatListLoad::Forbidden,
-        Err(FetchError::Unavailable) => return AdminChatListLoad::Unavailable,
-        Err(FetchError::Malformed) => return AdminChatListLoad::Malformed,
+        Err(error) => return classify_list_error(error),
+    };
+    let stats = match stats {
+        Ok(payload) => payload,
+        Err(error) => return classify_list_error(error),
+    };
+    let topics = match topics {
+        Ok(payload) => payload,
+        Err(error) => return classify_list_error(error),
+    };
+    let payload = AdminChatInbox {
+        conversations,
+        stats,
+        topics,
     };
     let Some(value) = serde_json::to_value(&payload).ok() else {
         return AdminChatListLoad::Malformed;
     };
-    if decode_admin_chat_list(value).is_none() {
+    if decode_admin_chat_inbox(value).is_none() {
         return AdminChatListLoad::Malformed;
     }
-    if payload.items.is_empty() && payload.total == 0 {
+    if payload.conversations.items.is_empty() && payload.conversations.total == 0 {
         AdminChatListLoad::Empty(payload)
     } else {
         AdminChatListLoad::Ready(payload)
+    }
+}
+
+fn classify_list_error(error: FetchError) -> AdminChatListLoad {
+    match error {
+        FetchError::Forbidden => AdminChatListLoad::Forbidden,
+        FetchError::Unavailable => AdminChatListLoad::Unavailable,
+        FetchError::Malformed => AdminChatListLoad::Malformed,
     }
 }
 
@@ -354,6 +389,9 @@ mod tests {
         ] {
             assert!(AdminChatQuery::from_raw(raw).is_err(), "accepted {raw}");
         }
+        let cleared = AdminChatQuery::from_raw("status=&topic_id=&limit=20").unwrap();
+        assert!(cleared.status.is_none());
+        assert!(cleared.topic_id.is_none());
     }
 
     #[test]

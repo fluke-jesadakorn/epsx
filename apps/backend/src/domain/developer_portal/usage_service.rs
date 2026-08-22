@@ -1,4 +1,4 @@
-use chrono::{DateTime, Datelike, Duration, Utc};
+use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
 use diesel::prelude::*;
 use diesel::sql_types::{Text, Timestamptz};
 use diesel::QueryableByName;
@@ -17,6 +17,35 @@ pub struct UsageStats {
     pub average_success_rate: f64,
     pub requests_24h: i64,
     pub error_rate_24h: f64,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct UsageReport {
+    pub days: i32,
+    pub total_requests: i64,
+    pub successful_requests: i64,
+    pub error_requests: i64,
+    pub success_rate: f64,
+    pub error_rate: f64,
+    pub average_response_time_ms: f64,
+    pub daily: Vec<DailyUsage>,
+    pub top_endpoints: Vec<EndpointReport>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct DailyUsage {
+    pub date: NaiveDate,
+    pub total_requests: i64,
+    pub error_requests: i64,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct EndpointReport {
+    pub endpoint: String,
+    pub method: String,
+    pub request_count: i64,
+    pub error_count: i64,
+    pub average_response_time_ms: f64,
 }
 
 /// Time-bucketed usage data point
@@ -58,6 +87,33 @@ pub struct UsageService {
     analytics_pool: DbPool,
 }
 
+fn pool_error(error: impl std::fmt::Display) -> diesel::result::Error {
+    diesel::result::Error::DatabaseError(
+        diesel::result::DatabaseErrorKind::UnableToSendCommand,
+        Box::new(error.to_string()),
+    )
+}
+
+fn empty_report(days: i32, start_date: NaiveDate) -> UsageReport {
+    UsageReport {
+        days,
+        total_requests: 0,
+        successful_requests: 0,
+        error_requests: 0,
+        success_rate: 0.0,
+        error_rate: 0.0,
+        average_response_time_ms: 0.0,
+        daily: (0..days)
+            .map(|offset| DailyUsage {
+                date: start_date + Duration::days(i64::from(offset)),
+                total_requests: 0,
+                error_requests: 0,
+            })
+            .collect(),
+        top_endpoints: Vec::new(),
+    }
+}
+
 impl UsageService {
     /// Create a new usage service with dual database pools
     pub fn new(core_pool: DbPool, analytics_pool: DbPool) -> Self {
@@ -74,6 +130,159 @@ impl UsageService {
             core_pool,
             analytics_pool: core_pool, // Same pool, will fail on analytics-specific tables
         }
+    }
+
+    pub async fn get_report(
+        &self,
+        wallet_address: &str,
+        days: i32,
+    ) -> Result<UsageReport, diesel::result::Error> {
+        if !matches!(days, 7 | 30 | 90) {
+            return Err(diesel::result::Error::NotFound);
+        }
+        let mut core_conn = self.core_pool.get().await.map_err(pool_error)?;
+        let api_key_ids = api_keys::table
+            .filter(api_keys::wallet_address.ilike(wallet_address))
+            .select(api_keys::id)
+            .load::<Uuid>(&mut core_conn)
+            .await?;
+        let today = Utc::now().date_naive();
+        let start_date = today - Duration::days(i64::from(days - 1));
+        if api_key_ids.is_empty() {
+            return Ok(empty_report(days, start_date));
+        }
+
+        #[derive(QueryableByName)]
+        struct TotalsRow {
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            total_requests: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            successful_requests: i64,
+            #[diesel(sql_type = diesel::sql_types::Double)]
+            average_response_time_ms: f64,
+        }
+        #[derive(QueryableByName)]
+        struct DailyRow {
+            #[diesel(sql_type = diesel::sql_types::Date)]
+            date: NaiveDate,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            total_requests: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            error_requests: i64,
+        }
+        #[derive(QueryableByName)]
+        struct EndpointRow {
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            endpoint: String,
+            #[diesel(sql_type = diesel::sql_types::Text)]
+            method: String,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            request_count: i64,
+            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            error_count: i64,
+            #[diesel(sql_type = diesel::sql_types::Double)]
+            average_response_time_ms: f64,
+        }
+
+        let mut analytics_conn = self.analytics_pool.get().await.map_err(pool_error)?;
+        let totals = diesel::sql_query(
+            r#"
+            SELECT COUNT(*)::bigint AS total_requests,
+                   COUNT(*) FILTER (WHERE response_status < 400)::bigint AS successful_requests,
+                   COALESCE(AVG(response_time_ms), 0)::float8 AS average_response_time_ms
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            "#,
+        )
+        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&api_key_ids)
+        .bind::<diesel::sql_types::Date, _>(start_date)
+        .get_result::<TotalsRow>(&mut analytics_conn)
+        .await?;
+        let daily_rows = diesel::sql_query(
+            r#"
+            SELECT request_at::date AS date,
+                   COUNT(*)::bigint AS total_requests,
+                   COUNT(*) FILTER (WHERE response_status IS NULL OR response_status >= 400)::bigint AS error_requests
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY request_at::date
+            ORDER BY date ASC
+            "#,
+        )
+        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&api_key_ids)
+        .bind::<diesel::sql_types::Date, _>(start_date)
+        .load::<DailyRow>(&mut analytics_conn)
+        .await?;
+        let endpoint_rows = diesel::sql_query(
+            r#"
+            SELECT endpoint::text, method::text,
+                   COUNT(*)::bigint AS request_count,
+                   COUNT(*) FILTER (WHERE response_status IS NULL OR response_status >= 400)::bigint AS error_count,
+                   COALESCE(AVG(response_time_ms), 0)::float8 AS average_response_time_ms
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY endpoint, method
+            ORDER BY request_count DESC, method ASC, endpoint ASC
+            LIMIT 10
+            "#,
+        )
+        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&api_key_ids)
+        .bind::<diesel::sql_types::Date, _>(start_date)
+        .load::<EndpointRow>(&mut analytics_conn)
+        .await?;
+
+        let daily_by_date = daily_rows
+            .into_iter()
+            .map(|row| (row.date, row))
+            .collect::<std::collections::HashMap<_, _>>();
+        let daily = (0..days)
+            .map(|offset| {
+                let date = start_date + Duration::days(i64::from(offset));
+                daily_by_date.get(&date).map_or(
+                    DailyUsage {
+                        date,
+                        total_requests: 0,
+                        error_requests: 0,
+                    },
+                    |row| DailyUsage {
+                        date,
+                        total_requests: row.total_requests,
+                        error_requests: row.error_requests,
+                    },
+                )
+            })
+            .collect();
+        let error_requests = totals.total_requests - totals.successful_requests;
+        let (success_rate, error_rate) = if totals.total_requests == 0 {
+            (0.0, 0.0)
+        } else {
+            let success = totals.successful_requests as f64 * 100.0 / totals.total_requests as f64;
+            (success, 100.0 - success)
+        };
+
+        Ok(UsageReport {
+            days,
+            total_requests: totals.total_requests,
+            successful_requests: totals.successful_requests,
+            error_requests,
+            success_rate,
+            error_rate,
+            average_response_time_ms: totals.average_response_time_ms,
+            daily,
+            top_endpoints: endpoint_rows
+                .into_iter()
+                .map(|row| EndpointReport {
+                    endpoint: row.endpoint,
+                    method: row.method,
+                    request_count: row.request_count,
+                    error_count: row.error_count,
+                    average_response_time_ms: row.average_response_time_ms,
+                })
+                .collect(),
+        })
     }
 
     /// Get aggregated usage stats for a wallet address
@@ -437,5 +646,30 @@ impl UsageService {
             .collect::<Result<_, diesel::result::Error>>()?;
 
         Ok(modules)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_usage_is_explicit_and_has_every_day_bucket() {
+        let start = NaiveDate::from_ymd_opt(2026, 8, 1).unwrap();
+        for days in [7, 30, 90] {
+            let report = empty_report(days, start);
+            assert_eq!(report.days, days);
+            assert_eq!(report.daily.len(), days as usize);
+            assert_eq!(
+                report.daily.as_slice().first().map(|point| point.date),
+                Some(start)
+            );
+            assert_eq!(
+                report.daily.as_slice().last().map(|point| point.date),
+                Some(start + Duration::days(i64::from(days - 1)))
+            );
+            assert_eq!(report.total_requests, 0);
+            assert!(report.top_endpoints.is_empty());
+        }
     }
 }

@@ -728,6 +728,7 @@ fn audit_category_is_valid(category: &str) -> bool {
             | "payment"
             | "permission"
             | "plan"
+            | "support"
             | "system"
             | "wallet"
     )

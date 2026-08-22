@@ -7,6 +7,7 @@ pub mod auth;
 pub mod health;
 pub mod middleware;
 pub mod notifications;
+pub mod operation_registry;
 pub mod payments;
 pub mod routes;
 pub mod user;

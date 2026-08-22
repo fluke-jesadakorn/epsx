@@ -8,10 +8,11 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
+use super::wallet_hub::WalletManagementHub;
 
 const WALLET_CREDITS_PATH: &str = "/wallet-management/credits";
 const ADMIN_HOME_PATH: &str = "/";
@@ -112,8 +113,8 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
     };
 
     rsx! {
-        PageLayout {
-            max_width: Some(PageMaxWidth::SevenXl),
+        WalletManagementHub {
+            ctx: ctx.clone(),
             PageHeader {
                 title: "Wallet credits".to_string(),
                 subtitle: Some("Review backend-authoritative credit totals".to_string()),
@@ -123,6 +124,7 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
                 extra_actions: None,
                 class_name: None,
             }
+            CreditWorkspaceNav {}
             match load {
                 CreditLoad::Ready(projection) => rsx! { CreditStatsReady { projection, mutation } },
                 CreditLoad::Forbidden => rsx! {
@@ -152,9 +154,31 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
 }
 
 #[component]
+fn CreditWorkspaceNav() -> Element {
+    rsx! {
+        nav { class: "flex gap-1 overflow-x-auto border-b border-border/30", aria_label: "Credit workspace",
+            a { class: "relative flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-[#1fc7d4]", href: "#credit-overview", aria_current: "page",
+                Icon { name: "bar-chart-3".to_string(), size: Some(16) }
+                "Overview"
+                span { class: "absolute bottom-0 left-0 right-0 h-[2px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]", aria_hidden: "true" }
+            }
+            a { class: "flex items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-muted-foreground hover:text-foreground", href: "#credit-grant",
+                Icon { name: "plus".to_string(), size: Some(16) }
+                "Grant Credits"
+            }
+            span { class: "flex cursor-not-allowed items-center gap-2 whitespace-nowrap px-4 py-3 text-sm font-semibold text-muted-foreground opacity-50", title: "Credit history requires a wallet-ledger read contract", aria_disabled: "true",
+                Icon { name: "clock".to_string(), size: Some(16) }
+                "Credit History"
+            }
+        }
+    }
+}
+
+#[component]
 fn CreditStatsReady(projection: AdminCreditStatsProjection, mutation: Option<String>) -> Element {
     rsx! {
         section {
+            id: "credit-overview",
             class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
             role: "status",
             aria_labelledby: "admin-credit-stats-title",
@@ -178,7 +202,7 @@ fn CreditStatsReady(projection: AdminCreditStatsProjection, mutation: Option<Str
                 CreditMetric { label: "Revoked today, minor units", value: format_minor(projection.revoked_today_minor) }
                 CreditMetric { label: "Active credit accounts", value: format_minor(projection.active_accounts) }
             }
-            form { method: "post", action: "/wallet-management/credits", class: "grid gap-3 border-t border-border/30 p-5 sm:grid-cols-2 lg:grid-cols-5",
+            form { id: "credit-grant", method: "post", action: "/wallet-management/credits", class: "grid gap-3 border-t border-border/30 p-5 sm:grid-cols-2 lg:grid-cols-5",
                 input { r#type: "hidden", name: "operation", value: "credit_grant" }
                 input { r#type: "hidden", name: "idempotency_key", value: format!("admin.credits.grant.{}", uuid::Uuid::new_v4()) }
                 input { class: "input input-bordered", name: "wallet_address", maxlength: 42, placeholder: "Wallet 0x...", required: true }
@@ -226,24 +250,46 @@ fn format_minor(value: i64) -> String {
 #[component]
 fn CreditProblem(state: &'static str, title: String, detail: String) -> Element {
     rsx! {
-        section {
-            class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
-            role: if state == ADMIN_CREDITS_FORBIDDEN { "alert" } else { "status" },
-            aria_labelledby: "admin-credit-problem-title",
+        div {
             "data-admin-wallet-credits-state": state,
-            div { class: "flex flex-col gap-5 sm:flex-row sm:items-start",
-                div {
-                    class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-background/60 text-amber-700 dark:text-amber-300",
-                    aria_hidden: "true",
-                    Icon { name: "shield-alert".to_string(), size: Some(24) }
-                }
-                div { class: "min-w-0",
-                    h2 { id: "admin-credit-problem-title", class: "text-xl font-bold text-foreground", "{title}" }
-                    p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-                    nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Credit statistics recovery",
+            section {
+                class: "rounded-xl border border-amber-500/25 bg-amber-500/10 px-5 py-4",
+                role: if state == ADMIN_CREDITS_FORBIDDEN { "alert" } else { "status" },
+                aria_labelledby: "admin-credit-problem-title",
+                div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                    div { class: "min-w-0",
+                        h2 { id: "admin-credit-problem-title", class: "font-semibold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
+                    }
+                    nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Credit statistics recovery",
                         a { class: "btn btn-sm btn-outline", href: WALLET_CREDITS_PATH, "Retry statistics" }
                         a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
                     }
+                }
+            }
+            section { id: "credit-overview", class: "mt-6", aria_label: "Credit overview unavailable",
+                div { class: "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4",
+                    for (label, icon, gradient) in [
+                        ("Total Credits Outstanding", "coins", "from-[#1fc7d4] to-[#7645d9]"),
+                        ("Credits Granted Today", "trending-up", "from-[#31d0aa] to-[#1fc7d4]"),
+                        ("Credits Used Today", "trending-down", "from-[#ffb237] to-[#ed4b9e]"),
+                        ("Active Users with Credits", "users", "from-[#7645d9] to-[#ed4b9e]"),
+                    ] {
+                        article { class: "overflow-hidden rounded-xl border border-border/20 bg-card p-5 shadow-xl",
+                            span { class: "mb-3 inline-flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-r text-white {gradient}", aria_hidden: "true",
+                                Icon { name: icon.to_string(), size: Some(20) }
+                            }
+                            p { class: "text-[10px] font-bold uppercase tracking-[0.15em] text-muted-foreground", "{label}" }
+                            p { class: "mt-2 font-mono text-xl font-black text-amber-400", "Unavailable" }
+                        }
+                    }
+                }
+                div { class: "mt-6 flex flex-wrap gap-3",
+                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: WALLET_CREDITS_PATH,
+                        Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                        " Refresh Stats"
+                    }
+                    button { class: "btn btn-sm btn-outline", r#type: "button", disabled: true, "Export Report (Coming Soon)" }
                 }
             }
         }
@@ -323,6 +369,9 @@ mod tests {
     fn ready_projection_is_authoritative_and_exposes_bounded_credit_mutations() {
         let rendered = html(&with_state(ADMIN_CREDITS_READY, Some(projection())));
         assert!(rendered.contains("data-admin-wallet-credits-state=\"ready\""));
+        assert!(rendered.contains("Overview"));
+        assert!(rendered.contains("Grant Credits"));
+        assert!(rendered.contains("Credit History"));
         assert!(rendered.contains("1,200"));
         assert!(rendered.contains("Amounts are displayed exactly as backend-owned minor units"));
         assert!(rendered.contains("<form"));
@@ -348,6 +397,9 @@ mod tests {
             let rendered = html(&with_state(state, Some(projection())));
             assert!(rendered.contains(&format!("data-admin-wallet-credits-state=\"{state}\"")));
             assert!(rendered.contains(title));
+            assert!(rendered.contains("Total Credits Outstanding"));
+            assert!(rendered.contains("Refresh Stats"));
+            assert!(rendered.contains("Unavailable"));
             assert!(!rendered.contains("1,200"));
         }
     }

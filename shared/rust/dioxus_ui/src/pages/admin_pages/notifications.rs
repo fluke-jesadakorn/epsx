@@ -405,17 +405,20 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
                 feature: Some("creating notifications".to_string()),
                 return_url: Some("/notifications/create".to_string()),
                 PageLayout {
-                    max_width: Some(PageMaxWidth::FourXl),
+                    max_width: Some(PageMaxWidth::SevenXl),
                     PageHeader {
                         title: "Command Center".to_string(),
                         subtitle: Some("Global broadcast protocol and network alert management".to_string()),
                         icon: Some("bell".to_string()),
-                        gradient: Some(PageGradient::Info),
-                        centered: Some(false),
+                        gradient: Some(PageGradient::Warning),
+                        centered: Some(true),
                         extra_actions: None,
                         class_name: None,
                     }
-                    NotificationCreateState { load }
+                    NotificationSectionTabs { active: "create" }
+                    div { class: "mx-auto max-w-4xl",
+                        NotificationCreateState { load }
+                    }
                 }
             }
         },
@@ -485,24 +488,26 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
-                title: "Notifications".to_string(),
-                subtitle: Some("Review backend-authoritative delivery summaries".to_string()),
+                title: "Command Center".to_string(),
+                subtitle: Some("Global broadcast protocol and network alert management".to_string()),
                 icon: Some("bell".to_string()),
-                gradient: Some(PageGradient::Info),
-                centered: Some(false),
+                gradient: Some(PageGradient::Warning),
+                centered: Some(true),
                 extra_actions: None,
                 class_name: None,
             }
-            NotificationFilters { page: page.clone() }
+            NotificationSectionTabs { active: "manage" }
             if let Some(metrics) = notification_metrics(&ctx) {
                 NotificationMetricsPanel { snapshot: metrics }
             }
+            NotificationActionCards {}
             if let Some(state) = notification_mutation_state(&ctx) {
                 NotificationMutationNotice { state }
             }
             if let Some(state) = ctx.params.get(ADMIN_NOTIFICATIONS_SEND_STATE_PARAM) {
                 NotificationSendFeedback { state: state.clone() }
             }
+            NotificationFilters { page: page.clone() }
             match load {
                 NotificationLoad::Ready(projection) => rsx! {
                     NotificationReady { projection, page }
@@ -534,6 +539,58 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
                         retry_href: page.href(page.page),
                     }
                 },
+            }
+        }
+    }
+}
+
+#[component]
+fn NotificationSectionTabs(active: &'static str) -> Element {
+    rsx! {
+        nav { class: "mx-auto mb-8 grid max-w-xl grid-cols-2 gap-1 rounded-full border border-border/20 bg-card p-1 shadow-xl", aria_label: "Notification workspace",
+            a { class: if active == "manage" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: NOTIFICATIONS_PATH,
+                Icon { name: "bell".to_string(), size: Some(15) }
+                "Overview"
+            }
+            a { class: if active == "create" { "flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-[#1fc7d4] to-[#7645d9] px-5 py-3 text-sm font-bold text-white" } else { "flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-bold text-foreground" }, href: "/notifications/create",
+                Icon { name: "send".to_string(), size: Some(15) }
+                "Send Signal"
+            }
+        }
+    }
+}
+
+#[component]
+fn NotificationActionCards() -> Element {
+    rsx! {
+        section { class: "mb-8 grid gap-6 sm:grid-cols-2", aria_label: "Notification actions",
+            a { class: "group rounded-2xl border border-border/20 bg-card p-6 shadow-xl transition-colors hover:border-cyan-500/30", href: NOTIFICATIONS_PATH,
+                div { class: "flex items-center justify-between gap-4",
+                    div { class: "flex items-center gap-5",
+                        span { class: "flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10 text-cyan-400",
+                            Icon { name: "refresh-cw".to_string(), size: Some(28) }
+                        }
+                        div {
+                            h2 { class: "text-lg font-black uppercase tracking-tight text-foreground", "Synchronize" }
+                            p { class: "mt-1 text-sm font-medium text-muted-foreground", "Refresh real-time telemetry" }
+                        }
+                    }
+                    Icon { name: "chevron-right".to_string(), size: Some(20) }
+                }
+            }
+            button { class: "rounded-2xl border border-border/20 bg-card p-6 text-left opacity-70 shadow-xl", r#type: "button", disabled: true, title: "Notification analytics route is not exposed by the current Rust admin dispatcher",
+                div { class: "flex items-center justify-between gap-4",
+                    div { class: "flex items-center gap-5",
+                        span { class: "flex h-14 w-14 items-center justify-center rounded-2xl border border-purple-500/20 bg-purple-500/10 text-purple-400",
+                            Icon { name: "bar-chart-3".to_string(), size: Some(28) }
+                        }
+                        div {
+                            h2 { class: "text-lg font-black uppercase tracking-tight text-foreground", "Analytics" }
+                            p { class: "mt-1 text-sm font-medium text-muted-foreground", "Deep dive performance metrics" }
+                        }
+                    }
+                    Icon { name: "chevron-right".to_string(), size: Some(20) }
+                }
             }
         }
     }
@@ -643,8 +700,8 @@ fn NotificationReady(projection: AdminNotificationList, page: NotificationPage) 
             div { class: "h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ffb237]" }
             div { class: "flex flex-wrap items-center justify-between gap-3 p-6",
                 div {
-                    h2 { class: "text-lg font-semibold text-foreground", "Delivery inventory" }
-                    p { class: "text-sm text-muted-foreground", "{projection.total} authoritative records" }
+                    h2 { class: "text-lg font-black uppercase tracking-tight text-foreground", "Recent Broadcasts" }
+                    p { class: "mt-1 text-sm font-medium text-muted-foreground", "Monitoring the latest system communications · {projection.total} authoritative records" }
                 }
                 p { class: "text-sm text-muted-foreground", "Page {page.page} of {total_pages}" }
             }
@@ -658,7 +715,7 @@ fn NotificationReady(projection: AdminNotificationList, page: NotificationPage) 
                     a { class: "btn btn-sm btn-outline mt-5", href: page.href(1), "Return to first page" }
                 }
             } else {
-                ul { class: "grid gap-4 border-t border-border/30 p-4 lg:grid-cols-2 sm:p-6", aria_label: "Notification summaries",
+                ul { class: "divide-y divide-border/20 border-t border-border/30", aria_label: "Notification summaries",
                     for notification in projection.items {
                         NotificationCard { notification }
                     }
@@ -753,11 +810,18 @@ fn NotificationFact(label: &'static str, value: String) -> Element {
 #[component]
 fn NotificationEmpty(page: NotificationPage) -> Element {
     rsx! {
-        section { class: "rounded-2xl border border-border/30 bg-card p-10 text-center", role: "status", "data-admin-notifications-state": ADMIN_NOTIFICATIONS_EMPTY,
-            Icon { name: "bell".to_string(), size: Some(32) }
-            h2 { class: "mt-4 text-lg font-semibold text-foreground", "No notifications found" }
-            p { class: "mt-2 text-sm text-muted-foreground", "The backend returned an authoritative empty notification inventory." }
-            a { class: "btn btn-sm btn-outline mt-5", href: page.href(1), "Refresh notifications" }
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", role: "status", "data-admin-notifications-state": ADMIN_NOTIFICATIONS_EMPTY,
+            div { class: "h-[3px] bg-gradient-to-r from-[#ffb237] to-[#7645d9]" }
+            div { class: "border-b border-border/20 px-6 py-5",
+                h2 { class: "text-lg font-black uppercase tracking-tight text-foreground", "Recent Broadcasts" }
+                p { class: "mt-1 text-sm text-muted-foreground", "Monitoring the latest system communications" }
+            }
+            div { class: "py-20 text-center",
+                span { class: "inline-flex rounded-2xl bg-muted/30 p-5", Icon { name: "bell".to_string(), size: Some(36) } }
+                h3 { class: "mt-5 text-lg font-black uppercase tracking-tight text-muted-foreground", "No notifications found" }
+                p { class: "mt-2 text-sm text-muted-foreground/60", "Silence is Golden — no active notifications detected in the grid" }
+                a { class: "btn btn-sm btn-outline mt-5", href: page.href(1), "Refresh notifications" }
+            }
         }
     }
 }
@@ -770,12 +834,28 @@ fn NotificationProblem(
     retry_href: String,
 ) -> Element {
     rsx! {
-        section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8", role: "alert", "data-admin-notifications-state": state,
-            h2 { class: "text-lg font-semibold text-foreground", "{title}" }
-            p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-            nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Notification recovery",
-                a { class: "btn btn-sm btn-outline", href: retry_href, "Try again" }
-                a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+        div { class: "space-y-6", "data-admin-notifications-state": state,
+            section { class: "flex flex-col gap-4 rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 sm:flex-row sm:items-center sm:justify-between", role: "alert",
+                div {
+                    h2 { class: "text-lg font-semibold text-foreground", "{title}" }
+                    p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                }
+                nav { class: "flex flex-shrink-0 flex-wrap gap-2", aria_label: "Notification recovery",
+                    a { class: "btn btn-sm btn-primary", href: retry_href, "Try again" }
+                    a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                }
+            }
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
+                div { class: "h-[3px] bg-gradient-to-r from-[#ffb237] to-[#7645d9]" }
+                div { class: "border-b border-border/20 px-6 py-5",
+                    h2 { class: "text-lg font-black uppercase tracking-tight text-foreground", "Recent Broadcasts" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Monitoring the latest system communications" }
+                }
+                div { class: "flex min-h-56 flex-col items-center justify-center p-8 text-center text-muted-foreground",
+                    Icon { name: "bell".to_string(), size: Some(36) }
+                    p { class: "mt-4 text-sm font-medium", "Broadcast inventory unavailable" }
+                    p { class: "mt-1 text-xs text-muted-foreground/60", "No unverified notification rows are shown" }
+                }
             }
         }
     }
@@ -854,25 +934,77 @@ fn NotificationCreateForm() -> Element {
     let idempotency_key = format!("admin.notification.{}", Uuid::new_v4());
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-8 shadow-xl",
+            class: "overflow-hidden rounded-2xl border border-border/20 bg-card p-1 shadow-2xl",
             "data-admin-notifications-state": ADMIN_NOTIFICATION_CREATE_FORM,
             "data-admin-notifications-surface": "create",
-            p { class: "text-sm leading-6 text-muted-foreground", "The notification service validates the recipient, content, permission, and idempotency key before recording delivery." }
-            form { class: "mt-6 grid gap-5", method: "post", action: "/notifications/create",
-                input { type: "hidden", name: "idempotency_key", value: idempotency_key }
-                div {
-                    label { class: "text-sm font-medium text-foreground", r#for: "notification-recipient", "Recipient wallet" }
-                    input { id: "notification-recipient", name: "recipient_wallet_address", required: true, maxlength: "42", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 font-mono text-sm", placeholder: "0x…" }
+            div { class: "rounded-2xl bg-card/60 p-6 sm:p-10",
+                header { class: "mb-10",
+                    h2 { class: "text-3xl font-black uppercase tracking-tight text-foreground", "Signal Generator" }
+                    p { class: "mt-2 text-sm font-medium text-muted-foreground", "Construct and transmit high-priority system alerts" }
                 }
-                div {
-                    label { class: "text-sm font-medium text-foreground", r#for: "notification-title", "Title" }
-                    input { id: "notification-title", name: "title", required: true, maxlength: "255", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm" }
+                form { class: "space-y-8", method: "post", action: "/notifications/create",
+                    input { type: "hidden", name: "idempotency_key", value: idempotency_key }
+                    section { class: "space-y-4",
+                        p { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Transmission Logic" }
+                        div { class: "grid gap-4 sm:grid-cols-2",
+                            div { class: "flex items-center gap-5 rounded-xl border border-cyan-500 bg-cyan-500/10 p-5",
+                                span { class: "flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500 text-white", Icon { name: "user".to_string(), size: Some(22) } }
+                                div {
+                                    p { class: "text-sm font-black uppercase tracking-tight text-foreground", "Targeted Client" }
+                                    p { class: "mt-1 text-[10px] font-bold uppercase text-muted-foreground/60", "Single Node Access" }
+                                }
+                            }
+                            button { class: "flex items-center gap-5 rounded-xl border border-border/40 bg-muted/20 p-5 text-left opacity-50", r#type: "button", disabled: true, title: "Broadcast requires a backend-owned idempotent broadcast mutation contract",
+                                span { class: "flex h-12 w-12 items-center justify-center rounded-xl bg-muted/40", Icon { name: "users".to_string(), size: Some(22) } }
+                                div {
+                                    p { class: "text-sm font-black uppercase tracking-tight text-foreground", "Global Broadcast" }
+                                    p { class: "mt-1 text-[10px] font-bold uppercase text-muted-foreground/60", "Backend contract pending" }
+                                }
+                            }
+                        }
+                    }
+                    div { class: "grid gap-6 lg:grid-cols-2",
+                        div { class: "lg:col-span-2",
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", r#for: "notification-recipient", "Destination Node" }
+                            input { id: "notification-recipient", name: "recipient_wallet_address", required: true, maxlength: "42", class: "mt-3 h-14 w-full rounded-2xl border border-border/40 bg-muted/30 px-6 font-mono text-sm", placeholder: "0x..." }
+                        }
+                        div {
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Classification" }
+                            select { class: "mt-3 h-14 w-full rounded-2xl border border-border/40 bg-muted/30 px-5 text-sm", disabled: true, title: "Classification is not accepted by the current idempotent send contract",
+                                option { "System Alert" }
+                            }
+                        }
+                        div {
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Priority Vector" }
+                            select { class: "mt-3 h-14 w-full rounded-2xl border border-border/40 bg-muted/30 px-5 text-sm", disabled: true, title: "Priority is not accepted by the current idempotent send contract",
+                                option { "Normal Operation" }
+                            }
+                        }
+                        div { class: "lg:col-span-2",
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", r#for: "notification-title", "Subject Heading" }
+                            input { id: "notification-title", name: "title", required: true, maxlength: "255", class: "mt-3 h-14 w-full rounded-2xl border border-border/40 bg-muted/30 px-6 text-sm font-medium", placeholder: "Payload designation..." }
+                        }
+                        div { class: "lg:col-span-2",
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", r#for: "notification-message", "Message Payload" }
+                            textarea { id: "notification-message", name: "message", required: true, maxlength: "16384", rows: "6", class: "mt-3 w-full resize-none rounded-2xl border border-border/40 bg-muted/30 p-6 text-sm", placeholder: "Enter transmission data..." }
+                        }
+                        div {
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Action URL" }
+                            input { class: "mt-3 h-12 w-full rounded-2xl border border-border/40 bg-muted/30 px-5 text-xs", placeholder: "https://...", disabled: true, title: "Action URL is not accepted by the current idempotent send contract" }
+                        }
+                        div {
+                            label { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Asset URL" }
+                            input { class: "mt-3 h-12 w-full rounded-2xl border border-border/40 bg-muted/30 px-5 text-xs", placeholder: "https://...", disabled: true, title: "Asset URL is not accepted by the current idempotent send contract" }
+                        }
+                    }
+                    div { class: "flex items-center gap-4 border-t border-border/20 pt-8",
+                        a { class: "btn btn-ghost flex-1", href: NOTIFICATIONS_PATH, "Abort" }
+                        button { type: "submit", class: "btn btn-primary flex-[2] bg-gradient-to-r from-[#7645d9] to-[#5a33b8] uppercase tracking-widest",
+                            Icon { name: "send".to_string(), size: Some(16) }
+                            " Execute Broadcast"
+                        }
+                    }
                 }
-                div {
-                    label { class: "text-sm font-medium text-foreground", r#for: "notification-message", "Message" }
-                    textarea { id: "notification-message", name: "message", required: true, maxlength: "16384", rows: "6", class: "mt-2 w-full rounded-xl border border-border/40 bg-background p-3 text-sm" }
-                }
-                button { type: "submit", class: "btn btn-primary w-fit", "Send notification" }
             }
         }
     }
@@ -1388,15 +1520,26 @@ mod tests {
             }
         }
         for supported in [
-            "Recipient wallet",
+            "Destination Node",
             "name=\"recipient_wallet_address\"",
             "name=\"title\"",
             "name=\"message\"",
-            "Send notification",
+            "Execute Broadcast",
+            "Global Broadcast",
+            "Classification",
+            "Priority Vector",
+            "Action URL",
+            "Asset URL",
         ] {
             assert!(create.contains(supported), "{supported}");
         }
-        for unsupported in ["Global Broadcast", "Action URL", "Asset URL"] {
+        for unsupported in [
+            "name=\"broadcast\"",
+            "name=\"notification_type\"",
+            "name=\"priority\"",
+            "name=\"action_url\"",
+            "name=\"image_url\"",
+        ] {
             assert!(!create.contains(unsupported), "{unsupported}");
         }
     }

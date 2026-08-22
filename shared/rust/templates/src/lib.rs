@@ -94,15 +94,15 @@ pub fn design_system_head_with_keywords(
     --surface:         rgba(255, 255, 255, 0.80);
     --surface-hover:   rgba(255, 255, 255, 0.95);
     --surface-solid:   #ffffff;
-    --border:          #e2e8f0;
-    --border-strong:   #cbd5e1;
+    --epsx-border:          #e2e8f0;
+    --epsx-border-strong:   #cbd5e1;
     --text:            #0f172a;
     --text-muted:      #475569;
     --text-subtle:     #64748b;
     /* White text on blue-500 is only 3.68:1.  Use the darker pair for
      * light-theme controls so normal-sized button copy clears WCAG AA. */
-    --primary:         #2563eb;
-    --primary-hover:   #1d4ed8;
+    --epsx-primary:         #2563eb;
+    --epsx-primary-hover:   #1d4ed8;
     --focus-ring:      #c2410c;
     --shadow-sm:       0 1px 2px 0 rgba(0, 0, 0, 0.05);
     --shadow:          0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
@@ -163,8 +163,8 @@ pub fn design_system_head_with_keywords(
     --surface:         rgba(15, 23, 42, 0.80);
     --surface-hover:   rgba(15, 23, 42, 0.95);
     --surface-solid:   #0f172a;
-    --border:          #1e293b;
-    --border-strong:   #334155;
+    --epsx-border:          #1e293b;
+    --epsx-border-strong:   #334155;
     --text:            #f1f5f9;
     --text-muted:      #94a3b8;
     --text-subtle:     #64748b;
@@ -466,7 +466,7 @@ pub fn design_system_head_with_keywords(
     background: var(--surface);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     box-shadow: var(--shadow);
     border-radius: 1rem;
     padding: 1.5rem;
@@ -496,7 +496,7 @@ pub fn design_system_head_with_keywords(
   }}
   .card-insight pre {{
     background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.5rem;
     padding: 1rem;
     overflow-x: auto;
@@ -509,7 +509,7 @@ pub fn design_system_head_with_keywords(
   .card-insight li {{ margin-bottom: 0.375rem; }}
   .card-insight hr {{
     border: 0;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     margin: 2rem 0;
   }}
   .card-insight blockquote {{
@@ -527,7 +527,7 @@ pub fn design_system_head_with_keywords(
     background: var(--gradient-card);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     box-shadow: var(--shadow);
     border-radius: 1.5rem;
     padding: 1.5rem;
@@ -553,10 +553,10 @@ pub fn design_system_head_with_keywords(
   .btn:hover {{ transform: translateY(-1px); }}
   .btn:active {{ transform: translateY(0); }}
   .btn-primary {{
-    background: var(--primary);
+    background: var(--epsx-primary);
     color: white;
   }}
-  .btn-primary:hover {{ background: var(--primary-hover); box-shadow: var(--shadow); }}
+  .btn-primary:hover {{ background: var(--epsx-primary-hover); box-shadow: var(--shadow); }}
   .btn-gradient {{
     background: var(--gradient-warm);
     color: white;
@@ -577,7 +577,7 @@ pub fn design_system_head_with_keywords(
   .btn-outline {{
     background: transparent;
     color: var(--text) !important;
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--epsx-border-strong);
   }}
   .btn-outline:hover {{ background: var(--bg-secondary); border-color: var(--text-muted); }}
   .btn-ghost {{
@@ -647,7 +647,7 @@ pub fn design_system_head_with_keywords(
     font-size: 0.8125rem;
     font-weight: 500;
     background: var(--surface);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     color: var(--text-muted);
     backdrop-filter: blur(8px);
   }}
@@ -658,7 +658,7 @@ pub fn design_system_head_with_keywords(
     padding: 0.625rem 1rem;
     border-radius: 0.625rem;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     color: var(--text);
     font-family: inherit;
     font-size: 0.875rem;
@@ -666,7 +666,7 @@ pub fn design_system_head_with_keywords(
   }}
   .input:focus {{
     outline: none;
-    border-color: var(--primary);
+    border-color: var(--epsx-primary);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }}
   .btn:focus-visible, .input:focus-visible {{
@@ -714,7 +714,7 @@ pub fn design_system_head_with_keywords(
   }}
   .toast {{
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     box-shadow: var(--shadow-lg);
     padding: 0.875rem 1rem;
@@ -726,7 +726,7 @@ pub fn design_system_head_with_keywords(
   }}
   .toast-success {{ border-left: 3px solid var(--epsx-green); }}
   .toast-error   {{ border-left: 3px solid var(--epsx-red); }}
-  .toast-info    {{ border-left: 3px solid var(--primary); }}
+  .toast-info    {{ border-left: 3px solid var(--epsx-primary); }}
   .toast-warning {{ border-left: 3px solid var(--epsx-amber); }}
 
   /* === Modal === */
@@ -744,7 +744,7 @@ pub fn design_system_head_with_keywords(
   }}
   .modal {{
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1rem;
     box-shadow: var(--shadow-2xl);
     max-width: 32rem;
@@ -757,7 +757,7 @@ pub fn design_system_head_with_keywords(
   /* === EPSX wallet select modal (matches epsx.io's `auth-modal`) === */
   .epsx-modal {{
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1.5rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
     max-width: 28rem;
@@ -920,7 +920,7 @@ pub fn design_system_head_with_keywords(
     display: flex; align-items: center; gap: 0.875rem;
     padding: 1rem 1.25rem;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1rem;
     color: var(--text);
     font-size: 1rem; font-weight: 500;
@@ -939,7 +939,7 @@ pub fn design_system_head_with_keywords(
   }}
   .epsx-modal-footer {{
     padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     text-align: center;
     font-size: 0.8125rem;
     color: var(--text-subtle);
@@ -950,7 +950,7 @@ pub fn design_system_head_with_keywords(
   .dropdown-menu {{
     position: absolute;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     box-shadow: var(--shadow-xl);
     padding: 0.375rem;
@@ -977,7 +977,7 @@ pub fn design_system_head_with_keywords(
   .tabs-nav {{
     display: flex;
     gap: 0.25rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     margin-bottom: 1rem;
   }}
   .tab {{
@@ -1148,7 +1148,7 @@ pub fn design_system_head_with_keywords(
     background: var(--surface);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .nav-link {{
     display: inline-flex;
@@ -1197,7 +1197,7 @@ pub fn design_system_head_with_keywords(
     left: 0;
     min-width: 14rem;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     box-shadow: var(--shadow-xl);
     padding: 0.375rem;
@@ -1266,7 +1266,7 @@ pub fn design_system_head_with_keywords(
     display: none;
     margin-left: 0.75rem;
     padding-left: 0.75rem;
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--epsx-border);
     margin-top: 0.25rem;
     margin-bottom: 0.5rem;
     flex-direction: column;
@@ -1291,7 +1291,7 @@ pub fn design_system_head_with_keywords(
   /* === Footer === */
   .footer {{
     background: var(--bg-secondary);
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     padding: 3rem 1.5rem 1.5rem;
     color: var(--text-muted);
   }}
@@ -1381,7 +1381,7 @@ pub fn design_system_head_with_keywords(
     position: absolute; top: calc(100% + 0.5rem); left: 0;
     min-width: 13rem;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.5rem;
     box-shadow: var(--shadow-xl);
     padding: 0.375rem;
@@ -1432,7 +1432,7 @@ pub fn design_system_head_with_keywords(
     display: inline-flex; align-items: center; gap: 0.5rem;
     height: 2.5rem; padding: 0 0.875rem; border-radius: 1rem;
     color: var(--text); background: var(--bg-secondary);
-    border: 1px solid var(--border); text-decoration: none;
+    border: 1px solid var(--epsx-border); text-decoration: none;
     font-size: 0.8125rem; font-weight: 600;
   }}
   .epsx-wallet-pill:hover {{ color: var(--text); border-color: var(--epsx-orange); }}
@@ -1448,14 +1448,14 @@ pub fn design_system_head_with_keywords(
   .epsx-session-menu {{
     position: absolute; top: calc(100% + 0.625rem); right: 0; z-index: 9999;
     width: min(18rem, calc(100vw - 2rem)); overflow: hidden;
-    border: 1px solid var(--border); border-radius: 1rem;
+    border: 1px solid var(--epsx-border); border-radius: 1rem;
     background: var(--surface-solid); color: var(--text);
     box-shadow: var(--shadow-xl); transform-origin: top right;
   }}
   .epsx-session-menu[hidden] {{ display: none !important; }}
   .epsx-session-menu.open {{ animation: scaleIn 0.15s ease; }}
   html.dark .epsx-session-menu {{ background: #0f172a; border-color: #334155; }}
-  .epsx-session-summary {{ padding: 0.75rem; border-bottom: 1px solid var(--border); }}
+  .epsx-session-summary {{ padding: 0.75rem; border-bottom: 1px solid var(--epsx-border); }}
   .epsx-session-label {{
     display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.25rem;
     color: var(--epsx-orange); font-size: 0.625rem; font-weight: 700;
@@ -1608,7 +1608,7 @@ pub fn design_system_head_with_keywords(
     justify-content: space-between;
     gap: 1rem;
     padding: 1rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .epsx-mobile-navigation {{
     flex: 1;
@@ -1649,7 +1649,7 @@ pub fn design_system_head_with_keywords(
     gap: 0.125rem;
     margin-left: 0.75rem;
     padding-left: 0.75rem;
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--epsx-border);
   }}
   .epsx-mobile-group-items[hidden] {{ display: none !important; }}
   .epsx-mobile-link {{
@@ -1671,7 +1671,7 @@ pub fn design_system_head_with_keywords(
     flex-shrink: 0;
   }}
   .epsx-mobile-link:hover, .epsx-mobile-link:active {{ background: var(--bg-secondary); }}
-  .epsx-mobile-session {{ padding: 1rem; border-top: 1px solid var(--border); }}
+  .epsx-mobile-session {{ padding: 1rem; border-top: 1px solid var(--epsx-border); }}
   .epsx-mobile-session .epsx-mobile-link {{ width: 100%; min-height: 2.5rem; }}
   .epsx-mobile-session .epsx-mobile-connect {{
     display: flex;
@@ -1903,7 +1903,7 @@ pub fn design_system_head_with_keywords(
   .pricing-card {{
     position: relative;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1rem;
     padding: 1.5rem;
     display: flex; flex-direction: column;
@@ -2089,7 +2089,7 @@ pub fn design_system_head_with_keywords(
   }}
 
   /* === Tables === */
-  .table-wrap {{ overflow-x: auto; border-radius: 0.75rem; border: 1px solid var(--border); }}
+  .table-wrap {{ overflow-x: auto; border-radius: 0.75rem; border: 1px solid var(--epsx-border); }}
   .table {{ width: 100%; border-collapse: collapse; font-size: 0.875rem; }}
   .table th {{
     background: var(--bg-secondary);
@@ -2100,11 +2100,11 @@ pub fn design_system_head_with_keywords(
     font-size: 0.75rem;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .table td {{
     padding: 0.875rem 1rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     color: var(--text);
   }}
   .table tr:last-child td {{ border-bottom: none; }}
@@ -2132,7 +2132,7 @@ pub fn design_system_head_with_keywords(
     width: 85vw;
     max-width: 24rem;
     background: var(--surface-solid);
-    border-left: 1px solid var(--border);
+    border-left: 1px solid var(--epsx-border);
     padding: 1rem;
     overflow-y: auto;
     animation: slideInRight 0.25s ease-out;
@@ -2143,10 +2143,10 @@ pub fn design_system_head_with_keywords(
   /* === Utility === */
   .text-balance {{ text-wrap: balance; }}
   .text-pretty  {{ text-wrap: pretty; }}
-  .divide-y > * + * {{ border-top: 1px solid var(--border); }}
-  .ring-1 {{ box-shadow: 0 0 0 1px var(--border); }}
+  .divide-y > * + * {{ border-top: 1px solid var(--epsx-border); }}
+  .ring-1 {{ box-shadow: 0 0 0 1px var(--epsx-border); }}
   .scrollbar-thin::-webkit-scrollbar {{ width: 6px; height: 6px; }}
-  .scrollbar-thin::-webkit-scrollbar-thumb {{ background: var(--border-strong); border-radius: 3px; }}
+  .scrollbar-thin::-webkit-scrollbar-thumb {{ background: var(--epsx-border-strong); border-radius: 3px; }}
 
   /* =================================================================
    * Wave 1 — Track A: form & input primitive parity
@@ -2230,7 +2230,7 @@ pub fn design_system_head_with_keywords(
 
   /* === Form section / row / input-group === */
   .form-section {{
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     padding: 1.25rem 1.25rem 1rem;
     background: var(--bg-secondary);
@@ -2350,7 +2350,7 @@ pub fn design_system_head_with_keywords(
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: var(--primary);
+    color: var(--epsx-primary);
   }}
   .dropdown-checkbox-item {{
     position: relative;
@@ -2384,7 +2384,7 @@ pub fn design_system_head_with_keywords(
     justify-content: space-between;
     gap: 1rem;
     padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .modal-title {{
     font-size: 1.125rem;
@@ -2481,11 +2481,11 @@ pub fn design_system_head_with_keywords(
     min-height: 2.5rem;
     padding: 0.375rem;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.625rem;
   }}
   .multiselect-control:focus-within {{
-    border-color: var(--primary);
+    border-color: var(--epsx-primary);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }}
   .multiselect-chip {{
@@ -2518,7 +2518,7 @@ pub fn design_system_head_with_keywords(
   .multiselect-chip-remove:hover {{ background: rgba(59,130,246,0.25); }}
   .multiselect-trigger {{
     background: transparent;
-    border: 1px dashed var(--border-strong);
+    border: 1px dashed var(--epsx-border-strong);
     border-radius: 9999px;
     padding: 0.125rem 0.625rem;
     color: var(--text-muted);
@@ -2534,7 +2534,7 @@ pub fn design_system_head_with_keywords(
     max-height: 16rem;
     overflow: auto;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.625rem;
     box-shadow: var(--shadow-lg);
     padding: 0.25rem;
@@ -2574,11 +2574,11 @@ pub fn design_system_head_with_keywords(
     min-height: 2.5rem;
     padding: 0.375rem;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.625rem;
   }}
   .combobox-multi-control:focus-within {{
-    border-color: var(--primary);
+    border-color: var(--epsx-primary);
     box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
   }}
   .combobox-multi-chip {{
@@ -2662,7 +2662,7 @@ pub fn design_system_head_with_keywords(
     transform: scale(1.1);
   }}
   .rating-interactive .rating-star:focus {{
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--epsx-primary);
     outline-offset: 2px;
     border-radius: 0.25rem;
   }}
@@ -2689,7 +2689,7 @@ pub fn design_system_head_with_keywords(
     transition: background-color 0.2s ease;
     flex-shrink: 0;
   }}
-  .SwitchInput:checked {{ background: var(--primary); }}
+  .SwitchInput:checked {{ background: var(--epsx-primary); }}
   .SwitchInput:disabled {{ opacity: 0.5; cursor: not-allowed; }}
   .SwitchInput::after {{
     content: '';
@@ -2734,7 +2734,7 @@ pub fn design_system_head_with_keywords(
     font-weight: 600;
     color: var(--text);
     background: var(--bg-secondary);
-    border: 1px solid var(--border-strong);
+    border: 1px solid var(--epsx-border-strong);
     border-bottom-width: 2px;
     border-radius: 0.375rem;
   }}
@@ -2760,7 +2760,7 @@ pub fn design_system_head_with_keywords(
     width: 1.125rem;
     height: 1.125rem;
     border-radius: 9999px;
-    background: var(--primary);
+    background: var(--epsx-primary);
     border: 2px solid var(--surface-solid);
     box-shadow: var(--shadow);
   }}
@@ -2768,19 +2768,19 @@ pub fn design_system_head_with_keywords(
     width: 1.125rem;
     height: 1.125rem;
     border-radius: 9999px;
-    background: var(--primary);
+    background: var(--epsx-primary);
     border: 2px solid var(--surface-solid);
     box-shadow: var(--shadow);
   }}
   .slider:focus {{
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--epsx-primary);
     outline-offset: 2px;
   }}
   .slider:disabled {{ opacity: 0.5; cursor: not-allowed; }}
 
   /* === Checkbox indeterminate (visual) === */
   .checkbox-indeterminate {{
-    background: var(--primary);
+    background: var(--epsx-primary);
     position: relative;
     color: white;
   }}
@@ -2821,7 +2821,7 @@ pub fn design_system_head_with_keywords(
   }}
   .modal-footer {{
     padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     background: var(--bg-secondary);
     border-bottom-left-radius: inherit;
     border-bottom-right-radius: inherit;
@@ -2836,7 +2836,7 @@ pub fn design_system_head_with_keywords(
     display: inline-flex;
     align-items: center;
     gap: 0.25rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .tab {{
     display: inline-flex;
@@ -2866,7 +2866,7 @@ pub fn design_system_head_with_keywords(
     flex-direction: column;
     align-items: stretch;
     border-bottom: 0;
-    border-right: 1px solid var(--border);
+    border-right: 1px solid var(--epsx-border);
   }}
   .tabs-vertical .tab {{
     border-bottom: 0;
@@ -2940,7 +2940,7 @@ pub fn design_system_head_with_keywords(
     min-width: 12rem;
     max-width: 24rem;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.5rem;
     box-shadow: var(--shadow-lg);
     padding: 0.75rem;
@@ -2968,7 +2968,7 @@ pub fn design_system_head_with_keywords(
     min-width: 16rem;
     max-width: 24rem;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.5rem;
     box-shadow: var(--shadow-lg);
     padding: 0.75rem;
@@ -2990,12 +2990,12 @@ pub fn design_system_head_with_keywords(
   .accordion {{
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.5rem;
     overflow: hidden;
   }}
   .accordion-item {{
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .accordion-item:last-child {{
     border-bottom: 0;
@@ -3064,7 +3064,7 @@ pub fn design_system_head_with_keywords(
     width: 100%;
     max-width: 36rem;
     background: var(--surface-solid);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     box-shadow: var(--shadow-xl);
     overflow: hidden;
@@ -3079,7 +3079,7 @@ pub fn design_system_head_with_keywords(
     color: var(--text);
     background: var(--surface-solid);
     border: 0;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     outline: none;
   }}
   .command-input:focus {{
@@ -3144,7 +3144,7 @@ pub fn design_system_head_with_keywords(
     font-size: 0.85em;
   }}
   .rte-preview a {{
-    color: var(--primary);
+    color: var(--epsx-primary);
     text-decoration: underline;
   }}
 
@@ -3180,8 +3180,13 @@ pub fn design_system_head_with_keywords(
     padding-left: 1.5rem;
     padding-right: 1.5rem;
     gap: 0.75rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     background: var(--surface-solid);
+  }}
+  .admin-header-chrome {{
+    padding-left: 0;
+    padding-right: 0;
+    background: hsl(var(--card));
   }}
   .admin-header-left {{ min-width: 0; flex: 1 1 auto; display: flex; align-items: center; gap: 0.5rem; }}
   .admin-header-right {{ display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }}
@@ -3228,7 +3233,7 @@ pub fn design_system_head_with_keywords(
     position: relative;
   }}
   .admin-header-theme-toggle {{
-    /* matches the `btn-ghost btn-icon` look for the default theme toggle */
+    color: #f97316;
   }}
   .admin-theme-icon {{ display: inline-flex; align-items: center; justify-content: center; }}
   .admin-theme-icon-sun {{ display: none; }}
@@ -3241,7 +3246,7 @@ pub fn design_system_head_with_keywords(
     right: 0;
     z-index: 99999;
     overflow: hidden;
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     background: var(--surface-solid);
     color: var(--text);
@@ -3258,7 +3263,7 @@ pub fn design_system_head_with_keywords(
     justify-content: space-between;
     gap: 0.75rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
   }}
   .admin-notifications-heading h2 {{ margin: 0; font-size: 0.875rem; font-weight: 600; }}
   .admin-notifications-heading span {{ font-size: 0.75rem; color: #f97316; }}
@@ -3279,7 +3284,7 @@ pub fn design_system_head_with_keywords(
     flex-direction: column;
     gap: 0.25rem;
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     color: var(--text);
     text-decoration: none;
   }}
@@ -3332,13 +3337,13 @@ pub fn design_system_head_with_keywords(
   .admin-wallet-trigger:hover,
   .admin-wallet-trigger[aria-expanded="true"] {{ background: var(--bg-tertiary); }}
   .admin-wallet-trigger[aria-expanded="true"] .admin-wallet-chevron {{ transform: rotate(180deg); }}
-  .admin-wallet-trigger > .epsx-icon:first-child {{ color: #f97316; }}
+  .admin-wallet-trigger > .epsx-icon:first-child {{ color: var(--text); }}
   .admin-wallet-short-address,
   .admin-wallet-connect-label {{ display: inline; white-space: nowrap; }}
   .admin-wallet-chevron {{ transition: transform 0.2s ease; }}
   .admin-wallet-menu {{ width: 16rem; }}
   .admin-wallet-accent {{ height: 3px; background: linear-gradient(90deg, #ffb237, #f97316); }}
-  .admin-wallet-address-block {{ padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--border); }}
+  .admin-wallet-address-block {{ padding: 0.625rem 0.75rem; border-bottom: 1px solid var(--epsx-border); }}
   .admin-wallet-label {{
     display: flex;
     align-items: center;
@@ -3368,7 +3373,7 @@ pub fn design_system_head_with_keywords(
   .admin-wallet-menu .wallet-meta-value-role {{ color: #a78bfa; }}
   .admin-wallet-menu .wallet-meta-value-tier {{ color: #0891b2; }}
   .admin-wallet-menu .wallet-network-badge {{
-    border-top-color: var(--border);
+    border-top-color: var(--epsx-border);
     background: transparent;
     color: var(--text-muted);
   }}
@@ -3390,13 +3395,21 @@ pub fn design_system_head_with_keywords(
     cursor: pointer;
   }}
   .admin-wallet-menu-item:hover {{ background: var(--bg-tertiary); }}
-  .admin-wallet-menu-separator {{ height: 1px; margin: 0.25rem 0; background: var(--border); }}
+  .admin-wallet-menu-separator {{ height: 1px; margin: 0.25rem 0; background: var(--epsx-border); }}
   .admin-wallet-disconnect {{ color: #ef4444; }}
   @media (max-width: 1023px) {{
     .admin-wallet-short-address,
     .admin-wallet-connect-label {{ display: none; }}
   }}
   .admin-wallet-disconnect:hover {{ background: rgba(239, 68, 68, 0.1); }}
+  .admin-app-shell .btn-primary {{
+    border-color: transparent;
+    background: linear-gradient(90deg, #7645d9, #5a33b8);
+    color: #fff;
+  }}
+  .admin-app-shell .btn-primary:hover {{
+    background: linear-gradient(90deg, #8455de, #6740c2);
+  }}
   @media (max-width: 639px) {{
     .admin-notifications-menu {{ position: fixed; top: 4.5rem; right: 1rem; }}
   }}
@@ -3485,7 +3498,7 @@ pub fn design_system_head_with_keywords(
   .auth-modal {{
     background: var(--surface-solid, #191923);
     color: var(--text);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1.5rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
     max-width: 56rem;
@@ -3507,7 +3520,7 @@ pub fn design_system_head_with_keywords(
     background:
       radial-gradient(at top left, rgba(118,69,217,0.18), transparent 60%),
       radial-gradient(at bottom right, rgba(31,199,212,0.18), transparent 60%);
-    border-right: 1px solid var(--border);
+    border-right: 1px solid var(--epsx-border);
   }}
   @media (min-width: 1024px) {{
     .auth-modal-aside {{ display: flex; flex-direction: column; justify-content: center; }}
@@ -3592,7 +3605,7 @@ pub fn design_system_head_with_keywords(
     padding: 3rem 1.5rem;
     max-width: 32rem; margin: 4rem auto;
     background: var(--surface-solid, #191923);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1.5rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
     color: var(--text);
@@ -3610,7 +3623,7 @@ pub fn design_system_head_with_keywords(
   .auth-gate-perms {{
     text-align: left;
     background: var(--bg-secondary);
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 0.75rem;
     padding: 0.875rem 1rem;
     margin: 0 0 1.5rem 0;
@@ -3723,7 +3736,7 @@ pub fn design_system_head_with_keywords(
     display: inline-flex; align-items: center; justify-content: center;
     width: 1.75rem; height: 1.75rem;
     background: transparent;
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 9999px;
     color: var(--text-muted);
     cursor: pointer;
@@ -3778,7 +3791,7 @@ pub fn design_system_head_with_keywords(
   .connected-wallet-dropdown {{
     background: var(--surface-solid, #191923);
     color: #ffffff;
-    border: 1px solid var(--border);
+    border: 1px solid var(--epsx-border);
     border-radius: 1rem;
     box-shadow: 0 0 50px -12px rgba(0,0,0,0.5);
     width: 18rem;
@@ -3788,7 +3801,7 @@ pub fn design_system_head_with_keywords(
   .wallet-provider-card {{
     padding: 1rem;
     background: linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid var(--epsx-border);
     display: flex; align-items: center; gap: 0.75rem;
   }}
   .wallet-provider-icon {{
@@ -3840,7 +3853,7 @@ pub fn design_system_head_with_keywords(
   .wallet-meta-grid {{
     display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 1rem;
     padding: 0.75rem 1rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     background: rgba(255,255,255,0.02);
   }}
   .wallet-meta-cell {{ min-width: 0; }}
@@ -3857,7 +3870,7 @@ pub fn design_system_head_with_keywords(
   .wallet-network-badge {{
     display: flex; align-items: center; gap: 0.375rem;
     padding: 0.5rem 1rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
     background: rgba(255,255,255,0.02);
     font-size: 0.75rem;
     color: rgba(255,255,255,0.7);
@@ -3901,7 +3914,7 @@ pub fn design_system_head_with_keywords(
   .wallet-nav-links {{
     display: flex; flex-direction: column; gap: 0.125rem;
     padding: 0.5rem;
-    border-top: 1px solid var(--border);
+    border-top: 1px solid var(--epsx-border);
   }}
   .wallet-nav-link {{
     display: flex; align-items: center; gap: 0.625rem;
@@ -4711,11 +4724,11 @@ pub fn design_system_head_with_keywords(
   .plans-comparison-table {{ width: 100%; border-collapse: collapse; }}
   .plans-comparison-table th, .plans-comparison-table td {{
     padding: 0.75rem 1rem; text-align: left;
-    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-bottom: 1px solid var(--epsx-border, rgba(255,255,255,0.08));
   }}
   .plans-comparison-table thead th {{ font-weight: 600; }}
   .plans-comparison-feature-col {{ width: 40%; }}
-  .plans-comparison-col-featured {{ color: var(--primary, #3b82f6); }}
+  .plans-comparison-col-featured {{ color: var(--epsx-primary, #3b82f6); }}
   .plans-comparison-yes {{ color: #10b981; font-weight: 700; }}
   .plans-comparison-no {{ color: var(--text-muted, #94a3b8); }}
   .plans-faq-section {{ padding: 3rem 0; }}
@@ -5040,7 +5053,7 @@ pub fn design_system_head_with_keywords(
   .export-dialog-scope-btn, .export-dialog-formats > button {{
     padding: 0.375rem 0.75rem;
     border-radius: 0.5rem;
-    border: 1px solid var(--border, rgba(255,255,255,0.1));
+    border: 1px solid var(--epsx-border, rgba(255,255,255,0.1));
     background: var(--bg-secondary, rgba(255,255,255,0.05));
     color: var(--text-muted, #94a3b8);
     font-size: 0.75rem;
@@ -5127,19 +5140,19 @@ pub fn design_system_head_with_keywords(
   .docs-response-copy {{ position: absolute; z-index: 1; top: 0.75rem; right: 0.75rem; }}
   .docs-response-panel {{ margin: 0; border-radius: 0.75rem; padding: 1rem; padding-top: 3.25rem; background: #020617; color: #d1fae5; font: 0.875rem/1.6 ui-monospace, SFMono-Regular, Menlo, monospace; }}
   .docs-try-it {{ overflow: hidden; }}
-  .docs-try-it-header {{ padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); }}
+  .docs-try-it-header {{ padding: 0.75rem 1rem; border-bottom: 1px solid var(--epsx-border); }}
   .docs-try-it-header h4 {{ margin: 0; font-size: 0.875rem; }}
   .docs-try-it-body {{ display: grid; gap: 0.75rem; padding: 1rem; }}
   .docs-field-label {{ display: block; color: var(--text-muted); font-size: 0.75rem; font-weight: 500; }}
   .docs-field-label small {{ opacity: 0.7; }}
-  .docs-field-control {{ width: 100%; border: 1px solid var(--border); border-radius: 0.5rem; padding: 0.625rem 0.75rem; background: var(--bg); color: var(--text); }}
+  .docs-field-control {{ width: 100%; border: 1px solid var(--epsx-border); border-radius: 0.5rem; padding: 0.625rem 0.75rem; background: var(--bg); color: var(--text); }}
   .docs-field-control:disabled {{ opacity: 0.65; cursor: not-allowed; }}
   .docs-send-button {{ border: 0; border-radius: 0.75rem; padding: 0.625rem 1rem; background: linear-gradient(90deg, #7645d9, #5a33b8); color: white; font-weight: 600; }}
   .docs-send-button:disabled {{ opacity: 0.5; cursor: not-allowed; }}
   .docs-try-it-status {{ margin: 0; color: var(--text-muted); font-size: 0.75rem; }}
   @media (max-width: 1023px) {{
     .developer-docs {{ display: block; }}
-    .docs-sidebar {{ position: fixed; z-index: 80; top: 0; left: 0; width: 14rem; height: 100dvh; padding-top: 5rem; background: var(--bg-secondary); border-right: 1px solid var(--border); transform: translateX(-100%); transition: transform 160ms ease; overflow-y: auto; }}
+    .docs-sidebar {{ position: fixed; z-index: 80; top: 0; left: 0; width: 14rem; height: 100dvh; padding-top: 5rem; background: var(--bg-secondary); border-right: 1px solid var(--epsx-border); transform: translateX(-100%); transition: transform 160ms ease; overflow-y: auto; }}
     .docs-sidebar.open {{ transform: translateX(0); }}
     .docs-sidebar-toggle {{ display: inline-flex; position: fixed; z-index: 90; right: 1rem; bottom: 1rem; width: 3rem; height: 3rem; align-items: center; justify-content: center; border: 0; border-radius: 9999px; background: linear-gradient(90deg, #7645d9, #5a33b8); color: white; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }}
     .docs-sidebar-overlay:not([hidden]) {{ display: block; position: fixed; z-index: 70; inset: 0; border: 0; background: rgba(0,0,0,0.4); }}
@@ -5779,7 +5792,7 @@ pub fn design_system_head_with_keywords(
    * by the page-level section markers. */
   .empty-chart-state {{
     position: relative;
-    border: 1px dashed var(--border, #cbd5e1);
+    border: 1px dashed var(--epsx-border, #cbd5e1);
     border-radius: 1rem;
     padding: 3rem 1.5rem;
     background: var(--bg-secondary, #f8fafc);
@@ -5870,7 +5883,7 @@ pub fn design_system_head_with_keywords(
     align-items: center;
     justify-content: space-between;
     padding: 0.75rem 1.25rem;
-    border-bottom: 1px solid var(--border, rgba(255,255,255,0.08));
+    border-bottom: 1px solid var(--epsx-border, rgba(255,255,255,0.08));
     background: var(--card, rgba(15,23,42,0.6));
     backdrop-filter: blur(12px);
   }}
@@ -6041,7 +6054,7 @@ pub fn design_system_head_with_keywords(
   .admin-action-confirm-panel {{
     border-radius: 1rem;
     background: var(--card, #0b0f1a);
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--epsx-border, rgba(255, 255, 255, 0.08));
     box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     padding: 1.5rem;
     max-width: 28rem;
@@ -6064,7 +6077,7 @@ pub fn design_system_head_with_keywords(
     transition: all 0.15s ease;
   }}
   .admin-action-confirm-actions .btn-outline {{
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+    border: 1px solid var(--epsx-border, rgba(255, 255, 255, 0.08));
     background: transparent;
   }}
   .admin-action-confirm-actions .btn-outline:hover {{
@@ -6083,10 +6096,10 @@ pub fn design_system_head_with_keywords(
     background: var(--warning-hover, #d97706);
   }}
   .admin-action-confirm-actions .btn-primary {{
-    background: var(--primary, #3b82f6); color: #fff;
+    background: var(--epsx-primary, #3b82f6); color: #fff;
   }}
   .admin-action-confirm-actions .btn-primary:hover {{
-    background: var(--primary-hover, #2563eb);
+    background: var(--epsx-primary-hover, #2563eb);
   }}
 
   /* --- /admin/audit-log --- 5 sections: filters / timeline / detail / severity / export --- */
@@ -6326,7 +6339,7 @@ pub fn design_system_head_with_keywords(
     gap: 0.5rem;
     padding: 0.5rem 0;
     align-items: center;
-    border-bottom: 1px solid var(--border, rgba(255,255,255,0.06));
+    border-bottom: 1px solid var(--epsx-border, rgba(255,255,255,0.06));
   }}
   .wallet-detail-view {{
     /* Wrapper for the per-wallet detail view. */
@@ -6620,6 +6633,9 @@ pub fn lucide_icon(name: &str) -> &'static str {
             r#"<path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/>"#
         }
         "arrow-right" => r#"<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>"#,
+        "arrow-up-down" => {
+            r#"<path d="m21 16-4 4-4-4"/><path d="M17 20V4"/><path d="m3 8 4-4 4 4"/><path d="M7 4v16"/>"#
+        }
         "info" => r#"<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>"#,
         "mail" => {
             r#"<rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/>"#
@@ -7018,7 +7034,7 @@ pub fn footer() -> &'static str {
         </nav>
       </div>
     </div>
-    <div style="border-top:1px solid var(--border);padding-top:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center;font-size:0.8125rem;">
+    <div style="border-top:1px solid var(--epsx-border);padding-top:1.5rem;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:center;font-size:0.8125rem;">
       <span>&copy; EPSX. All rights reserved.</span>
       <span>Built on BSC</span>
     </div>
@@ -7669,6 +7685,21 @@ mod page_head_tests {
         assert!(head.contains("color: var(--text) !important;"));
         assert!(head.contains("html:not(.dark) .auth-modal-headline"));
         assert!(head.contains("html:not(.dark) .wallet-option"));
+    }
+
+    #[test]
+    fn legacy_template_tokens_do_not_shadow_tailwind_hsl_channels() {
+        let head = design_system_head("Title", "Description");
+        assert!(head.contains("--epsx-border:"));
+        assert!(head.contains("--epsx-primary:"));
+        assert!(!head
+            .lines()
+            .any(|line| line.trim_start().starts_with("--border:")));
+        assert!(!head
+            .lines()
+            .any(|line| line.trim_start().starts_with("--primary:")));
+        assert!(head.contains(".admin-header-chrome"));
+        assert!(head.contains(".admin-app-shell .btn-primary"));
     }
 
     #[test]

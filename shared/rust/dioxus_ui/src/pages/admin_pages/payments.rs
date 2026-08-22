@@ -38,6 +38,140 @@ pub const ADMIN_PAYMENT_LINKS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PAYMENT_LINKS_MALFORMED: &str = "malformed";
 pub const ADMIN_PAYMENT_MUTATION_PARAM: &str = "mutation";
 
+pub const ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM: &str = "data_admin_payment_user_access";
+pub const ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM: &str = "data_admin_payment_user_access_state";
+pub const ADMIN_PAYMENT_USER_ACCESS_READY: &str = "ready";
+pub const ADMIN_PAYMENT_USER_ACCESS_EMPTY: &str = "empty";
+pub const ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE: &str = "unavailable";
+pub const ADMIN_PAYMENT_USER_ACCESS_MALFORMED: &str = "malformed";
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AdminPaymentUserAccessQuery {
+    pub page: i64,
+    pub limit: i64,
+    pub status: Option<String>,
+    pub search: Option<String>,
+}
+
+impl AdminPaymentUserAccessQuery {
+    pub fn from_raw(raw: &str) -> Result<Self, ()> {
+        let mut query = Self {
+            page: 1,
+            limit: 20,
+            status: None,
+            search: None,
+        };
+        let mut seen = std::collections::HashSet::new();
+        for (key, value) in url::form_urlencoded::parse(raw.as_bytes()) {
+            if key == "tab" {
+                continue;
+            }
+            if !seen.insert(key.to_string()) {
+                return Err(());
+            }
+            match key.as_ref() {
+                "page" => {
+                    query.page = value.parse().map_err(|_| ())?;
+                    if !(1..=500_001).contains(&query.page) {
+                        return Err(());
+                    }
+                }
+                "limit" => {
+                    query.limit = value.parse().map_err(|_| ())?;
+                    if !matches!(query.limit, 10 | 20 | 50 | 100) {
+                        return Err(());
+                    }
+                }
+                "status" => match value.as_ref() {
+                    "" | "all" => query.status = None,
+                    "active" | "expired" | "expiring_soon" | "no_plan" => {
+                        query.status = Some(value.into_owned())
+                    }
+                    _ => return Err(()),
+                },
+                "search" => {
+                    let value = value.into_owned();
+                    if value.is_empty() {
+                        query.search = None;
+                    } else if value.len() <= 42
+                        && value.bytes().all(|byte| {
+                            byte.is_ascii_alphanumeric() || matches!(byte, b'x' | b'X' | b'_')
+                        })
+                    {
+                        query.search = Some(value);
+                    } else {
+                        return Err(());
+                    }
+                }
+                _ => return Err(()),
+            }
+        }
+        Ok(query)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPaymentUserAccessItem {
+    pub wallet_address: String,
+    pub current_plan_id: Option<String>,
+    pub plan_name: Option<String>,
+    pub plan_expires_at: Option<String>,
+    pub days_remaining: i64,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct AdminPaymentUserAccessProjection {
+    pub items: Vec<AdminPaymentUserAccessItem>,
+    pub page: i64,
+    pub limit: i64,
+    pub total_pages: i64,
+}
+
+pub fn decode_admin_payment_user_access_projection(
+    value: serde_json::Value,
+) -> Option<AdminPaymentUserAccessProjection> {
+    let projection: AdminPaymentUserAccessProjection = serde_json::from_value(value).ok()?;
+    if projection.page < 1
+        || !(1..=100).contains(&projection.limit)
+        || projection.total_pages < 1
+        || projection.items.len() > usize::try_from(projection.limit).ok()?
+        || projection.items.iter().any(|item| {
+            !valid_wallet_address(&item.wallet_address)
+                || item
+                    .current_plan_id
+                    .as_deref()
+                    .is_some_and(|value| uuid::Uuid::parse_str(value).is_err())
+                || item.plan_name.as_deref().is_some_and(|value| {
+                    value.trim().is_empty()
+                        || value.trim() != value
+                        || value.chars().count() > 100
+                        || value.chars().any(char::is_control)
+                })
+                || item.plan_expires_at.as_deref().is_some_and(|value| {
+                    value.len() > 64 || DateTime::parse_from_rfc3339(value).is_err()
+                })
+                || !(0..=365_000).contains(&item.days_remaining)
+                || !matches!(
+                    item.status.as_str(),
+                    "active" | "expiring_soon" | "expired" | "no_plan"
+                )
+        })
+    {
+        return None;
+    }
+    Some(projection)
+}
+
+fn valid_wallet_address(value: &str) -> bool {
+    value.len() == 42
+        && value.starts_with("0x")
+        && value[2..].bytes().all(|byte| byte.is_ascii_hexdigit())
+}
+
 /// Exact service-owned fields returned by `GET /api/v1/admin/pay/intents`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct AdminPaymentIntent {
@@ -258,6 +392,46 @@ enum PaymentLinksLoad {
     Malformed,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum PaymentUserAccessLoad {
+    Ready(AdminPaymentUserAccessProjection),
+    Empty,
+    Forbidden,
+    Unavailable,
+    Malformed,
+}
+
+fn payment_user_access_load(ctx: &PageContext) -> PaymentUserAccessLoad {
+    let state = ctx
+        .params
+        .get(ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM)
+        .map(String::as_str);
+    match state {
+        Some(ADMIN_PAYMENT_USER_ACCESS_READY) | Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY) => {
+            let Some(raw) = ctx.params.get(ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM) else {
+                return PaymentUserAccessLoad::Malformed;
+            };
+            let Some(projection) = serde_json::from_str(raw)
+                .ok()
+                .and_then(decode_admin_payment_user_access_projection)
+            else {
+                return PaymentUserAccessLoad::Malformed;
+            };
+            match (state, projection.items.is_empty()) {
+                (Some(ADMIN_PAYMENT_USER_ACCESS_READY), false) => {
+                    PaymentUserAccessLoad::Ready(projection)
+                }
+                (Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY), true) => PaymentUserAccessLoad::Empty,
+                _ => PaymentUserAccessLoad::Malformed,
+            }
+        }
+        Some(ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN) => PaymentUserAccessLoad::Forbidden,
+        Some(ADMIN_PAYMENT_USER_ACCESS_MALFORMED) => PaymentUserAccessLoad::Malformed,
+        Some(ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE) | None => PaymentUserAccessLoad::Unavailable,
+        Some(_) => PaymentUserAccessLoad::Malformed,
+    }
+}
+
 fn payment_links_load(ctx: &PageContext) -> PaymentLinksLoad {
     match ctx
         .params
@@ -334,10 +508,12 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         .get(ADMIN_PAYMENTS_TAB_PARAM)
         .map(String::as_str)
         .unwrap_or("payments");
-    let required_permissions = if active_tab == "payment-links" {
-        Some(vec!["admin:payment-links:view".to_string()])
-    } else {
-        Some(vec!["admin:payments:view".to_string()])
+    let required_permissions = match active_tab {
+        "payment-links" => Some(vec!["admin:payment-links:view".to_string()]),
+        // The subscription backend is the authority for this tab. Do not
+        // duplicate its plan-access decision in the UI gate.
+        "user-access" => None,
+        _ => Some(vec!["admin:payments:view".to_string()]),
     };
     (
         meta,
@@ -366,7 +542,6 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
         _ => "payments",
     };
     let filters = PaymentFilters::from_ctx(&ctx);
-    let refresh_url = filters.page_url(filters.offset);
     let mutation = match ctx
         .params
         .get(ADMIN_PAYMENT_MUTATION_PARAM)
@@ -382,19 +557,13 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
                 title: "Payments Hub".to_string(),
-                subtitle: Some("Review backend-authoritative payment intents".to_string()),
+                subtitle: Some("Manage payments, user access, and payment links".to_string()),
                 icon: Some("credit-card".to_string()),
                 gradient: Some(PageGradient::Primary),
                 centered: Some(true),
-                extra_actions: Some(rsx! {
-                    a { class: "btn btn-sm btn-outline", href: refresh_url.clone(),
-                        Icon { name: "refresh-cw".to_string(), size: Some(14) }
-                        " Refresh"
-                    }
-                }),
+                extra_actions: None,
                 class_name: None,
             }
-            PaymentsHubTabs { active: active_tab.to_string() }
             if let Some(state) = mutation.clone() {
                 p { class: "mb-5 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
                     "data-admin-payment-mutation-state": state,
@@ -404,9 +573,14 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
             if active_tab == "payments" {
                 PaymentsTab { load: payment_load(&ctx), filters }
             } else if active_tab == "user-access" {
-                UnavailableTab {
-                    title: "User access is unavailable".to_string(),
-                    detail: "A canonical subscription/access read contract is not connected to this page yet.".to_string(),
+                PaymentUserAccessTab {
+                    load: payment_user_access_load(&ctx),
+                    query: AdminPaymentUserAccessQuery::from_raw(&ctx.query).unwrap_or(AdminPaymentUserAccessQuery {
+                        page: 1,
+                        limit: 20,
+                        status: None,
+                        search: None,
+                    }),
                 }
             } else {
                 PaymentLinksTab { load: payment_links_load(&ctx) }
@@ -418,7 +592,9 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
 #[component]
 fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
     rsx! {
-        div { class: "space-y-6",
+        div { class: "space-y-6 sm:space-y-8",
+            PaymentsActionBar { refresh_url: filters.page_url(filters.offset) }
+            PaymentsSummaryGrid {}
             PaymentFilterForm { filters: filters.clone() }
             match load {
                 PaymentLoad::Ready(payload) => rsx! {
@@ -450,43 +626,361 @@ fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
 }
 
 #[component]
-fn PaymentLinksTab(load: PaymentLinksLoad) -> Element {
+fn PaymentsActionBar(refresh_url: String) -> Element {
     rsx! {
-        if matches!(&load, PaymentLinksLoad::Ready(_) | PaymentLinksLoad::Empty) {
-            PaymentLinkCreateForm {}
+        div { class: "flex flex-wrap items-center gap-3", aria_label: "Payment actions",
+            a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url,
+                Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                " Refresh"
+            }
+            button { class: "btn btn-sm btn-outline", r#type: "button", disabled: true, title: "CSV export requires a backend-owned redacted export contract",
+                Icon { name: "bar-chart-3".to_string(), size: Some(15) }
+                " Export CSV"
+            }
         }
-        match load {
-            PaymentLinksLoad::Ready(projection) => rsx! { PaymentLinksReady { projection } },
-            PaymentLinksLoad::Empty => rsx! {
-                section {
-                    class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
-                    role: "status",
-                    "data-admin-payment-links-state": ADMIN_PAYMENT_LINKS_EMPTY,
-                    h2 { class: "text-lg font-semibold", "No payment links found" }
-                    p { class: "mt-2 text-sm text-muted-foreground", "The payment service returned an authoritative empty link projection." }
+    }
+}
+
+#[component]
+fn PaymentsSummaryGrid() -> Element {
+    const CARDS: [(&str, &str, &str); 4] = [
+        (
+            "Total Revenue",
+            "Platform total is not exposed",
+            "text-[#1fc7d4]",
+        ),
+        (
+            "Successful",
+            "Verified completion summary",
+            "text-[#31d0aa]",
+        ),
+        ("Pending", "In-progress summary", "text-[#ffb237]"),
+        ("Today", "Current revenue summary", "text-[#ed4b9e]"),
+    ];
+    rsx! {
+        div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4", aria_label: "Payment summary",
+            for (title, subtitle, accent) in CARDS {
+                article { class: "overflow-hidden rounded-xl border border-border/20 bg-card p-5 shadow-xl",
+                    p { class: "text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground", "{title}" }
+                    p { class: "mt-3 text-2xl font-black tracking-tight {accent}", "Unavailable" }
+                    p { class: "mt-1 text-xs text-muted-foreground", "{subtitle}" }
                 }
-            },
-            PaymentLinksLoad::Forbidden => rsx! {
-                PaymentLinksProblem {
-                    state: ADMIN_PAYMENT_LINKS_FORBIDDEN,
-                    title: "Payment-link access was denied".to_string(),
-                    detail: "The backend did not authorize this session to read payment links.".to_string(),
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentUserAccessTab(
+    load: PaymentUserAccessLoad,
+    query: AdminPaymentUserAccessQuery,
+) -> Element {
+    let refresh_url = payment_user_access_url(&query, query.page);
+    rsx! {
+        div { class: "space-y-6 sm:space-y-8",
+            div { class: "flex items-center gap-3",
+                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url,
+                    Icon { name: "refresh-cw".to_string(), size: Some(14) }
+                    " Refresh"
                 }
-            },
-            PaymentLinksLoad::Unavailable => rsx! {
-                PaymentLinksProblem {
-                    state: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
-                    title: "Payment links are unavailable".to_string(),
-                    detail: "The payment backend could not provide an authoritative link response. No links are being shown.".to_string(),
+            }
+            match load {
+                PaymentUserAccessLoad::Ready(projection) => rsx! { PaymentUserAccessReady { projection, query } },
+                PaymentUserAccessLoad::Empty => rsx! { PaymentUserAccessEmpty {} },
+                PaymentUserAccessLoad::Forbidden => rsx! {
+                    LoadProblem {
+                        title: "User-access read was denied".to_string(),
+                        detail: "The subscription backend did not authorize this session to read plan access.".to_string(),
+                        retry_url: payment_user_access_url(&query, query.page),
+                    }
+                },
+                PaymentUserAccessLoad::Unavailable => rsx! {
+                    LoadProblem {
+                        title: "User access is unavailable".to_string(),
+                        detail: "The subscription backend could not provide an authoritative user-access response.".to_string(),
+                        retry_url: payment_user_access_url(&query, query.page),
+                    }
+                },
+                PaymentUserAccessLoad::Malformed => rsx! {
+                    LoadProblem {
+                        title: "User-access data could not be verified".to_string(),
+                        detail: "The backend response did not match the strict plan-access contract.".to_string(),
+                        retry_url: payment_user_access_url(&query, query.page),
+                    }
+                },
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentUserAccessReady(
+    projection: AdminPaymentUserAccessProjection,
+    query: AdminPaymentUserAccessQuery,
+) -> Element {
+    let count = projection.items.len();
+    let previous = (projection.page > 1)
+        .then(|| payment_user_access_url(&query, projection.page.saturating_sub(1)));
+    let next = (projection.items.len() == projection.limit as usize)
+        .then(|| payment_user_access_url(&query, projection.page.saturating_add(1)));
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", "data-admin-payment-user-access-state": ADMIN_PAYMENT_USER_ACCESS_READY,
+            div { class: "h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]", aria_hidden: "true" }
+            div { class: "p-4 sm:p-6 lg:p-8",
+                div { class: "mb-6 flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center",
+                    h2 { class: "text-xs font-bold uppercase tracking-[0.2em] text-[#31d0aa]", "All Users with Plan Access" }
+                    span { class: "rounded-full border border-border/40 bg-muted/50 px-3 py-1 text-xs font-bold text-muted-foreground", "{count} users" }
                 }
-            },
-            PaymentLinksLoad::Malformed => rsx! {
-                PaymentLinksProblem {
-                    state: ADMIN_PAYMENT_LINKS_MALFORMED,
-                    title: "Payment-link data could not be verified".to_string(),
-                    detail: "The backend response did not match the strict redacted payment-link contract. No links are being shown.".to_string(),
+                div { class: "space-y-4 sm:hidden",
+                    for item in projection.items.iter() {
+                        PaymentUserAccessCard { item: item.clone() }
+                    }
                 }
-            },
+                div { class: "hidden overflow-x-auto sm:block",
+                    table { class: "min-w-full",
+                        thead {
+                            tr { class: "border-b border-border/50",
+                                for label in ["Wallet", "Plan", "Status", "Days Left", "Expires", "Actions"] {
+                                    th { class: "px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground", "{label}" }
+                                }
+                            }
+                        }
+                        tbody { class: "divide-y divide-border/50",
+                            for item in projection.items.iter() {
+                                PaymentUserAccessRow { item: item.clone() }
+                            }
+                        }
+                    }
+                }
+                nav { class: "mt-6 flex items-center justify-between", aria_label: "User access pagination",
+                    if let Some(href) = previous {
+                        a { class: "btn btn-sm btn-outline", href, "Previous" }
+                    } else {
+                        span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Previous" }
+                    }
+                    span { class: "text-sm text-muted-foreground", "Page {projection.page}" }
+                    if let Some(href) = next {
+                        a { class: "btn btn-sm btn-outline", href, "Next" }
+                    } else {
+                        span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Next" }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentUserAccessRow(item: AdminPaymentUserAccessItem) -> Element {
+    let detail_url = format!("/wallet-management/{}", item.wallet_address);
+    let plan = item.plan_name.unwrap_or_else(|| "No Plan".to_string());
+    let expires = item.plan_expires_at.unwrap_or_else(|| "Never".to_string());
+    let days = if item.days_remaining > 0 {
+        format!("{} days", item.days_remaining)
+    } else {
+        "-".to_string()
+    };
+    rsx! {
+        tr { class: "transition-colors hover:bg-muted/30",
+            td { class: "px-4 py-4 font-mono text-xs text-muted-foreground", "{item.wallet_address}" }
+            td { class: "px-4 py-4 text-sm font-semibold text-foreground", "{plan}" }
+            td { class: "px-4 py-4", PaymentUserAccessStatus { status: item.status } }
+            td { class: "px-4 py-4 text-sm text-secondary", "{days}" }
+            td { class: "px-4 py-4 text-sm text-muted-foreground", "{expires}" }
+            td { class: "px-4 py-4",
+                a { class: "btn btn-sm btn-outline", href: detail_url, "View" }
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentUserAccessCard(item: AdminPaymentUserAccessItem) -> Element {
+    let detail_url = format!("/wallet-management/{}", item.wallet_address);
+    let plan = item.plan_name.unwrap_or_else(|| "No Plan".to_string());
+    let expires = item.plan_expires_at.unwrap_or_else(|| "Never".to_string());
+    let days = if item.days_remaining > 0 {
+        format!("{} days", item.days_remaining)
+    } else {
+        "-".to_string()
+    };
+    rsx! {
+        article { class: "rounded-2xl border border-border/50 bg-muted/30 p-4",
+            div { class: "flex items-center justify-between gap-3",
+                p { class: "break-all font-mono text-xs text-muted-foreground", "{item.wallet_address}" }
+                PaymentUserAccessStatus { status: item.status }
+            }
+            dl { class: "mt-3 grid grid-cols-2 gap-3",
+                div { class: "rounded-xl border border-border/50 bg-card p-3",
+                    dt { class: "text-sm font-medium text-muted-foreground", "Plan" }
+                    dd { class: "mt-1 text-lg font-bold text-primary", "{plan}" }
+                }
+                div { class: "rounded-xl border border-border/50 bg-card p-3",
+                    dt { class: "text-sm font-medium text-muted-foreground", "Days Left" }
+                    dd { class: "mt-1 text-lg font-bold text-secondary", "{days}" }
+                }
+            }
+            p { class: "mt-3 text-xs text-muted-foreground", "Expires: {expires}" }
+            a { class: "btn btn-sm btn-outline mt-3", href: detail_url, "View wallet" }
+        }
+    }
+}
+
+#[component]
+fn PaymentUserAccessStatus(status: String) -> Element {
+    let class = match status.as_str() {
+        "active" => "border-success/20 bg-success/10 text-success",
+        "expiring_soon" => "border-warning/20 bg-warning/10 text-warning",
+        "expired" => "border-destructive/20 bg-destructive/10 text-destructive",
+        _ => "border-border/50 bg-muted text-muted-foreground",
+    };
+    let label = match status.as_str() {
+        "no_plan" => "No Plan",
+        "expiring_soon" => "Expiring Soon",
+        _ => status.as_str(),
+    };
+    rsx! {
+        span { class: "inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold {class}", "{label}" }
+    }
+}
+
+#[component]
+fn PaymentUserAccessEmpty() -> Element {
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", role: "status", "data-admin-payment-user-access-state": ADMIN_PAYMENT_USER_ACCESS_EMPTY,
+            div { class: "h-[3px] bg-gradient-to-r from-[#31d0aa] to-[#1fc7d4]", aria_hidden: "true" }
+            div { class: "px-6 py-16 text-center",
+                div { class: "mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary",
+                    Icon { name: "users".to_string(), size: Some(40) }
+                }
+                h2 { class: "mt-4 text-xl font-semibold", "No users with plan access found" }
+                p { class: "mt-2 text-muted-foreground", "Users with active subscriptions will appear here" }
+            }
+        }
+    }
+}
+
+fn payment_user_access_url(query: &AdminPaymentUserAccessQuery, page: i64) -> String {
+    let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+    serializer.append_pair("tab", "user-access");
+    serializer.append_pair("page", &page.to_string());
+    serializer.append_pair("limit", &query.limit.to_string());
+    if let Some(status) = query.status.as_deref() {
+        serializer.append_pair("status", status);
+    }
+    if let Some(search) = query.search.as_deref() {
+        serializer.append_pair("search", search);
+    }
+    format!("/payments?{}", serializer.finish())
+}
+
+#[component]
+fn PaymentLinksTab(load: PaymentLinksLoad) -> Element {
+    let available = matches!(&load, PaymentLinksLoad::Ready(_) | PaymentLinksLoad::Empty);
+    rsx! {
+        div { class: "space-y-6 sm:space-y-8",
+            PaymentLinksActions { available }
+            PaymentLinksFilters {}
+            if available {
+                PaymentLinkCreateForm {}
+            }
+            match load {
+                PaymentLinksLoad::Ready(projection) => rsx! { PaymentLinksReady { projection } },
+                PaymentLinksLoad::Empty => rsx! {
+                    PaymentLinksEmpty {}
+                },
+                PaymentLinksLoad::Forbidden => rsx! {
+                    PaymentLinksProblem {
+                        state: ADMIN_PAYMENT_LINKS_FORBIDDEN,
+                        title: "Payment-link access was denied".to_string(),
+                        detail: "The backend did not authorize this session to read payment links.".to_string(),
+                    }
+                },
+                PaymentLinksLoad::Unavailable => rsx! {
+                    PaymentLinksProblem {
+                        state: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
+                        title: "Payment links are unavailable".to_string(),
+                        detail: "The payment backend could not provide an authoritative link response. No links are being shown.".to_string(),
+                    }
+                },
+                PaymentLinksLoad::Malformed => rsx! {
+                    PaymentLinksProblem {
+                        state: ADMIN_PAYMENT_LINKS_MALFORMED,
+                        title: "Payment-link data could not be verified".to_string(),
+                        detail: "The backend response did not match the strict redacted payment-link contract. No links are being shown.".to_string(),
+                    }
+                },
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksActions(available: bool) -> Element {
+    rsx! {
+        div { class: "flex flex-wrap items-center gap-3", aria_label: "Payment-link actions",
+            if available {
+                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: "#create-payment-link",
+                    Icon { name: "plus".to_string(), size: Some(15) }
+                    " New Link"
+                }
+            } else {
+                button { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white opacity-50", r#type: "button", disabled: true, title: "Creation is unavailable until the backend returns an authoritative link inventory",
+                    Icon { name: "plus".to_string(), size: Some(15) }
+                    " New Link"
+                }
+            }
+            a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links",
+                Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                " Refresh"
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksFilters() -> Element {
+    rsx! {
+        section { class: "rounded-xl border border-border/20 bg-card p-4", aria_label: "Payment-link filters",
+            div { class: "grid grid-cols-1 gap-4 sm:grid-cols-3",
+                label { class: "block text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground",
+                    "Context Type"
+                    select { class: "input mt-2 w-full", disabled: true, title: "Context type is not exposed by the current payment-link projection",
+                        option { "All Types" }
+                    }
+                }
+                label { class: "block text-xs font-bold uppercase tracking-[0.15em] text-muted-foreground",
+                    "Status"
+                    select { class: "input mt-2 w-full", disabled: true, title: "Server-side status filtering is not exposed by the current payment-link endpoint",
+                        option { "All Status" }
+                    }
+                }
+                div { class: "flex items-end",
+                    button { class: "btn btn-sm btn-outline w-full", r#type: "button", disabled: true, "Reset" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn PaymentLinksEmpty() -> Element {
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", role: "status", "data-admin-payment-links-state": ADMIN_PAYMENT_LINKS_EMPTY,
+            div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]", aria_hidden: "true" }
+            div { class: "p-4 sm:p-6 lg:p-8",
+                div { class: "mb-6 flex items-center justify-between gap-3",
+                    h2 { class: "text-xs font-bold uppercase tracking-[0.2em] text-[#7645d9]", "All Payment Links" }
+                    span { class: "rounded-full border border-border/40 bg-muted/50 px-3 py-1 text-xs font-bold text-muted-foreground", "0 links" }
+                }
+                div { class: "py-12 text-center sm:py-16",
+                    div { class: "mx-auto flex h-20 w-20 items-center justify-center rounded-2xl bg-primary/10 text-primary",
+                        Icon { name: "link-2".to_string(), size: Some(40) }
+                    }
+                    h3 { class: "mt-4 text-xl font-semibold text-foreground", "No payment links yet" }
+                    p { class: "mt-2 text-muted-foreground", "Create your first payment link to get started" }
+                }
+            }
         }
     }
 }
@@ -613,7 +1107,7 @@ fn PaymentLinkCard(link: AdminPaymentLinkProjection) -> Element {
 #[component]
 fn PaymentLinkCreateForm() -> Element {
     rsx! {
-        form { method: "post", action: "/payments", class: "mb-5 grid gap-3 rounded-xl border border-border/20 bg-card p-4 md:grid-cols-4 md:items-end",
+        form { id: "create-payment-link", method: "post", action: "/payments", class: "grid gap-3 rounded-xl border border-border/20 bg-card p-4 shadow-xl md:grid-cols-4 md:items-end",
             input { r#type: "hidden", name: "operation", value: "payment_link_create" }
             input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.create.{}", uuid::Uuid::new_v4()) }
             label { class: "space-y-2 text-sm font-medium",
@@ -636,15 +1130,35 @@ fn PaymentLinkCreateForm() -> Element {
 #[component]
 fn PaymentLinksProblem(state: &'static str, title: String, detail: String) -> Element {
     rsx! {
-        section {
-            class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8",
-            role: if state == ADMIN_PAYMENT_LINKS_FORBIDDEN { "alert" } else { "status" },
+        div {
             "data-admin-payment-links-state": state,
-            h2 { class: "text-lg font-semibold", "{title}" }
-            p { class: "mt-2 text-sm text-muted-foreground", "{detail}" }
-            nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Payment-link recovery",
-                a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", "Retry payment links" }
-                a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+            section {
+                class: "rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4",
+                role: if state == ADMIN_PAYMENT_LINKS_FORBIDDEN { "alert" } else { "status" },
+                div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                    div {
+                        h2 { class: "font-semibold", "{title}" }
+                        p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
+                    }
+                    nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Payment-link recovery",
+                        a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", "Retry payment links" }
+                        a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                    }
+                }
+            }
+            section { class: "mt-6 overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_label: "Payment-link inventory unavailable",
+                div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]", aria_hidden: "true" }
+                div { class: "p-4 sm:p-6 lg:p-8",
+                    div { class: "mb-6 flex items-center justify-between gap-3",
+                        h3 { class: "text-xs font-bold uppercase tracking-[0.2em] text-[#7645d9]", "All Payment Links" }
+                        span { class: "rounded-full border border-border/40 bg-muted/50 px-3 py-1 font-mono text-xs text-amber-400", "Unavailable" }
+                    }
+                    div { class: "rounded-xl border border-dashed border-border/40 px-6 py-12 text-center",
+                        Icon { name: "link-2".to_string(), size: Some(36) }
+                        p { class: "mt-3 text-sm font-semibold text-foreground", "No verified link inventory" }
+                        p { class: "mt-1 text-xs text-muted-foreground", "Creation and lifecycle actions remain disabled until the backend responds." }
+                    }
+                }
             }
         }
     }
@@ -848,27 +1362,6 @@ fn LoadProblem(title: String, detail: String, retry_url: String) -> Element {
     }
 }
 
-#[component]
-fn UnavailableTab(title: String, detail: String) -> Element {
-    rsx! {
-        section { class: "rounded-2xl border border-border/30 bg-card p-10", role: "status",
-            h2 { class: "text-lg font-semibold", "{title}" }
-            p { class: "mt-2 max-w-2xl text-sm text-muted-foreground", "{detail}" }
-        }
-    }
-}
-
-#[component]
-fn PaymentsHubTabs(active: String) -> Element {
-    rsx! {
-        nav { class: "flex flex-wrap gap-2 mb-6", aria_label: "Payments sections",
-            a { class: if active == "payments" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=payments", "Payments" }
-            a { class: if active == "user-access" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=user-access", "User Access" }
-            a { class: if active == "payment-links" { "btn btn-primary btn-sm" } else { "btn btn-outline btn-sm" }, href: "/payments?tab=payment-links", "Payment Links" }
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -962,6 +1455,29 @@ mod tests {
         ctx
     }
 
+    fn with_user_access(
+        state: &str,
+        payload: Option<AdminPaymentUserAccessProjection>,
+    ) -> PageContext {
+        let mut ctx = authed_ctx();
+        ctx.query = "tab=user-access&page=1&limit=20".to_string();
+        ctx.params.insert(
+            ADMIN_PAYMENTS_TAB_PARAM.to_string(),
+            "user-access".to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM.to_string(),
+            state.to_string(),
+        );
+        if let Some(payload) = payload {
+            ctx.params.insert(
+                ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM.to_string(),
+                serde_json::to_string(&payload).unwrap(),
+            );
+        }
+        ctx
+    }
+
     fn render_html(ctx: &PageContext) -> String {
         let (_, element) = render(ctx);
         dioxus_ssr::render_element(element)
@@ -983,7 +1499,9 @@ mod tests {
         assert!(html.contains("1000000000000000000"));
         assert!(html.contains("&#60;script&#62;alert(1)&#60;/script&#62;"));
         assert!(!html.contains("<script>alert(1)</script>"));
-        for invented in ["Total Revenue", "$45,231", "pi_abc123", "Pro Plan Monthly"] {
+        assert!(html.contains("Total Revenue"));
+        assert!(html.contains("Export CSV"));
+        for invented in ["$45,231", "pi_abc123", "Pro Plan Monthly"] {
             assert!(
                 !html.contains(invented),
                 "invented value leaked: {invented}"
@@ -1005,6 +1523,8 @@ mod tests {
 
         assert!(empty.contains("No payment intents found"));
         assert!(unavailable.contains("Payment intents unavailable"));
+        assert!(unavailable.contains("Total Revenue"));
+        assert!(unavailable.contains("Export CSV"));
         assert!(!unavailable.contains("No payment intents found"));
         assert!(malformed.contains("Payment data could not be verified"));
         assert!(!malformed.contains("No payment intents found"));
@@ -1143,7 +1663,8 @@ mod tests {
                 offset: 0,
             }),
         ));
-        assert!(empty.contains("No payment links found"));
+        assert!(empty.contains("No payment links yet"));
+        assert!(empty.contains("All Payment Links"));
         for (state, title) in [
             (
                 ADMIN_PAYMENT_LINKS_FORBIDDEN,
@@ -1169,6 +1690,8 @@ mod tests {
             ));
             assert!(html.contains(&format!("data-admin-payment-links-state=\"{state}\"")));
             assert!(html.contains(title));
+            assert!(html.contains("All Payment Links"));
+            assert!(html.contains("No verified link inventory"));
             assert!(!html.contains("epsx-link_1"));
         }
     }
@@ -1181,6 +1704,82 @@ mod tests {
         assert!(html.contains("Permission required"));
         assert!(html.contains("admin:payment-links:view"));
         assert!(!html.contains("Payment links are unavailable"));
+    }
+
+    #[test]
+    fn user_access_query_projection_and_responsive_views_are_backend_owned() {
+        let query = AdminPaymentUserAccessQuery::from_raw(
+            "tab=user-access&page=2&limit=20&status=expiring_soon&search=0x1111",
+        )
+        .expect("valid user-access query");
+        assert_eq!(query.page, 2);
+        assert_eq!(query.status.as_deref(), Some("expiring_soon"));
+        assert!(AdminPaymentUserAccessQuery::from_raw("tab=user-access&page=0").is_err());
+        assert!(AdminPaymentUserAccessQuery::from_raw(
+            "tab=user-access&status=active&status=expired"
+        )
+        .is_err());
+
+        let projection = AdminPaymentUserAccessProjection {
+            items: vec![AdminPaymentUserAccessItem {
+                wallet_address: "0x1111111111111111111111111111111111111111".to_string(),
+                current_plan_id: Some("00000000-0000-0000-0000-000000000001".to_string()),
+                plan_name: Some("Lifetime".to_string()),
+                plan_expires_at: None,
+                days_remaining: 365,
+                status: "active".to_string(),
+            }],
+            page: 1,
+            limit: 20,
+            total_pages: 1,
+        };
+        assert!(decode_admin_payment_user_access_projection(
+            serde_json::to_value(&projection).unwrap()
+        )
+        .is_some());
+        let html = render_html(&with_user_access(
+            ADMIN_PAYMENT_USER_ACCESS_READY,
+            Some(projection),
+        ));
+        assert!(html.contains("All Users with Plan Access"));
+        assert!(html.contains("Lifetime"));
+        assert!(html.contains("sm:hidden"));
+        assert!(html.contains("sm:block"));
+        assert!(html.contains("/wallet-management/0x1111111111111111111111111111111111111111"));
+        assert!(!html.contains("Permission required"));
+    }
+
+    #[test]
+    fn user_access_states_are_distinct_and_never_reuse_stale_rows() {
+        let empty = AdminPaymentUserAccessProjection {
+            items: vec![],
+            page: 1,
+            limit: 20,
+            total_pages: 1,
+        };
+        assert!(render_html(&with_user_access(
+            ADMIN_PAYMENT_USER_ACCESS_EMPTY,
+            Some(empty)
+        ))
+        .contains("No users with plan access found"));
+        for (state, title) in [
+            (
+                ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
+                "User-access read was denied",
+            ),
+            (
+                ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
+                "User access is unavailable",
+            ),
+            (
+                ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                "User-access data could not be verified",
+            ),
+        ] {
+            let html = render_html(&with_user_access(state, None));
+            assert!(html.contains(title));
+            assert!(!html.contains("Lifetime"));
+        }
     }
 
     #[test]

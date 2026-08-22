@@ -13,6 +13,38 @@ use tracing::info;
 
 const ADMIN_AUDIENCE: &str = "epsx-admin";
 const ANALYTICS_VIEW_PERMISSION: &str = "admin:analytics:view";
+const ADMIN_PERMISSION_STATS_SQL: &str = r#"
+    WITH permission_grants AS (
+        SELECT
+            wdp.is_active
+                AND permission.is_active
+                AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW()) AS is_effective
+        FROM wallet_direct_permissions AS wdp
+        INNER JOIN permissions AS permission ON permission.id = wdp.permission_id
+
+        UNION ALL
+
+        SELECT
+            assignment.is_active
+                AND plan.is_active
+                AND permission.is_active
+                AND (
+                    assignment.expires_at IS NULL
+                    OR assignment.expires_at > NOW()
+                    OR assignment.expires_at
+                        + (plan.grace_period_hours || ' hours')::INTERVAL > NOW()
+                ) AS is_effective
+        FROM wallet_plan_assignments AS assignment
+        INNER JOIN plans AS plan ON plan.id = assignment.plan_id
+        INNER JOIN plan_permissions AS plan_permission ON plan_permission.plan_id = plan.id
+        INNER JOIN permissions AS permission ON permission.id = plan_permission.permission_id
+    )
+    SELECT
+        (SELECT COUNT(*)::bigint FROM plans) AS total_plans,
+        COUNT(*)::bigint AS total_permissions,
+        COUNT(*) FILTER (WHERE is_effective)::bigint AS active_permissions
+    FROM permission_grants
+"#;
 
 #[derive(Debug, Serialize)]
 #[serde(deny_unknown_fields)]
@@ -179,16 +211,10 @@ async fn fetch_permission_stats(
         active_permissions: i64,
     }
 
-    let result = diesel::sql_query(
-        "SELECT
-            (SELECT COUNT(*)::bigint FROM plans) as total_plans,
-            COUNT(*)::bigint as total_permissions,
-            COUNT(*) FILTER (WHERE expires_at IS NULL OR expires_at > NOW())::bigint as active_permissions
-         FROM user_effective_permissions"
-    )
-    .get_result::<PermStats>(&mut conn)
-    .await
-    .map_err(|e| e.to_string())?;
+    let result = diesel::sql_query(ADMIN_PERMISSION_STATS_SQL)
+        .get_result::<PermStats>(&mut conn)
+        .await
+        .map_err(|e| e.to_string())?;
 
     Ok(AdminAnalyticsPermissionStats {
         total: result.total_permissions,
@@ -275,6 +301,20 @@ async fn fetch_developer_stats(
 mod tests {
     use super::*;
 
+    #[test]
+    fn permission_stats_use_current_authoritative_grant_tables() {
+        for relation in [
+            "wallet_direct_permissions",
+            "wallet_plan_assignments",
+            "plan_permissions",
+            "permissions",
+        ] {
+            assert!(ADMIN_PERMISSION_STATS_SQL.contains(relation));
+        }
+        assert!(!ADMIN_PERMISSION_STATS_SQL.contains("user_effective_permissions"));
+        assert!(ADMIN_PERMISSION_STATS_SQL.contains("COUNT(*) FILTER (WHERE is_effective)"));
+    }
+
     fn context(audiences: Option<Vec<&str>>, permissions: &[&str]) -> OpenIDUserContext {
         OpenIDUserContext {
             sub: "admin-subject".to_string(),
@@ -285,6 +325,7 @@ mod tests {
                 .collect(),
             token_audiences: audiences
                 .map(|values| values.into_iter().map(str::to_string).collect()),
+            api_key: None,
             auth_method: "oidc".to_string(),
             jti: "request-token".to_string(),
             exp: 2_000_000_000,

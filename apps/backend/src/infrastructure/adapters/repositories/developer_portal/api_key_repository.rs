@@ -4,7 +4,7 @@
 
 use chrono::Utc;
 use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use diesel_async::{AsyncConnection, RunQueryDsl};
 use tracing::info;
 use uuid::Uuid;
 
@@ -18,6 +18,36 @@ use crate::schemas::primary::{api_key_module_access, api_key_permissions, api_ke
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
     pool: &'static TlsPool,
+}
+
+#[derive(Clone, Debug)]
+pub struct OwnerApiKeyCreateRequest {
+    pub client_name: String,
+    pub client_description: Option<String>,
+    pub wallet_address: String,
+    pub scopes: Vec<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_day: i32,
+    pub expires_at: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IdempotentMutation {
+    Applied(Uuid),
+    Replayed(Uuid),
+}
+
+#[derive(Debug)]
+enum OwnerMutationError {
+    Database(diesel::result::Error),
+    Conflict,
+    NotFound,
+}
+
+impl From<diesel::result::Error> for OwnerMutationError {
+    fn from(error: diesel::result::Error) -> Self {
+        Self::Database(error)
+    }
 }
 
 impl ApiKeyRepository {
@@ -90,6 +120,232 @@ impl ApiKeyRepository {
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         hex::encode(hasher.finalize())
+    }
+
+    pub async fn create_for_owner(
+        &self,
+        request: OwnerApiKeyCreateRequest,
+        idempotency_key: &str,
+        payload_hash: &str,
+    ) -> AppResult<(IdempotentMutation, Option<String>)> {
+        let mut conn = self.pool.get().await.map_err(|error| {
+            AppError::database_error(format!("developer API-key pool: {error}"))
+        })?;
+        let idempotency_key = idempotency_key.to_string();
+        let payload_hash = payload_hash.to_string();
+        let (full_key, key_prefix) = Self::generate_api_key();
+        let key_hash = Self::hash_api_key(&full_key);
+        let generated_id = Uuid::new_v4();
+
+        let result = conn
+            .transaction::<_, OwnerMutationError, _>(|conn| {
+                Box::pin(async move {
+                    diesel::sql_query(
+                        "INSERT INTO developer_api_key_idempotency
+                         (principal, operation, idempotency_key, payload_hash)
+                         VALUES ($1, 'create', $2, $3)
+                         ON CONFLICT (principal, operation, idempotency_key) DO NOTHING",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .bind::<diesel::sql_types::Text, _>(&payload_hash)
+                    .execute(conn)
+                    .await?;
+
+                    #[derive(diesel::QueryableByName)]
+                    struct ClaimRow {
+                        #[diesel(sql_type = diesel::sql_types::Text)]
+                        payload_hash: String,
+                        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+                        resource_id: Option<Uuid>,
+                    }
+                    let claim = diesel::sql_query(
+                        "SELECT payload_hash, resource_id
+                         FROM developer_api_key_idempotency
+                         WHERE principal = $1 AND operation = 'create' AND idempotency_key = $2
+                         FOR UPDATE",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .get_result::<ClaimRow>(conn)
+                    .await?;
+                    if claim.payload_hash != payload_hash {
+                        return Err(OwnerMutationError::Conflict);
+                    }
+                    if let Some(resource_id) = claim.resource_id {
+                        return Ok((IdempotentMutation::Replayed(resource_id), None));
+                    }
+
+                    let now = Utc::now();
+                    diesel::insert_into(api_keys::table)
+                        .values((
+                            api_keys::id.eq(generated_id),
+                            api_keys::key_hash.eq(&key_hash),
+                            api_keys::key_prefix.eq(&key_prefix),
+                            api_keys::client_name.eq(&request.client_name),
+                            api_keys::client_description.eq(&request.client_description),
+                            api_keys::client_contact_email.eq(None::<String>),
+                            api_keys::wallet_address.eq(&request.wallet_address),
+                            api_keys::status.eq("active"),
+                            api_keys::total_requests.eq(0_i64),
+                            api_keys::ip_restrictions.eq(None::<Vec<Option<String>>>),
+                            api_keys::rate_limit_per_minute.eq(request.rate_limit_per_minute),
+                            api_keys::rate_limit_per_day.eq(request.rate_limit_per_day),
+                            api_keys::selected_permissions.eq(&request.scopes),
+                            api_keys::expires_at.eq(request.expires_at),
+                            api_keys::created_at.eq(now),
+                            api_keys::created_by.eq(&request.wallet_address),
+                            api_keys::updated_at.eq(now),
+                        ))
+                        .execute(conn)
+                        .await?;
+
+                    diesel::sql_query(
+                        "INSERT INTO developer_api_key_audit
+                         (actor, action, api_key_id, idempotency_key, metadata)
+                         VALUES ($1, 'created', $2, $3, $4)",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+                    .bind::<diesel::sql_types::Uuid, _>(generated_id)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .bind::<diesel::sql_types::Jsonb, _>(serde_json::json!({
+                        "client_name": request.client_name,
+                        "scopes": request.scopes,
+                        "expires_at": request.expires_at,
+                    }))
+                    .execute(conn)
+                    .await?;
+
+                    diesel::sql_query(
+                        "UPDATE developer_api_key_idempotency
+                         SET resource_id = $3, completed_at = NOW()
+                         WHERE principal = $1 AND operation = 'create' AND idempotency_key = $2",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .bind::<diesel::sql_types::Uuid, _>(generated_id)
+                    .execute(conn)
+                    .await?;
+
+                    Ok((IdempotentMutation::Applied(generated_id), Some(full_key)))
+                })
+            })
+            .await;
+        map_owner_mutation_result(result)
+    }
+
+    pub async fn revoke_for_owner(
+        &self,
+        id: Uuid,
+        wallet_address: &str,
+        reason: &str,
+        idempotency_key: &str,
+        payload_hash: &str,
+    ) -> AppResult<IdempotentMutation> {
+        let mut conn = self.pool.get().await.map_err(|error| {
+            AppError::database_error(format!("developer API-key pool: {error}"))
+        })?;
+        let wallet_address = wallet_address.to_string();
+        let reason = reason.to_string();
+        let idempotency_key = idempotency_key.to_string();
+        let payload_hash = payload_hash.to_string();
+        let result = conn
+            .transaction::<_, OwnerMutationError, _>(|conn| {
+                Box::pin(async move {
+                    diesel::sql_query(
+                        "INSERT INTO developer_api_key_idempotency
+                         (principal, operation, idempotency_key, payload_hash)
+                         VALUES ($1, 'revoke', $2, $3)
+                         ON CONFLICT (principal, operation, idempotency_key) DO NOTHING",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .bind::<diesel::sql_types::Text, _>(&payload_hash)
+                    .execute(conn)
+                    .await?;
+
+                    #[derive(diesel::QueryableByName)]
+                    struct ClaimRow {
+                        #[diesel(sql_type = diesel::sql_types::Text)]
+                        payload_hash: String,
+                        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
+                        resource_id: Option<Uuid>,
+                    }
+                    let claim = diesel::sql_query(
+                        "SELECT payload_hash, resource_id
+                         FROM developer_api_key_idempotency
+                         WHERE principal = $1 AND operation = 'revoke' AND idempotency_key = $2
+                         FOR UPDATE",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .get_result::<ClaimRow>(conn)
+                    .await?;
+                    if claim.payload_hash != payload_hash {
+                        return Err(OwnerMutationError::Conflict);
+                    }
+                    if let Some(resource_id) = claim.resource_id {
+                        return Ok(IdempotentMutation::Replayed(resource_id));
+                    }
+
+                    #[derive(diesel::QueryableByName)]
+                    struct StatusRow {
+                        #[diesel(sql_type = diesel::sql_types::Text)]
+                        status: String,
+                    }
+                    let status = diesel::sql_query(
+                        "SELECT status::text
+                         FROM api_keys
+                         WHERE id = $1 AND LOWER(wallet_address) = LOWER($2)
+                         FOR UPDATE",
+                    )
+                    .bind::<diesel::sql_types::Uuid, _>(id)
+                    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                    .get_result::<StatusRow>(conn)
+                    .await
+                    .optional()?
+                    .ok_or(OwnerMutationError::NotFound)?;
+
+                    if status.status != "revoked" {
+                        diesel::update(api_keys::table)
+                            .filter(api_keys::id.eq(id))
+                            .set((
+                                api_keys::status.eq("revoked"),
+                                api_keys::revoked_at.eq(Utc::now()),
+                                api_keys::revoked_by.eq(&wallet_address),
+                                api_keys::revocation_reason.eq(&reason),
+                                api_keys::updated_at.eq(Utc::now()),
+                            ))
+                            .execute(conn)
+                            .await?;
+                        diesel::sql_query(
+                            "INSERT INTO developer_api_key_audit
+                             (actor, action, api_key_id, idempotency_key, metadata)
+                             VALUES ($1, 'revoked', $2, $3, $4)",
+                        )
+                        .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                        .bind::<diesel::sql_types::Uuid, _>(id)
+                        .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                        .bind::<diesel::sql_types::Jsonb, _>(serde_json::json!({"reason": reason}))
+                        .execute(conn)
+                        .await?;
+                    }
+
+                    diesel::sql_query(
+                        "UPDATE developer_api_key_idempotency
+                         SET resource_id = $3, completed_at = NOW()
+                         WHERE principal = $1 AND operation = 'revoke' AND idempotency_key = $2",
+                    )
+                    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
+                    .bind::<diesel::sql_types::Uuid, _>(id)
+                    .execute(conn)
+                    .await?;
+                    Ok(IdempotentMutation::Applied(id))
+                })
+            })
+            .await;
+        map_owner_mutation_result(result)
     }
 
     /// Create a new API key
@@ -667,17 +923,8 @@ impl ApiKeyRepository {
             .map_err(|e| AppError::database_error(format!("Failed to validate key: {}", e)))?;
 
         if let Some(id) = id {
-            // Update last_used_at
-            diesel::update(api_keys::table)
-                .filter(api_keys::id.eq(&id))
-                .set((
-                    api_keys::last_used_at.eq(Utc::now()),
-                    api_keys::total_requests.eq(api_keys::total_requests + 1),
-                ))
-                .execute(&mut conn)
-                .await
-                .ok(); // Don't fail if update fails
-
+            // Authentication is read-only. Usage middleware records exactly
+            // one completed request (including 4xx/5xx/429) after dispatch.
             self.get_by_id(id).await
         } else {
             Ok(None)
@@ -767,6 +1014,18 @@ impl ApiKeyRepository {
         );
         Ok((api_keys_result, total))
     }
+}
+
+fn map_owner_mutation_result<T>(result: Result<T, OwnerMutationError>) -> AppResult<T> {
+    result.map_err(|error| match error {
+        OwnerMutationError::Conflict => {
+            AppError::conflict("Idempotency-Key was already used with a different payload")
+        }
+        OwnerMutationError::NotFound => AppError::not_found("API key not found"),
+        OwnerMutationError::Database(error) => {
+            AppError::database_error(format!("developer API-key transaction: {error}"))
+        }
+    })
 }
 
 #[cfg(test)]

@@ -582,6 +582,7 @@ mod tests {
             permissions: permissions.into_iter().map(str::to_string).collect(),
             token_audiences: audiences
                 .map(|values| values.into_iter().map(str::to_string).collect()),
+            api_key: None,
             auth_method: "jwt".into(),
             jti: "jti".into(),
             exp: 2,

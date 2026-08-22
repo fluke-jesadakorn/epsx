@@ -257,7 +257,7 @@ pub fn MainLayout(
     children: Element,
 ) -> Element {
     rsx! {
-        div { class: "flex h-screen w-full overflow-hidden bg-background",
+        div { class: "admin-app-shell flex h-screen w-full overflow-hidden bg-background",
             // Sidebar — hidden on mobile, full height.
             div { class: "hidden md:block",
                 AdminSidebar {
@@ -379,33 +379,49 @@ pub fn default_no_layout_paths() -> Vec<String> {
     ]
 }
 
-/// Server-side user shape — the layout doesn't need the full domain
-/// `User`, just the bits that the admin chrome displays (address, role).
+/// Server-authenticated projection containing only the identity fields the
+/// admin chrome displays. Authorization decisions remain backend-owned.
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct ServerUser {
     pub id: String,
+    pub address: String,
+    pub chain_id: String,
     pub email: String,
     pub name: Option<String>,
     pub role: String,
+    pub tier: Option<String>,
+    pub permissions: Vec<String>,
 }
 
 impl ServerUser {
-    /// Convert into a domain `User` for the header. Uses `id` as the
-    /// address (admin chrome only ever shows the short form).
+    /// Convert the BFF-authenticated projection into the domain shape used by
+    /// the header. Keep `id` as a compatibility fallback for older callers,
+    /// but prefer the authoritative wallet address when it is available.
     pub fn to_user(&self) -> Option<User> {
         if self.id.is_empty() {
             return None;
         }
         Some(User {
             id: self.id.clone(),
-            address: self.id.clone(),
-            chain_id: "56".to_string(),
+            address: if self.address.is_empty() {
+                self.id.clone()
+            } else {
+                self.address.clone()
+            },
+            chain_id: if self.chain_id.is_empty() {
+                "56".to_string()
+            } else {
+                self.chain_id.clone()
+            },
             roles: vec![self.role.clone()],
             email: if self.email.is_empty() {
                 None
             } else {
                 Some(self.email.clone())
             },
+            tier: self.tier.clone(),
+            permissions: self.permissions.clone(),
+            display_name: self.name.clone(),
             ..Default::default()
         })
     }

@@ -3,7 +3,7 @@
 //! The worker caches only the explicitly public `/offline` response and never
 //! stores API traffic, authenticated documents, request bodies, or credentials.
 
-pub const GENERATED_MODULE: &str = "epsx_service_worker_bootstrap.js";
+pub const GENERATED_MODULE: &str = "epsx_service_worker_bootstrap.v3.js";
 
 #[cfg(target_arch = "wasm32")]
 mod worker {

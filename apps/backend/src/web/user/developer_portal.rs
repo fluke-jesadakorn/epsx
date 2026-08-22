@@ -1,25 +1,34 @@
-//! User Developer Portal Handlers
-//!
-//! User-facing API endpoints for managing their own API keys.
-//! These routes are scoped to the authenticated user's wallet address.
+//! Owner-scoped Developer Portal HTTP contract.
 
 use axum::{
     extract::{Path, Query, State},
-    response::IntoResponse,
+    http::{header, HeaderMap, HeaderValue, StatusCode},
+    response::{IntoResponse, Response},
     Extension, Json,
 };
+use chrono::{DateTime, Duration, Utc};
+use diesel::prelude::*;
+use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use sha2::{Digest, Sha256};
+use std::collections::BTreeSet;
 use uuid::Uuid;
 
-use crate::domain::developer_portal::{CreateApiKeyRequest, RevokeApiKeyRequest, UsageService};
-use crate::infrastructure::adapters::repositories::developer_portal::ApiKeyRepository;
+use crate::domain::developer_portal::{
+    DeveloperEntitlement, DeveloperEntitlementService, UsageReport, UsageService,
+};
+use crate::infrastructure::adapters::repositories::developer_portal::{
+    ApiKeyRepository, IdempotentMutation, OwnerApiKeyCreateRequest,
+};
+use crate::prelude::{AppError, AppResult};
 use crate::web::auth::AppState;
+use crate::web::middleware::OpenIDUserContext;
 use crate::web::responses::UnifiedApiResponse;
 
-// ============================================================================
-// Request/Response DTOs
-// ============================================================================
+const MAX_NAME_CHARS: usize = 255;
+const MAX_DESCRIPTION_CHARS: usize = 2_000;
+const MAX_SCOPES: usize = 100;
+const MAX_REASON_CHARS: usize = 500;
 
 #[derive(Debug, Deserialize)]
 pub struct ListMyKeysQuery {
@@ -29,49 +38,68 @@ pub struct ListMyKeysQuery {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct CreateMyApiKeyBody {
-    pub client_name: String,
-    pub client_description: Option<String>,
-    pub plan_ids: Vec<String>, // Permission plans to assign
-    #[serde(default)]
-    pub permissions: Vec<String>, // Individual permission strings
-    pub ip_restrictions: Option<Vec<String>>,
+    pub name: String,
+    pub description: Option<String>,
+    pub scopes: Vec<String>,
     pub expires_at: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct RevokeMyApiKeyBody {
     pub reason: Option<String>,
 }
 
+#[derive(Debug, Deserialize)]
+pub struct UsageDaysQuery {
+    pub days: Option<i32>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct ApiKeySummary {
+    pub id: Uuid,
+    pub key_prefix: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub status: String,
+    pub scopes: Vec<String>,
+    pub total_requests: i64,
+    pub expires_at: Option<DateTime<Utc>>,
+    pub last_used_at: Option<DateTime<Utc>>,
+    pub created_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct MyApiKeyListResponse {
-    pub api_keys: Vec<MaskedApiKey>,
+    pub api_keys: Vec<ApiKeySummary>,
     pub total: i64,
+    pub limit: i64,
+    pub offset: i64,
 }
 
 #[derive(Debug, Serialize)]
-pub struct MaskedApiKey {
-    pub id: String,
-    pub key_preview: String,      // e.g., "epsx_xxxx...xxxx"
-    pub full_key: Option<String>, // Full key for copying (only for owner)
-    pub client_name: String,
-    pub client_description: Option<String>,
-    pub status: String,
-    pub plans: Vec<PermissionPlanInfo>,
-    /// Individual permissions selected when creating the key
-    pub permissions: Vec<String>,
-    pub total_requests: i64,
-    pub expires_at: Option<String>,
-    pub last_used_at: Option<String>,
-    pub created_at: String,
+pub struct CreateMyApiKeyResponse {
+    pub api_key: ApiKeySummary,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
+    pub replayed: bool,
 }
 
 #[derive(Debug, Serialize)]
-pub struct PermissionPlanInfo {
-    pub id: String,
-    pub name: String,
-    pub slug: String,
+pub struct RevokeMyApiKeyResponse {
+    pub id: Uuid,
+    pub status: &'static str,
+    pub replayed: bool,
+}
+
+#[derive(Debug, Serialize)]
+pub struct DeveloperOverviewResponse {
+    pub entitlement: DeveloperEntitlement,
+    pub api_keys: Vec<ApiKeySummary>,
+    pub total_api_keys: i64,
+    pub usage: UsageReport,
 }
 
 #[derive(Debug, Serialize)]
@@ -81,681 +109,530 @@ pub struct AvailablePlansResponse {
 
 #[derive(Debug, Serialize)]
 pub struct AvailablePlan {
-    pub id: String,
+    pub id: Uuid,
     pub name: String,
     pub slug: String,
     pub description: String,
     pub permissions: Vec<String>,
-    pub plan_type: String,
-    pub is_active: bool,
 }
 
-/// Response for user's assigned plans
-#[derive(Debug, Serialize)]
-pub struct MyPlansResponse {
-    pub plans: Vec<UserAssignedPlan>,
-    pub total_api_keys: i64,
-    pub total_requests: i64,
+fn private_success<T: Serialize>(status: StatusCode, data: T) -> Response {
+    let mut response = (status, Json(UnifiedApiResponse::success(data))).into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
 }
 
-/// User's assigned plan with metadata
-#[derive(Debug, Serialize)]
-pub struct UserAssignedPlan {
-    pub id: String,
-    pub name: String,
-    pub slug: String,
-    pub description: String,
-    pub plan_type: String,
-    pub permissions: Vec<String>,
-    /// When this plan assignment expires (None = never)
-    pub expires_at: Option<String>,
-    /// Rate limit per minute for this plan
-    pub rate_limit_per_minute: Option<i32>,
-    /// Rate limit per day for this plan
-    pub rate_limit_per_day: Option<i32>,
-    /// When the user was assigned this plan
-    pub assigned_at: String,
+fn private_error(error: AppError) -> Response {
+    let mut response = error.into_response();
+    response.headers_mut().insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    response
 }
 
-// ============================================================================
-// Helper Functions
-// ============================================================================
+fn valid_text(value: &str, max_chars: usize, allow_empty: bool) -> bool {
+    let trimmed = value.trim();
+    (allow_empty || !trimmed.is_empty())
+        && trimmed.chars().count() <= max_chars
+        && !trimmed.chars().any(char::is_control)
+}
 
-/// Mask an API key prefix for display (e.g., "epsx_abc123..." -> "epsx_xxx...xxx")
-fn mask_key_prefix(prefix: &str) -> String {
-    if prefix.len() <= 8 {
-        return format!("{}...", prefix);
+fn parse_days(value: Option<i32>) -> AppResult<i32> {
+    let days = value.unwrap_or(7);
+    if matches!(days, 7 | 30 | 90) {
+        Ok(days)
+    } else {
+        Err(AppError::bad_request("days must be one of 7, 30, or 90"))
     }
-    let start = &prefix[..4];
-    let end = &prefix[prefix.len().saturating_sub(3)..];
-    format!("{}...{}", start, end)
 }
 
-// ============================================================================
-// User API Key Handlers
-// ============================================================================
+fn require_idempotency_key(headers: &HeaderMap) -> AppResult<&str> {
+    let key = headers
+        .get("idempotency-key")
+        .and_then(|value| value.to_str().ok())
+        .ok_or_else(|| AppError::bad_request("Idempotency-Key header is required"))?;
+    if !(8..=128).contains(&key.len())
+        || !key
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-' | b':'))
+    {
+        return Err(AppError::bad_request("Idempotency-Key is malformed"));
+    }
+    Ok(key)
+}
 
-/// GET /api/developer-portal/my-keys
-/// List the authenticated user's API keys
+fn payload_hash(value: &impl Serialize) -> AppResult<String> {
+    let encoded = serde_json::to_vec(value)
+        .map_err(|error| AppError::bad_request(format!("invalid mutation payload: {error}")))?;
+    Ok(hex::encode(Sha256::digest(encoded)))
+}
+
+fn api_key_summary(
+    key: crate::domain::developer_portal::ApiKey,
+    assignable_scopes: &[String],
+) -> ApiKeySummary {
+    ApiKeySummary {
+        id: key.id,
+        key_prefix: format!("{}…", key.key_prefix),
+        name: key.client_name,
+        description: key.client_description,
+        status: key.status.to_string(),
+        scopes: key
+            .selected_permissions
+            .into_iter()
+            .filter(|scope| assignable_scopes.contains(scope) && !scope.starts_with("admin:"))
+            .collect(),
+        total_requests: key.total_requests,
+        expires_at: key.expires_at,
+        last_used_at: key.last_used_at,
+        created_at: key.created_at,
+    }
+}
+
+async fn live_entitlement(state: &AppState, wallet: &str) -> AppResult<DeveloperEntitlement> {
+    DeveloperEntitlementService::new(*state.db_pool)
+        .resolve(wallet)
+        .await
+}
+
+fn require_read(entitlement: &DeveloperEntitlement) -> AppResult<()> {
+    if entitlement.can_read {
+        Ok(())
+    } else {
+        Err(AppError::forbidden("epsx:api:read is required"))
+    }
+}
+
+fn require_write(entitlement: &DeveloperEntitlement) -> AppResult<()> {
+    require_read(entitlement)?;
+    if entitlement.can_write {
+        Ok(())
+    } else {
+        Err(AppError::forbidden("epsx:api:write is required"))
+    }
+}
+
 pub async fn list_my_keys_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
+    Extension(context): Extension<OpenIDUserContext>,
     Query(query): Query<ListMyKeysQuery>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(pool);
-
-    match repo
-        .list_by_wallet(
-            &wallet_address,
-            query.limit,
-            query.offset,
-            query.status.as_deref(),
-        )
-        .await
-    {
-        Ok((api_keys, total)) => {
-            // Convert to masked response
-            let masked_keys: Vec<MaskedApiKey> = api_keys
+) -> Response {
+    let result = async {
+        let entitlement = live_entitlement(&state, &context.wallet_address).await?;
+        require_read(&entitlement)?;
+        let limit = query.limit.unwrap_or(50);
+        let offset = query.offset.unwrap_or(0);
+        if !(1..=100).contains(&limit) || !(0..=1_000_000).contains(&offset) {
+            return Err(AppError::bad_request("invalid pagination"));
+        }
+        if query
+            .status
+            .as_deref()
+            .is_some_and(|status| !matches!(status, "active" | "revoked" | "expired"))
+        {
+            return Err(AppError::bad_request("invalid API key status"));
+        }
+        let (keys, total) = ApiKeyRepository::new(*state.db_pool)
+            .list_by_wallet(
+                &context.wallet_address,
+                Some(limit),
+                Some(offset),
+                query.status.as_deref(),
+            )
+            .await?;
+        Ok(MyApiKeyListResponse {
+            api_keys: keys
                 .into_iter()
-                .map(|key| MaskedApiKey {
-                    id: key.id.to_string(),
-                    key_preview: mask_key_prefix(&key.key_prefix),
-                    full_key: key.full_key,
-                    client_name: key.client_name,
-                    client_description: key.client_description,
-                    status: key.status.to_string(),
-                    plans: key
-                        .permission_plans
-                        .into_iter()
-                        .map(|g| PermissionPlanInfo {
-                            id: g.id.to_string(),
-                            name: g.name,
-                            slug: g.slug,
-                        })
-                        .collect(),
-                    permissions: key.selected_permissions,
-                    total_requests: key.total_requests,
-                    expires_at: key.expires_at.map(|dt| dt.to_rfc3339()),
-                    last_used_at: key.last_used_at.map(|dt| dt.to_rfc3339()),
-                    created_at: key.created_at.to_rfc3339(),
-                })
-                .collect();
-
-            UnifiedApiResponse::success(MyApiKeyListResponse {
-                api_keys: masked_keys,
-                total,
-            })
-        }
-        Err(e) => {
-            error!("Failed to list user API keys: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+                .map(|key| api_key_summary(key, &entitlement.assignable_scopes))
+                .collect(),
+            total,
+            limit,
+            offset,
+        })
+    }
+    .await;
+    match result {
+        Ok(data) => private_success(StatusCode::OK, data),
+        Err(error) => private_error(error),
     }
 }
 
-/// POST /api/developer-portal/my-keys
-/// Create a new API key for the authenticated user
-pub async fn create_my_key_handler(
-    State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Json(body): Json<CreateMyApiKeyBody>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(pool);
-
-    // Parse expires_at if provided
-    let expires_at = if let Some(expires_str) = &body.expires_at {
-        chrono::DateTime::parse_from_rfc3339(expires_str)
-            .map(|dt| dt.with_timezone(&chrono::Utc))
-            .ok()
-    } else {
-        None
-    };
-
-    // Convert plan_ids from strings to UUIDs
-    let plan_ids: Vec<uuid::Uuid> = body
-        .plan_ids
-        .iter()
-        .filter_map(|id| uuid::Uuid::parse_str(id).ok())
-        .collect();
-
-    let request = CreateApiKeyRequest {
-        client_name: body.client_name,
-        client_description: body.client_description,
-        client_contact_email: None,
-        wallet_address: wallet_address.clone(),
-        allowed_modules: vec![], // Legacy, replaced by permission plans
-        plan_ids,
-        permissions: body.permissions, // Individual permission strings
-        ip_restrictions: body.ip_restrictions,
-        rate_limit_per_minute: Some(60),
-        rate_limit_per_day: Some(10000),
-        expires_at,
-        created_by: wallet_address,
-    };
-
-    match repo.create(request).await {
-        Ok(response) => {
-            info!("Created API key for user: {}", response.api_key.id);
-            UnifiedApiResponse::success(response)
-        }
-        Err(e) => {
-            error!("Failed to create API key: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
-    }
-}
-
-/// GET /api/developer-portal/my-keys/:id
-/// Get details of a specific API key owned by the user
 pub async fn get_my_key_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Path(id): Path<String>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(pool);
-
-    let uuid = match Uuid::parse_str(&id) {
-        Ok(u) => u,
-        Err(_) => {
-            return UnifiedApiResponse::error(
-                400,
-                "Invalid UUID",
-                "The provided ID is not a valid UUID",
-            )
-        }
-    };
-
-    match repo.get_by_id(uuid).await {
-        Ok(Some(api_key)) => {
-            // Check ownership
-            if api_key.wallet_address.to_lowercase() != wallet_address.to_lowercase() {
-                return UnifiedApiResponse::error(
-                    403,
-                    "Forbidden",
-                    "You do not have permission to view this API key",
-                );
-            }
-
-            // Return masked key
-            let masked = MaskedApiKey {
-                id: api_key.id.to_string(),
-                key_preview: mask_key_prefix(&api_key.key_prefix),
-                full_key: api_key.full_key,
-                client_name: api_key.client_name,
-                client_description: api_key.client_description,
-                status: api_key.status.to_string(),
-                plans: api_key
-                    .permission_plans
-                    .into_iter()
-                    .map(|g| PermissionPlanInfo {
-                        id: g.id.to_string(),
-                        name: g.name,
-                        slug: g.slug,
-                    })
-                    .collect(),
-                permissions: api_key.selected_permissions,
-                total_requests: api_key.total_requests,
-                expires_at: api_key.expires_at.map(|dt| dt.to_rfc3339()),
-                last_used_at: api_key.last_used_at.map(|dt| dt.to_rfc3339()),
-                created_at: api_key.created_at.to_rfc3339(),
-            };
-
-            UnifiedApiResponse::success(masked)
-        }
-        Ok(None) => UnifiedApiResponse::not_found("API key"),
-        Err(e) => {
-            error!("Failed to get API key: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+    Extension(context): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+) -> Response {
+    let result = async {
+        let entitlement = live_entitlement(&state, &context.wallet_address).await?;
+        require_read(&entitlement)?;
+        let key = ApiKeyRepository::new(*state.db_pool)
+            .get_by_id(id)
+            .await?
+            .filter(|key| {
+                key.wallet_address
+                    .eq_ignore_ascii_case(&context.wallet_address)
+            })
+            .ok_or_else(|| AppError::not_found("API key not found"))?;
+        Ok(api_key_summary(key, &entitlement.assignable_scopes))
+    }
+    .await;
+    match result {
+        Ok(data) => private_success(StatusCode::OK, data),
+        Err(error) => private_error(error),
     }
 }
 
-/// DELETE /api/developer-portal/my-keys/:id
-/// Revoke an API key owned by the user
+pub async fn create_my_key_handler(
+    State(state): State<AppState>,
+    Extension(context): Extension<OpenIDUserContext>,
+    headers: HeaderMap,
+    Json(body): Json<CreateMyApiKeyBody>,
+) -> Response {
+    let result = async {
+        let entitlement = live_entitlement(&state, &context.wallet_address).await?;
+        require_write(&entitlement)?;
+        if !entitlement.has_active_api_entitlement {
+            return Err(AppError::forbidden("no active API entitlement"));
+        }
+        if !valid_text(&body.name, MAX_NAME_CHARS, false)
+            || body
+                .description
+                .as_deref()
+                .is_some_and(|value| !valid_text(value, MAX_DESCRIPTION_CHARS, true))
+        {
+            return Err(AppError::bad_request("invalid API key name or description"));
+        }
+        let requested = body
+            .scopes
+            .iter()
+            .map(|scope| scope.trim().to_string())
+            .collect::<BTreeSet<_>>();
+        if body.scopes.is_empty()
+            || body.scopes.len() > MAX_SCOPES
+            || requested.len() != body.scopes.len()
+            || requested.is_empty()
+            || requested.len() > MAX_SCOPES
+            || requested.iter().any(|scope| {
+                scope.is_empty()
+                    || scope.starts_with("admin:")
+                    || !entitlement.assignable_scopes.contains(scope)
+            })
+        {
+            return Err(AppError::forbidden(
+                "requested scopes are not a subset of the live API entitlement",
+            ));
+        }
+        let expires_at = body
+            .expires_at
+            .as_deref()
+            .map(DateTime::parse_from_rfc3339)
+            .transpose()
+            .map_err(|_| AppError::bad_request("expires_at must be RFC3339"))?
+            .map(|value| value.with_timezone(&Utc));
+        if expires_at.is_some_and(|expiry| {
+            expiry <= Utc::now() || expiry > Utc::now() + Duration::days(3_653)
+        }) {
+            return Err(AppError::bad_request(
+                "expires_at must be in the future and no more than 10 years away",
+            ));
+        }
+        let idempotency_key = require_idempotency_key(&headers)?;
+        #[derive(Serialize)]
+        struct CanonicalPayload<'a> {
+            name: &'a str,
+            description: &'a Option<String>,
+            scopes: &'a BTreeSet<String>,
+            expires_at: Option<DateTime<Utc>>,
+        }
+        let hash = payload_hash(&CanonicalPayload {
+            name: body.name.trim(),
+            description: &body.description,
+            scopes: &requested,
+            expires_at,
+        })?;
+        let repo = ApiKeyRepository::new(*state.db_pool);
+        let (mutation, secret) = repo
+            .create_for_owner(
+                OwnerApiKeyCreateRequest {
+                    client_name: body.name.trim().to_string(),
+                    client_description: body.description,
+                    wallet_address: context.wallet_address.to_ascii_lowercase(),
+                    scopes: requested.into_iter().collect(),
+                    rate_limit_per_minute: entitlement.rate_limits.per_minute.min(i32::MAX as u32)
+                        as i32,
+                    rate_limit_per_day: entitlement.rate_limits.per_day.min(i32::MAX as u32) as i32,
+                    expires_at,
+                },
+                idempotency_key,
+                &hash,
+            )
+            .await?;
+        let id = match mutation {
+            IdempotentMutation::Applied(id) | IdempotentMutation::Replayed(id) => id,
+        };
+        let key = repo
+            .get_by_id(id)
+            .await?
+            .filter(|key| {
+                key.wallet_address
+                    .eq_ignore_ascii_case(&context.wallet_address)
+            })
+            .ok_or_else(|| AppError::not_found("API key not found"))?;
+        Ok(CreateMyApiKeyResponse {
+            api_key: api_key_summary(key, &entitlement.assignable_scopes),
+            secret,
+            replayed: matches!(mutation, IdempotentMutation::Replayed(_)),
+        })
+    }
+    .await;
+    match result {
+        Ok(data) => private_success(
+            if data.replayed {
+                StatusCode::OK
+            } else {
+                StatusCode::CREATED
+            },
+            data,
+        ),
+        Err(error) => private_error(error),
+    }
+}
+
 pub async fn revoke_my_key_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Path(id): Path<String>,
+    Extension(context): Extension<OpenIDUserContext>,
+    Path(id): Path<Uuid>,
+    headers: HeaderMap,
     Json(body): Json<RevokeMyApiKeyBody>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(pool);
-
-    let uuid = match Uuid::parse_str(&id) {
-        Ok(u) => u,
-        Err(e) => {
-            error!(
-                "Invalid UUID provided for revocation: {} - error: {}",
-                id, e
-            );
-            return UnifiedApiResponse::error(
-                400,
-                "Invalid UUID",
-                "The provided ID is not a valid UUID",
-            );
-        }
-    };
-
-    info!(
-        "Attempting to revoke key {} for wallet {}",
-        uuid, wallet_address
-    );
-
-    // First verify ownership
-    match repo.get_by_id(uuid).await {
-        Ok(Some(api_key)) => {
-            if api_key.wallet_address.to_lowercase() != wallet_address.to_lowercase() {
-                return UnifiedApiResponse::error(
-                    403,
-                    "Forbidden",
-                    "You do not have permission to revoke this API key",
-                );
-            }
-        }
-        Ok(None) => return UnifiedApiResponse::not_found("API key"),
-        Err(e) => return UnifiedApiResponse::server_error(&e.to_string()),
-    }
-
-    let request = RevokeApiKeyRequest {
-        reason: body
+) -> Response {
+    let result = async {
+        require_write(&live_entitlement(&state, &context.wallet_address).await?)?;
+        let reason = body
             .reason
-            .unwrap_or_else(|| "Revoked by owner".to_string()),
-        revoked_by: wallet_address,
-    };
-
-    match repo.revoke(uuid, request).await {
-        Ok(api_key) => {
-            info!("User revoked API key: {}", uuid);
-            UnifiedApiResponse::success(serde_json::json!({
-                "success": true,
-                "message": "API key revoked successfully",
-                "id": api_key.id.to_string()
-            }))
+            .unwrap_or_else(|| "Revoked by owner".to_string());
+        if !valid_text(&reason, MAX_REASON_CHARS, false) {
+            return Err(AppError::bad_request("invalid revocation reason"));
         }
-        Err(e) => {
-            error!("Failed to revoke API key: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+        let idempotency_key = require_idempotency_key(&headers)?;
+        let hash = payload_hash(&serde_json::json!({"id": id, "reason": reason}))?;
+        let mutation = ApiKeyRepository::new(*state.db_pool)
+            .revoke_for_owner(
+                id,
+                &context.wallet_address.to_ascii_lowercase(),
+                &reason,
+                idempotency_key,
+                &hash,
+            )
+            .await?;
+        Ok(RevokeMyApiKeyResponse {
+            id,
+            status: "revoked",
+            replayed: matches!(mutation, IdempotentMutation::Replayed(_)),
+        })
+    }
+    .await;
+    match result {
+        Ok(data) => private_success(StatusCode::OK, data),
+        Err(error) => private_error(error),
     }
 }
 
-/// GET /api/developer-portal/available-plans
-/// List permission plans available for API key assignment
-pub async fn list_available_plans_handler(State(state): State<AppState>) -> impl IntoResponse {
-    use crate::schemas::primary::{permissions, plan_permissions, plans};
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-
-    let pool = *state.db_pool;
-    let mut conn = match pool.get().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Pool error: {}", e);
-            return UnifiedApiResponse::server_error(&e.to_string());
+pub async fn list_available_plans_handler(State(state): State<AppState>) -> Response {
+    let result: AppResult<AvailablePlansResponse> = async {
+        use crate::schemas::primary::{permissions, plan_permissions, plans};
+        let mut conn =
+            state.db_pool.get().await.map_err(|error| {
+                AppError::database_error(format!("available plans pool: {error}"))
+            })?;
+        let plan_rows = plans::table
+            .filter(plans::is_active.eq(true))
+            .filter(plans::is_public.eq(true))
+            .filter(plans::plan_type.ne("admin"))
+            .select((plans::id, plans::name, plans::slug, plans::description))
+            .order(plans::name.asc())
+            .load::<(Uuid, String, String, String)>(&mut conn)
+            .await?;
+        let mut result = Vec::with_capacity(plan_rows.len());
+        for (id, name, slug, description) in plan_rows {
+            let plan_scopes = plan_permissions::table
+                .inner_join(
+                    permissions::table.on(permissions::id.eq(plan_permissions::permission_id)),
+                )
+                .filter(plan_permissions::plan_id.eq(id))
+                .filter(permissions::is_active.eq(true))
+                .filter(permissions::api_assignable.eq(true))
+                .filter(permissions::permission_string.not_like("admin:%"))
+                .select(permissions::permission_string)
+                .order(permissions::permission_string.asc())
+                .load::<String>(&mut conn)
+                .await?;
+            result.push(AvailablePlan {
+                id,
+                name,
+                slug,
+                description,
+                permissions: plan_scopes,
+            });
         }
-    };
-
-    // Query active plans with their associated permissions
-    #[derive(diesel::Queryable)]
-    struct PlanRow {
-        id: uuid::Uuid,
-        name: String,
-        slug: String,
-        description: String,
-        plan_type: String,
-        is_active: bool,
+        Ok(AvailablePlansResponse { plans: result })
     }
-
-    // Exclude 'free' plan from available plans for API key assignment
-    let active_plans = match plans::table
-        .filter(plans::is_active.eq(true))
-        .filter(plans::slug.ne("free"))
-        .select((
-            plans::id,
-            plans::name,
-            plans::slug,
-            plans::description,
-            plans::plan_type,
-            plans::is_active,
-        ))
-        .order(plans::name.asc())
-        .load::<PlanRow>(&mut conn)
-        .await
-    {
-        Ok(rows) => rows,
-        Err(e) => {
-            error!("Failed to query plans: {}", e);
-            return UnifiedApiResponse::server_error(&e.to_string());
+    .await;
+    match result {
+        Ok(data) => {
+            let mut response = Json(UnifiedApiResponse::success(data)).into_response();
+            response.headers_mut().insert(
+                header::CACHE_CONTROL,
+                HeaderValue::from_static("public, max-age=60"),
+            );
+            response
         }
-    };
-
-    // For each plan, fetch associated permissions
-    let mut result_plans = Vec::new();
-    for plan in active_plans {
-        // Query permissions for this plan
-
-        let plan_perms: Vec<String> = plan_permissions::table
-            .inner_join(permissions::table.on(permissions::id.eq(plan_permissions::permission_id)))
-            .filter(plan_permissions::plan_id.eq(&plan.id))
-            .select(permissions::permission_string)
-            .load::<String>(&mut conn)
-            .await
-            .unwrap_or_default();
-
-        result_plans.push(AvailablePlan {
-            id: plan.id.to_string(),
-            name: plan.name,
-            slug: plan.slug,
-            description: plan.description,
-            permissions: plan_perms,
-            plan_type: plan.plan_type,
-            is_active: plan.is_active,
-        });
+        Err(error) => error.into_response(),
     }
-
-    info!("Returning {} available plans", result_plans.len());
-    UnifiedApiResponse::success(AvailablePlansResponse {
-        plans: result_plans,
-    })
 }
 
-/// GET /api/developer-portal/my-plans
-/// Get the authenticated user's assigned permission plans with metadata
 pub async fn get_my_plans_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-) -> impl IntoResponse {
-    use crate::schemas::payments::subscriptions;
-    use crate::schemas::primary::{api_keys, permissions, plan_permissions, plans};
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-
-    let pool = *state.db_pool;
-    let mut conn = match pool.get().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Pool error: {}", e);
-            return UnifiedApiResponse::server_error(&e.to_string());
-        }
-    };
-
-    // Get user's API keys for total stats
-    #[derive(diesel::Queryable)]
-    #[allow(dead_code)] // Fields needed for Diesel query but not all are read
-    struct ApiKeyRow {
-        id: uuid::Uuid,
-        total_requests: i64,
-        expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        rate_limit_per_minute: i32,
-        rate_limit_per_day: i32,
-        created_at: chrono::DateTime<chrono::Utc>,
+    Extension(context): Extension<OpenIDUserContext>,
+) -> Response {
+    match live_entitlement(&state, &context.wallet_address).await {
+        Ok(entitlement) if entitlement.can_read => private_success(StatusCode::OK, entitlement),
+        Ok(_) => private_error(AppError::forbidden("epsx:api:read is required")),
+        Err(error) => private_error(error),
     }
-
-    // Query ALL API keys for the user (for total stats)
-    // Use case-insensitive comparison for wallet address
-    let wallet_lower = wallet_address.to_lowercase();
-    let all_api_keys = match api_keys::table
-        .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-            "LOWER(wallet_address) = '{}'",
-            wallet_lower.replace('\'', "''")
-        )))
-        .select((
-            api_keys::id,
-            api_keys::total_requests,
-            api_keys::expires_at,
-            api_keys::rate_limit_per_minute,
-            api_keys::rate_limit_per_day,
-            api_keys::created_at,
-        ))
-        .load::<ApiKeyRow>(&mut conn)
-        .await
-    {
-        Ok(keys) => keys,
-        Err(e) => {
-            error!("Failed to query user API keys: {}", e);
-            return UnifiedApiResponse::server_error(&e.to_string());
-        }
-    };
-
-    let total_api_keys = all_api_keys.len() as i64;
-    let total_requests: i64 = all_api_keys.iter().map(|k| k.total_requests).sum();
-
-    // Use first active key for rate limits (if any)
-    let user_api_keys: Vec<_> = all_api_keys;
-
-    // Get plans assigned directly to the wallet (from wallet_plan_assignments)
-    #[derive(diesel::Queryable)]
-    struct WalletPlanRow {
-        plan_id: uuid::Uuid,
-        assigned_at: Option<chrono::DateTime<chrono::Utc>>,
-        expires_at: chrono::DateTime<chrono::Utc>,
-    }
-
-    let wallet_assignments = subscriptions::table
-        .filter(subscriptions::wallet_address.eq(&wallet_address))
-        .filter(subscriptions::status.eq("active"))
-        .select((
-            subscriptions::plan_id,
-            subscriptions::started_at, // Was assigned_at
-            subscriptions::expires_at,
-        ))
-        .load::<WalletPlanRow>(&mut conn)
-        .await
-        .unwrap_or_default();
-
-    // Get the full plan details for each assigned plan
-    #[derive(diesel::Queryable)]
-    struct PlanRow {
-        id: uuid::Uuid,
-        name: String,
-        slug: String,
-        description: String,
-        plan_type: String,
-    }
-
-    let plan_ids: Vec<uuid::Uuid> = wallet_assignments.iter().map(|a| a.plan_id).collect();
-
-    let assigned_plans = if plan_ids.is_empty() {
-        vec![]
-    } else {
-        plans::table
-            .filter(plans::id.eq_any(&plan_ids))
-            .filter(plans::is_active.eq(true))
-            .select((
-                plans::id,
-                plans::name,
-                plans::slug,
-                plans::description,
-                plans::plan_type,
-            ))
-            .load::<PlanRow>(&mut conn)
-            .await
-            .unwrap_or_default()
-    };
-
-    // Build result with permissions for each plan
-    let mut result_plans = Vec::new();
-    for plan in assigned_plans {
-        // Get permissions for this plan
-        let plan_perms: Vec<String> = plan_permissions::table
-            .inner_join(permissions::table.on(permissions::id.eq(plan_permissions::permission_id)))
-            .filter(plan_permissions::plan_id.eq(&plan.id))
-            .select(permissions::permission_string)
-            .load::<String>(&mut conn)
-            .await
-            .unwrap_or_default();
-
-        // Find the wallet assignment for this plan to get expiry/assigned_at
-        let wallet_assignment = wallet_assignments.iter().find(|a| a.plan_id == plan.id);
-
-        // Use first API key for rate limits if available (use get(0) to avoid Diesel trait conflict)
-        let first_api_key = user_api_keys.as_slice().first();
-
-        result_plans.push(UserAssignedPlan {
-            id: plan.id.to_string(),
-            name: plan.name,
-            slug: plan.slug,
-            description: plan.description,
-            plan_type: plan.plan_type,
-            permissions: plan_perms,
-            expires_at: wallet_assignment.map(|a| a.expires_at.to_rfc3339()),
-            rate_limit_per_minute: first_api_key.map(|k| k.rate_limit_per_minute),
-            rate_limit_per_day: first_api_key.map(|k| k.rate_limit_per_day),
-            assigned_at: wallet_assignment
-                .and_then(|a| a.assigned_at)
-                .map(|dt| dt.to_rfc3339())
-                .unwrap_or_else(|| chrono::Utc::now().to_rfc3339()),
-        });
-    }
-
-    info!(
-        "Returning {} assigned plans for wallet {}",
-        result_plans.len(),
-        wallet_address
-    );
-    UnifiedApiResponse::success(MyPlansResponse {
-        plans: result_plans,
-        total_api_keys,
-        total_requests,
-    })
 }
 
-// ============================================================================
-// Usage Analytics Handlers
-// ============================================================================
+async fn usage_report(state: &AppState, wallet: &str, days: Option<i32>) -> AppResult<UsageReport> {
+    require_read(&live_entitlement(state, wallet).await?)?;
+    let days = parse_days(days)?;
+    let analytics_pool = state.analytics_db_pool.as_ref().ok_or_else(|| {
+        AppError::new(
+            epsx_contracts::errors::ErrorKind::ServiceUnavailable,
+            "usage analytics unavailable",
+        )
+    })?;
+    UsageService::new(*state.db_pool, **analytics_pool)
+        .get_report(wallet, days)
+        .await
+        .map_err(|error| {
+            AppError::new(
+                epsx_contracts::errors::ErrorKind::ServiceUnavailable,
+                format!("usage analytics unavailable: {error}"),
+            )
+        })
+}
 
-/// GET /api/developer-portal/stats
-/// Get aggregated usage stats for the authenticated user
 pub async fn get_usage_stats_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let service = UsageService::new_core_only(pool);
-
-    match service.get_wallet_stats(&wallet_address).await {
-        Ok(stats) => UnifiedApiResponse::success(stats),
-        Err(e) => {
-            error!("Failed to get usage stats: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+    Extension(context): Extension<OpenIDUserContext>,
+) -> Response {
+    match usage_report(&state, &context.wallet_address, Some(7)).await {
+        Ok(report) => private_success(StatusCode::OK, report),
+        Err(error) => private_error(error),
     }
 }
 
-/// GET /api/developer-portal/usage-history
-/// Get usage history (time series)
 pub async fn get_usage_history_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let service = UsageService::new_core_only(pool);
-
-    let days = params
-        .get("days")
-        .and_then(|d| d.parse::<i32>().ok())
-        .unwrap_or(7); // Default to 7 days
-
-    match service.get_usage_history(&wallet_address, days).await {
-        Ok(points) => UnifiedApiResponse::success(points),
-        Err(e) => {
-            error!("Failed to get usage history: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+    Extension(context): Extension<OpenIDUserContext>,
+    Query(query): Query<UsageDaysQuery>,
+) -> Response {
+    match usage_report(&state, &context.wallet_address, query.days).await {
+        Ok(report) => private_success(StatusCode::OK, report.daily),
+        Err(error) => private_error(error),
     }
 }
 
-/// GET /api/developer-portal/top-endpoints
-/// Get top used endpoints
 pub async fn get_top_endpoints_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let service = UsageService::new_core_only(pool);
-
-    let days = params
-        .get("days")
-        .and_then(|d| d.parse::<i32>().ok())
-        .unwrap_or(7);
-
-    match service.get_top_endpoints(&wallet_address, days).await {
-        Ok(endpoints) => UnifiedApiResponse::success(endpoints),
-        Err(e) => {
-            error!("Failed to get top endpoints: {}", e);
-            UnifiedApiResponse::server_error(&e.to_string())
-        }
+    Extension(context): Extension<OpenIDUserContext>,
+    Query(query): Query<UsageDaysQuery>,
+) -> Response {
+    match usage_report(&state, &context.wallet_address, query.days).await {
+        Ok(report) => private_success(StatusCode::OK, report.top_endpoints),
+        Err(error) => private_error(error),
     }
 }
 
-// ============================================================================
-// Batch endpoint
-// ============================================================================
-
-#[derive(Debug, Serialize)]
-pub struct DeveloperOverviewResponse {
-    pub api_keys: Option<serde_json::Value>,
-    pub stats: Option<serde_json::Value>,
-    pub history: Option<serde_json::Value>,
-    pub top_endpoints: Option<serde_json::Value>,
-}
-
-/// GET /api/developer-portal/overview?days=N
-/// Combines keys + stats + history + top-endpoints into one round-trip.
 pub async fn developer_overview_handler(
     State(state): State<AppState>,
-    Extension(wallet_address): Extension<String>,
-    Query(params): Query<std::collections::HashMap<String, String>>,
-) -> impl IntoResponse {
-    let days = params
-        .get("days")
-        .and_then(|d| d.parse::<i32>().ok())
-        .unwrap_or(7);
-
-    let pool = *state.db_pool;
-    let repo = ApiKeyRepository::new(pool);
-    let service = UsageService::new_core_only(pool);
-    let addr = wallet_address.clone();
-
-    let (keys_res, stats_res, history_res, endpoints_res) = tokio::join!(
-        repo.list_by_wallet(&addr, Some(100), None, None),
-        service.get_wallet_stats(&addr),
-        service.get_usage_history(&addr, days),
-        service.get_top_endpoints(&addr, days),
-    );
-
-    let api_keys = keys_res.ok().map(|(keys, total)| {
-        let masked: Vec<serde_json::Value> = keys
+    Extension(context): Extension<OpenIDUserContext>,
+    Query(query): Query<UsageDaysQuery>,
+) -> Response {
+    let result = async {
+        let days = parse_days(query.days)?;
+        let entitlement = live_entitlement(&state, &context.wallet_address).await?;
+        require_read(&entitlement)?;
+        let repo = ApiKeyRepository::new(*state.db_pool);
+        let (keys, total_api_keys) = repo
+            .list_by_wallet(&context.wallet_address, Some(100), Some(0), None)
+            .await?;
+        let usage = usage_report(&state, &context.wallet_address, Some(days)).await?;
+        let api_keys = keys
             .into_iter()
-            .map(|k| {
-                serde_json::json!({
-                    "id": k.id.to_string(),
-                    "key_preview": mask_key_prefix(&k.key_prefix),
-                    "full_key": k.full_key,
-                    "client_name": k.client_name,
-                    "client_description": k.client_description,
-                    "status": k.status.to_string(),
-                    "total_requests": k.total_requests,
-                    "expires_at": k.expires_at.map(|dt| dt.to_rfc3339()),
-                    "last_used_at": k.last_used_at.map(|dt| dt.to_rfc3339()),
-                    "created_at": k.created_at.to_rfc3339(),
-                })
-            })
+            .map(|key| api_key_summary(key, &entitlement.assignable_scopes))
             .collect();
-        serde_json::json!({ "api_keys": masked, "total": total })
-    });
+        Ok(DeveloperOverviewResponse {
+            entitlement,
+            api_keys,
+            total_api_keys,
+            usage,
+        })
+    }
+    .await;
+    match result {
+        Ok(data) => private_success(StatusCode::OK, data),
+        Err(error) => private_error(error),
+    }
+}
 
-    UnifiedApiResponse::success(DeveloperOverviewResponse {
-        api_keys,
-        stats: stats_res.ok().and_then(|s| serde_json::to_value(s).ok()),
-        history: history_res.ok().and_then(|h| serde_json::to_value(h).ok()),
-        top_endpoints: endpoints_res
-            .ok()
-            .and_then(|e| serde_json::to_value(e).ok()),
-    })
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn create_contract_rejects_client_authority_fields() {
+        let body = serde_json::json!({
+            "name": "client",
+            "description": null,
+            "scopes": ["epsx:analytics:view"],
+            "expires_at": null,
+            "plan_ids": [Uuid::nil()],
+            "wallet_address": "0x0000000000000000000000000000000000000000",
+            "rate_limit_per_minute": 999999
+        });
+        assert!(serde_json::from_value::<CreateMyApiKeyBody>(body).is_err());
+    }
+
+    #[test]
+    fn read_summary_has_no_plaintext_secret_field() {
+        let fields = serde_json::to_value(ApiKeySummary {
+            id: Uuid::nil(),
+            key_prefix: "epsx_deadbeef…".to_string(),
+            name: "test".to_string(),
+            description: None,
+            status: "active".to_string(),
+            scopes: vec!["epsx:analytics:view".to_string()],
+            total_requests: 0,
+            expires_at: None,
+            last_used_at: None,
+            created_at: Utc::now(),
+        })
+        .unwrap();
+        assert!(fields.get("secret").is_none());
+        assert!(fields.get("full_key").is_none());
+    }
+
+    #[test]
+    fn allowed_usage_windows_are_explicit() {
+        for days in [7, 30, 90] {
+            assert_eq!(parse_days(Some(days)).unwrap(), days);
+        }
+        for days in [0, 1, 31, 365] {
+            assert!(parse_days(Some(days)).is_err());
+        }
+    }
 }

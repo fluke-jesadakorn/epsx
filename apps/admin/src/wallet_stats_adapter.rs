@@ -17,9 +17,11 @@ const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
 #[cfg(test)]
 const MAX_ADMIN_WALLET_STATS_RESPONSE_BYTES: usize = 256 * 1024;
 
+#[cfg(test)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) struct AdminWalletStatsQuery;
 
+#[cfg(test)]
 impl AdminWalletStatsQuery {
     pub(crate) fn from_raw(raw_query: &str) -> Result<Self, ()> {
         if raw_query.is_empty() {

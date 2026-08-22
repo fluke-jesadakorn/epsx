@@ -7,23 +7,26 @@ use dioxus::prelude::*;
 /// attributes; there is no executable inline script.
 pub const EPSX_CSS_VARS: &str = r#"
 :root {
-  --background: 0 0% 100%;
-  --foreground: 222.2 47.4% 11.2%;
-  --muted: 210 40% 96.1%;
-  --muted-foreground: 215.4 16.3% 46.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 222.2 47.4% 11.2%;
-  --border: 214.3 31.8% 91.4%;
-  --input: 214.3 31.8% 91.4%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
-  --secondary: 210 40% 96.1%;
-  --secondary-foreground: 222.2 47.4% 11.2%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --ring: 215 20.2% 65.1%;
+  /* These tokens are consumed directly by the frozen Tailwind v4 bundle
+     and by the shared template CSS. Keep them as complete CSS colors rather
+     than bare HSL channels: `background: var(--primary)` must stay valid. */
+  --background: #ffffff;
+  --foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #475569;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --border: #e2e8f0;
+  --input: #cbd5e1;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  --destructive: #dc2626;
+  --destructive-foreground: #ffffff;
+  --ring: #2563eb;
   --radius: 0.5rem;
   --epsx-blue-start: #488BFA;
   --epsx-blue-end: #A43FF3;
@@ -31,23 +34,23 @@ pub const EPSX_CSS_VARS: &str = r#"
   --epsx-purple: #A43FF3;
 }
 .dark {
-  --background: 224 71% 4%;
-  --foreground: 213 31% 91%;
-  --muted: 223 47% 11%;
-  --muted-foreground: 215.4 16.3% 56.9%;
-  --card: 224 71% 4%;
-  --card-foreground: 213 31% 91%;
-  --border: 216 34% 17%;
-  --input: 216 34% 17%;
-  --primary: 210 40% 98%;
-  --primary-foreground: 222.2 47.4% 1.2%;
-  --secondary: 222.2 47.4% 11.2%;
-  --secondary-foreground: 210 40% 98%;
-  --accent: 216 34% 17%;
-  --accent-foreground: 210 40% 98%;
-  --destructive: 0 63% 31%;
-  --destructive-foreground: 210 40% 98%;
-  --ring: 216 34% 17%;
+  --background: #020617;
+  --foreground: #e2e8f0;
+  --muted: #0f172a;
+  --muted-foreground: #94a3b8;
+  --card: #020617;
+  --card-foreground: #e2e8f0;
+  --border: #1e293b;
+  --input: #1e293b;
+  --primary: #2563eb;
+  --primary-foreground: #ffffff;
+  --secondary: #0f172a;
+  --secondary-foreground: #f8fafc;
+  --accent: #1e293b;
+  --accent-foreground: #f8fafc;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --ring: #60a5fa;
 }
 "#;
 
@@ -194,6 +197,11 @@ mod tests {
     fn css_vars_contain_light_and_dark_blocks() {
         assert!(EPSX_CSS_VARS.contains(":root"), "must declare :root vars");
         assert!(EPSX_CSS_VARS.contains(".dark"), "must declare .dark vars");
+        assert!(EPSX_CSS_VARS.contains("--primary: #2563eb"));
+        assert!(
+            !EPSX_CSS_VARS.contains("--primary: 222.2"),
+            "shared tokens must be complete CSS colors, not HSL channels"
+        );
     }
 
     /// The shared shell must reference only the generated Rust/WASM module.

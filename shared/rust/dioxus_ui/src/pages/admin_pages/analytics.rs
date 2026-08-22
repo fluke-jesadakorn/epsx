@@ -9,7 +9,6 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
-use crate::layout::admin_shell::AdminShell;
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
@@ -179,6 +178,7 @@ fn valid_developer_stats(stats: &AdminAnalyticsDeveloperStats) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum AnalyticsLoad {
     Ready(AdminAnalyticsSnapshot),
     Empty(AdminAnalyticsSnapshot),
@@ -187,6 +187,7 @@ enum AnalyticsLoad {
     Malformed,
 }
 
+#[allow(dead_code)]
 fn analytics_load(ctx: &PageContext) -> AnalyticsLoad {
     let state = ctx
         .params
@@ -218,6 +219,7 @@ fn analytics_load(ctx: &PageContext) -> AnalyticsLoad {
     }
 }
 
+#[allow(dead_code)]
 fn has_data(snapshot: &AdminAnalyticsSnapshot) -> bool {
     snapshot.user_stats.is_some()
         || snapshot.permission_analytics.is_some()
@@ -232,181 +234,267 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderAnalytics(ctx: PageContext) -> Element {
-    let load = analytics_load(&ctx);
+    let surface = crate::pages::analytics::render_surface(&ctx);
     rsx! {
         AuthGate {
             user: ctx.user.clone(),
-            feature: Some("the private admin analytics workspace".to_string()),
+            feature: Some("the EPS growth analytics workspace".to_string()),
             return_url: Some(ANALYTICS_PATH.to_string()),
-            AdminShell {
-                ctx: ctx.clone(),
-                page_title: "Analytics".to_string(),
-                breadcrumbs: vec![
-                    ("Dashboard".to_string(), "/".to_string()),
-                    ("Analytics".to_string(), ANALYTICS_PATH.to_string()),
-                ],
-                match load {
-                    AnalyticsLoad::Ready(snapshot) => rsx! { AnalyticsReady { snapshot } },
-                    AnalyticsLoad::Empty(snapshot) => rsx! {
-                        AnalyticsEmpty {
-                            observed_at: snapshot.observed_at.expect("validated empty analytics snapshot has freshness")
-                        }
-                    },
-                    AnalyticsLoad::Forbidden => rsx! {
-                        AnalyticsProblem {
-                            state: ADMIN_ANALYTICS_FORBIDDEN,
-                            title: "Analytics access was denied".to_string(),
-                            detail: "The backend did not authorize this session to read analytics.".to_string(),
-                        }
-                    },
-                    AnalyticsLoad::Unavailable => rsx! {
-                        AnalyticsProblem {
-                            state: ADMIN_ANALYTICS_UNAVAILABLE,
-                            title: "Platform analytics are unavailable".to_string(),
-                            detail: "The backend did not provide an authoritative analytics response. No values are being shown.".to_string(),
-                        }
-                    },
-                    AnalyticsLoad::Malformed => rsx! {
-                        AnalyticsProblem {
-                            state: ADMIN_ANALYTICS_MALFORMED,
-                            title: "Analytics data could not be verified".to_string(),
-                            detail: "The backend response did not match the strict analytics projection. No values are being shown.".to_string(),
-                        }
-                    },
-                }
-            }
+            {surface}
         }
     }
 }
 
 #[component]
-fn AnalyticsReady(snapshot: AdminAnalyticsSnapshot) -> Element {
+#[allow(dead_code)]
+fn AnalyticsSurface(
+    state: &'static str,
+    snapshot: Option<AdminAnalyticsSnapshot>,
+    issue_title: Option<String>,
+    issue_detail: Option<String>,
+) -> Element {
     let observed_at = snapshot
-        .observed_at
-        .clone()
-        .expect("validated ready analytics snapshot has freshness");
+        .as_ref()
+        .and_then(|snapshot| snapshot.observed_at.clone());
+    let total_users = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.user_stats.as_ref())
+            .map(|stats| stats.total_users),
+    );
+    let active_users = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.user_stats.as_ref())
+            .map(|stats| stats.active_users),
+    );
+    let connections_today = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.user_stats.as_ref())
+            .map(|stats| stats.today_connections),
+    );
+    let total_permissions = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.permission_analytics.as_ref())
+            .map(|stats| stats.total_permissions),
+    );
+    let active_permissions = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.permission_analytics.as_ref())
+            .map(|stats| stats.active_permissions),
+    );
+    let total_plans = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.plan_stats.as_ref())
+            .map(|stats| stats.total_plans),
+    );
+    let active_plans = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.plan_stats.as_ref())
+            .map(|stats| stats.active_plans),
+    );
+    let total_memberships = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.plan_stats.as_ref())
+            .map(|stats| stats.total_memberships),
+    );
+    let active_memberships = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.plan_stats.as_ref())
+            .map(|stats| stats.active_memberships),
+    );
+    let recent_assignments = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.plan_stats.as_ref())
+            .map(|stats| stats.recent_assignments),
+    );
+    let total_api_keys = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.developer_portal.as_ref())
+            .map(|stats| stats.total_api_keys),
+    );
+    let active_api_keys = metric_value(
+        snapshot
+            .as_ref()
+            .and_then(|snapshot| snapshot.developer_portal.as_ref())
+            .map(|stats| stats.active_api_keys),
+    );
+
     rsx! {
         div {
-            class: "container page-content admin-analytics py-8",
-            "data-admin-analytics-state": ADMIN_ANALYTICS_READY,
-            div { class: "flex flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground",
-                p { "Backend-authoritative analytics snapshot" }
-                time {
-                    datetime: observed_at.clone(),
-                    "data-admin-analytics-freshness": "backend",
-                    "Observed {observed_at}"
-                }
-            }
-            div { class: "mt-6 grid gap-5 md:grid-cols-2 xl:grid-cols-4",
-                if let Some(stats) = snapshot.user_stats {
-                    AnalyticsGroup {
-                        title: "Users".to_string(),
-                        items: vec![
-                            ("Total users".to_string(), format_count(stats.total)),
-                            ("Active users".to_string(), format_count(stats.active)),
-                            ("Connections today".to_string(), format_count(stats.today_connections)),
-                        ],
-                    }
-                }
-                if let Some(stats) = snapshot.permission_analytics {
-                    AnalyticsGroup {
-                        title: "Permissions".to_string(),
-                        items: vec![
-                            ("Plans".to_string(), format_count(stats.total_plans)),
-                            ("Permissions".to_string(), format_count(stats.total_permissions)),
-                            ("Active permissions".to_string(), format_count(stats.active_permissions)),
-                        ],
-                    }
-                }
-                if let Some(stats) = snapshot.plan_stats {
-                    AnalyticsGroup {
-                        title: "Plans".to_string(),
-                        items: vec![
-                            ("Total plans".to_string(), format_count(stats.total_plans)),
-                            ("Active plans".to_string(), format_count(stats.active_plans)),
-                            ("Memberships".to_string(), format_count(stats.total_memberships)),
-                            ("Recent assignments".to_string(), format_count(stats.recent_assignments)),
-                        ],
-                    }
-                }
-                if let Some(stats) = snapshot.developer_portal {
-                    AnalyticsGroup {
-                        title: "Developer access".to_string(),
-                        items: vec![
-                            ("API keys".to_string(), format_count(stats.total_api_keys)),
-                            ("Active API keys".to_string(), format_count(stats.active_api_keys)),
-                        ],
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn AnalyticsGroup(title: String, items: Vec<(String, String)>) -> Element {
-    rsx! {
-        section {
-            class: "rounded-2xl border border-border/30 bg-card p-5 shadow-sm",
-            aria_labelledby: "analytics-group-title",
-            h2 { id: "analytics-group-title", class: "text-sm font-semibold text-foreground", "{title}" }
-            dl { class: "mt-4 space-y-4",
-                for (label, value) in items {
-                    div {
-                        dt { class: "text-xs text-muted-foreground", "{label}" }
-                        dd { class: "mt-1 text-2xl font-black tracking-tight text-foreground", "{value}" }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn AnalyticsEmpty(observed_at: String) -> Element {
-    rsx! {
-        section {
-            class: "container page-content admin-analytics py-8",
-            role: "status",
-            "data-admin-analytics-state": ADMIN_ANALYTICS_EMPTY,
-            div { class: "rounded-2xl border border-border/30 bg-card p-8 text-center",
-                Icon { name: "bar-chart-3".to_string(), size: Some(30) }
-                h2 { class: "mt-4 text-xl font-semibold text-foreground", "No analytics data is available" }
-                p { class: "mt-2 text-sm leading-6 text-muted-foreground", "The backend returned an authoritative empty analytics snapshot." }
-                time {
-                    class: "mt-3 block text-xs text-muted-foreground",
-                    datetime: observed_at.clone(),
-                    "data-admin-analytics-freshness": "backend",
-                    "Observed {observed_at}"
-                }
-                a { class: "btn btn-sm btn-outline mt-5", href: ANALYTICS_PATH, "Refresh analytics" }
-            }
-        }
-    }
-}
-
-#[component]
-fn AnalyticsProblem(state: &'static str, title: String, detail: String) -> Element {
-    rsx! {
-        section {
-            class: "container page-content admin-analytics py-8",
-            role: "alert",
+            class: "admin-analytics space-y-6",
             "data-admin-analytics-state": state,
-            div { class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-8",
-                h2 { class: "text-xl font-semibold text-foreground", "{title}" }
-                p { class: "mt-3 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-                nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Analytics recovery",
-                    a { class: "btn btn-sm btn-outline", href: ANALYTICS_PATH,
-                        Icon { name: "refresh-cw".to_string(), size: Some(15) }
-                        " Check again"
+            div { class: "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border/20 bg-card px-5 py-4 shadow-xl",
+                div {
+                    p { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Analytics snapshot" }
+                    p { class: "mt-1 text-sm font-semibold text-foreground", "Backend-authoritative platform projection" }
+                }
+                if let Some(observed_at) = observed_at {
+                    time {
+                        class: "font-mono text-xs text-muted-foreground",
+                        datetime: observed_at.clone(),
+                        "data-admin-analytics-freshness": "backend",
+                        "Observed {observed_at}"
                     }
-                    a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                } else {
+                    span { class: "font-mono text-xs text-amber-400", "Snapshot unavailable" }
+                }
+            }
+
+            if let (Some(title), Some(detail)) = (issue_title, issue_detail) {
+                section { class: "rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4", role: "alert",
+                    div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                        div {
+                            h2 { class: "font-semibold text-foreground", "{title}" }
+                            p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
+                        }
+                        nav { class: "flex shrink-0 gap-2", aria_label: "Analytics recovery",
+                            a { class: "btn btn-sm btn-outline", href: ANALYTICS_PATH,
+                                Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                                " Check again"
+                            }
+                            a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                        }
+                    }
+                }
+            }
+
+            div { class: "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 sm:gap-6", aria_label: "Analytics summary",
+                AnalyticsSummaryTile { title: "Total Users".to_string(), value: total_users.clone(), subtitle: "Registered platform accounts".to_string(), accent: "text-[#1fc7d4]".to_string() }
+                AnalyticsSummaryTile { title: "API Requests".to_string(), value: "Unavailable".to_string(), subtitle: "No request-volume contract".to_string(), accent: "text-[#7645d9]".to_string() }
+                AnalyticsSummaryTile { title: "Active Permissions".to_string(), value: active_permissions.clone(), subtitle: "Effective permission grants".to_string(), accent: "text-[#31d0aa]".to_string() }
+                AnalyticsSummaryTile { title: "System Health".to_string(), value: "Unavailable".to_string(), subtitle: "No verified telemetry contract".to_string(), accent: "text-[#ed4b9e]".to_string() }
+            }
+
+            div { class: "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 sm:gap-6", aria_label: "Realtime analytics",
+                AnalyticsStatusTile { title: "Active Users".to_string(), value: active_users.clone(), subtitle: "Accounts marked active".to_string(), icon: "users".to_string(), accent: "text-[#31d0aa] border-[#31d0aa]/20 bg-[#31d0aa]/10".to_string() }
+                AnalyticsStatusTile { title: "Expiring Permissions".to_string(), value: "Unavailable".to_string(), subtitle: "Expiry summary is not exposed".to_string(), icon: "shield".to_string(), accent: "text-[#ffb237] border-[#ffb237]/20 bg-[#ffb237]/10".to_string() }
+                AnalyticsStatusTile { title: "Response Time".to_string(), value: "Unavailable".to_string(), subtitle: "No verified latency telemetry".to_string(), icon: "activity".to_string(), accent: "text-[#1fc7d4] border-[#1fc7d4]/20 bg-[#1fc7d4]/10".to_string() }
+            }
+
+            div { class: "grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 sm:gap-6", aria_label: "Platform metrics",
+                AnalyticsMetricTile { title: "Connections Today".to_string(), value: connections_today, subtitle: "Authenticated sessions".to_string(), icon: "activity".to_string(), accent: "text-[#1fc7d4] border-[#1fc7d4]/10 bg-[#1fc7d4]/10".to_string() }
+                AnalyticsMetricTile { title: "Permissions".to_string(), value: total_permissions, subtitle: "Configured permission records".to_string(), icon: "shield".to_string(), accent: "text-[#31d0aa] border-[#31d0aa]/10 bg-[#31d0aa]/10".to_string() }
+                AnalyticsMetricTile { title: "Active Plans".to_string(), value: active_plans.clone(), subtitle: "Plans marked active".to_string(), icon: "layers".to_string(), accent: "text-[#7645d9] border-[#7645d9]/10 bg-[#7645d9]/10".to_string() }
+                AnalyticsMetricTile { title: "Active API Keys".to_string(), value: active_api_keys.clone(), subtitle: "Developer credentials".to_string(), icon: "key".to_string(), accent: "text-[#ed4b9e] border-[#ed4b9e]/10 bg-[#ed4b9e]/10".to_string() }
+            }
+
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_label: "API usage analytics",
+                div { class: "border-b border-border/20 bg-muted/20 p-6 sm:p-8",
+                    h2 { class: "text-lg font-black uppercase tracking-widest text-foreground", "API Usage Analytics" }
+                }
+                div { class: "grid gap-4 p-6 sm:grid-cols-2 sm:p-8",
+                    AnalyticsDefinition { label: "Total API keys".to_string(), value: total_api_keys }
+                    AnalyticsDefinition { label: "Active API keys".to_string(), value: active_api_keys }
+                }
+            }
+
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_label: "Plan analytics",
+                div { class: "border-b border-border/20 bg-muted/20 p-6 sm:p-8",
+                    h2 { class: "text-lg font-black uppercase tracking-widest text-foreground", "Plan Analytics" }
+                }
+                div { class: "grid gap-4 p-6 sm:grid-cols-2 lg:grid-cols-5 sm:p-8",
+                    AnalyticsDefinition { label: "Total plans".to_string(), value: total_plans }
+                    AnalyticsDefinition { label: "Active plans".to_string(), value: active_plans }
+                    AnalyticsDefinition { label: "Memberships".to_string(), value: total_memberships }
+                    AnalyticsDefinition { label: "Active memberships".to_string(), value: active_memberships }
+                    AnalyticsDefinition { label: "Recent assignments".to_string(), value: recent_assignments }
                 }
             }
         }
     }
 }
 
+#[component]
+#[allow(dead_code)]
+fn AnalyticsSummaryTile(title: String, value: String, subtitle: String, accent: String) -> Element {
+    rsx! {
+        article { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl sm:p-8",
+            p { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "{title}" }
+            p { class: "mt-3 break-words text-3xl font-black tracking-tight {accent}", "{value}" }
+            p { class: "mt-2 text-xs text-muted-foreground", "{subtitle}" }
+        }
+    }
+}
+
+#[component]
+#[allow(dead_code)]
+fn AnalyticsStatusTile(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: String,
+    accent: String,
+) -> Element {
+    rsx! {
+        article { class: "overflow-hidden rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+            div { class: "flex items-start justify-between gap-4",
+                div {
+                    p { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "{title}" }
+                    p { class: "mt-3 break-words text-2xl font-black tracking-tight text-foreground", "{value}" }
+                    p { class: "mt-1 text-xs text-muted-foreground", "{subtitle}" }
+                }
+                span { class: "inline-flex rounded-2xl border p-3 {accent}", aria_hidden: "true",
+                    Icon { name: icon, size: Some(22) }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+#[allow(dead_code)]
+fn AnalyticsMetricTile(
+    title: String,
+    value: String,
+    subtitle: String,
+    icon: String,
+    accent: String,
+) -> Element {
+    rsx! {
+        article { class: "overflow-hidden rounded-2xl border border-border/20 bg-card p-6 shadow-xl sm:p-8",
+            div { class: "flex items-center gap-5",
+                span { class: "inline-flex shrink-0 rounded-2xl border p-3 {accent}", aria_hidden: "true",
+                    Icon { name: icon, size: Some(22) }
+                }
+                div { class: "min-w-0",
+                    p { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "{title}" }
+                    p { class: "mt-1 text-xl font-black tracking-tight text-foreground 2xl:text-2xl", "{value}" }
+                    p { class: "mt-1 text-xs text-muted-foreground", "{subtitle}" }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+#[allow(dead_code)]
+fn AnalyticsDefinition(label: String, value: String) -> Element {
+    rsx! {
+        dl { class: "rounded-xl border border-border/20 bg-background/40 p-4",
+            dt { class: "text-xs font-semibold text-muted-foreground", "{label}" }
+            dd { class: "mt-2 break-words text-xl font-black text-foreground", "{value}" }
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn metric_value(value: Option<i64>) -> String {
+    value
+        .map(format_count)
+        .unwrap_or_else(|| "Unavailable".to_string())
+}
+
+#[allow(dead_code)]
 fn format_count(value: i64) -> String {
     let digits = value.to_string();
     let mut formatted = String::with_capacity(digits.len() + digits.len() / 3);
@@ -425,6 +513,7 @@ mod tests {
 
     use super::*;
     use crate::auth::user::{AuthMethod, User};
+    use crate::pages::analytics::{ANALYTICS_DATA_PARAM, ANALYTICS_STATE_PARAM};
     use serde_json::json;
 
     fn signed_in_ctx() -> PageContext {
@@ -468,16 +557,55 @@ mod tests {
         }
     }
 
-    fn with_state(
+    fn ranking_payload() -> serde_json::Value {
+        json!({
+            "success": true,
+            "data": [{
+                "rank": 1,
+                "symbol": "NVDA",
+                "company_name": "NVIDIA Corporation",
+                "latest_date": "2026-06-30",
+                "value": 215.31,
+                "active_status": "TRACK",
+                "quarterly_performance": [{
+                    "quarter": "Q2",
+                    "date": "2026-06-30",
+                    "price": 215.31,
+                    "eps": 2.5,
+                    "eps_growth": 35.98,
+                    "price_growth": 4.0,
+                    "announcement_date": "Jul 20, 2026",
+                    "announcement_timestamp": 1784505600,
+                    "is_estimated": false
+                }],
+                "next_quarter_estimate": null,
+                "next_earnings_date": null,
+                "last_earnings_date": null,
+                "next_earnings_date_formatted": null,
+                "days_until_next_earnings": null,
+                "progress_percentage": 50.0,
+                "current_eps": 2.5,
+                "growth_factor": 35.98,
+                "price_current": 215.31
+            }],
+            "pagination": {"page":1,"limit":10,"total":1,"totalPages":1,"hasNext":false,"hasPrev":false},
+            "metadata": {"available_countries":[],"available_sectors":[],"request_timestamp":"2026-07-27T00:00:00Z","data_source":"analytics"},
+            "access_info": {"min_accessible_rank":1,"locked_ranks_count":0},
+            "message": null,
+            "processing_time_ms": 12
+        })
+    }
+
+    fn with_ranking_state(
         mut ctx: PageContext,
         state: &str,
-        data: Option<AdminAnalyticsSnapshot>,
+        data: Option<serde_json::Value>,
     ) -> PageContext {
         ctx.params
-            .insert(ADMIN_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
+            .insert(ANALYTICS_STATE_PARAM.to_string(), state.to_string());
         if let Some(data) = data {
             ctx.params.insert(
-                ADMIN_ANALYTICS_DATA_PARAM.to_string(),
+                ANALYTICS_DATA_PARAM.to_string(),
                 serde_json::to_string(&data).unwrap(),
             );
         }
@@ -511,23 +639,32 @@ mod tests {
             ..Default::default()
         });
         assert!(rendered.contains("Sign in required"));
-        assert!(!rendered.contains("data-admin-analytics-state"));
+        assert!(!rendered.contains("data-analytics-state"));
         assert!(!rendered.contains("120"));
     }
 
     #[test]
-    fn ready_projection_renders_backend_values_without_entitlement_or_mutation_ui() {
-        let rendered = html(&with_state(
+    fn ready_projection_renders_the_production_ranking_workspace() {
+        let rendered = html(&with_ranking_state(
             signed_in_ctx(),
-            ADMIN_ANALYTICS_READY,
-            Some(ready_snapshot()),
+            "ready",
+            Some(ranking_payload()),
         ));
-        assert!(rendered.contains("data-admin-analytics-state=\"ready\""));
-        assert!(rendered.contains("120"));
-        assert!(rendered.contains("100"));
-        assert!(rendered.contains("12"));
-        assert!(rendered.contains("data-admin-analytics-freshness=\"backend\""));
-        assert!(rendered.contains("datetime=\"2026-07-27T00:00:00Z\""));
+        assert!(rendered.contains("data-analytics-state=\"ready\""));
+        for section in [
+            "Analytics",
+            "Top-performing stocks by EPS growth",
+            "Rankings access",
+            "Country",
+            "Sector",
+            "NVDA",
+            "NVIDIA Corporation",
+        ] {
+            assert!(
+                rendered.contains(section),
+                "missing production section {section}"
+            );
+        }
         for forbidden in [
             "Permission required",
             "admin:analytics:view",
@@ -535,8 +672,8 @@ mod tests {
             "Export",
             "Save",
             "Delete",
-            "<form",
-            "<input",
+            "Analytics Dashboard",
+            "API Usage Analytics",
         ] {
             assert!(
                 !rendered.contains(forbidden),
@@ -546,30 +683,20 @@ mod tests {
     }
 
     #[test]
-    fn explicit_states_are_truthful_and_mismatched_data_fails_closed() {
-        let empty = html(&with_state(
-            signed_in_ctx(),
-            ADMIN_ANALYTICS_EMPTY,
-            Some(AdminAnalyticsSnapshot {
-                observed_at: Some("2026-07-27T00:00:00Z".to_string()),
-                user_stats: None,
-                permission_analytics: None,
-                plan_stats: None,
-                system_metrics: None,
-                developer_portal: None,
-            }),
-        ));
-        assert!(empty.contains("data-admin-analytics-state=\"empty\""));
-        assert!(empty.contains("data-admin-analytics-freshness=\"backend\""));
-
-        for state in [ADMIN_ANALYTICS_FORBIDDEN, ADMIN_ANALYTICS_UNAVAILABLE] {
-            let rendered = html(&with_state(signed_in_ctx(), state, None));
-            assert!(rendered.contains(&format!("data-admin-analytics-state=\"{state}\"")));
-            assert!(!rendered.contains("120"));
+    fn ranking_failure_states_keep_the_production_composition_and_fail_closed() {
+        for state in ["unavailable", "malformed"] {
+            let rendered = html(&with_ranking_state(signed_in_ctx(), state, None));
+            assert!(rendered.contains(&format!("data-analytics-state=\"{state}\"")));
+            assert!(rendered.contains("Analytics"));
+            assert!(rendered.contains("Country"));
+            assert!(rendered.contains("Sector"));
+            assert!(rendered.contains(if state == "malformed" {
+                "Ranking data could not be validated"
+            } else {
+                "Rankings are temporarily unavailable"
+            }));
+            assert!(!rendered.contains("NVDA"));
         }
-
-        let malformed = html(&with_state(signed_in_ctx(), ADMIN_ANALYTICS_READY, None));
-        assert!(malformed.contains("data-admin-analytics-state=\"malformed\""));
 
         let mut hostile = signed_in_ctx();
         hostile.query = "role=admin&permission=admin:analytics:view".to_string();
@@ -578,22 +705,18 @@ mod tests {
             "{\"sample_series\":[\"HOSTILE\"]}".to_string(),
         )]);
         let rendered = html(&hostile);
-        assert!(rendered.contains("data-admin-analytics-state=\"unavailable\""));
+        assert!(rendered.contains("data-analytics-state=\"unavailable\""));
         assert!(!rendered.contains("HOSTILE"));
         assert!(!rendered.contains("admin:analytics:view"));
     }
 
     #[test]
-    fn authenticated_page_owns_one_shell_and_safe_recovery_links() {
+    fn authenticated_page_is_body_only_with_production_header_and_safe_links() {
         let rendered = html(&signed_in_ctx());
-        assert_eq!(
-            rendered
-                .matches("class=\"admin-shell admin-shell-page\"")
-                .count(),
-            1
-        );
-        assert!(rendered.contains("href=\"/analytics\""));
-        assert!(rendered.contains("href=\"/\""));
+        assert!(rendered.contains("Analytics"));
+        assert!(rendered.contains("Top-performing stocks by EPS growth"));
+        assert!(!rendered.contains("class=\"admin-shell admin-shell-page\""));
+        assert!(rendered.contains("action=\"/analytics\""));
         assert!(!rendered.contains("javascript:"));
         assert!(!rendered.contains("onclick="));
     }

@@ -79,18 +79,23 @@ use epsx_dioxus_ui::pages::admin_pages::notifications::{
     ADMIN_NOTIFICATION_METRICS_DATA_PARAM, ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
-    decode_admin_payment_intent_list, AdminPaymentLinkListProjection, ADMIN_PAYMENTS_DATA_PARAM,
+    decode_admin_payment_intent_list, AdminPaymentLinkListProjection,
+    AdminPaymentUserAccessProjection, AdminPaymentUserAccessQuery, ADMIN_PAYMENTS_DATA_PARAM,
     ADMIN_PAYMENTS_EMPTY, ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED,
     ADMIN_PAYMENTS_OFFSET_PARAM, ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY,
     ADMIN_PAYMENTS_STATE_PARAM, ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM,
     ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM, ADMIN_PAYMENT_LINKS_EMPTY,
     ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
     ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE, ADMIN_PAYMENT_MUTATION_PARAM,
+    ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM, ADMIN_PAYMENT_USER_ACCESS_EMPTY,
+    ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN, ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+    ADMIN_PAYMENT_USER_ACCESS_READY, ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
+    ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::settings::{
-    ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
+    AdminSettingsQuery, ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
     ADMIN_SETTINGS_MALFORMED, ADMIN_SETTINGS_MUTATION_PARAM, ADMIN_SETTINGS_READY,
-    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_UNAVAILABLE,
+    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_TAB_PARAM, ADMIN_SETTINGS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_access::{
     AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM, ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED,
@@ -107,9 +112,9 @@ use epsx_dioxus_ui::pages::admin_pages::wallet_plans::{
     ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_DATA_PARAM, ADMIN_PLAN_DETAIL_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
-    AdminWalletDetailProjection, AdminWalletStatsSummary, ADMIN_WALLET_DETAIL_DATA_PARAM,
-    ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
-    ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
+    AdminWalletDetailProjection, AdminWalletListQuery, AdminWalletStatsSummary,
+    ADMIN_WALLET_DETAIL_DATA_PARAM, ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED,
+    ADMIN_WALLET_DETAIL_READY, ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
     ADMIN_WALLET_DISABLE_CONFLICT, ADMIN_WALLET_DISABLE_FORBIDDEN, ADMIN_WALLET_DISABLE_FORM,
     ADMIN_WALLET_DISABLE_MALFORMED, ADMIN_WALLET_DISABLE_STATE_PARAM, ADMIN_WALLET_DISABLE_SUCCESS,
     ADMIN_WALLET_DISABLE_UNAVAILABLE, ADMIN_WALLET_LIST_DATA_PARAM, ADMIN_WALLET_LIST_EMPTY,
@@ -117,6 +122,11 @@ use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
     ADMIN_WALLET_LIST_STATE_PARAM, ADMIN_WALLET_LIST_UNAVAILABLE, ADMIN_WALLET_STATS_DATA_PARAM,
     ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED, ADMIN_WALLET_STATS_READY,
     ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
+};
+use epsx_dioxus_ui::pages::analytics::{
+    AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, ANALYTICS_DATA_PARAM,
+    ANALYTICS_FILTERS_DATA_PARAM, ANALYTICS_FILTERS_STATE_PARAM, ANALYTICS_QUERY_PARAM,
+    ANALYTICS_STATE_PARAM, ANALYTICS_WATCHLIST_DATA_PARAM, ANALYTICS_WATCHLIST_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::{admin_pages, render_page, PageContext, PageStatus};
 use std::collections::HashMap;
@@ -128,8 +138,9 @@ use super::chat_admin_adapter::{
     load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
 };
 use super::commerce_adapter::{
-    load_access, load_credit_stats, load_payment_links, load_plan_detail, load_plans,
-    load_wallet_detail, load_wallet_list, load_wallet_stats, AdminCommerceLoad as CommerceLoad,
+    load_access, load_credit_stats, load_payment_links, load_payment_user_access, load_plan_detail,
+    load_plans, load_wallet_access, load_wallet_detail, load_wallet_list, load_wallet_stats,
+    AdminCommerceLoad as CommerceLoad,
 };
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
@@ -146,8 +157,16 @@ use super::notification_admin_adapter::{
 use super::settings_admin_adapter::{load_admin_settings, AdminSettingsLoad};
 #[cfg(test)]
 use super::wallet_stats_adapter::AdminWalletStatsLoad;
-use super::wallet_stats_adapter::AdminWalletStatsQuery;
 use super::AppState;
+
+const ANALYTICS_RANKINGS_PATH: &str = "/api/analytics/rankings";
+const ANALYTICS_FILTERS_PATH: &str = "/api/analytics/filters";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RankingAnalyticsLoadError {
+    Unavailable,
+    Malformed,
+}
 
 fn record_admin_dashboard_user_status_load(
     params: &mut HashMap<String, String>,
@@ -366,19 +385,6 @@ fn record_admin_wallet_stats_load(
         ADMIN_WALLET_STATS_STATE_PARAM.to_string(),
         state.to_string(),
     );
-}
-
-fn page_owns_admin_shell(layout_path: &str) -> bool {
-    matches!(
-        layout_path,
-        "/" | "/index" | "/analytics" | "/policies" | "/settings"
-    )
-}
-
-fn suppress_bff_auth_gate(layout_path: &str) -> bool {
-    // `/media` keeps the dispatcher's route-aware AuthPageOverlay so signed-out
-    // requests retain the safe return URL without a second generic auth panel.
-    layout_path == "/media"
 }
 
 fn record_admin_news_load(
@@ -723,6 +729,171 @@ fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: Admin
     params.insert(ADMIN_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
 }
 
+fn ranking_analytics_query(raw_query: &str) -> Result<String, ()> {
+    if raw_query.is_empty() {
+        return Ok(String::new());
+    }
+    let url =
+        reqwest::Url::parse(&format!("https://admin.invalid/?{raw_query}")).map_err(|_| ())?;
+    let mut seen = std::collections::HashSet::new();
+    let mut normalized = url::form_urlencoded::Serializer::new(String::new());
+    for (key, value) in url.query_pairs() {
+        let key = key.as_ref();
+        if !matches!(
+            key,
+            "page" | "limit" | "country" | "sector" | "sort_by" | "min_eps" | "min_growth"
+        ) {
+            continue;
+        }
+        if !seen.insert(key.to_string()) {
+            return Err(());
+        }
+        match key {
+            "page" => {
+                let value = value.parse::<u32>().map_err(|_| ())?;
+                if value == 0 || value > 1_000_000 {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value.to_string());
+            }
+            "limit" => {
+                let value = value.parse::<u32>().map_err(|_| ())?;
+                if value == 0 || value > 100 {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value.to_string());
+            }
+            "country" | "sector" => {
+                if value.is_empty() {
+                    continue;
+                }
+                if value.len() > 64 || value.chars().any(char::is_control) {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            "sort_by" => {
+                if value.is_empty() || value.len() > 64 || value.chars().any(char::is_control) {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            "min_eps" | "min_growth" => {
+                let number = value.parse::<f64>().map_err(|_| ())?;
+                if !number.is_finite() {
+                    return Err(());
+                }
+                normalized.append_pair(key, &value);
+            }
+            _ => unreachable!(),
+        }
+    }
+    Ok(normalized.finish())
+}
+
+async fn load_ranking_analytics(
+    client: &epsx_client::ServiceClient,
+    normalized_query: &str,
+    headers: &HeaderMap,
+    verified_access_token: Option<&str>,
+) -> Result<AnalyticsResponse, RankingAnalyticsLoadError> {
+    let path = if normalized_query.is_empty() {
+        ANALYTICS_RANKINGS_PATH.to_string()
+    } else {
+        format!("{ANALYTICS_RANKINGS_PATH}?{normalized_query}")
+    };
+    let mut context = RequestContext::from_headers(headers);
+    context.auth_token = verified_access_token.map(str::to_owned);
+    let value = client
+        .get_with_ctx(&path, &context)
+        .await
+        .map_err(|error| {
+            tracing::warn!("admin ranking analytics dependency unavailable: {error}");
+            RankingAnalyticsLoadError::Unavailable
+        })?;
+    serde_json::from_value::<AnalyticsResponse>(value)
+        .map_err(|error| {
+            tracing::warn!("admin ranking analytics response malformed: {error}");
+            RankingAnalyticsLoadError::Malformed
+        })?
+        .validated()
+        .map_err(|_| RankingAnalyticsLoadError::Malformed)
+}
+
+async fn load_ranking_analytics_filters(
+    client: &epsx_client::ServiceClient,
+) -> Result<AnalyticsFilters, RankingAnalyticsLoadError> {
+    let value = client
+        .get_plain(ANALYTICS_FILTERS_PATH)
+        .await
+        .map_err(|error| {
+            tracing::warn!("admin ranking filters dependency unavailable: {error}");
+            RankingAnalyticsLoadError::Unavailable
+        })?;
+    serde_json::from_value::<AnalyticsFilters>(value)
+        .map_err(|error| {
+            tracing::warn!("admin ranking filters response malformed: {error}");
+            RankingAnalyticsLoadError::Malformed
+        })?
+        .validated()
+        .map_err(|_| RankingAnalyticsLoadError::Malformed)
+}
+
+fn record_ranking_analytics_query(params: &mut HashMap<String, String>, normalized_query: &str) {
+    params.remove(ANALYTICS_QUERY_PARAM);
+    if let Ok(query) = AnalyticsQueryState::from_normalized_query(normalized_query) {
+        params.insert(
+            ANALYTICS_QUERY_PARAM.to_string(),
+            serde_json::to_string(&query).expect("validated ranking query is serializable"),
+        );
+    }
+}
+
+fn record_ranking_analytics_load(
+    params: &mut HashMap<String, String>,
+    outcome: Result<AnalyticsResponse, RankingAnalyticsLoadError>,
+) {
+    params.remove(ANALYTICS_DATA_PARAM);
+    let state = match outcome {
+        Ok(response) => {
+            let state = if response.data.is_empty() {
+                "empty"
+            } else {
+                "ready"
+            };
+            params.insert(
+                ANALYTICS_DATA_PARAM.to_string(),
+                serde_json::to_string(&response)
+                    .expect("validated ranking response is serializable"),
+            );
+            state
+        }
+        Err(RankingAnalyticsLoadError::Malformed) => "malformed",
+        Err(RankingAnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(ANALYTICS_STATE_PARAM.to_string(), state.to_string());
+}
+
+fn record_ranking_analytics_filters(
+    params: &mut HashMap<String, String>,
+    outcome: Result<AnalyticsFilters, RankingAnalyticsLoadError>,
+) {
+    params.remove(ANALYTICS_FILTERS_DATA_PARAM);
+    let state = match outcome {
+        Ok(filters) => {
+            params.insert(
+                ANALYTICS_FILTERS_DATA_PARAM.to_string(),
+                serde_json::to_string(&filters)
+                    .expect("validated ranking filters are serializable"),
+            );
+            "ready"
+        }
+        Err(RankingAnalyticsLoadError::Malformed) => "malformed",
+        Err(RankingAnalyticsLoadError::Unavailable) => "unavailable",
+    };
+    params.insert(ANALYTICS_FILTERS_STATE_PARAM.to_string(), state.to_string());
+}
+
 fn record_admin_developer_load(params: &mut HashMap<String, String>, load: AdminDeveloperLoad) {
     params.remove(ADMIN_DEVELOPER_DATA_PARAM);
     let state = match load {
@@ -1063,7 +1234,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Local visual-test fixture only: it supplies authenticated admin shell
     // state without a bearer token, so no synthetic identity reaches an
     // upstream data service.
-    let dev_bypass_user = auth::dev_bypass_ui_user(Some(56));
+    let dev_bypass_user = auth::dev_bypass_ui_user(&headers, Some(56));
     let design_bypass_user = auth::design_bypass_ui_user(design_bypass, Some(56));
     let recover_session = access_verification.permits_refresh_recovery()
         && auth::refresh_token(&headers, state.cookie_environment).is_some();
@@ -1092,28 +1263,45 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             );
         }
     }
-    // The root dashboard has one narrow backend-owned status snapshot. The
-    // loader runs only after this BFF has verified the exact admin audience;
-    // signed-out requests and repeated admin prefixes cannot contact it.
+    // The root dashboard combines its narrow user-status contract with the
+    // backend-owned analytics snapshot. Both requests use the same verified
+    // admin bearer and run concurrently; the page keeps their outcomes
+    // independent so a partial backend outage cannot be rendered as zeros.
     if is_dashboard_user_status_route(route_path) {
         if let Some(token) = verified_access_token.as_ref() {
             match AdminDashboardUserStatusQuery::from_raw(raw_query.as_deref()) {
                 Ok(dashboard_query) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let load = load_admin_dashboard_user_status(
-                        &state.identity,
-                        dashboard_query,
-                        &request_context,
-                    )
-                    .await;
-                    record_admin_dashboard_user_status_load(&mut params, load);
+                    let (status_load, analytics_load) = tokio::join!(
+                        load_admin_dashboard_user_status(
+                            &state.identity,
+                            dashboard_query,
+                            &request_context,
+                        ),
+                        // This aggregate is owned by the core backend. The
+                        // extracted analytics service owns the audit-log API,
+                        // so using its client here would turn a healthy local
+                        // service topology into a misleading 404.
+                        load_admin_analytics(&state.identity, &request_context),
+                    );
+                    record_admin_dashboard_user_status_load(&mut params, status_load);
+                    record_admin_analytics_load(&mut params, analytics_load);
                 }
-                Err(()) => record_admin_dashboard_user_status_load(
-                    &mut params,
-                    AdminDashboardUserStatusLoad::Malformed,
-                ),
+                Err(()) => {
+                    record_admin_dashboard_user_status_load(
+                        &mut params,
+                        AdminDashboardUserStatusLoad::Malformed,
+                    );
+                    record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Malformed);
+                }
             }
+        } else {
+            record_admin_dashboard_user_status_load(
+                &mut params,
+                AdminDashboardUserStatusLoad::Unavailable,
+            );
+            record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Unavailable);
         }
     }
     // Chat reads use the extracted backend projection. The list query is
@@ -1155,16 +1343,17 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Malformed);
         }
     }
-    // Wallet inventory starts with one narrow aggregate read. The service
-    // adapter projects four counts; wallet rows and every mutation remain
-    // outside this SSR read contract.
+    // Wallet inventory is a bounded, backend-authoritative list projection.
+    // The shared wallet-management hub reads its aggregate status projection
+    // on every nested wallet route, mirroring the deployed parent layout.
     if route_path == "/wallet-management/wallets" {
-        match AdminWalletStatsQuery::from_raw(&query) {
-            Ok(_) => match verified_access_token.as_ref() {
+        match AdminWalletListQuery::from_raw(&query) {
+            Ok(wallet_query) => match verified_access_token.as_ref() {
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let list = load_wallet_list(&state.wallet, &request_context).await;
+                    let list =
+                        load_wallet_list(&state.wallet, &wallet_query, &request_context).await;
                     record_commerce_load!(
                         &mut params,
                         list,
@@ -1175,18 +1364,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_LIST_FORBIDDEN,
                         ADMIN_WALLET_LIST_UNAVAILABLE,
                         ADMIN_WALLET_LIST_MALFORMED,
-                    );
-                    let load = load_wallet_stats(&state.wallet, &request_context).await;
-                    record_commerce_load!(
-                        &mut params,
-                        load,
-                        ADMIN_WALLET_STATS_DATA_PARAM,
-                        ADMIN_WALLET_STATS_STATE_PARAM,
-                        ADMIN_WALLET_STATS_READY,
-                        None,
-                        ADMIN_WALLET_STATS_FORBIDDEN,
-                        ADMIN_WALLET_STATS_UNAVAILABLE,
-                        ADMIN_WALLET_STATS_MALFORMED,
                     );
                 }
                 None => {
@@ -1201,22 +1378,44 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_LIST_UNAVAILABLE,
                         ADMIN_WALLET_LIST_MALFORMED,
                     );
-                    record_commerce_load!(
-                        &mut params,
-                        CommerceLoad::<AdminWalletStatsSummary>::Unavailable,
-                        ADMIN_WALLET_STATS_DATA_PARAM,
-                        ADMIN_WALLET_STATS_STATE_PARAM,
-                        ADMIN_WALLET_STATS_READY,
-                        None,
-                        ADMIN_WALLET_STATS_FORBIDDEN,
-                        ADMIN_WALLET_STATS_UNAVAILABLE,
-                        ADMIN_WALLET_STATS_MALFORMED,
-                    );
                 }
             },
-            Err(()) => record_commerce_load!(
+            Err(()) => {
+                record_commerce_load!(
+                    &mut params,
+                    CommerceLoad::<epsx_dioxus_ui::pages::admin_pages::wallet_wallets::AdminWalletListProjection>::Malformed,
+                    ADMIN_WALLET_LIST_DATA_PARAM,
+                    ADMIN_WALLET_LIST_STATE_PARAM,
+                    ADMIN_WALLET_LIST_READY,
+                    Some(ADMIN_WALLET_LIST_EMPTY),
+                    ADMIN_WALLET_LIST_FORBIDDEN,
+                    ADMIN_WALLET_LIST_UNAVAILABLE,
+                    ADMIN_WALLET_LIST_MALFORMED,
+                );
+            }
+        }
+    }
+    if route_path.starts_with("/wallet-management/") {
+        match verified_access_token.as_ref() {
+            Some(token) => {
+                let mut request_context = RequestContext::from_headers(&headers);
+                request_context.auth_token = Some(token.clone());
+                let load = load_wallet_stats(&state.wallet, &request_context).await;
+                record_commerce_load!(
+                    &mut params,
+                    load,
+                    ADMIN_WALLET_STATS_DATA_PARAM,
+                    ADMIN_WALLET_STATS_STATE_PARAM,
+                    ADMIN_WALLET_STATS_READY,
+                    None,
+                    ADMIN_WALLET_STATS_FORBIDDEN,
+                    ADMIN_WALLET_STATS_UNAVAILABLE,
+                    ADMIN_WALLET_STATS_MALFORMED,
+                );
+            }
+            None => record_commerce_load!(
                 &mut params,
-                CommerceLoad::<AdminWalletStatsSummary>::Malformed,
+                CommerceLoad::<AdminWalletStatsSummary>::Unavailable,
                 ADMIN_WALLET_STATS_DATA_PARAM,
                 ADMIN_WALLET_STATS_STATE_PARAM,
                 ADMIN_WALLET_STATS_READY,
@@ -1382,10 +1581,13 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let load = load_wallet_detail(&state.wallet, address, &request_context).await;
+                    let detail = load_wallet_detail(&state.wallet, address, &request_context).await;
+                    let access =
+                        load_wallet_access(&state.subscription, address, &request_context).await;
+                    let plans = load_plans(&state.subscription, &request_context).await;
                     record_commerce_load!(
                         &mut params,
-                        load,
+                        detail,
                         ADMIN_WALLET_DETAIL_DATA_PARAM,
                         ADMIN_WALLET_DETAIL_STATE_PARAM,
                         ADMIN_WALLET_DETAIL_READY,
@@ -1394,18 +1596,64 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_DETAIL_UNAVAILABLE,
                         ADMIN_WALLET_DETAIL_MALFORMED,
                     );
+                    record_commerce_load!(
+                        &mut params,
+                        access,
+                        ADMIN_ACCESS_DATA_PARAM,
+                        ADMIN_ACCESS_STATE_PARAM,
+                        ADMIN_ACCESS_READY,
+                        None,
+                        ADMIN_ACCESS_FORBIDDEN,
+                        ADMIN_ACCESS_UNAVAILABLE,
+                        ADMIN_ACCESS_MALFORMED,
+                    );
+                    record_commerce_load!(
+                        &mut params,
+                        plans,
+                        ADMIN_PLANS_DATA_PARAM,
+                        ADMIN_PLANS_STATE_PARAM,
+                        ADMIN_PLANS_READY,
+                        Some(ADMIN_PLANS_EMPTY),
+                        ADMIN_PLANS_FORBIDDEN,
+                        ADMIN_PLANS_UNAVAILABLE,
+                        ADMIN_PLANS_MALFORMED,
+                    );
                 }
-                None => record_commerce_load!(
-                    &mut params,
-                    CommerceLoad::<AdminWalletDetailProjection>::Unavailable,
-                    ADMIN_WALLET_DETAIL_DATA_PARAM,
-                    ADMIN_WALLET_DETAIL_STATE_PARAM,
-                    ADMIN_WALLET_DETAIL_READY,
-                    None,
-                    ADMIN_WALLET_DETAIL_FORBIDDEN,
-                    ADMIN_WALLET_DETAIL_UNAVAILABLE,
-                    ADMIN_WALLET_DETAIL_MALFORMED,
-                ),
+                None => {
+                    record_commerce_load!(
+                        &mut params,
+                        CommerceLoad::<AdminWalletDetailProjection>::Unavailable,
+                        ADMIN_WALLET_DETAIL_DATA_PARAM,
+                        ADMIN_WALLET_DETAIL_STATE_PARAM,
+                        ADMIN_WALLET_DETAIL_READY,
+                        None,
+                        ADMIN_WALLET_DETAIL_FORBIDDEN,
+                        ADMIN_WALLET_DETAIL_UNAVAILABLE,
+                        ADMIN_WALLET_DETAIL_MALFORMED,
+                    );
+                    record_commerce_load!(
+                        &mut params,
+                        CommerceLoad::<AdminAccessProjection>::Unavailable,
+                        ADMIN_ACCESS_DATA_PARAM,
+                        ADMIN_ACCESS_STATE_PARAM,
+                        ADMIN_ACCESS_READY,
+                        None,
+                        ADMIN_ACCESS_FORBIDDEN,
+                        ADMIN_ACCESS_UNAVAILABLE,
+                        ADMIN_ACCESS_MALFORMED,
+                    );
+                    record_commerce_load!(
+                        &mut params,
+                        CommerceLoad::<AdminPlanListProjection>::Unavailable,
+                        ADMIN_PLANS_DATA_PARAM,
+                        ADMIN_PLANS_STATE_PARAM,
+                        ADMIN_PLANS_READY,
+                        Some(ADMIN_PLANS_EMPTY),
+                        ADMIN_PLANS_FORBIDDEN,
+                        ADMIN_PLANS_UNAVAILABLE,
+                        ADMIN_PLANS_MALFORMED,
+                    );
+                }
             }
         } else {
             record_commerce_load!(
@@ -1418,6 +1666,28 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 ADMIN_WALLET_DETAIL_FORBIDDEN,
                 ADMIN_WALLET_DETAIL_UNAVAILABLE,
                 ADMIN_WALLET_DETAIL_MALFORMED,
+            );
+            record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminAccessProjection>::Malformed,
+                ADMIN_ACCESS_DATA_PARAM,
+                ADMIN_ACCESS_STATE_PARAM,
+                ADMIN_ACCESS_READY,
+                None,
+                ADMIN_ACCESS_FORBIDDEN,
+                ADMIN_ACCESS_UNAVAILABLE,
+                ADMIN_ACCESS_MALFORMED,
+            );
+            record_commerce_load!(
+                &mut params,
+                CommerceLoad::<AdminPlanListProjection>::Malformed,
+                ADMIN_PLANS_DATA_PARAM,
+                ADMIN_PLANS_STATE_PARAM,
+                ADMIN_PLANS_READY,
+                Some(ADMIN_PLANS_EMPTY),
+                ADMIN_PLANS_FORBIDDEN,
+                ADMIN_PLANS_UNAVAILABLE,
+                ADMIN_PLANS_MALFORMED,
             );
         }
     }
@@ -1528,6 +1798,54 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             CommerceLoad::<AdminPaymentLinkListProjection>::Unavailable,
                         ),
                     }
+                } else if tab == "user-access" {
+                    match AdminPaymentUserAccessQuery::from_raw(&query) {
+                        Ok(user_access_query) => match verified_access_token.as_ref() {
+                            Some(token) => {
+                                let mut request_context = RequestContext::from_headers(&headers);
+                                request_context.auth_token = Some(token.clone());
+                                let load = load_payment_user_access(
+                                    &state.identity,
+                                    &user_access_query,
+                                    &request_context,
+                                )
+                                .await;
+                                record_commerce_load!(
+                                    &mut params,
+                                    load,
+                                    ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM,
+                                    ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
+                                    ADMIN_PAYMENT_USER_ACCESS_READY,
+                                    Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY),
+                                    ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
+                                    ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
+                                    ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                                );
+                            }
+                            None => record_commerce_load!(
+                                &mut params,
+                                CommerceLoad::<AdminPaymentUserAccessProjection>::Unavailable,
+                                ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM,
+                                ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
+                                ADMIN_PAYMENT_USER_ACCESS_READY,
+                                Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY),
+                                ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
+                                ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
+                                ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                            ),
+                        },
+                        Err(()) => record_commerce_load!(
+                            &mut params,
+                            CommerceLoad::<AdminPaymentUserAccessProjection>::Malformed,
+                            ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM,
+                            ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
+                            ADMIN_PAYMENT_USER_ACCESS_READY,
+                            Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY),
+                            ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
+                            ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
+                            ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                        ),
+                    }
                 }
             }
             _ => {
@@ -1605,7 +1923,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             }
         }
     }
-    if route_path == "/news/create" && verified_access_token.is_some() {
+    // The create workspace contains no backend record and is still safe to
+    // render before a token is available. `AuthGate` owns page visibility,
+    // while the POST action independently requires verified admin auth.
+    if route_path == "/news/create" {
         match query.is_empty() {
             true => {
                 params.insert(
@@ -1820,41 +2141,52 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             }
             None => record_admin_settings_load(&mut params, AdminSettingsLoad::Unavailable),
         }
-        let mutation = match url::form_urlencoded::parse(query.as_bytes())
-            .collect::<Vec<_>>()
-            .as_slice()
-        {
-            [(key, value)]
-                if key == "mutation"
-                    && matches!(
-                        value.as_ref(),
-                        "success"
-                            | "conflict"
-                            | "forbidden"
-                            | "invalid"
-                            | "unavailable"
-                            | "malformed"
-                    ) =>
-            {
-                value.to_string()
+        match AdminSettingsQuery::from_raw(&query) {
+            Ok(settings_query) => {
+                params.insert(ADMIN_SETTINGS_TAB_PARAM.to_string(), settings_query.tab);
+                if let Some(mutation) = settings_query.mutation {
+                    params.insert(ADMIN_SETTINGS_MUTATION_PARAM.to_string(), mutation);
+                }
             }
-            [] => String::new(),
-            _ => "malformed".to_string(),
-        };
-        if !mutation.is_empty() {
-            params.insert(ADMIN_SETTINGS_MUTATION_PARAM.to_string(), mutation);
+            Err(()) => {
+                params.insert(ADMIN_SETTINGS_TAB_PARAM.to_string(), "general".to_string());
+                params.insert(
+                    ADMIN_SETTINGS_MUTATION_PARAM.to_string(),
+                    "malformed".to_string(),
+                );
+            }
         }
     }
     if route_path == "/analytics" {
-        match verified_access_token.as_ref() {
-            Some(token) => {
-                let mut request_context = RequestContext::from_headers(&headers);
-                request_context.auth_token = Some(token.clone());
-                let load = load_admin_analytics(&state.identity, &request_context).await;
-                record_admin_analytics_load(&mut params, load);
+        let normalized_query = ranking_analytics_query(&query);
+        let rankings = async {
+            match normalized_query.as_deref() {
+                Ok(query) => {
+                    load_ranking_analytics(
+                        state.analytics.as_ref(),
+                        query,
+                        &headers,
+                        verified_access_token.as_deref(),
+                    )
+                    .await
+                }
+                Err(()) => Err(RankingAnalyticsLoadError::Malformed),
             }
-            None => record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Unavailable),
+        };
+        let filters = load_ranking_analytics_filters(state.analytics.as_ref());
+        let (rankings, filters) = tokio::join!(rankings, filters);
+        if let Ok(query) = normalized_query.as_deref() {
+            record_ranking_analytics_query(&mut params, query);
+        } else {
+            params.remove(ANALYTICS_QUERY_PARAM);
         }
+        record_ranking_analytics_load(&mut params, rankings);
+        record_ranking_analytics_filters(&mut params, filters);
+        params.remove(ANALYTICS_WATCHLIST_DATA_PARAM);
+        params.insert(
+            ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),
+            "unavailable".to_string(),
+        );
     }
     if route_path == "/developer-portal" {
         match verified_access_token.as_ref() {
@@ -1867,7 +2199,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             None => record_admin_developer_load(&mut params, AdminDeveloperLoad::Unavailable),
         }
     }
-    if route_path == "/developer-portal/api-keys/create" && verified_access_token.is_some() {
+    // The create form contains no backend record. AuthGate controls whether it
+    // is visible; the POST action still requires verified admin credentials.
+    if route_path == "/developer-portal/api-keys/create" {
         if let Some(projection) = developer_secret_once_cookie(&headers) {
             params.insert(
                 ADMIN_DEVELOPER_CREATE_DATA_PARAM.to_string(),
@@ -1968,48 +2302,41 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // report).
     let server_user: Option<ServerUser> = user.as_ref().map(|u| ServerUser {
         id: u.id.clone(),
+        address: u.address.clone(),
+        chain_id: u.chain_id.clone(),
         email: u.email.clone().unwrap_or_default(),
-        name: None,
+        name: u.display_name.clone(),
         role: u.roles.first().cloned().unwrap_or_default(),
+        tier: u.tier.clone(),
+        permissions: u.permissions.clone(),
     });
     let is_authenticated = user.is_some();
     let shell_layout_path = safe_admin_layout_path(&layout_path, is_authenticated);
-    let no_layout_paths_override = Some(vec![
+    let mut no_layout_paths = vec![
         "/auth".to_string(),
         "/login".to_string(),
         "/unauthorized".to_string(),
         "/access-denied".to_string(),
         "/permissions/policies".to_string(),
-        "/developer-portal/api-keys/create".to_string(),
-    ]);
-    // === Wave 49+ — Wave 6B pages provide their own chrome ===
-    //
-    // The 4 Wave 6B admin pages (`/admin/dashboard`,
-    // `/admin/analytics`, `/admin/policies`, `/admin/settings`) wrap
-    // themselves in `<AdminShell>` (from
-    // `shared/rust/dioxus_ui::layout::admin_shell`), which renders
-    // the full sidebar + breadcrumb header + main + footer chrome.
-    // The BFF's `AdminLayout::Auth` ALSO renders that chrome (via
-    // `shell::MainLayout`). Wrapping a Wave 6B page in
-    // `AdminLayout::Auth` therefore produced a structural
-    // double-sidebar / double-header / double-footer bug on every
-    // tablet+ viewport.
-    //
-    // The fix: for routes whose page owns `<AdminShell>`, skip the
-    // BFF-level `AdminLayout::Auth` wrap entirely. The page's own
-    // authentication gate still covers the signed-out case.
-    let is_wave6b = page_owns_admin_shell(&layout_path);
-    let body_element = if meta.status == PageStatus::NotFound || is_wave6b {
-        // Page provides its own chrome via `<AdminShell>`; don't
-        // double-wrap. Its own authentication gate still handles
-        // the signed-out overlay.
+    ];
+    if !is_authenticated {
+        no_layout_paths.push("/developer-portal/api-keys/create".to_string());
+    }
+    let no_layout_paths_override = Some(no_layout_paths);
+    // Production has one normal-route composition:
+    // `AuthLayout -> MainLayout -> page body`. Page modules must remain
+    // body-only so every route receives identical height, overflow, header,
+    // sidebar, footer, and authenticated-wallet inputs. The dispatcher owns
+    // the route-aware signed-out overlay; disabling the generic layout gate
+    // prevents a second auth composition from being stacked over it.
+    let body_element = if meta.status == PageStatus::NotFound {
         body_element
     } else {
         AdminLayout::Auth {
             current_path: shell_layout_path,
             server_user,
             is_authenticated,
-            is_gated: suppress_bff_auth_gate(&layout_path).then_some(false),
+            is_gated: Some(false),
             no_layout_paths: no_layout_paths_override,
         }
         .render(body_element, None, None, None)
@@ -2364,9 +2691,13 @@ mod tests {
         let (meta, body) = admin_pages::dispatch(&c);
         let server_user = user.as_ref().map(|user| ServerUser {
             id: user.id.clone(),
+            address: user.address.clone(),
+            chain_id: user.chain_id.clone(),
             email: user.email.clone().unwrap_or_default(),
             name: user.display_name.clone(),
             role: user.roles.first().cloned().unwrap_or_default(),
+            tier: user.tier.clone(),
+            permissions: user.permissions.clone(),
         });
         let is_authenticated = user.is_some();
         let shell_layout_path = safe_admin_layout_path(&c.path, is_authenticated);
@@ -2381,14 +2712,14 @@ mod tests {
             "/permissions/policies".to_string(),
             "/developer-portal/api-keys/create".to_string(),
         ]);
-        let body = if meta.status == PageStatus::NotFound || page_owns_admin_shell(&c.path) {
+        let body = if meta.status == PageStatus::NotFound {
             body
         } else {
             AdminLayout::Auth {
                 current_path: shell_layout_path,
                 server_user,
                 is_authenticated,
-                is_gated: suppress_bff_auth_gate(&c.path).then_some(false),
+                is_gated: Some(false),
                 no_layout_paths: no_layout_paths_override,
             }
             .render(body, None, None, None)
@@ -2471,19 +2802,18 @@ mod tests {
             display_name: None,
         };
         let html = render_admin_html_with_user("/admin", Some(user));
-        // Dashboard owns its AdminShell; the shared production/test shell
-        // registry must leave exactly that authenticated chrome in place.
+        // Every normal route uses the same BFF-owned production shell.
         assert!(
-            html.contains("admin-shell-header"),
-            "expected authenticated admin dashboard HTML to include its page-owned shell header; got: {}",
+            html.contains("admin-header"),
+            "expected authenticated admin dashboard HTML to include the shared shell header; got: {}",
             html
         );
         assert_eq!(html.matches("class=\"admin-sidebar ").count(), 1);
+        assert!(!html.contains("class=\"admin-shell admin-shell-page\""));
     }
 
     #[test]
     fn wallet_inventory_keeps_bff_owned_shell() {
-        assert!(!page_owns_admin_shell("/wallet-management/wallets"));
         let user = User {
             id: "admin-session".to_string(),
             address: "0x1234".to_string(),
@@ -2576,7 +2906,6 @@ mod tests {
 
     #[test]
     fn media_authenticated_render_has_exactly_one_bff_admin_sidebar() {
-        assert!(!page_owns_admin_shell("/media"));
         let user = User {
             id: "admin-session".to_string(),
             address: "0x1234".to_string(),

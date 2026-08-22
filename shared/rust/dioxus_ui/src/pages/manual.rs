@@ -89,20 +89,31 @@ const FEATURES: &[ManualFeature] = &[
 /// sidebar usable at 390px without relying on a different Tailwind compiler.
 const MANUAL_INLINE_CSS: &str = r#"
 .manual-prod-layout { display: flex; min-width: 0; }
-.manual-sidebar { background-color: rgba(17, 24, 39, 0.5) !important; }
-.manual-sidebar-border { border-color: rgb(31, 41, 55) !important; }
-.manual-sidebar-link { color: rgb(156, 163, 175) !important; }
-.manual-sidebar-link:hover { background-color: rgb(31, 41, 55) !important; color: rgb(255, 255, 255) !important; }
-.manual-category-h2 { border-color: rgb(31, 41, 55) !important; color: rgb(243, 244, 246) !important; }
+.manual-page-prod { background: #f8fafc !important; color: #0f172a !important; }
+.manual-sidebar { background-color: rgba(255, 255, 255, 0.88) !important; }
+.manual-sidebar-border { border-color: #e2e8f0 !important; }
+.manual-prod-sidebar-title { color: #0f172a !important; }
+.manual-sidebar-link { color: #475569 !important; }
+.manual-sidebar-link:hover { background-color: #f1f5f9 !important; color: #0f172a !important; }
+.manual-prod-subtitle { color: #475569 !important; }
+.manual-category-h2 { border-color: #e2e8f0 !important; color: #0f172a !important; }
 .manual-prod-content { min-width: 0; }
 .manual-prod-category { scroll-margin-top: 5rem; }
+.manual-prod-feature { background: rgba(255, 255, 255, 0.9) !important; border-color: #e2e8f0 !important; }
+.manual-prod-feature:hover { border-color: #94a3b8 !important; }
+.manual-prod-screenshot-wrap { background: #f1f5f9 !important; }
+.manual-prod-feature-name { color: #0f172a !important; }
+.manual-prod-feature-route { background: #f1f5f9 !important; color: #475569 !important; }
+.manual-prod-feature-desc { color: #475569 !important; }
+.manual-prod-feature-link { color: #1d4ed8 !important; }
+.manual-prod-feature-link[aria-disabled="true"] { color: #334155 !important; }
 .manual-prod-feature-head { flex-wrap: wrap; }
 .manual-prod-feature-route { overflow-wrap: anywhere; }
 .manual-prod-feature-status { border: 1px solid currentColor; border-radius: 9999px; padding: 0.125rem 0.5rem; font-size: 0.75rem; font-weight: 600; line-height: 1rem; }
-.manual-prod-feature-status[data-manual-route-status="aligned"] { color: rgb(134, 239, 172); }
-.manual-prod-feature-status[data-manual-route-status="partial"] { color: rgb(253, 224, 71); }
-.manual-prod-feature-status[data-manual-route-status="blocked"] { color: rgb(252, 165, 165); }
-.manual-prod-feature-status[data-manual-route-status="unavailable"] { color: rgb(156, 163, 175); }
+.manual-prod-feature-status[data-manual-route-status="aligned"] { color: #047857; }
+.manual-prod-feature-status[data-manual-route-status="partial"] { color: #92400e; }
+.manual-prod-feature-status[data-manual-route-status="blocked"] { color: #b91c1c; }
+.manual-prod-feature-status[data-manual-route-status="unavailable"] { color: #475569; }
 .manual-prod-screenshot-button { display: block; width: 100%; height: 100%; text-align: left; }
 .manual-prod-screenshot-img { width: 100%; height: 100%; object-fit: cover; object-position: top; cursor: zoom-in; }
 .manual-prod-screenshot-fallback { display: none; width: 100%; height: 100%; align-items: center; justify-content: center; color: rgb(107, 114, 128); }
@@ -118,9 +129,26 @@ const MANUAL_INLINE_CSS: &str = r#"
 .manual-prod-feature-link:focus-visible,
 .manual-prod-screenshot-button:focus-visible,
 .manual-prod-dialog-close:focus-visible { outline: 3px solid rgb(96, 165, 250); outline-offset: 3px; }
+html.dark .manual-page-prod { background: #030712 !important; color: #f3f4f6 !important; }
+html.dark .manual-sidebar { background-color: rgba(17, 24, 39, 0.5) !important; }
+html.dark .manual-sidebar-border { border-color: #1f2937 !important; }
+html.dark .manual-prod-sidebar-title { color: #ffffff !important; }
+html.dark .manual-sidebar-link { color: #9ca3af !important; }
+html.dark .manual-sidebar-link:hover { background-color: #1f2937 !important; color: #ffffff !important; }
+html.dark .manual-prod-subtitle { color: #9ca3af !important; }
+html.dark .manual-category-h2 { border-color: #1f2937 !important; color: #f3f4f6 !important; }
+html.dark .manual-prod-feature { background: rgba(17, 24, 39, 0.6) !important; border-color: #1f2937 !important; }
+html.dark .manual-prod-feature:hover { border-color: #4b5563 !important; }
+html.dark .manual-prod-screenshot-wrap { background: #1f2937 !important; }
+html.dark .manual-prod-feature-name { color: #ffffff !important; }
+html.dark .manual-prod-feature-route { background: #1f2937 !important; color: #9ca3af !important; }
+html.dark .manual-prod-feature-desc { color: #9ca3af !important; }
+html.dark .manual-prod-feature-link { color: #60a5fa !important; }
+html.dark .manual-prod-feature-link[aria-disabled="true"] { color: #9ca3af !important; }
 @media (max-width: 640px) {
   .manual-prod-layout { display: block; }
-  .manual-prod-sidebar { position: relative !important; top: auto !important; width: 100% !important; height: auto !important; border-right: 0 !important; border-bottom: 1px solid rgb(31, 41, 55); padding: 0.75rem !important; }
+  .manual-prod-sidebar { position: relative !important; top: auto !important; width: 100% !important; height: auto !important; border-right: 0 !important; border-bottom: 1px solid #e2e8f0; padding: 0.75rem !important; }
+  html.dark .manual-prod-sidebar { border-bottom-color: #1f2937; }
   .manual-prod-sidebar-title { margin-bottom: 0.5rem !important; }
   .manual-prod-sidebar-nav { flex-direction: row !important; overflow-x: auto; padding: 0.125rem 0.125rem 0.5rem; scrollbar-width: thin; }
   .manual-prod-sidebar-link { flex: 0 0 auto; }

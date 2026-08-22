@@ -370,6 +370,19 @@ impl AnalyticsQueryState {
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::app("Analytics");
+    let surface = render_surface(ctx);
+    let body = rsx! {
+        MainLayout { ctx: ctx.clone(), {surface} }
+    };
+    (meta, body)
+}
+
+/// Production analytics workspace without an outer application shell.
+///
+/// The admin BFF already owns its authenticated shell, while the public
+/// frontend wraps this same surface in `MainLayout`. Keeping one body avoids
+/// the two routes drifting into different information architectures again.
+pub fn render_surface(ctx: &PageContext) -> Element {
     let response = ctx
         .param(ANALYTICS_DATA_PARAM)
         .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
@@ -433,7 +446,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         },
         ("malformed", _) => rsx! {
             AnalyticsFailurePage {
-                ctx: ctx.clone(),
                 failure_state: "malformed".to_string(),
                 filters,
                 filters_state,
@@ -442,7 +454,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         },
         _ => rsx! {
             AnalyticsFailurePage {
-                ctx: ctx.clone(),
                 failure_state: "unavailable".to_string(),
                 filters,
                 filters_state,
@@ -450,7 +461,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
         },
     };
-    (meta, body)
+    body
 }
 
 #[component]
@@ -466,40 +477,38 @@ fn AnalyticsPage(
     let is_empty = response.data.is_empty();
     let signed_in = ctx.user.is_some();
     rsx! {
-        MainLayout { ctx,
-            div { class: "analytics-page relative min-h-screen",
-                AnalyticsBackground {}
-                div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                    AnalyticsHeader { metadata: Some(response.metadata.clone()) }
-                    section {
-                        class: "analytics-rankings overflow-visible",
-                        "data-section": "analytics-rankings",
-                        "data-analytics-state": if is_empty { "empty" } else { "ready" },
-                        AnalyticsAccessStatus { access: response.access_info.clone() }
-                        AnalyticsFilterForm {
-                            filters,
-                            filters_state,
-                            query: query.clone(),
-                            authoritative_limit: response.pagination.limit,
+        div { class: "analytics-page relative min-h-screen",
+            AnalyticsBackground {}
+            div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
+                AnalyticsHeader { metadata: Some(response.metadata.clone()) }
+                section {
+                    class: "analytics-rankings overflow-visible",
+                    "data-section": "analytics-rankings",
+                    "data-analytics-state": if is_empty { "empty" } else { "ready" },
+                    AnalyticsAccessStatus { access: response.access_info.clone() }
+                    AnalyticsFilterForm {
+                        filters,
+                        filters_state,
+                        query: query.clone(),
+                        authoritative_limit: response.pagination.limit,
+                    }
+                    if is_empty {
+                        div { class: "py-12 text-center", "data-section": "analytics-empty-state",
+                            div { class: "mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50",
+                                Icon { name: "sparkles".to_string(), size: Some(32), class_name: Some("text-slate-400".to_string()) }
+                            }
+                            p { class: "text-slate-400", "No rankings match the selected filters" }
                         }
-                        if is_empty {
-                            div { class: "py-12 text-center", "data-section": "analytics-empty-state",
-                                div { class: "mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-800/50",
-                                    Icon { name: "sparkles".to_string(), size: Some(32), class_name: Some("text-slate-400".to_string()) }
-                                }
-                                p { class: "text-slate-400", "No rankings match the selected filters" }
-                            }
-                        } else {
-                            AnalyticsCardGrid {
-                                rows: response.data.clone(),
-                                signed_in,
-                                watchlist,
-                                watchlist_state,
-                            }
-                            AnalyticsPaginationNav {
-                                pagination: response.pagination.clone(),
-                                query,
-                            }
+                    } else {
+                        AnalyticsCardGrid {
+                            rows: response.data.clone(),
+                            signed_in,
+                            watchlist,
+                            watchlist_state,
+                        }
+                        AnalyticsPaginationNav {
+                            pagination: response.pagination.clone(),
+                            query,
                         }
                     }
                 }
@@ -511,7 +520,7 @@ fn AnalyticsPage(
 #[component]
 fn AnalyticsBackground() -> Element {
     rsx! {
-        div { class: "pointer-events-none fixed inset-0 z-0", "aria-hidden": "true",
+        div { class: "pointer-events-none absolute inset-0 z-0 overflow-hidden", "aria-hidden": "true",
             div { class: "absolute inset-0 bg-gradient-to-b from-white via-gray-50 to-white dark:from-slate-950 dark:via-slate-900 dark:to-slate-950" }
             div { class: "absolute -left-40 -top-40 h-[400px] w-[400px] rounded-full bg-purple-600/15 blur-3xl" }
             div { class: "absolute -right-32 top-1/3 h-[300px] w-[300px] rounded-full bg-blue-600/10 blur-3xl" }
@@ -529,27 +538,20 @@ fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
                 }
                 div { class: "min-w-0",
                     h1 { class: "text-2xl font-bold text-foreground", "Analytics" }
-                    p { class: "max-w-full text-sm text-slate-400", "Top-performing stocks by EPS growth" }
+                    p { class: "max-w-full text-sm text-slate-600 dark:text-slate-400", "Top-performing stocks by EPS growth" }
                 }
             }
             div { class: "flex gap-2",
-                if let Some(metadata) = metadata {
-                    time {
-                        class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-400",
-                        datetime: metadata.request_timestamp.clone(),
-                        "data-analytics-freshness": "backend",
-                        Icon { name: "clock".to_string(), size: Some(14) }
-                        "Observed {metadata.request_timestamp}"
-                    }
+                if metadata.is_some() {
                     span {
-                        class: "inline-flex items-center gap-1.5 rounded-lg border border-purple-500/20 bg-purple-500/10 px-3 py-1.5 text-xs font-medium text-purple-400",
-                        "data-analytics-source": "backend",
+                        class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400",
+                        "data-analytics-freshness": "backend",
                         Icon { name: "database".to_string(), size: Some(14) }
-                        "Source {metadata.data_source}"
+                        "Update data"
                     }
                 } else {
                     span {
-                        class: "inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-300",
+                        class: "inline-flex items-center gap-1.5 rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-700 dark:text-amber-300",
                         "data-analytics-freshness": "unavailable",
                         Icon { name: "circle-alert".to_string(), size: Some(14) }
                         "Data unavailable"
@@ -586,19 +588,19 @@ fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
                         Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-white".to_string()) }
                     }
                     div {
-                        h2 { class: "text-base font-bold text-white", "Rankings access" }
+                        h2 { class: "text-base font-bold text-slate-900 dark:text-white", "Rankings access" }
                         div { class: "mt-1 flex flex-wrap items-center gap-2 text-sm",
                             Icon { name: "sparkles".to_string(), size: Some(14), class_name: Some("text-slate-400".to_string()) }
                             if let Some(viewing) = viewing {
-                                span { class: "text-slate-300", "Viewing: "
-                                    span { class: "font-semibold text-white", "{viewing}" }
+                                span { class: "text-slate-700 dark:text-slate-300", "Viewing: "
+                                    span { class: "font-semibold text-slate-900 dark:text-white", "{viewing}" }
                                 }
                             } else {
-                                span { class: "text-slate-400", "Access summary unavailable" }
+                                span { class: "text-slate-600 dark:text-slate-400", "Access summary unavailable" }
                             }
                             if let Some(locked) = locked {
                                 span { class: "text-slate-500", "•" }
-                                span { class: "flex items-center gap-1 text-slate-400",
+                                span { class: "flex items-center gap-1 text-slate-600 dark:text-slate-400",
                                     Icon { name: "lock".to_string(), size: Some(12) }
                                     "{locked}"
                                 }
@@ -629,12 +631,12 @@ fn AnalyticsFilterForm(
     let reset_url = query.reset_url(authoritative_limit.max(1) as u32);
     rsx! {
         form {
-            class: "mb-6 rounded-xl border border-gray-200 bg-white backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
+            class: "mb-6 rounded-xl border border-border/20 bg-card/80 backdrop-blur-sm",
             action: "/analytics",
             method: "get",
             "data-section": "analytics-filters",
             "data-analytics-filters-state": if ready { "ready" } else { "unavailable" },
-            h2 { class: "flex items-center gap-2 px-3 pt-3 text-sm font-medium text-slate-300 sm:hidden",
+            h2 { class: "flex items-center gap-2 px-3 pt-3 text-sm font-medium text-slate-700 dark:text-slate-300 sm:hidden",
                 Icon { name: "sliders-horizontal".to_string(), size: Some(16), class_name: Some("text-slate-400".to_string()) }
                 "Filters"
                 if active_count > 0 {
@@ -654,7 +656,7 @@ fn AnalyticsFilterForm(
             }
             div { class: "flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4",
                 div { class: "min-w-0 flex-1",
-                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400", r#for: "analytics-country",
+                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400", r#for: "analytics-country",
                         Icon { name: "globe".to_string(), size: Some(12) }
                         "Country"
                     }
@@ -662,7 +664,7 @@ fn AnalyticsFilterForm(
                         id: "analytics-country",
                         name: "country",
                         disabled: !ready,
-                        class: "h-9 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-gray-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
+                        class: "h-9 w-full rounded-lg border border-border/20 bg-muted/30 px-3 text-sm text-foreground",
                         option { value: "", selected: query.country.is_none(), "All Countries" }
                         if let Some(filters) = &filters {
                             for country in &filters.countries {
@@ -676,7 +678,7 @@ fn AnalyticsFilterForm(
                     }
                 }
                 div { class: "min-w-0 flex-1",
-                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-400", r#for: "analytics-sector",
+                    label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400", r#for: "analytics-sector",
                         Icon { name: "sparkles".to_string(), size: Some(12) }
                         "Sector"
                     }
@@ -684,7 +686,7 @@ fn AnalyticsFilterForm(
                         id: "analytics-sector",
                         name: "sector",
                         disabled: !ready,
-                        class: "h-9 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-gray-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
+                        class: "h-9 w-full rounded-lg border border-border/20 bg-muted/30 px-3 text-sm text-foreground",
                         option { value: "", selected: query.sector.is_none(), "All Sectors" }
                         if let Some(filters) = &filters {
                             for sector in &filters.sectors {
@@ -716,7 +718,7 @@ fn AnalyticsFilterForm(
                 }
             }
             if !ready {
-                p { class: "border-t border-white/[0.04] px-4 py-2 text-xs text-amber-300", role: "status",
+                p { class: "border-t border-gray-200 px-4 py-2 text-xs text-amber-700 dark:border-white/[0.04] dark:text-amber-300", role: "status",
                     "Filter options are temporarily unavailable."
                 }
             }
@@ -848,9 +850,9 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
             "aria-label": "Analytics pagination",
             "data-section": "analytics-pagination",
             div { class: "mb-4 flex flex-col items-center justify-between gap-3 sm:flex-row",
-                p { class: "text-sm text-slate-400",
+                p { class: "text-sm text-slate-600 dark:text-slate-400",
                     "Showing "
-                    span { class: "font-medium text-slate-200", "{start}-{end}" }
+                    span { class: "font-medium text-slate-700 dark:text-slate-200", "{start}-{end}" }
                     " of {pagination.total}"
                 }
                 form {
@@ -859,11 +861,11 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     method: "get",
                     input { r#type: "hidden", name: "page", value: "1" }
                     {preserved_hidden_filters(&query)}
-                    label { class: "text-xs text-slate-400", r#for: "analytics-limit", "Per page" }
+                    label { class: "text-xs text-slate-600 dark:text-slate-400", r#for: "analytics-limit", "Per page" }
                     select {
                         id: "analytics-limit",
                         name: "limit",
-                        class: "h-9 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm text-slate-200",
+                        class: "h-9 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-slate-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
                         "data-analytics-limit": "true",
                         if !standard_limits.contains(&limit) {
                             option { value: "{limit}", selected: true, "{limit}" }
@@ -878,14 +880,14 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
             div { class: "flex items-center justify-center gap-1",
                 if pagination.has_prev {
                     a {
-                        class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                        class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{previous_url}",
                         rel: "prev",
                         Icon { name: "chevron-left".to_string(), size: Some(16) }
                         span { class: "hidden sm:block", "Prev" }
                     }
                 } else {
-                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-500 opacity-30", aria_disabled: "true",
+                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-600 opacity-50 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-500 dark:opacity-30", aria_disabled: "true",
                         Icon { name: "chevron-left".to_string(), size: Some(16) }
                         span { class: "hidden sm:block", "Prev" }
                     }
@@ -894,7 +896,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     for (index, token) in visible_pages(page, total_pages).into_iter().enumerate() {
                         match token {
                             PageToken::Ellipsis => rsx! {
-                                span { class: "flex h-9 w-9 items-center justify-center text-sm text-slate-500", "data-page-gap": index, "…" }
+                                span { class: "flex h-9 w-9 items-center justify-center text-sm text-slate-600 dark:text-slate-500", "data-page-gap": index, "…" }
                             },
                             PageToken::Page(candidate) if candidate == page => rsx! {
                                 span {
@@ -907,7 +909,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                                 let href = query.page_url(candidate, limit);
                                 rsx! {
                                     a {
-                                        class: "flex h-9 w-9 items-center justify-center rounded-lg border border-white/[0.08] bg-slate-800/60 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                                        class: "flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                                         href: "{href}",
                                         "aria-label": "Page {candidate}",
                                         "{candidate}"
@@ -919,14 +921,14 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                 }
                 if pagination.has_next {
                     a {
-                        class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-300 transition-colors hover:bg-slate-700/60 hover:text-white",
+                        class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{next_url}",
                         rel: "next",
                         span { class: "hidden sm:block", "Next" }
                         Icon { name: "chevron-right".to_string(), size: Some(16) }
                     }
                 } else {
-                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-white/[0.08] bg-slate-800/60 px-3 text-sm font-medium text-slate-500 opacity-30", aria_disabled: "true",
+                    span { class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-600 opacity-50 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-500 dark:opacity-30", aria_disabled: "true",
                         span { class: "hidden sm:block", "Next" }
                         Icon { name: "chevron-right".to_string(), size: Some(16) }
                     }
@@ -938,7 +940,6 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
 
 #[component]
 fn AnalyticsFailurePage(
-    ctx: PageContext,
     failure_state: String,
     filters: Option<AnalyticsFilters>,
     filters_state: String,
@@ -946,34 +947,65 @@ fn AnalyticsFailurePage(
 ) -> Element {
     let malformed = failure_state == "malformed";
     rsx! {
-        MainLayout { ctx,
-            div { class: "analytics-page relative min-h-screen",
-                AnalyticsBackground {}
-                div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                    AnalyticsHeader { metadata: None }
-                    section {
-                        "data-section": "analytics-failure",
-                        "data-analytics-state": "{failure_state}",
-                        role: "alert",
-                        AnalyticsFilterForm {
-                            filters,
-                            filters_state,
-                            query,
-                            authoritative_limit: 10,
+        div { class: "analytics-page relative min-h-screen",
+            AnalyticsBackground {}
+            div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
+                AnalyticsHeader { metadata: None }
+                section {
+                    "data-section": "analytics-failure",
+                    "data-analytics-state": "{failure_state}",
+                    role: "alert",
+                    AnalyticsAccessStatus { access: None }
+                    AnalyticsFilterForm {
+                        filters,
+                        filters_state,
+                        query,
+                        authoritative_limit: 10,
+                    }
+                    div { class: "mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 px-5 py-4",
+                        h2 { class: "font-semibold text-foreground",
+                            if malformed { "Ranking data could not be validated" } else { "Rankings are temporarily unavailable" }
                         }
-                        div { class: "rounded-2xl border border-white/[0.06] bg-slate-900/70 px-6 py-12 text-center",
-                            h2 { class: "text-lg font-semibold text-slate-200",
-                                if malformed { "Ranking data could not be validated" } else { "Rankings are temporarily unavailable" }
-                            }
-                            p { class: "mx-auto mt-2 max-w-2xl text-sm text-slate-400",
-                                if malformed {
-                                    "The analytics service returned an unexpected response. No ranking cards or inferred market values are shown."
-                                } else {
-                                    "The analytics dependency could not be reached. No sample market data is being shown."
-                                }
+                        p { class: "mt-1 max-w-3xl text-sm text-muted-foreground",
+                            if malformed {
+                                "The analytics service returned an unexpected response. No ranking cards or inferred market values are shown."
+                            } else {
+                                "The analytics dependency could not be reached. No sample market data is being shown."
                             }
                         }
                     }
+                    AnalyticsUnavailableGrid {}
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn AnalyticsUnavailableGrid() -> Element {
+    rsx! {
+        section {
+            class: "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+            "aria-label": "Unavailable EPS growth rankings",
+            aria_hidden: "true",
+            for tier in ["CHAMPION", "ELITE", "LEGEND", "MASTER"] {
+                article { class: "relative overflow-hidden rounded-2xl border border-border/40 bg-card/80 p-5 text-center shadow-xl",
+                    span { class: "absolute left-1/2 top-0 -translate-x-1/2 rounded-b-lg bg-gradient-to-r from-slate-700 to-slate-500 px-4 py-1 text-[10px] font-bold tracking-widest text-white", "{tier}" }
+                    div { class: "pt-4",
+                        p { class: "text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground", "Stock Symbol" }
+                        p { class: "mt-2 text-2xl font-black text-muted-foreground", "Unavailable" }
+                        p { class: "mt-1 text-xs text-muted-foreground", "Company data unavailable" }
+                    }
+                    div { class: "mt-6 rounded-xl border border-border/20 bg-muted/20 p-4 text-left",
+                        p { class: "text-xs uppercase tracking-wider text-muted-foreground", "Growth" }
+                        p { class: "mt-2 font-semibold text-muted-foreground", "Unavailable" }
+                        div { class: "mt-3 h-1.5 rounded-full bg-muted/40" }
+                    }
+                    div { class: "mt-3 rounded-xl border border-border/20 bg-muted/20 p-4 text-left",
+                        p { class: "text-xs uppercase tracking-wider text-muted-foreground", "Next Action" }
+                        div { class: "mt-3 h-1.5 rounded-full bg-muted/40" }
+                    }
+                    button { class: "btn btn-ghost mt-4 w-full cursor-not-allowed opacity-50", r#type: "button", disabled: true, "View Details →" }
                 }
             }
         }
@@ -1143,8 +1175,10 @@ mod tests {
         assert!(rendered.contains("grid-cols-1"));
         assert!(rendered.contains("2xl:grid-cols-5"));
         assert!(rendered.contains("data-analytics-freshness=\"backend\""));
-        assert!(rendered.contains("datetime=\"2026-07-27T00:00:00Z\""));
-        assert!(rendered.contains("Source live"));
+        assert_eq!(rendered.matches("Update data").count(), 1);
+        assert!(!rendered.contains("Observed"));
+        assert!(!rendered.contains("Source live"));
+        assert!(!rendered.contains("2026-07-27T00:00:00Z"));
         assert!(!rendered.contains("AI-Powered"));
     }
 
@@ -1221,6 +1255,8 @@ mod tests {
         assert!(unavailable_html.contains("data-analytics-state=\"unavailable\""));
         assert!(unavailable_html.contains("temporarily unavailable"));
         assert!(unavailable_html.contains("data-analytics-freshness=\"unavailable\""));
+        assert!(unavailable_html.contains("Data unavailable"));
+        assert!(!unavailable_html.contains("Update data"));
         assert!(!unavailable_html.contains(">Live<"));
         assert!(!unavailable_html.contains("data-stock-card=\"true\""));
     }

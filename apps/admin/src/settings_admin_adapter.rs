@@ -1,19 +1,17 @@
 //! Route-specific, authenticated settings read/mutation projection adapter.
 //!
-//! The adapter projects backend values to category/key/type metadata. Secret
-//! and configuration values never enter the Dioxus page context.
+//! The adapter projects only the production settings allowlist. Arbitrary
+//! backend configuration and unknown keys never enter the Dioxus page context.
 
 use epsx_dioxus_ui::pages::admin_pages::settings::{
-    AdminSettingSummary, AdminSettingsCategory, AdminSettingsSnapshot,
+    AdminSetting, AdminSettingValue, AdminSettingsCategory, AdminSettingsSnapshot,
 };
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
 const MAX_RESPONSE_BYTES: usize = 256 * 1024;
-const MAX_VALUE_BYTES: usize = 32 * 1024;
-const MAX_CATEGORIES: usize = 100;
-const MAX_KEYS: usize = 100;
-const MAX_TEXT_CHARS: usize = 128;
+const MAX_CATEGORIES: usize = 4;
+const MAX_KEYS: usize = 8;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum AdminSettingsLoad {
@@ -31,44 +29,24 @@ struct BackendSettingsEnvelope {
     data: BTreeMap<String, BTreeMap<String, serde_json::Value>>,
 }
 
-fn safe_text(value: &str) -> bool {
-    !value.is_empty()
-        && value.chars().count() <= MAX_TEXT_CHARS
-        && !value.chars().any(char::is_control)
-        && value
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_' | b'.'))
-}
-
-fn value_kind(value: &serde_json::Value) -> Option<&'static str> {
-    let bytes = serde_json::to_vec(value).ok()?;
-    if bytes.len() > MAX_VALUE_BYTES {
-        return None;
-    }
-    Some(match value {
-        serde_json::Value::Null => "null",
-        serde_json::Value::Bool(_) => "boolean",
-        serde_json::Value::Number(_) => "number",
-        serde_json::Value::String(_) => "string",
-        serde_json::Value::Array(_) => "array",
-        serde_json::Value::Object(_) => "object",
-    })
-}
-
 fn project_settings(envelope: BackendSettingsEnvelope) -> Option<AdminSettingsLoad> {
     if !envelope.success || envelope.data.len() > MAX_CATEGORIES {
         return None;
     }
     let mut categories = Vec::with_capacity(envelope.data.len());
     for (category, values) in envelope.data {
-        if !safe_text(&category) || values.len() > MAX_KEYS {
+        if !matches!(
+            category.as_str(),
+            "general" | "notifications" | "security" | "appearance"
+        ) || values.len() > MAX_KEYS
+        {
             return None;
         }
         let mut settings = Vec::with_capacity(values.len());
         for (key, value) in values {
-            settings.push(AdminSettingSummary {
-                key: if safe_text(&key) { key } else { return None },
-                value_kind: value_kind(&value)?.to_string(),
+            settings.push(AdminSetting {
+                value: allowlisted_value(&category, &key, &value)?,
+                key,
             });
         }
         categories.push(AdminSettingsCategory { category, settings });
@@ -79,6 +57,53 @@ fn project_settings(envelope: BackendSettingsEnvelope) -> Option<AdminSettingsLo
     } else {
         Some(AdminSettingsLoad::Ready(snapshot))
     }
+}
+
+fn allowlisted_value(
+    category: &str,
+    key: &str,
+    value: &serde_json::Value,
+) -> Option<AdminSettingValue> {
+    match (category, key) {
+        ("general", "systemName") => {
+            let value = value.as_str()?;
+            bounded_text(value, 1, 128).then(|| AdminSettingValue::Text(value.to_string()))
+        }
+        ("general", "adminEmail") => {
+            let value = value.as_str()?;
+            (bounded_text(value, 3, 254) && value.contains('@'))
+                .then(|| AdminSettingValue::Text(value.to_string()))
+        }
+        ("general", "maintenanceMode")
+        | ("notifications", "emailNotifications")
+        | ("notifications", "pushNotifications")
+        | ("notifications", "smsNotifications")
+        | ("notifications", "securityAlerts") => value.as_bool().map(AdminSettingValue::Bool),
+        ("security", "sessionTimeout") => {
+            let value = value.as_i64()?;
+            (1..=1440)
+                .contains(&value)
+                .then_some(AdminSettingValue::Number(value))
+        }
+        ("appearance", "theme") => {
+            let value = value.as_str()?;
+            matches!(value, "light" | "dark" | "system")
+                .then(|| AdminSettingValue::Text(value.to_string()))
+        }
+        ("appearance", "primaryColor") => {
+            let value = value.as_str()?;
+            (value.len() == 7
+                && value.starts_with('#')
+                && value[1..].bytes().all(|byte| byte.is_ascii_hexdigit()))
+            .then(|| AdminSettingValue::Text(value.to_string()))
+        }
+        _ => None,
+    }
+}
+
+fn bounded_text(value: &str, min_chars: usize, max_chars: usize) -> bool {
+    let count = value.chars().count();
+    (min_chars..=max_chars).contains(&count) && !value.chars().any(char::is_control)
 }
 
 pub(crate) async fn load_admin_settings(
@@ -135,7 +160,7 @@ mod tests {
     use serde_json::json;
 
     #[test]
-    fn settings_projection_is_metadata_only_and_bounded() {
+    fn settings_projection_is_allowlisted_typed_and_bounded() {
         let load = project_settings(BackendSettingsEnvelope {
             success: true,
             data: BTreeMap::from([(
@@ -151,8 +176,11 @@ mod tests {
             panic!("expected ready settings projection");
         };
         assert_eq!(snapshot.categories[0].settings[0].key, "maintenanceMode");
-        assert_eq!(snapshot.categories[0].settings[0].value_kind, "boolean");
-        assert!(!serde_json::to_string(&snapshot).unwrap().contains("EPSX"));
+        assert_eq!(
+            snapshot.categories[0].settings[0].value,
+            AdminSettingValue::Bool(false)
+        );
+        assert!(serde_json::to_string(&snapshot).unwrap().contains("EPSX"));
     }
 
     #[test]
@@ -164,13 +192,13 @@ mod tests {
         }));
         assert!(unknown.is_err());
 
-        let oversized = project_settings(BackendSettingsEnvelope {
+        let unknown_key = project_settings(BackendSettingsEnvelope {
             success: true,
             data: BTreeMap::from([(
                 "general".into(),
-                BTreeMap::from([("secret".into(), json!("x".repeat(MAX_VALUE_BYTES)))]),
+                BTreeMap::from([("secret".into(), json!("do-not-project"))]),
             )]),
         });
-        assert!(oversized.is_none());
+        assert!(unknown_key.is_none());
     }
 }

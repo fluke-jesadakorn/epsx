@@ -14,6 +14,7 @@ struct Args {
     host: String,
     #[arg(
         long,
+        env = "DATABASE_URL",
         default_value = "postgres://epsx:epsx@localhost:5432/epsx_analytics"
     )]
     database_url: String,

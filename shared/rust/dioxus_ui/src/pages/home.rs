@@ -154,7 +154,7 @@ fn AnalyticsPreview(outcome: HomeAnalyticsOutcome) -> Element {
                         },
                     }
                     a {
-                        class: "mx-auto inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 px-5 py-3 font-semibold text-cyan-300 hover:bg-cyan-400/10",
+                        class: "mx-auto inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300",
                         href: "/analytics",
                         "Open analytics"
                         Icon { name: "arrow-right".to_string(), size: Some(16) }
@@ -197,13 +197,13 @@ fn PlansPreview() -> Element {
                             "Priority onboarding",
                         ] {
                             li { class: "flex items-center gap-2",
-                                span { class: "text-purple-400", "✓" }
+                                span { class: "text-purple-700 dark:text-purple-400", "✓" }
                                 "{item}"
                             }
                         }
                     }
                     a {
-                        class: "mt-7 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-500 to-fuchsia-500 px-5 py-3 font-semibold text-white hover:from-purple-600 hover:to-fuchsia-600",
+                        class: "mt-7 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-700 to-fuchsia-700 px-5 py-3 font-semibold text-white hover:from-purple-800 hover:to-fuchsia-800",
                         href: "/contact",
                         Icon { name: "message-square".to_string(), size: Some(16) }
                         "Get in Touch"
@@ -249,7 +249,7 @@ fn NewsSectionHeader() -> Element {
                 }
             }
             a {
-                class: "home-prod-news-view-all flex items-center gap-1 text-sm text-cyan-400 hover:text-cyan-300 font-medium",
+                class: "home-prod-news-view-all flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800 font-medium dark:text-cyan-400 dark:hover:text-cyan-300",
                 href: "/news",
                 "View all "
                 Icon { name: "arrow-right".to_string(), size: Some(16) }
@@ -383,7 +383,7 @@ fn NewsPreview(outcome: NewsListOutcome) -> Element {
                 NewsSectionHeader {}
                 div {
                     class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center",
-                    p { class: "text-slate-300", "No published articles yet." }
+                    p { class: "text-slate-600 dark:text-slate-300", "No published articles yet." }
                 }
             }
         },
@@ -396,17 +396,17 @@ fn NewsPreview(outcome: NewsListOutcome) -> Element {
                 div {
                     class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center",
                     role: "alert",
-                    p { class: "mx-auto max-w-2xl text-slate-300",
+                    p { class: "mx-auto max-w-2xl text-slate-600 dark:text-slate-300",
                         "Latest news is temporarily unavailable. No cached or sample articles are being shown."
                     }
                     div { class: "mt-7 flex flex-wrap justify-center gap-3",
                         a {
-                            class: "inline-flex items-center gap-2 rounded-xl border border-cyan-400/30 px-5 py-3 font-semibold text-cyan-300 hover:bg-cyan-400/10",
+                            class: "inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300",
                             href: "/news",
                             "Open news"
                         }
                         a {
-                            class: "inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3 font-semibold text-white hover:bg-white/5",
+                            class: "inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-800 hover:bg-slate-100 dark:border-white/20 dark:text-white dark:hover:bg-white/5",
                             href: "/",
                             "Retry home"
                         }

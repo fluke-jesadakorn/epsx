@@ -523,6 +523,7 @@ fn RenderNotifications(ctx: PageContext) -> Element {
                 user: ctx.user.clone(),
                 feature: Some("your notifications".to_string()),
                 return_url: Some(ctx.path.clone()),
+                wallet_connected: ctx.wallet.address.is_some(),
                 div { class: "container page-content notifications-page",
                     PageHeader {
                         title: "Notifications".to_string(),

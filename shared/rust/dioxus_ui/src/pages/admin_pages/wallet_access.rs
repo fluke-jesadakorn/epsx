@@ -9,10 +9,11 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
+use super::wallet_hub::WalletManagementHub;
 
 const WALLET_ACCESS_PATH: &str = "/wallet-management/access";
 const PLANS_PATH: &str = "/wallet-management/access/plans";
@@ -155,8 +156,8 @@ fn RenderWalletAccess(ctx: PageContext) -> Element {
     let load = access_load(&ctx);
 
     rsx! {
-        PageLayout {
-            max_width: Some(PageMaxWidth::SevenXl),
+        WalletManagementHub {
+            ctx: ctx.clone(),
             PageHeader {
                 title: "Wallet access".to_string(),
                 subtitle: Some("Review backend-authoritative access assignments".to_string()),
@@ -223,7 +224,7 @@ fn AccessReady(projection: AdminAccessProjection) -> Element {
                     "Assignments are backend-authoritative. New assignments require the backend version and are audited there."
                 }
                 form { method: "post", action: WALLET_ACCESS_PATH, class: "mt-5 grid gap-3 rounded-xl border border-border/20 bg-background/30 p-4 md:grid-cols-5",
-                    input { r#type: "hidden", name: "operation", value: "assign" }
+                    input { r#type: "hidden", name: "operation", value: "access_assign" }
                     input { r#type: "hidden", name: "idempotency_key", value: format!("admin.access.assign.{}", uuid::Uuid::new_v4()) }
                     input { class: "input input-bordered", name: "wallet_address", maxlength: 42, placeholder: "Wallet 0x...", required: true }
                     input { class: "input input-bordered", name: "plan_id", maxlength: 36, placeholder: "Plan UUID", required: true }
@@ -264,7 +265,7 @@ fn AccessAssignmentRow(item: AdminAccessAssignmentProjection) -> Element {
             }
             div { class: "flex flex-wrap gap-2 sm:justify-end",
                 form { method: "post", action: WALLET_ACCESS_PATH,
-                    input { r#type: "hidden", name: "operation", value: "revoke" }
+                    input { r#type: "hidden", name: "operation", value: "access_revoke" }
                     input { r#type: "hidden", name: "wallet_address", value: item.wallet_address.clone() }
                     input { r#type: "hidden", name: "plan_id", value: item.plan_id.clone() }
                     input { r#type: "hidden", name: "permission", value: item.permission.clone() }
@@ -280,24 +281,38 @@ fn AccessAssignmentRow(item: AdminAccessAssignmentProjection) -> Element {
 #[component]
 fn AccessProblem(state: &'static str, title: String, detail: String) -> Element {
     rsx! {
-        section {
-            class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
-            role: if state == ADMIN_ACCESS_FORBIDDEN { "alert" } else { "status" },
-            aria_labelledby: "admin-wallet-access-problem-title",
+        div {
             "data-admin-wallet-access-state": state,
-            div { class: "flex flex-col gap-5 sm:flex-row sm:items-start",
-                div {
-                    class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-amber-500/25 bg-background/60 text-amber-700 dark:text-amber-300",
-                    aria_hidden: "true",
-                    Icon { name: "shield-alert".to_string(), size: Some(24) }
-                }
-                div { class: "min-w-0",
-                    h2 { id: "admin-wallet-access-problem-title", class: "text-xl font-bold text-foreground", "{title}" }
-                    p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-                    nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet access recovery",
+            section {
+                class: "rounded-xl border border-amber-500/25 bg-amber-500/10 px-5 py-4",
+                role: if state == ADMIN_ACCESS_FORBIDDEN { "alert" } else { "status" },
+                aria_labelledby: "admin-wallet-access-problem-title",
+                div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                    div { class: "min-w-0",
+                        h2 { id: "admin-wallet-access-problem-title", class: "font-semibold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm text-muted-foreground", "{detail}" }
+                    }
+                    nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Wallet access recovery",
                         a { class: "btn btn-sm btn-outline", href: WALLET_ACCESS_PATH, "Retry access read" }
                         a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
                     }
+                }
+            }
+            section { class: "mt-6 overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_label: "Wallet access assignments unavailable",
+                div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#1fc7d4]", aria_hidden: "true" }
+                div { class: "flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between",
+                    div {
+                        h3 { class: "text-xs font-bold uppercase tracking-[0.2em] text-[#7645d9]", "Access Assignments" }
+                        p { class: "mt-2 text-sm text-muted-foreground", "No verified assignment inventory is available." }
+                    }
+                    a { class: "btn btn-sm btn-outline", href: PLANS_PATH,
+                        Icon { name: "layers".to_string(), size: Some(15) }
+                        " Review plan definitions"
+                    }
+                }
+                div { class: "border-t border-border/30 px-6 py-12 text-center",
+                    Icon { name: "shield".to_string(), size: Some(34) }
+                    p { class: "mt-3 font-mono text-sm text-amber-400", "Assignments unavailable" }
                 }
             }
         }
@@ -384,6 +399,8 @@ mod tests {
         assert!(rendered.contains("admin:payments:view"));
         assert!(rendered.contains("Wallet 0x1234567890abcdef1234567890abcdef12345678"));
         assert!(rendered.contains("Revoke assignment"));
+        assert!(rendered.contains("value=\"access_assign\""));
+        assert!(rendered.contains("value=\"access_revoke\""));
         assert!(rendered.contains("expected_version"));
         assert!(rendered.contains("value=\"2\""));
         assert!(!rendered.contains("value=\"2/\""));
@@ -408,6 +425,9 @@ mod tests {
             let rendered = html(&with_state(state, Some(projection())));
             assert!(rendered.contains(&format!("data-admin-wallet-access-state=\"{state}\"")));
             assert!(rendered.contains(title));
+            assert!(rendered.contains("Access Assignments"));
+            assert!(rendered.contains("Review plan definitions"));
+            assert!(rendered.contains("Assignments unavailable"));
             assert!(!rendered.contains("admin:payments:view"));
         }
     }

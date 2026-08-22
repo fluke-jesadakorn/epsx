@@ -7,7 +7,11 @@
 
 use chrono::DateTime;
 use epsx_dioxus_ui::pages::admin_pages::{
-    payments::{decode_admin_payment_link_list_projection, AdminPaymentLinkListProjection},
+    payments::{
+        decode_admin_payment_link_list_projection, decode_admin_payment_user_access_projection,
+        AdminPaymentLinkListProjection, AdminPaymentUserAccessProjection,
+        AdminPaymentUserAccessQuery,
+    },
     wallet_access::{decode_admin_access_projection, AdminAccessProjection},
     wallet_credits::{decode_admin_credit_stats_projection, AdminCreditStatsProjection},
     wallet_plans::{
@@ -17,7 +21,7 @@ use epsx_dioxus_ui::pages::admin_pages::{
     wallet_wallets::{
         decode_admin_wallet_detail_projection, decode_admin_wallet_list_projection,
         decode_admin_wallet_stats_projection, AdminWalletDetailProjection,
-        AdminWalletListProjection, AdminWalletStatsSummary,
+        AdminWalletListProjection, AdminWalletListQuery, AdminWalletStatsSummary,
     },
 };
 use serde::de::DeserializeOwned;
@@ -26,7 +30,6 @@ use serde_json::Value;
 
 const MAX_RESPONSE_BYTES: usize = 512 * 1024;
 const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
-const WALLET_LIST_PATH: &str = "/api/v1/admin/wallets?limit=100&offset=0";
 const WALLET_DETAIL_PREFIX: &str = "/api/v1/admin/wallets/";
 const CREDIT_STATS_PATH: &str = "/api/v1/admin/credits";
 const ACCESS_PATH: &str = "/api/v1/admin/subscription/access?limit=100&offset=0";
@@ -130,6 +133,41 @@ struct BackendWallet {
     version: i64,
     #[serde(rename = "created_at")]
     _created_at: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendPaymentUserAccessEnvelope {
+    success: bool,
+    data: BackendPaymentUserAccessData,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendPaymentUserAccessData {
+    users: Vec<BackendPaymentUserAccessItem>,
+    pagination: BackendPaymentUserAccessPagination,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendPaymentUserAccessItem {
+    wallet_address: String,
+    current_plan_id: Option<String>,
+    plan_name: Option<String>,
+    plan_expires_at: Option<String>,
+    days_remaining: i64,
+    status: String,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct BackendPaymentUserAccessPagination {
+    page: i64,
+    limit: i64,
+    #[serde(rename = "total")]
+    _total: i64,
+    total_pages: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -276,6 +314,18 @@ pub(crate) fn wallet_detail_path(address: &str) -> Option<String> {
     canonical_wallet(address).map(|address| format!("{WALLET_DETAIL_PREFIX}{address}"))
 }
 
+pub(crate) fn wallet_access_path(address: &str) -> Option<String> {
+    let address = canonical_wallet(address)?;
+    let encoded_query = {
+        let mut query = url::form_urlencoded::Serializer::new(String::new());
+        query.append_pair("wallet_address", &address);
+        query.append_pair("limit", "100");
+        query.append_pair("offset", "0");
+        query.finish()
+    };
+    Some(format!("/api/v1/admin/subscription/access?{encoded_query}"))
+}
+
 pub(crate) fn plan_detail_path(plan_id: &str) -> Option<String> {
     canonical_uuid(plan_id).map(|plan_id| format!("{PLAN_DETAIL_PREFIX}{plan_id}"))
 }
@@ -333,9 +383,13 @@ pub(crate) async fn load_wallet_detail(
 
 pub(crate) async fn load_wallet_list(
     client: &epsx_client::ServiceClient,
+    query: &AdminWalletListQuery,
     ctx: &epsx_client::RequestContext,
 ) -> AdminCommerceLoad<AdminWalletListProjection> {
-    let payload = match get_json::<BackendWalletList>(client, WALLET_LIST_PATH, ctx).await {
+    let Some(path) = wallet_list_path(query) else {
+        return AdminCommerceLoad::Malformed;
+    };
+    let payload = match get_json::<BackendWalletList>(client, &path, ctx).await {
         Ok(payload) => payload,
         Err(error) => return error.into_load(),
     };
@@ -359,6 +413,66 @@ pub(crate) async fn load_wallet_list(
         Some(projection) => AdminCommerceLoad::Ready(projection),
         None => AdminCommerceLoad::Malformed,
     }
+}
+
+fn wallet_list_path(query: &AdminWalletListQuery) -> Option<String> {
+    let offset = query.offset()?;
+    let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+    if let Some(status) = query.status.as_deref() {
+        serializer.append_pair("status", status);
+    }
+    if let Some(search) = query.search.as_deref() {
+        serializer.append_pair("search", search);
+    }
+    serializer.append_pair("limit", &query.limit.to_string());
+    serializer.append_pair("offset", &offset.to_string());
+    Some(format!("/api/v1/admin/wallets?{}", serializer.finish()))
+}
+
+pub(crate) async fn load_payment_user_access(
+    client: &epsx_client::ServiceClient,
+    query: &AdminPaymentUserAccessQuery,
+    ctx: &epsx_client::RequestContext,
+) -> AdminCommerceLoad<AdminPaymentUserAccessProjection> {
+    let path = payment_user_access_path(query);
+    let payload = match get_json::<BackendPaymentUserAccessEnvelope>(client, &path, ctx).await {
+        Ok(payload) => payload,
+        Err(error) => return error.into_load(),
+    };
+    if !payload.success {
+        return AdminCommerceLoad::Malformed;
+    }
+    let projection = serde_json::json!({
+        "items": payload.data.users.into_iter().map(|item| serde_json::json!({
+            "wallet_address": item.wallet_address,
+            "current_plan_id": item.current_plan_id,
+            "plan_name": item.plan_name,
+            "plan_expires_at": item.plan_expires_at,
+            "days_remaining": item.days_remaining,
+            "status": item.status,
+        })).collect::<Vec<_>>(),
+        "page": payload.data.pagination.page,
+        "limit": payload.data.pagination.limit,
+        "total_pages": payload.data.pagination.total_pages,
+    });
+    match decode_admin_payment_user_access_projection(projection) {
+        Some(projection) if projection.items.is_empty() => AdminCommerceLoad::Empty,
+        Some(projection) => AdminCommerceLoad::Ready(projection),
+        None => AdminCommerceLoad::Malformed,
+    }
+}
+
+fn payment_user_access_path(query: &AdminPaymentUserAccessQuery) -> String {
+    let mut serializer = url::form_urlencoded::Serializer::new(String::new());
+    serializer.append_pair("page", &query.page.to_string());
+    serializer.append_pair("limit", &query.limit.to_string());
+    if let Some(status) = query.status.as_deref() {
+        serializer.append_pair("status", status);
+    }
+    if let Some(search) = query.search.as_deref() {
+        serializer.append_pair("search", search);
+    }
+    format!("/api/admin/plans/user-access/list?{}", serializer.finish())
 }
 
 pub(crate) async fn load_credit_stats(
@@ -408,6 +522,52 @@ pub(crate) async fn load_access(
         Some(projection) => AdminCommerceLoad::Ready(projection),
         None => AdminCommerceLoad::Malformed,
     }
+}
+
+/// Load only assignments owned by one canonical wallet. The subscription
+/// service performs the filtering; the admin UI never derives a wallet's
+/// effective access from a global page of assignments.
+pub(crate) async fn load_wallet_access(
+    client: &epsx_client::ServiceClient,
+    address: &str,
+    ctx: &epsx_client::RequestContext,
+) -> AdminCommerceLoad<AdminAccessProjection> {
+    let Some(address) = canonical_wallet(address) else {
+        return AdminCommerceLoad::Malformed;
+    };
+    let Some(path) = wallet_access_path(&address) else {
+        return AdminCommerceLoad::Malformed;
+    };
+    let payload = match get_json::<BackendAccessList>(client, &path, ctx).await {
+        Ok(payload) => payload,
+        Err(error) => return error.into_load(),
+    };
+    if payload
+        .items
+        .iter()
+        .any(|item| canonical_wallet(&item.wallet_address).as_deref() != Some(address.as_str()))
+    {
+        return AdminCommerceLoad::Malformed;
+    }
+    let projection = serde_json::json!({
+        "items": payload
+            .items
+            .into_iter()
+            .map(|item| {
+                serde_json::json!({
+                    "wallet_address": item.wallet_address,
+                    "plan_id": item.plan_id,
+                    "plan_name": item.plan_name,
+                    "permission": item.permission,
+                    "expires_at": item.expires_at,
+                    "version": item.version,
+                })
+            })
+            .collect::<Vec<_>>(),
+    });
+    decode_admin_access_projection(projection)
+        .map(AdminCommerceLoad::Ready)
+        .unwrap_or(AdminCommerceLoad::Malformed)
 }
 
 pub(crate) async fn load_plans(
@@ -777,6 +937,10 @@ mod tests {
             Some("/api/v1/admin/wallets/0x1111111111111111111111111111111111111111")
         );
         assert_eq!(
+            wallet_access_path(ADDRESS).as_deref(),
+            Some("/api/v1/admin/subscription/access?wallet_address=0x1111111111111111111111111111111111111111&limit=100&offset=0")
+        );
+        assert_eq!(
             plan_detail_path(PLAN_ID).as_deref(),
             Some("/api/v1/admin/subscription/plans/00000000-0000-0000-0000-000000000001")
         );
@@ -787,6 +951,7 @@ mod tests {
             "0x1111111111111111111111111111111111111111%2f",
         ] {
             assert!(wallet_detail_path(invalid).is_none(), "accepted {invalid}");
+            assert!(wallet_access_path(invalid).is_none(), "accepted {invalid}");
         }
         for invalid in [
             "00000000-0000-0000-0000-000000000001/../x",
@@ -796,6 +961,29 @@ mod tests {
             assert!(plan_detail_path(invalid).is_none(), "accepted {invalid}");
         }
         assert_eq!(canonical_wallet(ADDRESS), Some(ADDRESS.to_string()));
+    }
+
+    #[test]
+    fn wallet_list_path_forwards_only_the_closed_backend_query() {
+        let query = AdminWalletListQuery::from_raw("search=0x1111&status=disabled&limit=25&page=3")
+            .expect("valid wallet query");
+        assert_eq!(
+            wallet_list_path(&query).as_deref(),
+            Some("/api/v1/admin/wallets?status=disabled&search=0x1111&limit=25&offset=50")
+        );
+        assert!(AdminWalletListQuery::from_raw("platform=analytics").is_err());
+    }
+
+    #[test]
+    fn payment_user_access_path_forwards_the_production_backend_contract() {
+        let query = AdminPaymentUserAccessQuery::from_raw(
+            "tab=user-access&page=3&limit=20&status=active&search=0x1111",
+        )
+        .expect("valid user-access query");
+        assert_eq!(
+            payment_user_access_path(&query),
+            "/api/admin/plans/user-access/list?page=3&limit=20&status=active&search=0x1111"
+        );
     }
 
     #[test]

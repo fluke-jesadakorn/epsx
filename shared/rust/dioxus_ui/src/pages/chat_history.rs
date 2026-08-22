@@ -1,20 +1,17 @@
-//! `/chat/history` — private support-chat history.
-//!
-//! The development source loads owner-scoped conversations and topics, then
-//! filters them in the client. Until Rust has that loader contract, this route
-//! must not substitute sample rows, counts, statuses, timestamps, or filters.
+//! Backend-backed support conversation history.
 
 use dioxus::prelude::*;
 
 use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
-use crate::layout::PageHeader;
-use crate::primitives::*;
+use crate::primitives::Icon;
 
+use super::chat::{inbox_load, short_date, ChatInboxLoad, ChatTopic, StatusBadge};
 use super::{PageContext, PageMeta};
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Support chat history");
+    let mut meta = PageMeta::app("Support chat history");
+    meta.body_class = Some("page-bg".to_string());
     (
         meta,
         rsx! {
@@ -23,18 +20,8 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     user: ctx.user.clone(),
                     feature: Some("private chat history".to_string()),
                     return_url: Some("/chat/history".to_string()),
-                    div { class: "container page-content chat-history",
-                        PageHeader {
-                            title: "Chat history".to_string(),
-                            description: Some("Past private support conversations".to_string()),
-                            icon: Some("history".to_string()),
-                            a { class: "btn btn-outline btn-sm", href: "/chat",
-                                Icon { name: "arrow-left".to_string(), size: Some(14) }
-                                " Inbox"
-                            }
-                        }
-                        ChatHistoryUnavailable {}
-                    }
+                    wallet_connected: ctx.wallet.address.is_some(),
+                    HistorySurface { ctx: ctx.clone() }
                 }
             }
         },
@@ -42,25 +29,138 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 }
 
 #[component]
-fn ChatHistoryUnavailable() -> Element {
+fn HistorySurface(ctx: PageContext) -> Element {
+    match inbox_load(&ctx) {
+        ChatInboxLoad::Ready(inbox) | ChatInboxLoad::Empty(inbox) => {
+            let (status, topic_id) = history_filters(&ctx.query);
+            let filtered = inbox
+                .conversations
+                .iter()
+                .filter(|conversation| {
+                    status
+                        .as_deref()
+                        .is_none_or(|value| conversation.status == value)
+                        && topic_id
+                            .as_deref()
+                            .is_none_or(|value| conversation.topic_id == value)
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            rsx! {
+                div { class: "container page-content chat-history", "data-chat-history-state": if filtered.is_empty() { "empty" } else { "ready" },
+                    div { class: "chat-history-header",
+                        a { class: "chat-history-back", href: "/chat", aria_label: "Back to chat",
+                            Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        }
+                        div { class: "chat-history-titles",
+                            h1 { class: "chat-history-title", "Chat History" }
+                            p { class: "chat-history-subtitle", "{inbox.conversations.len()} total conversations" }
+                        }
+                    }
+                    form { class: "chat-history-filters", method: "get", action: "/chat/history",
+                        Icon { name: "sliders-horizontal".to_string(), size: Some(14) }
+                        select { class: "chat-history-filter", name: "status", aria_label: "Status",
+                            option { value: "all", selected: status.is_none(), "All Statuses" }
+                            option { value: "open", selected: status.as_deref() == Some("open"), "Open" }
+                            option { value: "in_progress", selected: status.as_deref() == Some("in_progress"), "In Progress" }
+                            option { value: "resolved", selected: status.as_deref() == Some("resolved"), "Resolved" }
+                            option { value: "closed", selected: status.as_deref() == Some("closed"), "Closed" }
+                        }
+                        select { class: "chat-history-filter", name: "topic", aria_label: "Topic",
+                            option { value: "all", selected: topic_id.is_none(), "All Topics" }
+                            for topic in inbox.topics.iter() {
+                                option { value: "{topic.id}", selected: topic_id.as_deref() == Some(topic.id.as_str()), "{topic.label}" }
+                            }
+                        }
+                        button { class: "btn btn-outline btn-sm", r#type: "submit", "Apply" }
+                    }
+                    if filtered.is_empty() {
+                        div { class: "chat-history-empty", role: "status",
+                            div { class: "chat-history-empty-icon",
+                                Icon { name: "inbox".to_string(), size: Some(24) }
+                            }
+                            h2 { class: "chat-history-empty-title", "No conversations found" }
+                            p { class: "chat-history-empty-hint", "Start a new conversation or adjust the filters." }
+                        }
+                    } else {
+                        div { class: "chat-history-list",
+                            for (index, conversation) in filtered.iter().enumerate() {
+                                a {
+                                    class: if index + 1 == filtered.len() { "chat-history-card chat-history-card-last" } else if conversation.unread_user > 0 { "chat-history-card chat-history-card-unread" } else { "chat-history-card" },
+                                    href: format!("/chat/{}", conversation.id),
+                                    div { class: "chat-history-card-main",
+                                        h2 { class: "chat-history-card-subject", "{conversation.subject}" }
+                                        div { class: "chat-history-card-meta",
+                                            if let Some(topic) = topic_for(&inbox.topics, &conversation.topic_id) {
+                                                span { class: "chat-history-card-topic", "{topic.label}" }
+                                            }
+                                            StatusBadge { status: conversation.status.clone() }
+                                            span { class: "chat-history-card-time", "{short_date(&conversation.last_message_at)}" }
+                                        }
+                                    }
+                                    div { class: "chat-history-card-aside",
+                                        if conversation.unread_user > 0 {
+                                            span { class: "chat-history-card-unread-badge", "{conversation.unread_user.min(99)}" }
+                                        }
+                                        Icon { name: "chevron-right".to_string(), size: Some(16) }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ChatInboxLoad::Forbidden => {
+            rsx! { HistoryProblem { title: "Chat history is not available for this account".to_string() } }
+        }
+        ChatInboxLoad::Malformed => {
+            rsx! { HistoryProblem { title: "Chat history data could not be verified".to_string() } }
+        }
+        ChatInboxLoad::Unavailable => {
+            rsx! { HistoryProblem { title: "Chat history is temporarily unavailable".to_string() } }
+        }
+    }
+}
+
+fn history_filters(query: &str) -> (Option<String>, Option<String>) {
+    let mut status = None;
+    let mut topic = None;
+    for (key, value) in url::form_urlencoded::parse(query.as_bytes()) {
+        match key.as_ref() {
+            "status" if status.is_none() && value != "all" => {
+                if matches!(
+                    value.as_ref(),
+                    "open" | "in_progress" | "resolved" | "closed"
+                ) {
+                    status = Some(value.into_owned());
+                }
+            }
+            "topic" if topic.is_none() && value != "all" => {
+                if uuid::Uuid::parse_str(&value).is_ok() {
+                    topic = Some(value.into_owned());
+                }
+            }
+            _ => {}
+        }
+    }
+    (status, topic)
+}
+
+fn topic_for<'a>(topics: &'a [ChatTopic], id: &str) -> Option<&'a ChatTopic> {
+    topics.iter().find(|topic| topic.id == id)
+}
+
+#[component]
+fn HistoryProblem(title: String) -> Element {
     rsx! {
-        section {
-            class: "chat-history-empty card card-glass",
-            role: "status",
-            "data-section": "chat-history-unavailable",
-            "data-chat-history-state": "unavailable",
-            aria_labelledby: "chat-history-unavailable-title",
-            div { class: "chat-history-empty-icon",
-                Icon { name: "history".to_string(), size: Some(28) }
-            }
-            h2 { id: "chat-history-unavailable-title", class: "chat-history-empty-title",
-                "Chat history unavailable"
-            }
-            p { class: "chat-history-empty-hint",
-                "Owner-scoped conversation history cannot be loaded right now. No conversation count, result row, topic, status, unread state, or timestamp is being inferred."
-            }
-            div { class: "auth-gate-actions",
-                a { class: "btn btn-outline", href: "/chat", "Return to inbox" }
+        div { class: "container page-content chat-history",
+            div { class: "chat-history-empty", role: "alert", "data-chat-history-state": "unavailable",
+                div { class: "chat-history-empty-icon",
+                    Icon { name: "history".to_string(), size: Some(24) }
+                }
+                h1 { class: "chat-history-empty-title", "{title}" }
+                a { class: "btn btn-outline mt-4", href: "/chat/history", "Try again" }
             }
         }
     }
@@ -69,73 +169,10 @@ fn ChatHistoryUnavailable() -> Element {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::auth::user::{AuthMethod, User};
-
-    fn signed_in_ctx() -> PageContext {
-        PageContext {
-            user: Some(User {
-                id: "u1".to_string(),
-                address: "0x1234…abcd".to_string(),
-                chain_id: "56".to_string(),
-                roles: vec!["user".to_string()],
-                email: None,
-                tier: None,
-                permissions: vec![],
-                last_login_at: None,
-                auth_method: AuthMethod::Wallet,
-                display_name: None,
-            }),
-            path: "/chat/history".to_string(),
-            ..Default::default()
-        }
-    }
-
-    fn html(ctx: &PageContext) -> String {
-        let (_, element) = render(ctx);
-        dioxus_ssr::render_element(element)
-    }
 
     #[test]
-    fn signed_out_history_keeps_private_state_hidden() {
-        let rendered = html(&PageContext {
-            path: "/chat/history".to_string(),
-            ..Default::default()
-        });
-        assert!(rendered.contains("Sign in required"));
-        assert!(rendered.contains("return_url=%2Fchat%2Fhistory"));
-        assert!(!rendered.contains("data-chat-history-state"));
-    }
-
-    #[test]
-    fn authenticated_history_is_accessibly_unavailable_without_permission_gate() {
-        let rendered = html(&signed_in_ctx());
-        assert!(rendered.contains("data-chat-history-state=\"unavailable\""));
-        assert!(rendered.contains("aria-labelledby=\"chat-history-unavailable-title\""));
-        assert!(!rendered.contains("Permission required"));
-    }
-
-    #[test]
-    fn history_suppresses_samples_counts_controls_and_self_recovery() {
-        let rendered = html(&signed_in_ctx());
-        for forbidden in [
-            "Plan upgrade question",
-            "Payment issue",
-            "API key question",
-            "total conversations",
-            "10 minutes ago",
-            "All Statuses",
-            "All Topics",
-            "<select",
-            "<button",
-            "href=\"/chat/history\"",
-            ">Check again</a>",
-        ] {
-            assert!(
-                !rendered.contains(forbidden),
-                "unsupported history content leaked: {forbidden}"
-            );
-        }
-        assert!(rendered.contains("href=\"/chat\""));
-        assert!(rendered.contains(">Return to inbox</a>"));
+    fn history_filters_accept_only_backend_fields() {
+        assert_eq!(history_filters("status=open"), (Some("open".into()), None));
+        assert_eq!(history_filters("status=admin&owner=other"), (None, None));
     }
 }

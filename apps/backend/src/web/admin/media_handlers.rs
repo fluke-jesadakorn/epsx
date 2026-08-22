@@ -701,6 +701,7 @@ mod tests {
             wallet_address: "0xadmin".to_string(),
             permissions: vec![MEDIA_READ_PERMISSION.to_string()],
             token_audiences: Some(vec!["epsx-admin".to_string(), "epsx-frontend".to_string()]),
+            api_key: None,
             auth_method: "jwt".to_string(),
             jti: "jti".to_string(),
             exp: i64::MAX,

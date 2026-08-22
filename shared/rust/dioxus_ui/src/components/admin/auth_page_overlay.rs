@@ -43,8 +43,8 @@
 //!    accent bar (purple → cyan via `::before`), h-20 w-20
 //!    shield icon container, "Admin Access" title, "Verify
 //!    your admin permissions" subtitle, "Select Wallet" step
-//!    header (with `1` badge), 3 wallet buttons (Safe /
-//!    WalletConnect / Base Account), and a "Terms of Service"
+//!    header (with `1` badge), a working MetaMask button plus
+//!    unavailable wallet placeholders, and a "Terms of Service"
 //!    footer.
 //!
 //! All non-text classes use the EXACT prod class strings so
@@ -57,11 +57,11 @@
 //! ## Tests
 //!
 //! Two unit tests:
-//! 1. `test_overlay_renders_wallet_buttons` — the 3 wallet
+//! 1. `test_overlay_renders_wallet_buttons` — the wallet
 //!    labels and the EPSX / Admin Control Panel copy are
 //!    present in the rendered HTML.
 //! 2. `test_overlay_propagates_return_url` — the
-//!    `data-return-url` attribute is on all 3 wallet buttons.
+//!    `data-return-url` attribute is on all wallet buttons.
 
 use dioxus::prelude::*;
 
@@ -77,7 +77,7 @@ use dioxus::prelude::*;
 /// (not just the inner orbs) so the admin nav header below the
 /// overlay at z-50 is clickable through the overlay. The modal
 /// card keeps `pointer-events:auto` (see `MODAL_CARD_STYLE`) so
-/// the 3 wallet buttons remain clickable. Without this, the
+/// the wallet controls remain clickable. Without this, the
 /// Playwright capture-harness reports 12-19 broken-clicks per
 /// route (admin-auth, admin-wallet-management,
 /// admin-wallet-management-access) because every nav `<a>` is
@@ -85,18 +85,12 @@ use dioxus::prelude::*;
 const OVERLAY_CONTAINER_STYLE: &str = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:50;display:flex;min-height:100vh;width:100%;overflow:hidden;pointer-events:none;";
 
 /// `pointer-events: none` on the outer overlay + `auto` on the
-/// auth modal so the capture-harness's "click first button"
-/// heuristic does NOT navigate away (and so the dev's
-/// underlying admin shell stays clickable for `broken-clicks`
-/// detection).
+/// auth modal so the authentication controls remain interactive.
 const OVERLAY_CHILDREN_STYLE: &str = "pointer-events:none;";
 
 /// The auth modal card itself keeps `pointer-events: auto` so
-/// the 3 wallet buttons (rendered as `<button type="button">`)
-/// are hoverable / focusable in the real BFF, but the visual
-/// capture doesn't click them (the buttons have
-/// `pointer-events: none` set inline so clicks pass through
-/// to the underlying admin shell's empty area).
+/// the wallet buttons (rendered as `<button type="button">`)
+/// are hoverable and focusable in the real BFF.
 const MODAL_CARD_STYLE: &str = "max-width:420px;width:100%;pointer-events:auto;";
 
 /// Wave 25 T3 attempt 2 — the prod auth page rendered as a
@@ -208,7 +202,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                     }
                     // Sub-description
                     p {
-                        class: "mt-6 max-w-xl text-lg leading-relaxed text-slate-400",
+                        class: "mt-6 max-w-xl text-lg leading-relaxed text-slate-600 dark:text-slate-400",
                         "Restricted access. Connect your admin wallet to manage users, permissions, and platform analytics."
                     }
                 }
@@ -340,18 +334,25 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                             }
                             div {
                                 class: "auth-wallets",
-                                // 3 wallet buttons (no
-                                // navigation: `<button
-                                // type="button">` +
-                                // `data-return-url=`, with
-                                // `pointer-events: none` so
-                                // the capture-harness's
-                                // click heuristic doesn't
-                                // navigate).
+                                // MetaMask uses the generated Rust/WASM SIWE
+                                // runtime. Other providers remain visible but
+                                // disabled until their transports are wired.
                                 button {
                                     class: "auth-wallet-btn",
                                     r#type: "button",
-                                    style: "pointer-events:none;",
+                                    "data-connect-wallet": "true",
+                                    "data-provider": "metamask",
+                                    "data-force-wallet-selection": "true",
+                                    "data-wallet-provider-watch": "metamask",
+                                    "data-return-url": "{return_url}",
+                                    span { class: "auth-wallet-icon", "🦊" }
+                                    span { class: "auth-wallet-name", "MetaMask" }
+                                }
+                                button {
+                                    class: "auth-wallet-btn",
+                                    r#type: "button",
+                                    disabled: true,
+                                    title: "Safe connection is not available yet",
                                     "data-provider": "safe",
                                     "data-return-url": "{return_url}",
                                     span { class: "auth-wallet-icon", "💼" }
@@ -360,7 +361,8 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                                 button {
                                     class: "auth-wallet-btn",
                                     r#type: "button",
-                                    style: "pointer-events:none;",
+                                    disabled: true,
+                                    title: "WalletConnect is not available yet",
                                     "data-provider": "walletconnect",
                                     "data-return-url": "{return_url}",
                                     span { class: "auth-wallet-icon", "🔗" }
@@ -369,12 +371,19 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                                 button {
                                     class: "auth-wallet-btn",
                                     r#type: "button",
-                                    style: "pointer-events:none;",
+                                    disabled: true,
+                                    title: "Base Account connection is not available yet",
                                     "data-provider": "base",
                                     "data-return-url": "{return_url}",
                                     span { class: "auth-wallet-icon", "💼" }
                                     span { class: "auth-wallet-name", "Base Account" }
                                 }
+                            }
+                            p {
+                                id: "wallet-status",
+                                class: "mt-4 min-h-5 text-center text-sm text-muted-foreground",
+                                "data-epsx-runtime-status": "true",
+                                "aria-live": "polite",
                             }
                         }
                     }
@@ -505,9 +514,8 @@ pub fn SkeletonPage(route_slug: String) -> Element {
 mod tests {
     use super::*;
 
-    /// The overlay renders non-empty HTML and contains the 3
-    /// wallet labels (Safe / WalletConnect / Base Account) that
-    /// the prod auth page surfaces.
+    /// The overlay renders a working MetaMask control and explicit provider
+    /// placeholders for the transports that are not available yet.
     #[test]
     fn test_overlay_renders_wallet_buttons() {
         let el = rsx! { AuthPageOverlay { return_url: "/developer-portal".to_string() } };
@@ -516,7 +524,7 @@ mod tests {
             !html.trim().is_empty(),
             "auth overlay should render non-empty HTML"
         );
-        for label in &["Safe", "WalletConnect", "Base Account"] {
+        for label in &["MetaMask", "Safe", "WalletConnect", "Base Account"] {
             assert!(
                 html.contains(label),
                 "auth overlay should contain wallet label `{label}`. Got: {html}"
@@ -525,6 +533,18 @@ mod tests {
         assert!(
             html.contains("Select Wallet"),
             "auth overlay should contain 'Select Wallet' label"
+        );
+        assert!(
+            html.contains("data-connect-wallet=\"true\"")
+                && html.contains("data-provider=\"metamask\"")
+                && html.contains("data-force-wallet-selection=\"true\"")
+                && html.contains("data-wallet-provider-watch=\"metamask\""),
+            "MetaMask must be wired to the generated browser runtime. Got: {html}"
+        );
+        assert_eq!(
+            html.matches(" disabled=true").count(),
+            3,
+            "unsupported wallet placeholders must be disabled. Got: {html}"
         );
         assert!(
             html.contains("wave25-t3-auth-overlay"),
@@ -573,10 +593,7 @@ mod tests {
         );
     }
 
-    /// The `return_url` is propagated to each wallet button as a
-    /// `data-return-url` attribute. Buttons (not `<a href>`) are
-    /// used so the capture-harness's "click first button" heuristic
-    /// does not navigate away from the dev page.
+    /// The `return_url` is propagated to each wallet button.
     #[test]
     fn test_overlay_propagates_return_url() {
         let el = rsx! { AuthPageOverlay { return_url: "/news/sample-id/edit".to_string() } };
@@ -585,8 +602,8 @@ mod tests {
             .matches("data-return-url=\"/news/sample-id/edit\"")
             .count();
         assert_eq!(
-            n, 3,
-            "auth overlay should embed return_url on all 3 wallet buttons, got {n}. Got: {html}"
+            n, 4,
+            "auth overlay should embed return_url on all 4 wallet buttons, got {n}. Got: {html}"
         );
     }
 

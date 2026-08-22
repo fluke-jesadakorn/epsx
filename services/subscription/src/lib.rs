@@ -327,12 +327,7 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            if principal.audience != ADMIN_AUDIENCE
-                || !principal
-                    .permissions
-                    .iter()
-                    .any(|permission| permission == required)
-            {
+            if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(required) {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);
@@ -429,6 +424,8 @@ mod tests {
                 "admin-none" => (ADMIN_AUDIENCE, vec![]),
                 "admin-read" => (ADMIN_AUDIENCE, vec![PLANS_READ_PERMISSION.into()]),
                 "admin-manage" => (ADMIN_AUDIENCE, vec![PLANS_MANAGE_PERMISSION.into()]),
+                "admin-access-read" => (ADMIN_AUDIENCE, vec![ACCESS_READ_PERMISSION.into()]),
+                "admin-access-manage" => (ADMIN_AUDIENCE, vec![ACCESS_MANAGE_PERMISSION.into()]),
                 "admin-resource-wildcard" => (ADMIN_AUDIENCE, vec!["admin:plans:*".into()]),
                 "admin-domain-wildcard" => (ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
                 "admin-global-wildcard" => (ADMIN_AUDIENCE, vec!["*:*".into()]),
@@ -685,6 +682,44 @@ mod tests {
         }
         assert_eq!(downstream.hits.load(Ordering::SeqCst), 4);
         assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 4);
+    }
+
+    #[tokio::test]
+    async fn access_routes_accept_exact_and_canonical_wildcard_permissions() {
+        let (app, downstream) = app();
+        for (method, path, exact) in [
+            (
+                Method::GET,
+                "/api/v1/admin/subscription/access",
+                "admin-access-read",
+            ),
+            (
+                Method::POST,
+                "/api/v1/admin/subscription/access/assign",
+                "admin-access-manage",
+            ),
+        ] {
+            for denied in [None, Some("invalid")] {
+                assert_eq!(
+                    status(&app, request(method.clone(), path, denied)).await,
+                    StatusCode::UNAUTHORIZED
+                );
+            }
+            for denied in ["admin-none", "admin-resource-wildcard", "other-audience"] {
+                assert_eq!(
+                    status(&app, request(method.clone(), path, Some(denied))).await,
+                    StatusCode::FORBIDDEN
+                );
+            }
+            for allowed in [exact, "admin-domain-wildcard", "admin-global-wildcard"] {
+                assert_eq!(
+                    status(&app, request(method.clone(), path, Some(allowed))).await,
+                    StatusCode::OK
+                );
+            }
+        }
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 6);
+        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 6);
     }
 
     #[tokio::test]

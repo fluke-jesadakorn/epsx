@@ -198,8 +198,13 @@ fn escape_attr(value: &str) -> String {
     escape_text(value)
 }
 
-pub async fn openapi_user_json_handler() -> Json<utoipa::openapi::OpenApi> {
-    Json(UserApiDoc::openapi())
+pub async fn openapi_user_json_handler() -> impl IntoResponse {
+    let mut response = Json(crate::web::operation_registry::openapi_document()).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        HeaderValue::from_static("public, max-age=60"),
+    );
+    response
 }
 
 pub async fn openapi_admin_json_handler() -> Json<utoipa::openapi::OpenApi> {

@@ -11,7 +11,7 @@ use uuid::Uuid;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::components::admin::page_layout::{PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
 const NEWS_PATH: &str = "/news";
@@ -406,16 +406,7 @@ fn render_editor_route(
                 feature: Some("the admin news editor".to_string()),
                 return_url: Some(NEWS_PATH.to_string()),
                 PageLayout {
-                    max_width: Some(PageMaxWidth::FourXl),
-                    PageHeader {
-                        title: route.page_title().to_string(),
-                        subtitle: Some("Backend-verified content workspace".to_string()),
-                        icon: Some("newspaper".to_string()),
-                        gradient: Some(PageGradient::Purple),
-                        centered: Some(false),
-                        extra_actions: None,
-                        class_name: None,
-                    }
+                    max_width: Some(PageMaxWidth::SevenXl),
                     if image_uploaded {
                         NewsMutationNotice { state: ADMIN_NEWS_MUTATION_COMMITTED, detail: "The backend uploaded the image. The returned URL is ready in the cover image field; save the article to persist it.".to_string() }
                     }
@@ -441,6 +432,11 @@ fn render_editor_route(
 fn RenderNewsList(ctx: PageContext) -> Element {
     let filters = NewsFilters::from_ctx(&ctx);
     let load = news_load(&ctx, &filters);
+    let total_count = match &load {
+        NewsLoad::Ready(projection) => Some(projection.total),
+        NewsLoad::Empty => Some(0),
+        NewsLoad::Forbidden | NewsLoad::Unavailable | NewsLoad::Malformed => None,
+    };
     let mutation = ctx
         .params
         .get(ADMIN_NEWS_MUTATION_STATE_PARAM)
@@ -456,15 +452,7 @@ fn RenderNewsList(ctx: PageContext) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
-            PageHeader {
-                title: "News Management".to_string(),
-                subtitle: Some("Review backend-authoritative article summaries".to_string()),
-                icon: Some("newspaper".to_string()),
-                gradient: Some(PageGradient::Purple),
-                centered: Some(false),
-                extra_actions: None,
-                class_name: None,
-            }
+            NewsListHeader {}
             if let Some(state) = mutation {
                 NewsMutationNotice {
                     state,
@@ -475,7 +463,7 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                     },
                 }
             }
-            NewsStatusNavigation { active: filters.status.clone() }
+            NewsStatusNavigation { active: filters.status.clone(), total_count }
             match load {
                 NewsLoad::Ready(projection) => rsx! {
                     NewsReady { projection, filters: filters.clone() }
@@ -490,6 +478,7 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                         detail: "The backend did not authorize this session to read the article inventory.".to_string(),
                         retry_href: filters.href(filters.page),
                     }
+                    NewsUnavailableInventory {}
                 },
                 NewsLoad::Unavailable => rsx! {
                     NewsProblem {
@@ -498,6 +487,7 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                         detail: "The news backend could not provide an authoritative article response. No records are being shown.".to_string(),
                         retry_href: filters.href(filters.page),
                     }
+                    NewsUnavailableInventory {}
                 },
                 NewsLoad::Malformed => rsx! {
                     NewsProblem {
@@ -506,6 +496,7 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                         detail: "The news backend response did not match the read-only article contract. No records are being shown.".to_string(),
                         retry_href: filters.href(filters.page),
                     }
+                    NewsUnavailableInventory {}
                 },
             }
         }
@@ -513,15 +504,43 @@ fn RenderNewsList(ctx: PageContext) -> Element {
 }
 
 #[component]
-fn NewsStatusNavigation(active: String) -> Element {
+fn NewsListHeader() -> Element {
     rsx! {
-        nav { class: "mb-6 flex flex-wrap gap-2", aria_label: "Filter news by publication status",
-            for (status, label) in [("all", "All"), ("draft", "Draft"), ("published", "Published")] {
-                a {
-                    class: if active == status { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                    href: news_href(status, 1),
-                    aria_current: if active == status { Some("page") } else { None },
-                    "{label}"
+        header { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+            div { class: "flex items-center gap-3",
+                div { class: "h-[3px] w-8 rounded-full bg-[#1fc7d4]" }
+                Icon { name: "newspaper".to_string(), size: Some(20), class_name: Some("text-[#1fc7d4]".to_string()) }
+                h1 { class: "text-xl font-bold text-foreground", "News Management" }
+            }
+            a {
+                class: "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto",
+                href: "/news/create",
+                Icon { name: "plus".to_string(), size: Some(16) }
+                "Create Article"
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsStatusNavigation(active: String, total_count: Option<i64>) -> Element {
+    rsx! {
+        div { class: "flex flex-wrap items-center gap-2",
+            nav { class: "flex flex-wrap gap-2", aria_label: "Filter news by publication status",
+                for (status, label) in [("all", "All"), ("draft", "Draft"), ("published", "Published")] {
+                    a {
+                        class: if active == status { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
+                        href: news_href(status, 1),
+                        aria_current: if active == status { Some("page") } else { None },
+                        "{label}"
+                    }
+                }
+            }
+            span { class: "ml-auto whitespace-nowrap text-sm text-muted-foreground",
+                if let Some(total) = total_count {
+                    if total == 1 { "1 article" } else { "{total} articles" }
+                } else {
+                    "Articles unavailable"
                 }
             }
         }
@@ -538,40 +557,35 @@ fn NewsReady(projection: AdminNewsList, filters: NewsFilters) -> Element {
 
     rsx! {
         section {
-            class: "admin-news-list overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+            class: "admin-news-list space-y-3",
             aria_label: "Backend-authoritative news articles",
             "data-admin-news-state": ADMIN_NEWS_READY,
-            div { class: "h-1 bg-gradient-to-r from-[#7645d9] via-[#1fc7d4] to-[#ed4b9e]" }
-            div { class: "flex flex-wrap items-center justify-between gap-3 p-6",
-                div {
-                    h2 { class: "text-lg font-semibold text-foreground", "Articles" }
-                    p { class: "text-sm text-muted-foreground", "{projection.total} authoritative records" }
-                }
-                p { class: "text-sm text-muted-foreground", "Page {projection.page} of {total_pages}" }
-            }
             if projection.articles.is_empty() {
-                div { class: "border-t border-border/30 p-10 text-center", role: "status",
+                div { class: "rounded-2xl border border-border/20 bg-card p-10 text-center shadow-xl", role: "status",
                     h3 { class: "font-semibold text-foreground", "No articles on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
                     a { class: "btn btn-sm btn-outline mt-5", href: filters.href(1), "Return to first page" }
                 }
             } else {
-                div { class: "space-y-4 border-t border-border/30 p-4 sm:p-6",
+                div { class: "space-y-3",
                     for article in projection.articles {
                         NewsArticleCard { article }
                     }
                 }
             }
-            nav { class: "flex items-center justify-between border-t border-border/30 p-4", aria_label: "News pagination",
-                if has_previous {
-                    a { class: "btn btn-sm btn-outline", href: filters.href(projection.page - 1), rel: "prev", "Previous" }
-                } else {
-                    span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Previous" }
-                }
-                if has_next {
-                    a { class: "btn btn-sm btn-outline", href: filters.href(projection.page + 1), rel: "next", "Next" }
-                } else {
-                    span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Next" }
+            if total_pages > 1 {
+                nav { class: "flex items-center justify-center gap-2 pt-3", aria_label: "News pagination",
+                    if has_previous {
+                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: filters.href(projection.page - 1), rel: "prev", "Previous" }
+                    } else {
+                        span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Previous" }
+                    }
+                    span { class: "text-sm text-muted-foreground", "{projection.page} / {total_pages}" }
+                    if has_next {
+                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: filters.href(projection.page + 1), rel: "next", "Next" }
+                    } else {
+                        span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Next" }
+                    }
                 }
             }
         }
@@ -585,49 +599,101 @@ fn NewsArticleCard(article: AdminNewsArticleSummary) -> Element {
     } else {
         "border-amber-500/20 bg-amber-500/10 text-amber-400"
     };
+    let border_class = if article.is_pinned {
+        "border-[#1fc7d4]/30 hover:border-[#1fc7d4]/50"
+    } else {
+        "border-border/20 hover:border-border/40"
+    };
+    let published_date = article
+        .published_at
+        .as_deref()
+        .and_then(|value| value.get(..10))
+        .unwrap_or("—")
+        .to_string();
+    let hidden_tag_count = article.tags.len().saturating_sub(4);
 
     rsx! {
-        article { class: "rounded-2xl border border-border/30 bg-background/40 p-5",
-            div { class: "flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between",
-                div { class: "min-w-0",
-                    div { class: "flex flex-wrap items-center gap-2",
-                        h3 { class: "text-lg font-semibold text-foreground", "{article.title}" }
-                        if article.is_pinned {
-                            span { class: "inline-flex items-center gap-1 rounded-full border border-cyan-500/20 bg-cyan-500/10 px-2 py-0.5 text-xs font-medium text-cyan-400",
-                                Icon { name: "pin".to_string(), size: Some(12) }
-                                "Pinned"
+        article { class: "flex items-start gap-4 rounded-2xl border bg-card p-4 transition-colors {border_class}",
+            div { class: "flex h-14 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-border/20 bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent",
+                Icon { name: "file-text".to_string(), size: Some(20), class_name: Some("text-muted-foreground/40".to_string()) }
+            }
+            div { class: "min-w-0 flex-1",
+                div { class: "flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3",
+                    div { class: "min-w-0 flex-1",
+                        div { class: "flex items-center gap-2",
+                            h3 { class: "truncate font-semibold text-foreground", "{article.title}" }
+                            if article.is_pinned {
+                                Icon { name: "pin".to_string(), size: Some(14), class_name: Some("shrink-0 text-[#1fc7d4]".to_string()) }
+                                span { class: "sr-only", "Pinned" }
                             }
                         }
+                        p { class: "truncate font-mono text-xs text-muted-foreground/60", "{article.slug}" }
                     }
-                    p { class: "mt-1 break-all font-mono text-xs text-muted-foreground", "{article.slug}" }
-                }
-                span { class: "inline-flex w-fit rounded-full border px-2.5 py-1 text-xs font-semibold {status_class}", "{article.status}" }
-            }
-            if let Some(summary) = &article.summary {
-                p { class: "mt-4 text-sm leading-6 text-muted-foreground", "{summary}" }
-            }
-            if !article.tags.is_empty() {
-                ul { class: "mt-4 flex flex-wrap gap-2", aria_label: "Article tags",
-                    for tag in &article.tags {
-                        li { class: "rounded-full border border-purple-500/20 bg-purple-500/10 px-2.5 py-1 text-xs text-purple-300", "{tag}" }
+                    div { class: "flex shrink-0 items-center gap-2",
+                        span { class: "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium {status_class}", "{article.status}" }
+                        time { class: "hidden whitespace-nowrap text-xs text-muted-foreground sm:block", datetime: article.published_at.clone(), "{published_date}" }
+                        NewsSummaryActions { article: article.clone() }
                     }
                 }
-            }
-            dl { class: "mt-5 border-t border-border/20 pt-4 text-sm",
-                div {
-                    dt { class: "text-xs uppercase tracking-wide text-muted-foreground", "Published" }
-                    dd { class: "mt-1 text-foreground",
-                        if let Some(published_at) = &article.published_at { "{published_at}" } else { "Not published" }
+                if let Some(summary) = &article.summary {
+                    p { class: "mt-1 line-clamp-1 text-sm text-muted-foreground", "{summary}" }
+                }
+                if !article.tags.is_empty() {
+                    ul { class: "mt-2 flex flex-wrap gap-1", aria_label: "Article tags",
+                        for tag in article.tags.iter().take(4) {
+                            li { class: "rounded-full bg-[#7645d9]/10 px-2 py-0.5 text-xs font-medium text-[#7645d9]/70", "{tag}" }
+                        }
+                        if hidden_tag_count > 0 {
+                            li { class: "text-xs text-muted-foreground/50", "+{hidden_tag_count}" }
+                        }
                     }
                 }
             }
-            div { class: "mt-5 flex flex-wrap gap-3 border-t border-border/20 pt-4",
-                a { class: "btn btn-sm btn-outline", href: format!("/news/{}/edit", article.id), "Edit article" }
-                form { method: "post", action: NEWS_PATH, class: "inline-flex",
+        }
+    }
+}
+
+#[component]
+fn NewsSummaryActions(article: AdminNewsArticleSummary) -> Element {
+    rsx! {
+        div { class: "flex items-center gap-1",
+            button {
+                class: "cursor-not-allowed rounded-lg p-1.5 text-muted-foreground opacity-50",
+                r#type: "button",
+                disabled: true,
+                aria_label: if article.is_pinned { "Unpin unavailable from article summary" } else { "Pin unavailable from article summary" },
+                title: "Open the editor to change pin state with the complete versioned article contract",
+                Icon { name: if article.is_pinned { "pin-off".to_string() } else { "pin".to_string() }, size: Some(16) }
+            }
+            button {
+                class: "cursor-not-allowed rounded-lg p-1.5 text-muted-foreground opacity-50",
+                r#type: "button",
+                disabled: true,
+                aria_label: if article.status == "published" { "Unpublish unavailable from article summary" } else { "Publish unavailable from article summary" },
+                title: "Open the editor to change publication state with the complete versioned article contract",
+                Icon { name: if article.status == "published" { "eye-off".to_string() } else { "eye".to_string() }, size: Some(16) }
+            }
+            a {
+                class: "rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
+                href: format!("/news/{}/edit", article.id),
+                aria_label: "Edit article",
+                title: "Edit",
+                Icon { name: "edit".to_string(), size: Some(16) }
+            }
+            details { class: "relative",
+                summary {
+                    class: "cursor-pointer list-none rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-red-500/10 hover:text-red-400",
+                    aria_label: "Delete article",
+                    title: "Delete",
+                    Icon { name: "trash-2".to_string(), size: Some(16) }
+                }
+                form { method: "post", action: NEWS_PATH, class: "absolute right-0 z-20 mt-2 w-64 space-y-3 rounded-xl border border-red-500/20 bg-card p-4 shadow-2xl",
+                    p { class: "text-sm font-semibold text-foreground", "Delete article?" }
+                    p { class: "text-xs leading-5 text-muted-foreground", "This permanently deletes the backend record." }
                     input { r#type: "hidden", name: "id", value: article.id }
                     input { r#type: "hidden", name: "if_match", value: article.updated_at }
                     input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.delete.{}", Uuid::new_v4()) }
-                    button { r#type: "submit", class: "btn btn-sm btn-outline", "data-admin-news-delete": "bff", "Delete article" }
+                    button { r#type: "submit", class: "btn btn-sm btn-outline w-full border-red-500/30 text-red-400", "data-admin-news-delete": "bff", "Delete article" }
                 }
             }
         }
@@ -637,11 +703,38 @@ fn NewsArticleCard(article: AdminNewsArticleSummary) -> Element {
 #[component]
 fn NewsEmpty(filters: NewsFilters) -> Element {
     rsx! {
-        section { class: "rounded-2xl border border-border/30 bg-card p-10 text-center", role: "status", "data-admin-news-state": ADMIN_NEWS_EMPTY,
-            Icon { name: "newspaper".to_string(), size: Some(32) }
-            h2 { class: "mt-4 text-lg font-semibold text-foreground", "No articles found" }
-            p { class: "mt-2 text-sm text-muted-foreground", "The backend returned an authoritative empty result for this status filter." }
-            a { class: "btn btn-sm btn-outline mt-5", href: filters.href(1), "Refresh articles" }
+        section { class: "flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/20 bg-card py-20 text-center shadow-xl", role: "status", "data-admin-news-state": ADMIN_NEWS_EMPTY,
+            div { class: "rounded-full border border-border/20 bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent p-5",
+                Icon { name: "newspaper".to_string(), size: Some(32), class_name: Some("text-muted-foreground/40".to_string()) }
+            }
+            div {
+                h2 { class: "font-semibold text-foreground", "No articles yet" }
+                p { class: "mt-1 text-sm text-muted-foreground", "Create your first article to get started." }
+            }
+            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", href: "/news/create",
+                Icon { name: "plus".to_string(), size: Some(16) }
+                "Create Article"
+            }
+            a { class: "text-xs text-muted-foreground hover:text-foreground", href: filters.href(1), "Refresh articles" }
+        }
+    }
+}
+
+#[component]
+fn NewsUnavailableInventory() -> Element {
+    rsx! {
+        section { class: "flex flex-col items-center justify-center gap-4 rounded-2xl border border-border/20 bg-card py-20 text-center shadow-xl", aria_hidden: "true",
+            div { class: "rounded-full border border-border/20 bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent p-5",
+                Icon { name: "newspaper".to_string(), size: Some(32), class_name: Some("text-muted-foreground/40".to_string()) }
+            }
+            div {
+                h2 { class: "font-semibold text-foreground", "No verified articles" }
+                p { class: "mt-1 text-sm text-muted-foreground", "The article list will appear here after an authoritative response." }
+            }
+            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white opacity-60", href: "/news/create", tabindex: "-1",
+                Icon { name: "plus".to_string(), size: Some(16) }
+                "Create Article"
+            }
         }
     }
 }
@@ -649,12 +742,16 @@ fn NewsEmpty(filters: NewsFilters) -> Element {
 #[component]
 fn NewsProblem(state: &'static str, title: String, detail: String, retry_href: String) -> Element {
     rsx! {
-        section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8", role: "alert", "data-admin-news-state": state,
-            h2 { class: "text-lg font-semibold text-foreground", "{title}" }
-            p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-            nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "News recovery",
-                a { class: "btn btn-sm btn-outline", href: retry_href, "Try again" }
-                a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+        section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 sm:p-6", role: "alert", "data-admin-news-state": state,
+            div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex min-w-0 items-start gap-3",
+                    Icon { name: "shield".to_string(), size: Some(20), class_name: Some("mt-0.5 shrink-0 text-amber-400".to_string()) }
+                    div {
+                        h2 { class: "font-semibold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                    }
+                }
+                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href, "Try again" }
             }
         }
     }
@@ -727,54 +824,65 @@ fn NewsEditor(
         .unwrap_or_default();
     let version = projection.as_ref().map(|item| item.updated_at.clone());
     let idempotency_key = Uuid::new_v4().to_string();
+    let cover_image_url = image_url
+        .or_else(|| {
+            projection
+                .as_ref()
+                .and_then(|item| item.cover_image_url.clone())
+        })
+        .unwrap_or_default();
+    let save_label = if is_create { "Create" } else { "Update" };
 
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl",
+            class: "space-y-6",
             role: "region",
             "data-admin-news-editor-state": if is_create { ADMIN_NEWS_EDITOR_FORM } else { ADMIN_NEWS_EDITOR_READY },
             "data-admin-news-route": route.marker(),
             if let Some(reference) = route_reference {
-                p { class: "mb-4 text-xs text-muted-foreground", "Verified article: {reference}" }
+                p { class: "sr-only", "Verified article: {reference}" }
             }
-            p { class: "mb-6 text-sm leading-6 text-muted-foreground",
-                "Changes are submitted through the content BFF with an idempotency key. Existing articles also require the backend updated_at version."
-            }
-            form { method: "post", action: action.clone(),
-                div { class: "space-y-5",
-                    label { class: "block text-sm font-medium text-foreground", "Title",
-                        input { class: "input input-bordered mt-2 w-full", name: "title", value: title, maxlength: MAX_TITLE_CHARS, required: true }
+            form { method: "post", action: action.clone(), class: "space-y-6",
+                NewsEditorToolbar { status: status.clone(), save_label }
+                div { class: "space-y-6 rounded-2xl border border-border/20 bg-card p-4 shadow-xl sm:p-8",
+                    NewsCoverField { cover_image_url, is_create }
+                    div { class: "h-px bg-border/20" }
+                    label { class: "block",
+                        span { class: "sr-only", "Title" }
+                        input { class: "w-full border-b border-border/20 bg-transparent pb-2 text-2xl font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-3xl", name: "title", value: title.clone(), maxlength: MAX_TITLE_CHARS, required: true, placeholder: "Article title..." }
                     }
                     if !is_create {
-                        label { class: "block text-sm font-medium text-foreground", "Slug",
-                            input { class: "input input-bordered mt-2 w-full", name: "slug", value: slug.clone(), maxlength: MAX_SLUG_CHARS, required: true }
+                        label { class: "flex items-center gap-1 font-mono text-sm text-muted-foreground",
+                            span { class: "opacity-50", "epsx.io/news/" }
+                            span { class: "sr-only", "Slug" }
+                            input { class: "min-w-0 flex-1 border-b border-dashed border-[#1fc7d4]/40 bg-transparent text-[#1fc7d4] focus:outline-none", name: "slug", value: slug.clone(), maxlength: MAX_SLUG_CHARS, required: true }
+                        }
+                    } else {
+                        p { class: "font-mono text-sm text-muted-foreground",
+                            span { class: "opacity-50", "epsx.io/news/" }
+                            span { class: "text-[#1fc7d4]/70", "generated-from-title" }
                         }
                     }
-                    label { class: "block text-sm font-medium text-foreground", "Summary",
-                        textarea { class: "textarea textarea-bordered mt-2 w-full", name: "summary", maxlength: MAX_SUMMARY_CHARS, "{summary}" }
+                    div { class: "h-px bg-border/20" }
+                    label { class: "block",
+                        span { class: "sr-only", "Summary" }
+                        textarea { class: "w-full resize-none border-b border-border/10 bg-transparent pb-2 text-base text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none", name: "summary", rows: 2, maxlength: MAX_SUMMARY_CHARS, placeholder: "Short description…", "{summary}" }
                     }
-                    label { class: "block text-sm font-medium text-foreground", "Content",
-                        textarea { class: "textarea textarea-bordered mt-2 min-h-64 w-full", name: "content", maxlength: MAX_CONTENT_BYTES, required: true, "{content}" }
+                    label { class: "block text-sm font-medium text-foreground", "Tags",
+                        input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags, maxlength: 2048, placeholder: "announcement, platform" }
                     }
-                    label { class: "block text-sm font-medium text-foreground", "Cover image URL",
-                        input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: image_url.clone().or_else(|| projection.as_ref().and_then(|item| item.cover_image_url.clone())).unwrap_or_default() }
-                    }
-                    label { class: "block text-sm font-medium text-foreground", "Tags (comma separated)",
-                        input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags, maxlength: 2048 }
-                    }
-                    label { class: "block text-sm font-medium text-foreground", "Status",
-                        select { class: "select select-bordered mt-2 w-full", name: "status",
-                            option { value: "draft", selected: status == "draft", "Draft" }
-                            option { value: "published", selected: status == "published", "Published" }
-                        }
-                    }
+                    div { class: "h-px bg-border/20" }
+                    NewsMarkdownField { content: content.clone() }
                     if let Some(version) = version.clone() {
                         input { r#type: "hidden", name: "if_match", value: version, "data-admin-news-version": "updated_at" }
                     }
                     input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }
-                    div { class: "flex flex-wrap gap-3 border-t border-border/30 pt-5",
-                        button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "Save through content BFF" }
-                        a { class: "btn btn-outline", href: NEWS_PATH, "Cancel" }
+                    div { class: "flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-5",
+                        p { class: "text-xs text-muted-foreground", "Saved through the versioned content BFF contract." }
+                        div { class: "flex gap-3",
+                            a { class: "btn btn-outline", href: NEWS_PATH, "Cancel" }
+                            button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "{save_label}" }
+                        }
                     }
                 }
             }
@@ -802,6 +910,73 @@ fn NewsEditor(
                     }
                     button { r#type: "submit", class: "btn btn-sm btn-outline", "Upload image" }
                 }
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsEditorToolbar(status: String, save_label: &'static str) -> Element {
+    rsx! {
+        header { class: "sticky top-0 z-10 flex flex-col gap-3 border-b border-border/10 bg-background/80 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between",
+            a { class: "flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground", href: NEWS_PATH,
+                Icon { name: "arrow-left".to_string(), size: Some(16) }
+                "Back to News"
+            }
+            div { class: "flex items-center gap-3",
+                label { class: "sr-only", r#for: "news-editor-status", "Article status" }
+                select { id: "news-editor-status", class: "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-xs font-medium text-foreground", name: "status",
+                    option { value: "draft", selected: status == "draft", "Draft" }
+                    option { value: "published", selected: status == "published", "Published" }
+                }
+                button { r#type: "submit", class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", "data-admin-news-submit": "bff",
+                    Icon { name: "save".to_string(), size: Some(16) }
+                    "{save_label}"
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsCoverField(cover_image_url: String, is_create: bool) -> Element {
+    rsx! {
+        div { class: "grid gap-3 sm:grid-cols-3 sm:items-end",
+            label { class: "block text-sm font-medium text-foreground sm:col-span-2", "Cover image URL",
+                input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: cover_image_url, placeholder: "https://…" }
+            }
+            button {
+                class: "btn btn-sm btn-outline cursor-not-allowed opacity-50",
+                r#type: "button",
+                disabled: true,
+                title: if is_create { "Create the article before uploading a cover image" } else { "Use the versioned upload control below" },
+                Icon { name: "upload".to_string(), size: Some(14) }
+                "Upload"
+            }
+        }
+    }
+}
+
+#[component]
+fn NewsMarkdownField(content: String) -> Element {
+    rsx! {
+        div { class: "overflow-hidden rounded-xl border border-border/30",
+            div { class: "flex flex-wrap items-center gap-1 border-b border-border/30 bg-muted/20 px-3 py-2",
+                for label in ["B", "I", "H1", "H2", "Code", "Quote"] {
+                    button {
+                        class: "cursor-not-allowed rounded-lg px-2 py-1.5 text-xs font-medium text-muted-foreground opacity-50",
+                        r#type: "button",
+                        disabled: true,
+                        title: "Formatting shortcuts require the hydrated rich-text editor",
+                        "{label}"
+                    }
+                }
+                div { class: "mx-1 h-4 w-px bg-border/40" }
+                span { class: "rounded-lg bg-[#7645d9]/20 px-3 py-1.5 text-xs font-medium text-[#7645d9]", "Markdown" }
+            }
+            label { class: "block",
+                span { class: "sr-only", "Content" }
+                textarea { class: "w-full resize-none bg-background px-4 py-3 font-mono text-sm text-foreground focus:outline-none", style: "min-height: 500px;", name: "content", maxlength: MAX_CONTENT_BYTES, required: true, placeholder: "Write markdown content…", "{content}" }
             }
         }
     }
@@ -975,9 +1150,12 @@ mod tests {
         assert!(rendered.contains("&#60;b&#62;trusted?&#60;/b&#62;"));
         assert!(!rendered.contains("<script>alert(1)</script>"));
         assert!(rendered.contains("Pinned"));
-        assert!(rendered.contains("1 authoritative records"));
+        assert!(rendered.contains("1 article"));
         assert!(rendered.contains("data-admin-news-delete=\"bff\""));
         assert!(rendered.contains("Edit article"));
+        assert!(rendered.contains("Unpin unavailable from article summary"));
+        assert!(rendered.contains("Unpublish unavailable from article summary"));
+        assert!(rendered.contains("disabled"));
     }
 
     #[test]
@@ -988,11 +1166,14 @@ mod tests {
         let malformed = html(&ctx(ADMIN_NEWS_MALFORMED, None));
 
         assert!(empty.contains("data-admin-news-state=\"empty\""));
-        assert!(empty.contains("No articles found"));
+        assert!(empty.contains("No articles yet"));
+        assert!(empty.contains("Create Article"));
         assert!(forbidden.contains("data-admin-news-state=\"forbidden\""));
         assert!(forbidden.contains("News access was denied"));
+        assert!(forbidden.contains("No verified articles"));
         assert!(unavailable.contains("data-admin-news-state=\"unavailable\""));
         assert!(unavailable.contains("News records are unavailable"));
+        assert!(unavailable.contains("Articles unavailable"));
         assert!(malformed.contains("data-admin-news-state=\"malformed\""));
         assert!(malformed.contains("News data could not be verified"));
     }
@@ -1086,11 +1267,11 @@ mod tests {
         let rendered = html(&page_four);
 
         assert!(rendered.contains("data-admin-news-state=\"ready\""));
-        assert!(rendered.contains("41 authoritative records"));
+        assert!(rendered.contains("41 articles"));
         assert!(rendered.contains("No articles on this page"));
         assert!(rendered.contains("Return to first page"));
         assert!(rendered.contains("status=draft&#38;page=1"));
-        assert!(!rendered.contains("No articles found"));
+        assert!(!rendered.contains("No articles yet"));
     }
 
     #[test]

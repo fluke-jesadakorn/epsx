@@ -89,11 +89,20 @@ pub fn AdminSidebar(
 ) -> Element {
     let items = items.unwrap_or_else(|| DEFAULT_NAV_ITEMS.clone());
 
-    // Expand/collapse state — owned by the component (purely UI).
-    let mut expanded: Signal<std::collections::HashSet<String>> = match default_expanded {
-        Some(seed) => use_signal(|| seed.into_iter().collect()),
-        None => use_signal(std::collections::HashSet::new),
+    // Expand/collapse state — owned by the component (purely UI). Seed
+    // route-matching parents synchronously so SSR emits the same initially
+    // expanded tree as the production client. `use_effect` does not run
+    // during SSR, so relying on it alone left active children absent from
+    // the document until hydration (which the node-free BFF does not use).
+    let expanded_seed: std::collections::HashSet<String> = match default_expanded {
+        Some(seed) => seed.into_iter().collect(),
+        None => items
+            .iter()
+            .filter(|item| item.children.is_some() && current_path.starts_with(&item.href))
+            .map(|item| item.id.clone())
+            .collect(),
     };
+    let mut expanded: Signal<std::collections::HashSet<String>> = use_signal(move || expanded_seed);
 
     // Auto-expand any parent whose href is a prefix of the current path
     // (mirrors the `useEffect(() => { setExpandedItems(...) }, [pathname])`
@@ -218,16 +227,8 @@ fn UserPill(is_authenticated: bool) -> Element {
                         }
                     }
                 }
-                if is_authenticated {
-                    button {
-                        class: "btn btn-ghost btn-icon admin-sidebar-logout",
-                        r#type: "button",
-                        "data-epsx-logout": "true",
-                        title: "Sign out",
-                        "aria-label": "Sign out",
-                        Icon { name: "log-out".to_string(), size: Some(16) }
-                    }
-                }
+                // Production keeps account actions in the header wallet
+                // dropdown; the sidebar pill is status-only.
             }
         }
     }
@@ -277,6 +278,7 @@ fn SidebarRow(
                 button {
                     class: if is_highlighted { "w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 active:scale-[0.98] admin-nav-row admin-nav-row-active bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm" } else { "w-full flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 active:scale-[0.98] admin-nav-row text-muted-foreground hover:bg-muted/30 hover:text-foreground" },
                     r#type: "button",
+                    "data-epsx-action": "toggle-nav",
                     "aria-expanded": if is_expanded { "true" } else { "false" },
                     "aria-controls": "{child_id}",
                     onclick: move |_| {
@@ -294,15 +296,14 @@ fn SidebarRow(
                     Icon {
                         name: "chevron-right".to_string(),
                         size: Some(14),
-                        class_name: Some(format!("flex-shrink-0 ml-auto transition-transform duration-200{}", if is_expanded { " rotate-90" } else { "" })),
+                        class_name: Some(format!("admin-nav-chevron flex-shrink-0 ml-auto transition-transform duration-200{}", if is_expanded { " rotate-90" } else { "" })),
                     }
                 }
-                if is_expanded {
-                    NavChildren {
-                        item: item.clone(),
-                        current_path: current_path.clone(),
-                        child_id: child_id.clone(),
-                    }
+                NavChildren {
+                    item: item.clone(),
+                    current_path: current_path.clone(),
+                    child_id: child_id.clone(),
+                    expanded: is_expanded,
                 }
             }
         };
@@ -342,13 +343,23 @@ fn SidebarRow(
 
 /// Sub-list of children, rendered indented under a parent row.
 #[component]
-fn NavChildren(item: SidebarItem, current_path: String, child_id: String) -> Element {
+fn NavChildren(
+    item: SidebarItem,
+    current_path: String,
+    child_id: String,
+    expanded: bool,
+) -> Element {
     let children = match item.children.clone() {
         Some(c) => c,
         None => return rsx! { Fragment {} },
     };
     rsx! {
-        div { class: "ml-6 mt-1 space-y-0.5 border-l border-border/40 pl-2", id: child_id, role: "list",
+        div {
+            class: "admin-nav-children ml-6 mt-1 space-y-0.5 border-l border-border/40 pl-2",
+            id: child_id,
+            role: "list",
+            hidden: !expanded,
+            "aria-hidden": if expanded { "false" } else { "true" },
             for child in children.iter() {
                 {
                     let child_active = is_child_active(child, &current_path, None);
@@ -707,6 +718,19 @@ pub fn Sidebar(
 mod tests {
     use super::*;
 
+    fn rendered_sidebar(path: &str) -> String {
+        dioxus_ssr::render_element(rsx! {
+            AdminSidebar {
+                current_path: path.to_string(),
+                is_authenticated: true,
+                items: None,
+                default_expanded: None,
+                class_name: None,
+                id: None,
+            }
+        })
+    }
+
     #[test]
     fn is_child_active_matches_tabbed_route() {
         let item = SidebarItem {
@@ -747,5 +771,37 @@ mod tests {
             "%2Fwallet-management%2Faccess"
         );
         assert_eq!(urlencode("abc-123_X.~"), "abc-123_X.~");
+    }
+
+    #[test]
+    fn ssr_emits_collapsed_children_for_progressive_enhancement() {
+        let html = rendered_sidebar("/audit-log");
+        assert!(html.contains("data-epsx-action=\"toggle-nav\""));
+        assert!(html.contains("aria-controls=\"sidebar-children-wallet-management\""));
+        let child_start = html
+            .find("id=\"sidebar-children-wallet-management\"")
+            .expect("wallet child list must be rendered");
+        let child_tag_end = html[child_start..]
+            .find('>')
+            .map(|offset| child_start + offset)
+            .expect("wallet child list must have an opening tag");
+        let child_tag = &html[child_start..child_tag_end];
+        assert!(html.contains("aria-hidden=\"true\""));
+        assert!(child_tag.contains(" hidden"));
+        assert!(html.contains("admin-nav-chevron"));
+        assert!(!html.contains("admin-sidebar-logout"));
+    }
+
+    #[test]
+    fn ssr_expands_parent_for_the_active_route() {
+        let html = rendered_sidebar("/wallet-management/access");
+        assert!(html.contains("aria-expanded=\"true\""));
+        let child_start = html
+            .find("id=\"sidebar-children-wallet-management\"")
+            .expect("wallet child list must be rendered");
+        let child_html = &html[child_start..];
+        assert!(child_html.starts_with(
+            "id=\"sidebar-children-wallet-management\" role=\"list\" aria-hidden=\"false\""
+        ));
     }
 }

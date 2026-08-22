@@ -573,16 +573,14 @@ fn classify_developer_payload(keys: Value, stats: Value) -> AdminDeveloperPortal
     if stats_data.total_api_keys < 0 || stats_data.total_api_keys != key_data.total {
         return AdminDeveloperPortalLoad::Malformed;
     }
-    let _ = (
-        stats_data.active_api_keys,
-        stats_data.revoked_api_keys,
-        stats_data.expired_api_keys,
-        stats_data.total_modules,
-        stats_data.active_modules,
-    );
     let projection = AdminDeveloperPortalProjection {
         api_keys,
         total_api_keys: stats_data.total_api_keys,
+        active_api_keys: stats_data.active_api_keys,
+        revoked_api_keys: stats_data.revoked_api_keys,
+        expired_api_keys: stats_data.expired_api_keys,
+        total_modules: stats_data.total_modules,
+        active_modules: stats_data.active_modules,
         total_requests_today: stats_data.total_requests_today,
         total_requests_this_month: stats_data.total_requests_this_month,
         top_modules_by_usage: top_modules,

@@ -73,6 +73,7 @@ struct AppState {
     cookie_environment: CookieEnvironment,
     api_url: String,
     demo_login_enabled: bool,
+    dev_bypass_enabled: bool,
 }
 
 const ADMIN_NOTIFICATION_FORM_MAX: usize = 20 * 1024;
@@ -660,17 +661,30 @@ fn state_from_env() -> Result<AppState, String> {
     let api_url = std::env::var("API_URL")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "API_URL or BACKEND_URL is required".to_string())?;
+    let wallet_url = std::env::var("WALLET_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let payment_url = std::env::var("PAYMENT_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let subscription_url =
+        std::env::var("SUBSCRIPTION_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let content_url = std::env::var("CONTENT_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
     let notification_url =
         std::env::var("NOTIFICATION_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let analytics_url = std::env::var("ANALYTICS_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
+    let indexer_url = std::env::var("INDEXER_SERVICE_URL").unwrap_or_else(|_| api_url.clone());
     let issuer = std::env::var("OIDC_ISSUER")
         .or_else(|_| std::env::var("BACKEND_URL"))
         .map_err(|_| "OIDC_ISSUER or BACKEND_URL is required".to_string())?;
     validate_auth_url(&api_url, cookie_environment, "API_URL/BACKEND_URL")?;
-    validate_auth_url(
-        &notification_url,
-        cookie_environment,
-        "NOTIFICATION_SERVICE_URL",
-    )?;
+    for (url, label) in [
+        (&wallet_url, "WALLET_SERVICE_URL"),
+        (&payment_url, "PAYMENT_SERVICE_URL"),
+        (&subscription_url, "SUBSCRIPTION_SERVICE_URL"),
+        (&content_url, "CONTENT_SERVICE_URL"),
+        (&notification_url, "NOTIFICATION_SERVICE_URL"),
+        (&analytics_url, "ANALYTICS_SERVICE_URL"),
+        (&indexer_url, "INDEXER_SERVICE_URL"),
+    ] {
+        validate_auth_url(url, cookie_environment, label)?;
+    }
     validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
 
     let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
@@ -690,27 +704,26 @@ fn state_from_env() -> Result<AppState, String> {
     .map_err(|error| error.to_string())?;
     let verifier =
         Arc::new(JwksVerifier::with_http(verifier_config).map_err(|error| error.to_string())?);
-    let cfg = epsx_client::ClientConfig {
-        base_url: api_url.clone(),
-        timeout: Duration::from_secs(15),
-    };
-    let notification_cfg = epsx_client::ClientConfig {
-        base_url: notification_url,
-        timeout: Duration::from_secs(15),
+    let service_client = |base_url: String| {
+        Arc::new(ServiceClient::new(epsx_client::ClientConfig {
+            base_url,
+            timeout: Duration::from_secs(15),
+        }))
     };
     Ok(AppState {
-        identity: Arc::new(ServiceClient::new(cfg.clone())),
-        wallet: Arc::new(ServiceClient::new(cfg.clone())),
-        payment: Arc::new(ServiceClient::new(cfg.clone())),
-        subscription: Arc::new(ServiceClient::new(cfg.clone())),
-        content: Arc::new(ServiceClient::new(cfg.clone())),
-        notification: Arc::new(ServiceClient::new(notification_cfg)),
-        analytics: Arc::new(ServiceClient::new(cfg.clone())),
-        indexer: Arc::new(ServiceClient::new(cfg)),
+        identity: service_client(api_url.clone()),
+        wallet: service_client(wallet_url),
+        payment: service_client(payment_url),
+        subscription: service_client(subscription_url),
+        content: service_client(content_url),
+        notification: service_client(notification_url),
+        analytics: service_client(analytics_url),
+        indexer: service_client(indexer_url),
         verifier,
         cookie_environment,
         api_url,
         demo_login_enabled,
+        dev_bypass_enabled,
     })
 }
 
@@ -1432,6 +1445,20 @@ mod routing_tests {
     use std::{future::Future, pin::Pin};
     use tower::ServiceExt;
 
+    #[test]
+    fn native_datetime_local_is_normalized_without_weakening_rfc3339_validation() {
+        assert_eq!(
+            normalize_optional_datetime_local(Some("2026-12-31T23:59".to_string())),
+            Ok(Some("2026-12-31T23:59:00Z".to_string()))
+        );
+        assert_eq!(
+            normalize_optional_datetime_local(Some("2026-12-31T23:59:59+07:00".to_string())),
+            Ok(Some("2026-12-31T23:59:59+07:00".to_string()))
+        );
+        assert_eq!(normalize_optional_datetime_local(None), Ok(None));
+        assert!(normalize_optional_datetime_local(Some("2026-02-30T10:00".to_string())).is_err());
+    }
+
     struct FailingJwksFetcher;
 
     impl JwksFetcher for FailingJwksFetcher {
@@ -1478,6 +1505,7 @@ mod routing_tests {
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
             demo_login_enabled: false,
+            dev_bypass_enabled: false,
         }
     }
 
@@ -1908,7 +1936,8 @@ mod routing_tests {
         assert_eq!(create.status(), StatusCode::OK);
         let body = to_bytes(create.into_body(), 2 * 1024 * 1024).await.unwrap();
         let html = String::from_utf8_lossy(&body);
-        assert!(html.contains("Sign in required"));
+        assert!(html.contains("data-wave25-t3-marker=\"auth-page-overlay\""));
+        assert!(html.contains("Admin Access"));
     }
 }
 
@@ -2861,6 +2890,23 @@ fn optional_form_value(fields: &mut BTreeMap<String, String>, key: &str) -> Opti
     fields.remove(key).filter(|value| !value.is_empty())
 }
 
+fn normalize_optional_datetime_local(value: Option<String>) -> Result<Option<String>, ()> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    if chrono::DateTime::parse_from_rfc3339(&value).is_ok() {
+        return Ok(Some(value));
+    }
+    let normalized = match value.len() {
+        16 => format!("{value}:00Z"),
+        19 => format!("{value}Z"),
+        _ => return Err(()),
+    };
+    chrono::DateTime::parse_from_rfc3339(&normalized)
+        .map(|_| Some(normalized))
+        .map_err(|_| ())
+}
+
 fn parse_news_tags(value: Option<String>) -> Result<Vec<String>, ()> {
     let Some(value) = value else {
         return Ok(Vec::new());
@@ -2905,7 +2951,7 @@ async fn verified_admin_auth_context(
     if !same_origin_admin_notification_form(headers) {
         return Err(StatusCode::FORBIDDEN);
     }
-    let Some((token, _user)) =
+    let Some((token, user)) =
         auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
             .await
     else {
@@ -2913,6 +2959,8 @@ async fn verified_admin_auth_context(
     };
     let mut context = RequestContext::from_headers(headers);
     context.auth_token = Some(token);
+    context.address = Some(user.wallet_address.to_ascii_lowercase());
+    context.user_id = uuid::Uuid::parse_str(&user.subject).ok();
     Ok(context)
 }
 
@@ -3113,19 +3161,34 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         Err(_) => return StatusCode::PAYLOAD_TOO_LARGE.into_response(),
     };
     let allowed = if parts.uri.path() == "/settings/reset" {
-        &["idempotency_key"][..]
+        &["idempotency_key", "return_tab"][..]
     } else {
         &[
             "category",
             "key",
             "value_json",
+            "value_text",
+            "value_bool",
+            "value_number",
             "expected_updated_at",
             "idempotency_key",
+            "return_tab",
         ][..]
     };
     let mut fields = match parse_admin_editor_fields(&body, allowed) {
         Ok(fields) => fields,
-        Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        Err(()) => return Redirect::to("/settings?tab=general&mutation=invalid").into_response(),
+    };
+    let return_tab = optional_form_value(&mut fields, "return_tab")
+        .filter(|value| {
+            matches!(
+                value.as_str(),
+                "general" | "notifications" | "security" | "appearance"
+            )
+        })
+        .unwrap_or_else(|| "general".to_string());
+    let mutation_redirect = |state: &str| {
+        Redirect::to(&format!("/settings?tab={return_tab}&mutation={state}")).into_response()
     };
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
         Ok(value)
@@ -3136,7 +3199,7 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         {
             value
         }
-        _ => return Redirect::to("/settings?mutation=invalid").into_response(),
+        _ => return mutation_redirect("invalid"),
     };
     let (method, path, payload) = if parts.uri.path() == "/settings/reset" {
         (
@@ -3147,19 +3210,42 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
     } else {
         let category = match form_value(&mut fields, "category") {
             Ok(value) => value,
-            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+            Err(()) => return mutation_redirect("invalid"),
         };
         let key = match form_value(&mut fields, "key") {
             Ok(value) => value,
-            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+            Err(()) => return mutation_redirect("invalid"),
         };
-        let raw_value = match form_value(&mut fields, "value_json") {
-            Ok(value) => value,
-            Err(()) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        let value_fields = [
+            ("json", fields.remove("value_json")),
+            ("text", fields.remove("value_text")),
+            ("bool", fields.remove("value_bool")),
+            ("number", fields.remove("value_number")),
+        ];
+        let mut supplied = value_fields
+            .into_iter()
+            .filter_map(|(kind, value)| value.map(|value| (kind, value)));
+        let Some((kind, raw_value)) = supplied.next() else {
+            return mutation_redirect("invalid");
         };
-        let value = match serde_json::from_str::<serde_json::Value>(&raw_value) {
-            Ok(value) => value,
-            Err(_) => return Redirect::to("/settings?mutation=invalid").into_response(),
+        if supplied.next().is_some() {
+            return mutation_redirect("invalid");
+        }
+        let value = match kind {
+            "json" => serde_json::from_str::<serde_json::Value>(&raw_value).ok(),
+            "text" if raw_value.chars().count() <= 254 => {
+                Some(serde_json::Value::String(raw_value))
+            }
+            "bool" => match raw_value.as_str() {
+                "true" => Some(serde_json::Value::Bool(true)),
+                "false" => Some(serde_json::Value::Bool(false)),
+                _ => None,
+            },
+            "number" => raw_value.parse::<i64>().ok().map(serde_json::Value::from),
+            _ => None,
+        };
+        let Some(value) = value else {
+            return mutation_redirect("invalid");
         };
         let expected_updated_at = optional_form_value(&mut fields, "expected_updated_at");
         (
@@ -3169,7 +3255,7 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         )
     };
     let Some(token) = context.auth_token.as_deref() else {
-        return Redirect::to("/settings?mutation=unavailable").into_response();
+        return mutation_redirect("unavailable");
     };
     let request = state
         .identity
@@ -3196,7 +3282,7 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         }
         Ok(_) | Err(_) => "unavailable",
     };
-    Redirect::to(&format!("/settings?mutation={state_name}")).into_response()
+    mutation_redirect(state_name)
 }
 
 async fn submit_news_edit_form(
@@ -3317,9 +3403,12 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
         &body,
         &[
             "client_name",
+            "client_description",
+            "client_contact_email",
             "wallet_address",
             "permissions",
             "expires_at",
+            "ip_restrictions",
             "idempotency_key",
         ],
     ) {
@@ -3336,12 +3425,12 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
                 .into_response()
         }
     };
-    let wallet_address = match form_value(&mut fields, "wallet_address") {
-        Ok(value) => value.to_ascii_lowercase(),
-        Err(()) => {
-            return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
-                .into_response()
-        }
+    let wallet_address = optional_form_value(&mut fields, "wallet_address")
+        .or_else(|| context.address.clone())
+        .map(|value| value.to_ascii_lowercase());
+    let Some(wallet_address) = wallet_address.filter(|value| valid_admin_wallet(value)) else {
+        return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+            .into_response();
     };
     let permissions = optional_form_value(&mut fields, "permissions")
         .map(|value| {
@@ -3352,7 +3441,24 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
                 .collect()
         })
         .unwrap_or_default();
-    let expires_at = optional_form_value(&mut fields, "expires_at");
+    let client_description = optional_form_value(&mut fields, "client_description");
+    let client_contact_email = optional_form_value(&mut fields, "client_contact_email");
+    let ip_restrictions = optional_form_value(&mut fields, "ip_restrictions").map(|value| {
+        value
+            .lines()
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .map(ToOwned::to_owned)
+            .collect::<Vec<_>>()
+    });
+    let expires_at =
+        match normalize_optional_datetime_local(optional_form_value(&mut fields, "expires_at")) {
+            Ok(value) => value,
+            Err(()) => {
+                return Redirect::to("/developer-portal/api-keys/create?mutation=malformed")
+                    .into_response()
+            }
+        };
     let idempotency_key = match form_value(&mut fields, "idempotency_key") {
         Ok(value) => value,
         Err(()) => {
@@ -3362,11 +3468,11 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
     };
     let input = AdminDeveloperCreateInput {
         client_name,
-        client_description: None,
-        client_contact_email: None,
+        client_description,
+        client_contact_email,
         wallet_address,
         allowed_modules: Vec::new(),
-        ip_restrictions: None,
+        ip_restrictions,
         rate_limit_per_minute: None,
         rate_limit_per_day: None,
         expires_at,
@@ -3834,15 +3940,19 @@ async fn submit_commerce_mutation_form(
             let plan_id = fields
                 .get("plan_id")
                 .and_then(|value| uuid::Uuid::parse_str(value).ok());
-            let merchant_id = match fields
-                .get("merchant_id")
-                .and_then(|value| uuid::Uuid::parse_str(value).ok())
-            {
-                Some(value) => value,
-                None => {
-                    return Redirect::to("/wallet-management/access/plans?mutation=malformed")
-                        .into_response()
+            let merchant_id = if operation == "plan_create" {
+                match fields
+                    .get("merchant_id")
+                    .and_then(|value| uuid::Uuid::parse_str(value).ok())
+                {
+                    Some(value) => Some(value),
+                    None => {
+                        return Redirect::to("/wallet-management/access/plans?mutation=malformed")
+                            .into_response()
+                    }
                 }
+            } else {
+                None
             };
             let name = match fields
                 .get("name")

@@ -9,7 +9,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::components::admin::page_layout::{PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
@@ -249,25 +249,19 @@ fn RenderMedia(ctx: PageContext) -> Element {
     let parsed_bucket = MediaBucket::from_ctx(&ctx);
     let bucket = parsed_bucket.unwrap_or(MediaBucket::News);
     let load = media_load(&ctx, parsed_bucket.is_some());
+    let file_count = match &load {
+        MediaLoad::Ready(projection) => Some(projection.items.len()),
+        MediaLoad::Empty => Some(0),
+        MediaLoad::Forbidden | MediaLoad::Unavailable | MediaLoad::Malformed => None,
+    };
 
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
-            PageHeader {
-                title: "Media".to_string(),
-                subtitle: Some("Review backend-authoritative object metadata".to_string()),
-                icon: Some("image".to_string()),
-                gradient: Some(PageGradient::Info),
-                centered: Some(false),
-                extra_actions: None,
-                class_name: None,
-            }
-            MediaBucketNav { selected: bucket }
+            MediaBrowserHeader {}
+            MediaToolbar { selected: bucket, file_count }
             if let Some(mutation) = media_mutation_load(&ctx) {
                 MediaMutationNotice { mutation }
-            }
-            if matches!(&load, MediaLoad::Ready(_) | MediaLoad::Empty) {
-                MediaMutationControls { bucket }
             }
             match load {
                 MediaLoad::Ready(projection) => rsx! {
@@ -283,6 +277,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
                         detail: "The backend did not authorize this session to read the selected media inventory.".to_string(),
                         retry_href: bucket.href(),
                     }
+                    MediaEmptyInventory { bucket, unavailable: true }
                 },
                 MediaLoad::Unavailable => rsx! {
                     MediaProblem {
@@ -291,6 +286,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
                         detail: "The storage backend could not provide an authoritative response. No object metadata is being shown.".to_string(),
                         retry_href: bucket.href(),
                     }
+                    MediaEmptyInventory { bucket, unavailable: true }
                 },
                 MediaLoad::Malformed => rsx! {
                     MediaProblem {
@@ -299,7 +295,46 @@ fn RenderMedia(ctx: PageContext) -> Element {
                         detail: "The requested bucket or backend response did not match the read-only media contract. No object metadata is being shown.".to_string(),
                         retry_href: bucket.href(),
                     }
+                    MediaEmptyInventory { bucket, unavailable: true }
                 },
+            }
+        }
+    }
+}
+
+#[component]
+fn MediaBrowserHeader() -> Element {
+    rsx! {
+        header { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+            div { class: "flex items-center gap-3",
+                div { class: "h-[3px] w-8 rounded-full bg-[#1fc7d4]" }
+                Icon { name: "image".to_string(), size: Some(20), class_name: Some("text-[#1fc7d4]".to_string()) }
+                h1 { class: "text-xl font-bold text-foreground", "Media Browser" }
+            }
+            details { class: "relative w-full sm:w-auto",
+                summary { class: "flex w-full cursor-pointer list-none items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto",
+                    Icon { name: "upload".to_string(), size: Some(16) }
+                    "Upload"
+                }
+                form {
+                    method: "post",
+                    action: "/media/upload",
+                    enctype: "multipart/form-data",
+                    class: "z-20 mt-2 grid w-full gap-3 rounded-2xl border border-border/30 bg-card p-4 shadow-2xl sm:absolute sm:right-0 sm:w-80",
+                    label { class: "space-y-2 text-sm font-medium text-foreground",
+                        span { "Public file" }
+                        input {
+                            class: "file-input file-input-bordered w-full",
+                            r#type: "file",
+                            name: "file",
+                            accept: "image/jpeg,image/png,image/gif,image/webp,application/pdf",
+                            required: true,
+                        }
+                    }
+                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.upload.{}", uuid::Uuid::new_v4()) }
+                    p { class: "text-xs leading-5 text-muted-foreground", "Uploads are written to Public by the current backend contract." }
+                    button { class: "btn btn-primary btn-sm", r#type: "submit", "Upload file" }
+                }
             }
         }
     }
@@ -346,48 +381,57 @@ fn MediaMutationProblem(state: &'static str, detail: String) -> Element {
 }
 
 #[component]
-fn MediaBucketNav(selected: MediaBucket) -> Element {
+fn MediaToolbar(selected: MediaBucket, file_count: Option<usize>) -> Element {
     rsx! {
-        nav {
-            class: "mb-5 flex flex-wrap gap-2",
-            aria_label: "Media bucket",
-            for bucket in [MediaBucket::News, MediaBucket::Public] {
+        div { class: "flex flex-wrap items-center gap-2",
+            nav { class: "flex flex-wrap items-center gap-2", aria_label: "Media bucket",
                 a {
-                    class: if selected == bucket { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                    href: bucket.href(),
-                    aria_current: (selected == bucket).then_some("page"),
-                    "{bucket.label()}"
+                    class: if selected == MediaBucket::News { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
+                    href: MediaBucket::News.href(),
+                    aria_current: (selected == MediaBucket::News).then_some("page"),
+                    "News"
+                }
+                for label in ["Chat", "Notifications"] {
+                    span {
+                        class: "cursor-not-allowed rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium text-muted-foreground opacity-50",
+                        aria_disabled: "true",
+                        title: "This bucket is not exposed by the current backend contract",
+                        "{label}"
+                    }
+                }
+                a {
+                    class: if selected == MediaBucket::Public { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
+                    href: MediaBucket::Public.href(),
+                    aria_current: (selected == MediaBucket::Public).then_some("page"),
+                    "Public"
                 }
             }
-        }
-    }
-}
-
-#[component]
-fn MediaMutationControls(bucket: MediaBucket) -> Element {
-    rsx! {
-        section { class: "mb-5 grid gap-4 rounded-2xl border border-border/30 bg-card p-5 md:grid-cols-[1fr_auto] md:items-end",
-            div {
-                h2 { class: "text-lg font-semibold text-foreground", "Media mutations" }
-                p { class: "mt-1 text-sm leading-6 text-muted-foreground",
-                    "Upload is written to the backend public bucket. Deletion is available per verified object row."
+            div { class: "ml-auto flex min-w-0 items-center gap-2",
+                label { class: "relative hidden sm:block",
+                    span { class: "sr-only", "Filter media" }
+                    Icon { name: "search".to_string(), size: Some(14), class_name: Some("absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground".to_string()) }
+                    input {
+                        class: "w-40 rounded-lg border border-border/20 bg-card py-1.5 pl-8 pr-3 text-sm text-foreground placeholder:text-muted-foreground/50 disabled:cursor-not-allowed disabled:opacity-60",
+                        r#type: "search",
+                        placeholder: "Filter...",
+                        disabled: true,
+                        title: "Filtering is unavailable until the backend exposes a search contract",
+                    }
                 }
-            }
-            form {
-                method: "post",
-                action: "/media/upload",
-                enctype: "multipart/form-data",
-                class: "grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end",
-                label { class: "space-y-2 text-sm font-medium",
-                    span { "Public file" }
-                    input { class: "input w-full", r#type: "file", name: "file", required: true }
+                button {
+                    class: "rounded-lg p-1.5 text-muted-foreground opacity-50",
+                    r#type: "button",
+                    disabled: true,
+                    aria_label: "List view unavailable",
+                    title: "View switching requires the interactive media projection",
+                    Icon { name: "list".to_string(), size: Some(16) }
                 }
-                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.upload.{}", uuid::Uuid::new_v4()) }
-                button { class: "btn btn-primary", r#type: "submit", "Upload file" }
-            }
-            if bucket != MediaBucket::Public {
-                p { class: "text-xs text-muted-foreground sm:col-span-2",
-                    "The upload form targets Public; switch buckets after a successful upload to inspect the resulting inventory."
+                span { class: "whitespace-nowrap text-sm text-muted-foreground",
+                    if let Some(count) = file_count {
+                        if count == 1 { "1 file" } else { "{count} files" }
+                    } else {
+                        "Files unavailable"
+                    }
                 }
             }
         }
@@ -399,43 +443,23 @@ fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
     let item_count = projection.items.len();
     rsx! {
         section {
-            class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
+            class: "space-y-4",
             aria_labelledby: "admin-media-inventory-title",
             "data-admin-media-state": ADMIN_MEDIA_READY,
             "data-admin-media-bucket": bucket.slug(),
-            div { class: "h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ffb237]" }
-            div { class: "flex flex-wrap items-start justify-between gap-4 p-5",
-                div {
-                    h2 { id: "admin-media-inventory-title", class: "text-lg font-semibold text-foreground",
-                        "{bucket.label()} object metadata"
-                    }
-                    p { class: "mt-1 text-sm text-muted-foreground",
-                        "{item_count} metadata records in this bounded response"
-                    }
-                }
-                p { class: "max-w-xl text-xs leading-5 text-muted-foreground",
-                    "This inventory is a bounded first page of up to 100 objects; continuation is unavailable. URLs, previews, and storage credentials are not displayed."
-                }
-            }
+            h2 { id: "admin-media-inventory-title", class: "sr-only", "{bucket.label()} media files" }
             if item_count == MAX_MEDIA_ITEMS {
                 p {
-                    class: "mx-5 mb-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200",
+                    class: "rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-900 dark:text-amber-200",
                     role: "status",
                     "100 objects are shown, reaching the bounded first-page limit. Additional objects may exist because continuation is unavailable."
                 }
             }
-            div {
-                class: "hidden grid-cols-12 gap-4 border-t border-border/30 bg-muted/20 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid",
-                aria_hidden: "true",
-                span { class: "col-span-7", "Object key" }
-                span { class: "col-span-2 text-right", "Size" }
-                span { class: "col-span-3", "Last modified" }
-            }
             ul {
-                class: "divide-y divide-border/30",
+                class: "grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6",
                 aria_label: format!("{} media objects", bucket.label()),
                 for item in projection.items {
-                    MediaRow { item, bucket }
+                    MediaCard { item, bucket }
                 }
             }
         }
@@ -443,34 +467,61 @@ fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
 }
 
 #[component]
-fn MediaRow(item: AdminMediaObject, bucket: MediaBucket) -> Element {
+fn MediaCard(item: AdminMediaObject, bucket: MediaBucket) -> Element {
     let size = readable_bytes(item.size);
+    let key = item.key.clone();
+    let name = item
+        .key
+        .rsplit('/')
+        .next()
+        .unwrap_or(item.key.as_str())
+        .to_string();
     rsx! {
-        li { class: "grid gap-4 p-5 md:grid-cols-12 md:items-center",
-            div { class: "min-w-0 md:col-span-7",
-                span { class: "sr-only", "Object key: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Object key" }
-                p { class: "break-all text-sm font-semibold text-foreground", "{item.key}" }
-            }
-            div { class: "md:col-span-2 md:text-right",
-                span { class: "sr-only", "Size: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Size" }
-                p { class: "text-sm text-foreground", "{size}" }
-            }
-            div { class: "md:col-span-3",
-                span { class: "sr-only", "Last modified: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Last modified" }
-                if let Some(last_modified) = item.last_modified {
-                    time { class: "break-words text-sm text-muted-foreground", datetime: last_modified.clone(), "{last_modified}" }
-                } else {
-                    span { class: "text-sm text-muted-foreground", "Not reported" }
+        li { class: "group overflow-hidden rounded-2xl border border-border/20 bg-card transition-colors hover:border-border/40",
+            div { class: "relative flex aspect-square items-center justify-center bg-gradient-to-br from-[#7645d9]/5 via-[#1fc7d4]/3 to-transparent",
+                Icon { name: "file".to_string(), size: Some(40), class_name: Some("text-muted-foreground/30".to_string()) }
+                div { class: "absolute right-2 top-2 flex gap-1 opacity-100 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100",
+                    button {
+                        class: "cursor-not-allowed rounded-lg bg-black/50 p-1.5 text-white opacity-50",
+                        r#type: "button",
+                        disabled: true,
+                        aria_label: "Open file unavailable",
+                        title: "The backend projection does not expose an object URL",
+                        Icon { name: "external-link".to_string(), size: Some(14) }
+                    }
+                    button {
+                        class: "cursor-not-allowed rounded-lg bg-black/50 p-1.5 text-white opacity-50",
+                        r#type: "button",
+                        disabled: true,
+                        aria_label: "Copy URL unavailable",
+                        title: "The backend projection does not expose an object URL",
+                        Icon { name: "copy".to_string(), size: Some(14) }
+                    }
+                    form { method: "post", action: MEDIA_PATH,
+                        input { r#type: "hidden", name: "bucket", value: bucket.slug() }
+                        input { r#type: "hidden", name: "key", value: key.clone() }
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.delete.{}", uuid::Uuid::new_v4()) }
+                        button {
+                            class: "rounded-lg bg-red-600/70 p-1.5 text-white hover:bg-red-600/90",
+                            r#type: "submit",
+                            aria_label: "Delete object",
+                            title: "Delete",
+                            Icon { name: "trash-2".to_string(), size: Some(14) }
+                        }
+                    }
                 }
             }
-            form { method: "post", action: "/media", class: "md:col-span-12 md:flex md:justify-end",
-                input { r#type: "hidden", name: "bucket", value: bucket.slug() }
-                input { r#type: "hidden", name: "key", value: item.key.clone() }
-                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.delete.{}", uuid::Uuid::new_v4()) }
-                button { class: "btn btn-sm btn-outline", r#type: "submit", "Delete object" }
+            div { class: "space-y-1 p-3",
+                p { class: "truncate text-sm font-medium text-foreground", title: key.clone(), "{name}" }
+                p { class: "truncate font-mono text-[11px] text-muted-foreground/60", title: key, "{item.key}" }
+                div { class: "flex items-center justify-between gap-2 text-xs text-muted-foreground",
+                    span { "{size}" }
+                if let Some(last_modified) = item.last_modified {
+                        time { class: "truncate", datetime: last_modified.clone(), title: last_modified.clone(), "{last_modified}" }
+                } else {
+                        span { "—" }
+                    }
+                }
             }
         }
     }
@@ -499,16 +550,30 @@ fn readable_bytes(size: i64) -> String {
 fn MediaEmpty(bucket: MediaBucket) -> Element {
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
+            class: "rounded-2xl border border-border/20 bg-card py-20 text-center shadow-xl",
             role: "status",
             "data-admin-media-state": ADMIN_MEDIA_EMPTY,
             "data-admin-media-bucket": bucket.slug(),
-            Icon { name: "image".to_string(), size: Some(30) }
-            h2 { class: "mt-4 text-xl font-semibold text-foreground", "No object metadata found" }
-            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground",
-                "The backend returned no metadata records for the {bucket.label()} bucket. The inventory is bounded to a first page of up to 100 objects, and continuation is unavailable."
+            div { class: "mx-auto flex w-fit rounded-full border border-border/20 bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent p-5",
+                Icon { name: "folder-open".to_string(), size: Some(32), class_name: Some("text-muted-foreground/40".to_string()) }
             }
-            a { class: "btn btn-outline mt-5", href: MEDIA_PATH, "Reset media view" }
+            h2 { class: "mt-4 font-semibold text-foreground", "No files in “{bucket.slug()}”" }
+            p { class: "mt-1 text-sm text-muted-foreground", "Upload files to get started." }
+        }
+    }
+}
+
+#[component]
+fn MediaEmptyInventory(bucket: MediaBucket, unavailable: bool) -> Element {
+    rsx! {
+        section {
+            class: "rounded-2xl border border-border/20 bg-card py-20 text-center shadow-xl",
+            aria_hidden: unavailable.then_some("true"),
+            div { class: "mx-auto flex w-fit rounded-full border border-border/20 bg-gradient-to-br from-[#7645d9]/10 via-[#1fc7d4]/5 to-transparent p-5",
+                Icon { name: "folder-open".to_string(), size: Some(32), class_name: Some("text-muted-foreground/40".to_string()) }
+            }
+            h2 { class: "mt-4 font-semibold text-foreground", "No verified files in “{bucket.slug()}”" }
+            p { class: "mt-1 text-sm text-muted-foreground", "The inventory will appear here after an authoritative response." }
         }
     }
 }
@@ -517,15 +582,18 @@ fn MediaEmpty(bucket: MediaBucket) -> Element {
 fn MediaProblem(state: &'static str, title: String, detail: String, retry_href: String) -> Element {
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
+            class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-5 sm:p-6",
             role: if state == ADMIN_MEDIA_FORBIDDEN { "alert" } else { "status" },
             "data-admin-media-state": state,
-            Icon { name: "shield".to_string(), size: Some(30) }
-            h2 { class: "mt-4 text-xl font-semibold text-foreground", "{title}" }
-            p { class: "mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground", "{detail}" }
-            div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                a { class: "btn btn-primary", href: retry_href, "Try again" }
-                a { class: "btn btn-outline", href: MEDIA_PATH, "Reset media view" }
+            div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                div { class: "flex min-w-0 items-start gap-3",
+                    Icon { name: "shield".to_string(), size: Some(20), class_name: Some("mt-0.5 shrink-0 text-amber-400".to_string()) }
+                    div {
+                        h2 { class: "font-semibold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                    }
+                }
+                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href, "Try again" }
             }
         }
     }
@@ -590,16 +658,7 @@ mod tests {
     }
 
     fn assert_unsupported_actions_absent(rendered: &str) {
-        for forbidden in [
-            "Copy URL",
-            "Open file",
-            "Preview",
-            "Search",
-            "Grid view",
-            "List view",
-            "onclick=",
-            "javascript:",
-        ] {
+        for forbidden in ["Preview", "Grid view", "onclick=", "javascript:"] {
             assert!(
                 !rendered.contains(forbidden),
                 "forbidden media action leaked: {forbidden}"
@@ -635,18 +694,17 @@ mod tests {
         assert!(rendered.contains("1.5 KiB"));
         assert!(rendered.contains("2 KiB"));
         assert!(rendered.contains("datetime=\"2026-07-22T12:00:00Z\""));
-        assert!(rendered.contains("Not reported"));
-        assert!(rendered.contains("Object key: "));
-        assert!(rendered.contains("Size: "));
-        assert!(rendered.contains("Last modified: "));
-        assert!(rendered.contains("md:grid-cols-12"));
+        assert!(rendered.contains("documents/terms.pdf"));
+        assert!(rendered.contains("grid-cols-2"));
         assert!(rendered.contains("href=\"/media?bucket=news\""));
         assert!(rendered.contains("href=\"/media?bucket=public\""));
         assert!(rendered.contains("aria-current=\"page\""));
-        assert!(rendered.contains("bounded first page of up to 100 objects"));
-        assert!(rendered.contains("continuation is unavailable"));
+        assert!(rendered.contains("2 files"));
         assert!(rendered.contains("Upload file"));
         assert!(rendered.contains("Delete object"));
+        assert!(rendered.contains("Open file unavailable"));
+        assert!(rendered.contains("Copy URL unavailable"));
+        assert!(rendered.contains("disabled"));
         assert!(rendered.contains("<form"));
         assert_unsupported_actions_absent(&rendered);
         for redacted in ["https://", "presigned", "mime_type", "etag"] {
@@ -663,7 +721,8 @@ mod tests {
 
         assert!(rendered.contains("data-admin-media-state=\"empty\""));
         assert!(rendered.contains("data-admin-media-bucket=\"news\""));
-        assert!(rendered.contains("returned no metadata records for the News bucket"));
+        assert!(rendered.contains("No files in “news”"));
+        assert!(rendered.contains("0 files"));
         assert!(!rendered.contains("inventory is unavailable"));
         assert!(rendered.contains("Upload file"));
         assert_unsupported_actions_absent(&rendered);
@@ -680,9 +739,10 @@ mod tests {
             assert!(rendered.contains(&format!("data-admin-media-state=\"{state}\"")));
             assert!(rendered.contains(title));
             assert!(rendered.contains("href=\"/media?bucket=news\""));
-            assert!(rendered.contains("href=\"/media\""));
-            assert!(!rendered.contains("<form"));
-            assert!(!rendered.contains("<button"));
+            assert!(rendered.contains("Files unavailable"));
+            assert!(rendered.contains("No verified files in “news”"));
+            assert!(rendered.contains("action=\"/media/upload\""));
+            assert!(!rendered.contains("Delete object"));
             assert_unsupported_actions_absent(&rendered);
         }
     }
@@ -705,7 +765,8 @@ mod tests {
             assert!(rendered.contains("data-admin-media-state=\"malformed\""));
             assert!(!rendered.contains("secret.example"));
             assert!(!rendered.contains("bad\nkey"));
-            assert!(!rendered.contains("<form"));
+            assert!(rendered.contains("action=\"/media/upload\""));
+            assert!(!rendered.contains("Delete object"));
             assert_unsupported_actions_absent(&rendered);
         }
 
@@ -781,7 +842,7 @@ mod tests {
 
         assert!(rendered.contains("data-admin-media-state=\"malformed\""));
         assert!(rendered.contains("href=\"/media?bucket=public\""));
-        assert!(rendered.contains("href=\"/media\""));
+        assert!(rendered.contains("Files unavailable"));
     }
 
     #[test]
@@ -804,6 +865,7 @@ mod tests {
         assert!(rendered.contains("Additional objects may exist"));
         assert!(rendered.contains("continuation is unavailable"));
         assert!(rendered.contains("Delete object"));
+        assert!(rendered.contains("Copy URL unavailable"));
         assert_unsupported_actions_absent(&rendered);
     }
 

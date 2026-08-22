@@ -9,7 +9,7 @@ use std::{
     ffi::OsStr,
     fs,
     path::{Component, Path, PathBuf},
-    process::{Command, Stdio},
+    process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
@@ -319,18 +319,7 @@ pub fn setup_local(flags: &[String]) -> Result<(), String> {
 pub fn dev(flags: &[String]) -> Result<(), String> {
     let root = repo_root()?;
     match flags.first().map(String::as_str) {
-        Some("--all") => run_status(
-            Command::new("docker")
-                .args([
-                    "compose",
-                    "-f",
-                    "infrastructure/docker/docker-compose.yml",
-                    "up",
-                    "--build",
-                ])
-                .current_dir(root),
-            "Rust workspace development stack",
-        ),
+        Some("--all") => dev_all(&root),
         Some("--frontend") => {
             build_browser_runtime(&root)?;
             cargo_run(&root, "epsx-frontend", "bff-frontend")
@@ -341,6 +330,126 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
         }
         Some("--backend") => cargo_run(&root, "epsx", "epsx"),
         _ => Err("dev requires --all, --frontend, --admin, or --backend".into()),
+    }
+}
+
+/// Run the local applications together with every extracted service consumed
+/// by the Admin BFF. The previous implementation delegated to a Compose file
+/// that does not exist, so `dev --all` could never establish the topology its
+/// command name promised.
+fn dev_all(root: &Path) -> Result<(), String> {
+    const SERVICES: &[(&str, &str)] = &[
+        ("epsx", "epsx"),
+        ("epsx-wallet", "wallet"),
+        ("epsx-pay-svc", "pay-service"),
+        ("epsx-subscription", "subscription"),
+        ("epsx-notification", "notification"),
+        ("epsx-analytics", "analytics"),
+        ("epsx-frontend", "bff-frontend"),
+        ("epsx-admin", "bff-admin"),
+    ];
+
+    apply_local_service_migrations(root)?;
+    build_browser_runtime(root)?;
+    let mut children = Vec::with_capacity(SERVICES.len());
+    for (package, binary) in SERVICES {
+        children.push(spawn_cargo_run(root, package, binary)?);
+    }
+
+    println!(
+        "dev --all: backend=:8080 admin=:3001 frontend=:3000 wallet=:8102 pay=:8103 subscription=:8104 notification=:8106 analytics=:8107"
+    );
+    loop {
+        for index in 0..children.len() {
+            let Some(status) = children[index]
+                .1
+                .try_wait()
+                .map_err(|error| format!("could not inspect {}: {error}", children[index].0))?
+            else {
+                continue;
+            };
+            let label = children[index].0;
+            stop_dev_children(&mut children, Some(index));
+            return Err(format!("{label} exited unexpectedly with {status}"));
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn apply_local_service_migrations(root: &Path) -> Result<(), String> {
+    for (binary, relative_dir) in [
+        ("wallet", "services/wallet/migrations"),
+        ("pay-service", "services/pay/migrations"),
+        ("subscription", "services/subscription/migrations"),
+        ("analytics", "services/analytics/migrations"),
+    ] {
+        let database_url = local_dev_environment(binary)
+            .iter()
+            .find_map(|(key, value)| (*key == "DATABASE_URL").then_some(*value))
+            .ok_or_else(|| format!("{binary} local DATABASE_URL is not configured"))?;
+        let directory = root.join(relative_dir);
+        let mut migrations = fs::read_dir(&directory)
+            .map_err(|error| {
+                format!(
+                    "could not read local migrations at {}: {error}",
+                    directory.display()
+                )
+            })?
+            .filter_map(Result::ok)
+            .map(|entry| entry.path())
+            .filter(|path| path.extension() == Some(OsStr::new("sql")))
+            .collect::<Vec<_>>();
+        migrations.sort();
+        if migrations.is_empty() {
+            return Err(format!(
+                "no local migrations found for {binary} at {}",
+                directory.display()
+            ));
+        }
+        for migration in migrations {
+            run_status(
+                Command::new("psql")
+                    .args(["-v", "ON_ERROR_STOP=1", database_url, "-f"])
+                    .arg(&migration)
+                    .current_dir(root),
+                &format!("{binary} migration {}", migration.display()),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn spawn_cargo_run(
+    root: &Path,
+    package: &'static str,
+    binary: &'static str,
+) -> Result<(&'static str, Child), String> {
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", package, "--bin", binary])
+        .current_dir(root)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    command
+        .spawn()
+        .map(|child| (package, child))
+        .map_err(|error| format!("could not start {package}: {error}"))
+}
+
+fn stop_dev_children(children: &mut [(&'static str, Child)], skip: Option<usize>) {
+    for (index, (_, child)) in children.iter_mut().enumerate() {
+        if skip != Some(index) {
+            let _ = child.kill();
+        }
+    }
+    for (index, (_, child)) in children.iter_mut().enumerate() {
+        if skip != Some(index) {
+            let _ = child.wait();
+        }
     }
 }
 
@@ -406,9 +515,19 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
     // module graphs with top-level await; the event then owns the asynchronous
     // Rust/WASM initialization and install work.
     for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
-        let bootstrap = output.join(format!("{crate_name}_bootstrap.js"));
+        let bootstrap_name = if crate_name == "epsx_service_worker" {
+            format!("{crate_name}_bootstrap.v3.js")
+        } else {
+            format!("{crate_name}_bootstrap.js")
+        };
+        let bootstrap = output.join(bootstrap_name);
         fs::write(&bootstrap, runtime_bootstrap(crate_name))
             .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
+        if crate_name == "epsx_service_worker" {
+            let legacy = output.join(format!("{crate_name}_bootstrap.js"));
+            fs::write(&legacy, legacy_service_worker_bootstrap())
+                .map_err(|error| format!("could not write {}: {error}", legacy.display()))?;
+        }
     }
     println!(
         "browser-runtime: PASS — generated untracked assets in {}",
@@ -417,13 +536,27 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
+fn legacy_service_worker_bootstrap() -> &'static str {
+    "self.addEventListener('install', (event) => {\n\
+       event.waitUntil(self.skipWaiting());\n\
+     });\n\
+     self.addEventListener('activate', (event) => {\n\
+       event.waitUntil((async () => {\n\
+         await self.registration.unregister();\n\
+         const clients = await self.clients.matchAll({ type: 'window' });\n\
+         await Promise.all(clients.map((client) => client.navigate(client.url)));\n\
+       })());\n\
+     });\n\
+     //# sourceURL=epsx-service-worker-legacy-cleanup\n"
+}
+
 fn runtime_bootstrap(crate_name: &str) -> String {
     if crate_name == "epsx_service_worker" {
         return format!(
-            "import init, {{ activate, fetch_navigation, install, notification_click, push }} from './{crate_name}.js';\n\
-             const runtime = init();\n\
+            "import init, {{ activate, fetch_navigation, install, notification_click, push }} from './{crate_name}.js?rev=3';\n\
+             const runtime = init(new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url));\n\
              self.addEventListener('install', (event) => {{\n\
-               event.waitUntil(runtime.then(() => install()));\n\
+               event.waitUntil(runtime.then(() => install()).then(() => self.skipWaiting()));\n\
              }});\n\
              self.addEventListener('activate', (event) => {{\n\
                event.waitUntil(runtime.then(() => activate()));\n\
@@ -443,7 +576,9 @@ fn runtime_bootstrap(crate_name: &str) -> String {
         );
     }
     format!(
-        "import init from './{crate_name}.js';\nawait init();\n//# sourceURL=wasm-bindgen:{crate_name}\n"
+        "import init from './{crate_name}.js?rev=3';\n\
+         await init(new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url));\n\
+         //# sourceURL=wasm-bindgen:{crate_name}\n"
     )
 }
 
@@ -2362,13 +2497,122 @@ fn environment_name() -> String {
     "development".into()
 }
 
+fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)] {
+    const BACKEND: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        ("FRONTEND_URL", "http://localhost:3000"),
+        ("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
+    ];
+    const FRONTEND: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "localhost"),
+        ("PORT", "3000"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+    ];
+    const ADMIN: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "3001"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("BACKEND_URL", "http://127.0.0.1:8080"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        ("WALLET_SERVICE_URL", "http://127.0.0.1:8102"),
+        ("PAYMENT_SERVICE_URL", "http://127.0.0.1:8103"),
+        ("SUBSCRIPTION_SERVICE_URL", "http://127.0.0.1:8104"),
+        ("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8106"),
+        ("ANALYTICS_SERVICE_URL", "http://127.0.0.1:8107"),
+    ];
+    const WALLET: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8102"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_wallet",
+        ),
+    ];
+    const PAYMENT: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8103"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_payments_dev",
+        ),
+    ];
+    const SUBSCRIPTION: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8104"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_subscription",
+        ),
+    ];
+    const NOTIFICATION: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8106"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_notifications_dev",
+        ),
+        (
+            "NOTIFICATION_PLAN_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_dev",
+        ),
+    ];
+    const ANALYTICS: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "8107"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_analytics_dev",
+        ),
+    ];
+
+    match binary {
+        "epsx" => BACKEND,
+        "bff-frontend" => FRONTEND,
+        "bff-admin" => ADMIN,
+        "wallet" => WALLET,
+        "pay-service" => PAYMENT,
+        "subscription" => SUBSCRIPTION,
+        "notification" => NOTIFICATION,
+        "analytics" => ANALYTICS,
+        _ => &[],
+    }
+}
+
 fn cargo_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
-    run_status(
-        Command::new("cargo")
-            .args(["run", "-p", package, "--bin", binary])
-            .current_dir(root),
-        package,
-    )
+    let mut command = Command::new("cargo");
+    command
+        .args(["run", "-p", package, "--bin", binary])
+        .current_dir(root);
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    run_status(&mut command, package)
 }
 
 fn run_status(command: &mut Command, label: &str) -> Result<(), String> {
@@ -2414,7 +2658,8 @@ fn is_hex(value: &str, len: usize) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        contains_node_command, environment_name, is_hex, matrix_matches, require_loopback,
+        contains_node_command, environment_name, is_hex, legacy_service_worker_bootstrap,
+        local_dev_environment, matrix_matches, require_loopback,
         require_runtime_state_provisioning, runtime_bootstrap, safe_relative_path, selector_nth,
         selector_text_filter, split_selector_branches, validate_production_shape_contract,
         E2eRuntimeProfile, Scenario, ScenarioGroup,
@@ -2439,8 +2684,10 @@ mod tests {
     fn service_worker_bootstrap_owns_async_initialization_from_install() {
         let worker = runtime_bootstrap("epsx_service_worker");
         assert!(!worker.contains("await init()"));
+        assert!(worker.contains("./epsx_service_worker.js?rev=3"));
+        assert!(worker.contains("./epsx_service_worker_bg.wasm?rev=3"));
         assert!(worker.contains("self.addEventListener('install'"));
-        assert!(worker.contains("event.waitUntil(runtime.then(() => install()))"));
+        assert!(worker.contains("install()).then(() => self.skipWaiting())"));
         assert!(worker.contains("self.addEventListener('activate'"));
         assert!(worker.contains("self.addEventListener('fetch'"));
         assert!(worker.contains("event.respondWith(runtime.then(() => fetch_navigation"));
@@ -2448,8 +2695,74 @@ mod tests {
         assert!(worker.contains("self.addEventListener('notificationclick'"));
 
         let browser = runtime_bootstrap("epsx_browser_runtime");
-        assert!(browser.contains("await init()"));
+        assert!(browser.contains("await init(new URL("));
+        assert!(browser.contains("./epsx_browser_runtime.js?rev=3"));
+        assert!(browser.contains("./epsx_browser_runtime_bg.wasm?rev=3"));
         assert!(!browser.contains("addEventListener('install'"));
+    }
+
+    #[test]
+    fn legacy_service_worker_releases_existing_clients() {
+        let worker = legacy_service_worker_bootstrap();
+        assert!(worker.contains("self.skipWaiting()"));
+        assert!(worker.contains("self.registration.unregister()"));
+        assert!(worker.contains("client.navigate(client.url)"));
+        assert!(!worker.contains("fetch_navigation"));
+    }
+
+    #[test]
+    fn local_dev_services_share_one_issuer_and_frontend_origin() {
+        let backend = local_dev_environment("epsx");
+        let frontend = local_dev_environment("bff-frontend");
+        let value = |environment: &'static [(&'static str, &'static str)], key: &str| {
+            environment
+                .iter()
+                .find_map(|(candidate, value)| (*candidate == key).then_some(*value))
+        };
+
+        assert_eq!(
+            value(backend, "OIDC_ISSUER"),
+            value(frontend, "OIDC_ISSUER")
+        );
+        assert_eq!(
+            value(backend, "FRONTEND_URL"),
+            Some("http://localhost:3000")
+        );
+        assert_eq!(value(frontend, "PORT"), Some("3000"));
+        assert_eq!(value(frontend, "HOST"), Some("localhost"));
+        let admin = local_dev_environment("bff-admin");
+        assert_eq!(value(admin, "PORT"), Some("3001"));
+        assert_eq!(
+            value(admin, "WALLET_SERVICE_URL"),
+            Some("http://127.0.0.1:8102")
+        );
+        assert_eq!(
+            value(admin, "PAYMENT_SERVICE_URL"),
+            Some("http://127.0.0.1:8103")
+        );
+        assert_eq!(
+            value(admin, "SUBSCRIPTION_SERVICE_URL"),
+            Some("http://127.0.0.1:8104")
+        );
+        assert_eq!(
+            value(admin, "NOTIFICATION_SERVICE_URL"),
+            Some("http://127.0.0.1:8106")
+        );
+        assert_eq!(
+            value(admin, "ANALYTICS_SERVICE_URL"),
+            Some("http://127.0.0.1:8107")
+        );
+        for binary in [
+            "wallet",
+            "pay-service",
+            "subscription",
+            "notification",
+            "analytics",
+        ] {
+            let service = local_dev_environment(binary);
+            assert_eq!(value(service, "OIDC_ISSUER"), value(backend, "OIDC_ISSUER"));
+            assert!(value(service, "DATABASE_URL").is_some());
+        }
     }
 
     #[test]

@@ -393,7 +393,7 @@ impl Card {
         }).unwrap_or_default();
 
         let footer_html = self.footer.as_deref()
-            .map(|f| format!(r#"<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">{f}</div>"#))
+            .map(|f| format!(r#"<div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--epsx-border);">{f}</div>"#))
             .unwrap_or_default();
 
         format!(

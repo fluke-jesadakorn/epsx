@@ -119,6 +119,27 @@ fn profile_page_renders_gate_when_signed_out() {
     );
 }
 
+#[test]
+fn connected_wallet_without_session_prompts_to_complete_sign_in() {
+    let mut ctx = anon_ctx("/profile");
+    ctx.wallet.address = Some("0x1234567890abcdef1234567890abcdef1234abcd".to_string());
+    let (_meta, element) = crate::pages::profile::render(&ctx);
+    let html = render_to_string(element);
+
+    assert!(
+        html.contains("Complete sign-in"),
+        "A connected wallet without a verified session needs an explicit intermediate state. Got: {}",
+        html
+    );
+    assert!(html.contains("Your wallet is connected."));
+    assert!(html.contains("Continue sign-in"));
+    assert!(
+        !html.contains(PROFILE_HEADER),
+        "A wallet cookie alone must never pass the server-session gate. Got: {}",
+        html
+    );
+}
+
 /// Secondary assertion: the return_url is plumbed into the
 /// `?return_url=<path>` query string on the connect link. This is the
 /// bounce-back path the SIWE flow needs.

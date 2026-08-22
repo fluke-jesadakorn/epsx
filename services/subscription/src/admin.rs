@@ -36,7 +36,11 @@ pub struct AdminPlan {
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PlanRequest {
-    pub merchant_id: Uuid,
+    /// Required when creating a plan. Updates keep the existing merchant
+    /// ownership and therefore do not require the admin UI to round-trip a
+    /// merchant identifier that is intentionally absent from its redacted
+    /// read projection.
+    pub merchant_id: Option<Uuid>,
     pub name: String,
     pub description: Option<String>,
     pub amount: String,
@@ -181,6 +185,9 @@ fn validate_plan(request: &PlanRequest, update: bool) -> Result<(), &'static str
     {
         return Err("invalid_plan");
     }
+    if !update && request.merchant_id.is_none() {
+        return Err("invalid_merchant");
+    }
     if update && request.expected_version.is_none_or(|version| version < 0) {
         return Err("invalid_version");
     }
@@ -286,6 +293,9 @@ pub async fn create_plan(
     if validate_plan(&request, false).is_err() {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_plan");
     }
+    let Some(merchant_id) = request.merchant_id else {
+        return error(&headers, StatusCode::BAD_REQUEST, "invalid_plan");
+    };
     let Some(key) = idempotency_key(&headers) else {
         return error(&headers, StatusCode::BAD_REQUEST, "missing_idempotency_key");
     };
@@ -314,7 +324,7 @@ pub async fn create_plan(
          VALUES($1,$2,$3,$4,$5,$6,$7,COALESCE($8,true))
          RETURNING id,merchant_id,name,description,amount,currency,chain_id,interval,active,created_at,0::bigint AS version",
     )
-    .bind(request.merchant_id)
+    .bind(merchant_id)
     .bind(request.name.trim())
     .bind(&request.description)
     .bind(&request.amount)

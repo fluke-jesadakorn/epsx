@@ -21,9 +21,11 @@ pub enum PaySchemaError {
 ///
 /// The query intentionally validates the complete public table, column,
 /// constraint, and index inventory. It rejects hostile `search_path` shadowing,
-/// unexpected inheritance/partitioning, RLS/policies, inbound or outbound
-/// foreign keys, standalone/partial/expression/INCLUDE indexes, non-default
-/// type collations, and opclass name/namespace drift.
+/// unexpected inheritance/partitioning, RLS/policies, constraints owned by
+/// the four candidate tables, standalone/partial/expression/INCLUDE indexes,
+/// non-default type collations, and opclass name/namespace drift. Inbound
+/// references from the service-owned admin evidence tables are permitted and
+/// must not be mistaken for constraints or duplicate indexes on the target.
 const PAY_SCHEMA_COMPATIBILITY_QUERY: &str = r#"
 WITH expected_tables (table_name) AS (
     VALUES
@@ -214,13 +216,8 @@ actual_structural_constraints AS (
 structural_constraint_boundary AS (
     SELECT constraint_record.oid
     FROM pg_catalog.pg_constraint AS constraint_record
-    WHERE (
-        constraint_record.conrelid IN (
-            SELECT relation_oid FROM target_tables WHERE relation_oid IS NOT NULL
-        )
-        OR constraint_record.confrelid IN (
-            SELECT relation_oid FROM target_tables WHERE relation_oid IS NOT NULL
-        )
+    WHERE constraint_record.conrelid IN (
+        SELECT relation_oid FROM target_tables WHERE relation_oid IS NOT NULL
     )
       AND constraint_record.contype <> 'n'
 ),
@@ -338,7 +335,14 @@ actual_indexes AS (
         index_record.indimmediate,
         index_record.indisclustered,
         index_record.indisreplident,
-        index_record.indnullsnotdistinct,
+        -- `indnullsnotdistinct` was added in PostgreSQL 15. Reading the
+        -- catalog row through JSON keeps this compatibility guard valid on
+        -- PostgreSQL 14 while still enforcing the flag when it is exposed by
+        -- newer servers.
+        COALESCE(
+            (to_jsonb(index_record) ->> 'indnullsnotdistinct')::boolean,
+            false
+        ) AS indnullsnotdistinct,
         index_record.indnkeyatts,
         index_record.indnatts,
         index_record.indpred,
@@ -356,6 +360,8 @@ actual_indexes AS (
       ON access_method.oid = index_relation.relam
     LEFT JOIN pg_catalog.pg_constraint AS constraint_record
       ON constraint_record.conindid = index_record.indexrelid
+     AND constraint_record.conrelid = target.relation_oid
+     AND constraint_record.contype IN ('p', 'u')
     JOIN LATERAL (
         SELECT
             string_agg(attribute_record.attname, ',' ORDER BY key_column.ordinality) AS key_signature,

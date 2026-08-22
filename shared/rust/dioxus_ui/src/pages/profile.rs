@@ -96,6 +96,7 @@ fn RenderProfile(ctx: PageContext) -> Element {
                 user: ctx.user.clone(),
                 feature: Some("your profile".to_string()),
                 return_url: Some(ctx.path.clone()),
+                wallet_connected: ctx.wallet.address.is_some(),
                 div { class: "container page-content max-w-6xl",
                     PageHeader {
                         title: "Profile & Settings".to_string(),

@@ -57,38 +57,7 @@ impl StatelessConfig {
 
     /// Get Web3 domain for SIWE authentication from environment
     fn get_web3_domain() -> String {
-        use std::env;
-
-        // Try to get frontend URL from environment
-        if let Ok(frontend_url) = env::var("FRONTEND_URL") {
-            if let Ok(url) = url::Url::parse(&frontend_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-
-        // Try NEXT_PUBLIC_APP_URL as fallback
-        if let Ok(app_url) = env::var("NEXT_PUBLIC_APP_URL") {
-            if let Ok(url) = url::Url::parse(&app_url) {
-                if let Some(host) = url.host_str() {
-                    return host.to_string();
-                }
-            }
-        }
-
-        // Environment-based defaults
-        if env::var("NODE_ENV")
-            .map(|v| v == "production")
-            .unwrap_or(false)
-            || env::var("RUST_ENV")
-                .map(|v| v == "production")
-                .unwrap_or(false)
-        {
-            "epsx.io".to_string()
-        } else {
-            "localhost".to_string()
-        }
+        super::configured_siwe_domain()
     }
 }
 

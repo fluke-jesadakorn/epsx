@@ -223,6 +223,7 @@ impl UnifiedRouteBuilder {
 
     /// Build complete router with all routes and middleware
     pub fn build(self) -> Router {
+        let outer_auth_state = self.create_app_state();
         // Create route plans
         let health_routes = self.create_health_routes();
         let well_known_routes = self.create_well_known_routes();
@@ -297,15 +298,22 @@ impl UnifiedRouteBuilder {
             .layer(axum_middleware::from_fn(
                 crate::web::middleware::request_id_middleware,
             ))
-            .layer(axum_middleware::from_fn_with_state(
-                self.container.clone(),
-                crate::web::middleware::usage_tracking_middleware,
+            .layer(axum_middleware::from_fn(
+                crate::web::operation_registry::operation_permission_guard,
             ))
             .layer(axum_middleware::from_fn_with_state(
                 self.container.clone(),
                 crate::web::middleware::unified_rate_limit_middleware,
             ))
+            .layer(axum_middleware::from_fn_with_state(
+                self.container.clone(),
+                crate::web::middleware::usage_tracking_middleware,
+            ))
             .layer(self.configure_cors())
+            .layer(axum_middleware::from_fn_with_state(
+                outer_auth_state,
+                crate::web::middleware::optional_bearer_middleware,
+            ))
     }
 
     // ============================================================================
@@ -628,6 +636,21 @@ impl UnifiedRouteBuilder {
                 "/watchlist/{symbol}",
                 delete(crate::web::user::watchlist_handlers::remove_from_watchlist),
             )
+            .route(
+                "/watchlist/layout",
+                get(crate::web::user::watchlist_handlers::get_watchlist_layout)
+                    .put(crate::web::user::watchlist_handlers::update_watchlist_layout),
+            )
+            .route(
+                "/watchlist/groups",
+                get(crate::web::user::watchlist_handlers::get_watchlist_layout)
+                    .post(crate::web::user::watchlist_handlers::create_watchlist_group),
+            )
+            .route(
+                "/watchlist/groups/{group_id}",
+                axum::routing::put(crate::web::user::watchlist_handlers::update_watchlist_group)
+                    .delete(crate::web::user::watchlist_handlers::delete_watchlist_group),
+            )
             .with_state(app_state.clone())
             .layer(axum_middleware::from_fn_with_state(
                 app_state,
@@ -677,23 +700,34 @@ impl UnifiedRouteBuilder {
             .route("/available-plans", get(list_available_plans_handler))
             .with_state(app_state.clone());
 
-        // User-facing routes (scoped to authenticated user's wallet)
-        // Requires web3 auth middleware to inject wallet_address Extension
-        let authenticated_routes = Router::new()
+        let read_routes = Router::new()
             .route("/my-keys", get(list_my_keys_handler))
-            .route("/my-keys", post(create_my_key_handler))
             .route("/my-keys/{id}", get(get_my_key_handler))
-            .route("/my-keys/{id}", delete(revoke_my_key_handler))
-            .route("/my-keys/{id}/revoke", post(revoke_my_key_handler))
             .route("/my-plans", get(get_my_plans_handler))
             .route("/stats", get(get_usage_stats_handler))
             .route("/usage-history", get(get_usage_history_handler))
             .route("/top-endpoints", get(get_top_endpoints_handler))
             .route("/overview", get(developer_overview_handler))
+            .layer(axum_middleware::from_fn_with_state(
+                "epsx:api:read",
+                crate::web::middleware::perm_guard,
+            ));
+        let mutation_routes = Router::new()
+            .route("/my-keys", post(create_my_key_handler))
+            .route("/my-keys/{id}/revoke", post(revoke_my_key_handler))
+            .layer(axum_middleware::from_fn_with_state(
+                "epsx:api:write",
+                crate::web::middleware::perm_guard,
+            ));
+        let authenticated_routes = read_routes
+            .merge(mutation_routes)
             .with_state(app_state.clone())
+            .layer(axum_middleware::from_fn(
+                crate::web::middleware::require_exact_frontend_audience,
+            ))
             .layer(axum_middleware::from_fn_with_state(
                 app_state,
-                crate::web::middleware::web3_auth_middleware,
+                crate::web::middleware::bearer_middleware,
             ));
 
         // Combine public and authenticated routes

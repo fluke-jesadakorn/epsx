@@ -73,6 +73,11 @@ pub struct AdminDeveloperModuleUsage {
 pub struct AdminDeveloperPortalProjection {
     pub api_keys: Vec<AdminDeveloperApiKeySummary>,
     pub total_api_keys: i64,
+    pub active_api_keys: i64,
+    pub revoked_api_keys: i64,
+    pub expired_api_keys: i64,
+    pub total_modules: i64,
+    pub active_modules: i64,
     pub total_requests_today: i64,
     pub total_requests_this_month: i64,
     pub top_modules_by_usage: Vec<AdminDeveloperModuleUsage>,
@@ -171,6 +176,17 @@ pub fn decode_admin_developer_projection(
         || projection.top_modules_by_usage.len() > MAX_MODULES
         || projection.total_api_keys < 0
         || projection.total_api_keys < projection.api_keys.len() as i64
+        || projection.active_api_keys < 0
+        || projection.revoked_api_keys < 0
+        || projection.expired_api_keys < 0
+        || projection
+            .active_api_keys
+            .checked_add(projection.revoked_api_keys)
+            .and_then(|value| value.checked_add(projection.expired_api_keys))
+            != Some(projection.total_api_keys)
+        || projection.total_modules < 0
+        || projection.active_modules < 0
+        || projection.active_modules > projection.total_modules
         || projection.total_requests_today < 0
         || projection.total_requests_this_month < 0
         || projection.api_keys.iter().any(|key| !key.is_well_formed())
@@ -187,10 +203,30 @@ pub fn decode_admin_developer_projection(
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum DeveloperPortalLoad {
     Ready(AdminDeveloperPortalProjection),
-    Empty,
+    Empty(AdminDeveloperPortalProjection),
     Forbidden,
     Unavailable,
     Malformed,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum DeveloperTab {
+    Overview,
+    Keys,
+    Docs,
+    Usage,
+}
+
+impl DeveloperTab {
+    fn from_context(ctx: &PageContext) -> Self {
+        match ctx.query_param("tab").as_deref() {
+            Some("keys") => Self::Keys,
+            Some("docs") => Self::Docs,
+            Some("usage") => Self::Usage,
+            Some("overview") | None => Self::Overview,
+            Some(_) => Self::Overview,
+        }
+    }
 }
 
 fn developer_portal_load(ctx: &PageContext) -> DeveloperPortalLoad {
@@ -218,7 +254,7 @@ fn developer_portal_load(ctx: &PageContext) -> DeveloperPortalLoad {
                 (Some(ADMIN_DEVELOPER_READY), true, total) if total > 0 => {
                     DeveloperPortalLoad::Ready(projection)
                 }
-                (Some(ADMIN_DEVELOPER_EMPTY), true, 0) => DeveloperPortalLoad::Empty,
+                (Some(ADMIN_DEVELOPER_EMPTY), true, 0) => DeveloperPortalLoad::Empty(projection),
                 _ => DeveloperPortalLoad::Malformed,
             }
         }
@@ -247,15 +283,16 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderDeveloperPortal(ctx: PageContext) -> Element {
     let load = developer_portal_load(&ctx);
     let mutation = developer_mutation_state(&ctx);
+    let tab = DeveloperTab::from_context(&ctx);
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
                 title: "Developer Portal".to_string(),
-                subtitle: Some("Review backend-authoritative redacted activity".to_string()),
+                subtitle: Some("Manage API keys, documentation, and third-party integrations".to_string()),
                 icon: Some("code".to_string()),
-                gradient: Some(PageGradient::Purple),
-                centered: Some(false),
+                gradient: Some(PageGradient::Warning),
+                centered: Some(true),
                 extra_actions: None,
                 class_name: None,
             }
@@ -263,10 +300,11 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
                 DeveloperMutationNotice { state }
             }
             match load {
-                DeveloperPortalLoad::Ready(projection) => rsx! { DeveloperPortalReady { projection } },
-                DeveloperPortalLoad::Empty => rsx! { DeveloperPortalEmpty {} },
+                DeveloperPortalLoad::Ready(projection) => rsx! { DeveloperPortalReady { projection, tab, state: ADMIN_DEVELOPER_READY } },
+                DeveloperPortalLoad::Empty(projection) => rsx! { DeveloperPortalReady { projection, tab, state: ADMIN_DEVELOPER_EMPTY } },
                 DeveloperPortalLoad::Forbidden => rsx! {
                     DeveloperPortalProblem {
+                        tab,
                         state: ADMIN_DEVELOPER_FORBIDDEN,
                         title: "Developer portal access was denied".to_string(),
                         detail: "The backend did not authorize this session to read the redacted developer inventory.".to_string(),
@@ -274,6 +312,7 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
                 },
                 DeveloperPortalLoad::Unavailable => rsx! {
                     DeveloperPortalProblem {
+                        tab,
                         state: ADMIN_DEVELOPER_UNAVAILABLE,
                         title: "Developer portal data is unavailable".to_string(),
                         detail: "The backend did not provide an authoritative developer inventory. No credential or usage data is being shown.".to_string(),
@@ -281,6 +320,7 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
                 },
                 DeveloperPortalLoad::Malformed => rsx! {
                     DeveloperPortalProblem {
+                        tab,
                         state: ADMIN_DEVELOPER_MALFORMED,
                         title: "Developer portal data could not be verified".to_string(),
                         detail: "The backend response did not match the strict redacted read contract. No credential or usage data is being shown.".to_string(),
@@ -292,58 +332,229 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
 }
 
 #[component]
-fn DeveloperPortalReady(projection: AdminDeveloperPortalProjection) -> Element {
-    let key_count = projection.api_keys.len();
+fn DeveloperPortalReady(
+    projection: AdminDeveloperPortalProjection,
+    tab: DeveloperTab,
+    state: &'static str,
+) -> Element {
     rsx! {
-        div {
-            class: "space-y-6",
-            "data-admin-developer-portal-state": ADMIN_DEVELOPER_READY,
-            section {
-                class: "grid gap-4 sm:grid-cols-3",
-                aria_label: "Developer portal summary",
-                SummaryCard { label: "Total API keys", value: projection.total_api_keys.to_string(), icon: "key" }
-                SummaryCard { label: "Requests today", value: projection.total_requests_today.to_string(), icon: "activity" }
-                SummaryCard { label: "Requests this month", value: projection.total_requests_this_month.to_string(), icon: "bar-chart-3" }
+        div { class: "space-y-6", "data-admin-developer-portal-state": state,
+            match tab {
+                DeveloperTab::Overview => rsx! { DeveloperOverview { projection } },
+                DeveloperTab::Keys => rsx! { DeveloperKeys { projection } },
+                DeveloperTab::Docs => rsx! { DeveloperDocumentation { modules_available: Some(projection.active_modules) } },
+                DeveloperTab::Usage => rsx! { DeveloperUsage { projection } },
             }
-            section {
-                class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
-                aria_labelledby: "developer-api-key-inventory-title",
-                div { class: "h-1 bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
-                div { class: "flex flex-wrap items-start justify-between gap-4 p-6",
+        }
+    }
+}
+
+#[component]
+fn DeveloperOverview(projection: AdminDeveloperPortalProjection) -> Element {
+    rsx! {
+        section { class: "grid gap-4 sm:grid-cols-2 lg:grid-cols-4", aria_label: "Developer portal summary",
+            SummaryCard { label: "Total API Keys", value: projection.total_api_keys.to_string(), icon: "key" }
+            SummaryCard { label: "Active Keys", value: projection.active_api_keys.to_string(), icon: "activity" }
+            SummaryCard { label: "Total Requests", value: projection.total_requests_this_month.to_string(), icon: "bar-chart-3" }
+            SummaryCard { label: "Available Modules", value: projection.active_modules.to_string(), icon: "settings" }
+        }
+        div { class: "grid gap-6 lg:grid-cols-2",
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_labelledby: "developer-recent-keys-title",
+                div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" }
+                div { class: "flex flex-wrap items-center justify-between gap-3 border-b border-border/20 p-6",
                     div {
-                        h2 { id: "developer-api-key-inventory-title", class: "text-lg font-semibold text-foreground", "API-key inventory" }
-                        p { class: "mt-1 text-sm text-muted-foreground", "{key_count} redacted records in this bounded response" }
+                        h2 { id: "developer-recent-keys-title", class: "text-lg font-medium text-foreground", "Recent API Keys" }
+                        p { class: "mt-1 text-sm text-muted-foreground", "Redacted backend-authoritative inventory" }
                     }
-                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_CREATE_PATH, "Create API key" }
+                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_CREATE_PATH,
+                        Icon { name: "plus".to_string(), size: Some(14) }
+                        " Create API Key"
+                    }
                 }
                 if projection.api_keys.is_empty() {
-                    div { class: "border-t border-border/30 p-8 text-center", role: "status",
-                        "No records are present in this bounded inventory page."
-                    }
+                    p { class: "p-10 text-center text-sm text-muted-foreground", role: "status", "No API keys have been created yet." }
                 } else {
-                    div { class: "divide-y divide-border/30 border-t border-border/30",
-                        for key in projection.api_keys {
-                            DeveloperApiKeyRow { api_key: key }
+                    div { class: "divide-y divide-border/20",
+                        for api_key in projection.api_keys.iter().take(5) {
+                            DeveloperRecentKeyRow { api_key: api_key.clone() }
+                        }
+                    }
+                }
+                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#1fc7d4]", href: "/developer-portal?tab=keys", "View all API keys" }
+            }
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_labelledby: "developer-module-usage-title",
+                div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" }
+                div { class: "border-b border-border/20 p-6",
+                    h2 { id: "developer-module-usage-title", class: "text-lg font-medium text-foreground", "Module Activity" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Persisted usage totals from the backend" }
+                }
+                if projection.top_modules_by_usage.is_empty() {
+                    p { class: "p-10 text-center text-sm text-muted-foreground", role: "status", "No module usage was reported." }
+                } else {
+                    ul { class: "divide-y divide-border/20", aria_label: "Top module usage",
+                        for module in projection.top_modules_by_usage.iter().take(5) {
+                            DeveloperModuleUsageRow { module: module.clone() }
+                        }
+                    }
+                }
+                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#7645d9]", href: "/developer-portal?tab=usage", "View usage analytics" }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperRecentKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
+    let status_class = developer_status_class(&api_key.status);
+    rsx! {
+        article { class: "flex flex-wrap items-center justify-between gap-4 p-5",
+            div { class: "flex min-w-0 items-center gap-3",
+                span { class: "rounded-xl bg-muted/30 p-2", Icon { name: "key".to_string(), size: Some(18) } }
+                div { class: "min-w-0",
+                    h3 { class: "truncate text-sm font-medium text-foreground", "{api_key.client_name}" }
+                    p { class: "mt-1 font-mono text-xs text-muted-foreground", "{api_key.key_prefix}..." }
+                }
+            }
+            div { class: "text-right",
+                span { class: "inline-flex rounded-full border px-2 py-1 text-xs font-medium {status_class}", "{api_key.status}" }
+                p { class: "mt-2 text-xs text-muted-foreground", "{api_key.total_requests} requests" }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperKeys(projection: AdminDeveloperPortalProjection) -> Element {
+    let key_count = projection.api_keys.len();
+    rsx! {
+        section { class: "space-y-6",
+            div { class: "flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between",
+                div {
+                    h2 { class: "text-2xl font-black tracking-tight text-foreground", "API Keys" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Manage credentials and lifecycle controls" }
+                }
+                a { class: "btn btn-primary", href: DEVELOPER_CREATE_PATH,
+                    Icon { name: "plus".to_string(), size: Some(16) }
+                    " Create API Key"
+                }
+            }
+            div { class: "flex flex-wrap gap-3 rounded-2xl border border-border/20 bg-card p-4",
+                input { class: "input min-w-56 flex-1", r#type: "search", placeholder: "Search API keys", disabled: true, title: "Server-side API-key search is not exposed by the current endpoint" }
+                select { class: "input min-w-40", disabled: true, title: "Server-side status filtering is not exposed by the current endpoint",
+                    option { "All Statuses ({projection.total_api_keys})" }
+                }
+                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, "Refresh" }
+            }
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_labelledby: "developer-api-key-inventory-title",
+                div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
+                div { class: "border-b border-border/20 p-5",
+                    h3 { id: "developer-api-key-inventory-title", class: "text-lg font-semibold text-foreground", "API-key inventory" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Showing {key_count} of {projection.total_api_keys} redacted API keys" }
+                }
+                if projection.api_keys.is_empty() {
+                    p { class: "p-12 text-center text-sm text-muted-foreground", role: "status", "No API keys have been created yet." }
+                } else {
+                    div { class: "divide-y divide-border/20",
+                        for api_key in projection.api_keys {
+                            DeveloperApiKeyRow { api_key }
                         }
                     }
                 }
             }
-            section {
-                class: "rounded-2xl border border-border/30 bg-card shadow-xl",
-                aria_labelledby: "developer-module-usage-title",
-                div { class: "border-b border-border/30 p-6",
-                    h2 { id: "developer-module-usage-title", class: "text-lg font-semibold text-foreground", "Module usage" }
-                    p { class: "mt-1 text-sm text-muted-foreground", "Persisted usage totals from the authoritative analytics projection" }
+        }
+    }
+}
+
+#[component]
+fn DeveloperDocumentation(modules_available: Option<i64>) -> Element {
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
+            div { class: "border-b border-border/20 p-6",
+                h2 { class: "text-lg font-semibold text-foreground", "API Documentation" }
+                p { class: "mt-1 text-sm text-muted-foreground", "Complete guide to using the module-based API" }
+            }
+            div { class: "space-y-6 p-6",
+                DeveloperDocumentationSection { icon: "shield", title: "Authentication",
+                    p { class: "text-sm text-muted-foreground", "Include your API key in the Authorization header:" }
+                    code { class: "mt-3 block overflow-x-auto rounded-lg bg-gray-950 p-4 font-mono text-sm text-green-400", "Authorization: Bearer YOUR_API_KEY" }
                 }
-                if projection.top_modules_by_usage.is_empty() {
-                    p { class: "p-8 text-center text-sm text-muted-foreground", role: "status", "No module usage was reported." }
-                } else {
-                    ul { class: "divide-y divide-border/30", aria_label: "Top module usage",
-                        for module in projection.top_modules_by_usage {
-                            DeveloperModuleUsageRow { module }
+                DeveloperDocumentationSection { icon: "globe", title: "Base URL",
+                    code { class: "block rounded-lg bg-muted/30 p-4 font-mono text-sm text-foreground", "https://api.epsx.io" }
+                }
+                DeveloperDocumentationSection { icon: "code", title: "Available Endpoints",
+                    div { class: "rounded-lg border border-border/20 bg-muted/20 p-4 text-sm text-muted-foreground",
+                        if let Some(count) = modules_available { "{count} active modules are available. Endpoint paths remain backend-owned and are not inferred in this redacted projection." } else { "Module endpoint definitions are unavailable." }
+                    }
+                }
+                DeveloperDocumentationSection { icon: "alert-triangle", title: "Rate Limits",
+                    p { class: "rounded-lg border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-muted-foreground", "Limits are assigned per API key by the backend. This inventory intentionally omits credential quotas." }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperDocumentationSection(
+    icon: &'static str,
+    title: &'static str,
+    children: Element,
+) -> Element {
+    rsx! {
+        section {
+            h3 { class: "mb-3 flex items-center gap-2 text-base font-semibold text-foreground",
+                Icon { name: icon.to_string(), size: Some(18) }
+                "{title}"
+            }
+            {children}
+        }
+    }
+}
+
+#[component]
+fn DeveloperUsage(projection: AdminDeveloperPortalProjection) -> Element {
+    rsx! {
+        section { class: "space-y-6",
+            div { class: "flex flex-wrap items-center justify-between gap-3",
+                div {
+                    h2 { class: "text-2xl font-black tracking-tight text-foreground", "Usage Analytics" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Backend-authoritative API activity" }
+                }
+                button { class: "btn btn-outline", r#type: "button", disabled: true, title: "Usage export requires a backend-owned export contract", "Export Data" }
+            }
+            div { class: "grid gap-4 sm:grid-cols-3",
+                SummaryCard { label: "Requests Today", value: projection.total_requests_today.to_string(), icon: "activity" }
+                SummaryCard { label: "Requests This Month", value: projection.total_requests_this_month.to_string(), icon: "bar-chart-3" }
+                SummaryCard { label: "Active API Keys", value: projection.active_api_keys.to_string(), icon: "key" }
+            }
+            div { class: "grid gap-6 lg:grid-cols-2",
+                DeveloperUsagePanel { title: "Requests Over Time", icon: "bar-chart-3", detail: "Timeline telemetry is unavailable in the current typed projection." }
+                section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+                    h3 { class: "mb-4 text-base font-medium text-foreground", "Module Usage Distribution" }
+                    if projection.top_modules_by_usage.is_empty() {
+                        p { class: "flex h-48 items-center justify-center rounded-lg bg-muted/20 text-sm text-muted-foreground", "No module usage was reported." }
+                    } else {
+                        ul { class: "divide-y divide-border/20 rounded-lg border border-border/20",
+                            for module in projection.top_modules_by_usage {
+                                DeveloperModuleUsageRow { module }
+                            }
                         }
                     }
                 }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperUsagePanel(title: &'static str, icon: &'static str, detail: &'static str) -> Element {
+    rsx! {
+        section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+            h3 { class: "mb-4 text-base font-medium text-foreground", "{title}" }
+            div { class: "flex h-48 flex-col items-center justify-center rounded-lg bg-muted/20 px-6 text-center text-muted-foreground",
+                Icon { name: icon.to_string(), size: Some(28) }
+                p { class: "mt-3 text-sm", "Unavailable" }
+                p { class: "mt-1 text-xs", "{detail}" }
             }
         }
     }
@@ -364,11 +575,7 @@ fn SummaryCard(label: &'static str, value: String, icon: &'static str) -> Elemen
 
 #[component]
 fn DeveloperApiKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
-    let status_class = match api_key.status.as_str() {
-        "active" => "border-green-500/20 bg-green-500/10 text-green-400",
-        "expired" => "border-red-500/20 bg-red-500/10 text-red-400",
-        _ => "border-amber-500/20 bg-amber-500/10 text-amber-400",
-    };
+    let status_class = developer_status_class(&api_key.status);
     let expires_at = api_key.expires_at.as_deref().unwrap_or("No expiry");
     let last_used_at = api_key.last_used_at.as_deref().unwrap_or("Not used");
     rsx! {
@@ -415,6 +622,14 @@ fn DeveloperApiKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
                 }
             }
         }
+    }
+}
+
+fn developer_status_class(status: &str) -> &'static str {
+    match status {
+        "active" => "border-green-500/20 bg-green-500/10 text-green-400",
+        "expired" => "border-red-500/20 bg-red-500/10 text-red-400",
+        _ => "border-amber-500/20 bg-amber-500/10 text-amber-400",
     }
 }
 
@@ -467,33 +682,114 @@ fn DeveloperModuleUsageRow(module: AdminDeveloperModuleUsage) -> Element {
 }
 
 #[component]
-fn DeveloperPortalEmpty() -> Element {
+fn DeveloperPortalProblem(
+    tab: DeveloperTab,
+    state: &'static str,
+    title: String,
+    detail: String,
+) -> Element {
     rsx! {
-        section {
-            class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
-            role: "status",
-            "data-admin-developer-portal-state": ADMIN_DEVELOPER_EMPTY,
-            Icon { name: "code".to_string(), size: Some(30) }
-            h2 { class: "mt-4 text-xl font-semibold text-foreground", "No developer records found" }
-            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground", "The backend returned an authoritative empty API-key inventory. Creation and management remain backend-authorized operations." }
-            a { class: "btn btn-outline mt-5", href: DEVELOPER_PORTAL_PATH, "Refresh developer portal" }
+        div { class: "space-y-6",
+            "data-admin-developer-portal-state": state,
+            section { class: "flex flex-col gap-4 rounded-2xl border border-amber-500/25 bg-amber-500/5 p-5 sm:flex-row sm:items-center sm:justify-between",
+                role: if state == ADMIN_DEVELOPER_FORBIDDEN { "alert" } else { "status" },
+                div { class: "flex items-start gap-3",
+                    span { class: "rounded-xl bg-amber-500/10 p-2 text-amber-400", Icon { name: "shield".to_string(), size: Some(20) } }
+                    div {
+                        h2 { class: "font-semibold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                    }
+                }
+                div { class: "flex flex-shrink-0 gap-2",
+                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_PORTAL_PATH, "Try again" }
+                    a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                }
+            }
+            match tab {
+                DeveloperTab::Overview => rsx! { DeveloperOverviewUnavailable {} },
+                DeveloperTab::Keys => rsx! { DeveloperKeysUnavailable {} },
+                DeveloperTab::Docs => rsx! { DeveloperDocumentation { modules_available: None } },
+                DeveloperTab::Usage => rsx! { DeveloperUsageUnavailable {} },
+            }
         }
     }
 }
 
 #[component]
-fn DeveloperPortalProblem(state: &'static str, title: String, detail: String) -> Element {
+fn DeveloperOverviewUnavailable() -> Element {
     rsx! {
-        section {
-            class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
-            role: if state == ADMIN_DEVELOPER_FORBIDDEN { "alert" } else { "status" },
-            "data-admin-developer-portal-state": state,
-            Icon { name: "shield".to_string(), size: Some(30) }
-            h2 { class: "mt-4 text-xl font-semibold text-foreground", "{title}" }
-            p { class: "mx-auto mt-2 max-w-2xl text-sm leading-6 text-muted-foreground", "{detail}" }
-            div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                a { class: "btn btn-primary", href: DEVELOPER_PORTAL_PATH, "Try again" }
-                a { class: "btn btn-outline", href: "/", "Admin home" }
+        section { class: "grid gap-4 sm:grid-cols-2 lg:grid-cols-4", aria_label: "Developer portal summary unavailable",
+            SummaryCard { label: "Total API Keys", value: "Unavailable".to_string(), icon: "key" }
+            SummaryCard { label: "Active Keys", value: "Unavailable".to_string(), icon: "activity" }
+            SummaryCard { label: "Total Requests", value: "Unavailable".to_string(), icon: "bar-chart-3" }
+            SummaryCard { label: "Available Modules", value: "Unavailable".to_string(), icon: "settings" }
+        }
+        div { class: "grid gap-6 lg:grid-cols-2",
+            DeveloperUnavailablePanel { title: "Recent API Keys", detail: "No verified redacted key inventory is available.", icon: "key" }
+            DeveloperUnavailablePanel { title: "Module Activity", detail: "No verified module-usage projection is available.", icon: "activity" }
+        }
+    }
+}
+
+#[component]
+fn DeveloperKeysUnavailable() -> Element {
+    rsx! {
+        section { class: "space-y-6",
+            div { class: "flex flex-wrap items-end justify-between gap-4",
+                div {
+                    h2 { class: "text-2xl font-black tracking-tight text-foreground", "API Keys" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Manage credentials and lifecycle controls" }
+                }
+                button { class: "btn btn-primary", r#type: "button", disabled: true, "Create API Key" }
+            }
+            div { class: "flex flex-wrap gap-3 rounded-2xl border border-border/20 bg-card p-4",
+                input { class: "input min-w-56 flex-1", placeholder: "Search API keys", disabled: true }
+                select { class: "input min-w-40", disabled: true, option { "All Statuses" } }
+                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, "Refresh" }
+            }
+            DeveloperUnavailablePanel { title: "API-key inventory", detail: "No verified credential rows are being shown.", icon: "key" }
+        }
+    }
+}
+
+#[component]
+fn DeveloperUsageUnavailable() -> Element {
+    rsx! {
+        section { class: "space-y-6",
+            div { class: "flex flex-wrap items-center justify-between gap-3",
+                div {
+                    h2 { class: "text-2xl font-black tracking-tight text-foreground", "Usage Analytics" }
+                    p { class: "mt-1 text-sm text-muted-foreground", "Backend-authoritative API activity" }
+                }
+                button { class: "btn btn-outline", r#type: "button", disabled: true, "Export Data" }
+            }
+            div { class: "grid gap-4 sm:grid-cols-3",
+                SummaryCard { label: "Requests Today", value: "Unavailable".to_string(), icon: "activity" }
+                SummaryCard { label: "Requests This Month", value: "Unavailable".to_string(), icon: "bar-chart-3" }
+                SummaryCard { label: "Active API Keys", value: "Unavailable".to_string(), icon: "key" }
+            }
+            div { class: "grid gap-6 lg:grid-cols-2",
+                DeveloperUsagePanel { title: "Requests Over Time", icon: "bar-chart-3", detail: "Timeline telemetry is unavailable." }
+                DeveloperUsagePanel { title: "Module Usage Distribution", icon: "activity", detail: "Module usage telemetry is unavailable." }
+            }
+        }
+    }
+}
+
+#[component]
+fn DeveloperUnavailablePanel(
+    title: &'static str,
+    detail: &'static str,
+    icon: &'static str,
+) -> Element {
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
+            div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] to-[#7645d9]" }
+            div { class: "border-b border-border/20 p-6", h3 { class: "text-lg font-medium text-foreground", "{title}" } }
+            div { class: "flex min-h-48 flex-col items-center justify-center p-8 text-center text-muted-foreground",
+                Icon { name: icon.to_string(), size: Some(28) }
+                p { class: "mt-3 text-sm font-medium", "Unavailable" }
+                p { class: "mt-1 text-xs", "{detail}" }
             }
         }
     }
@@ -507,7 +803,10 @@ pub fn render_create_key(ctx: &PageContext) -> (PageMeta, Element) {
                 user: ctx.user.clone(),
                 feature: Some("API-key creation".to_string()),
                 return_url: Some(DEVELOPER_CREATE_PATH.to_string()),
-                RenderDeveloperCreateKey { ctx: ctx.clone() }
+                PageLayout {
+                    max_width: Some(PageMaxWidth::FourXl),
+                    RenderDeveloperCreateKey { ctx: ctx.clone() }
+                }
             }
         },
     )
@@ -575,29 +874,58 @@ fn DeveloperCreateForm() -> Element {
     let idempotency_key = Uuid::new_v4().to_string();
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl",
+            class: "rounded-2xl border border-border/20 bg-card p-5 shadow-xl sm:p-8",
             role: "region",
             "data-admin-developer-create-state": ADMIN_DEVELOPER_CREATE_FORM,
-            h1 { class: "text-xl font-semibold text-foreground", "Create API key" }
-            p { class: "mt-2 text-sm leading-6 text-muted-foreground",
-                "The backend validates the wallet, module grants, granular permissions, limits, expiration, idempotency key, audit record, and read-after-write result."
+            header { class: "mb-8 flex items-center gap-3",
+                div { class: "rounded-lg bg-blue-500/10 p-2",
+                    Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-blue-400".to_string()) }
+                }
+                div {
+                    h1 { class: "text-2xl font-bold text-foreground", "Create API Key" }
+                    p { class: "text-sm text-muted-foreground", "Generate a new API key for a third-party integration" }
+                }
             }
             form { method: "post", action: DEVELOPER_CREATE_PATH,
-                class: "mt-6 space-y-5",
-                label { class: "block text-sm font-medium text-foreground", "Client name",
-                    input { class: "input input-bordered mt-2 w-full", name: "client_name", maxlength: 255, required: true }
+                class: "space-y-6",
+                div { class: "grid grid-cols-1 gap-6 md:grid-cols-2",
+                    label { class: "block text-sm font-medium text-foreground", "Client Name ", span { class: "text-red-500", "*" }
+                        input { class: "input input-bordered mt-2 w-full", id: "client_name", name: "client_name", maxlength: 255, required: true, placeholder: "My Application" }
+                    }
+                    label { class: "block text-sm font-medium text-foreground", "Contact Email",
+                        input { class: "input input-bordered mt-2 w-full", id: "client_contact_email", name: "client_contact_email", r#type: "email", maxlength: 320, placeholder: "contact@example.com" }
+                    }
                 }
-                label { class: "block text-sm font-medium text-foreground", "Wallet address",
-                    input { class: "input input-bordered mt-2 w-full font-mono", name: "wallet_address", maxlength: 42, required: true }
+                label { class: "block text-sm font-medium text-foreground", "Description",
+                    textarea { class: "textarea textarea-bordered mt-2 w-full", id: "client_description", name: "client_description", rows: 3, maxlength: 2_000, placeholder: "Brief description of your application and use case" }
                 }
-                label { class: "block text-sm font-medium text-foreground", "Permissions (comma separated)",
-                    input { class: "input input-bordered mt-2 w-full", name: "permissions", maxlength: 12_800 }
+                label { class: "block text-sm font-medium text-foreground", "Expiration Date (Optional)",
+                    input { class: "input input-bordered mt-2 w-full", id: "expires_at", name: "expires_at", r#type: "datetime-local", maxlength: 64 }
+                    span { class: "mt-1 block text-xs font-normal text-muted-foreground", "Entered time is normalized to UTC before the backend mutation." }
                 }
-                label { class: "block text-sm font-medium text-foreground", "Expiration (RFC3339, optional)",
-                    input { class: "input input-bordered mt-2 w-full", name: "expires_at", maxlength: 64 }
+                label { class: "block text-sm font-medium text-foreground", "IP Restrictions (Optional)",
+                    textarea { class: "textarea textarea-bordered mt-2 w-full font-mono", id: "ip_restrictions", name: "ip_restrictions", rows: 4, maxlength: 1_300, placeholder: "192.168.1.0/24\n203.0.113.0/24\nOne IP address or CIDR block per line" }
+                }
+                aside { class: "rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-4",
+                    div { class: "flex items-start gap-3",
+                        Icon { name: "triangle-alert".to_string(), size: Some(20), class_name: Some("mt-0.5 shrink-0 text-yellow-400".to_string()) }
+                        div {
+                            h2 { class: "mb-1 font-medium text-yellow-300", "Module Configuration Required" }
+                            p { class: "text-sm leading-6 text-yellow-200/70", "After creating the API key, configure module permissions and access levels in the main developer portal." }
+                        }
+                    }
                 }
                 input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }
-                button { r#type: "submit", class: "btn btn-primary", "data-admin-developer-create-submit": "bff", "Create API key" }
+                div { class: "flex flex-wrap gap-3 border-t border-border/20 pt-6",
+                    a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH,
+                        Icon { name: "arrow-left".to_string(), size: Some(16) }
+                        "Cancel"
+                    }
+                    button { r#type: "submit", class: "btn btn-primary", "data-admin-developer-create-submit": "bff",
+                        Icon { name: "plus".to_string(), size: Some(16) }
+                        "Create API Key"
+                    }
+                }
             }
         }
     }
@@ -696,6 +1024,11 @@ mod tests {
         AdminDeveloperPortalProjection {
             api_keys,
             total_api_keys,
+            active_api_keys: total_api_keys,
+            revoked_api_keys: 0,
+            expired_api_keys: 0,
+            total_modules: 1,
+            active_modules: 1,
             total_requests_today: 20,
             total_requests_this_month: 800,
             top_modules_by_usage: vec![module()],
@@ -742,27 +1075,31 @@ mod tests {
 
     #[test]
     fn ready_projection_renders_redacted_fields_and_backend_lifecycle_forms() {
-        let rendered = html(&ctx(
-            ADMIN_DEVELOPER_READY,
-            Some(projection(vec![key()], 1)),
-        ));
+        let mut ready = ctx(ADMIN_DEVELOPER_READY, Some(projection(vec![key()], 1)));
+        ready.query = "tab=keys".to_string();
+        let rendered = html(&ready);
 
         assert!(rendered.contains("data-admin-developer-portal-state=\"ready\""));
         assert!(rendered.contains("Production integration"));
         assert!(rendered.contains("Prefix: epsx_abc123"));
-        assert!(rendered.contains("Market data"));
-        assert!(rendered.contains("Requests today"));
         for forbidden in ["full_key", "epsx_live_", "Authorization: Bearer"] {
             assert!(
                 !rendered.contains(forbidden),
                 "secret or mutation leaked: {forbidden}"
             );
         }
-        assert!(rendered.contains("Create API key"));
+        assert!(rendered.contains("Create API Key"));
         assert!(rendered.contains("Revoke key"));
         assert!(rendered.contains("Update expiration"));
         assert!(rendered.contains("admin.developer.revoke."));
         assert!(rendered.contains("admin.developer.expiration."));
+
+        let overview = html(&ctx(
+            ADMIN_DEVELOPER_READY,
+            Some(projection(vec![key()], 1)),
+        ));
+        assert!(overview.contains("Market data"));
+        assert!(overview.contains("Available Modules"));
     }
 
     #[test]
@@ -773,7 +1110,7 @@ mod tests {
         let malformed = html(&ctx(ADMIN_DEVELOPER_MALFORMED, None));
 
         assert!(empty.contains("data-admin-developer-portal-state=\"empty\""));
-        assert!(empty.contains("No developer records found"));
+        assert!(empty.contains("No API keys have been created yet"));
         assert!(forbidden.contains("data-admin-developer-portal-state=\"forbidden\""));
         assert!(forbidden.contains("access was denied"));
         assert!(unavailable.contains("data-admin-developer-portal-state=\"unavailable\""));
@@ -831,8 +1168,19 @@ mod tests {
         let rendered = dioxus_ssr::render_element(render_create_key(&create).1);
 
         assert!(rendered.contains("data-admin-developer-create-state=\"form\""));
-        assert!(rendered.contains("Create API key"));
+        assert!(rendered.contains("Create API Key"));
         assert!(rendered.contains("data-admin-developer-create-submit=\"bff\""));
+        for field in [
+            "client_name",
+            "client_contact_email",
+            "client_description",
+            "expires_at",
+            "ip_restrictions",
+        ] {
+            assert!(rendered.contains(&format!("name=\"{field}\"")));
+        }
+        assert!(!rendered.contains("name=\"wallet_address\""));
+        assert!(!rendered.contains("name=\"permissions\""));
 
         let projection = AdminDeveloperSecretOnceProjection {
             api_key: key(),

@@ -34,8 +34,8 @@ pub use auth_middleware::{
 // OpenID Bearer auth exports (standard OpenID Connect)
 pub use bearer_middleware::{
     bearer_middleware, check_user_permission, create_permission_denied_error, extract_user_context,
-    optional_bearer_middleware, require_exact_admin_audience, require_user_context, ErrorDetails,
-    OpenIDUserContext, UnifiedErrorResponse,
+    optional_bearer_middleware, require_exact_admin_audience, require_exact_frontend_audience,
+    require_user_context, ApiKeyIdentity, ErrorDetails, OpenIDUserContext, UnifiedErrorResponse,
 };
 
 // Rate limiter exports (used in validation)

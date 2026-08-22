@@ -8,12 +8,12 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use super::super::{PageContext, PageMeta};
+use super::wallet_hub::WalletManagementHub;
 use crate::auth::AuthGate;
-use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
+use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
 const PLANS_PATH: &str = "/wallet-management/access/plans";
-const ADMIN_HOME_PATH: &str = "/";
 const MAX_PLANS: usize = 100;
 const MAX_PLAN_NAME_CHARS: usize = 100;
 const MAX_DESCRIPTION_CHARS: usize = 2_000;
@@ -264,10 +264,9 @@ fn RenderPlanList(ctx: PageContext) -> Element {
         _ => None,
     };
     match plans_load(&ctx) {
-        PlansLoad::Ready(projection) => rsx! { PlanListReady { projection, mutation } },
+        PlansLoad::Ready(projection) => rsx! { PlanListReady { ctx, projection, mutation } },
         PlansLoad::Empty => rsx! {
-            PageLayout {
-                max_width: Some(PageMaxWidth::SevenXl),
+            WalletManagementHub { ctx: ctx.clone(),
                 PageHeader {
                     title: "Wallet plans".to_string(),
                     subtitle: Some("Review backend-authoritative plan definitions".to_string()),
@@ -288,17 +287,20 @@ fn RenderPlanList(ctx: PageContext) -> Element {
                 }
             }
         },
-        PlansLoad::Forbidden => plan_problem_element(ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read plan definitions."),
-        PlansLoad::Unavailable => plan_problem_element(ADMIN_PLANS_UNAVAILABLE, "Wallet plans are unavailable", "The subscription backend could not provide an authoritative plan response. No plans are being shown."),
-        PlansLoad::Malformed => plan_problem_element(ADMIN_PLANS_MALFORMED, "Wallet plan data could not be verified", "The backend response did not match the strict redacted plan contract. No plans are being shown."),
+        PlansLoad::Forbidden => plan_problem_element(ctx, ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read plan definitions."),
+        PlansLoad::Unavailable => plan_problem_element(ctx, ADMIN_PLANS_UNAVAILABLE, "Wallet plans are unavailable", "The subscription backend could not provide an authoritative plan response. No plans are being shown."),
+        PlansLoad::Malformed => plan_problem_element(ctx, ADMIN_PLANS_MALFORMED, "Wallet plan data could not be verified", "The backend response did not match the strict redacted plan contract. No plans are being shown."),
     }
 }
 
 #[component]
-fn PlanListReady(projection: AdminPlanListProjection, mutation: Option<String>) -> Element {
+fn PlanListReady(
+    ctx: PageContext,
+    projection: AdminPlanListProjection,
+    mutation: Option<String>,
+) -> Element {
     rsx! {
-        PageLayout {
-            max_width: Some(PageMaxWidth::SevenXl),
+        WalletManagementHub { ctx,
             PageHeader {
                 title: "Wallet plans".to_string(),
                 subtitle: Some("Review backend-authoritative plan definitions".to_string()),
@@ -385,67 +387,118 @@ fn RenderPlanDetail(ctx: PageContext) -> Element {
     };
     match plan_detail_load(&ctx) {
         PlanDetailLoad::Ready(plan) => rsx! {
-            PlanDetailReady { plan, mutation }
+            PlanDetailReady { ctx, plan, mutation }
         },
-        PlanDetailLoad::Forbidden => plan_problem_element(ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read this plan."),
-        PlanDetailLoad::Unavailable => plan_problem_element(ADMIN_PLANS_UNAVAILABLE, "Wallet plan detail is unavailable", "The subscription backend could not provide an authoritative plan response. No plan data is being shown."),
-        PlanDetailLoad::Malformed => plan_problem_element(ADMIN_PLANS_MALFORMED, "Wallet plan detail could not be verified", "The route identifier or backend response did not match the strict plan contract. No plan data is being shown."),
+        PlanDetailLoad::Forbidden => plan_problem_element(ctx, ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read this plan."),
+        PlanDetailLoad::Unavailable => plan_problem_element(ctx, ADMIN_PLANS_UNAVAILABLE, "Wallet plan detail is unavailable", "The subscription backend could not provide an authoritative plan response. No plan data is being shown."),
+        PlanDetailLoad::Malformed => plan_problem_element(ctx, ADMIN_PLANS_MALFORMED, "Wallet plan detail could not be verified", "The route identifier or backend response did not match the strict plan contract. No plan data is being shown."),
     }
 }
 
 #[component]
-fn PlanDetailReady(plan: AdminPlanProjection, mutation: Option<String>) -> Element {
+fn PlanDetailReady(
+    ctx: PageContext,
+    plan: AdminPlanProjection,
+    mutation: Option<String>,
+) -> Element {
+    let action = plan_href(&plan.id);
+    let description = plan.description.clone().unwrap_or_default();
+    let active = plan
+        .active
+        .map(|value| value.to_string())
+        .unwrap_or_default();
     rsx! {
-        PageLayout {
-            max_width: Some(PageMaxWidth::FourXl),
-            PageHeader {
-                title: "Wallet plan detail".to_string(),
-                subtitle: Some("Backend-authoritative plan projection".to_string()),
-                icon: Some("layers".to_string()),
-                gradient: Some(PageGradient::Purple),
-                centered: Some(false),
-                extra_actions: None,
-                class_name: None,
+        WalletManagementHub { ctx,
+            a {
+                class: "inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                href: PLANS_PATH,
+                Icon { name: "arrow-left".to_string(), size: Some(16) }
+                "Back to Plans"
             }
             section {
-                class: "rounded-2xl border border-border/30 bg-card p-6 shadow-xl sm:p-8",
+                class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
                 "data-admin-wallet-plan-detail-state": ADMIN_PLANS_READY,
-                h2 { class: "text-2xl font-bold text-foreground", "{plan.name}" }
-                if let Some(description) = plan.description {
-                    p { class: "mt-3 text-sm leading-6 text-muted-foreground", "{description}" }
-                }
-                dl { class: "mt-6 grid gap-4 sm:grid-cols-2",
-                    PlanField { label: "Amount", value: format!("{} {}", plan.amount, plan.currency) }
-                    PlanField { label: "Chain", value: plan.chain_id.clone() }
-                    PlanField { label: "Interval", value: format!("{} day(s)", plan.interval) }
-                    PlanField { label: "Status", value: plan_state_label(plan.active).to_string() }
-                    PlanField { label: "Read version", value: plan.version.to_string() }
+                div { class: "border-b border-border/20 px-4 py-4 sm:px-8",
+                    div { class: "flex flex-wrap gap-3",
+                        PlanEditorStat { value: "Unavailable".to_string(), label: "Members" }
+                        PlanEditorStat { value: "Unavailable".to_string(), label: "Priority" }
+                        PlanEditorStat { value: "Unavailable".to_string(), label: "Created" }
+                        PlanEditorStat { value: format!("Version {}", plan.version), label: "Updated" }
+                    }
                 }
                 if let Some(state) = mutation {
-                    p { class: "mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm", role: if state == "forbidden" { "alert" } else { "status" },
+                    p { class: "mx-4 mt-4 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm sm:mx-8", role: if state == "forbidden" { "alert" } else { "status" },
                         "data-admin-wallet-plan-mutation-state": state,
                         "Plan mutation: {state}"
                     }
                 }
-                form { method: "post", action: plan_href(&plan.id), class: "mt-6 grid gap-3 border-t border-border/30 pt-5 sm:grid-cols-2",
+                form { method: "post", action,
                     input { r#type: "hidden", name: "operation", value: "plan_update" }
                     input { r#type: "hidden", name: "plan_id", value: plan.id.clone() }
                     input { r#type: "hidden", name: "expected_version", value: plan.version.to_string() }
                     input { r#type: "hidden", name: "idempotency_key", value: format!("admin.plan.update.{}", uuid::Uuid::new_v4()) }
-                    input { class: "input input-bordered", name: "merchant_id", maxlength: 36, placeholder: "Merchant UUID", required: true }
-                    input { class: "input input-bordered", name: "name", maxlength: 100, value: plan.name.clone(), required: true }
-                    input { class: "input input-bordered", name: "amount", maxlength: 78, value: plan.amount.clone(), required: true }
-                    input { class: "input input-bordered", name: "currency", maxlength: 10, value: plan.currency.clone(), required: true }
-                    input { class: "input input-bordered", name: "chain_id", maxlength: 10, value: plan.chain_id.clone(), required: true }
-                    input { class: "input input-bordered", name: "interval", r#type: "number", min: 1, max: 366, value: plan.interval, required: true }
-                    button { r#type: "submit", class: "btn btn-primary", "Save plan" }
-                }
-                nav { class: "mt-8 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
-                    a { class: "btn btn-outline", href: PLANS_PATH,
-                        Icon { name: "arrow-left".to_string(), size: Some(16) }
-                        " Plan list"
+                    div { class: "flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 sm:px-8",
+                        button { class: "btn btn-sm btn-outline cursor-not-allowed opacity-50", r#type: "button", disabled: true, title: "The subscription service does not expose a versioned delete contract", "Delete" }
+                        div { class: "flex gap-2",
+                            a { class: "btn btn-sm btn-outline", href: plan_href(&plan.id), "Discard" }
+                            button { class: "btn btn-sm btn-primary", r#type: "submit", "Save Changes" }
+                        }
                     }
-                    a { class: "btn btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                    div { class: "space-y-6 p-4 sm:p-8",
+                        PlanEditorSectionHeader { title: "General" }
+                        div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6",
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Plan Name"
+                                input { class: "input input-bordered w-full bg-muted/30", name: "name", maxlength: 100, value: plan.name.clone(), required: true }
+                            }
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Description"
+                                textarea { class: "textarea textarea-bordered min-h-20 w-full bg-muted/30", name: "description", maxlength: 2_000, rows: 3, value: description }
+                            }
+                            PlanUnavailableField { label: "Category", detail: "Not exposed by the subscription plan contract" }
+                            PlanUnavailableField { label: "Display Group", detail: "Not exposed by the subscription plan contract" }
+                        }
+
+                        PlanEditorSectionHeader { title: "Pricing & Timing" }
+                        div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6",
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Amount (minor units)"
+                                input { class: "input input-bordered w-full bg-muted/30 font-mono", name: "amount", inputmode: "numeric", maxlength: 78, value: plan.amount.clone(), required: true }
+                            }
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Currency"
+                                input { class: "input input-bordered w-full bg-muted/30 font-mono uppercase", name: "currency", maxlength: 10, value: plan.currency.clone(), required: true }
+                            }
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Chain ID"
+                                input { class: "input input-bordered w-full bg-muted/30 font-mono", name: "chain_id", inputmode: "numeric", maxlength: 10, value: plan.chain_id.clone(), required: true }
+                            }
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Billing Interval (days)"
+                                input { class: "input input-bordered w-full bg-muted/30", name: "interval", r#type: "number", min: 1, max: 366, value: plan.interval, required: true }
+                            }
+                        }
+
+                        PlanEditorSectionHeader { title: "Status" }
+                        div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-6",
+                            label { class: "space-y-2 text-sm font-medium text-foreground", "Plan Status"
+                                select { class: "select select-bordered w-full bg-muted/30", name: "active", value: active,
+                                    option { value: "", "Backend default" }
+                                    option { value: "true", "Active" }
+                                    option { value: "false", "Inactive" }
+                                }
+                            }
+                            PlanUnavailableField { label: "Public Visibility", detail: "Not exposed by the subscription plan contract" }
+                        }
+
+                        for section in ["Rate Limits", "Feature Toggles", "Pricing Page Features"] {
+                            PlanEditorSectionHeader { title: section }
+                            div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2",
+                                PlanUnavailableField { label: "Configuration", detail: "No typed backend field is available" }
+                                PlanUnavailableField { label: "Configuration", detail: "No typed backend field is available" }
+                            }
+                        }
+
+                        PlanEditorSectionHeader { title: "Permission Assignment" }
+                        div { class: "grid min-h-64 grid-cols-1 gap-4 rounded-xl border border-border/20 p-4 sm:grid-cols-2",
+                            div { class: "flex items-center justify-center rounded-xl border border-border/20 bg-background/30 p-6 text-center text-sm text-muted-foreground", "Available permissions are not part of this plan projection." }
+                            div { class: "flex items-center justify-center rounded-xl border border-border/20 bg-background/30 p-6 text-center text-sm text-muted-foreground", "Assigned permissions are not part of this plan projection." }
+                        }
+                    }
                 }
             }
         }
@@ -453,11 +506,31 @@ fn PlanDetailReady(plan: AdminPlanProjection, mutation: Option<String>) -> Eleme
 }
 
 #[component]
-fn PlanField(label: &'static str, value: String) -> Element {
+fn PlanEditorStat(value: String, label: &'static str) -> Element {
     rsx! {
-        div { class: "rounded-xl border border-border/20 bg-background/40 p-4",
-            dt { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground", "{label}" }
-            dd { class: "mt-1 break-words text-sm font-semibold text-foreground", "{value}" }
+        div { class: "min-w-28 rounded-xl border border-border/20 bg-background/40 px-4 py-3",
+            p { class: "font-semibold text-foreground", "{value}" }
+            p { class: "text-[11px] text-muted-foreground", "{label}" }
+        }
+    }
+}
+
+#[component]
+fn PlanEditorSectionHeader(title: &'static str) -> Element {
+    rsx! {
+        div { class: "flex items-center gap-3 pt-2",
+            span { class: "whitespace-nowrap text-xs font-bold uppercase tracking-wider text-[#1fc7d4]", "{title}" }
+            div { class: "h-px flex-1 bg-muted/30" }
+        }
+    }
+}
+
+#[component]
+fn PlanUnavailableField(label: &'static str, detail: &'static str) -> Element {
+    rsx! {
+        label { class: "space-y-2 text-sm font-medium text-foreground", "{label}"
+            input { class: "input input-bordered w-full cursor-not-allowed bg-muted/20 opacity-60", value: "Unavailable", disabled: true, title: detail }
+            span { class: "block text-xs font-normal text-muted-foreground", "{detail}" }
         }
     }
 }
@@ -474,29 +547,79 @@ fn plan_href(id: &str) -> String {
     format!("{PLANS_PATH}/{id}")
 }
 
-fn plan_problem_element(state: &'static str, title: &'static str, detail: &'static str) -> Element {
+fn plan_problem_element(
+    ctx: PageContext,
+    state: &'static str,
+    title: &'static str,
+    detail: &'static str,
+) -> Element {
     rsx! {
-        PageLayout {
-            max_width: Some(PageMaxWidth::SevenXl),
-            PageHeader {
-                title: "Wallet plans".to_string(),
-                subtitle: Some("Backend-authoritative projection".to_string()),
-                icon: Some("layers".to_string()),
-                gradient: Some(PageGradient::Purple),
-                centered: Some(false),
-                extra_actions: None,
-                class_name: None,
+        WalletManagementHub { ctx,
+            a {
+                class: "inline-flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                href: PLANS_PATH,
+                Icon { name: "arrow-left".to_string(), size: Some(16) }
+                "Back to Plans"
             }
             section {
-                class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-6 sm:p-8",
+                class: "rounded-2xl border border-amber-500/25 bg-amber-500/10 p-5 sm:p-6",
                 role: if state == ADMIN_PLANS_FORBIDDEN { "alert" } else { "status" },
                 aria_labelledby: "admin-wallet-plans-problem-title",
                 "data-admin-wallet-plans-state": state,
-                h2 { id: "admin-wallet-plans-problem-title", class: "text-xl font-bold text-foreground", "{title}" }
-                p { class: "mt-2 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
-                nav { class: "mt-5 flex flex-wrap gap-3", aria_label: "Wallet plan recovery",
-                    a { class: "btn btn-sm btn-outline", href: PLANS_PATH, "Retry plan read" }
-                    a { class: "btn btn-sm btn-ghost", href: ADMIN_HOME_PATH, "Admin home" }
+                div { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
+                    div {
+                        h2 { id: "admin-wallet-plans-problem-title", class: "font-bold text-foreground", "{title}" }
+                        p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
+                    }
+                    a { class: "btn btn-sm btn-outline shrink-0", href: PLANS_PATH, "Retry plan read" }
+                }
+            }
+            PlanEditorScaffold {}
+        }
+    }
+}
+
+#[component]
+fn PlanEditorScaffold() -> Element {
+    rsx! {
+        section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_hidden: "true",
+            div { class: "border-b border-border/20 px-4 py-4 sm:px-8",
+                div { class: "flex flex-wrap gap-3",
+                    for label in ["Members", "Priority", "Created", "Updated"] {
+                        div { class: "min-w-28 rounded-xl border border-border/20 bg-background/40 px-4 py-3",
+                            p { class: "font-semibold text-foreground", "Unavailable" }
+                            p { class: "text-[11px] text-muted-foreground", "{label}" }
+                        }
+                    }
+                }
+            }
+            div { class: "flex items-center justify-between gap-3 border-b border-border/20 px-4 py-3 sm:px-8",
+                button { class: "btn btn-sm btn-outline cursor-not-allowed opacity-50", r#type: "button", disabled: true, "Delete" }
+                div { class: "flex gap-2",
+                    button { class: "btn btn-sm btn-outline cursor-not-allowed opacity-50", r#type: "button", disabled: true, "Discard" }
+                    button { class: "btn btn-sm btn-primary cursor-not-allowed opacity-50", r#type: "button", disabled: true, "Save Changes" }
+                }
+            }
+            div { class: "space-y-6 p-4 sm:p-8",
+                for section in ["General", "Pricing & Timing", "Status", "Rate Limits", "Feature Toggles", "Pricing Page Features"] {
+                    div { class: "space-y-4",
+                        div { class: "flex items-center gap-3 pt-2",
+                            span { class: "whitespace-nowrap text-xs font-bold uppercase tracking-wider text-[#1fc7d4]", "{section}" }
+                            div { class: "h-px flex-1 bg-muted/30" }
+                        }
+                        div { class: "grid grid-cols-1 gap-4 sm:grid-cols-2",
+                            div { class: "h-10 rounded-xl border border-border/20 bg-muted/20 opacity-50" }
+                            div { class: "h-10 rounded-xl border border-border/20 bg-muted/20 opacity-50" }
+                        }
+                    }
+                }
+                div { class: "flex items-center gap-3 pt-2",
+                    span { class: "whitespace-nowrap text-xs font-bold uppercase tracking-wider text-[#1fc7d4]", "Permission Assignment" }
+                    div { class: "h-px flex-1 bg-muted/30" }
+                }
+                div { class: "grid min-h-64 grid-cols-1 gap-4 rounded-xl border border-border/20 p-4 sm:grid-cols-2",
+                    div { class: "rounded-xl border border-border/20 bg-background/30" }
+                    div { class: "rounded-xl border border-border/20 bg-background/30" }
                 }
             }
         }
@@ -619,17 +742,20 @@ mod tests {
             .1,
         );
         assert!(list.contains("data-admin-wallet-plans-state=\"ready\""));
+        assert!(list.contains("Wallet Management Hub"));
         assert!(list.contains("Read detail"));
         assert!(detail.contains("data-admin-wallet-plan-detail-state=\"ready\""));
+        assert!(detail.contains("Wallet Management Hub"));
         assert!(detail.contains("Backend-defined plan"));
         assert!(list.contains("<form"));
         assert!(list.contains("Create plan"));
         assert!(list.contains("idempotency_key"));
         assert!(detail.contains("<form"));
-        assert!(detail.contains("Save plan"));
+        assert!(detail.contains("Save Changes"));
         assert!(detail.contains("expected_version"));
         assert!(detail.contains("value=\"2\""));
         assert!(!detail.contains("value=\"2/\""));
+        assert!(!detail.contains("name=\"merchant_id\""));
     }
 
     #[test]
@@ -672,6 +798,7 @@ mod tests {
             let rendered =
                 dioxus_ssr::render_element(render(&list_context(state, Some(list_json()), true)).1);
             assert!(rendered.contains(&format!("data-admin-wallet-plans-state=\"{state}\"")));
+            assert!(rendered.contains("Wallet Management Hub"));
             assert!(!rendered.contains("Backend-defined plan"));
         }
         let signed_out = dioxus_ssr::render_element(

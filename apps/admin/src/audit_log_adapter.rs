@@ -249,6 +249,7 @@ fn valid_category(value: &str) -> bool {
             | "payment"
             | "permission"
             | "plan"
+            | "support"
             | "system"
             | "wallet"
     )
@@ -327,6 +328,7 @@ mod tests {
             parsed.upstream_path(),
             "/api/v1/analytics/admin/audit-log?category=auth&cursor=abc_DEF-123"
         );
+        assert!(AdminAuditQuery::from_raw("category=support").is_ok());
 
         for raw in [
             "category=all",

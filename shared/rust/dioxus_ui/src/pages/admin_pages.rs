@@ -58,6 +58,7 @@ pub mod settings;
 pub mod unauthorized;
 pub mod wallet_access;
 pub mod wallet_credits;
+pub mod wallet_hub;
 pub mod wallet_plans;
 pub mod wallet_redirect;
 pub mod wallet_wallets;
@@ -471,7 +472,7 @@ mod tests {
                 rendered
                     .matches(&format!("data-return-url=\"{safe_return_url}\""))
                     .count(),
-                3,
+                4,
                 "{path}: {rendered}"
             );
         }

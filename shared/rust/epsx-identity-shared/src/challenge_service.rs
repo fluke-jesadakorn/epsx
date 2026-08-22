@@ -9,6 +9,20 @@ use tracing::info;
 
 use super::auth_service::{UnifiedWeb3AuthService, Web3AuthError, Web3Challenge};
 
+fn siwe_origin_for_domain(domain: &str) -> String {
+    let host = domain
+        .strip_prefix('[')
+        .and_then(|value| value.split_once(']').map(|(host, _)| host))
+        .unwrap_or_else(|| domain.split(':').next().unwrap_or(domain));
+    let loopback = host.eq_ignore_ascii_case("localhost")
+        || host.to_ascii_lowercase().ends_with(".localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|address| address.is_loopback());
+    let scheme = if loopback { "http" } else { "https" };
+    format!("{scheme}://{domain}")
+}
+
 impl UnifiedWeb3AuthService {
     /// Generate Web3 authentication challenge (SIWE)
     pub async fn generate_challenge(
@@ -87,7 +101,8 @@ impl UnifiedWeb3AuthService {
             Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e))
         })?;
 
-        let uri = format!("https://{}", self.domain).parse().map_err(|e| {
+        let origin = siwe_origin_for_domain(&self.domain);
+        let uri = origin.parse().map_err(|e| {
             Web3AuthError::InvalidDomain(format!("Invalid URI {}: {}", self.domain, e))
         })?;
 
@@ -160,3 +175,21 @@ impl UnifiedWeb3AuthService {
 }
 
 use std::str::FromStr;
+
+#[cfg(test)]
+mod tests {
+    use super::siwe_origin_for_domain;
+
+    #[test]
+    fn siwe_origin_uses_http_only_for_loopback_authorities() {
+        assert_eq!(
+            siwe_origin_for_domain("localhost:3000"),
+            "http://localhost:3000"
+        );
+        assert_eq!(
+            siwe_origin_for_domain("127.0.0.1:3000"),
+            "http://127.0.0.1:3000"
+        );
+        assert_eq!(siwe_origin_for_domain("dev.epsx.io"), "https://dev.epsx.io");
+    }
+}

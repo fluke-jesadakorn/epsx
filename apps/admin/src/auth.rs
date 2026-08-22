@@ -1,11 +1,29 @@
 //! Admin adapter for the canonical RS256/JWKS browser session.
 
-use axum::http::HeaderMap;
+use axum::http::{header, HeaderMap};
 use epsx_bff::{
     cookies::{read_access_token, read_refresh_token, CookieClient, CookieEnvironment},
     session::{AccessVerification, JwksVerifier, SessionUser},
 };
 use epsx_dioxus_ui::auth::{user::AuthMethod, User};
+
+/// Session-scoped local opt-out set when a developer explicitly disconnects
+/// while the visual auth bypass is enabled.
+pub const DEV_BYPASS_DISABLED_COOKIE: &str = "epsx.admin.dev_bypass_disabled";
+
+pub fn dev_bypass_is_disabled(headers: &HeaderMap) -> bool {
+    headers
+        .get(header::COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .is_some_and(|cookies| {
+            cookies.split(';').any(|cookie| {
+                cookie
+                    .trim()
+                    .split_once('=')
+                    .is_some_and(|(name, value)| name == DEV_BYPASS_DISABLED_COOKIE && value == "1")
+            })
+        })
+}
 
 /// Authorization remains available for trusted server/API callers. Browser
 /// sessions use the canonical HttpOnly cookie. The shared cookie helper accepts
@@ -91,8 +109,8 @@ pub fn ui_user(session: SessionUser, chain_id: Option<u64>) -> User {
 /// Local-only visual-test identity. The dev bypass is intentionally mapped to
 /// UI state instead of `AccessVerification`, so no synthetic token can reach
 /// an upstream service and all page data still renders as unavailable.
-pub fn dev_bypass_ui_user(chain_id: Option<u64>) -> Option<User> {
-    if epsx_bff::dev_bypass::is_dev_force_unauth_enabled() {
+pub fn dev_bypass_ui_user(headers: &HeaderMap, chain_id: Option<u64>) -> Option<User> {
+    if epsx_bff::dev_bypass::is_dev_force_unauth_enabled() || dev_bypass_is_disabled(headers) {
         return None;
     }
     let session = epsx_bff::dev_bypass::dev_bypass_user()?;
@@ -190,13 +208,24 @@ mod tests {
     #[test]
     fn dev_bypass_identity_has_admin_role_for_local_visual_checks() {
         let _guard = ENV_LOCK.lock().unwrap();
+        let headers = HeaderMap::new();
         std::env::remove_var(epsx_bff::dev_bypass::DEV_BYPASS_ENV);
-        assert!(dev_bypass_ui_user(Some(56)).is_none());
+        assert!(dev_bypass_ui_user(&headers, Some(56)).is_none());
         std::env::set_var(epsx_bff::dev_bypass::DEV_BYPASS_ENV, "1");
-        let user = dev_bypass_ui_user(Some(56)).expect("dev bypass identity");
+        let user = dev_bypass_ui_user(&headers, Some(56)).expect("dev bypass identity");
         assert!(user.is_admin());
         assert!(user.has_permission("admin:analytics:read"));
         assert_eq!(user.auth_method, AuthMethod::Demo);
+
+        let mut disconnected = HeaderMap::new();
+        disconnected.insert(
+            header::COOKIE,
+            format!("theme=dark; {DEV_BYPASS_DISABLED_COOKIE}=1")
+                .parse()
+                .unwrap(),
+        );
+        assert!(dev_bypass_is_disabled(&disconnected));
+        assert!(dev_bypass_ui_user(&disconnected, Some(56)).is_none());
         std::env::remove_var(epsx_bff::dev_bypass::DEV_BYPASS_ENV);
     }
 

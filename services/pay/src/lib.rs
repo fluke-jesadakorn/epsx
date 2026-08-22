@@ -246,12 +246,7 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            if principal.audience != ADMIN_AUDIENCE
-                || !principal
-                    .permissions
-                    .iter()
-                    .any(|permission| permission == required)
-            {
+            if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(required) {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);

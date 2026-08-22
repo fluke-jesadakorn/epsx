@@ -148,7 +148,7 @@ fn AccessDeniedPanelInner(model: DenialModel) -> Element {
                             }
                             div {
                                 class: "space-y-3 text-sm",
-                                p { class: "text-muted-foreground",
+                                p { class: "text-slate-700 dark:text-slate-300",
                                     "Access is determined from your authenticated session and backend permissions. URL parameters cannot grant access or change this message."
                                 }
                             }

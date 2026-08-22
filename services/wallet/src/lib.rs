@@ -682,12 +682,7 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            if principal.audience != ADMIN_AUDIENCE
-                || !principal
-                    .permissions
-                    .iter()
-                    .any(|permission| permission == required)
-            {
+            if principal.audience != ADMIN_AUDIENCE || !principal.has_permission(required) {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);
@@ -857,18 +852,23 @@ mod tests {
     impl AccessTokenVerifier for FakeVerifier {
         async fn verify(&self, token: &str) -> Result<VerifiedPrincipal, VerifyError> {
             self.calls.fetch_add(1, Ordering::SeqCst);
-            let (wallet, audience) = match token {
-                "frontend-owner" => (OWNER, FRONTEND_AUDIENCE),
-                "admin-owner" => (OWNER, ADMIN_AUDIENCE),
-                "other-audience" => (OWNER, "epsx-other"),
-                "malformed-wallet" => ("0xabc", FRONTEND_AUDIENCE),
+            let (wallet, audience, permissions) = match token {
+                "frontend-owner" => (OWNER, FRONTEND_AUDIENCE, vec![]),
+                "admin-owner" => (OWNER, ADMIN_AUDIENCE, vec![]),
+                "admin-wallets-read" => {
+                    (OWNER, ADMIN_AUDIENCE, vec![WALLETS_READ_PERMISSION.into()])
+                }
+                "admin-domain-wildcard" => (OWNER, ADMIN_AUDIENCE, vec!["admin:*:*".into()]),
+                "admin-global-wildcard" => (OWNER, ADMIN_AUDIENCE, vec!["*:*:*".into()]),
+                "other-audience" => (OWNER, "epsx-other", vec![]),
+                "malformed-wallet" => ("0xabc", FRONTEND_AUDIENCE, vec![]),
                 _ => return Err(VerifyError::Validation),
             };
             Ok(VerifiedPrincipal {
                 subject: wallet.into(),
                 wallet_address: wallet.into(),
                 audience: audience.into(),
-                permissions: vec![],
+                permissions,
             })
         }
     }
@@ -1014,6 +1014,36 @@ mod tests {
         }
         assert_eq!(downstream.hits.load(Ordering::SeqCst), 4);
         assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 4);
+    }
+
+    #[tokio::test]
+    async fn admin_wallet_reads_accept_canonical_wildcards() {
+        let (app, downstream, _) = app();
+        let path = "/api/v1/admin/wallets";
+        for bearer in [None, Some("invalid")] {
+            assert_eq!(
+                status(&app, request(Method::GET, path, bearer)).await,
+                StatusCode::UNAUTHORIZED
+            );
+        }
+        for bearer in [Some("admin-owner"), Some("other-audience")] {
+            assert_eq!(
+                status(&app, request(Method::GET, path, bearer)).await,
+                StatusCode::FORBIDDEN
+            );
+        }
+        for bearer in [
+            "admin-wallets-read",
+            "admin-domain-wildcard",
+            "admin-global-wildcard",
+        ] {
+            assert_eq!(
+                status(&app, request(Method::GET, path, Some(bearer))).await,
+                StatusCode::OK
+            );
+        }
+        assert_eq!(downstream.hits.load(Ordering::SeqCst), 3);
+        assert_eq!(downstream.principal_seen.load(Ordering::SeqCst), 3);
     }
 
     #[tokio::test]

@@ -1,8 +1,8 @@
 //! `/audit-log` — authenticated, redacted, read-only audit inventory.
 //!
 //! The page renders only a strict backend projection. Actor/target identity,
-//! network/device data, before/after state, arbitrary metadata, row details,
-//! totals, export, and every mutation remain backend concerns.
+//! network/device data, before/after state, arbitrary metadata, backend detail
+//! fields, totals, export, and every mutation remain backend concerns.
 
 use chrono::DateTime;
 use dioxus::prelude::*;
@@ -104,6 +104,7 @@ fn valid_category(value: &str) -> bool {
             | "payment"
             | "permission"
             | "plan"
+            | "support"
             | "system"
             | "wallet"
     )
@@ -220,15 +221,15 @@ fn RenderAuditLog(ctx: PageContext) -> Element {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
             PageHeader {
-                title: "Audit log".to_string(),
-                subtitle: Some("Review backend-authoritative platform activity".to_string()),
-                icon: Some("history".to_string()),
-                gradient: Some(PageGradient::Primary),
+                title: "Audit Log".to_string(),
+                subtitle: Some("Track all admin actions, permission changes, and system events".to_string()),
+                icon: Some("file-text".to_string()),
+                gradient: Some(PageGradient::Indigo),
                 centered: Some(false),
                 extra_actions: None,
                 class_name: None,
             }
-            AuditCategoryNav { selected: location.category.clone() }
+            AuditFilters { location: location.clone() }
             match load {
                 AuditLoad::Ready(projection) => rsx! {
                     AuditReady { projection, location }
@@ -266,19 +267,62 @@ fn RenderAuditLog(ctx: PageContext) -> Element {
 }
 
 #[component]
+fn AuditFilters(location: AuditLocation) -> Element {
+    let refresh_href = location.href(None);
+    rsx! {
+        section { class: "rounded-xl border border-border/20 bg-card p-4 shadow-xl", aria_label: "Audit log filters",
+            div { class: "flex flex-col gap-3 lg:flex-row",
+                div { class: "relative flex-1",
+                    span { class: "pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground", aria_hidden: "true",
+                        Icon { name: "search".to_string(), size: Some(16) }
+                    }
+                    input {
+                        class: "w-full rounded-xl border border-border/50 bg-muted/30 py-2.5 pl-9 pr-4 text-sm text-muted-foreground",
+                        r#type: "text",
+                        disabled: true,
+                        placeholder: "Search by actor, action, or target...",
+                        title: "Search requires an analytics-owned redacted search contract",
+                        aria_label: "Audit search unavailable",
+                    }
+                }
+                AuditCategoryNav { selected: location.category.clone() }
+            }
+            div { class: "mt-3 flex flex-col gap-3 sm:flex-row",
+                div { class: "flex flex-1 items-center gap-2",
+                    input { class: "min-w-0 flex-1 rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm", r#type: "date", disabled: true, aria_label: "Audit date from unavailable", title: "Date filtering is not exposed by the analytics service yet" }
+                    span { class: "text-sm text-muted-foreground", "to" }
+                    input { class: "min-w-0 flex-1 rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm", r#type: "date", disabled: true, aria_label: "Audit date to unavailable", title: "Date filtering is not exposed by the analytics service yet" }
+                }
+                div { class: "flex gap-2",
+                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_href,
+                        Icon { name: "refresh-cw".to_string(), size: Some(15) }
+                        " Refresh"
+                    }
+                    button { class: "btn btn-sm btn-outline", r#type: "button", disabled: true, title: "Export requires a backend-owned redacted export contract",
+                        Icon { name: "download".to_string(), size: Some(15) }
+                        " Export"
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn AuditCategoryNav(selected: Option<String>) -> Element {
-    const CATEGORIES: [(&str, &str); 8] = [
+    const CATEGORIES: [(&str, &str); 9] = [
         ("auth", "Auth"),
         ("developer", "Developer"),
         ("notification", "Notifications"),
         ("payment", "Payments"),
         ("permission", "Permissions"),
         ("plan", "Plans"),
+        ("support", "Support"),
         ("system", "System"),
         ("wallet", "Wallets"),
     ];
     rsx! {
-        nav { class: "mb-5 flex gap-2 overflow-x-auto pb-2", aria_label: "Audit category",
+        nav { class: "flex gap-2 overflow-x-auto pb-1 lg:pb-0", aria_label: "Audit category",
             a {
                 class: if selected.is_none() { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                 href: AUDIT_PATH,
@@ -308,7 +352,7 @@ fn AuditReady(projection: AdminAuditList, location: AuditLocation) -> Element {
             class: "overflow-hidden rounded-2xl border border-border/30 bg-card shadow-xl",
             aria_label: "Redacted audit inventory",
             "data-audit-log-state": ADMIN_AUDIT_READY,
-            div { class: "h-1 bg-gradient-to-r from-[#7645d9] via-[#1fc7d4] to-[#31d0aa]" }
+            div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] via-[#1fc7d4] to-[#31d0aa]" }
             div { class: "flex flex-wrap items-center justify-between gap-3 p-5",
                 div {
                     h2 { class: "text-lg font-semibold text-foreground", "Platform activity" }
@@ -317,11 +361,11 @@ fn AuditReady(projection: AdminAuditList, location: AuditLocation) -> Element {
                 p { class: "text-xs text-muted-foreground", "Sensitive identity and detail fields are redacted" }
             }
             div { class: "hidden grid-cols-12 gap-4 border-t border-border/30 bg-muted/20 px-5 py-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground md:grid", aria_hidden: "true",
-                span { class: "col-span-3", "Occurred" }
+                span { class: "col-span-3", "Time" }
                 span { class: "col-span-3", "Action" }
                 span { class: "col-span-3", "Resource" }
                 span { class: "col-span-2", "Category" }
-                span { class: "col-span-1 text-right", "Effect" }
+                span { class: "col-span-1 text-right", "Result / Details" }
             }
             ul { class: "divide-y divide-border/30", aria_label: "Audit summaries",
                 for item in projection.items {
@@ -347,32 +391,71 @@ fn AuditRow(item: AdminAuditSummary) -> Element {
         "failure" => "border-red-500/30 bg-red-500/10 text-red-800 dark:text-red-300",
         _ => "border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-300",
     };
+    let occurred_at = item.occurred_at.clone();
+    let action = item.action.clone();
+    let resource_type = item.resource_type.clone();
+    let category = item.category.clone();
+    let effect = item.effect.clone();
     rsx! {
-        li { class: "grid gap-3 p-5 md:grid-cols-12 md:items-center md:gap-4",
-            div { class: "md:col-span-3",
-                span { class: "sr-only", "Occurred: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Occurred" }
-                time { class: "text-sm text-foreground", datetime: item.occurred_at.clone(), "{item.occurred_at}" }
+        li {
+            details { class: "group",
+                summary { class: "cursor-pointer list-none p-5 marker:content-none [&::-webkit-details-marker]:hidden",
+                    div { class: "grid gap-3 md:grid-cols-12 md:items-center md:gap-4",
+                        div { class: "md:col-span-3",
+                            span { class: "sr-only", "Occurred: " }
+                            p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Time" }
+                            time { class: "text-sm text-foreground", datetime: occurred_at.clone(), "{occurred_at}" }
+                        }
+                        div { class: "min-w-0 md:col-span-3",
+                            span { class: "sr-only", "Action: " }
+                            p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Action" }
+                            p { class: "break-words text-sm font-semibold text-foreground", "{action}" }
+                        }
+                        div { class: "min-w-0 md:col-span-3",
+                            span { class: "sr-only", "Resource: " }
+                            p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Resource" }
+                            p { class: "break-words text-sm text-muted-foreground", "{resource_type}" }
+                        }
+                        div { class: "md:col-span-2",
+                            span { class: "sr-only", "Category: " }
+                            p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Category" }
+                            span { class: "inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary", "{category}" }
+                        }
+                        div { class: "flex items-center justify-between gap-2 md:col-span-1 md:justify-end md:text-right",
+                            span { class: "sr-only", "Effect: " }
+                            span { class: "inline-flex rounded-full border px-2 py-1 text-xs font-semibold {effect_class}", "{effect}" }
+                            span { class: "text-muted-foreground transition-transform group-open:rotate-180", aria_hidden: "true",
+                                Icon { name: "chevron-down".to_string(), size: Some(15) }
+                            }
+                        }
+                    }
+                }
+                div { class: "border-t border-border/30 bg-muted/15 px-5 py-4",
+                    div { class: "mb-4 flex items-start gap-3 rounded-xl border border-border/30 bg-card/50 p-3",
+                        Icon { name: "shield-check".to_string(), size: Some(18) }
+                        div {
+                            p { class: "text-sm font-semibold text-foreground", "Redacted event details" }
+                            p { class: "mt-1 text-xs text-muted-foreground", "Only the backend-authorized summary is available. Sensitive identity and supplemental event fields remain hidden." }
+                        }
+                    }
+                    dl { class: "grid gap-3 sm:grid-cols-2 lg:grid-cols-4",
+                        AuditDetailField { label: "Time".to_string(), value: item.occurred_at }
+                        AuditDetailField { label: "Action".to_string(), value: item.action }
+                        AuditDetailField { label: "Resource".to_string(), value: item.resource_type }
+                        AuditDetailField { label: "Category / result".to_string(), value: format!("{} / {}", item.category, item.effect) }
+                    }
+                }
             }
-            div { class: "min-w-0 md:col-span-3",
-                span { class: "sr-only", "Action: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Action" }
-                p { class: "break-words text-sm font-semibold text-foreground", "{item.action}" }
-            }
-            div { class: "min-w-0 md:col-span-3",
-                span { class: "sr-only", "Resource: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Resource" }
-                p { class: "break-words text-sm text-muted-foreground", "{item.resource_type}" }
-            }
-            div { class: "md:col-span-2",
-                span { class: "sr-only", "Category: " }
-                p { class: "text-xs font-medium uppercase tracking-wide text-muted-foreground md:hidden", aria_hidden: "true", "Category" }
-                span { class: "inline-flex rounded-full border border-primary/20 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary", "{item.category}" }
-            }
-            div { class: "md:col-span-1 md:text-right",
-                span { class: "sr-only", "Effect: " }
-                span { class: "inline-flex rounded-full border px-2 py-1 text-xs font-semibold {effect_class}", "{item.effect}" }
-            }
+        }
+    }
+}
+
+#[component]
+fn AuditDetailField(label: String, value: String) -> Element {
+    rsx! {
+        div { class: "min-w-0 rounded-lg border border-border/20 bg-background/40 p-3",
+            dt { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "{label}" }
+            dd { class: "mt-1 break-words text-sm text-foreground", "{value}" }
         }
     }
 }
@@ -493,6 +576,11 @@ mod tests {
         assert!(rendered.contains("settings.updated"));
         assert!(rendered.contains("datetime=\"2026-07-22T12:00:00Z\""));
         assert!(rendered.contains("cursor=cursor_token_2"));
+        assert!(rendered.contains("<details"));
+        assert!(rendered.contains("Redacted event details"));
+        assert!(rendered.contains("Audit search unavailable"));
+        assert!(rendered.contains("Export"));
+        assert!(rendered.contains("disabled"));
         for label in [
             "Occurred: ",
             "Action: ",
@@ -511,8 +599,8 @@ mod tests {
             "before_state",
             "after_state",
             "metadata",
-            "Export",
-            "<input",
+            "href=\"/audit-log/export",
+            "action=\"/audit-log",
         ] {
             assert!(!rendered.contains(forbidden), "leaked {forbidden}");
         }
@@ -548,6 +636,7 @@ mod tests {
         );
         let rendered = html(&ctx);
         assert!(rendered.contains("href=\"/audit-log?category=permission\""));
+        assert!(rendered.contains("href=\"/audit-log?category=support\""));
         assert!(rendered.contains("Audit access was denied"));
         assert!(!rendered.contains("onclick="));
         assert!(!rendered.contains("javascript:"));

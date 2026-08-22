@@ -170,6 +170,7 @@ fn state(base_url: &str) -> AppState {
         cookie_environment: CookieEnvironment::Local,
         api_url: base_url.to_string(),
         demo_login_enabled: false,
+        dev_bypass_enabled: false,
     }
 }
 
@@ -191,6 +192,10 @@ fn response_cookies(response: &Response) -> Vec<String> {
 fn assert_session_cleared(response: &Response) {
     let cookies = response_cookies(response);
     assert_eq!(cookies.len(), 5);
+    assert_session_clear_cookie_set(&cookies);
+}
+
+fn assert_session_clear_cookie_set(cookies: &[String]) {
     for name in [
         LOCAL_ACCESS_COOKIE,
         LOCAL_REFRESH_COOKIE,
@@ -565,6 +570,23 @@ async fn logout_calls_delete_and_always_clears_locally() {
     assert_eq!(failure.status(), StatusCode::BAD_GATEWAY);
     assert_session_cleared(&failure);
     assert_session_state(&failure, SESSION_STATE_CLEARED);
+
+    let mut bypass_state = state(&unavailable);
+    bypass_state.dev_bypass_enabled = true;
+    let bypass = session_auth::logout(State(bypass_state), HeaderMap::new()).await;
+    assert_eq!(bypass.status(), StatusCode::OK);
+    let bypass_cookies = response_cookies(&bypass);
+    assert_eq!(bypass_cookies.len(), 6);
+    assert_session_clear_cookie_set(&bypass_cookies);
+    assert_session_state(&bypass, SESSION_STATE_CLEARED);
+    assert!(bypass_cookies
+        .iter()
+        .any(|cookie| cookie.starts_with("epsx.admin.dev_bypass_disabled=1;")));
+    let body = to_bytes(bypass.into_body(), 16 * 1024).await.unwrap();
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["success"],
+        true
+    );
 }
 
 #[tokio::test]

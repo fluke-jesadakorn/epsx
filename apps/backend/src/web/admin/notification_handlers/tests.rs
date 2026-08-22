@@ -60,6 +60,7 @@ mod route_tests {
             wallet_address: "0xtest".to_string(),
             permissions: perms,
             token_audiences: Some(vec!["epsx-admin".to_string()]),
+            api_key: None,
             auth_method: "bearer".to_string(),
             jti: uuid::Uuid::new_v4().to_string(),
             exp: now + 3600,

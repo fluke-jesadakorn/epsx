@@ -33,6 +33,7 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                 user: ctx.user.clone(),
                 feature: Some("your permission information".to_string()),
                 return_url: Some(ctx.path.clone()),
+                wallet_connected: ctx.wallet.address.is_some(),
                 div { class: "container page-content max-w-6xl",
                     PageHeader {
                         title: "My permissions".to_string(),

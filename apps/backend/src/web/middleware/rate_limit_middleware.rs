@@ -8,21 +8,6 @@ use axum::{
 use std::sync::Arc;
 use tracing::{debug, warn};
 
-/// Extract wallet address from request headers
-fn extract_wallet_address(headers: &HeaderMap) -> Option<String> {
-    // Try X-Wallet-Address header first (standardized header name)
-    if let Some(wallet) = headers.get("X-Wallet-Address") {
-        if let Ok(wallet_str) = wallet.to_str() {
-            return Some(wallet_str.to_string());
-        }
-    }
-
-    // Try Authorization header (Bearer token) if needed
-    // ... but specific Web3 auth usually puts wallet in X-Wallet-Address or we extract from token
-
-    None
-}
-
 /// Helper function to get user's plan tier from their plan assignments
 async fn get_user_plan_from_plans(
     container: &Arc<DomainContainer>,
@@ -90,12 +75,20 @@ async fn get_user_plan_from_plans(
 /// Middleware function for Web3 rate limiting
 pub async fn web3_rate_limit_middleware(
     State(container): State<Arc<DomainContainer>>,
-    headers: HeaderMap,
+    _headers: HeaderMap,
     request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // Extract wallet address from headers
-    let wallet_address = extract_wallet_address(&headers);
+    // Authentication runs before this middleware. API-key identity therefore
+    // carries live scopes and plan-derived limits rather than trusting a
+    // caller-controlled wallet header or persisted key snapshot.
+    let authenticated = request
+        .extensions()
+        .get::<crate::web::middleware::OpenIDUserContext>()
+        .cloned();
+    let wallet_address = authenticated
+        .as_ref()
+        .map(|context| context.wallet_address.clone());
     let method = request.method().as_str().to_string();
     let path = request.uri().path().to_string();
 
@@ -131,7 +124,19 @@ pub async fn web3_rate_limit_middleware(
         crate::web::middleware::multi_level_rate_limiter::MultiLevelRateLimiter::new(cache, config);
 
     // Determine plan limits based on wallet's plan assignments
-    let plan_limits = if let Some(wallet) = &wallet_address {
+    let plan_limits = if let Some(identity) = authenticated
+        .as_ref()
+        .and_then(|context| context.api_key.as_ref())
+    {
+        crate::web::middleware::multi_level_rate_limiter::PlanRateLimits {
+            plan_id: None,
+            plan_name: "effective-api-entitlement".to_string(),
+            requests_per_minute: identity.rate_limits.per_minute,
+            requests_per_hour: identity.rate_limits.per_hour,
+            requests_per_day: identity.rate_limits.per_day,
+            burst_capacity: identity.rate_limits.burst,
+        }
+    } else if let Some(wallet) = &wallet_address {
         // Query user's plans from database to determine rate limit tier
         let user_plan = match get_user_plan_from_plans(&container, wallet).await {
             Some(plan) => plan,
@@ -155,12 +160,24 @@ pub async fn web3_rate_limit_middleware(
     };
 
     // Check rate limits
+    let api_key_id = authenticated
+        .as_ref()
+        .and_then(|context| context.api_key.as_ref())
+        .map(|identity| identity.id.to_string());
+    let api_key_config = authenticated
+        .as_ref()
+        .and_then(|context| context.api_key.as_ref())
+        .map(|identity| crate::web::middleware::RateLimitConfig {
+            requests_per_minute: Some(identity.rate_limits.per_minute),
+            requests_per_hour: Some(identity.rate_limits.per_hour),
+            requests_per_day: Some(identity.rate_limits.per_day),
+        });
     let result = rate_limiter
         .check(
             wallet_address.as_deref(),
             Some(&plan_limits),
-            None, // API Key ID would go here if we extracted it
-            None, // API key config
+            api_key_id.as_deref(),
+            api_key_config.as_ref(),
             &path,
             &method,
         )
