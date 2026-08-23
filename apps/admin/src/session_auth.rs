@@ -172,7 +172,8 @@ pub async fn refresh_token(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
 ) -> Response {
-    let Some(refresh_token) = super::auth::refresh_token(&headers, state.cookie_environment) else {
+    // BIG-BANG Phase: use AppState::session() (TypedBffSession)
+    let Some(refresh_token) = state.session().refresh_token(&headers) else {
         return clear_refresh_session_response(
             &state,
             StatusCode::UNAUTHORIZED,
@@ -255,11 +256,13 @@ fn refresh_response(mut response: Response, disposition: RefreshDisposition) -> 
 }
 
 pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let refresh_token = super::auth::refresh_token(&headers, state.cookie_environment);
-    let wallet =
-        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
-            .await
-            .map(|user| user.wallet_address);
+    // BIG-BANG Phase: use AppState::session()
+    let refresh_token = state.session().refresh_token(&headers);
+    let wallet = state
+        .session()
+        .current_user(&headers)
+        .await
+        .map(|user| user.wallet_address);
     let request = LogoutRequest {
         wallet_address: wallet.as_deref(),
         refresh_token: refresh_token.as_deref(),
@@ -301,7 +304,8 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
 }
 
 pub async fn auth_me(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let Some(token) = super::auth::access_token(&headers, state.cookie_environment) else {
+    // BIG-BANG: via TypedBffSession
+    let Some(token) = state.session().access_token(&headers) else {
         return safe_error(StatusCode::UNAUTHORIZED, "missing_access_token");
     };
     let claims = match state.verifier.verify(&token).await {

@@ -153,6 +153,7 @@ use std::collections::HashMap;
 
 use super::analytics_admin_adapter::{load_admin_analytics, AdminAnalyticsLoad};
 use super::audit_log_adapter::{load_admin_audit, AdminAuditLoad, AdminAuditQuery};
+#[allow(unused_imports)]
 use super::auth;
 use super::chat_admin_adapter::{
     load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
@@ -1283,14 +1284,13 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // Resolve only a cryptographically verified canonical cookie/bearer user.
     // Permissions are backend-issued and remain verbatim; the admin UI does no
     // role-to-permission expansion.
-    let access_verification =
-        auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment)
-            .await;
+    // BIG-BANG Phase: via AppState::session()
+    let access_verification = state.session().access_verification(&headers).await;
     let recover_session = access_verification.permits_refresh_recovery()
-        && auth::refresh_token(&headers, state.cookie_environment).is_some();
+        && state.session().refresh_token(&headers).is_some();
     let (verified_access_token, user) = match access_verification {
         AccessVerification::Verified { token, user } => {
-            (Some(token), Some(auth::ui_user(user, None)))
+            (Some(token), Some(state.session().ui_user(user, None)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
             (None, None)

@@ -1139,12 +1139,8 @@ async fn require_verified_admin_session(
         return next.run(request).await;
     }
 
-    let Some((token, _user)) = auth::verified_access_token(
-        request.headers(),
-        state.verifier.as_ref(),
-        state.cookie_environment,
-    )
-    .await
+    // BIG-BANG Phase: via AppState::session() (TypedBffSession)
+    let Some((token, _user)) = state.session().verified_access_token(request.headers()).await
     else {
         return session_auth::clear_session_response(
             &state,
@@ -2066,7 +2062,7 @@ async fn admin_auth_redirect(
     // `/auth` is a fixed public entry point. The source page redirects both
     // signed-out and signed-in requests to the root gate; authenticated users
     // are not allowed to choose a return target through this route.
-    let _has_access_cookie = auth::access_token(&headers, state.cookie_environment).is_some();
+    let _has_access_cookie = state.session().access_token(&headers).is_some();
     Redirect::temporary("/").into_response()
 }
 
@@ -2940,10 +2936,8 @@ async fn verified_admin_auth_context(
     if !same_origin_admin_notification_form(headers) {
         return Err(StatusCode::FORBIDDEN);
     }
-    let Some((token, user)) =
-        auth::verified_access_token(headers, state.verifier.as_ref(), state.cookie_environment)
-            .await
-    else {
+    // BIG-BANG: via session helper
+    let Some((token, user)) = state.session().verified_access_token(headers).await else {
         return Err(StatusCode::UNAUTHORIZED);
     };
     let mut context = RequestContext::from_headers(headers);
@@ -4381,13 +4375,8 @@ async fn submit_notification_form(State(state): State<AppState>, request: Reques
             .into_response();
     }
 
-    let Some((token, _user)) = auth::verified_access_token(
-        &parts.headers,
-        state.verifier.as_ref(),
-        state.cookie_environment,
-    )
-    .await
-    else {
+    // BIG-BANG: via session
+    let Some((token, _user)) = state.session().verified_access_token(&parts.headers).await else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
 

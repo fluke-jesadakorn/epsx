@@ -9,14 +9,17 @@ use epsx_bff::{
 };
 use epsx_dioxus_ui::auth::User;
 
+#[allow(dead_code)]
 pub fn access_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
     TypedBffSession::access_token_for(headers, environment, CookieClient::Admin)
 }
 
+#[allow(dead_code)]
 pub fn refresh_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
     TypedBffSession::refresh_token_for(headers, environment, CookieClient::Admin)
 }
 
+#[allow(dead_code)]
 pub async fn verified_access_token(
     headers: &HeaderMap,
     verifier: &JwksVerifier,
@@ -28,6 +31,7 @@ pub async fn verified_access_token(
     }
 }
 
+#[allow(dead_code)]
 pub async fn access_verification(
     headers: &HeaderMap,
     verifier: &JwksVerifier,
@@ -38,6 +42,7 @@ pub async fn access_verification(
         .await
 }
 
+#[allow(dead_code)]
 pub async fn current_user(
     headers: &HeaderMap,
     verifier: &JwksVerifier,
@@ -48,6 +53,7 @@ pub async fn current_user(
         .map(|(_, user)| user)
 }
 
+#[allow(dead_code)]
 pub fn ui_user(session: SessionUser, chain_id: Option<u64>) -> User {
     TypedBffSession::ui_user_static(session, chain_id)
 }

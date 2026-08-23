@@ -69,6 +69,7 @@ use epsx_dioxus_ui::pages::{
 };
 use std::collections::HashMap;
 
+#[allow(unused_imports)]
 use super::auth;
 use super::AppState;
 
