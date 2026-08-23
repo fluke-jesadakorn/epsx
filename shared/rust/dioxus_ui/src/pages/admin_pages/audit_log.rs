@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -29,6 +30,8 @@ pub const ADMIN_AUDIT_EMPTY: &str = "empty";
 pub const ADMIN_AUDIT_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_AUDIT_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_AUDIT_MALFORMED: &str = "malformed";
+pub const ADMIN_AUDIT_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_AUDIT_UNAUTHORIZED: &str = "unauthorized";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -166,6 +169,8 @@ impl AuditLocation {
 enum AuditLoad {
     Ready(AdminAuditList),
     Empty,
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -192,6 +197,8 @@ fn audit_load(ctx: &PageContext) -> AuditLoad {
         }
         Some(ADMIN_AUDIT_FORBIDDEN) => AuditLoad::Forbidden,
         Some(ADMIN_AUDIT_MALFORMED) => AuditLoad::Malformed,
+        Some(ADMIN_AUDIT_UNAUTHENTICATED) => AuditLoad::Unauthenticated,
+        Some(ADMIN_AUDIT_UNAUTHORIZED) => AuditLoad::Unauthorized,
         Some(ADMIN_AUDIT_UNAVAILABLE) | None => AuditLoad::Unavailable,
         Some(_) => AuditLoad::Malformed,
     }
@@ -245,6 +252,21 @@ fn RenderAuditLog(ctx: PageContext) -> Element {
                         retry_href: location.href(location.cursor.as_deref()),
                     }
                 },
+                AuditLoad::Unauthenticated | AuditLoad::Unauthorized => {
+                    let state = if matches!(load, AuditLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Audit log".to_string(),
+                            return_path: AUDIT_PATH.to_string(),
+                            retry_href: AUDIT_PATH.to_string(),
+                        }
+                    }
+                }
                 AuditLoad::Unavailable => rsx! {
                     AuditProblem {
                         state: ADMIN_AUDIT_UNAVAILABLE,
@@ -621,6 +643,31 @@ mod tests {
         assert!(rendered.contains("data-audit-log-state=\"malformed\""));
         assert!(!rendered.contains("0xsecret"));
         assert!(!rendered.contains(">ok<"));
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_and_render_the_shared_banner() {
+        let mut unauthenticated = signed_in_ctx();
+        unauthenticated.params.insert(
+            ADMIN_AUDIT_STATE_PARAM.to_string(),
+            ADMIN_AUDIT_UNAUTHENTICATED.to_string(),
+        );
+        assert_eq!(audit_load(&unauthenticated), AuditLoad::Unauthenticated);
+        let rendered = html(&unauthenticated);
+        assert!(rendered.contains("data-admin-data-state=\"unauthenticated\""));
+        assert!(rendered.contains("Sign in required"));
+        assert!(!rendered.contains("data-audit-log-state"));
+
+        let mut unauthorized = signed_in_ctx();
+        unauthorized.params.insert(
+            ADMIN_AUDIT_STATE_PARAM.to_string(),
+            ADMIN_AUDIT_UNAUTHORIZED.to_string(),
+        );
+        assert_eq!(audit_load(&unauthorized), AuditLoad::Unauthorized);
+        let rendered = html(&unauthorized);
+        assert!(rendered.contains("data-admin-data-state=\"unauthorized\""));
+        assert!(rendered.contains("Session expired"));
+        assert!(!rendered.contains("data-audit-log-state"));
     }
 
     #[test]

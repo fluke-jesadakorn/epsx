@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -27,6 +28,8 @@ pub const ADMIN_MEDIA_BUCKET_PARAM: &str = "admin_media_bucket";
 pub const ADMIN_MEDIA_READY: &str = "ready";
 pub const ADMIN_MEDIA_EMPTY: &str = "empty";
 pub const ADMIN_MEDIA_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_MEDIA_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_MEDIA_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_MEDIA_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_MEDIA_MALFORMED: &str = "malformed";
 pub const ADMIN_MEDIA_MUTATION_DATA_PARAM: &str = "data_admin_media_mutation";
@@ -35,6 +38,8 @@ pub const ADMIN_MEDIA_MUTATION_ERROR_PARAM: &str = "data_admin_media_mutation_er
 pub const ADMIN_MEDIA_MUTATION_COMMITTED: &str = "committed";
 pub const ADMIN_MEDIA_MUTATION_CONFLICT: &str = "conflict";
 pub const ADMIN_MEDIA_MUTATION_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_MEDIA_MUTATION_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_MEDIA_MUTATION_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_MEDIA_MUTATION_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_MEDIA_MUTATION_MALFORMED: &str = "malformed";
 
@@ -156,6 +161,8 @@ enum MediaLoad {
     Ready(AdminMediaList),
     Empty,
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -185,6 +192,8 @@ fn media_load(ctx: &PageContext, bucket_valid: bool) -> MediaLoad {
             }
         }
         Some(ADMIN_MEDIA_FORBIDDEN) => MediaLoad::Forbidden,
+        Some(ADMIN_MEDIA_UNAUTHENTICATED) => MediaLoad::Unauthenticated,
+        Some(ADMIN_MEDIA_UNAUTHORIZED) => MediaLoad::Unauthorized,
         Some(ADMIN_MEDIA_MALFORMED) => MediaLoad::Malformed,
         Some(ADMIN_MEDIA_UNAVAILABLE) | None => MediaLoad::Unavailable,
         Some(_) => MediaLoad::Malformed,
@@ -196,6 +205,8 @@ enum MediaMutationLoad {
     Committed(AdminMediaMutationProjection),
     Conflict(String),
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -223,6 +234,8 @@ fn media_mutation_load(ctx: &PageContext) -> Option<MediaMutationLoad> {
                 }),
         )),
         Some(ADMIN_MEDIA_MUTATION_FORBIDDEN) => Some(MediaMutationLoad::Forbidden),
+        Some(ADMIN_MEDIA_MUTATION_UNAUTHENTICATED) => Some(MediaMutationLoad::Unauthenticated),
+        Some(ADMIN_MEDIA_MUTATION_UNAUTHORIZED) => Some(MediaMutationLoad::Unauthorized),
         Some(ADMIN_MEDIA_MUTATION_UNAVAILABLE) => Some(MediaMutationLoad::Unavailable),
         Some(ADMIN_MEDIA_MUTATION_MALFORMED) | Some(_) => Some(MediaMutationLoad::Malformed),
         None => None,
@@ -252,7 +265,11 @@ fn RenderMedia(ctx: PageContext) -> Element {
     let file_count = match &load {
         MediaLoad::Ready(projection) => Some(projection.items.len()),
         MediaLoad::Empty => Some(0),
-        MediaLoad::Forbidden | MediaLoad::Unavailable | MediaLoad::Malformed => None,
+        MediaLoad::Forbidden
+        | MediaLoad::Unauthenticated
+        | MediaLoad::Unauthorized
+        | MediaLoad::Unavailable
+        | MediaLoad::Malformed => None,
     };
 
     rsx! {
@@ -279,6 +296,22 @@ fn RenderMedia(ctx: PageContext) -> Element {
                     }
                     MediaEmptyInventory { bucket, unavailable: true }
                 },
+                MediaLoad::Unauthenticated | MediaLoad::Unauthorized => {
+                    let state = if matches!(load, MediaLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Media library".to_string(),
+                            return_path: MEDIA_PATH.to_string(),
+                            retry_href: bucket.href(),
+                        }
+                        MediaEmptyInventory { bucket, unavailable: true }
+                    }
+                }
                 MediaLoad::Unavailable => rsx! {
                     MediaProblem {
                         state: ADMIN_MEDIA_UNAVAILABLE,
@@ -357,6 +390,21 @@ fn MediaMutationNotice(mutation: MediaMutationLoad) -> Element {
         }
         MediaMutationLoad::Forbidden => {
             rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_FORBIDDEN, detail: "The backend denied this media mutation. No storage state is being inferred.".to_string() } }
+        }
+        MediaMutationLoad::Unauthenticated | MediaMutationLoad::Unauthorized => {
+            let state = if matches!(mutation, MediaMutationLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Media mutation".to_string(),
+                    return_path: MEDIA_PATH.to_string(),
+                    retry_href: MEDIA_PATH.to_string(),
+                }
+            }
         }
         MediaMutationLoad::Unavailable => {
             rsx! { MediaMutationProblem { state: ADMIN_MEDIA_MUTATION_UNAVAILABLE, detail: "The storage backend did not provide an authoritative mutation result.".to_string() } }

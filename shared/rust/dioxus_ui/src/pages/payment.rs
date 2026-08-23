@@ -25,6 +25,7 @@ pub struct PlanCheckoutData {
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(tag = "state", rename_all = "snake_case")]
+#[allow(clippy::large_enum_variant)]
 pub enum PaymentCheckoutLoadOutcome {
     Ready { checkout: PlanCheckoutData },
     NotFound,

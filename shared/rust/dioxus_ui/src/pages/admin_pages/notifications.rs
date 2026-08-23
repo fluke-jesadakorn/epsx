@@ -13,6 +13,7 @@ use uuid::Uuid;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -40,6 +41,8 @@ pub const ADMIN_NOTIFICATION_METRICS_STATE_PARAM: &str = "data_admin_notificatio
 pub const ADMIN_NOTIFICATIONS_READY: &str = "ready";
 pub const ADMIN_NOTIFICATIONS_EMPTY: &str = "empty";
 pub const ADMIN_NOTIFICATIONS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NOTIFICATIONS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_NOTIFICATIONS_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_NOTIFICATIONS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NOTIFICATIONS_MALFORMED: &str = "malformed";
 pub const ADMIN_NOTIFICATIONS_SEND_STATE_PARAM: &str = "data_admin_notifications_send_state";
@@ -53,6 +56,8 @@ pub const ADMIN_NOTIFICATION_CREATE_PENDING: &str = "pending";
 pub const ADMIN_NOTIFICATION_CREATE_SENT: &str = "sent";
 pub const ADMIN_NOTIFICATION_CREATE_FAILED: &str = "failed";
 pub const ADMIN_NOTIFICATION_CREATE_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NOTIFICATION_CREATE_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_NOTIFICATION_CREATE_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_NOTIFICATION_CREATE_CONFLICT: &str = "conflict";
 pub const ADMIN_NOTIFICATION_CREATE_INVALID: &str = "invalid";
 pub const ADMIN_NOTIFICATION_CREATE_UNAVAILABLE: &str = "unavailable";
@@ -309,6 +314,8 @@ enum NotificationLoad {
     Ready(AdminNotificationList),
     Empty,
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -343,6 +350,8 @@ fn notification_load(ctx: &PageContext, page: NotificationPage) -> NotificationL
             }
         }
         Some(ADMIN_NOTIFICATIONS_FORBIDDEN) => NotificationLoad::Forbidden,
+        Some(ADMIN_NOTIFICATIONS_UNAUTHENTICATED) => NotificationLoad::Unauthenticated,
+        Some(ADMIN_NOTIFICATIONS_UNAUTHORIZED) => NotificationLoad::Unauthorized,
         Some(ADMIN_NOTIFICATIONS_MALFORMED) => NotificationLoad::Malformed,
         Some(ADMIN_NOTIFICATIONS_UNAVAILABLE) | None => NotificationLoad::Unavailable,
         Some(_) => NotificationLoad::Malformed,
@@ -391,6 +400,9 @@ pub fn render_create(ctx: &PageContext) -> (PageMeta, Element) {
         NotificationCreateLoad::Pending(_) => "Notification delivery pending",
         NotificationCreateLoad::Failed(_) => "Notification delivery failed",
         NotificationCreateLoad::Forbidden => "Notification creation denied",
+        NotificationCreateLoad::Unauthenticated | NotificationCreateLoad::Unauthorized => {
+            "Sign in required"
+        }
         NotificationCreateLoad::Conflict => "Notification request conflict",
         NotificationCreateLoad::Invalid => "Notification request is invalid",
         NotificationCreateLoad::Unavailable => "New notification unavailable",
@@ -432,6 +444,8 @@ enum NotificationCreateLoad {
     Pending(AdminNotificationCreateResult),
     Failed(AdminNotificationCreateResult),
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Conflict,
     Invalid,
     Unavailable,
@@ -470,6 +484,8 @@ fn notification_create_load(ctx: &PageContext) -> NotificationCreateLoad {
             }
         }
         Some(ADMIN_NOTIFICATION_CREATE_FORBIDDEN) => NotificationCreateLoad::Forbidden,
+        Some(ADMIN_NOTIFICATION_CREATE_UNAUTHENTICATED) => NotificationCreateLoad::Unauthenticated,
+        Some(ADMIN_NOTIFICATION_CREATE_UNAUTHORIZED) => NotificationCreateLoad::Unauthorized,
         Some(ADMIN_NOTIFICATION_CREATE_CONFLICT) => NotificationCreateLoad::Conflict,
         Some(ADMIN_NOTIFICATION_CREATE_INVALID) => NotificationCreateLoad::Invalid,
         Some(ADMIN_NOTIFICATION_CREATE_UNAVAILABLE) => NotificationCreateLoad::Unavailable,
@@ -523,6 +539,21 @@ fn RenderNotificationList(ctx: PageContext) -> Element {
                         retry_href: page.href(page.page),
                     }
                 },
+                NotificationLoad::Unauthenticated | NotificationLoad::Unauthorized => {
+                    let state = if matches!(load, NotificationLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Notifications".to_string(),
+                            return_path: NOTIFICATIONS_PATH.to_string(),
+                            retry_href: page.href(page.page),
+                        }
+                    }
+                }
                 NotificationLoad::Unavailable => rsx! {
                     NotificationProblem {
                         state: ADMIN_NOTIFICATIONS_UNAVAILABLE,
@@ -898,6 +929,21 @@ fn NotificationCreateState(load: NotificationCreateLoad) -> Element {
                 detail: "The backend did not authorize this session to send notifications.".to_string(),
             }
         },
+        NotificationCreateLoad::Unauthenticated | NotificationCreateLoad::Unauthorized => {
+            let state = if matches!(load, NotificationCreateLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Notification create".to_string(),
+                    return_path: "/notifications/create".to_string(),
+                    retry_href: "/notifications/create".to_string(),
+                }
+            }
+        }
         NotificationCreateLoad::Conflict => rsx! {
             NotificationCreateProblem {
                 state: ADMIN_NOTIFICATION_CREATE_CONFLICT,

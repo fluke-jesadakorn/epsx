@@ -22,6 +22,8 @@ pub mod navbar_skeleton;
 // `// === wave6b-admin-pages-depth-track-a ===` marker region. Track
 // B/C/D do not touch this module.
 pub mod admin_shell;
+// === global session truth === SSR-injected verified/fixture/anonymous state
+pub mod session_state;
 // === wave3a-wiring-track-a === new module (frontend MainLayout wrapper)
 //
 // The two `MainLayout` / `AuthLayout` component names already exist in

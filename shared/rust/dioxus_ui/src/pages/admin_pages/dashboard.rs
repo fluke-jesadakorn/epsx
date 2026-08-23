@@ -10,6 +10,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -27,6 +28,8 @@ pub const ADMIN_DASHBOARD_USER_STATUS_READY: &str = "ready";
 pub const ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_DASHBOARD_USER_STATUS_MALFORMED: &str = "malformed";
+pub const ADMIN_DASHBOARD_USER_STATUS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_DASHBOARD_USER_STATUS_UNAUTHORIZED: &str = "unauthorized";
 
 const MAX_OBSERVED_AT_CHARS: usize = 64;
 
@@ -63,6 +66,8 @@ enum DashboardLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -128,6 +133,8 @@ fn dashboard_load(ctx: &PageContext) -> DashboardLoad {
         }
         Some(ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN) => DashboardLoad::Forbidden,
         Some(ADMIN_DASHBOARD_USER_STATUS_MALFORMED) => DashboardLoad::Malformed,
+        Some(ADMIN_DASHBOARD_USER_STATUS_UNAUTHENTICATED) => DashboardLoad::Unauthenticated,
+        Some(ADMIN_DASHBOARD_USER_STATUS_UNAUTHORIZED) => DashboardLoad::Unauthorized,
         Some(ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE) | None => DashboardLoad::Unavailable,
         Some(_) => DashboardLoad::Malformed,
     }
@@ -254,6 +261,22 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                                 state: ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
                                 title: "Dashboard snapshot could not be verified".to_string(),
                                 detail: "The backend response did not match the strict user-status contract. No counts are being shown.".to_string(),
+                            }
+                        },
+                        DashboardLoad::Unauthenticated => rsx! {
+                            AdminDataStateBanner {
+                                state: AdminDataState::Unauthenticated,
+                                subject: "Dashboard user status".to_string(),
+                                return_path: "/".to_string(),
+                                retry_href: "/".to_string(),
+                            }
+                        },
+                        DashboardLoad::Unauthorized => rsx! {
+                            AdminDataStateBanner {
+                                state: AdminDataState::Unauthorized,
+                                subject: "Dashboard user status".to_string(),
+                                return_path: "/".to_string(),
+                                retry_href: "/".to_string(),
                             }
                         },
                     }
@@ -986,6 +1009,21 @@ mod tests {
             assert!(rendered.contains(expected));
             assert!(rendered.contains("No counts are being shown."));
             assert!(!rendered.contains("<dl"));
+            assert_no_fabricated_dashboard_claims(&rendered);
+        }
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_user_status_render_shared_banner() {
+        for state in [
+            ADMIN_DASHBOARD_USER_STATUS_UNAUTHENTICATED,
+            ADMIN_DASHBOARD_USER_STATUS_UNAUTHORIZED,
+        ] {
+            let rendered = html(&ctx_with_snapshot(state, Some(status_json(1_234, 900))));
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Sign in"));
+            assert!(!rendered.contains("<dl"));
+            assert!(!rendered.contains("1,234"));
             assert_no_fabricated_dashboard_claims(&rendered);
         }
     }

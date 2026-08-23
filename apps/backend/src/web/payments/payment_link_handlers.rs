@@ -374,7 +374,19 @@ pub async fn list_payment_links_handler(
     State(app_state): State<AppState>,
     Query(query): Query<ListPaymentLinksQuery>,
 ) -> Result<JsonResponse<PaymentLinksListResponse>, StatusCode> {
-    let port = get_port(&app_state)?;
+    let port = match get_port(&app_state) {
+        Ok(port) => port,
+        Err(_) => {
+            let limit = query.limit.unwrap_or(20);
+            let offset = query.offset.unwrap_or(0);
+            return Ok(JsonResponse(PaymentLinksListResponse {
+                payment_links: vec![],
+                total: 0,
+                limit,
+                offset,
+            }));
+        }
+    };
 
     let limit = query.limit.unwrap_or(20);
     let offset = query.offset.unwrap_or(0);

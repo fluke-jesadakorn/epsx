@@ -627,20 +627,6 @@ pub async fn auth_challenge(
     }
 }
 
-pub async fn demo_login(
-    State(state): State<AppState>,
-    _body: Option<Json<super::DemoLoginBody>>,
-) -> Response {
-    if !state.demo_login_enabled {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "demo disabled"})),
-        )
-            .into_response();
-    }
-    safe_error(StatusCode::NOT_IMPLEMENTED, "demo_auth_not_canonical")
-}
-
 pub async fn refresh_token(
     State(state): State<AppState>,
     headers: axum::http::HeaderMap,
@@ -8291,7 +8277,6 @@ mod auth_session_tests {
             cookie_environment: epsx_bff::cookies::CookieEnvironment::Local,
             api_url: base_url.to_string(),
             notification_url: base_url.to_string(),
-            demo_login_enabled: false,
         }
     }
 

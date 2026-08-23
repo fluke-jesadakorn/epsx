@@ -158,17 +158,14 @@ pub async fn auth_challenge(
 }
 
 pub async fn demo_login(
-    State(state): State<AppState>,
+    State(_state): State<AppState>,
     _body: Option<Json<DemoLoginBody>>,
 ) -> Response {
-    if !state.demo_login_enabled {
-        return (
-            StatusCode::NOT_FOUND,
-            Json(serde_json::json!({"error": "demo disabled"})),
-        )
-            .into_response();
-    }
-    safe_error(StatusCode::NOT_IMPLEMENTED, "demo_auth_not_canonical")
+    (
+        StatusCode::NOT_FOUND,
+        Json(serde_json::json!({"error": "demo disabled"})),
+    )
+        .into_response()
 }
 
 pub async fn refresh_token(
@@ -258,31 +255,23 @@ fn refresh_response(mut response: Response, disposition: RefreshDisposition) -> 
 }
 
 pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    // The visual-only bypass has no upstream identity session to revoke. A
-    // network call here turns an otherwise local preview into a 502 whenever
-    // the identity service is offline, and stale clients can retry it while
-    // recovering wallet state. Production never enables this flag.
-    let upstream_ok = if state.dev_bypass_enabled {
-        true
-    } else {
-        let refresh_token = super::auth::refresh_token(&headers, state.cookie_environment);
-        let wallet =
-            super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
-                .await
-                .map(|user| user.wallet_address);
-        let request = LogoutRequest {
-            wallet_address: wallet.as_deref(),
-            refresh_token: refresh_token.as_deref(),
-        };
-        state
-            .identity
-            .auth_client()
-            .delete(auth_url(&state, LOGOUT_PATH))
-            .json(&request)
-            .send()
+    let refresh_token = super::auth::refresh_token(&headers, state.cookie_environment);
+    let wallet =
+        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
             .await
-            .is_ok_and(|response| response.status().is_success())
+            .map(|user| user.wallet_address);
+    let request = LogoutRequest {
+        wallet_address: wallet.as_deref(),
+        refresh_token: refresh_token.as_deref(),
     };
+    let upstream_ok = state
+        .identity
+        .auth_client()
+        .delete(auth_url(&state, LOGOUT_PATH))
+        .json(&request)
+        .send()
+        .await
+        .is_ok_and(|response| response.status().is_success());
 
     let status = if upstream_ok {
         StatusCode::OK
@@ -306,14 +295,6 @@ pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMa
     .is_err()
     {
         return safe_error(StatusCode::INTERNAL_SERVER_ERROR, "session_cookie_error");
-    }
-    if state.dev_bypass_enabled {
-        response.headers_mut().append(
-            header::SET_COOKIE,
-            HeaderValue::from_static(
-                "epsx.admin.dev_bypass_disabled=1; Path=/; HttpOnly; SameSite=Lax",
-            ),
-        );
     }
     mark_session_state(&mut response, RefreshDisposition::Clear);
     response

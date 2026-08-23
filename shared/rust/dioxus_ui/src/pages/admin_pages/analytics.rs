@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
@@ -25,6 +26,8 @@ pub const ADMIN_ANALYTICS_EMPTY: &str = "empty";
 pub const ADMIN_ANALYTICS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_ANALYTICS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_ANALYTICS_MALFORMED: &str = "malformed";
+pub const ADMIN_ANALYTICS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_ANALYTICS_UNAUTHORIZED: &str = "unauthorized";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -182,6 +185,8 @@ fn valid_developer_stats(stats: &AdminAnalyticsDeveloperStats) -> bool {
 enum AnalyticsLoad {
     Ready(AdminAnalyticsSnapshot),
     Empty(AdminAnalyticsSnapshot),
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -214,6 +219,8 @@ fn analytics_load(ctx: &PageContext) -> AnalyticsLoad {
         }
         Some(ADMIN_ANALYTICS_FORBIDDEN) => AnalyticsLoad::Forbidden,
         Some(ADMIN_ANALYTICS_MALFORMED) => AnalyticsLoad::Malformed,
+        Some(ADMIN_ANALYTICS_UNAUTHENTICATED) => AnalyticsLoad::Unauthenticated,
+        Some(ADMIN_ANALYTICS_UNAUTHORIZED) => AnalyticsLoad::Unauthorized,
         Some(ADMIN_ANALYTICS_UNAVAILABLE) | None => AnalyticsLoad::Unavailable,
         Some(_) => AnalyticsLoad::Malformed,
     }
@@ -234,7 +241,25 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderAnalytics(ctx: PageContext) -> Element {
-    let surface = crate::pages::analytics::render_surface(&ctx);
+    let load = analytics_load(&ctx);
+    let surface = match load {
+        AnalyticsLoad::Unauthenticated | AnalyticsLoad::Unauthorized => {
+            let state = if matches!(load, AnalyticsLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Analytics dashboard".to_string(),
+                    return_path: ANALYTICS_PATH.to_string(),
+                    retry_href: ANALYTICS_PATH.to_string(),
+                }
+            }
+        }
+        _ => crate::pages::analytics::render_surface(&ctx),
+    };
     rsx! {
         AuthGate {
             user: ctx.user.clone(),
@@ -610,6 +635,26 @@ mod tests {
             );
         }
         ctx
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_states_decode_to_the_new_variants() {
+        let mut unauthenticated = signed_in_ctx();
+        unauthenticated.params.insert(
+            ADMIN_ANALYTICS_STATE_PARAM.to_string(),
+            ADMIN_ANALYTICS_UNAUTHENTICATED.to_string(),
+        );
+        assert_eq!(
+            analytics_load(&unauthenticated),
+            AnalyticsLoad::Unauthenticated
+        );
+
+        let mut unauthorized = signed_in_ctx();
+        unauthorized.params.insert(
+            ADMIN_ANALYTICS_STATE_PARAM.to_string(),
+            ADMIN_ANALYTICS_UNAUTHORIZED.to_string(),
+        );
+        assert_eq!(analytics_load(&unauthorized), AnalyticsLoad::Unauthorized);
     }
 
     #[test]

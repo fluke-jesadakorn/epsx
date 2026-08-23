@@ -796,36 +796,6 @@ fn pricing_redirect_response(query: &str) -> Response {
         .into_response()
 }
 
-/// The source capture harness uses `?__design_bypass=1` to expose the
-/// authenticated shell without creating a real session. Keep that local-only
-/// affordance available for visual checks while never honoring it in the
-/// production cookie environment.
-fn design_bypass_requested(query: &str, environment: epsx_bff::cookies::CookieEnvironment) -> bool {
-    if environment != epsx_bff::cookies::CookieEnvironment::Local {
-        return false;
-    }
-
-    url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| {
-        key == "__design_bypass"
-            && matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "yes" | "on"
-            )
-    })
-}
-
-fn design_bypass_identity_enabled(enabled: bool, path: &str) -> bool {
-    enabled && !matches!(path, "/" | "/index" | "/dashboard")
-}
-
-fn design_bypass_wallet_enabled(enabled: bool, path: &str) -> bool {
-    enabled && path != "/dashboard"
-}
-
-fn design_bypass_chat_enabled(enabled: bool, path: &str) -> bool {
-    enabled && path == "/dashboard"
-}
-
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
 /// `<head>` the Next.js frontend emits.
@@ -834,18 +804,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let path = parts.uri.path().to_string();
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
-    let design_bypass = design_bypass_requested(&query, state.cookie_environment);
-    // The source capture intentionally keeps `/dashboard` in its signed-out
-    // shell even though the matrix appends the bypass query; the query there
-    // exists only to expose the floating support affordance.
-    // The two supplied homepage references intentionally cover both sides of
-    // the auth boundary: `/` shows a connected wallet that still needs SIWE,
-    // while private-style captures use the UI-only identity fixture. Keep the
-    // homepage wallet-only so its header renders the wallet pill instead of
-    // bell/profile/sign-out controls. The pill remains the unobtrusive route
-    // back to SIWE when the server session is absent.
-    let design_bypass_identity = design_bypass_identity_enabled(design_bypass, &path);
-    let design_bypass_wallet = design_bypass_wallet_enabled(design_bypass, &path);
     let preference_flash_state = account_notification_preferences_flash_state(&headers, &query);
 
     let offline_shell = path == "/offline";
@@ -859,15 +817,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     } else {
         auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment).await
     };
-    // Local visual-test fixture only: it supplies authenticated shell state
-    // without a bearer token, so no synthetic identity reaches an upstream
-    // data service.
-    let dev_bypass_user = (!offline_shell)
-        .then(|| auth::dev_bypass_ui_user(Some(56)))
-        .flatten();
-    let design_bypass_user = (!offline_shell)
-        .then(|| auth::design_bypass_ui_user(design_bypass_identity, Some(56)))
-        .flatten();
     let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();
     let recover_session = access_verification.permits_refresh_recovery()
         && refresh_cookie_present
@@ -881,7 +830,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             (Some(token), Some(auth::ui_user(user, wallet.chain_id)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
-            (None, design_bypass_user.or(dev_bypass_user))
+            (None, None)
         }
     };
 
@@ -990,13 +939,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // connected browser gets a truthful wallet pill. We deliberately avoid a
     // second full-width sign-in recommendation: the pill itself remains the
     // route to `/auth` whenever the verified server session is absent.
-    if wallet.address.is_none() {
-        if let Some(design_wallet) = auth::design_bypass_wallet_state(design_bypass_wallet) {
-            wallet = design_wallet;
-        } else if let Some(dev_wallet) = auth::dev_bypass_wallet_state() {
-            wallet = dev_wallet;
-        }
-    }
     let wallet_address = wallet.address.clone();
     let is_authenticated = user.is_some();
     let navigation_wallet_address =
@@ -1013,7 +955,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         query: query.clone(),
         params,
         api_url: state.api_url.clone(),
-        demo_login_enabled: state.demo_login_enabled,
+        demo_login_enabled: false,
         wallet,
     };
 
@@ -1071,18 +1013,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     } else {
         String::new()
     };
-    // The development frontend mounts the floating support affordance from
+    // The frontend mounts the floating support affordance from
     // the global layout for authenticated pages. Keep the same shell-level
     // placement in the SSR document; `/chat` and its route descendants own
     // their full-page conversation UI and therefore hide the floating trigger.
-    let design_bypass_chat = design_bypass_chat_enabled(design_bypass, &path);
     let owns_chat_surface = path == "/chat" || path.starts_with("/chat/");
-    let chat_widget_html =
-        if (is_authenticated || design_bypass_chat) && path != "/auth" && !owns_chat_surface {
-            crate::widgets::chat_widget(true, &user_id)
-        } else {
-            String::new()
-        };
+    let chat_widget_html = if is_authenticated && path != "/auth" && !owns_chat_surface {
+        crate::widgets::chat_widget(true, &user_id)
+    } else {
+        String::new()
+    };
     let doc = doc.replace(
         "</body>",
         &format!("{recovery_runtime}{chat_widget_html}</body>"),
@@ -2034,10 +1974,6 @@ mod tests {
     use super::apply_ssr_cache_policy;
     use super::auth_page_session_state;
     use super::authoritative_navigation_wallet;
-    use super::design_bypass_chat_enabled;
-    use super::design_bypass_identity_enabled;
-    use super::design_bypass_requested;
-    use super::design_bypass_wallet_enabled;
     use super::frontend_navigation_html;
     use super::load_home_analytics;
     use super::load_home_news;
@@ -2084,7 +2020,7 @@ mod tests {
     #[test]
     fn analytics_query_keeps_only_bounded_backend_filters() {
         assert_eq!(
-            analytics_query("page=2&limit=25&country=america&sector=Technology&__design_bypass=1")
+            analytics_query("page=2&limit=25&country=america&sector=Technology&unknown_param=1")
                 .unwrap(),
             "page=2&limit=25&country=america&sector=Technology"
         );
@@ -3450,44 +3386,6 @@ mod tests {
             r.headers().get("location").unwrap(),
             "/plans?ref=foo&affiliate=bar"
         );
-    }
-
-    #[test]
-    fn design_bypass_query_is_local_only_and_truthy() {
-        use epsx_bff::cookies::CookieEnvironment;
-
-        assert!(design_bypass_requested(
-            "__design_bypass=1",
-            CookieEnvironment::Local
-        ));
-        assert!(design_bypass_requested(
-            "theme=dark&__design_bypass=true",
-            CookieEnvironment::Local
-        ));
-        assert!(!design_bypass_requested(
-            "__design_bypass=0",
-            CookieEnvironment::Local
-        ));
-        assert!(!design_bypass_requested(
-            "__design_bypass=1",
-            CookieEnvironment::Production
-        ));
-    }
-
-    #[test]
-    fn design_bypass_home_is_wallet_only_and_dashboard_keeps_support() {
-        assert!(!design_bypass_identity_enabled(true, "/"));
-        assert!(!design_bypass_identity_enabled(true, "/index"));
-        assert!(!design_bypass_identity_enabled(true, "/dashboard"));
-        assert!(design_bypass_identity_enabled(true, "/portfolio"));
-
-        assert!(design_bypass_wallet_enabled(true, "/"));
-        assert!(design_bypass_wallet_enabled(true, "/portfolio"));
-        assert!(!design_bypass_wallet_enabled(true, "/dashboard"));
-
-        assert!(!design_bypass_chat_enabled(true, "/"));
-        assert!(design_bypass_chat_enabled(true, "/dashboard"));
-        assert!(!design_bypass_chat_enabled(true, "/portfolio"));
     }
 
     // === Wave 35b T1 — AuthGate 307-redirect for marketing routes ===

@@ -32,6 +32,7 @@ impl AdminDashboardUserStatusQuery {
 pub(crate) enum AdminDashboardUserStatusLoad {
     Ready(AdminDashboardUserStatus),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -74,10 +75,12 @@ pub(crate) async fn load_admin_dashboard_user_status(
     };
 
     if response.status() != reqwest::StatusCode::OK {
-        return if response.status() == reqwest::StatusCode::FORBIDDEN {
-            AdminDashboardUserStatusLoad::Forbidden
-        } else {
-            AdminDashboardUserStatusLoad::Unavailable
+        return match crate::upstream::UpstreamFailure::classify(response.status()) {
+            crate::upstream::UpstreamFailure::Forbidden => AdminDashboardUserStatusLoad::Forbidden,
+            crate::upstream::UpstreamFailure::Unauthorized => {
+                AdminDashboardUserStatusLoad::Unauthorized
+            }
+            _ => AdminDashboardUserStatusLoad::Unavailable,
         };
     }
 
@@ -423,13 +426,13 @@ mod tests {
 
     #[tokio::test]
     async fn loader_maps_only_403_to_forbidden() {
-        for (status, expected_forbidden) in [
-            ("403 Forbidden", true),
-            ("201 Created", false),
-            ("400 Bad Request", false),
-            ("401 Unauthorized", false),
-            ("404 Not Found", false),
-            ("500 Internal Server Error", false),
+        for (status, expected) in [
+            ("403 Forbidden", "forbidden"),
+            ("201 Created", "unavailable"),
+            ("400 Bad Request", "unavailable"),
+            ("401 Unauthorized", "unauthorized"),
+            ("404 Not Found", "unavailable"),
+            ("500 Internal Server Error", "unavailable"),
         ] {
             let (address, server) = serve_once(status, Vec::new()).await;
             let load = load_admin_dashboard_user_status(
@@ -439,10 +442,16 @@ mod tests {
             )
             .await;
             let _ = server.await.unwrap();
-            if expected_forbidden {
-                assert!(matches!(load, AdminDashboardUserStatusLoad::Forbidden));
-            } else {
-                assert!(matches!(load, AdminDashboardUserStatusLoad::Unavailable));
+            match expected {
+                "forbidden" => {
+                    assert!(matches!(load, AdminDashboardUserStatusLoad::Forbidden));
+                }
+                "unauthorized" => {
+                    assert!(matches!(load, AdminDashboardUserStatusLoad::Unauthorized));
+                }
+                _ => {
+                    assert!(matches!(load, AdminDashboardUserStatusLoad::Unavailable));
+                }
             }
         }
     }

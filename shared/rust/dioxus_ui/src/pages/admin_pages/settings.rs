@@ -11,6 +11,7 @@ use std::collections::HashSet;
 use uuid::Uuid;
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -28,6 +29,8 @@ pub const ADMIN_SETTINGS_EMPTY: &str = "empty";
 pub const ADMIN_SETTINGS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_SETTINGS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_SETTINGS_MALFORMED: &str = "malformed";
+pub const ADMIN_SETTINGS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_SETTINGS_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_SETTINGS_MUTATION_PARAM: &str = "settings_mutation";
 pub const ADMIN_SETTINGS_TAB_PARAM: &str = "admin_settings_tab";
 
@@ -38,6 +41,7 @@ pub struct AdminSettingsQuery {
 }
 
 impl AdminSettingsQuery {
+    #[allow(clippy::result_unit_err)]
     pub fn from_raw(raw: &str) -> Result<Self, ()> {
         let mut tab = "general".to_string();
         let mut mutation = None;
@@ -54,6 +58,7 @@ impl AdminSettingsQuery {
                         "success"
                             | "conflict"
                             | "forbidden"
+                            | "unauthorized"
                             | "invalid"
                             | "unavailable"
                             | "malformed"
@@ -258,6 +263,8 @@ fn SettingsControlBar(tab: String, actions_enabled: bool) -> Element {
 enum SettingsLoad {
     Ready(AdminSettingsSnapshot),
     Empty,
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -293,6 +300,8 @@ fn settings_load(ctx: &PageContext) -> SettingsLoad {
         }
         Some(ADMIN_SETTINGS_FORBIDDEN) => SettingsLoad::Forbidden,
         Some(ADMIN_SETTINGS_MALFORMED) => SettingsLoad::Malformed,
+        Some(ADMIN_SETTINGS_UNAUTHENTICATED) => SettingsLoad::Unauthenticated,
+        Some(ADMIN_SETTINGS_UNAUTHORIZED) => SettingsLoad::Unauthorized,
         Some(ADMIN_SETTINGS_UNAVAILABLE) | None => SettingsLoad::Unavailable,
         Some(_) => SettingsLoad::Malformed,
     }
@@ -328,6 +337,21 @@ fn SettingsSurface(load: SettingsLoad, mutation: Option<String>, tab: String) ->
                 SettingsUnavailablePanel { tab }
             }
         },
+        SettingsLoad::Unauthenticated | SettingsLoad::Unauthorized => {
+            let state = if matches!(load, SettingsLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Settings".to_string(),
+                    return_path: SETTINGS_PATH.to_string(),
+                    retry_href: SETTINGS_PATH.to_string(),
+                }
+            }
+        }
         SettingsLoad::Malformed => rsx! {
             div { "data-admin-settings-state": ADMIN_SETTINGS_MALFORMED,
                 SettingsProblem { title: "Settings data could not be verified".to_string(), detail: "The backend response did not match the strict settings read contract. No settings are shown.".to_string(), tab: tab.clone() }
@@ -898,6 +922,34 @@ mod tests {
             ),
         ]);
         ctx
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_and_render_the_shared_banner() {
+        let mut unauthenticated = signed_in_ctx();
+        unauthenticated.params.insert(
+            ADMIN_SETTINGS_STATE_PARAM.to_string(),
+            ADMIN_SETTINGS_UNAUTHENTICATED.to_string(),
+        );
+        assert_eq!(
+            settings_load(&unauthenticated),
+            SettingsLoad::Unauthenticated
+        );
+        let rendered = html(&unauthenticated);
+        assert!(rendered.contains("data-admin-data-state=\"unauthenticated\""));
+        assert!(rendered.contains("Sign in required"));
+        assert!(!rendered.contains("data-admin-settings-state"));
+
+        let mut unauthorized = signed_in_ctx();
+        unauthorized.params.insert(
+            ADMIN_SETTINGS_STATE_PARAM.to_string(),
+            ADMIN_SETTINGS_UNAUTHORIZED.to_string(),
+        );
+        assert_eq!(settings_load(&unauthorized), SettingsLoad::Unauthorized);
+        let rendered = html(&unauthorized);
+        assert!(rendered.contains("data-admin-data-state=\"unauthorized\""));
+        assert!(rendered.contains("Session expired"));
+        assert!(!rendered.contains("data-admin-settings-state"));
     }
 
     #[test]

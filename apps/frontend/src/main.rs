@@ -51,7 +51,6 @@ pub struct AppState {
     pub cookie_environment: CookieEnvironment,
     pub api_url: String,
     pub notification_url: String,
-    pub demo_login_enabled: bool,
 }
 
 #[derive(Deserialize)]
@@ -67,12 +66,6 @@ pub struct SiweLoginBody {
     /// Challenge nonce returned by `/api/auth/web3/challenge`. Wave 50b —
     /// the monolithic backend requires it as a separate field.
     pub nonce: String,
-}
-
-#[derive(Deserialize)]
-pub struct DemoLoginBody {
-    pub address: Option<String>,
-    pub chain_id: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -149,14 +142,6 @@ fn state_from_env() -> Result<AppState, String> {
     validate_auth_url(&content_url, cookie_environment, "CONTENT_SERVICE_URL")?;
     validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
 
-    let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
-    let dev_bypass_enabled = std::env::var("EPSX_DEV_AUTH_BYPASS").ok().as_deref() == Some("1");
-    if cookie_environment == CookieEnvironment::Production
-        && (demo_login_enabled || dev_bypass_enabled)
-    {
-        return Err("demo login and auth bypass are forbidden in production".to_string());
-    }
-
     let jwks_url = format!("{}{}", api_url.trim_end_matches('/'), JWKS_PATH);
     let verifier_config = JwksVerifierConfig::new(
         jwks_url,
@@ -192,7 +177,6 @@ fn state_from_env() -> Result<AppState, String> {
         cookie_environment,
         api_url,
         notification_url,
-        demo_login_enabled,
     })
 }
 
@@ -280,7 +264,6 @@ pub fn build_app(state: AppState) -> Router {
         .route("/api/health", get(api_health))
         .route("/api/v1/auth/siwe", post(siwe_login))
         .route("/api/v1/auth/challenge", post(auth_challenge))
-        .route("/api/v1/auth/demo", post(demo_login))
         .route("/api/v1/auth/refresh", post(refresh_token))
         .route("/api/v1/auth/logout", post(logout))
         .route("/api/v1/auth/me", get(auth_me))
@@ -639,7 +622,6 @@ mod routing_tests {
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
             notification_url: base_url.to_string(),
-            demo_login_enabled: false,
         }
     }
 

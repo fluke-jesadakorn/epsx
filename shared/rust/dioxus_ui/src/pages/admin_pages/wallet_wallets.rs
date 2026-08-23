@@ -11,19 +11,21 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
 use super::wallet_access::{
     decode_admin_access_projection, AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM,
     ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED, ADMIN_ACCESS_READY, ADMIN_ACCESS_STATE_PARAM,
-    ADMIN_ACCESS_UNAVAILABLE,
+    ADMIN_ACCESS_UNAUTHENTICATED, ADMIN_ACCESS_UNAUTHORIZED, ADMIN_ACCESS_UNAVAILABLE,
 };
 use super::wallet_hub::WalletManagementHub;
 use super::wallet_plans::{
     decode_admin_plan_list_projection, AdminPlanListProjection, ADMIN_PLANS_DATA_PARAM,
     ADMIN_PLANS_EMPTY, ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED, ADMIN_PLANS_READY,
-    ADMIN_PLANS_STATE_PARAM, ADMIN_PLANS_UNAVAILABLE,
+    ADMIN_PLANS_STATE_PARAM, ADMIN_PLANS_UNAUTHENTICATED, ADMIN_PLANS_UNAUTHORIZED,
+    ADMIN_PLANS_UNAVAILABLE,
 };
 
 const WALLETS_PATH: &str = "/wallet-management/wallets";
@@ -56,6 +58,7 @@ impl Default for AdminWalletListQuery {
 }
 
 impl AdminWalletListQuery {
+    #[allow(clippy::result_unit_err)]
     pub fn from_raw(raw: &str) -> Result<Self, ()> {
         let mut query = Self::default();
         let mut seen = std::collections::HashSet::new();
@@ -122,15 +125,21 @@ pub const ADMIN_WALLET_STATS_READY: &str = "ready";
 pub const ADMIN_WALLET_STATS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_STATS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_STATS_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_STATS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_WALLET_STATS_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_WALLET_LIST_READY: &str = "ready";
 pub const ADMIN_WALLET_LIST_EMPTY: &str = "empty";
 pub const ADMIN_WALLET_LIST_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_LIST_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_LIST_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_LIST_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_WALLET_LIST_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_WALLET_DETAIL_READY: &str = "ready";
 pub const ADMIN_WALLET_DETAIL_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_DETAIL_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_DETAIL_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_DETAIL_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_WALLET_DETAIL_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_WALLET_DISABLE_STATE_PARAM: &str = "data_admin_wallet_disable_state";
 pub const ADMIN_WALLET_DISABLE_FORM: &str = "form";
 pub const ADMIN_WALLET_DISABLE_SUCCESS: &str = "success";
@@ -138,6 +147,8 @@ pub const ADMIN_WALLET_DISABLE_CONFLICT: &str = "conflict";
 pub const ADMIN_WALLET_DISABLE_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_WALLET_DISABLE_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_WALLET_DISABLE_MALFORMED: &str = "malformed";
+pub const ADMIN_WALLET_DISABLE_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_WALLET_DISABLE_UNAUTHORIZED: &str = "unauthorized";
 
 /// Deliberately excludes identities, addresses, balances, tier distribution,
 /// activity-window claims, growth calculations, and every row-level field.
@@ -229,6 +240,8 @@ enum WalletStatsLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -238,6 +251,8 @@ enum WalletListLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn wallet_list_load(ctx: &PageContext) -> Option<WalletListLoad> {
@@ -263,6 +278,8 @@ fn wallet_list_load(ctx: &PageContext) -> Option<WalletListLoad> {
         ADMIN_WALLET_LIST_FORBIDDEN => WalletListLoad::Forbidden,
         ADMIN_WALLET_LIST_UNAVAILABLE => WalletListLoad::Unavailable,
         ADMIN_WALLET_LIST_MALFORMED => WalletListLoad::Malformed,
+        ADMIN_WALLET_LIST_UNAUTHENTICATED => WalletListLoad::Unauthenticated,
+        ADMIN_WALLET_LIST_UNAUTHORIZED => WalletListLoad::Unauthorized,
         _ => WalletListLoad::Malformed,
     })
 }
@@ -285,6 +302,8 @@ fn wallet_stats_load(ctx: &PageContext) -> WalletStatsLoad {
         }
         Some(ADMIN_WALLET_STATS_FORBIDDEN) => WalletStatsLoad::Forbidden,
         Some(ADMIN_WALLET_STATS_MALFORMED) => WalletStatsLoad::Malformed,
+        Some(ADMIN_WALLET_STATS_UNAUTHENTICATED) => WalletStatsLoad::Unauthenticated,
+        Some(ADMIN_WALLET_STATS_UNAUTHORIZED) => WalletStatsLoad::Unauthorized,
         Some(ADMIN_WALLET_STATS_UNAVAILABLE) | None => WalletStatsLoad::Unavailable,
         Some(_) => WalletStatsLoad::Malformed,
     }
@@ -355,6 +374,8 @@ enum WalletDetailLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -363,6 +384,8 @@ enum WalletDetailAccessLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -372,6 +395,8 @@ enum WalletDetailPlansLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn wallet_detail_load(ctx: &PageContext) -> WalletDetailLoad {
@@ -406,6 +431,8 @@ fn wallet_detail_load(ctx: &PageContext) -> WalletDetailLoad {
         }
         Some(ADMIN_WALLET_DETAIL_FORBIDDEN) => WalletDetailLoad::Forbidden,
         Some(ADMIN_WALLET_DETAIL_MALFORMED) => WalletDetailLoad::Malformed,
+        Some(ADMIN_WALLET_DETAIL_UNAUTHENTICATED) => WalletDetailLoad::Unauthenticated,
+        Some(ADMIN_WALLET_DETAIL_UNAUTHORIZED) => WalletDetailLoad::Unauthorized,
         Some(ADMIN_WALLET_DETAIL_UNAVAILABLE) | None => WalletDetailLoad::Unavailable,
         Some(_) => WalletDetailLoad::Malformed,
     }
@@ -436,6 +463,8 @@ fn wallet_detail_access_load(ctx: &PageContext, address: Option<&str>) -> Wallet
         }
         Some(ADMIN_ACCESS_FORBIDDEN) => WalletDetailAccessLoad::Forbidden,
         Some(ADMIN_ACCESS_MALFORMED) => WalletDetailAccessLoad::Malformed,
+        Some(ADMIN_ACCESS_UNAUTHENTICATED) => WalletDetailAccessLoad::Unauthenticated,
+        Some(ADMIN_ACCESS_UNAUTHORIZED) => WalletDetailAccessLoad::Unauthorized,
         Some(ADMIN_ACCESS_UNAVAILABLE) | None => WalletDetailAccessLoad::Unavailable,
         Some(_) => WalletDetailAccessLoad::Malformed,
     }
@@ -468,6 +497,8 @@ fn wallet_detail_plans_load(ctx: &PageContext) -> WalletDetailPlansLoad {
         }
         Some(ADMIN_PLANS_FORBIDDEN) => WalletDetailPlansLoad::Forbidden,
         Some(ADMIN_PLANS_MALFORMED) => WalletDetailPlansLoad::Malformed,
+        Some(ADMIN_PLANS_UNAUTHENTICATED) => WalletDetailPlansLoad::Unauthenticated,
+        Some(ADMIN_PLANS_UNAUTHORIZED) => WalletDetailPlansLoad::Unauthorized,
         Some(ADMIN_PLANS_UNAVAILABLE) | None => WalletDetailPlansLoad::Unavailable,
         Some(_) => WalletDetailPlansLoad::Malformed,
     }
@@ -548,6 +579,8 @@ fn WalletDisableWorkspace(ctx: PageContext, reference: Option<String>) -> Elemen
                 | ADMIN_WALLET_DISABLE_FORBIDDEN
                 | ADMIN_WALLET_DISABLE_UNAVAILABLE
                 | ADMIN_WALLET_DISABLE_MALFORMED
+                | ADMIN_WALLET_DISABLE_UNAUTHENTICATED
+                | ADMIN_WALLET_DISABLE_UNAUTHORIZED
         )
     }) {
         return match state {
@@ -562,6 +595,21 @@ fn WalletDisableWorkspace(ctx: PageContext, reference: Option<String>) -> Elemen
             }
             ADMIN_WALLET_DISABLE_UNAVAILABLE => {
                 rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_UNAVAILABLE, title: "Wallet change is unavailable".to_string(), detail: "The wallet service did not provide a committed mutation result. No success is inferred.".to_string() } }
+            }
+            ADMIN_WALLET_DISABLE_UNAUTHENTICATED | ADMIN_WALLET_DISABLE_UNAUTHORIZED => {
+                let banner_state = if state == ADMIN_WALLET_DISABLE_UNAUTHENTICATED {
+                    AdminDataState::Unauthenticated
+                } else {
+                    AdminDataState::Unauthorized
+                };
+                rsx! {
+                    AdminDataStateBanner {
+                        state: banner_state,
+                        subject: "Wallet disable".to_string(),
+                        return_path: WALLETS_PATH.to_string(),
+                        retry_href: WALLETS_PATH.to_string(),
+                    }
+                }
             }
             _ => {
                 rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet change could not be verified".to_string(), detail: "The mutation response or route state did not match the strict contract.".to_string() } }
@@ -711,6 +759,28 @@ fn WalletDisableWorkspace(ctx: PageContext, reference: Option<String>) -> Elemen
         WalletDetailLoad::Malformed => {
             rsx! { WalletDisableNotice { state: ADMIN_WALLET_DISABLE_MALFORMED, title: "Wallet status could not be verified".to_string(), detail: "The route or backend detail response did not match the strict wallet contract.".to_string() } }
         }
+        WalletDetailLoad::Unauthenticated => {
+            let disable_href = format!("/wallet-management/wallets/{reference}/disable");
+            rsx! {
+                AdminDataStateBanner {
+                    state: AdminDataState::Unauthenticated,
+                    subject: "Wallet detail".to_string(),
+                    return_path: disable_href.clone(),
+                    retry_href: disable_href,
+                }
+            }
+        }
+        WalletDetailLoad::Unauthorized => {
+            let disable_href = format!("/wallet-management/wallets/{reference}/disable");
+            rsx! {
+                AdminDataStateBanner {
+                    state: AdminDataState::Unauthorized,
+                    subject: "Wallet detail".to_string(),
+                    return_path: disable_href.clone(),
+                    retry_href: disable_href,
+                }
+            }
+        }
     }
 }
 
@@ -845,6 +915,11 @@ fn WalletDetailWorkspace(
         WalletDetailLoad::Ready(projection) => Some(projection),
         _ => None,
     };
+    let auth_state = match detail.clone() {
+        WalletDetailLoad::Unauthenticated => Some(AdminDataState::Unauthenticated),
+        WalletDetailLoad::Unauthorized => Some(AdminDataState::Unauthorized),
+        _ => None,
+    };
     let problem = match detail {
         WalletDetailLoad::Ready(_) => None,
         WalletDetailLoad::Forbidden => Some((
@@ -862,6 +937,7 @@ fn WalletDetailWorkspace(
             "Wallet detail could not be verified",
             "The route address or backend response did not match the strict wallet contract. No wallet fields are being shown.",
         )),
+        WalletDetailLoad::Unauthenticated | WalletDetailLoad::Unauthorized => None,
     };
 
     rsx! {
@@ -889,6 +965,14 @@ fn WalletDetailWorkspace(
                         "Wallet Identity & Access Management"
                     }
                     p { class: "mt-1 text-sm text-muted-foreground", "Manage wallet identification, subscription plans, and access plans" }
+                }
+                if let Some(state) = auth_state {
+                    AdminDataStateBanner {
+                        state,
+                        subject: "Wallet detail".to_string(),
+                        return_path: format!("/wallet-management/{route_address}"),
+                        retry_href: format!("/wallet-management/{route_address}"),
+                    }
                 }
                 if let Some((state, title, message)) = problem {
                     WalletDetailProblemBanner {
@@ -1051,6 +1135,22 @@ fn WalletAvailablePlansPanel(plans: WalletDetailPlansLoad, address: String) -> E
                     WalletDetailPlansLoad::Forbidden => rsx! { WalletDetailPanelEmpty { icon: "shield", title: "Plan access denied", detail: "The backend did not authorize this plan catalog read." } },
                     WalletDetailPlansLoad::Unavailable => rsx! { WalletDetailPanelEmpty { icon: "package", title: "Plans unavailable", detail: "No unverified plan definitions are shown." } },
                     WalletDetailPlansLoad::Malformed => rsx! { WalletDetailPanelEmpty { icon: "triangle-alert", title: "Plans could not be verified", detail: "The plan catalog did not match its strict contract." } },
+                    WalletDetailPlansLoad::Unauthenticated => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthenticated,
+                            subject: "Wallet plans".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
+                    WalletDetailPlansLoad::Unauthorized => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthorized,
+                            subject: "Wallet plans".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
                 }
             }
         }
@@ -1100,6 +1200,22 @@ fn WalletAssignedPlansPanel(access: WalletDetailAccessLoad) -> Element {
                     WalletDetailAccessLoad::Forbidden => rsx! { WalletDetailPanelEmpty { icon: "shield", title: "Assignments denied", detail: "The backend did not authorize this wallet assignment read." } },
                     WalletDetailAccessLoad::Unavailable => rsx! { WalletDetailPanelEmpty { icon: "shield-check", title: "Assignments unavailable", detail: "No unverified wallet assignments are shown." } },
                     WalletDetailAccessLoad::Malformed => rsx! { WalletDetailPanelEmpty { icon: "triangle-alert", title: "Assignments could not be verified", detail: "The wallet assignment response did not match its strict contract." } },
+                    WalletDetailAccessLoad::Unauthenticated => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthenticated,
+                            subject: "Wallet access".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
+                    WalletDetailAccessLoad::Unauthorized => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthorized,
+                            subject: "Wallet access".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
                 }
             }
         }
@@ -1187,6 +1303,22 @@ fn RenderWalletList(ctx: PageContext) -> Element {
                             detail: "The backend response did not match the strict bounded wallet-list contract. No rows are being shown.".to_string(),
                         }
                     },
+                    Some(WalletListLoad::Unauthenticated) => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthenticated,
+                            subject: "Wallet inventory".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
+                    Some(WalletListLoad::Unauthorized) => rsx! {
+                        AdminDataStateBanner {
+                            state: AdminDataState::Unauthorized,
+                            subject: "Wallet inventory".to_string(),
+                            return_path: WALLETS_PATH.to_string(),
+                            retry_href: WALLETS_PATH.to_string(),
+                        }
+                    },
                     None => match load {
                         WalletStatsLoad::Ready(projection) => rsx! { WalletStatsReady { projection } },
                         WalletStatsLoad::Forbidden => rsx! {
@@ -1208,6 +1340,22 @@ fn RenderWalletList(ctx: PageContext) -> Element {
                                 state: ADMIN_WALLET_STATS_MALFORMED,
                                 title: "Wallet summary could not be verified".to_string(),
                                 detail: "The backend response did not match the strict aggregate contract. No totals are being shown.".to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Unauthenticated => rsx! {
+                            AdminDataStateBanner {
+                                state: AdminDataState::Unauthenticated,
+                                subject: "Wallet stats".to_string(),
+                                return_path: WALLETS_PATH.to_string(),
+                                retry_href: WALLETS_PATH.to_string(),
+                            }
+                        },
+                        WalletStatsLoad::Unauthorized => rsx! {
+                            AdminDataStateBanner {
+                                state: AdminDataState::Unauthorized,
+                                subject: "Wallet stats".to_string(),
+                                return_path: WALLETS_PATH.to_string(),
+                                retry_href: WALLETS_PATH.to_string(),
                             }
                         },
                     },
@@ -1960,6 +2108,100 @@ mod tests {
             assert!(rendered.contains("Wallet inventory remains unavailable"));
             assert_no_samples_or_controls(&rendered);
         }
+    }
+
+    #[test]
+    fn stats_unauthenticated_and_unauthorized_render_shared_banner_without_totals() {
+        for state in [
+            ADMIN_WALLET_STATS_UNAUTHENTICATED,
+            ADMIN_WALLET_STATS_UNAUTHORIZED,
+        ] {
+            let ctx = ctx_with_stats(state, Some(stats_json(777, 700, 77, 7)));
+            let rendered = html(render(&ctx).1);
+
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Sign in"));
+            assert!(!rendered.contains(">777<"));
+            assert!(!rendered.contains("data-admin-wallets-state"));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn list_unauthenticated_and_unauthorized_render_shared_banner_without_rows() {
+        for state in [
+            ADMIN_WALLET_LIST_UNAUTHENTICATED,
+            ADMIN_WALLET_LIST_UNAUTHORIZED,
+        ] {
+            let mut ctx = authenticated_ctx();
+            ctx.params
+                .insert(ADMIN_WALLET_LIST_STATE_PARAM.to_string(), state.to_string());
+            let rendered = html(render(&ctx).1);
+
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Sign in"));
+            assert!(!rendered.contains(TEST_ADDRESS));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn detail_unauthenticated_and_unauthorized_render_shared_banner() {
+        for state in [
+            ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
+            ADMIN_WALLET_DETAIL_UNAUTHORIZED,
+        ] {
+            let ctx =
+                ctx_with_wallet_detail(state, TEST_ADDRESS, Some(wallet_detail_json(TEST_ADDRESS)));
+            let rendered = html(render_detail(&ctx).1);
+
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(!rendered.contains("Read-only wallet"));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn disable_unauthenticated_and_unauthorized_render_shared_banner() {
+        for state in [
+            ADMIN_WALLET_DISABLE_UNAUTHENTICATED,
+            ADMIN_WALLET_DISABLE_UNAUTHORIZED,
+        ] {
+            let mut ctx = authenticated_ctx();
+            ctx.path = format!("/wallet-management/wallets/{TEST_ADDRESS}/disable");
+            ctx.params
+                .insert("address".to_string(), TEST_ADDRESS.to_string());
+            ctx.params.insert(
+                ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
+                state.to_string(),
+            );
+            let rendered = html(render_disable(&ctx).1);
+
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(!rendered.contains("name=\"reason\""));
+            assert_no_samples_or_controls(&rendered);
+        }
+    }
+
+    #[test]
+    fn detail_panels_surface_new_access_and_plan_auth_states() {
+        let mut ctx = authenticated_ctx();
+        ctx.path = format!("/wallet-management/{TEST_ADDRESS}");
+        ctx.params
+            .insert("address".to_string(), TEST_ADDRESS.to_string());
+        ctx.params.insert(
+            ADMIN_ACCESS_STATE_PARAM.to_string(),
+            ADMIN_ACCESS_UNAUTHENTICATED.to_string(),
+        );
+        ctx.params.insert(
+            ADMIN_PLANS_STATE_PARAM.to_string(),
+            ADMIN_PLANS_UNAUTHORIZED.to_string(),
+        );
+        let rendered = html(render_detail(&ctx).1);
+
+        assert!(rendered.contains("data-admin-data-state=\"unauthenticated\""));
+        assert!(rendered.contains("data-admin-data-state=\"unauthorized\""));
+        assert_no_samples_or_controls(&rendered);
     }
 
     #[test]

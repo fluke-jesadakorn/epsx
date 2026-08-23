@@ -76,6 +76,7 @@ pub(crate) enum AdminAuditLoad {
     Ready(AdminAuditList),
     Empty(AdminAuditList),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -118,10 +119,11 @@ pub(crate) async fn load_admin_audit(
     };
 
     if !response.status().is_success() {
-        return match response.status() {
-            reqwest::StatusCode::FORBIDDEN => AdminAuditLoad::Forbidden,
-            reqwest::StatusCode::BAD_REQUEST => AdminAuditLoad::Malformed,
-            _ => AdminAuditLoad::Unavailable,
+        return match crate::upstream::UpstreamFailure::classify(response.status()) {
+            crate::upstream::UpstreamFailure::Forbidden => AdminAuditLoad::Forbidden,
+            crate::upstream::UpstreamFailure::Unauthorized => AdminAuditLoad::Unauthorized,
+            crate::upstream::UpstreamFailure::Malformed => AdminAuditLoad::Malformed,
+            crate::upstream::UpstreamFailure::Unavailable => AdminAuditLoad::Unavailable,
         };
     }
 

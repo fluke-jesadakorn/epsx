@@ -28,6 +28,8 @@ use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::upstream::UpstreamFailure;
+
 const MAX_RESPONSE_BYTES: usize = 512 * 1024;
 const WALLET_STATS_PATH: &str = "/api/v1/admin/wallets/stats";
 const WALLET_DETAIL_PREFIX: &str = "/api/v1/admin/wallets/";
@@ -35,6 +37,7 @@ const CREDIT_STATS_PATH: &str = "/api/v1/admin/credits";
 const ACCESS_PATH: &str = "/api/v1/admin/subscription/access?limit=100&offset=0";
 const PLANS_PATH: &str = "/api/v1/admin/subscription/plans?limit=100&offset=0";
 const PAYMENT_LINKS_PATH: &str = "/api/v1/admin/pay/links?limit=100&offset=0";
+const MONOLITH_PAYMENT_LINKS_PATH: &str = "/api/admin/payment-links?limit=100&offset=0";
 const PLAN_DETAIL_PREFIX: &str = "/api/v1/admin/subscription/plans/";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -42,6 +45,7 @@ pub(crate) enum AdminCommerceLoad<T> {
     Ready(T),
     Empty,
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -51,6 +55,7 @@ pub(crate) enum AdminCommerceMutationLoad<T> {
     Ready(T),
     Forbidden,
     Conflict,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -116,8 +121,20 @@ pub(crate) fn payment_intent_cancel_path(intent_id: &str) -> Option<String> {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum UpstreamError {
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
+}
+
+impl From<UpstreamFailure> for UpstreamError {
+    fn from(failure: UpstreamFailure) -> Self {
+        match failure {
+            UpstreamFailure::Unauthorized => Self::Unauthorized,
+            UpstreamFailure::Forbidden => Self::Forbidden,
+            UpstreamFailure::Malformed => Self::Malformed,
+            UpstreamFailure::Unavailable => Self::Unavailable,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -308,6 +325,24 @@ struct BackendLink {
     _created_at: String,
     status: String,
     version: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct MonolithLinkList {
+    payment_links: Vec<MonolithLink>,
+    total: i64,
+    limit: i64,
+    offset: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct MonolithLink {
+    id: String,
+    slug: String,
+    max_uses: Option<i32>,
+    current_uses: i32,
+    expires_at: Option<String>,
+    is_active: bool,
 }
 
 pub(crate) fn wallet_detail_path(address: &str) -> Option<String> {
@@ -668,6 +703,51 @@ pub(crate) async fn load_payment_links(
     }
 }
 
+pub(crate) async fn load_payment_links_monolith(
+    client: &epsx_client::ServiceClient,
+    ctx: &epsx_client::RequestContext,
+) -> AdminCommerceLoad<AdminPaymentLinkListProjection> {
+    let payload = match get_json::<MonolithLinkList>(client, MONOLITH_PAYMENT_LINKS_PATH, ctx).await
+    {
+        Ok(payload) => payload,
+        Err(error) => return error.into_load(),
+    };
+    if payload.payment_links.is_empty()
+        && payload.total == 0
+        && (1..=100).contains(&payload.limit)
+        && (0..=10_000_000).contains(&payload.offset)
+    {
+        return AdminCommerceLoad::Empty;
+    }
+    let projection = serde_json::json!({
+        "items": payload
+            .payment_links
+            .into_iter()
+            .map(|item| {
+                serde_json::json!({
+                    "id": item.id,
+                    "slug": item.slug,
+                    "max_uses": item.max_uses.unwrap_or(0),
+                    "current_uses": item.current_uses,
+                    "expires_at": item.expires_at,
+                    "status": if item.is_active { "active" } else { "disabled" },
+                    "version": 0,
+                })
+            })
+            .collect::<Vec<_>>(),
+        "total": payload.total,
+        "limit": payload.limit,
+        "offset": payload.offset,
+    });
+    match decode_admin_payment_link_list_projection(projection) {
+        Some(projection) if projection.items.is_empty() && projection.total == 0 => {
+            AdminCommerceLoad::Empty
+        }
+        Some(projection) => AdminCommerceLoad::Ready(projection),
+        None => AdminCommerceLoad::Malformed,
+    }
+}
+
 fn redact_plan(plan: BackendPlan) -> Value {
     serde_json::json!({
         "id": plan.id,
@@ -682,7 +762,7 @@ fn redact_plan(plan: BackendPlan) -> Value {
     })
 }
 
-async fn get_json<T: DeserializeOwned>(
+async fn try_get_json<T: DeserializeOwned>(
     client: &epsx_client::ServiceClient,
     path: &str,
     ctx: &epsx_client::RequestContext,
@@ -711,14 +791,44 @@ async fn get_json<T: DeserializeOwned>(
         .await
         .map_err(|_| UpstreamError::Unavailable)?;
     if !response.status().is_success() {
-        return Err(match response.status() {
-            reqwest::StatusCode::FORBIDDEN => UpstreamError::Forbidden,
-            reqwest::StatusCode::BAD_REQUEST => UpstreamError::Malformed,
-            _ => UpstreamError::Unavailable,
-        });
+        return Err(UpstreamFailure::classify(response.status()).into());
     }
     let body = read_body_limited(response).await?;
     serde_json::from_slice(&body).map_err(|_| UpstreamError::Malformed)
+}
+
+async fn get_json<T: DeserializeOwned>(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+    ctx: &epsx_client::RequestContext,
+) -> Result<T, UpstreamError> {
+    let primary = try_get_json(client, path, ctx).await;
+    // Production wallet/subscription/pay routes are mounted at `/api/v1/admin/*`
+    // on the extracted services but the monolith fallback remains at `/api/admin/*`.
+    // When the BFF's service client points at the monolith (the default when
+    // `WALLET_SERVICE_URL` etc. are unset) the `/api/v1` prefix 404s as
+    // `Unavailable`.  Retry once with the alternate prefix so the same BFF
+    // can serve rows whether the extracted service or the monolith is the
+    // upstream.  Only retry on `Unavailable` (which includes 404) — permission
+    // (`Forbidden`/`Unauthorized`) and contract (`Malformed`) failures are
+    // authoritative and must not be masked by a fallback.
+    if !matches!(primary, Err(UpstreamError::Unavailable)) {
+        return primary;
+    }
+    let alt = if let Some(rest) = path.strip_prefix("/api/v1") {
+        format!("/api{rest}")
+    } else if let Some(rest) = path.strip_prefix("/api") {
+        format!("/api/v1{rest}")
+    } else {
+        return primary;
+    };
+    if alt == path {
+        return primary;
+    }
+    match try_get_json(client, &alt, ctx).await {
+        Ok(value) => Ok(value),
+        Err(_) => primary,
+    }
 }
 
 /// Decode the backend-owned admin envelope before any route projection is
@@ -804,7 +914,11 @@ pub(crate) async fn send_wallet_status_mutation(
         return AdminCommerceMutationLoad::Conflict;
     }
     if !status.is_success() {
-        return AdminCommerceMutationLoad::Malformed;
+        return if status == reqwest::StatusCode::UNAUTHORIZED {
+            AdminCommerceMutationLoad::Unauthorized
+        } else {
+            AdminCommerceMutationLoad::Malformed
+        };
     }
     let body = match read_body_limited(response).await {
         Ok(body) => body,
@@ -869,6 +983,7 @@ impl UpstreamError {
     fn into_load<T>(self) -> AdminCommerceLoad<T> {
         match self {
             Self::Forbidden => AdminCommerceLoad::Forbidden,
+            Self::Unauthorized => AdminCommerceLoad::Unauthorized,
             Self::Unavailable => AdminCommerceLoad::Unavailable,
             Self::Malformed => AdminCommerceLoad::Malformed,
         }

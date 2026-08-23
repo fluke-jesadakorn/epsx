@@ -290,11 +290,13 @@ pub(crate) async fn load_payment_links(
         .into_iter()
         .map(|item| {
             json!({
+                "id": item.id,
                 "slug": item.slug,
                 "max_uses": item.max_uses,
                 "current_uses": item.current_uses,
                 "expires_at": item.expires_at,
                 "status": item.status,
+                "version": item.version,
             })
         })
         .collect::<Vec<_>>();

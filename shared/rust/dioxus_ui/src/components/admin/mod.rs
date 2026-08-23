@@ -73,6 +73,7 @@ pub mod toast;
 
 // Pre-existing admin primitives
 pub mod auth_page_overlay;
+pub mod data_state_banner;
 
 // =====================================================================
 // Wave 38a T1 — admin wallet domain components

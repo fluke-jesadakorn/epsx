@@ -8,6 +8,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
@@ -25,6 +26,8 @@ pub const ADMIN_CREDITS_READY: &str = "ready";
 pub const ADMIN_CREDITS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_CREDITS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_CREDITS_MALFORMED: &str = "malformed";
+pub const ADMIN_CREDITS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_CREDITS_UNAUTHORIZED: &str = "unauthorized";
 
 /// Redacted read-only fields from CreditStatsResponse. Financial amounts are
 /// retained as backend-owned minor units; correlation IDs and ledger identity
@@ -63,6 +66,8 @@ enum CreditLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn credit_load(ctx: &PageContext) -> CreditLoad {
@@ -83,6 +88,8 @@ fn credit_load(ctx: &PageContext) -> CreditLoad {
         }
         Some(ADMIN_CREDITS_FORBIDDEN) => CreditLoad::Forbidden,
         Some(ADMIN_CREDITS_MALFORMED) => CreditLoad::Malformed,
+        Some(ADMIN_CREDITS_UNAUTHENTICATED) => CreditLoad::Unauthenticated,
+        Some(ADMIN_CREDITS_UNAUTHORIZED) => CreditLoad::Unauthorized,
         Some(ADMIN_CREDITS_UNAVAILABLE) | None => CreditLoad::Unavailable,
         Some(_) => CreditLoad::Malformed,
     }
@@ -146,6 +153,22 @@ fn RenderWalletCredits(ctx: PageContext) -> Element {
                         state: ADMIN_CREDITS_MALFORMED,
                         title: "Credit data could not be verified".to_string(),
                         detail: "The backend response did not match the strict redacted credit contract. No amounts are being shown.".to_string(),
+                    }
+                },
+                CreditLoad::Unauthenticated => rsx! {
+                    AdminDataStateBanner {
+                        state: AdminDataState::Unauthenticated,
+                        subject: "Wallet credits".to_string(),
+                        return_path: WALLET_CREDITS_PATH.to_string(),
+                        retry_href: WALLET_CREDITS_PATH.to_string(),
+                    }
+                },
+                CreditLoad::Unauthorized => rsx! {
+                    AdminDataStateBanner {
+                        state: AdminDataState::Unauthorized,
+                        subject: "Wallet credits".to_string(),
+                        return_path: WALLET_CREDITS_PATH.to_string(),
+                        retry_href: WALLET_CREDITS_PATH.to_string(),
                     }
                 },
             }
@@ -400,6 +423,16 @@ mod tests {
             assert!(rendered.contains("Total Credits Outstanding"));
             assert!(rendered.contains("Refresh Stats"));
             assert!(rendered.contains("Unavailable"));
+            assert!(!rendered.contains("1,200"));
+        }
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_to_shared_banner_states() {
+        for state in [ADMIN_CREDITS_UNAUTHENTICATED, ADMIN_CREDITS_UNAUTHORIZED] {
+            let rendered = html(&with_state(state, Some(projection())));
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Sign in"));
             assert!(!rendered.contains("1,200"));
         }
     }

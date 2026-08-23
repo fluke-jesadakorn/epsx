@@ -18,6 +18,7 @@ pub(crate) enum AdminSettingsLoad {
     Ready(AdminSettingsSnapshot),
     Empty,
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -136,7 +137,11 @@ pub(crate) async fn load_admin_settings(
         return AdminSettingsLoad::Forbidden;
     }
     if !response.status().is_success() {
-        return AdminSettingsLoad::Unavailable;
+        return if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            AdminSettingsLoad::Unauthorized
+        } else {
+            AdminSettingsLoad::Unavailable
+        };
     }
     if response
         .content_length()

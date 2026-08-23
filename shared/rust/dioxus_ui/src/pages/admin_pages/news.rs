@@ -11,6 +11,7 @@ use uuid::Uuid;
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -33,6 +34,8 @@ pub const ADMIN_NEWS_STATUS_PARAM: &str = "admin_news_status";
 pub const ADMIN_NEWS_READY: &str = "ready";
 pub const ADMIN_NEWS_EMPTY: &str = "empty";
 pub const ADMIN_NEWS_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NEWS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_NEWS_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_NEWS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NEWS_MALFORMED: &str = "malformed";
 pub const ADMIN_NEWS_EDITOR_DATA_PARAM: &str = "data_admin_news_editor";
@@ -46,6 +49,8 @@ pub const ADMIN_NEWS_EDITOR_READY: &str = "ready";
 pub const ADMIN_NEWS_MUTATION_COMMITTED: &str = "committed";
 pub const ADMIN_NEWS_MUTATION_CONFLICT: &str = "conflict";
 pub const ADMIN_NEWS_MUTATION_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_NEWS_MUTATION_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_NEWS_MUTATION_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_NEWS_MUTATION_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_NEWS_MUTATION_MALFORMED: &str = "malformed";
 pub const ADMIN_NEWS_IMAGE_URL_PARAM: &str = "admin_news_image_url";
@@ -252,6 +257,8 @@ enum NewsLoad {
     Ready(AdminNewsList),
     Empty,
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -281,6 +288,8 @@ fn news_load(ctx: &PageContext, filters: &NewsFilters) -> NewsLoad {
             }
         }
         Some(ADMIN_NEWS_FORBIDDEN) => NewsLoad::Forbidden,
+        Some(ADMIN_NEWS_UNAUTHENTICATED) => NewsLoad::Unauthenticated,
+        Some(ADMIN_NEWS_UNAUTHORIZED) => NewsLoad::Unauthorized,
         Some(ADMIN_NEWS_MALFORMED) => NewsLoad::Malformed,
         Some(ADMIN_NEWS_UNAVAILABLE) | None => NewsLoad::Unavailable,
         Some(_) => NewsLoad::Malformed,
@@ -324,6 +333,8 @@ enum NewsEditorLoad {
     Committed(AdminNewsEditorProjection),
     Conflict(String),
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -355,6 +366,8 @@ fn news_editor_load(ctx: &PageContext, route: NewsRoute) -> NewsEditorLoad {
                 }),
         ),
         Some(ADMIN_NEWS_MUTATION_FORBIDDEN) => NewsEditorLoad::Forbidden,
+        Some(ADMIN_NEWS_MUTATION_UNAUTHENTICATED) => NewsEditorLoad::Unauthenticated,
+        Some(ADMIN_NEWS_MUTATION_UNAUTHORIZED) => NewsEditorLoad::Unauthorized,
         Some(ADMIN_NEWS_MUTATION_UNAVAILABLE) => NewsEditorLoad::Unavailable,
         Some(ADMIN_NEWS_MUTATION_MALFORMED) => NewsEditorLoad::Malformed,
         Some(_) => NewsEditorLoad::Malformed,
@@ -419,6 +432,17 @@ fn render_editor_route(
                         },
                         NewsEditorLoad::Conflict(detail) => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_CONFLICT, detail } },
                         NewsEditorLoad::Forbidden => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_FORBIDDEN, detail: "The backend denied this content mutation. No editor data is being shown.".to_string() } },
+                        NewsEditorLoad::Unauthenticated | NewsEditorLoad::Unauthorized => {
+                            let state = if matches!(load, NewsEditorLoad::Unauthenticated) { AdminDataState::Unauthenticated } else { AdminDataState::Unauthorized };
+                            rsx! {
+                                AdminDataStateBanner {
+                                    state,
+                                    subject: "News editor".to_string(),
+                                    return_path: NEWS_PATH.to_string(),
+                                    retry_href: NEWS_PATH.to_string(),
+                                }
+                            }
+                        }
                         NewsEditorLoad::Unavailable => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_UNAVAILABLE, detail: "The content mutation backend did not provide an authoritative editor response.".to_string() } },
                         NewsEditorLoad::Malformed => rsx! { NewsMutationNotice { state: ADMIN_NEWS_MUTATION_MALFORMED, detail: "The editor response did not match the strict content contract.".to_string() } },
                     }
@@ -435,7 +459,11 @@ fn RenderNewsList(ctx: PageContext) -> Element {
     let total_count = match &load {
         NewsLoad::Ready(projection) => Some(projection.total),
         NewsLoad::Empty => Some(0),
-        NewsLoad::Forbidden | NewsLoad::Unavailable | NewsLoad::Malformed => None,
+        NewsLoad::Forbidden
+        | NewsLoad::Unauthenticated
+        | NewsLoad::Unauthorized
+        | NewsLoad::Unavailable
+        | NewsLoad::Malformed => None,
     };
     let mutation = ctx
         .params
@@ -444,6 +472,8 @@ fn RenderNewsList(ctx: PageContext) -> Element {
             ADMIN_NEWS_MUTATION_COMMITTED => Some(ADMIN_NEWS_MUTATION_COMMITTED),
             ADMIN_NEWS_MUTATION_CONFLICT => Some(ADMIN_NEWS_MUTATION_CONFLICT),
             ADMIN_NEWS_MUTATION_FORBIDDEN => Some(ADMIN_NEWS_MUTATION_FORBIDDEN),
+            ADMIN_NEWS_MUTATION_UNAUTHENTICATED => Some(ADMIN_NEWS_MUTATION_UNAUTHENTICATED),
+            ADMIN_NEWS_MUTATION_UNAUTHORIZED => Some(ADMIN_NEWS_MUTATION_UNAUTHORIZED),
             ADMIN_NEWS_MUTATION_UNAVAILABLE => Some(ADMIN_NEWS_MUTATION_UNAVAILABLE),
             ADMIN_NEWS_MUTATION_MALFORMED => Some(ADMIN_NEWS_MUTATION_MALFORMED),
             _ => None,
@@ -480,6 +510,22 @@ fn RenderNewsList(ctx: PageContext) -> Element {
                     }
                     NewsUnavailableInventory {}
                 },
+                NewsLoad::Unauthenticated | NewsLoad::Unauthorized => {
+                    let state = if matches!(load, NewsLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "News management".to_string(),
+                            return_path: NEWS_PATH.to_string(),
+                            retry_href: filters.href(filters.page),
+                        }
+                        NewsUnavailableInventory {}
+                    }
+                }
                 NewsLoad::Unavailable => rsx! {
                     NewsProblem {
                         state: ADMIN_NEWS_UNAVAILABLE,

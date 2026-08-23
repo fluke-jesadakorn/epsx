@@ -22,11 +22,10 @@
 # So nothing should collide.
 #
 # Usage:
-#   # default: builds, then runs with the dev auth bypass ON
 #   ./scripts/wave21-dev-loop.sh up
 #
-#   # without auth bypass (default = ON; use this to see the SIWE gate):
-#   ./scripts/wave21-dev-loop.sh up --no-bypass
+#   # only the frontend BFF (port 4000)
+#   ./scripts/wave21-dev-loop.sh frontend
 #
 #   # only the frontend BFF (port 4000)
 #   ./scripts/wave21-dev-loop.sh frontend
@@ -101,11 +100,9 @@ start_port_forward() {
 
 start_frontend() {
   local api_url=${API_URL:-http://localhost:$LOCAL_API_PORT}
-  local bypass=${EPSX_DEV_AUTH_BYPASS:-1}
-  log "Starting $FRONTEND_BIN on :$FRONTEND_PORT (api=$api_url, bypass=$bypass)..."
+  log "Starting $FRONTEND_BIN on :$FRONTEND_PORT (api=$api_url)..."
   (
     cd "$WORKTREE_ROOT"
-    EPSX_DEV_AUTH_BYPASS="$bypass" \
     PORT="$FRONTEND_PORT" \
     API_URL="$api_url" \
     cargo run -p epsx-frontend --bin "$FRONTEND_BIN" --release \
@@ -117,11 +114,9 @@ start_frontend() {
 
 start_admin() {
   local api_url=${API_URL:-http://localhost:$LOCAL_API_PORT}
-  local bypass=${EPSX_DEV_AUTH_BYPASS:-1}
-  log "Starting $ADMIN_BIN on :$ADMIN_PORT (api=$api_url, bypass=$bypass)..."
+  log "Starting $ADMIN_BIN on :$ADMIN_PORT (api=$api_url)..."
   (
     cd "$WORKTREE_ROOT"
-    EPSX_DEV_AUTH_BYPASS="$bypass" \
     PORT="$ADMIN_PORT" \
     API_URL="$api_url" \
     cargo run -p epsx-admin --bin "$ADMIN_BIN" --release \
@@ -144,8 +139,7 @@ print_urls() {
   ──────────────────────────────────────────────────────────
   Logs:  $LOG_DIR/{frontend,admin,port-forward}.log
   PIDs:  $PID_DIR/{frontend,admin,port-forward}.pid
-  Auth bypass: EPSX_DEV_AUTH_BYPASS=${EPSX_DEV_AUTH_BYPASS:-1}
-               (unset to require SIWE login)
+  Auth:  SIWE via K8s backend — no bypass
   ──────────────────────────────────────────────────────────
 
 EOF
@@ -155,8 +149,6 @@ cmd_up() {
   local frontend=1 admin=1 pf=1
   while [ $# -gt 0 ]; do
     case "$1" in
-      --no-bypass) export EPSX_DEV_AUTH_BYPASS=0; shift ;;
-      --bypass)    export EPSX_DEV_AUTH_BYPASS=1; shift ;;
       --no-frontend) frontend=0; shift ;;
       --no-admin)    admin=0; shift ;;
       *) warn "unknown up flag: $1"; shift ;;

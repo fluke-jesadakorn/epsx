@@ -189,8 +189,13 @@ async fn main() {
         .route("/api/v1/wallet/verify-message", post(verify_message))
         .route("/api/v1/wallet/estimate-gas", post(estimate_gas))
         .route("/api/v1/admin/wallets", get(commerce::list_admin_wallets))
+        .route("/api/admin/wallets", get(commerce::list_admin_wallets))
         .route(
             "/api/v1/admin/wallets/stats",
+            get(commerce::admin_wallet_stats),
+        )
+        .route(
+            "/api/admin/wallets/stats",
             get(commerce::admin_wallet_stats),
         )
         .route(
@@ -198,7 +203,15 @@ async fn main() {
             get(commerce::get_admin_wallet),
         )
         .route(
+            "/api/admin/wallets/{address}",
+            get(commerce::get_admin_wallet),
+        )
+        .route(
             "/api/v1/admin/wallets/{address}/disable",
+            post(commerce::disable_admin_wallet),
+        )
+        .route(
+            "/api/admin/wallets/{address}/disable",
             post(commerce::disable_admin_wallet),
         )
         .route(
@@ -206,12 +219,25 @@ async fn main() {
             post(commerce::enable_admin_wallet),
         )
         .route(
+            "/api/admin/wallets/{address}/enable",
+            post(commerce::enable_admin_wallet),
+        )
+        .route(
             "/api/v1/admin/wallets/{address}/metadata",
             axum::routing::patch(commerce::update_admin_wallet_metadata),
         )
+        .route(
+            "/api/admin/wallets/{address}/metadata",
+            axum::routing::patch(commerce::update_admin_wallet_metadata),
+        )
         .route("/api/v1/admin/credits", get(commerce::admin_credit_stats))
+        .route("/api/admin/credits", get(commerce::admin_credit_stats))
         .route(
             "/api/v1/admin/credits/{address}",
+            get(commerce::get_admin_credits),
+        )
+        .route(
+            "/api/admin/credits/{address}",
             get(commerce::get_admin_credits),
         )
         .route(
@@ -219,7 +245,15 @@ async fn main() {
             post(commerce::grant_admin_credits),
         )
         .route(
+            "/api/admin/credits/{address}/grant",
+            post(commerce::grant_admin_credits),
+        )
+        .route(
             "/api/v1/admin/credits/{address}/revoke",
+            post(commerce::revoke_admin_credits),
+        )
+        .route(
+            "/api/admin/credits/{address}/revoke",
             post(commerce::revoke_admin_credits),
         )
         .with_state(AppState {

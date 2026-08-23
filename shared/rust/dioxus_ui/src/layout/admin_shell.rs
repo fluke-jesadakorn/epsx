@@ -106,6 +106,14 @@ pub fn AdminShell(
     children: Element,
 ) -> Element {
     let is_authenticated = ctx.user.as_ref().map(|u| u.is_authed()).unwrap_or(false);
+    let session_state = crate::layout::session_state::SessionState::from_params(&ctx.params)
+        .unwrap_or({
+            if is_authenticated {
+                crate::layout::session_state::SessionState::Verified
+            } else {
+                crate::layout::session_state::SessionState::Anonymous
+            }
+        });
     let items = sidebar_items.unwrap_or_else(default_admin_shell_items);
 
     // The source derives breadcrumbs from the current pathname. Keep the
@@ -122,6 +130,7 @@ pub fn AdminShell(
                     current_path: ctx.path.clone(),
                     is_authenticated,
                     items: Some(items),
+                    session_state: Some(session_state),
                 }
             }
             // Right side — breadcrumb header + main content + footer.
@@ -155,6 +164,7 @@ pub fn AdminShell(
                     on_theme_toggle: None,
                     class_name: Some("admin-shell-header".to_string()),
                     id: None,
+                    session_state: Some(session_state),
                 }
                 // Source pages place their visible title in the page body;
                 // retain the legacy prop as an accessible shell marker for

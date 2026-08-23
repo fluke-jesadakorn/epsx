@@ -143,7 +143,7 @@ pub async fn list_admin_pay_links(
     {
         return error(&headers, StatusCode::BAD_REQUEST, "invalid_status");
     };
-    let items=sqlx::query_as::<_,AdminPayLink>("SELECT l.id,l.slug,l.intent_id,l.max_uses,l.current_uses,l.expires_at,l.created_at,COALESCE(s.status,'active'),COALESCE(s.version,0) FROM public.pay_links l LEFT JOIN public.pay_link_admin_state s ON s.link_id=l.id WHERE ($1::text IS NULL OR COALESCE(s.status,'active')=$1) ORDER BY l.created_at DESC LIMIT $2 OFFSET $3").bind(query.status.as_deref()).bind(limit).bind(offset).fetch_all(&state.db).await;
+    let items=sqlx::query_as::<_,AdminPayLink>("SELECT l.id,l.slug,l.intent_id,l.max_uses,l.current_uses,l.expires_at,l.created_at,COALESCE(s.status,'active') AS status,COALESCE(s.version,0) AS version FROM public.pay_links l LEFT JOIN public.pay_link_admin_state s ON s.link_id=l.id WHERE ($1::text IS NULL OR COALESCE(s.status,'active')=$1) ORDER BY l.created_at DESC LIMIT $2 OFFSET $3").bind(query.status.as_deref()).bind(limit).bind(offset).fetch_all(&state.db).await;
     let total=sqlx::query_scalar::<_,i64>("SELECT COUNT(*) FROM public.pay_links l LEFT JOIN public.pay_link_admin_state s ON s.link_id=l.id WHERE ($1::text IS NULL OR COALESCE(s.status,'active')=$1)").bind(query.status.as_deref()).fetch_one(&state.db).await;
     match (items, total) {
         (Ok(items), Ok(total)) => response(

@@ -38,6 +38,7 @@ mod session_auth;
 mod session_auth_tests;
 mod settings_admin_adapter;
 mod ssr;
+mod upstream;
 mod wallet_stats_adapter;
 
 use commerce_adapter::{
@@ -72,8 +73,6 @@ struct AppState {
     verifier: Arc<JwksVerifier>,
     cookie_environment: CookieEnvironment,
     api_url: String,
-    demo_login_enabled: bool,
-    dev_bypass_enabled: bool,
 }
 
 const ADMIN_NOTIFICATION_FORM_MAX: usize = 20 * 1024;
@@ -632,15 +631,6 @@ mod payment_intent_adapter_tests {
 async fn main() {
     epsx_observability::Observability::init("bff-admin");
 
-    // Wave 21 — dev auth bypass banner. Always evaluated (cheap) so the
-    // log line is honest about the process state. Default is OFF; the
-    // env var must be set to "1" to flip it on.
-    if epsx_bff::dev_bypass::is_dev_bypass_enabled() {
-        tracing::warn!(
-            "EPSX_DEV_AUTH_BYPASS=1 — every request is treated as logged in as dev admin (0x...d3v1). NEVER enable in production."
-        );
-    }
-
     let state = state_from_env().expect("valid admin authentication configuration");
     let port: u16 = std::env::var("PORT")
         .ok()
@@ -687,14 +677,6 @@ fn state_from_env() -> Result<AppState, String> {
     }
     validate_auth_url(&issuer, cookie_environment, "OIDC_ISSUER/BACKEND_URL")?;
 
-    let demo_login_enabled = std::env::var("EPSX_ENABLE_DEMO_LOGIN").ok().as_deref() == Some("1");
-    let dev_bypass_enabled = std::env::var("EPSX_DEV_AUTH_BYPASS").ok().as_deref() == Some("1");
-    if cookie_environment == CookieEnvironment::Production
-        && (demo_login_enabled || dev_bypass_enabled)
-    {
-        return Err("demo login and auth bypass are forbidden in production".to_string());
-    }
-
     let verifier_config = JwksVerifierConfig::new(
         format!("{}{}", api_url.trim_end_matches('/'), JWKS_PATH),
         issuer.trim_end_matches('/'),
@@ -722,8 +704,6 @@ fn state_from_env() -> Result<AppState, String> {
         verifier,
         cookie_environment,
         api_url,
-        demo_login_enabled,
-        dev_bypass_enabled,
     })
 }
 
@@ -1504,8 +1484,6 @@ mod routing_tests {
             )),
             cookie_environment: CookieEnvironment::Local,
             api_url: base_url.to_string(),
-            demo_login_enabled: false,
-            dev_bypass_enabled: false,
         }
     }
 
@@ -2966,7 +2944,9 @@ async fn verified_admin_auth_context(
 
 fn news_mutation_redirect(path: &str, state: &str) -> Response {
     let state = match state {
-        "committed" | "conflict" | "forbidden" | "unavailable" | "malformed" => state,
+        "committed" | "conflict" | "forbidden" | "unauthorized" | "unavailable" | "malformed" => {
+            state
+        }
         _ => "malformed",
     };
     let location = format!("{path}?mutation={state}");
@@ -2977,6 +2957,7 @@ fn news_mutation_error_state(error: AdminNewsMutationError) -> &'static str {
     match error {
         AdminNewsMutationError::Conflict => "conflict",
         AdminNewsMutationError::Forbidden => "forbidden",
+        AdminNewsMutationError::Unauthorized => "unauthorized",
         AdminNewsMutationError::Unavailable => "unavailable",
         AdminNewsMutationError::Invalid | AdminNewsMutationError::Malformed => "malformed",
     }
@@ -3275,6 +3256,9 @@ async fn submit_settings_form(State(state): State<AppState>, request: Request) -
         .json(&payload);
     let state_name = match request.send().await {
         Ok(response) if response.status().is_success() => "success",
+        Ok(response) if response.status().as_u16() == StatusCode::UNAUTHORIZED.as_u16() => {
+            "unauthorized"
+        }
         Ok(response) if response.status().as_u16() == StatusCode::FORBIDDEN.as_u16() => "forbidden",
         Ok(response) if response.status().as_u16() == StatusCode::CONFLICT.as_u16() => "conflict",
         Ok(response) if matches!(response.status().as_u16(), value if value == StatusCode::BAD_REQUEST.as_u16() || value == StatusCode::UNPROCESSABLE_ENTITY.as_u16()) => {
@@ -3505,6 +3489,9 @@ async fn submit_developer_create_form(State(state): State<AppState>, request: Re
         Err(error) => {
             let state = match error {
                 developer_portal_adapter::AdminDeveloperMutationError::Forbidden => "forbidden",
+                developer_portal_adapter::AdminDeveloperMutationError::Unauthorized => {
+                    "unauthorized"
+                }
                 developer_portal_adapter::AdminDeveloperMutationError::Conflict => "conflict",
                 developer_portal_adapter::AdminDeveloperMutationError::Unavailable => "unavailable",
                 developer_portal_adapter::AdminDeveloperMutationError::Invalid
@@ -3522,6 +3509,7 @@ fn developer_mutation_error_state(error: AdminDeveloperMutationError) -> &'stati
     match error {
         AdminDeveloperMutationError::Conflict => "conflict",
         AdminDeveloperMutationError::Forbidden => "forbidden",
+        AdminDeveloperMutationError::Unauthorized => "unauthorized",
         AdminDeveloperMutationError::Unavailable => "unavailable",
         AdminDeveloperMutationError::Invalid | AdminDeveloperMutationError::Malformed => {
             "malformed"
@@ -3636,6 +3624,8 @@ async fn send_admin_form_mutation(
     let status = response.status();
     if status.is_success() {
         Ok(status)
+    } else if status == reqwest::StatusCode::UNAUTHORIZED {
+        Err("unauthorized")
     } else if status == reqwest::StatusCode::FORBIDDEN {
         Err("forbidden")
     } else if status == reqwest::StatusCode::CONFLICT {
@@ -4128,6 +4118,7 @@ fn media_mutation_state(error: AdminMediaMutationError) -> &'static str {
     match error {
         AdminMediaMutationError::Invalid | AdminMediaMutationError::Malformed => "malformed",
         AdminMediaMutationError::Forbidden => "forbidden",
+        AdminMediaMutationError::Unauthorized => "unauthorized",
         AdminMediaMutationError::Conflict => "conflict",
         AdminMediaMutationError::Unavailable => "unavailable",
     }
@@ -4309,6 +4300,7 @@ async fn submit_wallet_disable_form(State(state): State<AppState>, request: Requ
     let state = match result {
         AdminCommerceMutationLoad::Ready(_) => "success",
         AdminCommerceMutationLoad::Forbidden => "forbidden",
+        AdminCommerceMutationLoad::Unauthorized => "unauthorized",
         AdminCommerceMutationLoad::Conflict => "conflict",
         AdminCommerceMutationLoad::Unavailable => "unavailable",
         AdminCommerceMutationLoad::Malformed => "malformed",
@@ -4355,6 +4347,7 @@ async fn submit_notification_manage_form(
     let mutation = match result {
         AdminNotificationMutationResult::Ready => "committed",
         AdminNotificationMutationResult::Forbidden => "forbidden",
+        AdminNotificationMutationResult::Unauthorized => "unauthorized",
         AdminNotificationMutationResult::Unavailable => "unavailable",
         AdminNotificationMutationResult::Malformed => "malformed",
     };
@@ -4447,6 +4440,9 @@ async fn submit_notification_form(State(state): State<AppState>, request: Reques
         }
         AdminNotificationSendResult::Forbidden => {
             Redirect::to("/notifications/create?mutation=forbidden").into_response()
+        }
+        AdminNotificationSendResult::Unauthorized => {
+            Redirect::to("/notifications/create?mutation=unauthorized").into_response()
         }
         AdminNotificationSendResult::Conflict => {
             Redirect::to("/notifications/create?mutation=conflict").into_response()

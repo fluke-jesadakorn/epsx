@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use super::super::{PageContext, PageMeta};
 use super::wallet_hub::WalletManagementHub;
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
@@ -32,6 +33,10 @@ pub const ADMIN_PLANS_EMPTY: &str = "empty";
 pub const ADMIN_PLANS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_PLANS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PLANS_MALFORMED: &str = "malformed";
+pub const ADMIN_PLANS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_PLANS_UNAUTHORIZED: &str = "unauthorized";
+pub const ADMIN_PLAN_DETAIL_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_PLAN_DETAIL_UNAUTHORIZED: &str = "unauthorized";
 
 /// Redacted fields from the service AdminPlan DTO. Merchant identity and
 /// timestamps are deliberately not transported into PageContext.
@@ -145,6 +150,8 @@ enum PlansLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn plans_load(ctx: &PageContext) -> PlansLoad {
@@ -172,6 +179,8 @@ fn plans_load(ctx: &PageContext) -> PlansLoad {
         }
         Some(ADMIN_PLANS_FORBIDDEN) => PlansLoad::Forbidden,
         Some(ADMIN_PLANS_MALFORMED) => PlansLoad::Malformed,
+        Some(ADMIN_PLANS_UNAUTHENTICATED) => PlansLoad::Unauthenticated,
+        Some(ADMIN_PLANS_UNAUTHORIZED) => PlansLoad::Unauthorized,
         Some(ADMIN_PLANS_UNAVAILABLE) | None => PlansLoad::Unavailable,
         Some(_) => PlansLoad::Malformed,
     }
@@ -183,6 +192,8 @@ enum PlanDetailLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn plan_detail_load(ctx: &PageContext) -> PlanDetailLoad {
@@ -217,6 +228,8 @@ fn plan_detail_load(ctx: &PageContext) -> PlanDetailLoad {
         }
         Some(ADMIN_PLANS_FORBIDDEN) => PlanDetailLoad::Forbidden,
         Some(ADMIN_PLANS_MALFORMED) => PlanDetailLoad::Malformed,
+        Some(ADMIN_PLAN_DETAIL_UNAUTHENTICATED) => PlanDetailLoad::Unauthenticated,
+        Some(ADMIN_PLAN_DETAIL_UNAUTHORIZED) => PlanDetailLoad::Unauthorized,
         Some(ADMIN_PLANS_UNAVAILABLE) | None => PlanDetailLoad::Unavailable,
         Some(_) => PlanDetailLoad::Malformed,
     }
@@ -290,6 +303,8 @@ fn RenderPlanList(ctx: PageContext) -> Element {
         PlansLoad::Forbidden => plan_problem_element(ctx, ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read plan definitions."),
         PlansLoad::Unavailable => plan_problem_element(ctx, ADMIN_PLANS_UNAVAILABLE, "Wallet plans are unavailable", "The subscription backend could not provide an authoritative plan response. No plans are being shown."),
         PlansLoad::Malformed => plan_problem_element(ctx, ADMIN_PLANS_MALFORMED, "Wallet plan data could not be verified", "The backend response did not match the strict redacted plan contract. No plans are being shown."),
+        PlansLoad::Unauthenticated => plan_banner_element(ctx, AdminDataState::Unauthenticated),
+        PlansLoad::Unauthorized => plan_banner_element(ctx, AdminDataState::Unauthorized),
     }
 }
 
@@ -392,6 +407,8 @@ fn RenderPlanDetail(ctx: PageContext) -> Element {
         PlanDetailLoad::Forbidden => plan_problem_element(ctx, ADMIN_PLANS_FORBIDDEN, "Wallet plan access was denied", "The backend did not authorize this session to read this plan."),
         PlanDetailLoad::Unavailable => plan_problem_element(ctx, ADMIN_PLANS_UNAVAILABLE, "Wallet plan detail is unavailable", "The subscription backend could not provide an authoritative plan response. No plan data is being shown."),
         PlanDetailLoad::Malformed => plan_problem_element(ctx, ADMIN_PLANS_MALFORMED, "Wallet plan detail could not be verified", "The route identifier or backend response did not match the strict plan contract. No plan data is being shown."),
+        PlanDetailLoad::Unauthenticated => plan_banner_element(ctx, AdminDataState::Unauthenticated),
+        PlanDetailLoad::Unauthorized => plan_banner_element(ctx, AdminDataState::Unauthorized),
     }
 }
 
@@ -545,6 +562,19 @@ fn plan_state_label(active: Option<bool>) -> &'static str {
 
 fn plan_href(id: &str) -> String {
     format!("{PLANS_PATH}/{id}")
+}
+
+fn plan_banner_element(ctx: PageContext, state: AdminDataState) -> Element {
+    rsx! {
+        WalletManagementHub { ctx,
+            AdminDataStateBanner {
+                state,
+                subject: "Wallet plans".to_string(),
+                return_path: PLANS_PATH.to_string(),
+                retry_href: PLANS_PATH.to_string(),
+            }
+        }
+    }
 }
 
 fn plan_problem_element(
@@ -785,6 +815,31 @@ mod tests {
                     || dioxus_ssr::render_element(render_editor(&ctx).1)
                         .contains("data-admin-wallet-plans-state=\"malformed\"")
             );
+        }
+    }
+
+    #[test]
+    fn list_unauthenticated_and_unauthorized_render_shared_banner() {
+        for state in [ADMIN_PLANS_UNAUTHENTICATED, ADMIN_PLANS_UNAUTHORIZED] {
+            let rendered =
+                dioxus_ssr::render_element(render(&list_context(state, Some(list_json()), true)).1);
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Wallet Management Hub"));
+            assert!(!rendered.contains("Backend-defined plan"));
+        }
+    }
+
+    #[test]
+    fn detail_unauthenticated_and_unauthorized_render_shared_banner() {
+        for state in [
+            ADMIN_PLAN_DETAIL_UNAUTHENTICATED,
+            ADMIN_PLAN_DETAIL_UNAUTHORIZED,
+        ] {
+            let rendered = dioxus_ssr::render_element(
+                render_editor(&detail_context(PLAN_ID, state, Some(plan_json(PLAN_ID)))).1,
+            );
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(!rendered.contains("Backend-defined plan"));
         }
     }
 

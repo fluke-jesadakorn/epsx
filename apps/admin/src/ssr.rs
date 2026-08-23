@@ -18,42 +18,49 @@ use axum::{
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 use epsx_bff::session::AccessVerification;
 use epsx_client::RequestContext;
+use epsx_dioxus_ui::layout::session_state::{
+    SESSION_STATE_ANONYMOUS, SESSION_STATE_PARAM, SESSION_STATE_VERIFIED,
+};
 use epsx_dioxus_ui::layout::shell::{AdminLayout, ServerUser};
 use epsx_dioxus_ui::pages::admin_pages::analytics::{
     ADMIN_ANALYTICS_DATA_PARAM, ADMIN_ANALYTICS_EMPTY, ADMIN_ANALYTICS_FORBIDDEN,
     ADMIN_ANALYTICS_MALFORMED, ADMIN_ANALYTICS_READY, ADMIN_ANALYTICS_STATE_PARAM,
-    ADMIN_ANALYTICS_UNAVAILABLE,
+    ADMIN_ANALYTICS_UNAUTHENTICATED, ADMIN_ANALYTICS_UNAUTHORIZED, ADMIN_ANALYTICS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::audit_log::{
     ADMIN_AUDIT_CATEGORY_PARAM, ADMIN_AUDIT_CURSOR_PARAM, ADMIN_AUDIT_DATA_PARAM,
     ADMIN_AUDIT_EMPTY, ADMIN_AUDIT_FORBIDDEN, ADMIN_AUDIT_MALFORMED, ADMIN_AUDIT_READY,
-    ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAVAILABLE,
+    ADMIN_AUDIT_STATE_PARAM, ADMIN_AUDIT_UNAUTHORIZED, ADMIN_AUDIT_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::chat::{
     ADMIN_CHAT_DETAIL_DATA_PARAM, ADMIN_CHAT_DETAIL_STATE_PARAM, ADMIN_CHAT_EMPTY,
     ADMIN_CHAT_FORBIDDEN, ADMIN_CHAT_LIST_DATA_PARAM, ADMIN_CHAT_LIST_STATE_PARAM,
-    ADMIN_CHAT_MALFORMED, ADMIN_CHAT_READY, ADMIN_CHAT_UNAVAILABLE,
+    ADMIN_CHAT_MALFORMED, ADMIN_CHAT_READY, ADMIN_CHAT_UNAUTHENTICATED, ADMIN_CHAT_UNAUTHORIZED,
+    ADMIN_CHAT_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::dashboard::{
     ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN, ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
     ADMIN_DASHBOARD_USER_STATUS_PARAM, ADMIN_DASHBOARD_USER_STATUS_READY,
-    ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM, ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
+    ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM, ADMIN_DASHBOARD_USER_STATUS_UNAUTHENTICATED,
+    ADMIN_DASHBOARD_USER_STATUS_UNAUTHORIZED, ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::developer_portal::{
     decode_admin_developer_secret_once, AdminDeveloperSecretOnceProjection,
     ADMIN_DEVELOPER_CREATE_CONFLICT, ADMIN_DEVELOPER_CREATE_CREATED,
     ADMIN_DEVELOPER_CREATE_DATA_PARAM, ADMIN_DEVELOPER_CREATE_FORBIDDEN,
     ADMIN_DEVELOPER_CREATE_FORM, ADMIN_DEVELOPER_CREATE_MALFORMED,
-    ADMIN_DEVELOPER_CREATE_STATE_PARAM, ADMIN_DEVELOPER_CREATE_UNAVAILABLE,
-    ADMIN_DEVELOPER_DATA_PARAM, ADMIN_DEVELOPER_EMPTY, ADMIN_DEVELOPER_FORBIDDEN,
-    ADMIN_DEVELOPER_MALFORMED, ADMIN_DEVELOPER_READY, ADMIN_DEVELOPER_STATE_PARAM,
+    ADMIN_DEVELOPER_CREATE_STATE_PARAM, ADMIN_DEVELOPER_CREATE_UNAUTHORIZED,
+    ADMIN_DEVELOPER_CREATE_UNAVAILABLE, ADMIN_DEVELOPER_DATA_PARAM, ADMIN_DEVELOPER_EMPTY,
+    ADMIN_DEVELOPER_FORBIDDEN, ADMIN_DEVELOPER_MALFORMED, ADMIN_DEVELOPER_READY,
+    ADMIN_DEVELOPER_STATE_PARAM, ADMIN_DEVELOPER_UNAUTHENTICATED, ADMIN_DEVELOPER_UNAUTHORIZED,
     ADMIN_DEVELOPER_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::media::{
     ADMIN_MEDIA_BUCKET_PARAM, ADMIN_MEDIA_DATA_PARAM, ADMIN_MEDIA_EMPTY, ADMIN_MEDIA_FORBIDDEN,
     ADMIN_MEDIA_MALFORMED, ADMIN_MEDIA_MUTATION_COMMITTED, ADMIN_MEDIA_MUTATION_DATA_PARAM,
     ADMIN_MEDIA_MUTATION_ERROR_PARAM, ADMIN_MEDIA_MUTATION_STATE_PARAM, ADMIN_MEDIA_READY,
-    ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAVAILABLE,
+    ADMIN_MEDIA_STATE_PARAM, ADMIN_MEDIA_UNAUTHENTICATED, ADMIN_MEDIA_UNAUTHORIZED,
+    ADMIN_MEDIA_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_DATA_PARAM, ADMIN_NEWS_EDITOR_DATA_PARAM, ADMIN_NEWS_EDITOR_FORM,
@@ -61,8 +68,9 @@ use epsx_dioxus_ui::pages::admin_pages::news::{
     ADMIN_NEWS_IMAGE_COMMITTED, ADMIN_NEWS_IMAGE_STATE_PARAM, ADMIN_NEWS_IMAGE_URL_PARAM,
     ADMIN_NEWS_MALFORMED, ADMIN_NEWS_MUTATION_CONFLICT, ADMIN_NEWS_MUTATION_ERROR_PARAM,
     ADMIN_NEWS_MUTATION_FORBIDDEN, ADMIN_NEWS_MUTATION_MALFORMED, ADMIN_NEWS_MUTATION_STATE_PARAM,
-    ADMIN_NEWS_MUTATION_UNAVAILABLE, ADMIN_NEWS_PAGE_PARAM, ADMIN_NEWS_READY,
-    ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM, ADMIN_NEWS_UNAVAILABLE,
+    ADMIN_NEWS_MUTATION_UNAUTHORIZED, ADMIN_NEWS_MUTATION_UNAVAILABLE, ADMIN_NEWS_PAGE_PARAM,
+    ADMIN_NEWS_READY, ADMIN_NEWS_STATE_PARAM, ADMIN_NEWS_STATUS_PARAM, ADMIN_NEWS_UNAUTHENTICATED,
+    ADMIN_NEWS_UNAUTHORIZED, ADMIN_NEWS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::notifications::{
     decode_admin_notification_create_result, ADMIN_NOTIFICATIONS_DATA_PARAM,
@@ -70,13 +78,15 @@ use epsx_dioxus_ui::pages::admin_pages::notifications::{
     ADMIN_NOTIFICATIONS_MUTATION_PARAM, ADMIN_NOTIFICATIONS_PAGE_PARAM, ADMIN_NOTIFICATIONS_READY,
     ADMIN_NOTIFICATIONS_SEND_ACCEPTED, ADMIN_NOTIFICATIONS_SEND_ERROR,
     ADMIN_NOTIFICATIONS_SEND_STATE_PARAM, ADMIN_NOTIFICATIONS_STATE_PARAM,
+    ADMIN_NOTIFICATIONS_UNAUTHENTICATED, ADMIN_NOTIFICATIONS_UNAUTHORIZED,
     ADMIN_NOTIFICATIONS_UNAVAILABLE, ADMIN_NOTIFICATION_CREATE_CONFLICT,
     ADMIN_NOTIFICATION_CREATE_DATA_PARAM, ADMIN_NOTIFICATION_CREATE_FAILED,
     ADMIN_NOTIFICATION_CREATE_FORBIDDEN, ADMIN_NOTIFICATION_CREATE_FORM,
     ADMIN_NOTIFICATION_CREATE_INVALID, ADMIN_NOTIFICATION_CREATE_MALFORMED,
     ADMIN_NOTIFICATION_CREATE_PENDING, ADMIN_NOTIFICATION_CREATE_SENT,
-    ADMIN_NOTIFICATION_CREATE_STATE_PARAM, ADMIN_NOTIFICATION_CREATE_UNAVAILABLE,
-    ADMIN_NOTIFICATION_METRICS_DATA_PARAM, ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
+    ADMIN_NOTIFICATION_CREATE_STATE_PARAM, ADMIN_NOTIFICATION_CREATE_UNAUTHORIZED,
+    ADMIN_NOTIFICATION_CREATE_UNAVAILABLE, ADMIN_NOTIFICATION_METRICS_DATA_PARAM,
+    ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::admin_pages::payments::{
     decode_admin_payment_intent_list, AdminPaymentLinkListProjection,
@@ -84,44 +94,54 @@ use epsx_dioxus_ui::pages::admin_pages::payments::{
     ADMIN_PAYMENTS_EMPTY, ADMIN_PAYMENTS_LIMIT_PARAM, ADMIN_PAYMENTS_MALFORMED,
     ADMIN_PAYMENTS_OFFSET_PARAM, ADMIN_PAYMENTS_PAYER_PARAM, ADMIN_PAYMENTS_READY,
     ADMIN_PAYMENTS_STATE_PARAM, ADMIN_PAYMENTS_STATUS_PARAM, ADMIN_PAYMENTS_TAB_PARAM,
-    ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM, ADMIN_PAYMENT_LINKS_EMPTY,
-    ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED, ADMIN_PAYMENT_LINKS_READY,
-    ADMIN_PAYMENT_LINKS_STATE_PARAM, ADMIN_PAYMENT_LINKS_UNAVAILABLE, ADMIN_PAYMENT_MUTATION_PARAM,
+    ADMIN_PAYMENTS_UNAUTHENTICATED, ADMIN_PAYMENTS_UNAVAILABLE, ADMIN_PAYMENT_LINKS_DATA_PARAM,
+    ADMIN_PAYMENT_LINKS_EMPTY, ADMIN_PAYMENT_LINKS_FORBIDDEN, ADMIN_PAYMENT_LINKS_MALFORMED,
+    ADMIN_PAYMENT_LINKS_READY, ADMIN_PAYMENT_LINKS_STATE_PARAM,
+    ADMIN_PAYMENT_LINKS_UNAUTHENTICATED, ADMIN_PAYMENT_LINKS_UNAUTHORIZED,
+    ADMIN_PAYMENT_LINKS_UNAVAILABLE, ADMIN_PAYMENT_MUTATION_PARAM,
     ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM, ADMIN_PAYMENT_USER_ACCESS_EMPTY,
     ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN, ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
     ADMIN_PAYMENT_USER_ACCESS_READY, ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
+    ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED, ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED,
     ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::settings::{
     AdminSettingsQuery, ADMIN_SETTINGS_DATA_PARAM, ADMIN_SETTINGS_EMPTY, ADMIN_SETTINGS_FORBIDDEN,
     ADMIN_SETTINGS_MALFORMED, ADMIN_SETTINGS_MUTATION_PARAM, ADMIN_SETTINGS_READY,
-    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_TAB_PARAM, ADMIN_SETTINGS_UNAVAILABLE,
+    ADMIN_SETTINGS_STATE_PARAM, ADMIN_SETTINGS_TAB_PARAM, ADMIN_SETTINGS_UNAUTHENTICATED,
+    ADMIN_SETTINGS_UNAUTHORIZED, ADMIN_SETTINGS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_access::{
     AdminAccessProjection, ADMIN_ACCESS_DATA_PARAM, ADMIN_ACCESS_FORBIDDEN, ADMIN_ACCESS_MALFORMED,
-    ADMIN_ACCESS_READY, ADMIN_ACCESS_STATE_PARAM, ADMIN_ACCESS_UNAVAILABLE,
+    ADMIN_ACCESS_READY, ADMIN_ACCESS_STATE_PARAM, ADMIN_ACCESS_UNAUTHENTICATED,
+    ADMIN_ACCESS_UNAUTHORIZED, ADMIN_ACCESS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_credits::{
-    AdminCreditStatsProjection, ADMIN_CREDITS_DATA_PARAM, ADMIN_CREDITS_FORBIDDEN,
-    ADMIN_CREDITS_MALFORMED, ADMIN_CREDITS_READY, ADMIN_CREDITS_STATE_PARAM,
-    ADMIN_CREDITS_UNAVAILABLE,
+    ADMIN_CREDITS_DATA_PARAM, ADMIN_CREDITS_FORBIDDEN, ADMIN_CREDITS_MALFORMED,
+    ADMIN_CREDITS_READY, ADMIN_CREDITS_STATE_PARAM, ADMIN_CREDITS_UNAUTHENTICATED,
+    ADMIN_CREDITS_UNAUTHORIZED, ADMIN_CREDITS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_plans::{
     AdminPlanListProjection, AdminPlanProjection, ADMIN_PLANS_DATA_PARAM, ADMIN_PLANS_EMPTY,
     ADMIN_PLANS_FORBIDDEN, ADMIN_PLANS_MALFORMED, ADMIN_PLANS_READY, ADMIN_PLANS_STATE_PARAM,
-    ADMIN_PLANS_UNAVAILABLE, ADMIN_PLAN_DETAIL_DATA_PARAM, ADMIN_PLAN_DETAIL_STATE_PARAM,
+    ADMIN_PLANS_UNAUTHENTICATED, ADMIN_PLANS_UNAUTHORIZED, ADMIN_PLANS_UNAVAILABLE,
+    ADMIN_PLAN_DETAIL_DATA_PARAM, ADMIN_PLAN_DETAIL_STATE_PARAM, ADMIN_PLAN_DETAIL_UNAUTHENTICATED,
 };
 use epsx_dioxus_ui::pages::admin_pages::wallet_wallets::{
-    AdminWalletDetailProjection, AdminWalletListQuery, AdminWalletStatsSummary,
-    ADMIN_WALLET_DETAIL_DATA_PARAM, ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED,
-    ADMIN_WALLET_DETAIL_READY, ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAVAILABLE,
+    AdminWalletDetailProjection, AdminWalletListQuery, ADMIN_WALLET_DETAIL_DATA_PARAM,
+    ADMIN_WALLET_DETAIL_FORBIDDEN, ADMIN_WALLET_DETAIL_MALFORMED, ADMIN_WALLET_DETAIL_READY,
+    ADMIN_WALLET_DETAIL_STATE_PARAM, ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
+    ADMIN_WALLET_DETAIL_UNAUTHORIZED, ADMIN_WALLET_DETAIL_UNAVAILABLE,
     ADMIN_WALLET_DISABLE_CONFLICT, ADMIN_WALLET_DISABLE_FORBIDDEN, ADMIN_WALLET_DISABLE_FORM,
     ADMIN_WALLET_DISABLE_MALFORMED, ADMIN_WALLET_DISABLE_STATE_PARAM, ADMIN_WALLET_DISABLE_SUCCESS,
+    ADMIN_WALLET_DISABLE_UNAUTHENTICATED, ADMIN_WALLET_DISABLE_UNAUTHORIZED,
     ADMIN_WALLET_DISABLE_UNAVAILABLE, ADMIN_WALLET_LIST_DATA_PARAM, ADMIN_WALLET_LIST_EMPTY,
     ADMIN_WALLET_LIST_FORBIDDEN, ADMIN_WALLET_LIST_MALFORMED, ADMIN_WALLET_LIST_READY,
-    ADMIN_WALLET_LIST_STATE_PARAM, ADMIN_WALLET_LIST_UNAVAILABLE, ADMIN_WALLET_STATS_DATA_PARAM,
+    ADMIN_WALLET_LIST_STATE_PARAM, ADMIN_WALLET_LIST_UNAUTHENTICATED,
+    ADMIN_WALLET_LIST_UNAUTHORIZED, ADMIN_WALLET_LIST_UNAVAILABLE, ADMIN_WALLET_STATS_DATA_PARAM,
     ADMIN_WALLET_STATS_FORBIDDEN, ADMIN_WALLET_STATS_MALFORMED, ADMIN_WALLET_STATS_READY,
-    ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAVAILABLE,
+    ADMIN_WALLET_STATS_STATE_PARAM, ADMIN_WALLET_STATS_UNAUTHENTICATED,
+    ADMIN_WALLET_STATS_UNAUTHORIZED, ADMIN_WALLET_STATS_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::analytics::{
     AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, ANALYTICS_DATA_PARAM,
@@ -138,9 +158,9 @@ use super::chat_admin_adapter::{
     load_admin_chat, load_admin_chat_detail, AdminChatDetailLoad, AdminChatListLoad, AdminChatQuery,
 };
 use super::commerce_adapter::{
-    load_access, load_credit_stats, load_payment_links, load_payment_user_access, load_plan_detail,
-    load_plans, load_wallet_access, load_wallet_detail, load_wallet_list, load_wallet_stats,
-    AdminCommerceLoad as CommerceLoad,
+    load_access, load_credit_stats, load_payment_links, load_payment_links_monolith,
+    load_payment_user_access, load_plan_detail, load_plans, load_wallet_access,
+    load_wallet_detail, load_wallet_list, load_wallet_stats, AdminCommerceLoad as CommerceLoad,
 };
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
@@ -183,6 +203,7 @@ fn record_admin_dashboard_user_status_load(
             ADMIN_DASHBOARD_USER_STATUS_READY
         }
         AdminDashboardUserStatusLoad::Forbidden => ADMIN_DASHBOARD_USER_STATUS_FORBIDDEN,
+        AdminDashboardUserStatusLoad::Unauthorized => ADMIN_DASHBOARD_USER_STATUS_UNAUTHORIZED,
         AdminDashboardUserStatusLoad::Unavailable => ADMIN_DASHBOARD_USER_STATUS_UNAVAILABLE,
         AdminDashboardUserStatusLoad::Malformed => ADMIN_DASHBOARD_USER_STATUS_MALFORMED,
     };
@@ -212,6 +233,7 @@ fn record_admin_chat_list_load(params: &mut HashMap<String, String>, load: Admin
             ADMIN_CHAT_EMPTY
         }
         AdminChatListLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatListLoad::Unauthorized => ADMIN_CHAT_UNAUTHORIZED,
         AdminChatListLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
         AdminChatListLoad::Malformed => ADMIN_CHAT_MALFORMED,
     };
@@ -230,6 +252,7 @@ fn record_admin_chat_detail_load(params: &mut HashMap<String, String>, load: Adm
             ADMIN_CHAT_READY
         }
         AdminChatDetailLoad::Forbidden => ADMIN_CHAT_FORBIDDEN,
+        AdminChatDetailLoad::Unauthorized => ADMIN_CHAT_UNAUTHORIZED,
         AdminChatDetailLoad::Unavailable => ADMIN_CHAT_UNAVAILABLE,
         AdminChatDetailLoad::Malformed => ADMIN_CHAT_MALFORMED,
     };
@@ -265,6 +288,7 @@ fn record_admin_media_load(
             ADMIN_MEDIA_EMPTY
         }
         AdminMediaLoad::Forbidden => ADMIN_MEDIA_FORBIDDEN,
+        AdminMediaLoad::Unauthorized => ADMIN_MEDIA_UNAUTHORIZED,
         AdminMediaLoad::Unavailable => ADMIN_MEDIA_UNAVAILABLE,
         AdminMediaLoad::Malformed => ADMIN_MEDIA_MALFORMED,
     };
@@ -289,7 +313,12 @@ fn parse_admin_media_query(raw_query: &str) -> Result<ParsedAdminMediaQuery, ()>
                 if mutation.is_none()
                     && matches!(
                         value.as_ref(),
-                        "committed" | "conflict" | "forbidden" | "unavailable" | "malformed"
+                        "committed"
+                            | "conflict"
+                            | "forbidden"
+                            | "unauthorized"
+                            | "unavailable"
+                            | "malformed"
                     ) =>
             {
                 mutation = Some(value.into_owned());
@@ -417,6 +446,7 @@ fn record_admin_news_load(
             ADMIN_NEWS_EMPTY
         }
         AdminNewsLoad::Forbidden => ADMIN_NEWS_FORBIDDEN,
+        AdminNewsLoad::Unauthorized => ADMIN_NEWS_UNAUTHORIZED,
         AdminNewsLoad::Unavailable => ADMIN_NEWS_UNAVAILABLE,
         AdminNewsLoad::Malformed => ADMIN_NEWS_MALFORMED,
     };
@@ -454,6 +484,12 @@ fn record_admin_news_editor_load(
                 ADMIN_NEWS_MUTATION_FORBIDDEN.to_string(),
             );
         }
+        AdminNewsEditorLoad::Unauthorized => {
+            params.insert(
+                ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
+                ADMIN_NEWS_MUTATION_UNAUTHORIZED.to_string(),
+            );
+        }
         AdminNewsEditorLoad::Unavailable => {
             params.insert(
                 ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
@@ -478,6 +514,7 @@ fn news_mutation_query(query: &str) -> Option<&'static str> {
         value = Some(match candidate.as_ref() {
             "conflict" => ADMIN_NEWS_MUTATION_CONFLICT,
             "forbidden" => ADMIN_NEWS_MUTATION_FORBIDDEN,
+            "unauthorized" => ADMIN_NEWS_MUTATION_UNAUTHORIZED,
             "unavailable" => ADMIN_NEWS_MUTATION_UNAVAILABLE,
             "malformed" => ADMIN_NEWS_MUTATION_MALFORMED,
             _ => return None,
@@ -495,6 +532,7 @@ fn news_inventory_mutation_query(query: &str) -> Option<&'static str> {
                     "committed" => "committed",
                     "conflict" => "conflict",
                     "forbidden" => "forbidden",
+                    "unauthorized" => "unauthorized",
                     "unavailable" => "unavailable",
                     "malformed" => "malformed",
                     _ => return None,
@@ -537,6 +575,7 @@ fn chat_mutation_query(query: &str) -> Option<&'static str> {
             "success" => "success",
             "conflict" => "conflict",
             "forbidden" => "forbidden",
+            "unauthorized" => "unauthorized",
             "unavailable" => "unavailable",
             "malformed" => "malformed",
             _ => return None,
@@ -555,6 +594,7 @@ fn wallet_plan_mutation_query(query: &str) -> Option<&'static str> {
             "success" => "success",
             "conflict" => "conflict",
             "forbidden" => "forbidden",
+            "unauthorized" => "unauthorized",
             "unavailable" => "unavailable",
             "malformed" => "malformed",
             _ => return None,
@@ -573,6 +613,7 @@ fn notification_mutation_query(query: &str) -> Option<&'static str> {
             "committed" => "committed",
             "conflict" => "conflict",
             "forbidden" => "forbidden",
+            "unauthorized" => "unauthorized",
             "unavailable" => "unavailable",
             "malformed" => "malformed",
             _ => return None,
@@ -610,6 +651,7 @@ fn record_admin_notification_load(
             ADMIN_NOTIFICATIONS_EMPTY
         }
         AdminNotificationLoad::Forbidden => ADMIN_NOTIFICATIONS_FORBIDDEN,
+        AdminNotificationLoad::Unauthorized => ADMIN_NOTIFICATIONS_UNAUTHORIZED,
         AdminNotificationLoad::Unavailable => ADMIN_NOTIFICATIONS_UNAVAILABLE,
         AdminNotificationLoad::Malformed => ADMIN_NOTIFICATIONS_MALFORMED,
     };
@@ -634,6 +676,7 @@ fn record_admin_notification_metrics_load(
             ADMIN_NOTIFICATIONS_READY
         }
         AdminNotificationMetricsLoad::Forbidden => ADMIN_NOTIFICATIONS_FORBIDDEN,
+        AdminNotificationMetricsLoad::Unauthorized => ADMIN_NOTIFICATIONS_UNAUTHORIZED,
         AdminNotificationMetricsLoad::Unavailable => ADMIN_NOTIFICATIONS_UNAVAILABLE,
         AdminNotificationMetricsLoad::Malformed => ADMIN_NOTIFICATIONS_MALFORMED,
     };
@@ -678,6 +721,7 @@ fn record_admin_audit_load(
             ADMIN_AUDIT_EMPTY
         }
         AdminAuditLoad::Forbidden => ADMIN_AUDIT_FORBIDDEN,
+        AdminAuditLoad::Unauthorized => ADMIN_AUDIT_UNAUTHORIZED,
         AdminAuditLoad::Unavailable => ADMIN_AUDIT_UNAVAILABLE,
         AdminAuditLoad::Malformed => ADMIN_AUDIT_MALFORMED,
     };
@@ -697,6 +741,7 @@ fn record_admin_settings_load(params: &mut HashMap<String, String>, load: AdminS
         }
         AdminSettingsLoad::Empty => ADMIN_SETTINGS_EMPTY,
         AdminSettingsLoad::Forbidden => ADMIN_SETTINGS_FORBIDDEN,
+        AdminSettingsLoad::Unauthorized => ADMIN_SETTINGS_UNAUTHORIZED,
         AdminSettingsLoad::Unavailable => ADMIN_SETTINGS_UNAVAILABLE,
         AdminSettingsLoad::Malformed => ADMIN_SETTINGS_MALFORMED,
     };
@@ -723,6 +768,7 @@ fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: Admin
             ADMIN_ANALYTICS_EMPTY
         }
         AdminAnalyticsLoad::Forbidden => ADMIN_ANALYTICS_FORBIDDEN,
+        AdminAnalyticsLoad::Unauthorized => ADMIN_ANALYTICS_UNAUTHORIZED,
         AdminAnalyticsLoad::Unavailable => ADMIN_ANALYTICS_UNAVAILABLE,
         AdminAnalyticsLoad::Malformed => ADMIN_ANALYTICS_MALFORMED,
     };
@@ -914,6 +960,7 @@ fn record_admin_developer_load(params: &mut HashMap<String, String>, load: Admin
             ADMIN_DEVELOPER_EMPTY
         }
         AdminDeveloperLoad::Forbidden => ADMIN_DEVELOPER_FORBIDDEN,
+        AdminDeveloperLoad::Unauthorized => ADMIN_DEVELOPER_UNAUTHORIZED,
         AdminDeveloperLoad::Unavailable => ADMIN_DEVELOPER_UNAVAILABLE,
         AdminDeveloperLoad::Malformed => ADMIN_DEVELOPER_MALFORMED,
     };
@@ -926,6 +973,8 @@ struct CommerceLoadContract<'a> {
     ready: &'a str,
     empty: Option<&'a str>,
     forbidden: &'a str,
+    unauthorized: &'a str,
+    unauthenticated: &'a str,
     unavailable: &'a str,
     malformed: &'a str,
 }
@@ -940,7 +989,9 @@ macro_rules! record_commerce_load {
         $empty:expr,
         $forbidden:expr,
         $unavailable:expr,
-        $malformed:expr $(,)?
+        $malformed:expr,
+        $unauthorized:expr,
+        $unauthenticated:expr $(,)?
     ) => {
         record_commerce_load(
             $params,
@@ -951,11 +1002,23 @@ macro_rules! record_commerce_load {
                 ready: $ready,
                 empty: $empty,
                 forbidden: $forbidden,
+                unauthorized: $unauthorized,
+                unauthenticated: $unauthenticated,
                 unavailable: $unavailable,
                 malformed: $malformed,
             },
         )
     };
+}
+
+fn record_unauthenticated_load(
+    params: &mut HashMap<String, String>,
+    data_param: &str,
+    state_param: &str,
+    state: &str,
+) {
+    params.remove(data_param);
+    params.insert(state_param.to_string(), state.to_string());
 }
 
 fn record_commerce_load<T: serde::Serialize>(
@@ -969,9 +1032,15 @@ fn record_commerce_load<T: serde::Serialize>(
         ready,
         empty,
         forbidden,
+        unauthorized,
+        unauthenticated,
         unavailable,
         malformed,
     } = contract;
+    // The family's `unauthenticated` state is declared at every call site for
+    // contract completeness; missing-token short circuits bypass this loader
+    // and go through `record_unauthenticated_load` directly.
+    let _ = unauthenticated;
     params.remove(data_param);
     let state = match load {
         CommerceLoad::Ready(projection) => {
@@ -984,6 +1053,7 @@ fn record_commerce_load<T: serde::Serialize>(
         }
         CommerceLoad::Empty => empty.unwrap_or(malformed),
         CommerceLoad::Forbidden => forbidden,
+        CommerceLoad::Unauthorized => unauthorized,
         CommerceLoad::Unavailable => unavailable,
         CommerceLoad::Malformed => malformed,
     };
@@ -1021,6 +1091,8 @@ fn record_payment_links_load(
             ready: ADMIN_PAYMENT_LINKS_READY,
             empty: Some(ADMIN_PAYMENT_LINKS_EMPTY),
             forbidden: ADMIN_PAYMENT_LINKS_FORBIDDEN,
+            unauthorized: ADMIN_PAYMENT_LINKS_UNAUTHORIZED,
+            unauthenticated: ADMIN_PAYMENT_LINKS_UNAUTHENTICATED,
             unavailable: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
             malformed: ADMIN_PAYMENT_LINKS_MALFORMED,
         },
@@ -1145,6 +1217,7 @@ fn payment_mutation_query(raw_query: &str) -> Option<&'static str> {
             "success" => "success",
             "conflict" => "conflict",
             "forbidden" => "forbidden",
+            "unauthorized" => "unauthorized",
             "unavailable" => "unavailable",
             "malformed" => "malformed",
             _ => "malformed",
@@ -1174,23 +1247,6 @@ fn strip_single_admin_prefix(path: &str) -> Option<&str> {
 
 fn is_dashboard_user_status_route(route_path: &str) -> bool {
     matches!(route_path, "/" | "/index")
-}
-
-/// The responsive capture harness uses `?__design_bypass=1` for authenticated
-/// admin states. Honor it only for local-cookie requests and only as a
-/// UI-only fixture; it never creates a bearer token or changes backend policy.
-fn design_bypass_requested(query: &str, environment: epsx_bff::cookies::CookieEnvironment) -> bool {
-    if environment != epsx_bff::cookies::CookieEnvironment::Local {
-        return false;
-    }
-
-    url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| {
-        key == "__design_bypass"
-            && matches!(
-                value.trim().to_ascii_lowercase().as_str(),
-                "1" | "true" | "yes" | "on"
-            )
-    })
 }
 
 fn developer_secret_once_cookie(headers: &HeaderMap) -> Option<AdminDeveloperSecretOnceProjection> {
@@ -1223,7 +1279,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let raw_query = parts.uri.query().map(str::to_string);
     let query = raw_query.clone().unwrap_or_default();
     let headers = parts.headers.clone();
-    let design_bypass = design_bypass_requested(&query, state.cookie_environment);
 
     // Resolve only a cryptographically verified canonical cookie/bearer user.
     // Permissions are backend-issued and remain verbatim; the admin UI does no
@@ -1231,11 +1286,6 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let access_verification =
         auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment)
             .await;
-    // Local visual-test fixture only: it supplies authenticated admin shell
-    // state without a bearer token, so no synthetic identity reaches an
-    // upstream data service.
-    let dev_bypass_user = auth::dev_bypass_ui_user(&headers, Some(56));
-    let design_bypass_user = auth::design_bypass_ui_user(design_bypass, Some(56));
     let recover_session = access_verification.permits_refresh_recovery()
         && auth::refresh_token(&headers, state.cookie_environment).is_some();
     let (verified_access_token, user) = match access_verification {
@@ -1243,7 +1293,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             (Some(token), Some(auth::ui_user(user, None)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
-            (None, design_bypass_user.or(dev_bypass_user))
+            (None, None)
         }
     };
 
@@ -1251,6 +1301,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     // outcome is explicit; an upstream error or malformed payload is never
     // represented as an authoritative empty list.
     let mut params = HashMap::new();
+    params.insert(
+        SESSION_STATE_PARAM.to_string(),
+        if verified_access_token.is_some() {
+            SESSION_STATE_VERIFIED
+        } else {
+            SESSION_STATE_ANONYMOUS
+        }
+        .to_string(),
+    );
     let route_path = strip_single_admin_prefix(&path).unwrap_or(path.as_str());
     let mut notification_send_flash_clear = false;
     if route_path == "/notifications/manage" {
@@ -1297,11 +1356,18 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 }
             }
         } else {
-            record_admin_dashboard_user_status_load(
+            record_unauthenticated_load(
                 &mut params,
-                AdminDashboardUserStatusLoad::Unavailable,
+                ADMIN_DASHBOARD_USER_STATUS_PARAM,
+                ADMIN_DASHBOARD_USER_STATUS_STATE_PARAM,
+                ADMIN_DASHBOARD_USER_STATUS_UNAUTHENTICATED,
             );
-            record_admin_analytics_load(&mut params, AdminAnalyticsLoad::Unavailable);
+            record_unauthenticated_load(
+                &mut params,
+                ADMIN_ANALYTICS_DATA_PARAM,
+                ADMIN_ANALYTICS_STATE_PARAM,
+                ADMIN_ANALYTICS_UNAUTHENTICATED,
+            );
         }
     }
     // Chat reads use the extracted backend projection. The list query is
@@ -1317,7 +1383,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         load_admin_chat(&state.identity, &chat_query, &request_context).await;
                     record_admin_chat_list_load(&mut params, load);
                 }
-                None => record_admin_chat_list_load(&mut params, AdminChatListLoad::Unavailable),
+                None => record_unauthenticated_load(
+                    &mut params,
+                    ADMIN_CHAT_LIST_DATA_PARAM,
+                    ADMIN_CHAT_LIST_STATE_PARAM,
+                    ADMIN_CHAT_UNAUTHENTICATED,
+                ),
             },
             Err(()) => record_admin_chat_list_load(&mut params, AdminChatListLoad::Malformed),
         }
@@ -1335,9 +1406,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             .await;
                     record_admin_chat_detail_load(&mut params, load);
                 }
-                None => {
-                    record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Unavailable)
-                }
+                None => record_unauthenticated_load(
+                    &mut params,
+                    ADMIN_CHAT_DETAIL_DATA_PARAM,
+                    ADMIN_CHAT_DETAIL_STATE_PARAM,
+                    ADMIN_CHAT_UNAUTHENTICATED,
+                ),
             }
         } else {
             record_admin_chat_detail_load(&mut params, AdminChatDetailLoad::Malformed);
@@ -1352,8 +1426,25 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 Some(token) => {
                     let mut request_context = RequestContext::from_headers(&headers);
                     request_context.auth_token = Some(token.clone());
-                    let list =
+                    let mut list =
                         load_wallet_list(&state.wallet, &wallet_query, &request_context).await;
+                    // The wallet service is the source of truth for inventory, but a
+                    // fresh local checkout may run only the monolith (the wallet
+                    // service DB is empty or the service isn't port-forwarded).
+                    // When the extracted service is unavailable, fall back to the
+                    // monolith's `/api/admin/wallets` projection so the inventory
+                    // can still render rows instead of a hard unavailable banner.
+                    // The commerce adapter already retries the alternate `/api` prefix
+                    // on the same client; this second retry uses the monolith
+                    // client so a completely absent wallet service still resolves.
+                    if matches!(list, CommerceLoad::Unavailable) {
+                        let alt =
+                            load_wallet_list(&state.identity, &wallet_query, &request_context)
+                                .await;
+                        if !matches!(alt, CommerceLoad::Unavailable) {
+                            list = alt;
+                        }
+                    }
                     record_commerce_load!(
                         &mut params,
                         list,
@@ -1364,21 +1455,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_LIST_FORBIDDEN,
                         ADMIN_WALLET_LIST_UNAVAILABLE,
                         ADMIN_WALLET_LIST_MALFORMED,
+                        ADMIN_WALLET_LIST_UNAUTHORIZED,
+                        ADMIN_WALLET_LIST_UNAUTHENTICATED,
                     );
                 }
-                None => {
-                    record_commerce_load!(
-                        &mut params,
-                        CommerceLoad::<epsx_dioxus_ui::pages::admin_pages::wallet_wallets::AdminWalletListProjection>::Unavailable,
-                        ADMIN_WALLET_LIST_DATA_PARAM,
-                        ADMIN_WALLET_LIST_STATE_PARAM,
-                        ADMIN_WALLET_LIST_READY,
-                        Some(ADMIN_WALLET_LIST_EMPTY),
-                        ADMIN_WALLET_LIST_FORBIDDEN,
-                        ADMIN_WALLET_LIST_UNAVAILABLE,
-                        ADMIN_WALLET_LIST_MALFORMED,
-                    );
-                }
+                None => record_unauthenticated_load(
+                    &mut params,
+                    ADMIN_WALLET_LIST_DATA_PARAM,
+                    ADMIN_WALLET_LIST_STATE_PARAM,
+                    ADMIN_WALLET_LIST_UNAUTHENTICATED,
+                ),
             },
             Err(()) => {
                 record_commerce_load!(
@@ -1391,6 +1477,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_WALLET_LIST_FORBIDDEN,
                     ADMIN_WALLET_LIST_UNAVAILABLE,
                     ADMIN_WALLET_LIST_MALFORMED,
+                    ADMIN_WALLET_LIST_UNAUTHORIZED,
+                    ADMIN_WALLET_LIST_UNAUTHENTICATED,
                 );
             }
         }
@@ -1400,7 +1488,13 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
             Some(token) => {
                 let mut request_context = RequestContext::from_headers(&headers);
                 request_context.auth_token = Some(token.clone());
-                let load = load_wallet_stats(&state.wallet, &request_context).await;
+                let mut load = load_wallet_stats(&state.wallet, &request_context).await;
+                if matches!(load, CommerceLoad::Unavailable) {
+                    let alt = load_wallet_stats(&state.identity, &request_context).await;
+                    if !matches!(alt, CommerceLoad::Unavailable) {
+                        load = alt;
+                    }
+                }
                 record_commerce_load!(
                     &mut params,
                     load,
@@ -1411,18 +1505,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_WALLET_STATS_FORBIDDEN,
                     ADMIN_WALLET_STATS_UNAVAILABLE,
                     ADMIN_WALLET_STATS_MALFORMED,
+                    ADMIN_WALLET_STATS_UNAUTHORIZED,
+                    ADMIN_WALLET_STATS_UNAUTHENTICATED,
                 );
             }
-            None => record_commerce_load!(
+            None => record_unauthenticated_load(
                 &mut params,
-                CommerceLoad::<AdminWalletStatsSummary>::Unavailable,
                 ADMIN_WALLET_STATS_DATA_PARAM,
                 ADMIN_WALLET_STATS_STATE_PARAM,
-                ADMIN_WALLET_STATS_READY,
-                None,
-                ADMIN_WALLET_STATS_FORBIDDEN,
-                ADMIN_WALLET_STATS_UNAVAILABLE,
-                ADMIN_WALLET_STATS_MALFORMED,
+                ADMIN_WALLET_STATS_UNAUTHENTICATED,
             ),
         }
     }
@@ -1442,18 +1533,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_CREDITS_FORBIDDEN,
                     ADMIN_CREDITS_UNAVAILABLE,
                     ADMIN_CREDITS_MALFORMED,
+                    ADMIN_CREDITS_UNAUTHORIZED,
+                    ADMIN_CREDITS_UNAUTHENTICATED,
                 );
             }
-            None => record_commerce_load!(
+            None => record_unauthenticated_load(
                 &mut params,
-                CommerceLoad::<AdminCreditStatsProjection>::Unavailable,
                 ADMIN_CREDITS_DATA_PARAM,
                 ADMIN_CREDITS_STATE_PARAM,
-                ADMIN_CREDITS_READY,
-                None,
-                ADMIN_CREDITS_FORBIDDEN,
-                ADMIN_CREDITS_UNAVAILABLE,
-                ADMIN_CREDITS_MALFORMED,
+                ADMIN_CREDITS_UNAUTHENTICATED,
             ),
         }
     }
@@ -1473,18 +1561,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_ACCESS_FORBIDDEN,
                     ADMIN_ACCESS_UNAVAILABLE,
                     ADMIN_ACCESS_MALFORMED,
+                    ADMIN_ACCESS_UNAUTHORIZED,
+                    ADMIN_ACCESS_UNAUTHENTICATED,
                 );
             }
-            None => record_commerce_load!(
+            None => record_unauthenticated_load(
                 &mut params,
-                CommerceLoad::<AdminAccessProjection>::Unavailable,
                 ADMIN_ACCESS_DATA_PARAM,
                 ADMIN_ACCESS_STATE_PARAM,
-                ADMIN_ACCESS_READY,
-                None,
-                ADMIN_ACCESS_FORBIDDEN,
-                ADMIN_ACCESS_UNAVAILABLE,
-                ADMIN_ACCESS_MALFORMED,
+                ADMIN_ACCESS_UNAUTHENTICATED,
             ),
         }
     }
@@ -1504,18 +1589,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     ADMIN_PLANS_FORBIDDEN,
                     ADMIN_PLANS_UNAVAILABLE,
                     ADMIN_PLANS_MALFORMED,
+                    ADMIN_PLANS_UNAUTHORIZED,
+                    ADMIN_PLANS_UNAUTHENTICATED,
                 );
             }
-            None => record_commerce_load!(
+            None => record_unauthenticated_load(
                 &mut params,
-                CommerceLoad::<AdminPlanListProjection>::Unavailable,
                 ADMIN_PLANS_DATA_PARAM,
                 ADMIN_PLANS_STATE_PARAM,
-                ADMIN_PLANS_READY,
-                Some(ADMIN_PLANS_EMPTY),
-                ADMIN_PLANS_FORBIDDEN,
-                ADMIN_PLANS_UNAVAILABLE,
-                ADMIN_PLANS_MALFORMED,
+                ADMIN_PLANS_UNAUTHENTICATED,
             ),
         }
     }
@@ -1540,18 +1622,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_PLANS_FORBIDDEN,
                         ADMIN_PLANS_UNAVAILABLE,
                         ADMIN_PLANS_MALFORMED,
+                        ADMIN_PLANS_UNAUTHORIZED,
+                        ADMIN_PLAN_DETAIL_UNAUTHENTICATED,
                     );
                 }
-                None => record_commerce_load!(
+                None => record_unauthenticated_load(
                     &mut params,
-                    CommerceLoad::<AdminPlanProjection>::Unavailable,
                     ADMIN_PLAN_DETAIL_DATA_PARAM,
                     ADMIN_PLAN_DETAIL_STATE_PARAM,
-                    ADMIN_PLANS_READY,
-                    None,
-                    ADMIN_PLANS_FORBIDDEN,
-                    ADMIN_PLANS_UNAVAILABLE,
-                    ADMIN_PLANS_MALFORMED,
+                    ADMIN_PLAN_DETAIL_UNAUTHENTICATED,
                 ),
             }
         } else {
@@ -1565,6 +1644,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 ADMIN_PLANS_FORBIDDEN,
                 ADMIN_PLANS_UNAVAILABLE,
                 ADMIN_PLANS_MALFORMED,
+                ADMIN_PLANS_UNAUTHORIZED,
+                ADMIN_PLAN_DETAIL_UNAUTHENTICATED,
             );
         }
     }
@@ -1595,6 +1676,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_DETAIL_FORBIDDEN,
                         ADMIN_WALLET_DETAIL_UNAVAILABLE,
                         ADMIN_WALLET_DETAIL_MALFORMED,
+                        ADMIN_WALLET_DETAIL_UNAUTHORIZED,
+                        ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
                     );
                     record_commerce_load!(
                         &mut params,
@@ -1606,6 +1689,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_ACCESS_FORBIDDEN,
                         ADMIN_ACCESS_UNAVAILABLE,
                         ADMIN_ACCESS_MALFORMED,
+                        ADMIN_ACCESS_UNAUTHORIZED,
+                        ADMIN_ACCESS_UNAUTHENTICATED,
                     );
                     record_commerce_load!(
                         &mut params,
@@ -1617,41 +1702,28 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_PLANS_FORBIDDEN,
                         ADMIN_PLANS_UNAVAILABLE,
                         ADMIN_PLANS_MALFORMED,
+                        ADMIN_PLANS_UNAUTHORIZED,
+                        ADMIN_PLANS_UNAUTHENTICATED,
                     );
                 }
                 None => {
-                    record_commerce_load!(
+                    record_unauthenticated_load(
                         &mut params,
-                        CommerceLoad::<AdminWalletDetailProjection>::Unavailable,
                         ADMIN_WALLET_DETAIL_DATA_PARAM,
                         ADMIN_WALLET_DETAIL_STATE_PARAM,
-                        ADMIN_WALLET_DETAIL_READY,
-                        None,
-                        ADMIN_WALLET_DETAIL_FORBIDDEN,
-                        ADMIN_WALLET_DETAIL_UNAVAILABLE,
-                        ADMIN_WALLET_DETAIL_MALFORMED,
+                        ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
                     );
-                    record_commerce_load!(
+                    record_unauthenticated_load(
                         &mut params,
-                        CommerceLoad::<AdminAccessProjection>::Unavailable,
                         ADMIN_ACCESS_DATA_PARAM,
                         ADMIN_ACCESS_STATE_PARAM,
-                        ADMIN_ACCESS_READY,
-                        None,
-                        ADMIN_ACCESS_FORBIDDEN,
-                        ADMIN_ACCESS_UNAVAILABLE,
-                        ADMIN_ACCESS_MALFORMED,
+                        ADMIN_ACCESS_UNAUTHENTICATED,
                     );
-                    record_commerce_load!(
+                    record_unauthenticated_load(
                         &mut params,
-                        CommerceLoad::<AdminPlanListProjection>::Unavailable,
                         ADMIN_PLANS_DATA_PARAM,
                         ADMIN_PLANS_STATE_PARAM,
-                        ADMIN_PLANS_READY,
-                        Some(ADMIN_PLANS_EMPTY),
-                        ADMIN_PLANS_FORBIDDEN,
-                        ADMIN_PLANS_UNAVAILABLE,
-                        ADMIN_PLANS_MALFORMED,
+                        ADMIN_PLANS_UNAUTHENTICATED,
                     );
                 }
             }
@@ -1666,6 +1738,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 ADMIN_WALLET_DETAIL_FORBIDDEN,
                 ADMIN_WALLET_DETAIL_UNAVAILABLE,
                 ADMIN_WALLET_DETAIL_MALFORMED,
+                ADMIN_WALLET_DETAIL_UNAUTHORIZED,
+                ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
             );
             record_commerce_load!(
                 &mut params,
@@ -1677,6 +1751,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 ADMIN_ACCESS_FORBIDDEN,
                 ADMIN_ACCESS_UNAVAILABLE,
                 ADMIN_ACCESS_MALFORMED,
+                ADMIN_ACCESS_UNAUTHORIZED,
+                ADMIN_ACCESS_UNAUTHENTICATED,
             );
             record_commerce_load!(
                 &mut params,
@@ -1688,6 +1764,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 ADMIN_PLANS_FORBIDDEN,
                 ADMIN_PLANS_UNAVAILABLE,
                 ADMIN_PLANS_MALFORMED,
+                ADMIN_PLANS_UNAUTHORIZED,
+                ADMIN_PLANS_UNAUTHENTICATED,
             );
         }
     }
@@ -1712,6 +1790,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                         ADMIN_WALLET_DETAIL_FORBIDDEN,
                         ADMIN_WALLET_DETAIL_UNAVAILABLE,
                         ADMIN_WALLET_DETAIL_MALFORMED,
+                        ADMIN_WALLET_DETAIL_UNAUTHORIZED,
+                        ADMIN_WALLET_DETAIL_UNAUTHENTICATED,
                     );
                     params.insert(
                         ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
@@ -1721,7 +1801,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 None => {
                     params.insert(
                         ADMIN_WALLET_DISABLE_STATE_PARAM.to_string(),
-                        ADMIN_WALLET_DISABLE_UNAVAILABLE.to_string(),
+                        ADMIN_WALLET_DISABLE_UNAUTHENTICATED.to_string(),
                     );
                 }
             }
@@ -1734,6 +1814,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     "success" => ADMIN_WALLET_DISABLE_SUCCESS,
                     "conflict" => ADMIN_WALLET_DISABLE_CONFLICT,
                     "forbidden" => ADMIN_WALLET_DISABLE_FORBIDDEN,
+                    "unauthorized" => ADMIN_WALLET_DISABLE_UNAUTHORIZED,
                     "unavailable" => ADMIN_WALLET_DISABLE_UNAVAILABLE,
                     _ => ADMIN_WALLET_DISABLE_MALFORMED,
                 },
@@ -1783,19 +1864,37 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                                 });
                             record_payment_intent_load(&mut params, result);
                         }
-                        None => record_payment_intent_load(&mut params, Err(())),
+                        None => record_unauthenticated_load(
+                            &mut params,
+                            ADMIN_PAYMENTS_DATA_PARAM,
+                            ADMIN_PAYMENTS_STATE_PARAM,
+                            ADMIN_PAYMENTS_UNAUTHENTICATED,
+                        ),
                     }
                 } else if tab == "payment-links" {
                     match verified_access_token.as_ref() {
                         Some(token) => {
                             let mut request_context = RequestContext::from_headers(&headers);
                             request_context.auth_token = Some(token.clone());
-                            let load = load_payment_links(&state.payment, &request_context).await;
+                            let mut load =
+                                load_payment_links(&state.payment, &request_context).await;
+                            if matches!(load, CommerceLoad::Unavailable) {
+                                let alt = load_payment_links_monolith(
+                                    &state.identity,
+                                    &request_context,
+                                )
+                                .await;
+                                if !matches!(alt, CommerceLoad::Unavailable) {
+                                    load = alt;
+                                }
+                            }
                             record_payment_links_load(&mut params, load);
                         }
-                        None => record_payment_links_load(
+                        None => record_unauthenticated_load(
                             &mut params,
-                            CommerceLoad::<AdminPaymentLinkListProjection>::Unavailable,
+                            ADMIN_PAYMENT_LINKS_DATA_PARAM,
+                            ADMIN_PAYMENT_LINKS_STATE_PARAM,
+                            ADMIN_PAYMENT_LINKS_UNAUTHENTICATED,
                         ),
                     }
                 } else if tab == "user-access" {
@@ -1820,18 +1919,15 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                                     ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
                                     ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
                                     ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                                    ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED,
+                                    ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED,
                                 );
                             }
-                            None => record_commerce_load!(
+                            None => record_unauthenticated_load(
                                 &mut params,
-                                CommerceLoad::<AdminPaymentUserAccessProjection>::Unavailable,
                                 ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM,
                                 ADMIN_PAYMENT_USER_ACCESS_STATE_PARAM,
-                                ADMIN_PAYMENT_USER_ACCESS_READY,
-                                Some(ADMIN_PAYMENT_USER_ACCESS_EMPTY),
-                                ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
-                                ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
-                                ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                                ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED,
                             ),
                         },
                         Err(()) => record_commerce_load!(
@@ -1844,6 +1940,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN,
                             ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE,
                             ADMIN_PAYMENT_USER_ACCESS_MALFORMED,
+                            ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED,
+                            ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED,
                         ),
                     }
                 }
@@ -1875,7 +1973,16 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     record_admin_media_mutation_query(&mut params, mutation);
                 }
                 None => {
-                    record_admin_media_load(&mut params, &media_query, AdminMediaLoad::Unavailable);
+                    record_unauthenticated_load(
+                        &mut params,
+                        ADMIN_MEDIA_DATA_PARAM,
+                        ADMIN_MEDIA_STATE_PARAM,
+                        ADMIN_MEDIA_UNAUTHENTICATED,
+                    );
+                    params.insert(
+                        ADMIN_MEDIA_BUCKET_PARAM.to_string(),
+                        media_query.bucket.to_string(),
+                    );
                     record_admin_media_mutation_query(&mut params, mutation);
                 }
             },
@@ -1907,7 +2014,20 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     }
                 }
                 None => {
-                    record_admin_news_load(&mut params, &news_query, AdminNewsLoad::Unavailable);
+                    record_unauthenticated_load(
+                        &mut params,
+                        ADMIN_NEWS_DATA_PARAM,
+                        ADMIN_NEWS_STATE_PARAM,
+                        ADMIN_NEWS_UNAUTHENTICATED,
+                    );
+                    params.insert(
+                        ADMIN_NEWS_PAGE_PARAM.to_string(),
+                        news_query.page.to_string(),
+                    );
+                    params.insert(
+                        ADMIN_NEWS_STATUS_PARAM.to_string(),
+                        news_query.status.to_string(),
+                    );
                     if let Some(state) = news_inventory_mutation_query(&query) {
                         params.insert(
                             ADMIN_NEWS_MUTATION_STATE_PARAM.to_string(),
@@ -2028,14 +2148,21 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     record_admin_notification_metrics_load(&mut params, metrics);
                 }
                 None => {
-                    record_admin_notification_load(
+                    record_unauthenticated_load(
                         &mut params,
-                        &notification_query,
-                        AdminNotificationLoad::Unavailable,
+                        ADMIN_NOTIFICATIONS_DATA_PARAM,
+                        ADMIN_NOTIFICATIONS_STATE_PARAM,
+                        ADMIN_NOTIFICATIONS_UNAUTHENTICATED,
                     );
-                    record_admin_notification_metrics_load(
+                    params.insert(
+                        ADMIN_NOTIFICATIONS_PAGE_PARAM.to_string(),
+                        notification_query.page.to_string(),
+                    );
+                    record_unauthenticated_load(
                         &mut params,
-                        AdminNotificationMetricsLoad::Unavailable,
+                        ADMIN_NOTIFICATION_METRICS_DATA_PARAM,
+                        ADMIN_NOTIFICATION_METRICS_STATE_PARAM,
+                        ADMIN_NOTIFICATIONS_UNAUTHENTICATED,
                     );
                 }
             },
@@ -2093,6 +2220,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                     "sent" => ADMIN_NOTIFICATION_CREATE_SENT,
                     "failed" => ADMIN_NOTIFICATION_CREATE_FAILED,
                     "forbidden" => ADMIN_NOTIFICATION_CREATE_FORBIDDEN,
+                    "unauthorized" => ADMIN_NOTIFICATION_CREATE_UNAUTHORIZED,
                     "conflict" => ADMIN_NOTIFICATION_CREATE_CONFLICT,
                     "invalid" => ADMIN_NOTIFICATION_CREATE_INVALID,
                     "unavailable" => ADMIN_NOTIFICATION_CREATE_UNAVAILABLE,
@@ -2139,7 +2267,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 let load = load_admin_settings(&state.identity, &request_context).await;
                 record_admin_settings_load(&mut params, load);
             }
-            None => record_admin_settings_load(&mut params, AdminSettingsLoad::Unavailable),
+            None => record_unauthenticated_load(
+                &mut params,
+                ADMIN_SETTINGS_DATA_PARAM,
+                ADMIN_SETTINGS_STATE_PARAM,
+                ADMIN_SETTINGS_UNAUTHENTICATED,
+            ),
         }
         match AdminSettingsQuery::from_raw(&query) {
             Ok(settings_query) => {
@@ -2196,7 +2329,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 let load = load_admin_developer_portal(&state.identity, &request_context).await;
                 record_admin_developer_load(&mut params, load);
             }
-            None => record_admin_developer_load(&mut params, AdminDeveloperLoad::Unavailable),
+            None => record_unauthenticated_load(
+                &mut params,
+                ADMIN_DEVELOPER_DATA_PARAM,
+                ADMIN_DEVELOPER_STATE_PARAM,
+                ADMIN_DEVELOPER_UNAUTHENTICATED,
+            ),
         }
     }
     // The create form contains no backend record. AuthGate controls whether it
@@ -2225,6 +2363,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                 [(key, value)] if key == "mutation" => match value.as_ref() {
                     "conflict" => ADMIN_DEVELOPER_CREATE_CONFLICT,
                     "forbidden" => ADMIN_DEVELOPER_CREATE_FORBIDDEN,
+                    "unauthorized" => ADMIN_DEVELOPER_CREATE_UNAUTHORIZED,
                     "unavailable" => ADMIN_DEVELOPER_CREATE_UNAVAILABLE,
                     "malformed" => ADMIN_DEVELOPER_CREATE_MALFORMED,
                     _ => ADMIN_DEVELOPER_CREATE_MALFORMED,
@@ -2247,7 +2386,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         query: query.clone(),
         params,
         api_url: state.api_url.clone(),
-        demo_login_enabled: state.demo_login_enabled,
+        demo_login_enabled: false,
         wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
     };
 
@@ -2508,28 +2647,6 @@ mod tests {
             // test helper just plugs in a default.
             wallet: epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState::default(),
         }
-    }
-
-    #[test]
-    fn design_bypass_query_is_local_only_and_truthy() {
-        use epsx_bff::cookies::CookieEnvironment;
-
-        assert!(design_bypass_requested(
-            "__design_bypass=1",
-            CookieEnvironment::Local
-        ));
-        assert!(design_bypass_requested(
-            "theme=dark&__design_bypass=true",
-            CookieEnvironment::Local
-        ));
-        assert!(!design_bypass_requested(
-            "__design_bypass=0",
-            CookieEnvironment::Local
-        ));
-        assert!(!design_bypass_requested(
-            "__design_bypass=1",
-            CookieEnvironment::Production
-        ));
     }
 
     fn payment_payload(items: Vec<serde_json::Value>, total: i64) -> serde_json::Value {

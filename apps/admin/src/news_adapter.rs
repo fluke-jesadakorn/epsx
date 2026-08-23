@@ -33,6 +33,7 @@ pub(crate) enum AdminNewsMutationError {
     Invalid,
     Forbidden,
     Conflict,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -132,6 +133,7 @@ pub(crate) enum AdminNewsLoad {
     Ready(AdminNewsList),
     Empty(AdminNewsList),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -140,6 +142,7 @@ pub(crate) enum AdminNewsLoad {
 pub(crate) enum AdminNewsEditorLoad {
     Ready(Box<AdminNewsEditorProjection>),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -178,6 +181,8 @@ pub(crate) async fn load_admin_news(
     if !response.status().is_success() {
         return if response.status() == reqwest::StatusCode::FORBIDDEN {
             AdminNewsLoad::Forbidden
+        } else if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            AdminNewsLoad::Unauthorized
         } else {
             AdminNewsLoad::Unavailable
         };
@@ -232,7 +237,11 @@ pub(crate) async fn load_admin_news_editor(
         return AdminNewsEditorLoad::Malformed;
     }
     if !response.status().is_success() {
-        return AdminNewsEditorLoad::Unavailable;
+        return if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            AdminNewsEditorLoad::Unauthorized
+        } else {
+            AdminNewsEditorLoad::Unavailable
+        };
     }
     let body = match read_response_body_limited(response, MAX_ADMIN_NEWS_RESPONSE_BYTES).await {
         Ok(body) => body,
@@ -510,6 +519,7 @@ async fn read_mutation_value(response: reqwest::Response) -> Result<Value, Admin
         reqwest::StatusCode::BAD_REQUEST
         | reqwest::StatusCode::PRECONDITION_REQUIRED
         | reqwest::StatusCode::UNPROCESSABLE_ENTITY => return Err(AdminNewsMutationError::Invalid),
+        reqwest::StatusCode::UNAUTHORIZED => return Err(AdminNewsMutationError::Unauthorized),
         reqwest::StatusCode::FORBIDDEN => return Err(AdminNewsMutationError::Forbidden),
         reqwest::StatusCode::CONFLICT => return Err(AdminNewsMutationError::Conflict),
         _ => return Err(AdminNewsMutationError::Unavailable),

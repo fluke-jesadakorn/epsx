@@ -38,6 +38,7 @@ pub(crate) enum AdminNotificationSendResult {
     Forbidden,
     Conflict,
     Invalid,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -148,6 +149,9 @@ pub(crate) async fn send_admin_notification(
     }
     if status == reqwest::StatusCode::CONFLICT {
         return AdminNotificationSendResult::Conflict;
+    }
+    if status == reqwest::StatusCode::UNAUTHORIZED {
+        return AdminNotificationSendResult::Unauthorized;
     }
     if matches!(
         status,
@@ -317,6 +321,7 @@ pub(crate) fn valid_admin_notification_id(value: &str) -> bool {
 pub(crate) enum AdminNotificationMutationResult {
     Ready,
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -350,6 +355,7 @@ async fn admin_notification_mutation(
     };
     match response.status() {
         reqwest::StatusCode::FORBIDDEN => AdminNotificationMutationResult::Forbidden,
+        reqwest::StatusCode::UNAUTHORIZED => AdminNotificationMutationResult::Unauthorized,
         status if status.is_success() => AdminNotificationMutationResult::Ready,
         reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::NOT_FOUND => {
             AdminNotificationMutationResult::Malformed
@@ -397,6 +403,7 @@ pub(crate) enum AdminNotificationLoad {
     Ready(AdminNotificationList),
     Empty(AdminNotificationList),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -405,6 +412,7 @@ pub(crate) enum AdminNotificationLoad {
 pub(crate) enum AdminNotificationMetricsLoad {
     Ready(AdminNotificationMetrics),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -440,6 +448,8 @@ pub(crate) async fn load_admin_notification_metrics(
     if !response.status().is_success() {
         return if response.status() == reqwest::StatusCode::FORBIDDEN {
             AdminNotificationMetricsLoad::Forbidden
+        } else if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            AdminNotificationMetricsLoad::Unauthorized
         } else {
             AdminNotificationMetricsLoad::Unavailable
         };
@@ -495,6 +505,8 @@ pub(crate) async fn load_admin_notifications(
     if !response.status().is_success() {
         return if response.status() == reqwest::StatusCode::FORBIDDEN {
             AdminNotificationLoad::Forbidden
+        } else if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            AdminNotificationLoad::Unauthorized
         } else {
             AdminNotificationLoad::Unavailable
         };

@@ -9,6 +9,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader};
 use crate::primitives::Icon;
 
@@ -30,6 +31,8 @@ pub const ADMIN_ACCESS_READY: &str = "ready";
 pub const ADMIN_ACCESS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_ACCESS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_ACCESS_MALFORMED: &str = "malformed";
+pub const ADMIN_ACCESS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_ACCESS_UNAUTHORIZED: &str = "unauthorized";
 
 /// Backend-owned fields needed to target a versioned assignment mutation.
 /// Actor and update timestamps remain excluded from page state.
@@ -115,6 +118,8 @@ enum AccessLoad {
     Forbidden,
     Unavailable,
     Malformed,
+    Unauthenticated,
+    Unauthorized,
 }
 
 fn access_load(ctx: &PageContext) -> AccessLoad {
@@ -131,6 +136,8 @@ fn access_load(ctx: &PageContext) -> AccessLoad {
         }
         Some(ADMIN_ACCESS_FORBIDDEN) => AccessLoad::Forbidden,
         Some(ADMIN_ACCESS_MALFORMED) => AccessLoad::Malformed,
+        Some(ADMIN_ACCESS_UNAUTHENTICATED) => AccessLoad::Unauthenticated,
+        Some(ADMIN_ACCESS_UNAUTHORIZED) => AccessLoad::Unauthorized,
         Some(ADMIN_ACCESS_UNAVAILABLE) | None => AccessLoad::Unavailable,
         Some(_) => AccessLoad::Malformed,
     }
@@ -188,6 +195,22 @@ fn RenderWalletAccess(ctx: PageContext) -> Element {
                         state: ADMIN_ACCESS_MALFORMED,
                         title: "Wallet access data could not be verified".to_string(),
                         detail: "The backend response did not match the strict redacted access contract. No assignments are being shown.".to_string(),
+                    }
+                },
+                AccessLoad::Unauthenticated => rsx! {
+                    AdminDataStateBanner {
+                        state: AdminDataState::Unauthenticated,
+                        subject: "Wallet access".to_string(),
+                        return_path: WALLET_ACCESS_PATH.to_string(),
+                        retry_href: WALLET_ACCESS_PATH.to_string(),
+                    }
+                },
+                AccessLoad::Unauthorized => rsx! {
+                    AdminDataStateBanner {
+                        state: AdminDataState::Unauthorized,
+                        subject: "Wallet access".to_string(),
+                        return_path: WALLET_ACCESS_PATH.to_string(),
+                        retry_href: WALLET_ACCESS_PATH.to_string(),
                     }
                 },
             }
@@ -428,6 +451,16 @@ mod tests {
             assert!(rendered.contains("Access Assignments"));
             assert!(rendered.contains("Review plan definitions"));
             assert!(rendered.contains("Assignments unavailable"));
+            assert!(!rendered.contains("admin:payments:view"));
+        }
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_to_shared_banner_states() {
+        for state in [ADMIN_ACCESS_UNAUTHENTICATED, ADMIN_ACCESS_UNAUTHORIZED] {
+            let rendered = html(&with_state(state, Some(projection())));
+            assert!(rendered.contains(&format!("data-admin-data-state=\"{state}\"")));
+            assert!(rendered.contains("Sign in"));
             assert!(!rendered.contains("admin:payments:view"));
         }
     }

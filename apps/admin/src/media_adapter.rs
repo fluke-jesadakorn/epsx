@@ -25,6 +25,7 @@ pub(crate) enum AdminMediaMutationError {
     Invalid,
     Forbidden,
     Conflict,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -95,6 +96,7 @@ pub(crate) enum AdminMediaLoad {
     Ready(AdminMediaList),
     Empty(AdminMediaList),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -140,6 +142,7 @@ pub(crate) async fn load_admin_media(
         return match response.status() {
             reqwest::StatusCode::BAD_REQUEST => AdminMediaLoad::Malformed,
             reqwest::StatusCode::FORBIDDEN => AdminMediaLoad::Forbidden,
+            reqwest::StatusCode::UNAUTHORIZED => AdminMediaLoad::Unauthorized,
             _ => AdminMediaLoad::Unavailable,
         };
     }
@@ -242,6 +245,7 @@ async fn decode_mutation_response(
         reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::UNPROCESSABLE_ENTITY => {
             return Err(AdminMediaMutationError::Invalid)
         }
+        reqwest::StatusCode::UNAUTHORIZED => return Err(AdminMediaMutationError::Unauthorized),
         reqwest::StatusCode::FORBIDDEN => return Err(AdminMediaMutationError::Forbidden),
         reqwest::StatusCode::CONFLICT => return Err(AdminMediaMutationError::Conflict),
         _ => return Err(AdminMediaMutationError::Unavailable),

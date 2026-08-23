@@ -172,7 +172,7 @@ pub fn decode_account_profile(
     value: Value,
     expected_owner: &str,
 ) -> Option<AccountProfileProjection> {
-    if value.get("success")?.as_bool()? != true {
+    if !value.get("success")?.as_bool()? {
         return None;
     }
     let profile: AccountProfileWire = serde_json::from_value(value.get("data")?.clone()).ok()?;
@@ -197,7 +197,7 @@ pub fn decode_account_profile(
 }
 
 pub fn decode_account_access(value: Value) -> Option<AccountAccessProjection> {
-    if value.get("success")?.as_bool()? != true {
+    if !value.get("success")?.as_bool()? {
         return None;
     }
     let access: AccountAccessWire = serde_json::from_value(value.get("data")?.clone()).ok()?;
@@ -267,7 +267,7 @@ pub fn decode_account_plan_payments(
     value: Value,
     max_items: usize,
 ) -> Option<AccountPlanPaymentsProjection> {
-    if max_items == 0 || value.get("success")?.as_bool()? != true {
+    if max_items == 0 || !value.get("success")?.as_bool()? {
         return None;
     }
     let data: AccountPlanPaymentsDataWire =

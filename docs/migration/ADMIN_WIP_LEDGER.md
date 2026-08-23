@@ -9,13 +9,13 @@ checkout until an explicit, evidence-backed integration decision.
 | WIP path | Hunk scope | Disposition | Evidence / reason |
 | --- | --- | --- | --- |
 | `apps/admin/Cargo.toml` | `url` dependency addition | adopted | Required by strict form decoding in `apps/admin/src/main.rs`. |
-| `apps/admin/src/auth.rs` | local/design bypass UI identity and tests | adopted | UI-only preview identity; no bearer token or upstream authorization. |
+| `apps/admin/src/auth.rs` | local/design bypass UI identity and tests | removed | Removed with `shared/rust/bff/src/dev_bypass.rs` — admin now requires verified sessions only. |
 | `apps/admin/src/main.rs` | bounded notification form, notification routes/metrics/template handlers, route allowlist, tests | adopted | Root-owned central wiring; must pass admin authorization and SSR tests before merge. |
 | `apps/admin/src/notification_admin_adapter.rs` | strict notification query/projection/load outcome adapters, metrics, read/delete actions, and tests | adopted | Route-specific BFF behavior; no private payload projection; IDs and filters are bounded before service calls. |
 | `apps/admin/src/session_auth.rs` | session-clear response header handling | adopted | Root-owned auth/session behavior; covered by auth-session gate. |
 | `apps/admin/src/ssr.rs` | notification loader outcome, private HTML, query dispatch, tests | adopted | Root-owned SSR wiring; no sample data and no cacheable authenticated HTML. |
 | `apps/admin/src/styles/index.css` | admin state/form styles | adopted | Presentation-only support for truthful page states. |
-| `shared/rust/bff/src/dev_bypass.rs` | local design-bypass identity helper | adopted | Shared local-only UI identity; it cannot create a bearer token. |
+| `shared/rust/bff/src/dev_bypass.rs` | local design-bypass identity helper | removed | Removed for production parity — BFFs now require verified RS256/JWKS sessions; no bypass identity remains. |
 | `shared/rust/client/src/lib.rs` | status-preserving POST helper and test | adopted | Required to distinguish durable notification enqueue responses. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages.rs` | admin module registry/dispatcher and tests | adopted | Central route wiring; source inventory remains authoritative. |
 | `shared/rust/dioxus_ui/src/pages/admin_pages/access_denied.rs` | denial rendering | adopted | Preserves fail-closed denial state. |

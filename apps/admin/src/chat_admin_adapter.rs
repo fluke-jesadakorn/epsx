@@ -3,6 +3,7 @@
 //! Central SSR wiring in `main.rs`/`ssr.rs` registers these loaders; this module
 //! owns only typed transport, bounds, and backend projection validation.
 
+use crate::upstream::UpstreamFailure;
 use epsx_dioxus_ui::pages::admin_pages::chat::{
     decode_admin_chat_detail, decode_admin_chat_inbox, AdminChatDetail, AdminChatInbox,
     AdminChatList, AdminChatStats, AdminChatTopicSummary,
@@ -119,6 +120,7 @@ pub(crate) enum AdminChatListLoad {
     Ready(AdminChatInbox),
     Empty(AdminChatInbox),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -127,6 +129,7 @@ pub(crate) enum AdminChatListLoad {
 pub(crate) enum AdminChatDetailLoad {
     Ready(Box<AdminChatDetail>),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -170,8 +173,20 @@ struct BackendEnvelope<T> {
 #[derive(Debug)]
 enum FetchError {
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
+}
+
+impl From<UpstreamFailure> for FetchError {
+    fn from(failure: UpstreamFailure) -> Self {
+        match failure {
+            UpstreamFailure::Unauthorized => Self::Unauthorized,
+            UpstreamFailure::Forbidden => Self::Forbidden,
+            UpstreamFailure::Malformed => Self::Malformed,
+            UpstreamFailure::Unavailable => Self::Unavailable,
+        }
+    }
 }
 
 pub(crate) async fn load_admin_chat(
@@ -218,6 +233,7 @@ pub(crate) async fn load_admin_chat(
 fn classify_list_error(error: FetchError) -> AdminChatListLoad {
     match error {
         FetchError::Forbidden => AdminChatListLoad::Forbidden,
+        FetchError::Unauthorized => AdminChatListLoad::Unauthorized,
         FetchError::Unavailable => AdminChatListLoad::Unavailable,
         FetchError::Malformed => AdminChatListLoad::Malformed,
     }
@@ -238,6 +254,7 @@ pub(crate) async fn load_admin_chat_detail(
     {
         Ok(summary) => summary,
         Err(FetchError::Forbidden) => return AdminChatDetailLoad::Forbidden,
+        Err(FetchError::Unauthorized) => return AdminChatDetailLoad::Unauthorized,
         Err(FetchError::Unavailable) => return AdminChatDetailLoad::Unavailable,
         Err(FetchError::Malformed) => return AdminChatDetailLoad::Malformed,
     };
@@ -251,6 +268,7 @@ pub(crate) async fn load_admin_chat_detail(
         {
             Ok(messages) => messages,
             Err(FetchError::Forbidden) => return AdminChatDetailLoad::Forbidden,
+            Err(FetchError::Unauthorized) => return AdminChatDetailLoad::Unauthorized,
             Err(FetchError::Unavailable) => return AdminChatDetailLoad::Unavailable,
             Err(FetchError::Malformed) => return AdminChatDetailLoad::Malformed,
         };
@@ -319,12 +337,14 @@ async fn get_json<T: DeserializeOwned>(
 }
 
 fn classify_status(status: StatusCode) -> Result<(), FetchError> {
-    if status == StatusCode::FORBIDDEN {
-        Err(FetchError::Forbidden)
-    } else if status.is_success() {
-        Ok(())
-    } else {
-        Err(FetchError::Unavailable)
+    if status.is_success() {
+        return Ok(());
+    }
+    match UpstreamFailure::classify(status) {
+        UpstreamFailure::Unauthorized => Err(FetchError::Unauthorized),
+        UpstreamFailure::Forbidden => Err(FetchError::Forbidden),
+        UpstreamFailure::Malformed => Err(FetchError::Malformed),
+        UpstreamFailure::Unavailable => Err(FetchError::Unavailable),
     }
 }
 

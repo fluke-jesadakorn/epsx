@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use super::super::{PageContext, PageMeta};
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -27,6 +28,8 @@ pub const ADMIN_PAYMENTS_READY: &str = "ready";
 pub const ADMIN_PAYMENTS_EMPTY: &str = "empty";
 pub const ADMIN_PAYMENTS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PAYMENTS_MALFORMED: &str = "malformed";
+pub const ADMIN_PAYMENTS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_PAYMENTS_UNAUTHORIZED: &str = "unauthorized";
 
 pub const ADMIN_PAYMENT_LINKS_DATA_PARAM: &str = "data_admin_payment_links";
 pub const ADMIN_PAYMENT_LINKS_STATE_PARAM: &str = "data_admin_payment_links_state";
@@ -36,6 +39,8 @@ pub const ADMIN_PAYMENT_LINKS_EMPTY: &str = "empty";
 pub const ADMIN_PAYMENT_LINKS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_PAYMENT_LINKS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PAYMENT_LINKS_MALFORMED: &str = "malformed";
+pub const ADMIN_PAYMENT_LINKS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_PAYMENT_LINKS_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_PAYMENT_MUTATION_PARAM: &str = "mutation";
 
 pub const ADMIN_PAYMENT_USER_ACCESS_DATA_PARAM: &str = "data_admin_payment_user_access";
@@ -45,6 +50,8 @@ pub const ADMIN_PAYMENT_USER_ACCESS_EMPTY: &str = "empty";
 pub const ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_PAYMENT_USER_ACCESS_MALFORMED: &str = "malformed";
+pub const ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED: &str = "unauthorized";
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct AdminPaymentUserAccessQuery {
@@ -55,6 +62,7 @@ pub struct AdminPaymentUserAccessQuery {
 }
 
 impl AdminPaymentUserAccessQuery {
+    #[allow(clippy::result_unit_err)]
     pub fn from_raw(raw: &str) -> Result<Self, ()> {
         let mut query = Self {
             page: 1,
@@ -379,6 +387,8 @@ fn safe_filter(value: &str, max_len: usize) -> Option<String> {
 enum PaymentLoad {
     Ready(AdminPaymentIntentList),
     Empty,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -387,6 +397,8 @@ enum PaymentLoad {
 enum PaymentLinksLoad {
     Ready(AdminPaymentLinkListProjection),
     Empty,
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -396,6 +408,8 @@ enum PaymentLinksLoad {
 enum PaymentUserAccessLoad {
     Ready(AdminPaymentUserAccessProjection),
     Empty,
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -427,6 +441,8 @@ fn payment_user_access_load(ctx: &PageContext) -> PaymentUserAccessLoad {
         }
         Some(ADMIN_PAYMENT_USER_ACCESS_FORBIDDEN) => PaymentUserAccessLoad::Forbidden,
         Some(ADMIN_PAYMENT_USER_ACCESS_MALFORMED) => PaymentUserAccessLoad::Malformed,
+        Some(ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED) => PaymentUserAccessLoad::Unauthenticated,
+        Some(ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED) => PaymentUserAccessLoad::Unauthorized,
         Some(ADMIN_PAYMENT_USER_ACCESS_UNAVAILABLE) | None => PaymentUserAccessLoad::Unavailable,
         Some(_) => PaymentUserAccessLoad::Malformed,
     }
@@ -465,6 +481,8 @@ fn payment_links_load(ctx: &PageContext) -> PaymentLinksLoad {
         }
         Some(ADMIN_PAYMENT_LINKS_FORBIDDEN) => PaymentLinksLoad::Forbidden,
         Some(ADMIN_PAYMENT_LINKS_MALFORMED) => PaymentLinksLoad::Malformed,
+        Some(ADMIN_PAYMENT_LINKS_UNAUTHENTICATED) => PaymentLinksLoad::Unauthenticated,
+        Some(ADMIN_PAYMENT_LINKS_UNAUTHORIZED) => PaymentLinksLoad::Unauthorized,
         Some(ADMIN_PAYMENT_LINKS_UNAVAILABLE) | None => PaymentLinksLoad::Unavailable,
         Some(_) => PaymentLinksLoad::Malformed,
     }
@@ -496,6 +514,8 @@ fn payment_load(ctx: &PageContext) -> PaymentLoad {
             }
         }
         Some(ADMIN_PAYMENTS_MALFORMED) => PaymentLoad::Malformed,
+        Some(ADMIN_PAYMENTS_UNAUTHENTICATED) => PaymentLoad::Unauthenticated,
+        Some(ADMIN_PAYMENTS_UNAUTHORIZED) => PaymentLoad::Unauthorized,
         Some(ADMIN_PAYMENTS_UNAVAILABLE) | None => PaymentLoad::Unavailable,
         Some(_) => PaymentLoad::Malformed,
     }
@@ -606,6 +626,21 @@ fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
                         p { class: "mt-2 text-sm text-muted-foreground", "No authoritative payment intents match the current filters." }
                     }
                 },
+                PaymentLoad::Unauthenticated | PaymentLoad::Unauthorized => {
+                    let state = if matches!(load, PaymentLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Payments".to_string(),
+                            return_path: "/payments".to_string(),
+                            retry_href: "/payments".to_string(),
+                        }
+                    }
+                }
                 PaymentLoad::Unavailable => rsx! {
                     LoadProblem {
                         title: "Payment intents unavailable".to_string(),
@@ -694,6 +729,21 @@ fn PaymentUserAccessTab(
                         retry_url: payment_user_access_url(&query, query.page),
                     }
                 },
+                PaymentUserAccessLoad::Unauthenticated | PaymentUserAccessLoad::Unauthorized => {
+                    let state = if matches!(load, PaymentUserAccessLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "User access".to_string(),
+                            return_path: "/payments".to_string(),
+                            retry_href: "/payments".to_string(),
+                        }
+                    }
+                }
                 PaymentUserAccessLoad::Unavailable => rsx! {
                     LoadProblem {
                         title: "User access is unavailable".to_string(),
@@ -896,6 +946,21 @@ fn PaymentLinksTab(load: PaymentLinksLoad) -> Element {
                         detail: "The backend did not authorize this session to read payment links.".to_string(),
                     }
                 },
+                PaymentLinksLoad::Unauthenticated | PaymentLinksLoad::Unauthorized => {
+                    let state = if matches!(load, PaymentLinksLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Payment links".to_string(),
+                            return_path: "/payments".to_string(),
+                            retry_href: "/payments".to_string(),
+                        }
+                    }
+                }
                 PaymentLinksLoad::Unavailable => rsx! {
                     PaymentLinksProblem {
                         state: ADMIN_PAYMENT_LINKS_UNAVAILABLE,
@@ -1780,6 +1845,52 @@ mod tests {
             assert!(html.contains(title));
             assert!(!html.contains("Lifetime"));
         }
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_and_render_the_shared_banner() {
+        let intents_unauthenticated = with_load(ADMIN_PAYMENTS_UNAUTHENTICATED, None);
+        assert_eq!(
+            payment_load(&intents_unauthenticated),
+            PaymentLoad::Unauthenticated
+        );
+        let html = render_html(&intents_unauthenticated);
+        assert!(html.contains("data-admin-data-state=\"unauthenticated\""));
+        assert!(html.contains("Sign in required"));
+
+        let intents_unauthorized = with_load(ADMIN_PAYMENTS_UNAUTHORIZED, None);
+        assert_eq!(
+            payment_load(&intents_unauthorized),
+            PaymentLoad::Unauthorized
+        );
+        assert!(
+            render_html(&intents_unauthorized).contains("data-admin-data-state=\"unauthorized\"")
+        );
+
+        let links_unauthenticated = with_links(ADMIN_PAYMENT_LINKS_UNAUTHENTICATED, None);
+        assert_eq!(
+            payment_links_load(&links_unauthenticated),
+            PaymentLinksLoad::Unauthenticated
+        );
+        let links_unauthorized = with_links(ADMIN_PAYMENT_LINKS_UNAUTHORIZED, None);
+        assert_eq!(
+            payment_links_load(&links_unauthorized),
+            PaymentLinksLoad::Unauthorized
+        );
+        assert!(render_html(&links_unauthorized).contains("Session expired"));
+
+        let access_unauthenticated =
+            with_user_access(ADMIN_PAYMENT_USER_ACCESS_UNAUTHENTICATED, None);
+        assert_eq!(
+            payment_user_access_load(&access_unauthenticated),
+            PaymentUserAccessLoad::Unauthenticated
+        );
+        let access_unauthorized = with_user_access(ADMIN_PAYMENT_USER_ACCESS_UNAUTHORIZED, None);
+        assert_eq!(
+            payment_user_access_load(&access_unauthorized),
+            PaymentUserAccessLoad::Unauthorized
+        );
+        assert!(render_html(&access_unauthorized).contains("Session expired"));
     }
 
     #[test]

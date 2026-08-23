@@ -71,6 +71,10 @@ pub fn Header(
     class_name: Option<String>,
     /// Optional id for the outer `<header>` element.
     id: Option<String>,
+    /// SSR-verified session truth. When `Fixture`, an amber badge marks the
+    /// UI-only bypass identity next to the wallet control.
+    #[props(default = None)]
+    session_state: Option<crate::layout::session_state::SessionState>,
 ) -> Element {
     // Compute effective unread count.
     let effective_unread = initial_unread_count.unwrap_or_else(|| {
@@ -109,6 +113,14 @@ pub fn Header(
 
                 // Right: actions
                 div { class: "flex items-center gap-3 flex-shrink-0",
+                    if session_state == Some(crate::layout::session_state::SessionState::Fixture) {
+                        span {
+                            class: "hidden sm:inline-flex items-center rounded-full border border-amber-400/40 bg-amber-400/10 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-400",
+                            "data-session-state": "fixture",
+                            title: "UI-only fixture identity — no backend session",
+                            "Fixture"
+                        }
+                    }
                     // Notification bell
                     div { class: "hidden sm:block",
                         if let Some(bell) = notification_bell {

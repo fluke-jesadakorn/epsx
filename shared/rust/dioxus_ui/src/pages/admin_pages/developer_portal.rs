@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::components::admin::page_layout::{PageGradient, PageHeader, PageLayout, PageMaxWidth};
 use crate::primitives::Icon;
 
@@ -32,6 +33,8 @@ pub const ADMIN_DEVELOPER_EMPTY: &str = "empty";
 pub const ADMIN_DEVELOPER_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_DEVELOPER_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_DEVELOPER_MALFORMED: &str = "malformed";
+pub const ADMIN_DEVELOPER_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_DEVELOPER_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_DEVELOPER_CREATE_DATA_PARAM: &str = "data_admin_developer_create";
 pub const ADMIN_DEVELOPER_CREATE_STATE_PARAM: &str = "data_admin_developer_create_state";
 pub const ADMIN_DEVELOPER_CREATE_FORM: &str = "form";
@@ -40,6 +43,8 @@ pub const ADMIN_DEVELOPER_CREATE_CONFLICT: &str = "conflict";
 pub const ADMIN_DEVELOPER_CREATE_FORBIDDEN: &str = "forbidden";
 pub const ADMIN_DEVELOPER_CREATE_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_DEVELOPER_CREATE_MALFORMED: &str = "malformed";
+pub const ADMIN_DEVELOPER_CREATE_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_DEVELOPER_CREATE_UNAUTHORIZED: &str = "unauthorized";
 
 /// Redacted API-key inventory row. full_key, wallet ownership, permissions,
 /// module grants, contact data, and rate limits are intentionally absent.
@@ -204,6 +209,8 @@ pub fn decode_admin_developer_projection(
 enum DeveloperPortalLoad {
     Ready(AdminDeveloperPortalProjection),
     Empty(AdminDeveloperPortalProjection),
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -260,6 +267,8 @@ fn developer_portal_load(ctx: &PageContext) -> DeveloperPortalLoad {
         }
         Some(ADMIN_DEVELOPER_FORBIDDEN) => DeveloperPortalLoad::Forbidden,
         Some(ADMIN_DEVELOPER_MALFORMED) => DeveloperPortalLoad::Malformed,
+        Some(ADMIN_DEVELOPER_UNAUTHENTICATED) => DeveloperPortalLoad::Unauthenticated,
+        Some(ADMIN_DEVELOPER_UNAUTHORIZED) => DeveloperPortalLoad::Unauthorized,
         Some(ADMIN_DEVELOPER_UNAVAILABLE) | None => DeveloperPortalLoad::Unavailable,
         Some(_) => DeveloperPortalLoad::Malformed,
     }
@@ -310,6 +319,21 @@ fn RenderDeveloperPortal(ctx: PageContext) -> Element {
                         detail: "The backend did not authorize this session to read the redacted developer inventory.".to_string(),
                     }
                 },
+                DeveloperPortalLoad::Unauthenticated | DeveloperPortalLoad::Unauthorized => {
+                    let state = if matches!(load, DeveloperPortalLoad::Unauthenticated) {
+                        AdminDataState::Unauthenticated
+                    } else {
+                        AdminDataState::Unauthorized
+                    };
+                    rsx! {
+                        AdminDataStateBanner {
+                            state,
+                            subject: "Developer portal".to_string(),
+                            return_path: DEVELOPER_PORTAL_PATH.to_string(),
+                            retry_href: DEVELOPER_PORTAL_PATH.to_string(),
+                        }
+                    }
+                }
                 DeveloperPortalLoad::Unavailable => rsx! {
                     DeveloperPortalProblem {
                         tab,
@@ -817,6 +841,8 @@ enum DeveloperCreateLoad {
     Form,
     Created(AdminDeveloperSecretOnceProjection),
     Conflict,
+    Unauthenticated,
+    Unauthorized,
     Forbidden,
     Unavailable,
     Malformed,
@@ -842,6 +868,8 @@ fn developer_create_load(ctx: &PageContext) -> DeveloperCreateLoad {
         Some(ADMIN_DEVELOPER_CREATE_CONFLICT) => DeveloperCreateLoad::Conflict,
         Some(ADMIN_DEVELOPER_CREATE_FORBIDDEN) => DeveloperCreateLoad::Forbidden,
         Some(ADMIN_DEVELOPER_CREATE_UNAVAILABLE) => DeveloperCreateLoad::Unavailable,
+        Some(ADMIN_DEVELOPER_CREATE_UNAUTHENTICATED) => DeveloperCreateLoad::Unauthenticated,
+        Some(ADMIN_DEVELOPER_CREATE_UNAUTHORIZED) => DeveloperCreateLoad::Unauthorized,
         Some(ADMIN_DEVELOPER_CREATE_MALFORMED) | Some(_) => DeveloperCreateLoad::Malformed,
         None => DeveloperCreateLoad::Unavailable,
     }
@@ -849,13 +877,29 @@ fn developer_create_load(ctx: &PageContext) -> DeveloperCreateLoad {
 
 #[component]
 fn RenderDeveloperCreateKey(ctx: PageContext) -> Element {
-    match developer_create_load(&ctx) {
+    let load = developer_create_load(&ctx);
+    match load {
         DeveloperCreateLoad::Form => rsx! { DeveloperCreateForm {} },
         DeveloperCreateLoad::Created(projection) => {
             rsx! { DeveloperCreateSecretOnce { projection } }
         }
         DeveloperCreateLoad::Conflict => {
             rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_CONFLICT, detail: "The API-key request conflicted with an existing mutation. Retry with a new idempotency key after verifying the backend state.".to_string() } }
+        }
+        DeveloperCreateLoad::Unauthenticated | DeveloperCreateLoad::Unauthorized => {
+            let state = if matches!(load, DeveloperCreateLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Developer portal".to_string(),
+                    return_path: DEVELOPER_CREATE_PATH.to_string(),
+                    retry_href: DEVELOPER_CREATE_PATH.to_string(),
+                }
+            }
         }
         DeveloperCreateLoad::Forbidden => {
             rsx! { DeveloperCreateProblem { state: ADMIN_DEVELOPER_CREATE_FORBIDDEN, detail: "The backend denied API-key creation for this admin session.".to_string() } }
@@ -1154,6 +1198,52 @@ mod tests {
             assert!(rendered.contains("data-admin-developer-portal-state=\"malformed\""));
             assert!(rendered.contains("could not be verified"));
         }
+    }
+
+    #[test]
+    fn unauthenticated_and_unauthorized_decode_and_render_the_shared_banner() {
+        let portal_unauthenticated = ctx(ADMIN_DEVELOPER_UNAUTHENTICATED, None);
+        assert_eq!(
+            developer_portal_load(&portal_unauthenticated),
+            DeveloperPortalLoad::Unauthenticated
+        );
+        let rendered = html(&portal_unauthenticated);
+        assert!(rendered.contains("data-admin-data-state=\"unauthenticated\""));
+        assert!(rendered.contains("Sign in required"));
+        assert!(!rendered.contains("data-admin-developer-portal-state"));
+
+        let portal_unauthorized = ctx(ADMIN_DEVELOPER_UNAUTHORIZED, None);
+        assert_eq!(
+            developer_portal_load(&portal_unauthorized),
+            DeveloperPortalLoad::Unauthorized
+        );
+        assert!(html(&portal_unauthorized).contains("data-admin-data-state=\"unauthorized\""));
+
+        let mut create_unauthenticated = ctx(ADMIN_DEVELOPER_UNAVAILABLE, None);
+        create_unauthenticated.path = "/developer-portal/api-keys/create".to_string();
+        create_unauthenticated.params.insert(
+            ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+            ADMIN_DEVELOPER_CREATE_UNAUTHENTICATED.to_string(),
+        );
+        assert!(matches!(
+            developer_create_load(&create_unauthenticated),
+            DeveloperCreateLoad::Unauthenticated
+        ));
+        let rendered = dioxus_ssr::render_element(render_create_key(&create_unauthenticated).1);
+        assert!(rendered.contains("data-admin-data-state=\"unauthenticated\""));
+
+        let mut create_unauthorized = ctx(ADMIN_DEVELOPER_UNAVAILABLE, None);
+        create_unauthorized.path = "/developer-portal/api-keys/create".to_string();
+        create_unauthorized.params.insert(
+            ADMIN_DEVELOPER_CREATE_STATE_PARAM.to_string(),
+            ADMIN_DEVELOPER_CREATE_UNAUTHORIZED.to_string(),
+        );
+        assert!(matches!(
+            developer_create_load(&create_unauthorized),
+            DeveloperCreateLoad::Unauthorized
+        ));
+        let rendered = dioxus_ssr::render_element(render_create_key(&create_unauthorized).1);
+        assert!(rendered.contains("Session expired"));
     }
 
     #[test]

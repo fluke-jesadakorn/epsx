@@ -10,6 +10,7 @@ use dioxus::prelude::*;
 use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
+use crate::components::admin::data_state_banner::{AdminDataState, AdminDataStateBanner};
 use crate::primitives::Icon;
 
 use super::super::{PageContext, PageMeta};
@@ -27,6 +28,8 @@ pub const ADMIN_CHAT_DETAIL_STATE_PARAM: &str = "data_admin_chat_detail_state";
 pub const ADMIN_CHAT_READY: &str = "ready";
 pub const ADMIN_CHAT_EMPTY: &str = "empty";
 pub const ADMIN_CHAT_FORBIDDEN: &str = "forbidden";
+pub const ADMIN_CHAT_UNAUTHENTICATED: &str = "unauthenticated";
+pub const ADMIN_CHAT_UNAUTHORIZED: &str = "unauthorized";
 pub const ADMIN_CHAT_UNAVAILABLE: &str = "unavailable";
 pub const ADMIN_CHAT_MALFORMED: &str = "malformed";
 pub const ADMIN_CHAT_MUTATION_PARAM: &str = "mutation";
@@ -228,6 +231,8 @@ enum ChatLoad {
     Detail(AdminChatDetail),
     Empty(AdminChatInbox),
     Forbidden,
+    Unauthenticated,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -264,6 +269,8 @@ fn list_load(ctx: &PageContext) -> ChatLoad {
             }
         }
         Some(ADMIN_CHAT_FORBIDDEN) => ChatLoad::Forbidden,
+        Some(ADMIN_CHAT_UNAUTHENTICATED) => ChatLoad::Unauthenticated,
+        Some(ADMIN_CHAT_UNAUTHORIZED) => ChatLoad::Unauthorized,
         Some(ADMIN_CHAT_MALFORMED) => ChatLoad::Malformed,
         Some(ADMIN_CHAT_UNAVAILABLE) | None => ChatLoad::Unavailable,
         Some(_) => ChatLoad::Malformed,
@@ -284,6 +291,8 @@ fn detail_load(ctx: &PageContext) -> ChatLoad {
             .map(ChatLoad::Detail)
             .unwrap_or(ChatLoad::Malformed),
         Some(ADMIN_CHAT_FORBIDDEN) => ChatLoad::Forbidden,
+        Some(ADMIN_CHAT_UNAUTHENTICATED) => ChatLoad::Unauthenticated,
+        Some(ADMIN_CHAT_UNAUTHORIZED) => ChatLoad::Unauthorized,
         Some(ADMIN_CHAT_MALFORMED) => ChatLoad::Malformed,
         Some(ADMIN_CHAT_UNAVAILABLE) | None => ChatLoad::Unavailable,
         Some(_) => ChatLoad::Malformed,
@@ -460,6 +469,21 @@ fn ChatSurface(
                 retry_href: retry_href.clone(),
             }
         },
+        ChatLoad::Unauthenticated | ChatLoad::Unauthorized => {
+            let state = if matches!(load, ChatLoad::Unauthenticated) {
+                AdminDataState::Unauthenticated
+            } else {
+                AdminDataState::Unauthorized
+            };
+            rsx! {
+                AdminDataStateBanner {
+                    state,
+                    subject: "Admin chat".to_string(),
+                    return_path: CHAT_PATH.to_string(),
+                    retry_href: retry_href.clone(),
+                }
+            }
+        }
         ChatLoad::Malformed => rsx! {
             ChatUnavailable {
                 route,

@@ -86,6 +86,10 @@ pub fn AdminSidebar(
     class_name: Option<String>,
     /// Optional id for the outer container (handy for testing).
     id: Option<String>,
+    /// SSR-verified session truth. When `None`, it is derived from
+    /// `is_authenticated` (verified vs anonymous) for legacy callers.
+    #[props(default = None)]
+    session_state: Option<crate::layout::session_state::SessionState>,
 ) -> Element {
     let items = items.unwrap_or_else(|| DEFAULT_NAV_ITEMS.clone());
 
@@ -120,7 +124,13 @@ pub fn AdminSidebar(
         });
     }
 
-    let active_user_pill = is_authenticated;
+    let session_state = session_state.unwrap_or({
+        if is_authenticated {
+            crate::layout::session_state::SessionState::Verified
+        } else {
+            crate::layout::session_state::SessionState::Anonymous
+        }
+    });
 
     let container_class = {
         let mut c = String::from("admin-sidebar w-56 sm:w-64 min-w-0 max-w-64 bg-card border-r border-border/40 h-full flex flex-col z-20");
@@ -175,7 +185,7 @@ pub fn AdminSidebar(
                 if !is_authenticated {
                     ConnectWalletCta { return_url: current_path.clone() }
                 }
-                UserPill { is_authenticated: active_user_pill }
+                UserPill { session_state }
             }
         }
     }
@@ -203,28 +213,47 @@ fn ConnectWalletCta(return_url: String) -> Element {
     }
 }
 
-/// User pill at the bottom of the sidebar.
+/// User pill at the bottom of the sidebar. Reflects the SSR-injected
+/// session truth instead of guessing from cookies: `Verified` sessions are
+/// emerald, UI-only fixture identities are amber, anonymous is grey.
 #[component]
-fn UserPill(is_authenticated: bool) -> Element {
+fn UserPill(session_state: crate::layout::session_state::SessionState) -> Element {
+    let (avatar_class, initials, dot_class, label) = match session_state {
+        crate::layout::session_state::SessionState::Verified => (
+            "w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] shadow-cyan-500/10",
+            "AU",
+            "w-1.5 h-1.5 rounded-full bg-emerald-500",
+            "Authenticated",
+        ),
+        crate::layout::session_state::SessionState::Fixture => (
+            "w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/20",
+            "FX",
+            "w-1.5 h-1.5 rounded-full bg-amber-400",
+            "Fixture mode",
+        ),
+        crate::layout::session_state::SessionState::Anonymous => (
+            "w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all bg-muted/50 text-muted-foreground shadow-none",
+            "?",
+            "w-1.5 h-1.5 rounded-full bg-slate-500",
+            "Offline",
+        )
+    };
     rsx! {
         div { class: "bg-muted/30 rounded-xl p-3 border border-border/40",
+            "data-session-state": session_state.as_str(),
             div { class: "flex items-center gap-3",
-                div { class: if is_authenticated {
-                    "w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all bg-gradient-to-br from-[#1fc7d4] to-[#7645d9] shadow-cyan-500/10"
-                } else {
-                    "w-10 h-10 rounded-2xl flex items-center justify-center text-white text-sm font-bold shadow-lg transition-all bg-muted/50 text-muted-foreground shadow-none"
-                },
-                    if is_authenticated { "AU" } else { "?" }
-                }
+                div { class: avatar_class, "{initials}" }
                 div { class: "flex-1 min-w-0",
                     p { class: "text-xs font-bold text-foreground truncate",
-                        if is_authenticated { "Admin user" } else { "Guest" }
+                        if session_state == crate::layout::session_state::SessionState::Anonymous {
+                            "Guest"
+                        } else {
+                            "Admin user"
+                        }
                     }
                     div { class: "flex items-center gap-1.5",
-                        div { class: if is_authenticated { "w-1.5 h-1.5 rounded-full bg-emerald-500" } else { "w-1.5 h-1.5 rounded-full bg-slate-500" } }
-                        p { class: "text-[10px] font-bold text-muted-foreground tracking-wide uppercase",
-                            if is_authenticated { "Connected" } else { "Offline" }
-                        }
+                        div { class: dot_class }
+                        p { class: "text-[10px] font-bold text-muted-foreground tracking-wide uppercase", "{label}" }
                     }
                 }
                 // Production keeps account actions in the header wallet

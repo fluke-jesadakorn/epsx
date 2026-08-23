@@ -558,9 +558,14 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
     if !normalized_path(path) {
         return AccessPolicy::Blocked;
     }
-    if path == "/api/v1/admin/wallets" || path.starts_with("/api/v1/admin/wallets/") {
+    if path == "/api/v1/admin/wallets"
+        || path.starts_with("/api/v1/admin/wallets/")
+        || path == "/api/admin/wallets"
+        || path.starts_with("/api/admin/wallets/")
+    {
         let tail = path
             .strip_prefix("/api/v1/admin/wallets")
+            .or_else(|| path.strip_prefix("/api/admin/wallets"))
             .unwrap_or_default();
         let segments: Vec<_> = tail
             .split('/')
@@ -582,9 +587,14 @@ fn classify(method: &Method, path: &str) -> AccessPolicy {
             _ => AccessPolicy::Blocked,
         };
     }
-    if path == "/api/v1/admin/credits" || path.starts_with("/api/v1/admin/credits/") {
+    if path == "/api/v1/admin/credits"
+        || path.starts_with("/api/v1/admin/credits/")
+        || path == "/api/admin/credits"
+        || path.starts_with("/api/admin/credits/")
+    {
         let tail = path
             .strip_prefix("/api/v1/admin/credits")
+            .or_else(|| path.strip_prefix("/api/admin/credits"))
             .unwrap_or_default();
         let segments: Vec<_> = tail
             .split('/')

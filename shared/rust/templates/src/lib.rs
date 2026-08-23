@@ -7362,7 +7362,7 @@ pub fn epsx_header_for_session_and_wallet_with_network(
         "Developer" => path_is_active("/developer"),
         "Company" => ["/about", "/news", "/contact", "/chat"]
             .into_iter()
-            .any(|href| path_is_active(href)),
+            .any(path_is_active),
         _ => false,
     };
     let nav_block = |label: &str, icon: &str, items: &str| -> String {

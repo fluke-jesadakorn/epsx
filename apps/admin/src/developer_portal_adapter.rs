@@ -27,6 +27,7 @@ pub(crate) enum AdminDeveloperPortalLoad {
     Ready(AdminDeveloperPortalProjection),
     Empty(AdminDeveloperPortalProjection),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -38,6 +39,7 @@ pub(crate) enum AdminDeveloperMutationError {
     Forbidden,
     Invalid,
     Conflict,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -175,6 +177,7 @@ where
 enum FetchResult {
     Json(Value),
     Forbidden,
+    Unauthorized,
     Unavailable,
     Malformed,
 }
@@ -205,6 +208,9 @@ pub(crate) async fn load_admin_developer_portal(
     match (keys, stats) {
         (FetchResult::Forbidden, _) | (_, FetchResult::Forbidden) => {
             AdminDeveloperPortalLoad::Forbidden
+        }
+        (FetchResult::Unauthorized, _) | (_, FetchResult::Unauthorized) => {
+            AdminDeveloperPortalLoad::Unauthorized
         }
         (FetchResult::Malformed, _) | (_, FetchResult::Malformed) => {
             AdminDeveloperPortalLoad::Malformed
@@ -356,6 +362,7 @@ async fn send_mutation(
             Err(AdminDeveloperMutationError::Invalid)
         }
         reqwest::StatusCode::FORBIDDEN => Err(AdminDeveloperMutationError::Forbidden),
+        reqwest::StatusCode::UNAUTHORIZED => Err(AdminDeveloperMutationError::Unauthorized),
         reqwest::StatusCode::CONFLICT => Err(AdminDeveloperMutationError::Conflict),
         _ => Err(AdminDeveloperMutationError::Unavailable),
     }
@@ -486,6 +493,7 @@ async fn fetch_json(
     match response.status() {
         reqwest::StatusCode::OK => {}
         reqwest::StatusCode::FORBIDDEN => return FetchResult::Forbidden,
+        reqwest::StatusCode::UNAUTHORIZED => return FetchResult::Unauthorized,
         reqwest::StatusCode::BAD_REQUEST | reqwest::StatusCode::UNPROCESSABLE_ENTITY => {
             return FetchResult::Malformed
         }
