@@ -34,3 +34,4 @@ pub mod granular_permissions {
 pub mod unified_permission_service {
     pub use epsx_identity_shared::unified_permission_service::*;
 }
+pub mod sqlx_unified_permission_service;
