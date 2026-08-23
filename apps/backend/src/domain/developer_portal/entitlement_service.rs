@@ -1,3 +1,7 @@
+// BIG-BANG TODO: this domain service leaks infrastructure (DbPool + diesel::sql_query).
+// Canonical: extract `DeveloperEntitlementRepositoryPort` trait in `domain/developer_portal/repository_ports/`
+// and move this impl to `infrastructure/adapters/repositories/developer_entitlement_adapter.rs`
+// using `sqlx::query_as`. Kept as-is for single-branch big-bang scaffold to keep build green.
 use chrono::{DateTime, Utc};
 use diesel::sql_types::{Bool, Int4, Nullable, Text, Timestamptz, Uuid as SqlUuid};
 use diesel::QueryableByName;

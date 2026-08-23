@@ -45,6 +45,54 @@ impl TypedBffSession {
         Self::new(verifier, environment, CookieClient::Admin)
     }
 
+    /// Static helper for `access_token` without needing a verifier (used by legacy wrappers).
+    pub fn access_token_for(
+        headers: &HeaderMap,
+        environment: CookieEnvironment,
+        client: CookieClient,
+    ) -> Option<String> {
+        headers
+            .get("authorization")
+            .and_then(|h| h.to_str().ok())
+            .and_then(|h| h.strip_prefix("Bearer "))
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+            .map(|t| t.to_string())
+            .or_else(|| read_access_token(headers, environment, client))
+    }
+
+    pub fn refresh_token_for(
+        headers: &HeaderMap,
+        environment: CookieEnvironment,
+        client: CookieClient,
+    ) -> Option<String> {
+        read_refresh_token(headers, environment, client)
+    }
+
+    /// Static UI mapping (no verifier needed) — used by legacy wrappers.
+    pub fn ui_user_static(session: SessionUser, chain_id: Option<u64>) -> User {
+        let auth_method = match session.auth_method.as_deref() {
+            Some("web3_siwe") | Some("siwe") => AuthMethod::Siwe,
+            Some("wallet") => AuthMethod::Wallet,
+            Some("email") => AuthMethod::Email,
+            Some("oauth") => AuthMethod::OAuth,
+            Some("demo") => AuthMethod::Demo,
+            _ => AuthMethod::Unknown,
+        };
+        User {
+            id: session.subject,
+            address: session.wallet_address,
+            chain_id: chain_id.map(|v| v.to_string()).unwrap_or_default(),
+            roles: Vec::new(),
+            email: None,
+            tier: None,
+            permissions: session.permissions,
+            last_login_at: session.last_login,
+            auth_method,
+            display_name: None,
+        }
+    }
+
     pub fn access_token(&self, headers: &HeaderMap) -> Option<String> {
         headers
             .get("authorization")
@@ -82,26 +130,7 @@ impl TypedBffSession {
 
     /// Map backend `SessionUser` to UI `User`. Roles stay empty; permissions verbatim.
     pub fn ui_user(&self, session: SessionUser, chain_id: Option<u64>) -> User {
-        let auth_method = match session.auth_method.as_deref() {
-            Some("web3_siwe") | Some("siwe") => AuthMethod::Siwe,
-            Some("wallet") => AuthMethod::Wallet,
-            Some("email") => AuthMethod::Email,
-            Some("oauth") => AuthMethod::OAuth,
-            Some("demo") => AuthMethod::Demo,
-            _ => AuthMethod::Unknown,
-        };
-        User {
-            id: session.subject,
-            address: session.wallet_address,
-            chain_id: chain_id.map(|v| v.to_string()).unwrap_or_default(),
-            roles: Vec::new(),
-            email: None,
-            tier: None,
-            permissions: session.permissions,
-            last_login_at: session.last_login,
-            auth_method,
-            display_name: None,
-        }
+        Self::ui_user_static(session, chain_id)
     }
 }
 

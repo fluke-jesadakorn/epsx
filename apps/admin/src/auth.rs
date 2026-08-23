@@ -1,34 +1,22 @@
-//! Admin adapter for the canonical RS256/JWKS browser session.
+//! Admin adapter — thin wrapper over `epsx-bff::TypedBffSession`.
+//! BIG-BANG: deduplicates frontend/admin auth. Canonical logic in `typed_session.rs`.
 
 use axum::http::HeaderMap;
 use epsx_bff::{
-    cookies::{read_access_token, read_refresh_token, CookieClient, CookieEnvironment},
+    cookies::{CookieClient, CookieEnvironment},
     session::{AccessVerification, JwksVerifier, SessionUser},
+    typed_session::TypedBffSession,
 };
-use epsx_dioxus_ui::auth::{user::AuthMethod, User};
+use epsx_dioxus_ui::auth::User;
 
-/// Authorization remains available for trusted server/API callers. Browser
-/// sessions use the canonical HttpOnly cookie. The shared cookie helper accepts
-/// the legacy access cookie read-only during migration.
 pub fn access_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
-    headers
-        .get("authorization")
-        .and_then(|header| header.to_str().ok())
-        .and_then(|header| header.strip_prefix("Bearer "))
-        .map(str::trim)
-        .filter(|token| !token.is_empty())
-        .map(str::to_string)
-        .or_else(|| read_access_token(headers, environment, CookieClient::Admin))
+    TypedBffSession::access_token_for(headers, environment, CookieClient::Admin)
 }
 
-/// Refresh credentials are deliberately cookie-only. Browser JSON and request
-/// bodies are never accepted as refresh-token sources.
 pub fn refresh_token(headers: &HeaderMap, environment: CookieEnvironment) -> Option<String> {
-    read_refresh_token(headers, environment, CookieClient::Admin)
+    TypedBffSession::refresh_token_for(headers, environment, CookieClient::Admin)
 }
 
-/// Resolve and cryptographically verify the access token before it is used for
-/// authorization or forwarded to any upstream service.
 pub async fn verified_access_token(
     headers: &HeaderMap,
     verifier: &JwksVerifier,
@@ -40,8 +28,6 @@ pub async fn verified_access_token(
     }
 }
 
-/// Preserve verifier outages as a distinct SSR outcome so an unavailable
-/// JWKS authority cannot trigger a rotate/reload loop.
 pub async fn access_verification(
     headers: &HeaderMap,
     verifier: &JwksVerifier,
@@ -62,36 +48,15 @@ pub async fn current_user(
         .map(|(_, user)| user)
 }
 
-/// Map only backend-issued identity fields. Roles stay empty and permissions
-/// remain verbatim; authorization policy belongs to the Rust backend.
 pub fn ui_user(session: SessionUser, chain_id: Option<u64>) -> User {
-    let auth_method = match session.auth_method.as_deref() {
-        Some("web3_siwe") | Some("siwe") => AuthMethod::Siwe,
-        Some("wallet") => AuthMethod::Wallet,
-        Some("email") => AuthMethod::Email,
-        Some("oauth") => AuthMethod::OAuth,
-        Some("demo") => AuthMethod::Demo,
-        _ => AuthMethod::Unknown,
-    };
-
-    User {
-        id: session.subject,
-        address: session.wallet_address,
-        chain_id: chain_id.map(|value| value.to_string()).unwrap_or_default(),
-        roles: Vec::new(),
-        email: None,
-        tier: None,
-        permissions: session.permissions,
-        last_login_at: session.last_login,
-        auth_method,
-        display_name: None,
-    }
+    TypedBffSession::ui_user_static(session, chain_id)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use axum::http::{header, HeaderValue};
+    use epsx_dioxus_ui::auth::user::AuthMethod;
 
     #[test]
     fn canonical_cookie_precedes_legacy_cookie() {
