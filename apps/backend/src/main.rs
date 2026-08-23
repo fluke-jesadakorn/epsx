@@ -21,8 +21,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("Starting EPSX Backend Server - Data Analytics Platform...");
 
-    // Create database pool with Diesel
+    // Create database pool with Diesel (BIG-BANG: keep until last Diesel query gone, sqlx side-by-side)
     let database_url = std::env::var("DATABASE_URL").map_err(|_| "DATABASE_URL must be set")?;
+    let database_url_for_sqlx = database_url.clone();
 
     info!("Connecting to database...");
     let db_config = TlsConnectionManager::new(database_url);
@@ -53,6 +54,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let _db_pool: &'static TlsPool = Box::leak(Box::new(pool));
     // TODO(bigbang): replace with `let db_pool = Arc::new(pool)` and thread Arc through DomainContainer
     let _ = &_db_pool; // suppress unused until migrated
+
+    // BIG-BANG Phase1: create canonical sqlx pool side-by-side (not yet wired to container)
+    // This pool will replace TlsPool when the last Diesel query is removed.
+    let _sqlx_pool = match sqlx::PgPool::connect(&database_url_for_sqlx).await {
+        Ok(pool) => {
+            info!("SQLx pool created (big-bang side-by-side)");
+            Some(std::sync::Arc::new(pool))
+        }
+        Err(e) => {
+            tracing::warn!("SQLx pool failed (will retry on next phase): {}", e);
+            None
+        }
+    };
+    let _ = &_sqlx_pool;
 
     // Seed system admin plans (idempotent)
     epsx::infrastructure::services::seed_system_admin_plans(_db_pool).await;

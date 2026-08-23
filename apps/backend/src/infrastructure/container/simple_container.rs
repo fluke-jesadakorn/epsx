@@ -48,6 +48,13 @@ pub struct SimpleContainer {
     pub payments_pool: Option<Arc<&'static TlsPool>>,
     pub analytics_pool: Option<Arc<&'static TlsPool>>,
     pub notifications_pool: Option<Arc<&'static TlsPool>>,
+    // BIG-BANG Phase1: canonical sqlx pools side-by-side with TlsPool.
+    // New code should use `sqlx_*_pool`; `TlsPool` fields are deprecated and will be removed
+    // when the last Diesel query is gone. See `shared/rust/epsx-database-pools/src/sqlx_pool.rs`.
+    pub sqlx_core_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_payments_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_analytics_pool: Option<Arc<sqlx::PgPool>>,
+    pub sqlx_notifications_pool: Option<Arc<sqlx::PgPool>>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // NEW - Web3-first services (primary)
@@ -118,6 +125,10 @@ impl SimpleContainer {
             payments_pool: None,
             analytics_pool: None,
             notifications_pool: None,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache: None,
             identity_provider: None,
             // NEW - Web3-first services (initialized as None, configured via builder methods)
@@ -471,6 +482,10 @@ impl SimpleContainer {
             payments_pool,
             analytics_pool,
             notifications_pool,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache,
             // Web3-first services
             wallet_user_repository: Some(wallet_user_repository),
@@ -662,6 +677,10 @@ impl SimpleContainer {
             payments_pool: None,
             analytics_pool: None,
             notifications_pool: None,
+            sqlx_core_pool: None,
+            sqlx_payments_pool: None,
+            sqlx_analytics_pool: None,
+            sqlx_notifications_pool: None,
             cache: Some(cache),
             identity_provider: None,
             // Initialize Web3 services as None - use new_with_web3_services for full setup
