@@ -44,7 +44,10 @@ impl SqlxWalletUserRepository {
     ///   diesel::sql_query("SELECT ... FROM wallet_users WHERE lower(wallet_address)=lower($1)")
     ///     .bind::<Text,_>(addr).load::<WalletUserQueryResult>(&mut conn)
     /// SQLx version:
-    pub async fn find_by_wallet_address(&self, wallet_address: &str) -> AppResult<Option<SqlxWalletUserRow>> {
+    pub async fn find_by_wallet_address(
+        &self,
+        wallet_address: &str,
+    ) -> AppResult<Option<SqlxWalletUserRow>> {
         let row = sqlx::query_as::<_, SqlxWalletUserRow>(
             r#"
             SELECT wallet_address, is_active, wallet_metadata, created_at, updated_at, last_auth_at

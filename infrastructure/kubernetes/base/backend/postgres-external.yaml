@@ -1,0 +1,38 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-external
+  labels:
+    app: postgres-external
+spec:
+  type: ExternalName
+  externalName: host.docker.internal
+  ports:
+    - port: 5432
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-external
+  labels:
+    app: redis-external
+spec:
+  type: ExternalName
+  externalName: host.docker.internal
+  ports:
+    - port: 6379
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minio-external
+  labels:
+    app: minio-external
+spec:
+  type: ExternalName
+  externalName: host.docker.internal
+  ports:
+    - port: 9100
+      protocol: TCP

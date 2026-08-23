@@ -13,8 +13,10 @@ spec:
         app: epsx-backend
     spec:
       # BIG-BANG: host.docker.internal via hostAliases hardcodes 192.168.5.1 (Colima IP drift).
-      # TODO(bigbang): replace with ExternalName Services (postgres.epsx-prod.svc → host.docker.internal)
-      # or hostPort DNS to avoid IP drift. Kept for now to keep big-bang single-branch merge green.
+      # Phase infra done: ExternalName Services `postgres-external`/`redis-external`/`minio-external`
+      # now available as `postgres-external:5432` etc. Switch DB_URL to `postgres-external`
+      # when ready: `DATABASE_URL=postgres://...@postgres-external:5432/epsx_prod`.
+      # hostAliases kept for one release for rollback.
       hostAliases:
         - ip: "192.168.5.1"
           hostnames:

@@ -24,6 +24,7 @@ members = [
     "shared/rust/service-worker",
     "shared/rust/epsx-web-middleware",
     "shared/rust/epsx-analytics-protocol",
+    "shared/rust/epsx-market-analytics",
     "services/gateway",
     "services/identity",
     "services/wallet",

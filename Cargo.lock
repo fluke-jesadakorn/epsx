@@ -4805,6 +4805,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "epsx-market-analytics"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "epsx-analytics-protocol",
+ "epsx-contracts",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+]
+
+[[package]]
 name = "epsx-notification"
 version = "0.1.0"
 dependencies = [

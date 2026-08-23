@@ -828,9 +828,10 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let auth_page_verifier_unavailable =
         auth_page_session_state == Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE);
     let (verified_access_token, user) = match access_verification {
-        AccessVerification::Verified { token, user } => {
-            (Some(token), Some(state.session().ui_user(user, wallet.chain_id)))
-        }
+        AccessVerification::Verified { token, user } => (
+            Some(token),
+            Some(state.session().ui_user(user, wallet.chain_id)),
+        ),
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
             (None, None)
         }

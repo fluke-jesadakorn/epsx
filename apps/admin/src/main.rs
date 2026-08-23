@@ -1140,7 +1140,10 @@ async fn require_verified_admin_session(
     }
 
     // BIG-BANG Phase: via AppState::session() (TypedBffSession)
-    let Some((token, _user)) = state.session().verified_access_token(request.headers()).await
+    let Some((token, _user)) = state
+        .session()
+        .verified_access_token(request.headers())
+        .await
     else {
         return session_auth::clear_session_response(
             &state,
