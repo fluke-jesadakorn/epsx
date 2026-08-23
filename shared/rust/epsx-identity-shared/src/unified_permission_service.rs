@@ -1,4 +1,3 @@
-use crate::prelude::TlsPool;
 // ============================================================================
 // UNIFIED PERMISSION SERVICE - SINGLE SOURCE OF TRUTH
 // ============================================================================
@@ -6,7 +5,7 @@ use crate::prelude::TlsPool;
 // All other permission systems have been removed.
 //
 // Architecture:
-// - Database-backed (PostgreSQL via Diesel)
+// - Database-backed (PostgreSQL via sqlx)
 // - Redis cache with invalidation
 // - Audit logging for all changes
 // - Optimized single-query permission resolution
@@ -20,12 +19,9 @@ use crate::prelude::TlsPool;
 // ============================================================================
 
 use chrono::{DateTime, Utc};
-
-
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::sync::Arc;
-// Note: wallet_plan_assignments table not implemented yet
-// use crate::schemas::primary::{wallet_plan_assignments};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -113,13 +109,13 @@ pub struct RemovePlanRequest {
 /// The single source of truth for all permission operations
 #[derive(Clone)]
 pub struct UnifiedPermissionService {
-    db_pool: &'static TlsPool,
+    db_pool: PgPool,
     cache: Option<Arc<UnifiedPermissionCache>>,
 }
 
 impl UnifiedPermissionService {
     /// Create new unified permission service with cache
-    pub fn new(db_pool: &'static TlsPool, cache: Arc<UnifiedPermissionCache>) -> Self {
+    pub fn new(db_pool: PgPool, cache: Arc<UnifiedPermissionCache>) -> Self {
         Self {
             db_pool,
             cache: Some(cache),
@@ -127,7 +123,7 @@ impl UnifiedPermissionService {
     }
 
     /// Create new unified permission service without cache (direct DB queries only)
-    pub fn new_without_cache(db_pool: &'static TlsPool) -> Self {
+    pub fn new_without_cache(db_pool: PgPool) -> Self {
         Self {
             db_pool,
             cache: None,
@@ -160,37 +156,33 @@ impl UnifiedPermissionService {
             }
         }
 
-        // Query database using optimized function
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct PermissionCheck {
-                        wallet_has_permission: Option<bool>,
+            wallet_has_permission: Option<bool>,
         }
 
-        let has_permission = sqlx::query("SELECT wallet_has_permission($1, $2)")
-            .bind(&wallet_lower)
-            .bind(permission)
-            
-            .await
-            .map_err(|e| {
-                error!("Database error checking permission: {}", e);
-                AppError::database_error(format!("Failed to check permission: {}", e))
-            })?;
+        let result: PermissionCheck = sqlx::query_as(
+            "SELECT wallet_has_permission($1, $2) AS wallet_has_permission",
+        )
+        .bind(&wallet_lower)
+        .bind(permission)
+        .fetch_one(&self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Database error checking permission: {}", e);
+            AppError::database_error(format!("Failed to check permission: {}", e))
+        })?;
 
-        let result = has_permission.wallet_has_permission.unwrap_or(false);
+        let value = result.wallet_has_permission.unwrap_or(false);
 
         // Cache result
         if let Some(ref cache) = self.cache {
             cache
-                .set_permission_check(&wallet_lower, permission, result)
+                .set_permission_check(&wallet_lower, permission, value)
                 .await;
         }
 
-        Ok(result)
+        Ok(value)
     }
 
     /// Get all permissions for a wallet with detailed information
@@ -209,32 +201,25 @@ impl UnifiedPermissionService {
             }
         }
 
-        // Query database using optimized function
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
-        // Define PermissionDetailRow inline since it's only used here
         #[derive(sqlx::FromRow)]
         struct PermissionDetailRow {
-                        pub permission_string: String,
-                        pub permission_id: Option<String>,
-                        pub source_type: String,
-                        pub source_id: Option<String>,
-                        pub source_name: Option<String>,
-                        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-                        pub granted_at: chrono::DateTime<chrono::Utc>,
-                        pub is_permanent: bool,
+            permission_string: String,
+            permission_id: Option<String>,
+            source_type: String,
+            source_id: Option<String>,
+            source_name: Option<String>,
+            expires_at: Option<DateTime<Utc>>,
+            granted_at: DateTime<Utc>,
+            is_permanent: bool,
         }
 
-        let rows = sqlx::query(
+        let rows: Vec<PermissionDetailRow> = sqlx::query_as(
             r#"
             SELECT
                 permission_string,
-                permission_id::text,
+                permission_id::text AS permission_id,
                 source_type,
-                source_id::text,
+                source_id::text AS source_id,
                 source_name,
                 expires_at,
                 granted_at,
@@ -243,7 +228,7 @@ impl UnifiedPermissionService {
             "#,
         )
         .bind(&wallet_lower)
-        
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error fetching wallet permissions: {}", e);
@@ -281,38 +266,22 @@ impl UnifiedPermissionService {
                 .await;
         }
 
-        info!(
-            "Found {} permissions for wallet: {}",
-            permissions.len(),
-            wallet_lower
-        );
         Ok(permissions)
     }
 
-    /// Get permission strings only (for JWT generation)
+    /// Get permission strings (simple list without details)
     pub async fn get_permission_strings(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, AppError> {
-        // Use the detailed permission fetcher which is known to work correctly
-        // and return the list of permission strings. This bypasses the potentially
-        // broken/divergent 'get_wallet_effective_permissions' SQL function.
         let permissions = self.get_wallet_permissions(wallet_address).await?;
-
-        // Extract unique strings
-        let mut strings: Vec<String> = permissions
+        Ok(permissions
             .into_iter()
             .map(|p| p.permission_string)
-            .collect();
-
-        // Sort and deduplicate
-        strings.sort();
-        strings.dedup();
-
-        Ok(strings)
+            .collect())
     }
 
-    /// Batch check multiple permissions at once
+    /// Batch check multiple permissions for a wallet
     pub async fn has_permissions_batch(
         &self,
         wallet_address: &str,
@@ -325,41 +294,28 @@ impl UnifiedPermissionService {
             wallet_lower
         );
 
-        // Convert to PostgreSQL array
-        let perms_array: Vec<String> = permissions.to_vec();
-
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct BatchPermissionResult {
-                        permission_string: String,
-                        has_permission: bool,
+            permission_string: String,
+            has_permission: bool,
         }
 
-        let rows = sqlx::query(
-            r#"
-            SELECT permission_string, has_permission
-            FROM wallet_has_permissions_batch($1, $2)
-            "#,
+        let rows: Vec<BatchPermissionResult> = sqlx::query_as(
+            "SELECT permission_string, has_permission FROM wallet_has_permissions_batch($1, $2)",
         )
         .bind(&wallet_lower)
-        .bind::<diesel::sql_types::Array<diesel::sql_types::Text>, _>(&perms_array)
-        
+        .bind(permissions)
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error in batch permission check: {}", e);
             AppError::database_error(format!("Failed to batch check permissions: {}", e))
         })?;
 
-        let results: Vec<(String, bool)> = rows
+        Ok(rows
             .into_iter()
             .map(|row| (row.permission_string, row.has_permission))
-            .collect();
-
-        Ok(results)
+            .collect())
     }
 
     // ========================================================================
@@ -385,18 +341,12 @@ impl UnifiedPermissionService {
             .get_or_create_permission(&request.permission_string)
             .await?;
 
-        // Insert into wallet_direct_permissions
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct InsertResult {
-                        id: Uuid,
+            id: Uuid,
         }
 
-        let direct_permission_id = sqlx::query(
+        let direct_permission_id: InsertResult = sqlx::query_as(
             r#"
             INSERT INTO wallet_direct_permissions (
                 wallet_address,
@@ -419,29 +369,26 @@ impl UnifiedPermissionService {
         )
         .bind(&wallet_lower)
         .bind(permission_id)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.expires_at)
+        .bind(request.expires_at)
         .bind(&request.granted_by)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&request.reason)
-        
+        .bind(&request.reason)
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error granting permission: {}", e);
             AppError::database_error(format!("Failed to grant permission: {}", e))
-        })?
-        .id;
+        })?;
 
         // Invalidate cache
         if let Some(ref cache) = self.cache {
             cache.invalidate_wallet(&wallet_lower).await;
         }
 
-        // Audit log (trigger handles this automatically)
-
         info!(
             "Successfully granted permission '{}' to wallet: {}",
             request.permission_string, wallet_lower
         );
-        Ok(direct_permission_id)
+        Ok(direct_permission_id.id)
     }
 
     /// Revoke direct permission from wallet
@@ -461,13 +408,7 @@ impl UnifiedPermissionService {
             .await?
             .ok_or_else(|| AppError::not_found("Permission not found"))?;
 
-        // Delete from wallet_direct_permissions
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
-        let rows_affected = sqlx::query(
+        let result = sqlx::query(
             r#"
             DELETE FROM wallet_direct_permissions
             WHERE wallet_address = $1
@@ -477,14 +418,14 @@ impl UnifiedPermissionService {
         )
         .bind(&wallet_lower)
         .bind(permission_id)
-        .execute(&mut *conn)
+        .execute(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error revoking permission: {}", e);
             AppError::database_error(format!("Failed to revoke permission: {}", e))
         })?;
 
-        if rows_affected == 0 {
+        if result.rows_affected() == 0 {
             warn!(
                 "Permission '{}' was not found for wallet: {}",
                 request.permission_string, wallet_lower
@@ -496,8 +437,6 @@ impl UnifiedPermissionService {
         if let Some(ref cache) = self.cache {
             cache.invalidate_wallet(&wallet_lower).await;
         }
-
-        // Audit log (trigger handles this automatically)
 
         info!(
             "Successfully revoked permission '{}' from wallet: {}",
@@ -514,12 +453,16 @@ impl UnifiedPermissionService {
             request.plan_id, wallet_lower, request.assigned_by
         );
 
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            AppError::database_error(format!("Failed to get database connection: {}", e))
-        })?;
+        let expires_str: Option<String> = request.expires_at.map(|dt| dt.to_rfc3339());
+        let reason = request.reason.unwrap_or_default();
 
-        // Parameterized INSERT with ON CONFLICT
-        let query = r#"
+        #[derive(sqlx::FromRow)]
+        struct AssignmentResult {
+            id: Uuid,
+        }
+
+        let row: AssignmentResult = sqlx::query_as(
+            r#"
             INSERT INTO wallet_plan_assignments (
                 wallet_address,
                 plan_id,
@@ -537,42 +480,30 @@ impl UnifiedPermissionService {
                 assigned_by = EXCLUDED.assigned_by,
                 assignment_reason = EXCLUDED.assignment_reason
             RETURNING id
-            "#;
-
-        #[derive(sqlx::FromRow)]
-        struct AssignmentResult {
-                        id: Uuid,
-        }
-
-        let expires_str: Option<String> = request.expires_at.map(|dt| dt.to_rfc3339());
-        let reason = request.reason.unwrap_or_default();
-
-        let assignment_id = sqlx::query(query)
-            .bind(&wallet_lower)
-            .bind(&request.plan_id)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&expires_str)
-            .bind(&request.assigned_by)
-            .bind(&reason)
-            
-            .await
-            .map_err(|e| {
-                error!("Database error assigning plan: {}", e);
-                AppError::database_error(format!("Failed to assign plan: {}", e))
-            })?
-            .id;
+            "#,
+        )
+        .bind(&wallet_lower)
+        .bind(request.plan_id)
+        .bind(expires_str)
+        .bind(&request.assigned_by)
+        .bind(&reason)
+        .fetch_one(&self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Database error assigning plan: {}", e);
+            AppError::database_error(format!("Failed to assign plan: {}", e))
+        })?;
 
         // Invalidate cache
         if let Some(ref cache) = self.cache {
             cache.invalidate_wallet(&wallet_lower).await;
         }
 
-        // Audit log (trigger handles this automatically)
-
         info!(
             "Successfully assigned plan {} to wallet: {}",
             request.plan_id, wallet_lower
         );
-        Ok(assignment_id)
+        Ok(row.id)
     }
 
     /// Remove wallet from permission plan
@@ -583,30 +514,24 @@ impl UnifiedPermissionService {
             request.plan_id, wallet_lower, request.removed_by
         );
 
-        // Get database connection
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            AppError::database_error(format!("Failed to get database connection: {}", e))
-        })?;
-
-        // Parameterized DELETE
-        let query = r#"
+        let result = sqlx::query(
+            r#"
             DELETE FROM wallet_plan_assignments
             WHERE wallet_address = $1
               AND plan_id = $2
               AND is_active = TRUE
-            "#;
+            "#,
+        )
+        .bind(&wallet_lower)
+        .bind(request.plan_id)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Database error removing plan: {}", e);
+            AppError::database_error(format!("Failed to remove plan: {}", e))
+        })?;
 
-        let rows_affected = sqlx::query(query)
-            .bind(&wallet_lower)
-            .bind(&request.plan_id)
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Database error removing plan: {}", e);
-                AppError::database_error(format!("Failed to remove plan: {}", e))
-            })?;
-
-        if rows_affected == 0 {
+        if result.rows_affected() == 0 {
             warn!(
                 "Plan {} was not found for wallet: {}",
                 request.plan_id, wallet_lower
@@ -620,8 +545,6 @@ impl UnifiedPermissionService {
         if let Some(ref cache) = self.cache {
             cache.invalidate_wallet(&wallet_lower).await;
         }
-
-        // Audit log (trigger handles this automatically)
 
         info!(
             "Successfully removed plan {} from wallet: {}",
@@ -641,25 +564,20 @@ impl UnifiedPermissionService {
     ) -> Result<PermissionStats, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
 
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct StatsRow {
-                        total_permissions: i64,
-                        direct_permissions: i64,
-                        plan_permissions: i64,
-                        permanent_permissions: i64,
-                        temporary_permissions: i64,
-                        plans_count: i64,
-                        expiring_soon_count: i64,
+            total_permissions: i64,
+            direct_permissions: i64,
+            plan_permissions: i64,
+            permanent_permissions: i64,
+            temporary_permissions: i64,
+            plans_count: i64,
+            expiring_soon_count: i64,
         }
 
-        let row = sqlx::query("SELECT * FROM get_wallet_permission_stats($1)")
+        let row: StatsRow = sqlx::query_as("SELECT * FROM get_wallet_permission_stats($1)")
             .bind(&wallet_lower)
-            
+            .fetch_one(&self.db_pool)
             .await
             .map_err(|e| {
                 error!("Database error fetching permission stats: {}", e);
@@ -730,17 +648,12 @@ impl UnifiedPermissionService {
     async fn get_or_create_permission(&self, permission_string: &str) -> Result<Uuid, AppError> {
         let parts: Vec<&str> = permission_string.split(':').collect();
 
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct PermissionId {
-                        id: Uuid,
+            id: Uuid,
         }
 
-        let permission_id = sqlx::query(
+        let row: PermissionId = sqlx::query_as(
             r#"
             INSERT INTO permissions (
                 permission_string,
@@ -759,43 +672,35 @@ impl UnifiedPermissionService {
         .bind(parts[0])
         .bind(parts[1])
         .bind(parts[2])
-        
+        .fetch_one(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error creating permission: {}", e);
             AppError::database_error(format!("Failed to create permission: {}", e))
-        })?
-        .id;
+        })?;
 
-        Ok(permission_id)
+        Ok(row.id)
     }
 
     /// Get permission ID by string
     async fn get_permission_id(&self, permission_string: &str) -> Result<Option<Uuid>, AppError> {
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct PermissionIdResult {
-                        id: Uuid,
+            id: Uuid,
         }
 
-        let permission_id = sqlx::query(
+        let row: Option<PermissionIdResult> = sqlx::query_as(
             "SELECT id FROM permissions WHERE permission_string = $1 AND is_active = TRUE",
         )
         .bind(permission_string)
-        
+        .fetch_optional(&self.db_pool)
         .await
-        .optional()
         .map_err(|e| {
             error!("Database error fetching permission ID: {}", e);
             AppError::database_error(format!("Failed to fetch permission ID: {}", e))
-        })?
-        .map(|r| r.id);
+        })?;
 
-        Ok(permission_id)
+        Ok(row.map(|r| r.id))
     }
 
     // ========================================================================
@@ -808,21 +713,15 @@ impl UnifiedPermissionService {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting ranking offset for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct PlanRow {
-                        plan_metadata: serde_json::Value,
-                        plan_id: uuid::Uuid,
+            plan_metadata: serde_json::Value,
+            plan_id: Uuid,
         }
 
-        // Query all active plan assignments for this wallet
-        let rows = sqlx::query(
+        let rows: Vec<PlanRow> = sqlx::query_as(
             r#"
-            SELECT g.plan_metadata, g.id as plan_id
+            SELECT g.plan_metadata, g.id AS plan_id
             FROM wallet_plan_assignments wgm
             JOIN plans g ON wgm.plan_id = g.id
             WHERE LOWER(wgm.wallet_address) = $1
@@ -832,11 +731,11 @@ impl UnifiedPermissionService {
             "#,
         )
         .bind(&wallet_lower)
-        
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| {
-            error!("Database error fetching group metadata: {}", e);
-            AppError::database_error(format!("Failed to fetch group metadata: {}", e))
+            error!("Database error fetching plan metadata: {}", e);
+            AppError::database_error(format!("Failed to fetch plan metadata: {}", e))
         })?;
 
         if rows.is_empty() {
@@ -850,16 +749,15 @@ impl UnifiedPermissionService {
         }
 
         // Collect plan IDs to check permissions
-        let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|r| r.plan_id).collect();
+        let plan_ids: Vec<Uuid> = rows.iter().map(|r| r.plan_id).collect();
 
-        // Query permissions for offset
         #[derive(sqlx::FromRow)]
         struct PermRow {
-                        plan_id: uuid::Uuid,
-                        permission_string: String,
+            plan_id: Uuid,
+            permission_string: String,
         }
 
-        let perm_rows = sqlx::query(
+        let perm_rows: Vec<PermRow> = sqlx::query_as(
             r#"
             SELECT pp.plan_id, p.permission_string
             FROM plan_permissions pp
@@ -868,8 +766,8 @@ impl UnifiedPermissionService {
               AND p.permission_string LIKE 'epsx:rankings:offset:%'
             "#,
         )
-        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-        
+        .bind(&plan_ids)
+        .fetch_all(&self.db_pool)
         .await
         .unwrap_or_default();
 
@@ -888,7 +786,6 @@ impl UnifiedPermissionService {
                     min_offset = offset_i32;
                 }
             }
-            // Check permission string epsx:rankings:offset:N
             for perm in &perm_rows {
                 if perm.plan_id == row.plan_id {
                     if let Some(offset_str) =
@@ -916,18 +813,13 @@ impl UnifiedPermissionService {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting rankings limit for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.acquire().await.map_err(|e| {
-            error!("Pool error: {}", e);
-            AppError::database_error(format!("Pool error: {}", e))
-        })?;
-
         #[derive(sqlx::FromRow)]
         struct PlanRow {
-                        plan_metadata: serde_json::Value,
-                        plan_id: uuid::Uuid,
+            plan_metadata: serde_json::Value,
+            plan_id: Uuid,
         }
 
-        let rows = sqlx::query(
+        let rows: Vec<PlanRow> = sqlx::query_as(
             r#"
             SELECT g.plan_metadata, g.id AS plan_id
             FROM wallet_plan_assignments wpa
@@ -939,7 +831,7 @@ impl UnifiedPermissionService {
             "#,
         )
         .bind(&wallet_lower)
-        
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| {
             error!("Database error fetching ranking limits: {}", e);
@@ -950,12 +842,14 @@ impl UnifiedPermissionService {
             return Ok(crate::constants::FREE_PLAN_RANKINGS_LIMIT);
         }
 
-        let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|row| row.plan_id).collect();
+        let plan_ids: Vec<Uuid> = rows.iter().map(|row| row.plan_id).collect();
+
         #[derive(sqlx::FromRow)]
         struct PermRow {
-                        permission_string: String,
+            permission_string: String,
         }
-        let permission_rows = sqlx::query(
+
+        let permission_rows: Vec<PermRow> = sqlx::query_as(
             r#"
             SELECT p.permission_string
             FROM plan_permissions pp
@@ -964,8 +858,8 @@ impl UnifiedPermissionService {
               AND p.permission_string LIKE 'epsx:rankings:limit:%'
             "#,
         )
-        .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-        
+        .bind(&plan_ids)
+        .fetch_all(&self.db_pool)
         .await
         .unwrap_or_default();
 
