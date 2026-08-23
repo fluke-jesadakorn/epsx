@@ -285,7 +285,7 @@ pub async fn submit_transaction_handler(
         UnifiedErrorResponse::new(500, "Database error", "Cannot connect to database")
     })?;
 
-    let mut conn = payments_pool.get().await.map_err(|e| {
+    let mut conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get database connection: {}", e);
         UnifiedErrorResponse::new(
             500,
@@ -412,7 +412,7 @@ pub async fn submit_transaction_handler(
         .bind::<diesel::sql_types::Text, _>(&network) // $13
         .bind::<diesel::sql_types::Jsonb, _>(&metadata) // $14
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(completed_at) // $15
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         match result {
@@ -454,7 +454,7 @@ pub async fn submit_transaction_handler(
         .bind::<diesel::sql_types::Text, _>(&network)
         .bind::<diesel::sql_types::Jsonb, _>(&metadata)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(completed_at)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         match result {
@@ -527,7 +527,7 @@ pub async fn submit_transaction_handler(
             );
             UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
         })?;
-        let mut primary_conn = primary_pool.get().await.map_err(|e| {
+        let mut primary_conn = primary_pool.acquire().await.map_err(|e| {
             error!("Failed to get primary database connection: {}", e);
             UnifiedErrorResponse::new(500, "Database error", "Cannot assign purchased plan")
         })?;

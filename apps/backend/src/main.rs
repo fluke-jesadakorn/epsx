@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Test database connection with timeout
     let connection_timeout = std::time::Duration::from_secs(10);
-    match tokio::time::timeout(connection_timeout, pool.get()).await {
+    match tokio::time::timeout(connection_timeout, pool.acquire().await).await {
         Ok(Ok(_)) => {
             info!("Database pool created and connection verified")
         }

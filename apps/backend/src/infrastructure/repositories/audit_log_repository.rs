@@ -38,7 +38,7 @@ impl DieselAuditLogRepository {
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_analytics_pool().await?;
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| anyhow::anyhow!("Analytics pool error: {:?}", e))?;
 
@@ -232,7 +232,7 @@ impl DieselAuditLogRepository {
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
         let pool = get_payments_pool().await?;
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| anyhow::anyhow!("Payments pool error: {:?}", e))?;
 
@@ -469,7 +469,7 @@ impl AuditLogRepository for DieselAuditLogRepository {
     async fn save(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
         let pool = get_analytics_pool().await?;
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get DB connection: {:?}", e))?;
 

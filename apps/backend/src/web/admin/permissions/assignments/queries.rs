@@ -72,7 +72,7 @@ pub async fn list_assignments(
 
     sql.push_str(" ORDER BY wga.assigned_at DESC LIMIT $1 OFFSET $2");
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -250,7 +250,7 @@ pub async fn get_expiring_assignments(
 ) -> impl IntoResponse {
     let days = query.days.unwrap_or(7);
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -332,7 +332,7 @@ pub async fn get_assignment_history(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -450,7 +450,7 @@ pub async fn get_wallet_plans(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -539,7 +539,7 @@ pub async fn get_plan_history(
         .as_ref()
         .unwrap_or(&app_state.db_pool);
 
-    let mut conn = match pool.get().await {
+    let mut conn = match pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

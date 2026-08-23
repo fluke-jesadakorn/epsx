@@ -149,7 +149,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_users::updated_at.eq(user.updated_at()),
                 wallet_users::last_auth_at.eq(user.last_auth_at()),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!(
@@ -173,7 +173,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         let rows_affected = diesel::delete(
             wallet_users::table.filter(lower(wallet_users::wallet_address).eq(wallet_addr_lower)),
         )
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!(
@@ -275,7 +275,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                     wallet_users::updated_at.eq(user.updated_at()),
                     wallet_users::last_auth_at.eq(user.last_auth_at()),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| {
                     error!(

@@ -338,7 +338,7 @@ pub async fn get_payment_details_handler(
             "Failed to get payments database pool",
         )
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
         UnifiedErrorResponse::json(
             500,

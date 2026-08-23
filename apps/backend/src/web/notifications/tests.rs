@@ -19,7 +19,7 @@ mod notification_tests {
         wallet_address: &str,
     ) -> Result<Uuid, Box<dyn std::error::Error>> {
         let id = Uuid::new_v4();
-        let mut conn = pool.get().await?;
+        let mut conn = pool.acquire().await?;
 
         // Use raw SQL for insertion to match original schema
         diesel_async::RunQueryDsl::execute(diesel::sql_query(
@@ -42,7 +42,7 @@ mod notification_tests {
     }
 
     async fn cleanup_test_notifications(pool: &TlsPool) -> Result<(), Box<dyn std::error::Error>> {
-        let mut conn = pool.get().await?;
+        let mut conn = pool.acquire().await?;
         diesel_async::RunQueryDsl::execute(
             diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"),
             &mut conn,
@@ -68,7 +68,7 @@ mod notification_tests {
             exists: bool,
         }
 
-        let mut conn = pool.get().await?;
+        let mut conn = pool.acquire().await?;
         let result: NotificationExists = diesel::sql_query(
             "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
@@ -115,7 +115,7 @@ mod notification_tests {
             count: i64,
         }
 
-        let mut conn = pool.get().await?;
+        let mut conn = pool.acquire().await?;
         let result: CountResult = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications WHERE title = 'Test Notification'",
         )
@@ -150,7 +150,7 @@ mod notification_tests {
             _wallet_address: String,
         }
 
-        let mut conn = pool.get().await?;
+        let mut conn = pool.acquire().await?;
         let results: Vec<WalletResult> = diesel::sql_query(
             r#"
             SELECT DISTINCT wallet_address

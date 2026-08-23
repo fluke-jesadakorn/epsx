@@ -121,7 +121,7 @@ pub async fn disable_wallet_handler(
         admin_wallet, wallet_address
     );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -151,7 +151,7 @@ pub async fn disable_wallet_handler(
     .bind::<diesel::sql_types::Jsonb, _>(&disable_info)
     .bind::<diesel::sql_types::Timestamptz, _>(now)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to disable wallet: {}", e);
@@ -171,7 +171,7 @@ pub async fn disable_wallet_handler(
     .bind::<diesel::sql_types::Text, _>(format!("Wallet disabled: {}", request.reason_details))
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
     .bind::<diesel::sql_types::Jsonb, _>(&disable_info)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     // Send notification if requested
@@ -192,7 +192,7 @@ pub async fn disable_wallet_handler(
         .bind::<diesel::sql_types::Text, _>(format!("Your account has been temporarily disabled. Reason: {}", request.reason_category))
         .bind::<diesel::sql_types::Jsonb, _>(&notification_payload)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
     }
 
@@ -247,7 +247,7 @@ pub async fn enable_wallet_handler(
         admin_wallet, wallet_address
     );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -260,7 +260,7 @@ pub async fn enable_wallet_handler(
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to enable wallet: {}", e);
@@ -289,7 +289,7 @@ pub async fn enable_wallet_handler(
     .bind::<diesel::sql_types::Text, _>(format!("Wallet re-enabled: {}", request.resolution_note))
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(admin_wallet.as_str()))
     .bind::<diesel::sql_types::Jsonb, _>(&activity_meta)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     // Restore permissions if requested
@@ -305,7 +305,7 @@ pub async fn enable_wallet_handler(
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         info!("Restored permissions for wallet: {}", wallet_address);
@@ -315,7 +315,7 @@ pub async fn enable_wallet_handler(
     if request.resume_subscriptions {
         // Get payments pool for subscription updates
         if let Ok(payments_pool) = crate::infrastructure::database::get_payments_pool().await {
-            if let Ok(mut payments_conn) = payments_pool.get().await {
+            if let Ok(mut payments_conn) = payments_pool.acquire().await {
                 // Resume paused subscriptions
                 let _ = diesel::sql_query(
                     "UPDATE subscriptions 
@@ -386,7 +386,7 @@ pub async fn get_wallet_activity_handler(
         .unwrap_or(20)
         .min(100);
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;

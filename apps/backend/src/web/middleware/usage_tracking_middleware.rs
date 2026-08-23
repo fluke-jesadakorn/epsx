@@ -63,7 +63,7 @@ pub async fn usage_tracking_middleware(
             error!("analytics pool unavailable; request analytics not persisted");
             return;
         };
-        let Ok(mut conn) = pool.get().await else {
+        let Ok(mut conn) = pool.acquire().await else {
             error!("analytics connection unavailable; request analytics not persisted");
             return;
         };
@@ -80,7 +80,7 @@ pub async fn usage_tracking_middleware(
         };
         if let Err(error) = diesel::insert_into(analytics_events::table)
             .values(&event)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
         {
             warn!("failed to persist request analytics: {error}");
@@ -131,7 +131,7 @@ async fn persist_api_key_usage(
         error!(api_key_id = %api_key_id, "analytics pool unavailable for API-key usage");
         return;
     };
-    let mut analytics_conn = match analytics_pool.get().await {
+    let mut analytics_conn = match analytics_pool.acquire().await {
         Ok(connection) => connection,
         Err(error) => {
             error!(api_key_id = %api_key_id, "analytics connection failed: {error}");
@@ -158,7 +158,7 @@ async fn persist_api_key_usage(
     // Metadata remains in core; it advances only after the authoritative
     // analytics row was accepted, so totals cannot count validation twice.
     let core_pool = container.db_pool();
-    let Ok(mut core_conn) = core_pool.get().await else {
+    let Ok(mut core_conn) = core_pool.acquire().await else {
         warn!(api_key_id = %api_key_id, "core connection failed after usage insert");
         return;
     };

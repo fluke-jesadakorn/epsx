@@ -61,7 +61,7 @@ impl ApiKeyRepository {
     pub async fn counts(&self) -> AppResult<(i64, i64, i64, i64)> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
         let now = Utc::now();
@@ -128,7 +128,7 @@ impl ApiKeyRepository {
         idempotency_key: &str,
         payload_hash: &str,
     ) -> AppResult<(IdempotentMutation, Option<String>)> {
-        let mut conn = self.pool.get().await.map_err(|error| {
+        let mut conn = self.pool.acquire().await.map_err(|error| {
             AppError::database_error(format!("developer API-key pool: {error}"))
         })?;
         let idempotency_key = idempotency_key.to_string();
@@ -242,7 +242,7 @@ impl ApiKeyRepository {
         idempotency_key: &str,
         payload_hash: &str,
     ) -> AppResult<IdempotentMutation> {
-        let mut conn = self.pool.get().await.map_err(|error| {
+        let mut conn = self.pool.acquire().await.map_err(|error| {
             AppError::database_error(format!("developer API-key pool: {error}"))
         })?;
         let wallet_address = wallet_address.to_string();
@@ -352,7 +352,7 @@ impl ApiKeyRepository {
     pub async fn create(&self, request: CreateApiKeyRequest) -> AppResult<ApiKeyCreatedResponse> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -383,7 +383,7 @@ impl ApiKeyRepository {
                 api_keys::updated_at.eq(&now),
                 api_keys::selected_permissions.eq(&request.permissions),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to create API key: {}", e)))?;
 
@@ -401,7 +401,7 @@ impl ApiKeyRepository {
                     api_key_module_access::granted_at.eq(&now),
                     api_key_module_access::granted_by.eq(&request.created_by),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| {
                     AppError::database_error(format!("Failed to add module access: {}", e))
@@ -419,7 +419,7 @@ impl ApiKeyRepository {
                     api_key_permissions::is_active.eq(true),
                     api_key_permissions::metadata.eq(serde_json::json!({})),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| {
                     AppError::database_error(format!("Failed to add permission plan: {}", e))
@@ -446,7 +446,7 @@ impl ApiKeyRepository {
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiKey>> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -725,7 +725,7 @@ impl ApiKeyRepository {
     ) -> AppResult<(Vec<ApiKey>, i64)> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
         let mut count_query = api_keys::table.into_boxed();
@@ -801,7 +801,7 @@ impl ApiKeyRepository {
     ) -> AppResult<(Vec<ApiKey>, i64)> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
         let mut count_query = api_keys::table.into_boxed();
@@ -874,7 +874,7 @@ impl ApiKeyRepository {
     pub async fn revoke(&self, id: Uuid, request: RevokeApiKeyRequest) -> AppResult<ApiKey> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -889,7 +889,7 @@ impl ApiKeyRepository {
                 api_keys::revocation_reason.eq(&request.reason),
                 api_keys::updated_at.eq(&now),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to revoke API key: {}", e)))?;
 
@@ -909,7 +909,7 @@ impl ApiKeyRepository {
 
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -939,7 +939,7 @@ impl ApiKeyRepository {
     ) -> AppResult<ApiKey> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -951,7 +951,7 @@ impl ApiKeyRepository {
                 api_keys::expires_at.eq(&expires_at),
                 api_keys::updated_at.eq(&now),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to update expiration: {}", e)))?;
 
@@ -972,7 +972,7 @@ impl ApiKeyRepository {
     ) -> AppResult<(Vec<ApiKey>, i64)> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
         let now = Utc::now();

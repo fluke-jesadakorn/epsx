@@ -24,7 +24,7 @@ pub async fn get_recent_wallets(
     let days_back = query.days.unwrap_or(7).min(30); // Cap at 30 days
 
     // Get database connection from app state
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             error!("Admin: Failed to get database connection: {}", e);
@@ -253,7 +253,7 @@ pub async fn search_wallets(
     };
 
     // Get database connection from app state
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             error!("Admin: Failed to get database connection: {}", e);
@@ -549,7 +549,7 @@ pub async fn search_wallets(
 pub async fn get_tiers(State(app_state): State<AppState>) -> Result<Json<Vec<String>>, StatusCode> {
     info!("Admin: Fetching available tier levels");
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             error!("Admin: Failed to get database connection: {}", e);

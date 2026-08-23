@@ -16,7 +16,7 @@ impl ChatRepository {
     // ========================================================================
 
     pub async fn list_topics(pool: &TlsPool) -> Result<Vec<ChatTopicDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_topics::table
             .filter(chat_topics::is_active.eq(true))
             .order(chat_topics::sort_order.asc())
@@ -36,7 +36,7 @@ impl ChatRepository {
         subject: &str,
         first_message: &str,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         let conv = NewConversation {
             topic_id,
@@ -62,14 +62,14 @@ impl ChatRepository {
 
         diesel::insert_into(chat_messages::table)
             .values(&msg)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
 
         // Update unread_agent
         diesel::update(chat_conversations::table.find(created.id))
             .set(chat_conversations::unread_agent.eq(1))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -80,7 +80,7 @@ impl ChatRepository {
         pool: &TlsPool,
         wallet: &str,
     ) -> Result<Vec<ChatConversationDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_conversations::table
             .filter(chat_conversations::wallet_address.eq(wallet))
             .order(chat_conversations::last_message_at.desc())
@@ -95,7 +95,7 @@ impl ChatRepository {
         topic_filter: Option<Uuid>,
         agent_filter: Option<&str>,
     ) -> Result<Vec<ChatConversationDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let mut query = chat_conversations::table.into_boxed();
 
         if let Some(status) = status_filter {
@@ -119,7 +119,7 @@ impl ChatRepository {
         pool: &TlsPool,
         conv_id: Uuid,
     ) -> Result<Option<ChatConversationDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_conversations::table
             .find(conv_id)
             .first::<ChatConversationDb>(&mut conn)
@@ -133,7 +133,7 @@ impl ChatRepository {
         conv_id: Uuid,
         status: &str,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         diesel::update(chat_conversations::table.find(conv_id))
             .set((
                 chat_conversations::status.eq(status),
@@ -149,7 +149,7 @@ impl ChatRepository {
         conv_id: Uuid,
         agent: Option<&str>,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         let new_status = if agent.is_some() {
             "in_progress"
@@ -176,7 +176,7 @@ impl ChatRepository {
         pool: &TlsPool,
         conv_id: Uuid,
     ) -> Result<Vec<ChatMessageDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_messages::table
             .filter(chat_messages::conversation_id.eq(conv_id))
             .order(chat_messages::created_at.asc())
@@ -204,7 +204,7 @@ impl ChatRepository {
         content: &str,
         metadata: Option<serde_json::Value>,
     ) -> Result<ChatMessageDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         let msg = NewMessage {
             conversation_id: conv_id,
@@ -230,7 +230,7 @@ impl ChatRepository {
                         chat_conversations::updated_at.eq(now),
                         chat_conversations::unread_agent.eq(chat_conversations::unread_agent + 1),
                     ))
-                    .execute(&mut conn)
+                    .execute(&mut *conn)
                     .await
                     .map_err(|e| e.to_string())?;
             }
@@ -241,7 +241,7 @@ impl ChatRepository {
                         chat_conversations::updated_at.eq(now),
                         chat_conversations::unread_user.eq(chat_conversations::unread_user + 1),
                     ))
-                    .execute(&mut conn)
+                    .execute(&mut *conn)
                     .await
                     .map_err(|e| e.to_string())?;
             }
@@ -252,7 +252,7 @@ impl ChatRepository {
     }
 
     pub async fn mark_read_by_user(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         // Mark all agent/system messages as read
         diesel::update(
@@ -262,14 +262,14 @@ impl ChatRepository {
                 .filter(chat_messages::is_read.eq(false)),
         )
         .set(chat_messages::is_read.eq(true))
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| e.to_string())?;
 
         // Reset user unread count
         diesel::update(chat_conversations::table.find(conv_id))
             .set(chat_conversations::unread_user.eq(0))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -277,7 +277,7 @@ impl ChatRepository {
     }
 
     pub async fn mark_read_by_agent(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         diesel::update(
             chat_messages::table
@@ -286,13 +286,13 @@ impl ChatRepository {
                 .filter(chat_messages::is_read.eq(false)),
         )
         .set(chat_messages::is_read.eq(true))
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| e.to_string())?;
 
         diesel::update(chat_conversations::table.find(conv_id))
             .set(chat_conversations::unread_agent.eq(0))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -300,7 +300,7 @@ impl ChatRepository {
     }
 
     pub async fn get_unread_count(pool: &TlsPool, wallet: &str) -> Result<i64, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         let total: i64 = chat_conversations::table
             .filter(chat_conversations::wallet_address.eq(wallet))
@@ -314,7 +314,7 @@ impl ChatRepository {
     }
 
     pub async fn get_last_message(pool: &TlsPool, conv_id: Uuid) -> Result<Option<String>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_messages::table
             .filter(chat_messages::conversation_id.eq(conv_id))
             .order(chat_messages::created_at.desc())
@@ -330,7 +330,7 @@ impl ChatRepository {
     // ========================================================================
 
     pub async fn get_stats(pool: &TlsPool) -> Result<ChatStatsResponse, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
         let total_open: i64 = chat_conversations::table
             .filter(chat_conversations::status.eq("open"))
@@ -370,7 +370,7 @@ impl ChatRepository {
     }
 
     pub async fn get_topic(pool: &TlsPool, topic_id: Uuid) -> Result<Option<ChatTopicDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         chat_topics::table
             .find(topic_id)
             .first::<ChatTopicDb>(&mut conn)

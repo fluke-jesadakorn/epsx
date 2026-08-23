@@ -63,7 +63,7 @@ const ADMIN_PLANS: &[AdminPlanDef] = &[
 /// Seed system admin plans into the database.
 /// Safe to call multiple times (idempotent via ON CONFLICT).
 pub async fn seed_system_admin_plans(pool: &TlsPool) {
-    let mut conn = match pool.get().await {
+    let mut conn = match pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get DB connection for admin plan seeding: {}", e);
@@ -104,7 +104,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
         .bind::<diesel::sql_types::Text, _>(def.name)
         .bind::<diesel::sql_types::Text, _>(def.slug)
         .bind::<diesel::sql_types::Text, _>(def.description)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         if let Err(e) = result {
@@ -129,7 +129,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             .bind::<diesel::sql_types::Text, _>(parts[0])
             .bind::<diesel::sql_types::Text, _>(parts[1])
             .bind::<diesel::sql_types::Text, _>(parts[2])
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await;
 
             // Link permission to plan
@@ -140,7 +140,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             )
             .bind::<diesel::sql_types::Uuid, _>(plan_id)
             .bind::<diesel::sql_types::Text, _>(*perm_str)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await;
         }
 
@@ -156,7 +156,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
 /// Assign SUPER_ADMIN_WALLET to the Super Admin plan.
 /// Ensures wallet_users row exists (FK), then upserts assignment.
 async fn seed_super_admin_wallet(pool: &TlsPool) {
-    let mut conn = match pool.get().await {
+    let mut conn = match pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!(
@@ -194,7 +194,7 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
         ON CONFLICT (wallet_address) DO NOTHING"#,
     )
     .bind::<diesel::sql_types::Text, _>(&env_wallet)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     {
         error!("Failed to ensure wallet_users entry for super admin: {}", e);
@@ -211,7 +211,7 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     )
     .bind::<diesel::sql_types::Text, _>(&env_wallet)
     .bind::<diesel::sql_types::Uuid, _>(plan_id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     {
         Ok(_) => info!("Seeded Super Admin wallet assignment: {}", env_wallet),

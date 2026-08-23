@@ -38,7 +38,7 @@ impl AuditService {
         entry: &AuditEntry,
     ) -> anyhow::Result<()> {
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| anyhow::anyhow!("audit pool error: {:?}", e))?;
 
@@ -59,7 +59,7 @@ impl AuditService {
 
         diesel::insert_into(unified_audit_log::table)
             .values(&row)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await?;
 
         Ok(())

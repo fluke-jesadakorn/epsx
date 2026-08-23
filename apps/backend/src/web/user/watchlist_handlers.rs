@@ -152,7 +152,7 @@ async fn fetch_watchlist(
     wallet: &str,
 ) -> Result<Vec<String>, String> {
     let mut conn = pool
-        .get()
+        .acquire().await
         .await
         .map_err(|error_value| error_value.to_string())?;
     user_watchlist::table
@@ -294,7 +294,7 @@ pub async fn get_watchlist_layout(
     State(app_state): State<AppState>,
     Extension(ctx): Extension<OpenIDUserContext>,
 ) -> ApiResult<WatchlistLayoutResponse> {
-    let mut conn = app_state.db_pool.get().await.map_err(|error_value| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|error_value| {
         error!("Watchlist layout connection error: {error_value}");
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -332,7 +332,7 @@ pub async fn add_to_watchlist(
         )));
     }
 
-    let mut conn = app_state.db_pool.get().await.map_err(|error_value| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|error_value| {
         error!("DB connection error: {error_value}");
         Json(UnifiedApiResponse::error(
             500,
@@ -427,7 +427,7 @@ pub async fn remove_from_watchlist(
             "Symbol must be 1-20 letters, numbers, dots, or hyphens",
         )));
     };
-    let mut conn = app_state.db_pool.get().await.map_err(|error_value| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|error_value| {
         error!("DB connection error: {error_value}");
         Json(UnifiedApiResponse::error(
             500,
@@ -440,7 +440,7 @@ pub async fn remove_from_watchlist(
             .filter(user_watchlist::wallet_address.eq(&ctx.wallet_address))
             .filter(user_watchlist::symbol.eq(&symbol)),
     )
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|error_value| {
         error!("Failed to remove from watchlist: {error_value}");
@@ -478,7 +478,7 @@ pub async fn create_watchlist_group(
             "Group names must contain 1-50 characters",
         )
     })?;
-    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -525,7 +525,7 @@ pub async fn update_watchlist_group(
             "Group names must contain 1-50 characters",
         )
     })?;
-    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -563,7 +563,7 @@ pub async fn delete_watchlist_group(
     Extension(ctx): Extension<OpenIDUserContext>,
     Path(group_id): Path<Uuid>,
 ) -> ApiResult<WatchlistLayoutResponse> {
-    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -682,7 +682,7 @@ pub async fn update_watchlist_layout(
         )));
     }
 
-    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",

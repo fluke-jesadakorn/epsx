@@ -115,7 +115,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -143,7 +143,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -167,7 +167,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -194,7 +194,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -245,7 +245,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -270,7 +270,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -281,7 +281,7 @@ impl PaymentContextRepositoryAdapter {
                 payment_contexts::is_active.eq(false),
                 payment_contexts::updated_at.eq(Utc::now()),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to delete payment context: {}", e);
@@ -297,7 +297,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -328,7 +328,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -363,7 +363,7 @@ impl PaymentContextRepositoryAdapter {
         use crate::schemas::payments::payment_contexts;
 
         let mut conn =
-            self.db_pool.get().await.map_err(|e| {
+            self.db_pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 

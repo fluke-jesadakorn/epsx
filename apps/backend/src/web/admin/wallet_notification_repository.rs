@@ -107,7 +107,7 @@ impl WalletNotificationRepository {
             expires_at: Option<DateTime<Utc>>,
         }
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -148,7 +148,7 @@ impl WalletNotificationRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<WalletNotificationRecord>, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -277,7 +277,7 @@ impl WalletNotificationRepository {
         limit: i64,
         offset: i64,
     ) -> Result<Vec<WalletNotificationRecord>, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -400,7 +400,7 @@ impl WalletNotificationRepository {
         &self,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -463,7 +463,7 @@ impl WalletNotificationRepository {
         wallet_address: &str,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -526,7 +526,7 @@ impl WalletNotificationRepository {
         &self,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -585,7 +585,7 @@ impl WalletNotificationRepository {
         wallet_address: &str,
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -651,7 +651,7 @@ impl WalletNotificationRepository {
         action_url: Option<String>,
         image_url: Option<String>,
     ) -> Result<(), AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -678,7 +678,7 @@ impl WalletNotificationRepository {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(action_url.as_deref())
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(image_url.as_deref())
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to save notification: {}", e)))?;
 
@@ -687,7 +687,7 @@ impl WalletNotificationRepository {
 
     /// Update delivery attempt - Updated for new schema
     pub async fn update_delivery_attempt(&self, id: Uuid) -> Result<(), AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -699,7 +699,7 @@ impl WalletNotificationRepository {
             "UPDATE wallet_notifications SET total_attempts = total_attempts + 1, updated_at = NOW() WHERE id = $1"
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to update delivery attempt: {}", e)))?;
 
@@ -708,7 +708,7 @@ impl WalletNotificationRepository {
 
     /// Mark notification as read - Updated: Sets status = 'read'
     pub async fn mark_as_read(&self, id: Uuid, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -727,7 +727,7 @@ impl WalletNotificationRepository {
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Uuid, _>(id)
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as read: {}", e)))?;
 
@@ -736,7 +736,7 @@ impl WalletNotificationRepository {
 
     /// Mark all notifications as read for wallet
     pub async fn mark_all_as_read(&self, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -754,7 +754,7 @@ impl WalletNotificationRepository {
         )
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark all notifications as read: {}", e)))?;
 
@@ -763,7 +763,7 @@ impl WalletNotificationRepository {
 
     /// Soft delete notification
     pub async fn soft_delete(&self, id: Uuid, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -779,7 +779,7 @@ impl WalletNotificationRepository {
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
 
@@ -788,7 +788,7 @@ impl WalletNotificationRepository {
 
     /// Soft delete all notifications for wallet
     pub async fn soft_delete_all(&self, wallet_address: &str) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -803,7 +803,7 @@ impl WalletNotificationRepository {
             "#
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to clear all notifications: {}", e)))?;
 
@@ -812,7 +812,7 @@ impl WalletNotificationRepository {
 
     /// Hard delete notification (admin only)
     pub async fn hard_delete(&self, id: Uuid) -> Result<u64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -821,7 +821,7 @@ impl WalletNotificationRepository {
 
         let rows_affected = diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
             .bind::<diesel::sql_types::Uuid, _>(id)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::new(
@@ -835,7 +835,7 @@ impl WalletNotificationRepository {
 
     /// Get simple unread count for wallet
     pub async fn get_unread_count(&self, wallet_address: &str) -> Result<i64, AppError> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),

@@ -28,7 +28,7 @@ pub async fn remove_assignment(
         }
     };
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -57,7 +57,7 @@ pub async fn remove_assignment(
         "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     {
         Ok(rows) if rows > 0 => {

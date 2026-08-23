@@ -230,7 +230,7 @@ pub async fn get_all_settings_handler(
     )?;
     info!("Getting all system settings");
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
         AppError::new(
             ErrorKind::DatabaseError,
@@ -298,7 +298,7 @@ pub async fn get_settings_by_category_handler(
     }
     info!("Getting settings for category: {}", category);
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
         AppError::new(
             ErrorKind::DatabaseError,
@@ -374,7 +374,7 @@ pub async fn update_settings_handler(
         request_id(&headers).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     info!("Updating {} settings", request.settings.len());
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get DB connection: {}", e);
         AppError::database_error("Failed to get DB connection")
     })?;

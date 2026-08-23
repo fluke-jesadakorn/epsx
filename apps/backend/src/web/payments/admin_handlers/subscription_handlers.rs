@@ -110,7 +110,7 @@ pub async fn admin_list_subscriptions_handler(
                 "Failed to get payments database pool",
             ))
         })?;
-        payments_pool.get().await.map_err(|e| {
+        payments_pool.acquire().await.map_err(|e| {
             error!("Failed to get payments database connection: {}", e);
             Json(UnifiedErrorResponse::new(
                 500,

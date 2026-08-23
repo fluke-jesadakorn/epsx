@@ -89,7 +89,7 @@ pub async fn grant_permission(
     }
 
     // Get database connection
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -209,7 +209,7 @@ pub async fn revoke_permission(
 ) -> impl IntoResponse {
     let wallet = req.wallet_address.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -244,7 +244,7 @@ pub async fn revoke_permission(
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
     .bind::<diesel::sql_types::Uuid, _>(perm_id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     {
         Ok(rows) if rows > 0 => {
@@ -286,7 +286,7 @@ pub async fn list_wallet_permissions(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -391,7 +391,7 @@ pub async fn add_permission_to_plan(
         .into_response();
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -519,7 +519,7 @@ pub async fn remove_permission_from_plan(
         }
     };
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -532,7 +532,7 @@ pub async fn remove_permission_from_plan(
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     {
         Ok(rows) if rows > 0 => {

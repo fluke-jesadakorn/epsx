@@ -85,7 +85,7 @@ pub async fn get_nft_gates(
     // use diesel::prelude::*;
     // use diesel_async::RunQueryDsl;
 
-    let _conn = app_state.db_pool.get().await.map_err(|e| {
+    let _conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get database connection: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -112,7 +112,7 @@ pub async fn get_token_gates(
     // use diesel::prelude::*;
     // use diesel_async::RunQueryDsl;
 
-    let _conn = app_state.db_pool.get().await.map_err(|e| {
+    let _conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get database connection: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -137,7 +137,7 @@ pub async fn get_dao_proposals(
     // Note: DAO proposals table not implemented yet
     // use crate::schemas::primary::dao_proposals::dsl::*;
 
-    let _conn = app_state.db_pool.get().await.map_err(|e| {
+    let _conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get database connection: {:?}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;

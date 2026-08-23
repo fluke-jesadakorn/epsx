@@ -78,7 +78,7 @@ fn ensure_database_exists(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     if !exists {
         println!("Creating database '{}'...", db_name);
         diesel::dsl::sql::<diesel::sql_types::Integer>(&format!("CREATE DATABASE \"{}\"", db_name))
-            .execute(&mut conn)?;
+            .execute(&mut *conn)?;
         println!("Database created successfully.");
     } else {
         println!("Database '{}' already exists.", db_name);

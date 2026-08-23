@@ -88,7 +88,7 @@ impl TransactionalOutbox {
             return Ok(());
         }
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;
@@ -186,7 +186,7 @@ impl TransactionalOutbox {
             return Ok(());
         }
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;
@@ -283,7 +283,7 @@ impl TransactionalOutbox {
 
     /// Get unprocessed events from outbox (for EventDispatcher)
     pub async fn get_unprocessed_events(&self, batch_size: i64) -> AppResult<Vec<OutboxEvent>> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;
@@ -359,7 +359,7 @@ impl TransactionalOutbox {
             return Ok(());
         }
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;
@@ -372,7 +372,7 @@ impl TransactionalOutbox {
             "#,
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::BigInt>, _>(event_ids)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Failed to mark events as processed: {}", e);
@@ -393,7 +393,7 @@ impl TransactionalOutbox {
         // Calculate exponential backoff: 2^retry_count seconds
         let retry_delay_secs = 2_i32.pow(retry_count as u32).min(3600); // Max 1 hour
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;
@@ -412,7 +412,7 @@ impl TransactionalOutbox {
         .bind::<diesel::sql_types::Text, _>(error_message)
         .bind::<diesel::sql_types::Text, _>(retry_delay_secs.to_string())
         .bind::<diesel::sql_types::BigInt, _>(event_id)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Failed to mark event as failed: {}", e);
@@ -429,7 +429,7 @@ impl TransactionalOutbox {
 
     /// Get outbox statistics for monitoring
     pub async fn get_stats(&self) -> AppResult<OutboxStats> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             error!("Failed to get connection: {}", e);
             AppError::database_error(format!("Connection failed: {}", e))
         })?;

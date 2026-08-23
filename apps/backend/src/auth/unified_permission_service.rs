@@ -151,7 +151,7 @@ impl UnifiedPermissionService {
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -200,7 +200,7 @@ impl UnifiedPermissionService {
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -316,7 +316,7 @@ impl UnifiedPermissionService {
         // Convert to PostgreSQL array
         let perms_array: Vec<String> = permissions.to_vec();
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -375,7 +375,7 @@ impl UnifiedPermissionService {
         let permission_id = self.get_or_create_permission(&request.permission_string).await?;
 
         // Insert into wallet_direct_permissions
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -448,7 +448,7 @@ impl UnifiedPermissionService {
             .ok_or_else(|| AppError::not_found("Permission not found"))?;
 
         // Delete from wallet_direct_permissions
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -464,7 +464,7 @@ impl UnifiedPermissionService {
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .bind::<diesel::sql_types::Uuid, _>(permission_id)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error revoking permission: {}", e);
@@ -498,7 +498,7 @@ impl UnifiedPermissionService {
             request.plan_id, wallet_lower, request.assigned_by
         );
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -569,7 +569,7 @@ impl UnifiedPermissionService {
         );
 
         // Get database connection
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -584,7 +584,7 @@ impl UnifiedPermissionService {
         let rows_affected = diesel::sql_query(query)
             .bind::<diesel::sql_types::Text, _>(&wallet_lower)
             .bind::<diesel::sql_types::Uuid, _>(&request.plan_id)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Database error removing plan: {}", e);
@@ -618,7 +618,7 @@ impl UnifiedPermissionService {
     ) -> Result<PermissionStats, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -714,7 +714,7 @@ impl UnifiedPermissionService {
     async fn get_or_create_permission(&self, permission_string: &str) -> Result<Uuid, AppError> {
         let parts: Vec<&str> = permission_string.split(':').collect();
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -758,7 +758,7 @@ impl UnifiedPermissionService {
 
     /// Get permission ID by string
     async fn get_permission_id(&self, permission_string: &str) -> Result<Option<Uuid>, AppError> {
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))
@@ -799,7 +799,7 @@ impl UnifiedPermissionService {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting ranking offset for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| {
                 error!("Pool error: {}", e);
                 AppError::database_error(format!("Pool error: {}", e))

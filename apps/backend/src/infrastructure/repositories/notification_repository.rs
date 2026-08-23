@@ -115,7 +115,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             )
         })?;
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -152,7 +152,7 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn find_all(&self, criteria: NotificationSearchCriteria) -> AppResult<Vec<Notification>> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -218,7 +218,7 @@ impl NotificationRepositoryPort for NotificationRepository {
     async fn save(&self, notification: &Notification) -> AppResult<()> {
         let record = NotificationRecord::from_domain(notification);
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -312,7 +312,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         .bind::<diesel::sql_types::BigInt, _>(record.version)
         .bind::<diesel::sql_types::Timestamptz, _>(record.created_at)
         .bind::<diesel::sql_types::Timestamptz, _>(record.updated_at)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             AppError::new(
@@ -332,7 +332,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             )
         })?;
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -341,7 +341,7 @@ impl NotificationRepositoryPort for NotificationRepository {
 
         diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
             .bind::<diesel::sql_types::Uuid, _>(id)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::new(
@@ -354,7 +354,7 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn count(&self, criteria: NotificationSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -407,7 +407,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             )
         })?;
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -432,7 +432,7 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn find_pending(&self, limit: u32) -> AppResult<Vec<Notification>> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),
@@ -496,7 +496,7 @@ impl NotificationRepositoryPort for NotificationRepository {
     }
 
     async fn find_expired(&self) -> AppResult<Vec<Notification>> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get connection: {}", e),

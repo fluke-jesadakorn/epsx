@@ -510,7 +510,7 @@ pub async fn create_subscription_handler(
     let subscription_id = Uuid::new_v4();
 
     // Get PRIMARY DB connection for plan lookup (plans table is in primary DB)
-    let mut primary_conn = (*state.db_pool).get().await.map_err(|e| {
+    let mut primary_conn = (*state.db_pool).acquire().await.map_err(|e| {
         tracing::error!("Failed to get primary database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -617,7 +617,7 @@ pub async fn create_subscription_handler(
         tracing::error!("Failed to get payments database pool: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         tracing::error!("Failed to get payments database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
@@ -677,7 +677,7 @@ pub async fn admin_list_user_access_handler(
 
     let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
 
-    let mut conn = match (*app_state.db_pool).get().await {
+    let mut conn = match (*app_state.db_pool).acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");

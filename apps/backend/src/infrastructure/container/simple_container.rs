@@ -858,7 +858,7 @@ impl SimpleContainer {
 
         // Check database connectivity
         let database_healthy = async {
-            let mut conn = self.db_pool.get().await.ok()?;
+            let mut conn = self.db_pool.acquire().await.ok()?;
 
             #[derive(diesel::QueryableByName)]
             struct HealthCheck {

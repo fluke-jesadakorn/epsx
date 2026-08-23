@@ -140,7 +140,7 @@ impl UsageService {
         if !matches!(days, 7 | 30 | 90) {
             return Err(diesel::result::Error::NotFound);
         }
-        let mut core_conn = self.core_pool.get().await.map_err(pool_error)?;
+        let mut core_conn = self.core_pool.acquire().await.map_err(pool_error)?;
         let api_key_ids = api_keys::table
             .filter(api_keys::wallet_address.ilike(wallet_address))
             .select(api_keys::id)
@@ -184,7 +184,7 @@ impl UsageService {
             average_response_time_ms: f64,
         }
 
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(pool_error)?;
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(pool_error)?;
         let totals = diesel::sql_query(
             r#"
             SELECT COUNT(*)::bigint AS total_requests,
@@ -290,7 +290,7 @@ impl UsageService {
         &self,
         wallet_address: &str,
     ) -> Result<UsageStats, diesel::result::Error> {
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
+        let mut core_conn = self.core_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -329,7 +329,7 @@ impl UsageService {
         }
 
         // Query analytics database for 24h stats
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -380,7 +380,7 @@ impl UsageService {
         days: i32,
     ) -> Result<Vec<UsageHistoryPoint>, diesel::result::Error> {
         // Get API key IDs from core database
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
+        let mut core_conn = self.core_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -402,7 +402,7 @@ impl UsageService {
         }
 
         // Query analytics database for time series
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -446,7 +446,7 @@ impl UsageService {
         days: i32,
     ) -> Result<Vec<TopEndpoint>, diesel::result::Error> {
         // Get API key IDs from core database
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
+        let mut core_conn = self.core_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -468,7 +468,7 @@ impl UsageService {
         }
 
         // Query analytics database for top endpoints
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -507,7 +507,7 @@ impl UsageService {
 
     /// Get today's total request count (for admin stats)
     pub async fn get_requests_today(&self) -> Result<i64, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -531,7 +531,7 @@ impl UsageService {
 
     /// Get this month's total request count (for admin stats)
     pub async fn get_requests_this_month(&self) -> Result<i64, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -560,7 +560,7 @@ impl UsageService {
         &self,
         limit: i64,
     ) -> Result<Vec<ModuleUsage>, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
+        let mut analytics_conn = self.analytics_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),
@@ -612,7 +612,7 @@ impl UsageService {
             .iter()
             .map(|module| module.module_id)
             .collect();
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
+        let mut core_conn = self.core_pool.acquire().await.map_err(|e| {
             diesel::result::Error::DatabaseError(
                 diesel::result::DatabaseErrorKind::Unknown,
                 Box::new(e.to_string()),

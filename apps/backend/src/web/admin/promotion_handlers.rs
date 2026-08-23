@@ -80,7 +80,7 @@ pub async fn list_promotions_handler(
     State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");
@@ -203,7 +203,7 @@ pub async fn create_promotion_handler(
     headers: axum::http::HeaderMap,
     Json(request): Json<CreatePromotionRequest>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");
@@ -300,7 +300,7 @@ pub async fn get_promotion_handler(
     State(app_state): State<AppState>,
     Path(id): Path<i32>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");
@@ -397,7 +397,7 @@ pub async fn update_promotion_handler(
     Path(id): Path<i32>,
     Json(request): Json<UpdatePromotionRequest>,
 ) -> Result<JsonResponse<PromotionResponse>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");
@@ -515,7 +515,7 @@ pub async fn delete_promotion_handler(
     headers: axum::http::HeaderMap,
     Path(id): Path<i32>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");

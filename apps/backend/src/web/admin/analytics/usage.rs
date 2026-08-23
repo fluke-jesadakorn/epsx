@@ -52,7 +52,7 @@ pub async fn get_usage_analytics_handler(
     // Checking AppState definition would be good, but assuming db_pool is correct for now
     // as we are patching an existing system.
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             error!("Admin: Failed to get database connection: {}", e);

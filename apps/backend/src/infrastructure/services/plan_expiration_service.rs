@@ -125,7 +125,7 @@ impl PlanExpirationService {
 
         let mut db_conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("DB pool error: {}", e))?;
 
@@ -256,7 +256,7 @@ impl PlanExpirationService {
 
     /// Check if a dedup notification already exists
     async fn notification_exists(&self, pool: &TlsPool, wallet: &str, dedup_key: &str) -> bool {
-        let mut conn = match pool.get().await {
+        let mut conn = match pool.acquire().await {
             Ok(c) => c,
             Err(_) => return false,
         };
@@ -290,7 +290,7 @@ impl PlanExpirationService {
     async fn cleanup_expired_assignments(&self) -> Result<(), String> {
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("DB pool error: {}", e))?;
 
@@ -305,7 +305,7 @@ impl PlanExpirationService {
               AND wpa.expires_at + (COALESCE(pl.grace_period_hours, 0) || ' hours')::INTERVAL < NOW()
             "#
         )
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Cleanup expired assignments failed: {}", e))?;
 

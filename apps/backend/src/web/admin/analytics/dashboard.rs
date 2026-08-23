@@ -165,7 +165,7 @@ pub async fn get_admin_analytics_dashboard_handler(
 }
 
 async fn fetch_user_stats(app_state: &AppState) -> Result<AdminAnalyticsUserStats, String> {
-    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
     struct UserCounts {
@@ -199,7 +199,7 @@ async fn fetch_user_stats(app_state: &AppState) -> Result<AdminAnalyticsUserStat
 async fn fetch_permission_stats(
     app_state: &AppState,
 ) -> Result<AdminAnalyticsPermissionStats, String> {
-    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
     struct PermStats {
@@ -225,7 +225,7 @@ async fn fetch_permission_stats(
 }
 
 async fn fetch_plan_stats(app_state: &AppState) -> Result<AdminAnalyticsPlanStats, String> {
-    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
     struct PlanCounts {
@@ -272,7 +272,7 @@ async fn fetch_developer_stats(
         &app_state.db_pool
     };
 
-    let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
     struct DevStats {

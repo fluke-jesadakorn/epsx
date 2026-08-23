@@ -17,7 +17,7 @@ async fn get_user_plan_from_plans(
 
     // Get database connection from container
     let pool = container.db_pool.clone();
-    let mut conn = match pool.get().await {
+    let mut conn = match pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             warn!("Failed to get database connection for plan lookup: {}", e);

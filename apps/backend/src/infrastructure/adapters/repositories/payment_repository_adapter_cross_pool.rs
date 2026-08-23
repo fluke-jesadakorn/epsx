@@ -1069,7 +1069,7 @@ impl PaymentRepositoryAdapter {
         if let Some(tx) = cmd.transaction_hash.clone() {
             diesel::update(payments::table.filter(payments::id.eq(complete.id)))
                 .set(payments::transaction_hash.eq(Some(tx)))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| format!("update tx_hash: {}", e))?;
             complete.transaction_hash = cmd.transaction_hash;
@@ -1077,7 +1077,7 @@ impl PaymentRepositoryAdapter {
         if let Some(net) = cmd.network.clone() {
             diesel::update(payments::table.filter(payments::id.eq(complete.id)))
                 .set(payments::network.eq(Some(net)))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| format!("update network: {}", e))?;
             complete.network = cmd.network;
@@ -1085,7 +1085,7 @@ impl PaymentRepositoryAdapter {
         if let Some(c) = cmd.completed_at {
             diesel::update(payments::table.filter(payments::id.eq(complete.id)))
                 .set(payments::completed_at.eq(Some(c)))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| format!("update completed_at: {}", e))?;
             complete.completed_at = Some(c);
@@ -1114,7 +1114,7 @@ impl PaymentRepositoryAdapter {
                 payments::updated_at.eq(Utc::now()),
                 payments::completed_at.eq(completed_at),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| format!("update: {}", e))?;
 
@@ -1132,7 +1132,7 @@ impl PaymentRepositoryAdapter {
                     payment_audit_log::created_at.eq(Utc::now()),
                     payment_audit_log::metadata.eq(serde_json::json!({})),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| format!("audit: {}", e))?;
         }
@@ -1188,7 +1188,7 @@ impl PaymentRepositoryAdapter {
                     subscriptions::status.eq("cancelled"),
                     subscriptions::cancelled_at.eq(Some(Utc::now())),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| format!("update: {}", e))?;
         if updated == 0 {

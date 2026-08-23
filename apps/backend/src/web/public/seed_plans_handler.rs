@@ -47,7 +47,7 @@ pub async fn seed_subscription_plans(
 
     tracing::info!("Seeding subscription plans...");
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -98,7 +98,7 @@ pub async fn seed_subscription_plans(
     .bind::<diesel::sql_types::Text, _>("0x0000000000000000000000000000000000000000")
     .bind::<diesel::sql_types::Integer, _>(0)
     .bind::<diesel::sql_types::Bool, _>(true)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     // Helper: insert/upsert a plan by slug
@@ -452,7 +452,7 @@ pub async fn seed_subscription_plans(
     // Deactivate old plan slugs that no longer exist
     let _ = diesel::sql_query(
         "UPDATE plans SET is_active = false WHERE slug IN ('pro', 'enterprise', 'api-developer') AND is_active = true"
-    ).execute(&mut conn).await;
+    ).execute(&mut *conn).await;
 
     // Count results
     let mut inserted = 0;

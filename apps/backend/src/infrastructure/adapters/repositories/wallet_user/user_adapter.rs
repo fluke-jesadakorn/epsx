@@ -156,7 +156,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                 wallet_users::updated_at.eq(user.updated_at()),
                 wallet_users::last_auth_at.eq(user.last_auth_at()),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to save wallet user {}: {}", user.wallet_address().as_str(), e);
@@ -198,7 +198,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                     wallet_users::updated_at.eq(user.updated_at()),
                     wallet_users::last_auth_at.eq(user.last_auth_at()),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| {
                     tracing::error!("Failed to save wallet user in batch {}: {}", user.wallet_address().as_str(), e);
@@ -222,7 +222,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                 ))
             )
         )
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             tracing::error!("Failed to delete wallet user {}: {}", wallet_address.as_str(), e);

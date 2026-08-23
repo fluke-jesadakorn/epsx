@@ -328,7 +328,7 @@ pub async fn get_wallet_permissions(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

@@ -233,7 +233,7 @@ fn patch_news_urls(db_url: &str, public_url: &str) -> Result<(), Box<dyn std::er
     .bind::<Text, _>(old_prefix)
     .bind::<Text, _>(&new_prefix)
     .bind::<Text, _>(&like_pattern)
-    .execute(&mut conn)?;
+    .execute(&mut *conn)?;
 
     println!("Updated {} news article cover_image_url values", rows);
     Ok(())

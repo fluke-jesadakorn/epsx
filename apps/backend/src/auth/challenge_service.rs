@@ -30,12 +30,12 @@ impl UnifiedWeb3AuthService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::expires_at.lt(now)))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -47,7 +47,7 @@ impl UnifiedWeb3AuthService {
                 web3_auth_nonces::expires_at.eq(&expires_at),
                 web3_auth_nonces::created_at.eq(&now),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -144,14 +144,14 @@ impl UnifiedWeb3AuthService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         diesel::delete(web3_auth_nonces::table)
             .filter(web3_auth_nonces::wallet_address.eq(wallet_address))
             .filter(web3_auth_nonces::nonce.eq(nonce))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 

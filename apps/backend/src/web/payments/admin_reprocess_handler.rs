@@ -89,7 +89,7 @@ pub async fn admin_reprocess_payment_handler(
         UnifiedErrorResponse::json(500, "Database error", format!("Cannot connect: {}", e))
     })?;
 
-    let mut conn = payments_pool.get().await.map_err(|e| {
+    let mut conn = payments_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(
             500,
             "Database error",
@@ -168,7 +168,7 @@ pub async fn admin_payment_events_handler(
         UnifiedErrorResponse::json(500, "Database error", format!("Cannot connect: {}", e))
     })?;
 
-    let mut conn = payments_pool.get().await.map_err(|e| {
+    let mut conn = payments_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(
             500,
             "Database error",

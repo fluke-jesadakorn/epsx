@@ -150,11 +150,11 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("payments pool unavailable: {}", e))?;
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("payments connection failed: {}", e))?;
         diesel::sql_query("SELECT 1 FROM payments LIMIT 0")
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| format!("payments table not accessible: {}", e))?;
         Ok(())
@@ -354,7 +354,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -452,7 +452,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -469,7 +469,7 @@ impl TransactionMonitorService {
         .bind::<diesel::sql_types::Integer, _>(confirmations)
         .bind::<diesel::sql_types::BigInt, _>(block_number)
         .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Failed to update confirmations: {}", e))?;
 
@@ -487,7 +487,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -499,7 +499,7 @@ impl TransactionMonitorService {
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Failed to update last_checked_at: {}", e))?;
 
@@ -512,7 +512,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -527,7 +527,7 @@ impl TransactionMonitorService {
         )
         .bind::<diesel::sql_types::Text, _>(error_message)
         .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Failed to mark as failed: {}", e))?;
 
@@ -560,7 +560,7 @@ impl TransactionMonitorService {
         let Ok(payments_pool) = get_payments_pool().await else {
             return;
         };
-        let Ok(mut conn) = payments_pool.get().await else {
+        let Ok(mut conn) = payments_pool.acquire().await else {
             return;
         };
 
@@ -578,7 +578,7 @@ impl TransactionMonitorService {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(reason)
         .bind::<diesel::sql_types::Jsonb, _>(&metadata)
         .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
     }
 
@@ -588,7 +588,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -602,7 +602,7 @@ impl TransactionMonitorService {
         )
         .bind::<diesel::sql_types::Text, _>(error)
         .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Failed to store verify error: {}", e))?;
 
@@ -617,7 +617,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get connection: {}", e))?;
 
@@ -633,7 +633,7 @@ impl TransactionMonitorService {
             "#,
         )
         .bind::<diesel::sql_types::BigInt, _>(ttl_hours)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| format!("Failed to expire stale payments: {}", e))?;
 
@@ -659,7 +659,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
         let mut payments_conn = payments_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get payments connection: {}", e))?;
 
@@ -667,7 +667,7 @@ impl TransactionMonitorService {
             .await
             .map_err(|e| format!("Failed to get primary pool: {}", e))?;
         let mut primary_conn = primary_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| format!("Failed to get primary connection: {}", e))?;
 
@@ -1033,7 +1033,7 @@ pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
         .await
         .map_err(|e| format!("Failed to get payments pool: {}", e))?;
     let mut conn = payments_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|e| format!("Failed to get connection: {}", e))?;
 

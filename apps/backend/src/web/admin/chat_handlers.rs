@@ -85,7 +85,7 @@ async fn claim_chat_operation(
     let operation_id = Uuid::new_v4();
     let mut conn = app_state
         .db_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|_| ChatMutationClaimError::Database)?;
     let inserted = sql_query(
@@ -99,7 +99,7 @@ async fn claim_chat_operation(
     .bind::<DieselUuid, _>(conversation_id)
     .bind::<Text, _>(action)
     .bind::<Text, _>(&context.wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
     if inserted == 1 {
@@ -126,7 +126,7 @@ async fn complete_chat_operation(
 ) -> Result<(), ChatMutationClaimError> {
     let mut conn = app_state
         .db_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|_| ChatMutationClaimError::Database)?;
     diesel::sql_query(
@@ -135,7 +135,7 @@ async fn complete_chat_operation(
     )
     .bind::<Jsonb, _>(result)
     .bind::<DieselUuid, _>(operation_id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
     Ok(())
@@ -450,7 +450,7 @@ pub async fn admin_list_conversations(
         "list_conversations",
     )?;
     validate_query(&query)?;
-    let mut conn = app_state.db_pool.get().await.map_err(|_| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
         epsx_contracts::errors::AppError::database_error("chat database unavailable")
     })?;
 

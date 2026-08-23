@@ -149,7 +149,7 @@ impl UnifiedWeb3AuthService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -359,7 +359,7 @@ impl UnifiedWeb3AuthService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -369,7 +369,7 @@ impl UnifiedWeb3AuthService {
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Text, _>(permission)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -399,7 +399,7 @@ impl UnifiedWeb3AuthService {
         let wallet_address = wallet_address.as_str();
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
         let now = Utc::now();

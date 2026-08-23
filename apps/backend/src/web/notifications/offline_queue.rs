@@ -20,7 +20,7 @@ pub async fn fetch_queued_notifications(
     wallet_address: &str,
 ) -> Result<Vec<SSENotification>, AppError> {
     let mut conn = db_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
@@ -95,7 +95,7 @@ pub async fn mark_as_delivered(db_pool: &TlsPool, notification_id: &str) -> Resu
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
     let mut conn = db_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
@@ -105,7 +105,7 @@ pub async fn mark_as_delivered(db_pool: &TlsPool, notification_id: &str) -> Resu
          WHERE id = $1 AND status IN ('created', 'queued', 'sent')",
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await?;
 
     Ok(())
@@ -123,7 +123,7 @@ pub async fn mark_as_acknowledged(
         .map_err(|e| AppError::from(Box::new(e) as Box<dyn std::error::Error>))?;
 
     let mut conn = db_pool
-        .get()
+        .acquire().await
         .await
         .map_err(|e| AppError::database_error(format!("Connection pool error: {}", e)))?;
 
@@ -135,7 +135,7 @@ pub async fn mark_as_acknowledged(
          WHERE id = $1 AND status NOT IN ('read', 'unread', 'deleted')",
     )
     .bind::<diesel::sql_types::Uuid, _>(id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await?;
 
     tracing::debug!(
@@ -156,7 +156,7 @@ pub async fn mark_as_acknowledged(
 ///
 /// Called every hour by `PlanExpirationService` background task (main.rs).
 pub async fn cleanup_old_notifications(db_pool: &TlsPool, _days: i64) -> Result<u64, AppError> {
-    let mut conn = db_pool.get().await.map_err(|e| {
+    let mut conn = db_pool.acquire().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
 
@@ -164,21 +164,21 @@ pub async fn cleanup_old_notifications(db_pool: &TlsPool, _days: i64) -> Result<
     let soft_deleted_result = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE status = 'deleted' AND updated_at < NOW() - INTERVAL '7 days'"
     )
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await?;
 
     // Delete old read notifications (90 days)
     let read_result = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE status = 'read' AND created_at < NOW() - INTERVAL '90 days'"
     )
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await?;
 
     // Delete expired notifications immediately
     let expired_result = diesel::sql_query(
         "DELETE FROM wallet_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()",
     )
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await?;
 
     let total_cleaned = soft_deleted_result + read_result + expired_result;
@@ -196,7 +196,7 @@ pub async fn cleanup_old_notifications(db_pool: &TlsPool, _days: i64) -> Result<
 
 /// Get notification statistics for monitoring (excludes soft-deleted)
 pub async fn get_notification_stats(db_pool: &TlsPool) -> Result<NotificationStats, AppError> {
-    let mut conn = db_pool.get().await.map_err(|e| {
+    let mut conn = db_pool.acquire().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
 

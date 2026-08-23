@@ -173,7 +173,7 @@ impl UnifiedWeb3AuthService {
             expires_at: DateTime<Utc>,
         }
 
-        let nonce_record: Option<NonceRecord> = sqlx::query_as::<_, NonceRecord>(
+        let nonce_record: NonceRecord = sqlx::query_as::<_, NonceRecord>(
             "SELECT nonce, message, expires_at FROM web3_auth_nonces WHERE wallet_address = $1 AND nonce = $2",
         )
         .bind(&wallet_address)

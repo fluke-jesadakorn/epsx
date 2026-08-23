@@ -109,7 +109,7 @@ pub struct ListRoutesQuery {
 /// Get permission system health status
 /// GET /admin/permissions/system/health
 pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -194,7 +194,7 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
 /// Get permission system statistics
 /// GET /admin/permissions/system/stats
 pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

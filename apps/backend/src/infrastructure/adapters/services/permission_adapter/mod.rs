@@ -191,7 +191,7 @@ impl Web3PermissionServiceAdapter {
         let wallet_lower = wallet.to_lowercase();
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -253,7 +253,7 @@ impl Web3PermissionServiceAdapter {
         let wallet_lower = wallet.to_lowercase();
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 

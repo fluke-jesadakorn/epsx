@@ -56,7 +56,7 @@ impl Projection for WalletReadModelProjection {
 
     async fn get_checkpoint(&self, pool: &TlsPool) -> AppResult<Option<ProjectionCheckpoint>> {
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
 

@@ -123,7 +123,7 @@ pub async fn get_user_plans_handler(
         user_context.wallet_address
     );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
     })?;
 
@@ -330,7 +330,7 @@ pub async fn cancel_plan_handler(
         plan_id, user_context.wallet_address
     );
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
     })?;
 
@@ -346,7 +346,7 @@ pub async fn cancel_plan_handler(
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .bind::<diesel::sql_types::Uuid, _>(plan_id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to cancel plan", e.to_string()))?;
 
@@ -431,7 +431,7 @@ pub async fn get_upgrade_preview_handler(
         UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID")
     })?;
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
     })?;
 
@@ -766,7 +766,7 @@ pub async fn execute_plan_switch_handler(
         UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID")
     })?;
 
-    let mut conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
         UnifiedErrorResponse::json(500, "Database connection failed", e.to_string())
     })?;
 
@@ -935,7 +935,7 @@ pub async fn execute_plan_switch_handler(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to deactivate old plan", e.to_string()))?;
 
@@ -952,7 +952,7 @@ pub async fn execute_plan_switch_handler(
     .bind::<diesel::sql_types::Text, _>(wallet)
     .bind::<diesel::sql_types::Uuid, _>(new_plan_uuid)
     .bind::<diesel::sql_types::Timestamptz, _>(new_expires_at)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to create new plan assignment", e.to_string()))?;
 

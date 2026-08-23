@@ -136,7 +136,7 @@ pub async fn get_current_user_profile(
     );
 
     // Query user data from database
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -245,7 +245,7 @@ pub async fn get_user_access_overview(
         user_context.wallet_address
     );
 
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -558,7 +558,7 @@ pub async fn get_user_permissions(
     // Filter permissions based on query parameters
     let permissions = if query.include_expired.unwrap_or(false) {
         // Include all permissions (active and expired) from database
-        let mut conn = match _app_state.db_pool.get().await {
+        let mut conn = match _app_state.db_pool.acquire().await {
             Ok(c) => c,
             Err(_) => {
                 return Ok(Json(UnifiedApiResponse::success_with_meta(
@@ -663,7 +663,7 @@ pub async fn update_user_preferences(
     }
 
     // Update preferences in database (store in wallet_metadata.preferences)
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -690,7 +690,7 @@ pub async fn update_user_preferences(
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .bind::<diesel::sql_types::Jsonb, _>(&preferences_json)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     // Check if update succeeded
@@ -773,7 +773,7 @@ pub async fn get_user_by_wallet_address(
     );
 
     // Query user from database by wallet address
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -910,7 +910,7 @@ pub async fn get_user_notification_preferences(
 {
     // User context already validated by middleware
 
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -979,7 +979,7 @@ pub async fn dashboard_init_handler(
 }
 
 async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Value, String> {
-    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName, Serialize)]
     struct PlanRow {
@@ -1015,7 +1015,7 @@ fn normalize_watchlist_symbol(symbol: &str) -> String {
 }
 
 async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<String>, String> {
-    let mut conn = app_state.db_pool.get().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
     #[derive(QueryableByName)]
     struct WatchlistRow {
@@ -1139,7 +1139,7 @@ pub async fn update_user_notification_preferences(
 {
     // User context already validated by middleware
 
-    let mut conn = match _app_state.db_pool.get().await {
+    let mut conn = match _app_state.db_pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get database connection: {}", e);
@@ -1174,7 +1174,7 @@ pub async fn update_user_notification_preferences(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     // Then update notification_preferences
@@ -1193,7 +1193,7 @@ pub async fn update_user_notification_preferences(
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
     .bind::<diesel::sql_types::Jsonb, _>(serde_json::to_value(&preferences).unwrap_or_default())
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     if update_result.is_err() {

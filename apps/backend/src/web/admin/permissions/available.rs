@@ -48,7 +48,7 @@ pub struct UpdatePermissionRequest {
 /// List all available permission definitions
 /// GET /api/permissions/definitions
 pub async fn list_permission_definitions(State(app_state): State<AppState>) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -110,7 +110,7 @@ pub async fn list_permission_definitions(State(app_state): State<AppState>) -> i
 /// List all available unique permission strings (legacy endpoint)
 /// GET /admin/permissions/available
 pub async fn list_available_permissions(State(app_state): State<AppState>) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -170,7 +170,7 @@ pub async fn create_permission_definition(
         }
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -261,7 +261,7 @@ pub async fn update_permission_definition(
     Path(id): Path<Uuid>,
     Json(req): Json<UpdatePermissionRequest>,
 ) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -378,7 +378,7 @@ pub async fn delete_permission_definition(
     State(app_state): State<AppState>,
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -419,7 +419,7 @@ pub async fn delete_permission_definition(
         "UPDATE permissions SET is_active = FALSE, updated_at = NOW() WHERE id = $1 AND is_system = FALSE"
     )
     .bind::<SqlUuid, _>(id)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     match result {
@@ -444,7 +444,7 @@ pub async fn delete_permission_by_name(
     State(app_state): State<AppState>,
     Path(permission): Path<String>,
 ) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -459,7 +459,7 @@ pub async fn delete_permission_by_name(
         "UPDATE permissions SET is_active = FALSE, updated_at = NOW() WHERE permission_string = $1 AND is_system = FALSE"
     )
     .bind::<Varchar, _>(&permission)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await;
 
     match result {

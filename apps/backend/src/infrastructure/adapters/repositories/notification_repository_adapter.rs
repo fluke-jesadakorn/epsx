@@ -197,7 +197,7 @@ impl NotificationRepositoryAdapter {
             wallet_address
         );
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             crate::prelude::AppError::database_error(format!("Failed to get connection: {}", e))
         })?;
 
@@ -219,7 +219,7 @@ impl NotificationRepositoryAdapter {
                 wallet_notifications::data_payload
                     .eq(notification.metadata().data_payload().cloned()),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 crate::prelude::AppError::database_error(format!(
@@ -287,7 +287,7 @@ impl NotificationRepositoryAdapter {
     /// Query notification statistics from database
     async fn query_notification_stats_from_database(&self) -> ApplicationResult<NotificationStats> {
         // Database query to get real notification statistics
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             crate::prelude::AppError::database_error(format!("Failed to get connection: {}", e))
         })?;
 

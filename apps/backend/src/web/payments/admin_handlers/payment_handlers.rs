@@ -51,7 +51,7 @@ pub async fn admin_list_payments_handler(
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
@@ -61,7 +61,7 @@ pub async fn admin_list_payments_handler(
     })?;
 
     // Get PRIMARY database connection for plan name lookups
-    let mut primary_conn = app_state.db_pool.get().await.map_err(|e| {
+    let mut primary_conn = app_state.db_pool.acquire().await.map_err(|e| {
         error!("Failed to get primary database connection: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
@@ -327,7 +327,7 @@ pub async fn admin_get_payment_details_handler(
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
@@ -450,7 +450,7 @@ pub async fn admin_update_payment_status_handler(
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
@@ -582,7 +582,7 @@ pub async fn admin_process_refund_handler(
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         error!("Failed to get payments database connection: {}", e);
         Json(UnifiedErrorResponse::new(
             500,

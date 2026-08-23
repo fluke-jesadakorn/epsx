@@ -348,7 +348,7 @@ pub async fn get_plan(
 
     // Fetch member count
     let member_count = {
-        let mut conn = match app_state.db_pool.get().await {
+        let mut conn = match app_state.db_pool.acquire().await {
             Ok(conn) => conn,
             Err(e) => {
                 tracing::error!("Failed to get database connection: {}", e);
@@ -449,7 +449,7 @@ pub async fn list_plans(
     let plan_ids: Vec<Uuid> = domain_plans.iter().map(|g| *g.id().value()).collect();
 
     let member_counts: HashMap<Uuid, i64> = if !plan_ids.is_empty() {
-        match app_state.db_pool.get().await {
+        match app_state.db_pool.acquire().await {
             Ok(mut conn) => {
                 #[derive(diesel::QueryableByName)]
                 struct CountRow {
@@ -747,7 +747,7 @@ pub async fn get_plan_members(
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -863,7 +863,7 @@ pub async fn get_plan_assignments(
 
     let pg = crate::web::pagination::Pagination::standard(query.page, query.limit);
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

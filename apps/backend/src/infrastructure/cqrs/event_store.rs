@@ -173,7 +173,7 @@ impl EventStore for PostgresEventStore {
     ) -> AppResult<Vec<serde_json::Value>> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -213,7 +213,7 @@ impl EventStore for PostgresEventStore {
     ) -> AppResult<Vec<serde_json::Value>> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -249,7 +249,7 @@ impl EventStore for PostgresEventStore {
     async fn get_aggregate_version(&self, aggregate_id: &str) -> AppResult<Option<u64>> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -293,7 +293,7 @@ impl EventStore for PostgresEventStore {
 
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -321,7 +321,7 @@ impl EventStore for PostgresEventStore {
         .bind::<diesel::sql_types::BigInt, _>(version as i64)
         .bind::<diesel::sql_types::Jsonb, _>(&snapshot_data)
         .bind::<diesel::sql_types::Integer, _>(event_count as i32)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!(
@@ -348,7 +348,7 @@ impl EventStore for PostgresEventStore {
 
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 

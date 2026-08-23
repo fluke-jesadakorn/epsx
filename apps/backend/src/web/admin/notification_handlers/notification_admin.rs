@@ -112,7 +112,7 @@ pub async fn send_notification_handler(
             wallet_address: String,
         }
 
-        let mut conn = app_state.db_pool.get().await.map_err(|e| {
+        let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
             AppError::new(
                 ErrorKind::DatabaseError,
                 format!("Failed to get database connection: {}", e),
@@ -504,7 +504,7 @@ pub async fn get_notification_stats_handler(
 ) -> Result<impl IntoResponse, AppError> {
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -737,7 +737,7 @@ pub async fn delete_admin_notification_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -747,7 +747,7 @@ pub async fn delete_admin_notification_handler(
     // Hard delete for admin
     let rows_affected = diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
         .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             AppError::new(

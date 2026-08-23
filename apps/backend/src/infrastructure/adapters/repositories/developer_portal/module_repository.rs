@@ -33,7 +33,7 @@ impl ModuleRepository {
     ) -> AppResult<ModuleListResponse> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -100,7 +100,7 @@ impl ModuleRepository {
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiModule>> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -152,7 +152,7 @@ impl ModuleRepository {
     pub async fn create(&self, request: CreateModuleRequest) -> AppResult<ApiModule> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -179,7 +179,7 @@ impl ModuleRepository {
                 api_modules::created_at.eq(&now),
                 api_modules::updated_at.eq(&now),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to create module: {}", e)))?;
 
@@ -194,7 +194,7 @@ impl ModuleRepository {
     pub async fn update(&self, id: Uuid, request: UpdateModuleRequest) -> AppResult<ApiModule> {
         let mut conn = self
             .pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
@@ -208,7 +208,7 @@ impl ModuleRepository {
                     api_modules::display_name.eq(display_name),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
@@ -220,7 +220,7 @@ impl ModuleRepository {
                     api_modules::description.eq(description),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
@@ -232,7 +232,7 @@ impl ModuleRepository {
                     api_modules::status.eq(status),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
@@ -244,7 +244,7 @@ impl ModuleRepository {
                     api_modules::default_rate_limit.eq(rate_limit),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
@@ -256,7 +256,7 @@ impl ModuleRepository {
                     api_modules::access_levels.eq(access_levels),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }
@@ -271,7 +271,7 @@ impl ModuleRepository {
                     api_modules::endpoints.eq(&endpoints_json),
                     api_modules::updated_at.eq(&now),
                 ))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }

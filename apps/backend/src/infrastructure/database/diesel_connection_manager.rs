@@ -91,7 +91,7 @@ impl DieselConnectionManager {
     /// Get or create the global Diesel connection pool (optimized for serverless)
     pub async fn get_pool() -> Result<&'static TlsPool> {
         // Try to get existing pool first (warm container scenario)
-        if let Some(pool) = GLOBAL_DIESEL_POOL.get() {
+        if let Some(pool) = GLOBAL_DIESEL_POOL.acquire().await {
             return Ok(pool);
         }
 
@@ -104,14 +104,14 @@ impl DieselConnectionManager {
             Ok(()) => {
                 info!("Diesel async pool initialized and cached globally");
                 Ok(GLOBAL_DIESEL_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_DIESEL_POOL initialized above"))
             }
             Err(_) => {
                 // Another thread already initialized it
                 warn!("Diesel pool was initialized by another thread");
                 Ok(GLOBAL_DIESEL_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_DIESEL_POOL initialized above"))
             }
         }
@@ -165,7 +165,7 @@ impl DieselConnectionManager {
         };
 
         // Try to get existing analytics pool first
-        if let Some(pool) = GLOBAL_ANALYTICS_POOL.get() {
+        if let Some(pool) = GLOBAL_ANALYTICS_POOL.acquire().await {
             return Ok(pool);
         }
 
@@ -182,13 +182,13 @@ impl DieselConnectionManager {
             Ok(()) => {
                 info!("Analytics database pool initialized");
                 Ok(GLOBAL_ANALYTICS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Analytics pool was initialized by another thread");
                 Ok(GLOBAL_ANALYTICS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_ANALYTICS_POOL initialized above"))
             }
         }
@@ -207,7 +207,7 @@ impl DieselConnectionManager {
         }
 
         // Try to get existing notifications pool first
-        if let Some(pool) = GLOBAL_NOTIFICATIONS_POOL.get() {
+        if let Some(pool) = GLOBAL_NOTIFICATIONS_POOL.acquire().await {
             return Ok(pool);
         }
 
@@ -224,13 +224,13 @@ impl DieselConnectionManager {
             Ok(()) => {
                 info!("Notifications database pool initialized");
                 Ok(GLOBAL_NOTIFICATIONS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Notifications pool was initialized by another thread");
                 Ok(GLOBAL_NOTIFICATIONS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_NOTIFICATIONS_POOL initialized above"))
             }
         }
@@ -250,7 +250,7 @@ impl DieselConnectionManager {
         };
 
         // Try to get existing payments pool first
-        if let Some(pool) = GLOBAL_PAYMENTS_POOL.get() {
+        if let Some(pool) = GLOBAL_PAYMENTS_POOL.acquire().await {
             return Ok(pool);
         }
 
@@ -267,13 +267,13 @@ impl DieselConnectionManager {
             Ok(()) => {
                 info!("Payments database pool initialized");
                 Ok(GLOBAL_PAYMENTS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
             Err(_) => {
                 warn!("Payments pool was initialized by another thread");
                 Ok(GLOBAL_PAYMENTS_POOL
-                    .get()
+                    .acquire().await
                     .expect("GLOBAL_PAYMENTS_POOL initialized above"))
             }
         }
@@ -310,7 +310,7 @@ impl DieselConnectionManager {
                 use diesel::sql_types::Integer;
                 use diesel_async::RunQueryDsl;
 
-                match pool.get().await {
+                match pool.acquire().await {
                     Ok(mut conn) => {
                         #[derive(QueryableByName)]
                         struct HealthCheck {

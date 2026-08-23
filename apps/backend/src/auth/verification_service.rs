@@ -25,7 +25,7 @@ impl UnifiedWeb3AuthService {
         let wallet_address = wallet_address.as_str();
         use crate::schemas::primary::wallet_users;
 
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 
         let user_exists: Option<String> = diesel_async::RunQueryDsl::first(wallet_users::table
@@ -65,7 +65,7 @@ impl UnifiedWeb3AuthService {
         });
 
         let now = chrono::Utc::now();
-        let mut conn = self.db_pool.get().await
+        let mut conn = self.db_pool.acquire().await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         diesel_async::RunQueryDsl::execute(diesel::insert_into(wallet_users::table)
@@ -124,7 +124,7 @@ impl UnifiedWeb3AuthService {
 
         let wallet_address = wallet_address.trim().to_lowercase();
 
-        let mut conn = match self.db_pool.get().await {
+        let mut conn = match self.db_pool.acquire().await {
             Ok(c) => c,
             Err(e) => {
                 warn!(wallet_address = %wallet_address, error = %e, "Failed to get DB connection for Free Plan assignment");
@@ -239,7 +239,7 @@ impl UnifiedWeb3AuthService {
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_id)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         {
             warn!(wallet_address = %wallet_address, error = %e, "Failed to assign Free Plan to wallet");

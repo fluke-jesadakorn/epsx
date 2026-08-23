@@ -42,7 +42,7 @@ macro_rules! handle_db_error {
 #[macro_export]
 macro_rules! get_db_connection {
     ($pool:expr, $component:expr, $operation:expr) => {
-        $pool.get().await.map_err(|e| {
+        $pool.acquire().await.map_err(|e| {
             error!("Pool error in {}::{}: {}", $component, $operation, e);
             AppError::database_error(format!("Pool error: {}", e))
                 .with_component($component)
@@ -207,7 +207,7 @@ impl ConnectionPoolManager {
             &mut AsyncPgConnection,
         ) -> Pin<Box<dyn Future<Output = Result<R, AppError>> + Send>>,
     {
-        let mut conn_obj = self.pool.get().await.map_err(|e| {
+        let mut conn_obj = self.pool.acquire().await.map_err(|e| {
             error!("Pool error in {}::{}: {}", self.component, operation, e);
             AppError::database_error(format!("Pool error: {}", e))
                 .with_component(self.component)
@@ -219,7 +219,7 @@ impl ConnectionPoolManager {
 
     /// Check pool health
     pub async fn health_check(&self) -> Result<(), AppError> {
-        let mut conn_obj = self.pool.get().await.map_err(|e| {
+        let mut conn_obj = self.pool.acquire().await.map_err(|e| {
             error!("Pool error in {}::health_check: {}", self.component, e);
             AppError::database_error(format!("Pool error: {}", e))
                 .with_component(self.component)

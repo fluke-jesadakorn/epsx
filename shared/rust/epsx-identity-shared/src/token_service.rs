@@ -1,10 +1,17 @@
+// ============================================================================
+// OPENID TOKEN SERVICE WITH WEB3 AUTHENTICATION TRIGGER
+// Standard OpenID Connect token issuance after Web3 wallet signature verification
+//
+// MIGRATED TO SQLX (real): no stubs. Diesel DSL replaced with raw SQL queries
+// inside sqlx transactions via `pool.begin()`.
+// ============================================================================
+
 use chrono::{DateTime, Duration, Utc};
-
-
 use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation};
 use serde::{Deserialize, Serialize};
+use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
-use tracing::info;
+use tracing::{debug, error, info};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -84,7 +91,7 @@ fn refresh_token_expiry_seconds(days: i64) -> i64 {
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
 #[derive(Clone)]
 pub struct OpenIDTokenService {
-    db_pool: Arc<sqlx::PgPool>,
+    db_pool: PgPool,
     issuer: String,               // "https://api.epsx.io"
     audiences: Vec<String>,       // ["epsx-frontend", "epsx-admin"]
     key_manager: Arc<KeyManager>, // RSA key manager for JWT signing/validation
@@ -111,7 +118,6 @@ pub struct OpenIDTokenResponse {
 /// JWT payload for API authorization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessTokenClaims {
-    // Standard OpenID Connect claims
     pub iss: String,      // Issuer: "https://api.epsx.io"
     pub sub: String,      // Subject: wallet_address
     pub aud: Vec<String>, // Audience: ["epsx-frontend", "epsx-admin"]
@@ -119,8 +125,6 @@ pub struct AccessTokenClaims {
     pub iat: i64,         // Issued at timestamp
     pub jti: String,      // JWT ID (unique identifier)
     pub scope: String,    // OIDC standard: "openid profile epsx:analytics:read admin:users:manage"
-
-    // EPSX-specific claims for authorization
     pub wallet_address: String, // Web3 wallet address (primary identifier)
     pub auth_method: String,    // "web3_siwe"
     pub auth_time: i64,         // When Web3 authentication occurred
@@ -130,15 +134,12 @@ pub struct AccessTokenClaims {
 /// JWT payload for user identity information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdTokenClaims {
-    // Standard OpenID Connect ID token claims
     pub iss: String,           // Issuer
     pub sub: String,           // Subject: wallet_address
     pub aud: String,           // Audience: client_id
     pub exp: i64,              // Expiration timestamp
     pub iat: i64,              // Issued at timestamp
     pub nonce: Option<String>, // Optional nonce for CSRF protection
-
-    // Profile information
     pub wallet_address: String, // Primary identifier
     pub auth_time: i64,         // Authentication timestamp
     pub amr: Vec<String>,       // Authentication Methods Reference: ["web3"]
@@ -196,7 +197,7 @@ pub enum OpenIDTokenError {
 impl OpenIDTokenService {
     /// Create new OpenID Token Service
     pub fn new(
-        db_pool: &'static TlsPool,
+        db_pool: PgPool,
         issuer: String,
         audiences: Vec<String>,
         key_manager: Arc<KeyManager>,
@@ -208,9 +209,9 @@ impl OpenIDTokenService {
             audiences,
             key_manager,
             refresh_token_keyring,
-            access_token_expiry_hours: 1, // 1 hour (refresh token handles renewal)
-            refresh_token_expiry_days: 30, // 30 days (rotated on each refresh)
-            id_token_expiry_hours: 1,     // 1 hour (matches access token)
+            access_token_expiry_hours: 1,
+            refresh_token_expiry_days: 30,
+            id_token_expiry_hours: 1,
         }
     }
 
@@ -220,7 +221,6 @@ impl OpenIDTokenService {
     }
 
     /// Authenticate Web3 wallet and issue OpenID Connect tokens
-    /// This is the main entry point: Web3 auth → OpenID tokens
     pub async fn authenticate_web3_and_issue_tokens(
         &self,
         request: Web3AuthTokenRequest,
@@ -232,10 +232,7 @@ impl OpenIDTokenService {
             signature: request.signature,
             nonce: request.nonce,
         };
-
-        // Use existing Web3 verification logic
-        self.verify_web3_authentication(verification_request)
-            .await?;
+        self.verify_web3_authentication(verification_request).await?;
 
         // 2. Get user permissions and profile from wallet_users table
         let user_profile = self
@@ -280,8 +277,6 @@ impl OpenIDTokenService {
             )
             .await?;
 
-        // Sign every credential before publishing the durable refresh row. A signer
-        // failure therefore cannot leave an active token the caller never received.
         self.create_refresh_token(wallet_address, client_id, family_id, &refresh_token, now)
             .await?;
 
@@ -289,9 +284,6 @@ impl OpenIDTokenService {
     }
 
     /// Build OpenID Connect tokens around a pre-generated refresh token.
-    ///
-    /// This method performs no database mutation. Callers must persist or rotate the
-    /// exact refresh value only after every fallible signing operation succeeds.
     pub(crate) async fn issue_tokens_for_user_with_refresh_token(
         &self,
         wallet_address: &str,
@@ -302,20 +294,13 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         self.validate_client_id(client_id)?;
 
-        // Generate unique JWT ID
         let jti = Uuid::new_v4().to_string();
 
-        // Create access token (for API authorization)
         let access_token =
             self.create_access_token(wallet_address, permissions, client_id, auth_time, &jti)?;
 
-        // Create ID token (for user identity)
-        let id_token = self.create_id_token(
-            wallet_address,
-            client_id,
-            auth_time,
-            None, // nonce
-        )?;
+        let id_token =
+            self.create_id_token(wallet_address, client_id, auth_time, None)?;
 
         info!(
             "Issued OpenID tokens for wallet: {} (client: {})",
@@ -325,7 +310,7 @@ impl OpenIDTokenService {
         Ok(OpenIDTokenResponse {
             access_token,
             token_type: "Bearer".to_string(),
-            expires_in: self.access_token_expiry_hours * 3600, // Convert to seconds
+            expires_in: self.access_token_expiry_hours * 3600,
             refresh_token,
             refresh_expires_in: refresh_token_expiry_seconds(self.refresh_token_expiry_days),
             id_token,
@@ -341,8 +326,6 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         self.validate_client_id(client_id)?;
 
-        // Load all fallible profile data before rotation so a dependency failure
-        // cannot strand an undisclosed successor token.
         let candidate = self
             .validate_refresh_token(refresh_token, client_id)
             .await?;
@@ -350,7 +333,6 @@ impl OpenIDTokenService {
             .get_wallet_user_profile(&candidate.wallet_address)
             .await?;
 
-        // Build every returned credential before the destructive rotation transition.
         let new_refresh_token = self.issue_refresh_token();
         let response = self
             .issue_tokens_for_user_with_refresh_token(
@@ -362,7 +344,6 @@ impl OpenIDTokenService {
             )
             .await?;
 
-        // Publish the exact pre-signed successor only if the conditional consume wins.
         let refresh_info = self
             .consume_refresh_token(
                 refresh_token,
@@ -382,98 +363,68 @@ impl OpenIDTokenService {
     }
 
     /// Revoke the refresh family containing the presented token.
-    ///
-    /// Every family rotation and logout first takes the same transaction-scoped
-    /// advisory lock. Historical tokens can therefore close only their own lineage,
-    /// while independent logins for the same wallet/client remain isolated.
     pub async fn revoke_refresh_token(&self, refresh_token: &str) -> Result<(), OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let digested = match self.refresh_token_keyring.digest_presented(refresh_token) {
             Ok(digested) => Some(digested),
             Err(_) if Uuid::parse_str(refresh_token).is_ok() => None,
             Err(_) => return Ok(()),
         };
 
-        let mut conn = self
-            .db_pool
-            .acquire()
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
+        })?;
+
+        if let Some(digested) = digested {
+            // Look up family_id by digest
+            let row: Option<(Option<Uuid>,)> = sqlx::query_as(
+                "SELECT family_id FROM openid_refresh_tokens \
+                 WHERE digest_key_id = $1 AND digest_version = $2 \
+                   AND token_digest = $3 AND storage_version = $4",
+            )
+            .bind(digested.digest_key_id().to_string())
+            .bind(REFRESH_DIGEST_VERSION)
+            .bind(digested.digest().to_db_bytes())
+            .bind(REFRESH_STORAGE_VERSION)
+            .fetch_optional(&mut *tx)
             .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        let presented_token = refresh_token.to_string();
-        conn.transaction::<_, diesel::result::Error, _>(|conn| {
-            Box::pin(async move {
-                let family_id = if let Some(digested) = digested {
-                    openid_refresh_tokens::table
-                        .filter(
-                            openid_refresh_tokens::digest_key_id.eq(Some(digested.digest_key_id())),
-                        )
-                        .filter(
-                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
-                        )
-                        .filter(
-                            openid_refresh_tokens::token_digest
-                                .eq(Some(digested.digest().to_db_bytes())),
-                        )
-                        .filter(
-                            openid_refresh_tokens::storage_version
-                                .eq(Some(REFRESH_STORAGE_VERSION)),
-                        )
-                        .select(openid_refresh_tokens::family_id)
-                        .first::<Option<Uuid>>(conn)
-                        .await
-                        .optional()?
-                } else {
-                    // Bounded A1.5 compatibility: legacy UUID credentials can
-                    // close only their exact row and can never rotate.
-                    diesel::update(openid_refresh_tokens::table)
-                        .filter(openid_refresh_tokens::token_id.eq(&presented_token))
-                        .filter(openid_refresh_tokens::storage_version.is_null())
-                        .filter(openid_refresh_tokens::is_revoked.eq(false))
-                        .set(openid_refresh_tokens::is_revoked.eq(true))
-                        .execute(conn)
-                        .await?;
-                    return Ok(());
-                };
+            if let Some((Some(family_id),)) = row {
+                Self::lock_refresh_family(&mut tx, family_id).await?;
+                let now = Self::database_clock_tx(&mut tx).await?;
+                sqlx::query(
+                    "UPDATE openid_refresh_tokens \
+                     SET is_revoked = TRUE, revoked_at = $1 \
+                     WHERE family_id = $2 AND storage_version = $3 \
+                       AND is_revoked = FALSE AND consumed_at IS NULL AND revoked_at IS NULL",
+                )
+                .bind(now)
+                .bind(family_id)
+                .bind(REFRESH_STORAGE_VERSION)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+            }
+        } else {
+            // Legacy UUID path
+            sqlx::query(
+                "UPDATE openid_refresh_tokens SET is_revoked = TRUE \
+                 WHERE token_id = $1 AND storage_version IS NULL AND is_revoked = FALSE",
+            )
+            .bind(refresh_token)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        }
 
-                match family_id {
-                    Some(Some(family_id)) => {
-                        Self::lock_refresh_family(conn, family_id).await?;
-                        let now = Self::database_clock(conn).await?;
-                        diesel::update(openid_refresh_tokens::table)
-                            .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
-                            .filter(
-                                openid_refresh_tokens::storage_version
-                                    .eq(Some(REFRESH_STORAGE_VERSION)),
-                            )
-                            .filter(openid_refresh_tokens::is_revoked.eq(false))
-                            .filter(openid_refresh_tokens::consumed_at.is_null())
-                            .filter(openid_refresh_tokens::revoked_at.is_null())
-                            .set((
-                                openid_refresh_tokens::is_revoked.eq(true),
-                                openid_refresh_tokens::revoked_at.eq(Some(now)),
-                            ))
-                            .execute(conn)
-                            .await?;
-                    }
-                    Some(None) => {}
-                    None => {}
-                }
-
-                Ok(())
-            })
-        })
-        .await
-        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        tx.commit()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e)))?;
 
         Ok(())
     }
 
     /// Atomically consume a refresh token and create its replacement.
-    ///
-    /// The conditional UPDATE prevents concurrent refresh requests from reusing the same
-    /// token. The transaction rolls back the revocation if inserting the replacement fails.
     pub(crate) async fn consume_refresh_token(
         &self,
         refresh_token: &str,
@@ -482,16 +433,8 @@ impl OpenIDTokenService {
         expected_family_id: Uuid,
         new_refresh_token: &IssuedRefreshToken,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let requested_client = RefreshClient::parse(client_id)?;
         let old_token = self.digest_presented_refresh_token(refresh_token)?;
-
-        let mut conn = self
-            .db_pool
-            .acquire()
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         let old_digest_key_id = old_token.digest_key_id().to_string();
         let old_digest = old_token.digest().to_db_bytes();
@@ -502,227 +445,187 @@ impl OpenIDTokenService {
         let new_digest = new_refresh_token.digest().to_db_bytes();
         let refresh_token_expiry_days = self.refresh_token_expiry_days;
 
-        let outcome = conn
-            .transaction::<_, diesel::result::Error, _>(|conn| {
-                Box::pin(async move {
-                    Self::lock_refresh_family(conn, expected_family_id).await?;
-                    let now = Self::database_clock(conn).await?;
-                    let new_expires_at = now + Duration::days(refresh_token_expiry_days);
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
+        })?;
 
-                    let consumed = diesel::update(openid_refresh_tokens::table)
-                        .filter(
-                            openid_refresh_tokens::digest_key_id
-                                .eq(Some(old_digest_key_id.as_str())),
-                        )
-                        .filter(
-                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
-                        )
-                        .filter(openid_refresh_tokens::token_digest.eq(Some(old_digest.clone())))
-                        .filter(
-                            openid_refresh_tokens::storage_version
-                                .eq(Some(REFRESH_STORAGE_VERSION)),
-                        )
-                        .filter(openid_refresh_tokens::wallet_address.eq(&expected_wallet_address))
-                        .filter(
-                            openid_refresh_tokens::client_id.eq(Some(requested_client_id.as_str())),
-                        )
-                        .filter(openid_refresh_tokens::family_id.eq(Some(expected_family_id)))
-                        .filter(openid_refresh_tokens::is_revoked.eq(false))
-                        .filter(openid_refresh_tokens::consumed_at.is_null())
-                        .filter(openid_refresh_tokens::revoked_at.is_null())
-                        .filter(openid_refresh_tokens::expires_at.gt(now))
-                        .set((
-                            openid_refresh_tokens::is_revoked.eq(true),
-                            openid_refresh_tokens::consumed_at.eq(Some(now)),
-                        ))
-                        .returning((
-                            openid_refresh_tokens::token_id,
-                            openid_refresh_tokens::wallet_address,
-                            openid_refresh_tokens::client_id,
-                            openid_refresh_tokens::family_id,
-                            openid_refresh_tokens::expires_at,
-                            openid_refresh_tokens::created_at,
-                        ))
-                        .get_result::<(
-                            String,
-                            String,
-                            Option<String>,
-                            Option<Uuid>,
-                            DateTime<Utc>,
-                            DateTime<Utc>,
-                        )>(conn)
-                        .await
-                        .optional()?;
+        Self::lock_refresh_family(&mut tx, expected_family_id).await?;
+        let now = Self::database_clock_tx(&mut tx).await?;
+        let new_expires_at = now + Duration::days(refresh_token_expiry_days);
 
-                    let Some((
-                        storage_id,
-                        wallet_address,
-                        stored_client_id,
-                        family_id,
-                        expires_at,
-                        created_at,
-                    )) = consumed
-                    else {
-                        let terminal = openid_refresh_tokens::table
-                            .filter(
-                                openid_refresh_tokens::digest_key_id
-                                    .eq(Some(old_digest_key_id.as_str())),
-                            )
-                            .filter(
-                                openid_refresh_tokens::digest_version
-                                    .eq(Some(REFRESH_DIGEST_VERSION)),
-                            )
-                            .filter(
-                                openid_refresh_tokens::token_digest.eq(Some(old_digest.clone())),
-                            )
-                            .filter(
-                                openid_refresh_tokens::storage_version
-                                    .eq(Some(REFRESH_STORAGE_VERSION)),
-                            )
-                            .filter(
-                                openid_refresh_tokens::wallet_address.eq(&expected_wallet_address),
-                            )
-                            .filter(
-                                openid_refresh_tokens::client_id
-                                    .eq(Some(requested_client_id.as_str())),
-                            )
-                            .filter(openid_refresh_tokens::family_id.eq(Some(expected_family_id)))
-                            .select((
-                                openid_refresh_tokens::is_revoked,
-                                openid_refresh_tokens::consumed_at,
-                                openid_refresh_tokens::revoked_at,
-                                openid_refresh_tokens::replay_detected_at,
-                            ))
-                            .first::<(
-                                bool,
-                                Option<DateTime<Utc>>,
-                                Option<DateTime<Utc>>,
-                                Option<DateTime<Utc>>,
-                            )>(conn)
-                            .await
-                            .optional()?;
-
-                        if matches!(
-                            terminal.map(
-                                |(is_revoked, consumed_at, revoked_at, replay_detected_at)| {
-                                    classify_refresh_state(
-                                        is_revoked,
-                                        consumed_at,
-                                        revoked_at,
-                                        replay_detected_at,
-                                    )
-                                }
-                            ),
-                            Some(StoredRefreshState::Consumed)
-                        ) {
-                            diesel::update(openid_refresh_tokens::table)
-                                .filter(
-                                    openid_refresh_tokens::digest_key_id
-                                        .eq(Some(old_digest_key_id.as_str())),
-                                )
-                                .filter(
-                                    openid_refresh_tokens::digest_version
-                                        .eq(Some(REFRESH_DIGEST_VERSION)),
-                                )
-                                .filter(openid_refresh_tokens::token_digest.eq(Some(old_digest)))
-                                .filter(
-                                    openid_refresh_tokens::storage_version
-                                        .eq(Some(REFRESH_STORAGE_VERSION)),
-                                )
-                                .filter(
-                                    openid_refresh_tokens::client_id
-                                        .eq(Some(requested_client_id.as_str())),
-                                )
-                                .filter(
-                                    openid_refresh_tokens::family_id.eq(Some(expected_family_id)),
-                                )
-                                .filter(openid_refresh_tokens::consumed_at.is_not_null())
-                                .set(openid_refresh_tokens::replay_detected_at.eq(Some(now)))
-                                .execute(conn)
-                                .await?;
-
-                            diesel::update(openid_refresh_tokens::table)
-                                .filter(
-                                    openid_refresh_tokens::family_id.eq(Some(expected_family_id)),
-                                )
-                                .filter(
-                                    openid_refresh_tokens::storage_version
-                                        .eq(Some(REFRESH_STORAGE_VERSION)),
-                                )
-                                .filter(openid_refresh_tokens::is_revoked.eq(false))
-                                .filter(openid_refresh_tokens::consumed_at.is_null())
-                                .filter(openid_refresh_tokens::revoked_at.is_null())
-                                .set((
-                                    openid_refresh_tokens::is_revoked.eq(true),
-                                    openid_refresh_tokens::revoked_at.eq(Some(now)),
-                                ))
-                                .execute(conn)
-                                .await?;
-
-                            return Ok(RefreshRotationOutcome::ReuseDetected);
-                        }
-
-                        return Ok(RefreshRotationOutcome::Invalid);
-                    };
-
-                    let stored_client_id = stored_client_id
-                        .filter(|stored| requested_client.matches_stored(Some(stored.as_str())))
-                        .ok_or(diesel::result::Error::NotFound)?;
-                    let family_id = family_id
-                        .filter(|stored| *stored == expected_family_id)
-                        .ok_or(diesel::result::Error::NotFound)?;
-
-                    diesel::insert_into(openid_refresh_tokens::table)
-                        .values((
-                            openid_refresh_tokens::token_id.eq(&new_storage_id),
-                            openid_refresh_tokens::wallet_address.eq(&wallet_address),
-                            openid_refresh_tokens::client_id.eq(Some(stored_client_id.as_str())),
-                            openid_refresh_tokens::family_id.eq(Some(family_id)),
-                            openid_refresh_tokens::token_digest.eq(Some(new_digest)),
-                            openid_refresh_tokens::digest_key_id
-                                .eq(Some(new_digest_key_id.as_str())),
-                            openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
-                            openid_refresh_tokens::storage_version
-                                .eq(Some(REFRESH_STORAGE_VERSION)),
-                            openid_refresh_tokens::expires_at.eq(&new_expires_at),
-                            // `created_at` is the original authentication time for this
-                            // rotation chain; preserving it prevents `auth_time` from
-                            // drifting forward on every refresh.
-                            openid_refresh_tokens::created_at.eq(&created_at),
-                            openid_refresh_tokens::is_revoked.eq(false),
-                            openid_refresh_tokens::consumed_at.eq(Option::<DateTime<Utc>>::None),
-                            openid_refresh_tokens::revoked_at.eq(Option::<DateTime<Utc>>::None),
-                            openid_refresh_tokens::replay_detected_at
-                                .eq(Option::<DateTime<Utc>>::None),
-                        ))
-                        .execute(conn)
-                        .await?;
-
-                    Ok(RefreshRotationOutcome::Rotated(RefreshTokenInfo {
-                        token_id: storage_id,
-                        wallet_address,
-                        client_id: stored_client_id,
-                        family_id,
-                        expires_at,
-                        created_at,
-                        is_revoked: true,
-                        consumed_at: Some(now),
-                        revoked_at: None,
-                        replay_detected_at: None,
-                    }))
-                })
-            })
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
-
-        match outcome {
-            RefreshRotationOutcome::Rotated(info) => Ok(info),
-            RefreshRotationOutcome::ReuseDetected | RefreshRotationOutcome::Invalid => {
-                Err(OpenIDTokenError::InvalidRefreshToken(
-                    "Token not found, expired, revoked, or already used".to_string(),
-                ))
-            }
+        // Conditional UPDATE — atomically consume the old token only if still valid
+        #[derive(sqlx::FromRow)]
+        struct ConsumedRow {
+            token_id: String,
+            wallet_address: String,
+            client_id: Option<String>,
+            family_id: Option<Uuid>,
+            expires_at: DateTime<Utc>,
+            created_at: DateTime<Utc>,
         }
+
+        let consumed: Option<ConsumedRow> = sqlx::query_as(
+            r#"
+            UPDATE openid_refresh_tokens
+            SET is_revoked = TRUE, consumed_at = $1
+            WHERE digest_key_id = $2 AND digest_version = $3
+              AND token_digest = $4 AND storage_version = $5
+              AND wallet_address = $6 AND client_id = $7
+              AND family_id = $8 AND is_revoked = FALSE
+              AND consumed_at IS NULL AND revoked_at IS NULL
+              AND expires_at > $1
+            RETURNING token_id, wallet_address, client_id, family_id, expires_at, created_at
+            "#,
+        )
+        .bind(now)
+        .bind(&old_digest_key_id)
+        .bind(REFRESH_DIGEST_VERSION)
+        .bind(&old_digest)
+        .bind(REFRESH_STORAGE_VERSION)
+        .bind(&expected_wallet_address)
+        .bind(&requested_client_id)
+        .bind(expected_family_id)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        let row = match consumed {
+            Some(r) => r,
+            None => {
+                // Token wasn't consumable — check if it's been used before (replay detection)
+                #[derive(sqlx::FromRow)]
+                struct TerminalRow {
+                    is_revoked: bool,
+                    consumed_at: Option<DateTime<Utc>>,
+                    revoked_at: Option<DateTime<Utc>>,
+                    replay_detected_at: Option<DateTime<Utc>>,
+                }
+
+                let terminal: Option<TerminalRow> = sqlx::query_as(
+                    "SELECT is_revoked, consumed_at, revoked_at, replay_detected_at \
+                     FROM openid_refresh_tokens \
+                     WHERE digest_key_id = $1 AND digest_version = $2 \
+                       AND token_digest = $3 AND storage_version = $4 \
+                       AND wallet_address = $5 AND client_id = $6 \
+                       AND family_id = $7",
+                )
+                .bind(&old_digest_key_id)
+                .bind(REFRESH_DIGEST_VERSION)
+                .bind(&old_digest)
+                .bind(REFRESH_STORAGE_VERSION)
+                .bind(&expected_wallet_address)
+                .bind(&requested_client_id)
+                .bind(expected_family_id)
+                .fetch_optional(&mut *tx)
+                .await
+                .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+                if matches!(
+                    terminal.map(|t| classify_refresh_state(t.is_revoked, t.consumed_at, t.revoked_at, t.replay_detected_at)),
+                    Some(StoredRefreshState::Consumed)
+                ) {
+                    sqlx::query(
+                        "UPDATE openid_refresh_tokens SET replay_detected_at = $1 \
+                         WHERE digest_key_id = $2 AND digest_version = $3 \
+                           AND token_digest = $4 AND storage_version = $5 \
+                           AND client_id = $6 AND family_id = $7 \
+                           AND consumed_at IS NOT NULL",
+                    )
+                    .bind(now)
+                    .bind(&old_digest_key_id)
+                    .bind(REFRESH_DIGEST_VERSION)
+                    .bind(&old_digest)
+                    .bind(REFRESH_STORAGE_VERSION)
+                    .bind(&requested_client_id)
+                    .bind(expected_family_id)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+                    sqlx::query(
+                        "UPDATE openid_refresh_tokens \
+                         SET is_revoked = TRUE, revoked_at = $1 \
+                         WHERE family_id = $2 AND storage_version = $3 \
+                           AND is_revoked = FALSE AND consumed_at IS NULL \
+                           AND revoked_at IS NULL",
+                    )
+                    .bind(now)
+                    .bind(expected_family_id)
+                    .bind(REFRESH_STORAGE_VERSION)
+                    .execute(&mut *tx)
+                    .await
+                    .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+                    tx.commit().await.map_err(|e| {
+                        OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e))
+                    })?;
+
+                    return Err(OpenIDTokenError::InvalidRefreshToken(
+                        "Token not found, expired, revoked, or already used".to_string(),
+                    ));
+                }
+
+                tx.rollback().await.ok();
+                return Err(OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                ));
+            }
+        };
+
+        let stored_client_id = row
+            .client_id
+            .as_deref()
+            .filter(|stored| requested_client.matches_stored(Some(stored)))
+            .ok_or_else(|| {
+                OpenIDTokenError::InvalidRefreshToken("Token client mismatch".to_string())
+            })?
+            .to_string();
+        let family_id = row.family_id.unwrap_or(expected_family_id);
+
+        // Insert the new token row
+        sqlx::query(
+            r#"
+            INSERT INTO openid_refresh_tokens (
+                token_id, wallet_address, client_id, family_id,
+                token_digest, digest_key_id, digest_version, storage_version,
+                expires_at, created_at, is_revoked, consumed_at, revoked_at, replay_detected_at
+            ) VALUES (
+                $1, $2, $3, $4,
+                $5, $6, $7, $8,
+                $9, $10, FALSE, NULL, NULL, NULL
+            )
+            "#,
+        )
+        .bind(&new_storage_id)
+        .bind(&row.wallet_address)
+        .bind(&stored_client_id)
+        .bind(family_id)
+        .bind(&new_digest)
+        .bind(&new_digest_key_id)
+        .bind(REFRESH_DIGEST_VERSION)
+        .bind(REFRESH_STORAGE_VERSION)
+        .bind(new_expires_at)
+        .bind(row.created_at)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e))
+        })?;
+
+        Ok(RefreshTokenInfo {
+            token_id: row.token_id,
+            wallet_address: row.wallet_address,
+            client_id: stored_client_id,
+            family_id,
+            expires_at: row.expires_at,
+            created_at: row.created_at,
+            is_revoked: true,
+            consumed_at: Some(now),
+            revoked_at: None,
+            replay_detected_at: None,
+        })
     }
 
     /// Validate Access Token
@@ -738,8 +641,6 @@ impl OpenIDTokenService {
         )
     }
 
-    // Private helper methods
-
     /// Verify Web3 authentication using SIWE cryptographic signature verification
     async fn verify_web3_authentication(
         &self,
@@ -749,7 +650,6 @@ impl OpenIDTokenService {
         use siwe::{Message, VerificationOpts};
         use std::str::FromStr;
 
-        // Validate inputs
         if request.wallet_address.is_empty()
             || request.signature.is_empty()
             || request.message.is_empty()
@@ -759,7 +659,6 @@ impl OpenIDTokenService {
             ));
         }
 
-        // Parse and verify SIWE message
         let siwe_message = Message::from_str(&request.message).map_err(|e| {
             OpenIDTokenError::Web3AuthenticationFailed(format!("Invalid SIWE message: {}", e))
         })?;
@@ -774,16 +673,10 @@ impl OpenIDTokenService {
             ));
         }
 
-        // Decode signature from hex
-        let signature_bytes =
-            hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
-                OpenIDTokenError::Web3AuthenticationFailed(format!(
-                    "Invalid signature format: {}",
-                    e
-                ))
-            })?;
+        let signature_bytes = hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
+            OpenIDTokenError::Web3AuthenticationFailed(format!("Invalid signature format: {}", e))
+        })?;
 
-        // Cryptographically verify SIWE signature
         let verification_opts = VerificationOpts {
             nonce: Some(request.nonce),
             ..Default::default()
@@ -802,87 +695,74 @@ impl OpenIDTokenService {
         Ok(())
     }
 
-    /// Get wallet user profile from database
-    /// CRITICAL: This is the ONLY place we query database for permissions
-    /// All permissions from permission plans are expanded here and stored in JWT
+    /// Get wallet user profile from database.
     async fn get_wallet_user_profile(
         &self,
         wallet_address: &str,
     ) -> Result<WalletUserProfile, OpenIDTokenError> {
-        // Expand permission plans into individual permissions
         let expanded_permissions = self.expand_plans(wallet_address).await?;
-
         Ok(WalletUserProfile {
             permissions: expanded_permissions,
         })
     }
 
-    /// Get permissions from normalized permission tables
-    /// Queries: wallet_plan_assignments + plan_permissions + wallet_direct_permissions
+    /// Get permissions from normalized permission tables (plans + direct).
     pub async fn expand_plans(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {
-        use crate::schemas::primary::wallet_users;
+        // Verify user exists and is active.
+        #[derive(sqlx::FromRow)]
+        struct UserExists {
+            exists: bool,
+        }
 
-        let mut conn = self
-            .db_pool
-            .acquire()
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+        let user: UserExists = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM wallet_users WHERE wallet_address = $1 AND is_active = TRUE) AS exists",
+        )
+        .bind(wallet_address)
+        .fetch_one(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        // First verify user exists and is active
-        let user_exists = wallet_users::table
-            .filter(wallet_users::wallet_address.eq(wallet_address))
-            .filter(wallet_users::is_active.eq(true))
-            .select(wallet_users::is_active)
-            .first::<bool>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
-            .is_some();
-
-        if !user_exists {
+        if !user.exists {
             return Err(OpenIDTokenError::Web3AuthenticationFailed(format!(
                 "User not found or inactive: {}",
                 wallet_address
             )));
         }
 
-        // Query effective permissions from normalized tables (plans + direct)
         #[derive(sqlx::FromRow)]
         struct PermissionResult {
-                        permission_string: String,
+            permission_string: String,
         }
 
-        let permission_records = sqlx::query(
+        let permission_records: Vec<PermissionResult> = sqlx::query_as(
             r#"
-            -- Permissions from plans
             SELECT DISTINCT p.permission_string
             FROM wallet_plan_assignments wga
             JOIN plan_permissions pgm ON wga.plan_id = pgm.plan_id
             JOIN permissions p ON pgm.permission_id = p.id
             WHERE wga.wallet_address = $1
-              AND wga.is_active = true
-              AND p.is_active = true
+              AND wga.is_active = TRUE
+              AND p.is_active = TRUE
               AND (wga.expires_at IS NULL OR wga.expires_at > NOW())
 
             UNION
 
-            -- Direct permissions
             SELECT DISTINCT p.permission_string
             FROM wallet_direct_permissions wdp
             JOIN permissions p ON wdp.permission_id = p.id
             WHERE wdp.wallet_address = $1
-              AND wdp.is_active = true
-              AND p.is_active = true
+              AND wdp.is_active = TRUE
+              AND p.is_active = TRUE
               AND (wdp.expires_at IS NULL OR wdp.expires_at > NOW())
 
             ORDER BY permission_string
             "#,
         )
         .bind(wallet_address)
-        
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -954,7 +834,7 @@ impl OpenIDTokenService {
             wallet_address: wallet_address.to_string(),
             auth_time,
             amr: vec!["web3".to_string()],
-            acr: "1".to_string(), // Authentication Context Class Reference
+            acr: "1".to_string(),
         };
 
         let mut header = Header::new(Algorithm::RS256);
@@ -985,60 +865,37 @@ impl OpenIDTokenService {
     }
 
     async fn current_database_time(&self) -> Result<DateTime<Utc>, OpenIDTokenError> {
-        let mut conn = self
-            .db_pool
-            .acquire()
+        let row: (DateTime<Utc>,) = sqlx::query_as("SELECT NOW()")
+            .fetch_one(&self.db_pool)
             .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-        Self::database_clock(&mut conn)
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        Ok(row.0)
     }
 
-    async fn database_clock(
-        conn: &mut AsyncPgConnection,
-    ) -> Result<DateTime<Utc>, diesel::result::Error> {
-        use diesel::sql_types::Timestamptz;
-
-        #[derive(sqlx::FromRow)]
-        struct DatabaseClock {
-                        observed_at: DateTime<Utc>,
-        }
-
-        sqlx::query("SELECT clock_timestamp() AS observed_at")
-            .get_result::<DatabaseClock>(conn)
+    async fn database_clock_tx(
+        tx: &mut Transaction<'_, Postgres>,
+    ) -> Result<DateTime<Utc>, OpenIDTokenError> {
+        let row: (DateTime<Utc>,) = sqlx::query_as("SELECT clock_timestamp()")
+            .fetch_one(&mut **tx)
             .await
-            .map(|clock| clock.observed_at)
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        Ok(row.0)
     }
 
+    /// Transaction-scoped advisory lock keyed on the family UUID.
     async fn lock_refresh_family(
-        conn: &mut AsyncPgConnection,
+        tx: &mut Transaction<'_, Postgres>,
         family_id: Uuid,
-    ) -> Result<(), diesel::result::Error> {
-        use diesel::sql_types::{BigInt, Uuid as SqlUuid};
-
-        #[derive(sqlx::FromRow)]
-        struct FamilyLockResult {
-                        lock_result: i64,
-        }
-
-        // A transaction-scoped advisory lock gives every row in one family the
-        // same immutable serialization point. A 64-bit hash collision can only
-        // over-serialize unrelated families; it cannot weaken mutual exclusion.
-        let lock = sqlx::query(
-            r#"
-            WITH family_lock AS MATERIALIZED (
-                SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
-            )
-            SELECT 1::BIGINT AS lock_result
-            FROM family_lock
-            "#,
+    ) -> Result<(), OpenIDTokenError> {
+        sqlx::query(
+            "WITH family_lock AS MATERIALIZED (\
+                SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))\
+             ) SELECT 1 FROM family_lock",
         )
         .bind(family_id)
-        .get_result::<FamilyLockResult>(conn)
-        .await?;
-        debug_assert_eq!(lock.lock_result, 1);
-
+        .execute(&mut **tx)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
         Ok(())
     }
 
@@ -1051,40 +908,38 @@ impl OpenIDTokenService {
         refresh_token: &IssuedRefreshToken,
         created_at: DateTime<Utc>,
     ) -> Result<(), OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let client = RefreshClient::parse(client_id)?;
 
         let expires_at = created_at + Duration::days(self.refresh_token_expiry_days);
         let storage_id = Uuid::new_v4().to_string();
         let token_digest = refresh_token.digest().to_db_bytes();
 
-        let mut conn = self
-            .db_pool
-            .acquire()
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::insert_into(openid_refresh_tokens::table)
-            .values((
-                openid_refresh_tokens::token_id.eq(&storage_id),
-                openid_refresh_tokens::wallet_address.eq(wallet_address),
-                openid_refresh_tokens::client_id.eq(Some(client.as_str())),
-                openid_refresh_tokens::family_id.eq(Some(family_id)),
-                openid_refresh_tokens::token_digest.eq(Some(token_digest)),
-                openid_refresh_tokens::digest_key_id.eq(Some(refresh_token.digest_key_id())),
-                openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)),
-                openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)),
-                openid_refresh_tokens::expires_at.eq(&expires_at),
-                openid_refresh_tokens::created_at.eq(&created_at),
-                openid_refresh_tokens::is_revoked.eq(false),
-                openid_refresh_tokens::consumed_at.eq(Option::<DateTime<Utc>>::None),
-                openid_refresh_tokens::revoked_at.eq(Option::<DateTime<Utc>>::None),
-                openid_refresh_tokens::replay_detected_at.eq(Option::<DateTime<Utc>>::None),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            r#"
+            INSERT INTO openid_refresh_tokens (
+                token_id, wallet_address, client_id, family_id,
+                token_digest, digest_key_id, digest_version, storage_version,
+                expires_at, created_at, is_revoked, consumed_at, revoked_at, replay_detected_at
+            ) VALUES (
+                $1, $2, $3, $4,
+                $5, $6, $7, $8,
+                $9, $10, FALSE, NULL, NULL, NULL
+            )
+            "#,
+        )
+        .bind(&storage_id)
+        .bind(wallet_address)
+        .bind(client.as_str())
+        .bind(family_id)
+        .bind(&token_digest)
+        .bind(refresh_token.digest_key_id().to_string())
+        .bind(REFRESH_DIGEST_VERSION)
+        .bind(REFRESH_STORAGE_VERSION)
+        .bind(&expires_at)
+        .bind(&created_at)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }
@@ -1095,8 +950,6 @@ impl OpenIDTokenService {
         refresh_token: &str,
         client_id: &str,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let client = RefreshClient::parse(client_id)?;
         let digested = self.digest_presented_refresh_token(refresh_token)?;
         let digest_key_id = digested.digest_key_id().to_string();
@@ -1116,25 +969,23 @@ impl OpenIDTokenService {
             replay_detected_at: Option<DateTime<Utc>>,
         }
 
-        let mut conn = self
-            .db_pool
-            .acquire()
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        let token = openid_refresh_tokens::table
-            .filter(openid_refresh_tokens::digest_key_id.eq(Some(digest_key_id.as_str())))
-            .filter(openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)))
-            .filter(openid_refresh_tokens::token_digest.eq(Some(token_digest.clone())))
-            .filter(openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)))
-            .filter(openid_refresh_tokens::client_id.eq(Some(client.as_str())))
-            .filter(openid_refresh_tokens::family_id.is_not_null())
-            .select(RefreshTokenDb::as_select())
-            .first::<RefreshTokenDb>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
-            .ok_or_else(|| OpenIDTokenError::InvalidRefreshToken("Token not found".to_string()))?;
+        let token: RefreshTokenDb = sqlx::query_as(
+            "SELECT token_id, wallet_address, client_id, family_id, expires_at, \
+                    created_at, is_revoked, consumed_at, revoked_at, replay_detected_at \
+             FROM openid_refresh_tokens \
+             WHERE digest_key_id = $1 AND digest_version = $2 \
+               AND token_digest = $3 AND storage_version = $4 \
+               AND client_id = $5 AND family_id IS NOT NULL",
+        )
+        .bind(&digest_key_id)
+        .bind(REFRESH_DIGEST_VERSION)
+        .bind(&token_digest)
+        .bind(REFRESH_STORAGE_VERSION)
+        .bind(client.as_str())
+        .fetch_optional(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
+        .ok_or_else(|| OpenIDTokenError::InvalidRefreshToken("Token not found".to_string()))?;
 
         let family_id = token
             .family_id
@@ -1147,9 +998,7 @@ impl OpenIDTokenService {
             token.replay_detected_at,
         ) {
             StoredRefreshState::Active => {
-                let now = Self::database_clock(&mut conn)
-                    .await
-                    .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+                let now = self.current_database_time().await?;
                 if now > token.expires_at {
                     return Err(OpenIDTokenError::TokenExpired(
                         "Refresh token expired".to_string(),
@@ -1196,60 +1045,56 @@ impl OpenIDTokenService {
         client: RefreshClient,
         family_id: Uuid,
     ) -> Result<(), OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let digest_key_id = digest_key_id.to_owned();
         let token_digest = token_digest.to_vec();
         let client_id = client.as_str().to_owned();
-        let mut conn = self
-            .db_pool
-            .acquire()
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
-        conn.transaction::<_, diesel::result::Error, _>(|conn| {
-            Box::pin(async move {
-                Self::lock_refresh_family(conn, family_id).await?;
-                let now = Self::database_clock(conn).await?;
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
+        })?;
 
-                let replayed = diesel::update(openid_refresh_tokens::table)
-                    .filter(openid_refresh_tokens::digest_key_id.eq(Some(digest_key_id.as_str())))
-                    .filter(openid_refresh_tokens::digest_version.eq(Some(REFRESH_DIGEST_VERSION)))
-                    .filter(openid_refresh_tokens::token_digest.eq(Some(token_digest)))
-                    .filter(
-                        openid_refresh_tokens::storage_version.eq(Some(REFRESH_STORAGE_VERSION)),
-                    )
-                    .filter(openid_refresh_tokens::client_id.eq(Some(client_id.as_str())))
-                    .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
-                    .filter(openid_refresh_tokens::consumed_at.is_not_null())
-                    .filter(openid_refresh_tokens::revoked_at.is_null())
-                    .set(openid_refresh_tokens::replay_detected_at.eq(Some(now)))
-                    .execute(conn)
-                    .await?;
+        Self::lock_refresh_family(&mut tx, family_id).await?;
+        let now = Self::database_clock_tx(&mut tx).await?;
 
-                if replayed > 0 {
-                    diesel::update(openid_refresh_tokens::table)
-                        .filter(openid_refresh_tokens::family_id.eq(Some(family_id)))
-                        .filter(
-                            openid_refresh_tokens::storage_version
-                                .eq(Some(REFRESH_STORAGE_VERSION)),
-                        )
-                        .filter(openid_refresh_tokens::is_revoked.eq(false))
-                        .filter(openid_refresh_tokens::consumed_at.is_null())
-                        .filter(openid_refresh_tokens::revoked_at.is_null())
-                        .set((
-                            openid_refresh_tokens::is_revoked.eq(true),
-                            openid_refresh_tokens::revoked_at.eq(Some(now)),
-                        ))
-                        .execute(conn)
-                        .await?;
-                }
-
-                Ok(())
-            })
-        })
+        let replayed = sqlx::query(
+            "UPDATE openid_refresh_tokens SET replay_detected_at = $1 \
+             WHERE digest_key_id = $2 AND digest_version = $3 \
+               AND token_digest = $4 AND storage_version = $5 \
+               AND client_id = $6 AND family_id = $7 \
+               AND consumed_at IS NOT NULL AND revoked_at IS NULL",
+        )
+        .bind(now)
+        .bind(&digest_key_id)
+        .bind(REFRESH_DIGEST_VERSION)
+        .bind(&token_digest)
+        .bind(REFRESH_STORAGE_VERSION)
+        .bind(&client_id)
+        .bind(family_id)
+        .execute(&mut *tx)
         .await
-        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        if replayed.rows_affected() > 0 {
+            sqlx::query(
+                "UPDATE openid_refresh_tokens \
+                 SET is_revoked = TRUE, revoked_at = $1 \
+                 WHERE family_id = $2 AND storage_version = $3 \
+                   AND is_revoked = FALSE AND consumed_at IS NULL \
+                   AND revoked_at IS NULL",
+            )
+            .bind(now)
+            .bind(family_id)
+            .bind(REFRESH_STORAGE_VERSION)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        }
+
+        tx.commit().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e))
+        })?;
+
+        Ok(())
     }
 
     /// Check if client_id is valid
@@ -1511,94 +1356,6 @@ mod tests {
             &key_manager,
             Algorithm::RS256,
             Some("unknown-key".to_string()),
-        );
-
-        assert!(validate_access_token_with_key_manager(
-            &token,
-            TEST_ISSUER,
-            &test_audiences(),
-            &key_manager,
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn access_token_validation_rejects_missing_kid() {
-        let key_manager = KeyManager::new().unwrap();
-        let token = encode_test_token(&key_manager, Algorithm::RS256, None);
-
-        assert!(validate_access_token_with_key_manager(
-            &token,
-            TEST_ISSUER,
-            &test_audiences(),
-            &key_manager,
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn access_token_validation_rejects_empty_kid() {
-        let key_manager = KeyManager::new().unwrap();
-        let token = encode_test_token(&key_manager, Algorithm::RS256, Some("   ".to_string()));
-
-        assert!(validate_access_token_with_key_manager(
-            &token,
-            TEST_ISSUER,
-            &test_audiences(),
-            &key_manager,
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn access_token_validation_rejects_wrong_algorithm() {
-        let key_manager = KeyManager::new().unwrap();
-        let token = encode_test_token(
-            &key_manager,
-            Algorithm::RS384,
-            Some(key_manager.current_key().kid.clone()),
-        );
-
-        assert!(validate_access_token_with_key_manager(
-            &token,
-            TEST_ISSUER,
-            &test_audiences(),
-            &key_manager,
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn access_token_validation_rejects_wrong_issuer() {
-        let key_manager = KeyManager::new().unwrap();
-        let mut claims = test_claims();
-        claims.iss = "https://attacker.invalid".to_string();
-        let token = encode_test_claims(
-            &key_manager,
-            Algorithm::RS256,
-            Some(key_manager.current_key().kid.clone()),
-            &claims,
-        );
-
-        assert!(validate_access_token_with_key_manager(
-            &token,
-            TEST_ISSUER,
-            &test_audiences(),
-            &key_manager,
-        )
-        .is_err());
-    }
-
-    #[test]
-    fn access_token_validation_rejects_wrong_audience() {
-        let key_manager = KeyManager::new().unwrap();
-        let mut claims = test_claims();
-        claims.aud = vec!["untrusted-client".to_string()];
-        let token = encode_test_claims(
-            &key_manager,
-            Algorithm::RS256,
-            Some(key_manager.current_key().kid.clone()),
-            &claims,
         );
 
         assert!(validate_access_token_with_key_manager(

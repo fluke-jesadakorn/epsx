@@ -130,7 +130,7 @@ pub async fn bulk_grant(
         return AdminResponse::bad_request("No permissions provided").into_response();
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -298,7 +298,7 @@ pub async fn bulk_revoke(
         return AdminResponse::bad_request("No permissions provided").into_response();
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -339,7 +339,7 @@ pub async fn bulk_revoke(
             match diesel::sql_query("DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2")
                 .bind::<diesel::sql_types::Text, _>(&wallet)
                 .bind::<diesel::sql_types::Uuid, _>(perm_id)
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
             {
                 Ok(rows) if rows > 0 => {
@@ -405,7 +405,7 @@ pub async fn bulk_assign_plans(
         return AdminResponse::bad_request("No wallet addresses provided").into_response();
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);
@@ -448,7 +448,7 @@ pub async fn bulk_assign_plans(
                 .as_deref()
                 .unwrap_or("bulk_assignment"),
         )
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         {
             Ok(_) => {
@@ -562,7 +562,7 @@ pub async fn bulk_validate(
         return AdminResponse::bad_request("No wallet addresses provided").into_response();
     }
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

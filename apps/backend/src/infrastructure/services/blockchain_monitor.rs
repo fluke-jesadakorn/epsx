@@ -119,7 +119,7 @@ impl BlockchainMonitor {
 
         // Step 1: Check if event already processed (prevent duplicates)
         let mut conn = pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| AppError::database_error(format!("Failed to get connection: {}", e)))?;
 
@@ -172,7 +172,7 @@ impl BlockchainMonitor {
         .bind::<diesel::sql_types::BigInt, _>(event.payment_id as i64)
         .bind::<diesel::sql_types::Timestamp, _>(event.timestamp.naive_utc())
         .bind::<diesel::sql_types::Text, _>("processing")
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Failed to insert event: {}", e);
@@ -221,7 +221,7 @@ impl BlockchainMonitor {
         .bind::<diesel::sql_types::Jsonb, _>(&metadata_json)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Failed to ensure wallet user exists: {}", e);
@@ -289,7 +289,7 @@ impl BlockchainMonitor {
             )
             .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .ok();
 
@@ -303,7 +303,7 @@ impl BlockchainMonitor {
             .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
             .bind::<diesel::sql_types::Uuid, _>(existing.id)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to extend plan: {}", e)))?;
 
@@ -331,7 +331,7 @@ impl BlockchainMonitor {
                 "#,
             )
             .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .ok();
 
@@ -349,7 +349,7 @@ impl BlockchainMonitor {
             .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
             .bind::<diesel::sql_types::Timestamptz, _>(new_expiry)
             .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to create plan assignment: {}", e);
@@ -369,7 +369,7 @@ impl BlockchainMonitor {
             "UPDATE payments SET status = 'confirmed', completed_at = NOW() WHERE transaction_hash = $1 AND status != 'confirmed'"
         )
         .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .ok();
 
@@ -385,7 +385,7 @@ impl BlockchainMonitor {
         .bind::<diesel::sql_types::Timestamp, _>(Utc::now().naive_utc())
         .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
         .bind::<diesel::sql_types::Integer, _>(event.log_index as i32)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| AppError::database_error(format!("Failed to update event status: {}", e)))?;
 

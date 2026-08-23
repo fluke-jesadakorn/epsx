@@ -116,7 +116,7 @@ impl DeveloperEntitlementService {
     /// never contribute scopes or limits, and the catalog must explicitly mark
     /// a permission as API-assignable before it can be delegated.
     pub async fn resolve(&self, wallet_address: &str) -> AppResult<DeveloperEntitlement> {
-        let mut conn = self.core_pool.get().await.map_err(|error| {
+        let mut conn = self.core_pool.acquire().await.map_err(|error| {
             AppError::database_error(format!("developer entitlement pool: {error}"))
         })?;
 

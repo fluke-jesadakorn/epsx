@@ -282,7 +282,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 plans::plan_metadata.eq(&new_plan.plan_metadata),
                 plans::updated_at.eq(new_plan.updated_at),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to save plan/plan {}: {}", plan.id(), e);
@@ -294,7 +294,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
 
         diesel::delete(plan_permissions::table)
             .filter(plan_permissions::plan_id.eq(plan.id().value()))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
@@ -332,7 +332,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 )
                 .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
                 .bind::<diesel::sql_types::Uuid, _>(perm_id)
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
             }
@@ -346,7 +346,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         diesel::delete(plans::table)
             .filter(plans::id.eq(id.value()))
             .filter(plans::plan_type.eq("subscription"))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to delete plan {}: {}", id, e);

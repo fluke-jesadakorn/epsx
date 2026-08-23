@@ -85,7 +85,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Test connection
     let _ = pool
-        .get()
+        .acquire().await
         .await
         .expect("Failed to connect to PostgreSQL database");
     info!("Database connection established");
@@ -99,7 +99,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         exists: bool,
     }
 
-    let mut conn = pool.get().await.expect("Failed to get database connection");
+    let mut conn = pool.acquire().await.expect("Failed to get database connection");
     let migration_check = diesel::sql_query(
         "SELECT EXISTS (
             SELECT FROM information_schema.tables

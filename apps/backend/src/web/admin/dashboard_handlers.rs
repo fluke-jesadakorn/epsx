@@ -63,7 +63,7 @@ pub async fn admin_dashboard_user_status_handler(
 ) -> Result<Json<AdminApiResponse<AdminDashboardUserStatusResponse>>, AppError> {
     reject_query(raw_query.as_deref())?;
 
-    let mut connection = app_state.db_pool.get().await.map_err(|pool_error| {
+    let mut connection = app_state.db_pool.acquire().await.map_err(|pool_error| {
         error!(error = ?pool_error, "Failed to acquire dashboard user status database connection");
         AppError::database_error("Dashboard user status is temporarily unavailable")
     })?;

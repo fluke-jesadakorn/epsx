@@ -242,7 +242,7 @@ impl ProjectionManager {
             }
 
             // Get connection for transaction
-            let mut conn = self.pool.get().await.map_err(|e| {
+            let mut conn = self.pool.acquire().await.map_err(|e| {
                 AppError::database_error(format!("Failed to get connection: {}", e))
             })?;
 
@@ -385,7 +385,7 @@ impl ProjectionManager {
         checkpoint: &ProjectionCheckpoint,
         event_types: Vec<&'static str>,
     ) -> AppResult<Vec<ProjectionEvent>> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -459,7 +459,7 @@ impl ProjectionManager {
 
     /// Mark projection as unhealthy
     async fn mark_projection_unhealthy(&self, projection: &Arc<dyn Projection>) -> AppResult<()> {
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -471,7 +471,7 @@ impl ProjectionManager {
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(projection.projection_name())
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to mark projection unhealthy: {}", e))

@@ -48,12 +48,12 @@ mod tests {
 
         /// Cleanup test data
         async fn cleanup(&self) {
-            let mut conn = self.pool.get().await.unwrap();
+            let mut conn = self.pool.acquire().await.unwrap();
 
             for wallet_addr in &self.test_wallet_addresses {
                 diesel::delete(crate::schemas::primary::wallet_users::table
                     .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                    .execute(&mut conn)
+                    .execute(&mut *conn)
                     .await
                     .ok();
             }
@@ -100,7 +100,7 @@ mod tests {
         assert!(result.is_ok(), "Transaction should commit successfully");
 
         // Verify user still exists after transaction commit
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         let user = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
             .first::<WalletUserDb>(&mut conn)
@@ -156,7 +156,7 @@ mod tests {
         assert!(result.is_err(), "Transaction should fail and rollback");
 
         // Verify no users exist after rollback
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         for wallet_addr in &setup.test_wallet_addresses[..2] {
             let user = crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
@@ -223,7 +223,7 @@ mod tests {
         assert!(outer_result.is_ok(), "Outer transaction should succeed");
 
         // Verify both users exist (both transactions committed)
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         for wallet_addr in &setup.test_wallet_addresses[..2] {
             let user = crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
@@ -290,12 +290,12 @@ mod tests {
         }
 
         // Cleanup concurrent test data
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         for i in 0..5 {
             let wallet_addr = format!("0x{:040x}", i + 1000);
             diesel::delete(crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .ok();
         }
@@ -308,7 +308,7 @@ mod tests {
         let setup = TransactionTestSetup::new().await;
 
         // Insert a user first outside of transaction
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         let metadata = json!({"test": "existing"});
         let existing_user = NewWalletUserDb {
             wallet_address: &setup.test_wallet_addresses[0],
@@ -319,7 +319,7 @@ mod tests {
 
         diesel::insert_into(crate::schemas::primary::wallet_users::table)
             .values(&existing_user)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .unwrap();
 
@@ -430,12 +430,12 @@ mod tests {
         assert!(success_count > 0, "At least some transactions should succeed");
 
         // Cleanup test data
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
         for i in 0..20 {
             let wallet_addr = format!("0x{:040x}", i + 2000);
             diesel::delete(crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .ok();
         }
@@ -474,7 +474,7 @@ mod tests {
         match result {
             Ok(_) => {
                 // If transaction completed (unlikely), verify rollback occurred
-                let mut conn = setup.pool.get().await.unwrap();
+                let mut conn = setup.pool.acquire().await.unwrap();
                 let user = crate::schemas::primary::wallet_users::table
                     .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
                     .first::<WalletUserDb>(&mut conn)
@@ -574,7 +574,7 @@ mod tests {
         assert!(result.is_ok(), "Transaction with savepoint should succeed");
 
         // Verify final state
-        let mut conn = setup.pool.get().await.unwrap();
+        let mut conn = setup.pool.acquire().await.unwrap();
 
         // First user should exist (inserted before savepoint)
         let user1 = crate::schemas::primary::wallet_users::table
@@ -611,7 +611,7 @@ mod tests {
     where
         F: FnOnce(FnOnce(&mut )mut diesel_async::AsyncPgConnection) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<R, diesel::result::Error>> + Send>>,
     {
-        let mut conn = pool.get().await
+        let mut conn = pool.acquire().await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
         // Start transaction
@@ -700,7 +700,7 @@ mod tests {
                     .expect("failed to build test pool")
             })
         });
-        POOL.get().expect("pool init")
+        POOL.acquire().await.expect("pool init")
     }
 }
 

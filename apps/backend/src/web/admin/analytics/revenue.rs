@@ -20,7 +20,7 @@ pub async fn get_revenue_analytics_handler(
 ) -> axum::response::Response {
     info!("Admin: Getting revenue analytics");
 
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             error!("Admin: Failed to get database connection: {}", e);

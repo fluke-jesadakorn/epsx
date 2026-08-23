@@ -172,7 +172,7 @@ impl PaymentSubscriptionRepositoryAdapter {
 
         diesel::update(subscriptions::table.filter(subscriptions::id.eq(id)))
             .set(subscriptions::status.eq(status))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to update subscription status: {}", e);
@@ -193,7 +193,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         warn!("Deleting subscription: {}", id);
 
         diesel::delete(subscriptions::table.filter(subscriptions::id.eq(id)))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to delete subscription: {}", e);
@@ -330,7 +330,7 @@ impl PaymentSubscriptionRepositoryAdapter {
                 subscriptions::status.eq("cancelled"),
                 subscriptions::cancelled_at.eq(Some(Utc::now())),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to cancel subscription: {}", e);

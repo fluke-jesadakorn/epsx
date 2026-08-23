@@ -304,14 +304,14 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         diesel::update(openid_refresh_tokens::table)
             .filter(openid_refresh_tokens::token_id.eq(refresh_token))
             .set(openid_refresh_tokens::is_revoked.eq(true))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -330,7 +330,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -504,7 +504,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -663,7 +663,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -675,7 +675,7 @@ impl OpenIDTokenService {
                 openid_refresh_tokens::created_at.eq(&now),
                 openid_refresh_tokens::is_revoked.eq(false),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -701,7 +701,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire().await
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 

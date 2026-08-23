@@ -42,7 +42,7 @@ impl DieselBaseRepository {
     pub async fn health_check_impl(&self) -> AppResult<()> {
         use diesel_async::RunQueryDsl;
 
-        let mut conn = self.pool.get().await.map_err(|e| {
+        let mut conn = self.pool.acquire().await.map_err(|e| {
             AppError::invalid_operation(format!("Failed to get database connection: {}", e))
         })?;
 

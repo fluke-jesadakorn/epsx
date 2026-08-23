@@ -94,7 +94,7 @@ impl CreditRepositoryAdapter {
 
         diesel::insert_into(wallet_credits::table)
             .values(&new_credit)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to create credit balance: {}", e);
@@ -377,7 +377,7 @@ impl CreditRepositoryAdapter {
             wallet_credits::table.filter(wallet_credits::wallet_address.eq(wallet_address)),
         )
         .set(&update)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Failed to update credit balance: {}", e);

@@ -273,7 +273,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 plans::plan_group.eq(&new_plan.plan_group),
                 plans::is_system.eq(new_plan.is_system),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to save permission plan: {}", e);
@@ -295,7 +295,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 .bind::<diesel::sql_types::Text, _>(parts[0])
                 .bind::<diesel::sql_types::Text, _>(parts[1])
                 .bind::<diesel::sql_types::Text, _>(parts[2])
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
             }
@@ -308,23 +308,23 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             // No permissions - just delete all existing associations
             diesel::delete(plan_permissions::table)
                 .filter(plan_permissions::plan_id.eq(plan.id().value()))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
         } else {
             // Delete then insert in a transaction for atomicity
             diesel::sql_query("BEGIN")
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
 
             let delete_result = diesel::delete(plan_permissions::table)
                 .filter(plan_permissions::plan_id.eq(plan.id().value()))
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await;
 
             if let Err(e) = delete_result {
-                let _ = diesel::sql_query("ROLLBACK").execute(&mut conn).await;
+                let _ = diesel::sql_query("ROLLBACK").execute(&mut *conn).await;
                 return Err(AppError::database_error(e.to_string()));
             }
 
@@ -336,17 +336,17 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 )
                 .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
                 .bind::<diesel::sql_types::Text, _>(*perm_str)
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await;
 
                 if let Err(e) = result {
-                    let _ = diesel::sql_query("ROLLBACK").execute(&mut conn).await;
+                    let _ = diesel::sql_query("ROLLBACK").execute(&mut *conn).await;
                     return Err(AppError::database_error(e.to_string()));
                 }
             }
 
             diesel::sql_query("COMMIT")
-                .execute(&mut conn)
+                .execute(&mut *conn)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
         }
@@ -364,7 +364,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 
         diesel::delete(plans::table)
             .filter(plans::id.eq(id.value()))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to delete permission plan {}: {}", id, e);

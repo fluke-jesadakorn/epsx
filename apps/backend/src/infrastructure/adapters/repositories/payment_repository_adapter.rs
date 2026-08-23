@@ -215,7 +215,7 @@ impl PaymentRepositoryAdapter {
 
         diesel::insert_into(payments::table)
             .values(&payment_db)
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to save payment {}: {}", payment.id().value(), e);
@@ -520,7 +520,7 @@ impl PaymentRepositoryAdapter {
                 payments::updated_at.eq(Utc::now()),
                 payments::completed_at.eq(completed_at),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to update payment status: {}", e);
@@ -548,7 +548,7 @@ impl PaymentRepositoryAdapter {
         );
 
         diesel::delete(payments::table.filter(payments::id.eq(payment_id.value())))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to delete payment: {}", e);

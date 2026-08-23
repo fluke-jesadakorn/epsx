@@ -36,7 +36,7 @@ pub async fn create_assignment(
     };
 
     // Get database connection
-    let mut conn = match app_state.db_pool.get().await {
+    let mut conn = match app_state.db_pool.acquire().await {
         Ok(conn) => conn,
         Err(e) => {
             tracing::error!("Failed to get database connection: {}", e);

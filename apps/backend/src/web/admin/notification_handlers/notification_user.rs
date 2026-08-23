@@ -201,7 +201,7 @@ pub async fn mark_notification_read_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -221,7 +221,7 @@ pub async fn mark_notification_read_handler(
     .bind::<diesel::sql_types::Timestamptz, _>(now)
     .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as read: {}", e)))?;
 
@@ -257,7 +257,7 @@ pub async fn mark_notification_unread_handler(
     })?;
 
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -276,7 +276,7 @@ pub async fn mark_notification_unread_handler(
     .bind::<diesel::sql_types::Timestamptz, _>(now)
     .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as unread: {}", e)))?;
 
@@ -328,7 +328,7 @@ pub async fn delete_notification_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -346,7 +346,7 @@ pub async fn delete_notification_handler(
     )
     .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
 
@@ -386,7 +386,7 @@ pub async fn get_unread_count_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -437,7 +437,7 @@ pub async fn mark_all_notifications_read_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -455,7 +455,7 @@ pub async fn mark_all_notifications_read_handler(
     )
     .bind::<diesel::sql_types::Timestamptz, _>(now)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark all notifications as read: {}", e)))?;
 
@@ -488,7 +488,7 @@ pub async fn clear_all_notifications_handler(
 
     // Get notifications database connection
     let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.get().await.map_err(|e| {
+    let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
             format!("Failed to get database connection: {}", e),
@@ -504,7 +504,7 @@ pub async fn clear_all_notifications_handler(
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .execute(&mut conn)
+    .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to clear all notifications: {}", e)))?;
 

@@ -25,7 +25,7 @@ fn slugify(title: &str) -> String {
 
 impl NewsRepository {
     pub async fn create(pool: &TlsPool, new: NewNewsArticle) -> Result<NewsArticleDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         diesel::insert_into(news_articles::table)
             .values(&new)
             .get_result(&mut conn)
@@ -38,7 +38,7 @@ impl NewsRepository {
         id: Uuid,
         update: UpdateNewsArticle,
     ) -> Result<NewsArticleDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         diesel::update(news_articles::table.find(id))
             .set(&update)
             .get_result(&mut conn)
@@ -56,7 +56,7 @@ impl NewsRepository {
         expected_updated_at: chrono::DateTime<Utc>,
         update: UpdateNewsArticle,
     ) -> Result<Option<NewsArticleDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         diesel::update(
             news_articles::table
                 .filter(news_articles::id.eq(id))
@@ -70,9 +70,9 @@ impl NewsRepository {
     }
 
     pub async fn delete(pool: &TlsPool, id: Uuid) -> Result<(), String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         diesel::delete(news_articles::table.find(id))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -83,20 +83,20 @@ impl NewsRepository {
         id: Uuid,
         expected_updated_at: chrono::DateTime<Utc>,
     ) -> Result<bool, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let deleted = diesel::delete(
             news_articles::table
                 .filter(news_articles::id.eq(id))
                 .filter(news_articles::updated_at.eq(expected_updated_at)),
         )
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await
         .map_err(|e| e.to_string())?;
         Ok(deleted == 1)
     }
 
     pub async fn get_by_id(pool: &TlsPool, id: Uuid) -> Result<Option<NewsArticleDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         news_articles::table
             .find(id)
             .first::<NewsArticleDb>(&mut conn)
@@ -106,7 +106,7 @@ impl NewsRepository {
     }
 
     pub async fn get_by_slug(pool: &TlsPool, slug: &str) -> Result<Option<NewsArticleDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         news_articles::table
             .filter(news_articles::slug.eq(slug))
             .filter(news_articles::status.eq("published"))
@@ -120,7 +120,7 @@ impl NewsRepository {
         pool: &TlsPool,
         query: &NewsListQuery,
     ) -> Result<(Vec<NewsArticleDb>, i64), String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let page = query.page.unwrap_or(1).max(1);
         let limit = query.limit.unwrap_or(20).clamp(1, 100);
         let offset = (page - 1) * limit;
@@ -160,7 +160,7 @@ impl NewsRepository {
         page: i64,
         limit: i64,
     ) -> Result<(Vec<NewsArticleDb>, i64), String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let page = page.max(1);
         let limit = limit.clamp(1, 100);
         let offset = (page - 1) * limit;
@@ -185,7 +185,7 @@ impl NewsRepository {
     }
 
     pub async fn slug_exists(pool: &TlsPool, slug: &str) -> Result<bool, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let count: i64 = news_articles::table
             .filter(news_articles::slug.eq(slug))
             .count()
@@ -196,7 +196,7 @@ impl NewsRepository {
     }
 
     pub async fn pin(pool: &TlsPool, id: Uuid) -> Result<NewsArticleDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let changeset = PinNewsArticle {
             is_pinned: true,
             pinned_at: Some(Utc::now()),
@@ -210,7 +210,7 @@ impl NewsRepository {
     }
 
     pub async fn unpin(pool: &TlsPool, id: Uuid) -> Result<NewsArticleDb, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let changeset = PinNewsArticle {
             is_pinned: false,
             pinned_at: None,
@@ -229,7 +229,7 @@ impl NewsRepository {
         expected_updated_at: chrono::DateTime<Utc>,
         pinned: bool,
     ) -> Result<Option<NewsArticleDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         let changeset = PinNewsArticle {
             is_pinned: pinned,
             pinned_at: pinned.then(Utc::now),
@@ -248,7 +248,7 @@ impl NewsRepository {
     }
 
     pub async fn list_featured(pool: &TlsPool, limit: i64) -> Result<Vec<NewsArticleDb>, String> {
-        let mut conn = pool.get().await.map_err(|e| e.to_string())?;
+        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
         news_articles::table
             .filter(news_articles::status.eq("published"))
             .order((

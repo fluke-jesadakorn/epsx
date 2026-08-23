@@ -78,7 +78,7 @@ const NEWS_ARTICLES: &[NewsDef] = &[
 /// Seed production news articles into the database.
 /// Safe to call multiple times (idempotent via ON CONFLICT on slug).
 pub async fn seed_production_news(pool: &TlsPool) {
-    let mut conn = match pool.get().await {
+    let mut conn = match pool.acquire().await {
         Ok(c) => c,
         Err(e) => {
             error!("Failed to get DB connection for news seeding: {}", e);
@@ -122,7 +122,7 @@ pub async fn seed_production_news(pool: &TlsPool) {
         .bind::<diesel::sql_types::Text, _>(def.content)
         .bind::<diesel::sql_types::Text, _>(def.tags)
         .bind::<diesel::sql_types::Bool, _>(def.is_pinned)
-        .execute(&mut conn)
+        .execute(&mut *conn)
         .await;
 
         if let Err(e) = result {
