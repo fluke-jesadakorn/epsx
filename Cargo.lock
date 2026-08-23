@@ -4289,6 +4289,7 @@ dependencies = [
  "serde_json",
  "sha2 0.10.9",
  "siwe",
+ "sqlx",
  "thiserror 1.0.69",
  "tokio",
  "tokio-postgres",

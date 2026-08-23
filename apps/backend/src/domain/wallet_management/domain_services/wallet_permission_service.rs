@@ -7,6 +7,9 @@ use crate::domain::wallet_management::{
     aggregates::WalletUser,
     value_objects::{Permission, PermissionType, WalletAddress},
 };
+// BIG-BANG TODO: domain service imports infra client directly.
+// Canonical: depend on `BlockchainValidationPort: Send+Sync` trait, not concrete `BlockchainValidationClient`.
+// Adapter in `infrastructure/blockchain/` will impl the port. Kept for scaffold.
 use crate::infrastructure::blockchain::BlockchainValidationClient;
 use epsx_contracts::errors::AppResult;
 

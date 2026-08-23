@@ -33,7 +33,7 @@ fn plan_assignment_expiry(
         .get("duration_days")
         .and_then(serde_json::Value::as_i64)
         .filter(|days| (1..=3_650).contains(days))
-        .or_else(|| match billing_cycle {
+        .or(match billing_cycle {
             "daily" => Some(1),
             "weekly" => Some(7),
             "monthly" => Some(30),

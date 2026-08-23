@@ -39,6 +39,9 @@
 //!   - `docs/wave8-service-boundary/ROADMAP.md` §12 (implementation
 //!     report, this wave)
 
+// BIG-BANG TODO: port currently imports adapter DB DTOs (infra leak).
+// Canonical: port should define own DTOs (`PaymentContext`, `NewPaymentContext`) in domain
+// and adapter maps Diesel/sqlx rows → domain. Kept for big-bang scaffold to keep build green.
 use async_trait::async_trait;
 use epsx_contracts::errors::AppResult;
 use uuid::Uuid;

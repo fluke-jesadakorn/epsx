@@ -4,6 +4,7 @@
 pub mod analytics;
 pub mod mutations;
 pub mod queries;
+pub mod sqlx_wallet_user_repository;
 
 use crate::prelude::*;
 

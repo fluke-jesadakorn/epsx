@@ -75,6 +75,17 @@ struct AppState {
     api_url: String,
 }
 
+impl AppState {
+    /// BIG-BANG Phase 4b: canonical admin session helper.
+    #[allow(dead_code)]
+    pub fn session(&self) -> epsx_bff::typed_session::TypedBffSession {
+        epsx_bff::typed_session::TypedBffSession::admin(
+            self.verifier.clone(),
+            self.cookie_environment,
+        )
+    }
+}
+
 const ADMIN_NOTIFICATION_FORM_MAX: usize = 20 * 1024;
 const ADMIN_NOTIFICATION_FLASH_COOKIE: &str = "epsx.admin.notification_send";
 const ADMIN_NOTIFICATION_CREATE_COOKIE: &str = "epsx.admin.notification_create";

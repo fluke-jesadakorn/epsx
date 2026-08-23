@@ -53,6 +53,18 @@ pub struct AppState {
     pub notification_url: String,
 }
 
+impl AppState {
+    /// BIG-BANG Phase 4b: canonical session helper — callers should use this instead of
+    /// constructing `JwksVerifier` + `CookieEnvironment` pairs manually.
+    #[allow(dead_code)]
+    pub fn session(&self) -> epsx_bff::typed_session::TypedBffSession {
+        epsx_bff::typed_session::TypedBffSession::frontend(
+            self.verifier.clone(),
+            self.cookie_environment,
+        )
+    }
+}
+
 #[derive(Deserialize)]
 pub struct SiweLoginBody {
     pub message: String,
