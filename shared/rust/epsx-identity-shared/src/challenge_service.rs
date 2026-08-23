@@ -43,7 +43,7 @@ impl UnifiedWeb3AuthService {
         // Delete expired nonces for this wallet (best-effort cleanup).
         sqlx::query("DELETE FROM web3_auth_nonces WHERE expires_at < $1")
             .bind(now)
-            .execute(&self.db_pool)
+            .execute(&*self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -56,7 +56,7 @@ impl UnifiedWeb3AuthService {
         .bind(&message)
         .bind(&expires_at)
         .bind(&now)
-        .execute(&self.db_pool)
+        .execute(&*self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -156,7 +156,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind(&wallet_address)
         .bind(nonce)
-        .execute(&self.db_pool)
+        .execute(&*self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 

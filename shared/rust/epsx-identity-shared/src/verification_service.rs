@@ -1,10 +1,10 @@
 // Wallet Verification and User Lifecycle
 // Handles: get_or_create_user, emit_new_wallet_event, assign_free_plan_to_wallet
 // Also handles explicitly configured blockchain permission queries: NFT and DAO
+//
+// MIGRATED TO SQLX (real): no stubs.
 
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use ethers::{
     abi::Abi,
     contract::Contract,
@@ -14,6 +14,7 @@ use ethers::{
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{debug, info, warn};
+use uuid::Uuid;
 
 use super::auth_service::{UnifiedWeb3AuthService, Web3AuthError};
 use crate::config::get_bsc_chain_id;
@@ -26,35 +27,23 @@ impl UnifiedWeb3AuthService {
     ) -> Result<(String, bool), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
-        use crate::schemas::primary::wallet_users;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        let user_exists: Option<String> = diesel_async::RunQueryDsl::first(
-            wallet_users::table
-                .filter(wallet_users::wallet_address.eq(wallet_address))
-                .select(wallet_users::wallet_address),
-            &mut conn,
+        let exists: Option<(String,)> = sqlx::query_as(
+            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
         )
+        .bind(wallet_address)
+        .fetch_optional(&*self.db_pool)
         .await
-        .optional()
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        if user_exists.is_some() {
+        if exists.is_some() {
             let now = Utc::now();
-            diesel_async::RunQueryDsl::execute(
-                diesel::update(wallet_users::table)
-                    .filter(wallet_users::wallet_address.eq(wallet_address))
-                    .set((
-                        wallet_users::last_auth_at.eq(&now),
-                        wallet_users::updated_at.eq(&now),
-                    )),
-                &mut conn,
+            sqlx::query(
+                "UPDATE wallet_users SET last_auth_at = $1, updated_at = $1 WHERE wallet_address = $2",
             )
+            .bind(now)
+            .bind(wallet_address)
+            .execute(&*self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -77,24 +66,13 @@ impl UnifiedWeb3AuthService {
         });
 
         let now = chrono::Utc::now();
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
-
-        diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(wallet_users::table).values((
-                wallet_users::wallet_address.eq(wallet_address),
-                wallet_users::is_active.eq(true),
-                wallet_users::tier_level.eq("Bronze"),
-                wallet_users::wallet_metadata.eq(connection_metadata.clone()),
-                wallet_users::created_at.eq(&now),
-                wallet_users::updated_at.eq(&now),
-                wallet_users::last_auth_at.eq(&now),
-            )),
-            &mut conn,
+        sqlx::query(
+            "INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata, created_at, updated_at, last_auth_at) VALUES ($1, true, 'Bronze', $2, $3, $3, $3)",
         )
+        .bind(wallet_address)
+        .bind(&connection_metadata)
+        .bind(now)
+        .execute(&*self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -148,27 +126,20 @@ impl UnifiedWeb3AuthService {
 
         let wallet_address = wallet_address.trim().to_lowercase();
 
-        let mut conn = match self.db_pool.get().await {
-            Ok(c) => c,
-            Err(e) => {
-                warn!(wallet_address = %wallet_address, error = %e, "Failed to get DB connection for Free Plan assignment");
-                return;
-            }
-        };
-
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PlanIdResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: uuid::Uuid,
+            id: Uuid,
         }
 
-        let plan_id = match diesel::sql_query("SELECT id FROM plans WHERE slug = $1")
-            .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
-            .get_result::<PlanIdResult>(&mut conn)
-            .await
+        let plan_id = match sqlx::query_as::<_, PlanIdResult>(
+            "SELECT id FROM plans WHERE slug = $1",
+        )
+        .bind(FREE_PLAN_SLUG)
+        .fetch_optional(&*self.db_pool)
+        .await
         {
-            Ok(result) => result.id,
-            Err(diesel::result::Error::NotFound) => {
+            Ok(Some(result)) => result.id,
+            Ok(None) => {
                 info!("Free Plan not found, creating it automatically...");
 
                 let free_plan_metadata = serde_json::json!({
@@ -178,8 +149,8 @@ impl UnifiedWeb3AuthService {
                     ],
                     "features": [
                         format!("View top {} stock rankings", FREE_PLAN_RANKINGS_LIMIT),
-                        "Basic market overview",
-                        "Community access"
+                        "Basic market overview".to_string(),
+                        "Community access".to_string()
                     ],
                     "ranking_offset": FREE_PLAN_RANKING_OFFSET,
                     "rankings_limit": FREE_PLAN_RANKINGS_LIMIT,
@@ -190,7 +161,7 @@ impl UnifiedWeb3AuthService {
                     }
                 });
 
-                match diesel::sql_query(
+                match sqlx::query_as::<_, PlanIdResult>(
                     r#"
                     INSERT INTO plans (
                         id, name, slug, description, plan_type, plan_metadata,
@@ -206,13 +177,13 @@ impl UnifiedWeb3AuthService {
                         10, 100, 500, 5
                     )
                     RETURNING id
-                    "#
+                    "#,
                 )
-                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_NAME)
-                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
-                .bind::<diesel::sql_types::Text, _>("Get started with basic analytics and stock rankings")
-                .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
-                .get_result::<PlanIdResult>(&mut conn)
+                .bind(FREE_PLAN_NAME)
+                .bind(FREE_PLAN_SLUG)
+                .bind("Get started with basic analytics and stock rankings")
+                .bind(&free_plan_metadata)
+                .fetch_one(&*self.db_pool)
                 .await
                 {
                     Ok(result) => {
@@ -231,20 +202,19 @@ impl UnifiedWeb3AuthService {
             }
         };
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct CountResult {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             count: i64,
         }
 
-        let existing = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2"
+        let existing = sqlx::query_as::<_, CountResult>(
+            "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2",
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .get_result::<CountResult>(&mut conn)
+        .bind(&wallet_address)
+        .bind(plan_id)
+        .fetch_optional(&*self.db_pool)
         .await
-        .map(|r| r.count > 0)
+        .map(|opt| opt.map(|r| r.count > 0).unwrap_or(false))
         .unwrap_or(false);
 
         if existing {
@@ -253,17 +223,17 @@ impl UnifiedWeb3AuthService {
         }
 
         let now = Utc::now();
-        if let Err(e) = diesel::sql_query(
+        if let Err(e) = sqlx::query(
             r#"
             INSERT INTO wallet_plan_assignments (id, wallet_address, plan_id, is_active, assigned_at, assigned_by)
             VALUES (gen_random_uuid(), $1, $2, true, $3, 'system:auto_assign')
             ON CONFLICT (wallet_address, plan_id) DO NOTHING
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut conn)
+        .bind(&wallet_address)
+        .bind(plan_id)
+        .bind(now)
+        .execute(&*self.db_pool)
         .await
         {
             warn!(wallet_address = %wallet_address, error = %e, "Failed to assign Free Plan to wallet");
@@ -417,7 +387,7 @@ impl UnifiedWeb3AuthService {
                 Err(e) => warn!("Failed to create governance token contract call: {}", e),
             }
         } else {
-            warn!("Failed to parse governance token contract ABI");
+            warn!("Failed to parse governance token ABI");
         }
 
         Ok(permissions)

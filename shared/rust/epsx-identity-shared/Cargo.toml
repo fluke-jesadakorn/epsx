@@ -7,8 +7,6 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 # Workspace-shared siblings
-epsx-kernel = { path = "../kernel" }
-epsx-crypto = { path = "../crypto" }
 epsx-database-pools = { path = "../epsx-database-pools" }
 
 # Auth + crypto
@@ -36,9 +34,7 @@ regex = "1.10"
 siwe = "0.6"
 ethers = "2.0"
 utoipa = "5.1"
-diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "serde_json", "r2d2"] }
-diesel-async = { version = "0.4", features = ["postgres", "deadpool", "async-connection-wrapper", "bb8"] }
-deadpool = "0.9"
+sqlx = { workspace = true }
 anyhow = "1.0"
 validator = { version = "0.18", features = ["derive"] }
 tower = "0.5"
@@ -46,7 +42,6 @@ tower-http = "0.5"
 http = "1.0"
 axum = "0.8"
 serde_yaml = "0.9"
-tokio-postgres = "0.7"
 
 [dev-dependencies]
 tokio-test = "0.4"

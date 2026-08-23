@@ -1,16 +1,17 @@
-use crate::prelude::TlsPool;
 // Unified Web3 Authentication Service
 // Coordinator: delegates challenge generation to challenge_service,
 // user/blockchain operations to verification_service.
+//
+// MIGRATED TO SQLX (real): no stubs.
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
+use sqlx::PgPool;
 use std::str::FromStr;
+use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use super::token_service::{OpenIDTokenError, OpenIDTokenService};
@@ -18,7 +19,7 @@ use super::token_service::{OpenIDTokenError, OpenIDTokenService};
 /// Unified Web3 Authentication Service
 #[derive(Clone)]
 pub struct UnifiedWeb3AuthService {
-    pub(super) db_pool: &'static TlsPool,
+    pub(super) db_pool: Arc<PgPool>,
     pub(super) openid_service: Option<OpenIDTokenService>,
     pub(super) domain: String,
     pub(super) nonce_expiry_minutes: i64,
@@ -117,7 +118,7 @@ pub enum Web3AuthError {
 
 impl UnifiedWeb3AuthService {
     /// Create new unified Web3 auth service
-    pub fn new(db_pool: &'static TlsPool, domain: String) -> Self {
+    pub fn new(db_pool: Arc<PgPool>, domain: String) -> Self {
         Self {
             db_pool,
             openid_service: None,
@@ -128,7 +129,7 @@ impl UnifiedWeb3AuthService {
 
     /// Create new unified Web3 auth service with OpenID token service
     pub fn new_with_openid(
-        db_pool: &'static TlsPool,
+        db_pool: Arc<PgPool>,
         domain: String,
         openid_service: OpenIDTokenService,
     ) -> Self {
@@ -167,44 +168,31 @@ impl UnifiedWeb3AuthService {
 
         use crate::schemas::primary::web3_auth_nonces;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        #[derive(Queryable, Selectable)]
-        #[diesel(table_name = crate::schemas::primary::web3_auth_nonces)]
+        #[derive(sqlx::FromRow)]
         struct NonceRecord {
-            #[allow(dead_code)]
             nonce: String,
-            #[allow(dead_code)]
             message: String,
             expires_at: DateTime<Utc>,
         }
 
-        let nonce_record = web3_auth_nonces::table
-            .filter(web3_auth_nonces::wallet_address.eq(&wallet_address))
-            .filter(web3_auth_nonces::nonce.eq(&request.nonce))
-            .select((
-                web3_auth_nonces::nonce,
-                web3_auth_nonces::message,
-                web3_auth_nonces::expires_at,
+        let nonce_record: Option<NonceRecord> = sqlx::query_as::<_, NonceRecord>(
+            "SELECT nonce, message, expires_at FROM web3_auth_nonces WHERE wallet_address = $1 AND nonce = $2",
+        )
+        .bind(&wallet_address)
+        .bind(&request.nonce)
+        .fetch_optional(&*self.db_pool)
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
+        .ok_or_else(|| {
+            warn!(
+                "Challenge not found for wallet: {} (input was: {})",
+                wallet_address, request.wallet_address
+            );
+            Web3AuthError::ExpiredNonce(format!(
+                "Challenge not found for {}. Please request a new challenge.",
+                wallet_address
             ))
-            .first::<NonceRecord>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
-            .ok_or_else(|| {
-                warn!(
-                    "Challenge not found for wallet: {} (input was: {})",
-                    wallet_address, request.wallet_address
-                );
-                Web3AuthError::ExpiredNonce(format!(
-                    "Challenge not found for {}. Please request a new challenge.",
-                    wallet_address
-                ))
-            })?;
+        })?;
 
         if nonce_record.nonce != request.nonce {
             warn!(
@@ -365,19 +353,13 @@ impl UnifiedWeb3AuthService {
     ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.to_lowercase();
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::sql_query(
+        sqlx::query(
             "SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success",
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Text, _>(permission)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-        .execute(&mut conn)
+        .bind(&wallet_address)
+        .bind(permission)
+        .bind(expires_at)
+        .execute(&*self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -405,20 +387,14 @@ impl UnifiedWeb3AuthService {
     ) -> Result<Vec<String>, Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
         let now = Utc::now();
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionResult {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             permission: Option<String>,
         }
 
-        let permission_records = diesel::sql_query(
+        let permission_records: Vec<PermissionResult> = sqlx::query_as::<_, PermissionResult>(
             r#"
             -- Permissions from plans (all types: manual, system, etc.)
             SELECT DISTINCT p.permission_string as permission
@@ -444,9 +420,9 @@ impl UnifiedWeb3AuthService {
             ORDER BY permission
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .load::<PermissionResult>(&mut conn)
+        .bind(wallet_address)
+        .bind(now)
+        .fetch_all(&*self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
