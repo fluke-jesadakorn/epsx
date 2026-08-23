@@ -23,6 +23,7 @@ members = [
     "shared/rust/browser-runtime",
     "shared/rust/service-worker",
     "shared/rust/epsx-web-middleware",
+    "shared/rust/epsx-analytics-protocol",
     "services/gateway",
     "services/identity",
     "services/wallet",

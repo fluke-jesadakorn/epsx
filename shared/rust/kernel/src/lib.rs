@@ -1,3 +1,8 @@
+//! BIG-BANG DEPRECATED: canonical is `epsx-contracts` + `epsx-analytics-protocol`.
+//! This crate is kept for one release as a shim. New code must use `epsx_contracts`.
+//! `Token::decimals` fixed: USDT/USDC now 6 (was 18). Will be removed next wave.
+//! See `docs/plans/2026-08-23-epsx-bigbang-sqlx.md` §5.1.
+
 use alloy_primitives::{Address, U256};
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -158,7 +163,7 @@ impl Token {
 
     pub fn decimals(&self) -> u8 {
         match self {
-            Self::USDT | Self::USDC => 18,
+            Self::USDT | Self::USDC => 6,
             Self::BNB | Self::ETH => 18,
         }
     }

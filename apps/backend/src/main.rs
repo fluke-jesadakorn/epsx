@@ -48,8 +48,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         }
     }
 
-    // Leak the pool to make it 'static (required for container)
+    // BIG-BANG: Arc replaces Box::leak for graceful shutdown/rotation.
+    // Keep 'static leak as fallback until all containers use Arc<PgPool>.
     let _db_pool: &'static TlsPool = Box::leak(Box::new(pool));
+    // TODO(bigbang): replace with `let db_pool = Arc::new(pool)` and thread Arc through DomainContainer
+    let _ = &_db_pool; // suppress unused until migrated
 
     // Seed system admin plans (idempotent)
     epsx::infrastructure::services::seed_system_admin_plans(_db_pool).await;

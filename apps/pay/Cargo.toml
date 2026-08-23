@@ -13,6 +13,7 @@ epsx-client = { path = "../../shared/rust/client" }
 epsx-dioxus-ui = { path = "../../shared/rust/dioxus_ui" }
 epsx-observability = { path = "../../shared/rust/observability" }
 epsx-templates = { path = "../../shared/rust/templates" }
+epsx-bff = { path = "../../shared/rust/bff" }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true

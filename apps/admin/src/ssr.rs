@@ -159,8 +159,8 @@ use super::chat_admin_adapter::{
 };
 use super::commerce_adapter::{
     load_access, load_credit_stats, load_payment_links, load_payment_links_monolith,
-    load_payment_user_access, load_plan_detail, load_plans, load_wallet_access,
-    load_wallet_detail, load_wallet_list, load_wallet_stats, AdminCommerceLoad as CommerceLoad,
+    load_payment_user_access, load_plan_detail, load_plans, load_wallet_access, load_wallet_detail,
+    load_wallet_list, load_wallet_stats, AdminCommerceLoad as CommerceLoad,
 };
 use super::dashboard_user_status_adapter::{
     load_admin_dashboard_user_status, AdminDashboardUserStatusLoad, AdminDashboardUserStatusQuery,
@@ -1879,11 +1879,9 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
                             let mut load =
                                 load_payment_links(&state.payment, &request_context).await;
                             if matches!(load, CommerceLoad::Unavailable) {
-                                let alt = load_payment_links_monolith(
-                                    &state.identity,
-                                    &request_context,
-                                )
-                                .await;
+                                let alt =
+                                    load_payment_links_monolith(&state.identity, &request_context)
+                                        .await;
                                 if !matches!(alt, CommerceLoad::Unavailable) {
                                     load = alt;
                                 }

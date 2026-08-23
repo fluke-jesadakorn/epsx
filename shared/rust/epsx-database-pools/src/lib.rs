@@ -30,6 +30,8 @@
 //!   - The `DieselServerlessConfig`, `AllPoolsHealth`, `DieselPoolStats`
 //!     types — backend-shaped configuration and observability structs.
 
+pub mod sqlx_pool;
+
 use async_trait::async_trait;
 use deadpool::managed::{Manager, Pool, RecycleError, RecycleResult};
 use diesel_async::{AsyncPgConnection, RunQueryDsl};

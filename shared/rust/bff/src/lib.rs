@@ -12,3 +12,4 @@ pub mod middleware;
 pub mod refresh_outcome;
 pub mod session;
 pub mod static_assets;
+pub mod typed_session;

@@ -29,6 +29,10 @@ epsx = { path = "../backend" }
 # signatures.
 epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
 epsx-service-auth = { path = "../../shared/rust/epsx-service-auth" }
+# BIG-BANG: lightweight protocol crate replaces `epsx` monolith dep for
+# analytics. Until all `epsx::domain::*` imports are migrated, both
+# crates coexist; the protocol crate is the canonical import path.
+epsx-analytics-protocol = { path = "../../shared/rust/epsx-analytics-protocol" }
 
 # HTTP / runtime
 axum.workspace = true

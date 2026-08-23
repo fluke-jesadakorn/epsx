@@ -25,11 +25,12 @@ use axum::{
     Json, Router,
 };
 use dioxus::prelude::*;
+use epsx_bff::middleware::security_headers;
 use epsx_client::ServiceClient;
 use epsx_templates::{logo, page_shell_with_body_class, theme_toggle_button};
 use serde::Deserialize;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 mod components;
 mod state;
@@ -81,6 +82,7 @@ async fn main() {
         pay: Arc::new(ServiceClient::new(cfg)),
     };
 
+    // BIG-BANG: reuse shared ServiceClient + add security headers (was thin pass-through without JWKS/sec headers)
     let app = Router::new()
         .route("/api/health", get(api_health))
         .route("/api/v1/pay/intent", any(create_pay_intent))
@@ -88,13 +90,12 @@ async fn main() {
         .route("/api/v1/pay/intent/{id}/execute", any(execute_pay))
         .route("/api/v1/pay/intent/{id}/status", any(pay_status))
         // wave49(slice-3): pay_links + pay_history proxies.
-        // Mirror the service's endpoint shape so the BFF
-        // doesn't need its own type re-shaping.
         .route("/api/v1/pay/links", post(create_pay_link))
         .route("/api/v1/pay/links/{slug}", get(get_pay_link))
         .route("/api/v1/pay/links/{slug}/redeem", post(redeem_pay_link))
         .route("/api/v1/pay/history/{address}", get(get_pay_history))
         .fallback(pay_ssr_fallback)
+        .layer(axum::middleware::from_fn(security_headers))
         .with_state(state);
 
     let addr: SocketAddr = format!("{}:{}", host, port).parse().unwrap();
@@ -327,18 +328,25 @@ fn PayLinkLanding(slug: String) -> Element {
 /// or the upstream pay-svc is unreachable (502). The SSR
 /// fallback uses the None case to render the
 /// `PayLinkLanding` stub with a clear error.
+static PAY_LINK_CLIENT: OnceLock<Arc<ServiceClient>> = OnceLock::new();
+
+fn pay_link_client() -> Arc<ServiceClient> {
+    PAY_LINK_CLIENT
+        .get_or_init(|| {
+            let api_url =
+                std::env::var("API_URL").unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
+            let cfg = epsx_client::ClientConfig {
+                base_url: api_url,
+                timeout: std::time::Duration::from_secs(3),
+            };
+            Arc::new(ServiceClient::new(cfg))
+        })
+        .clone()
+}
+
 async fn resolve_pay_link_redirect(slug: &str) -> Option<Response> {
-    // Build a temporary state to talk to the pay-svc. We can't
-    // use the axum router's `State` from inside a free function,
-    // so we construct a ServiceClient on demand. The timeout is
-    // tight (3s) so a slow upstream doesn't block the page.
-    let api_url =
-        std::env::var("API_URL").unwrap_or_else(|_| "http://epsx-pay-svc:8103".to_string());
-    let cfg = epsx_client::ClientConfig {
-        base_url: api_url,
-        timeout: std::time::Duration::from_secs(3),
-    };
-    let client = epsx_client::ServiceClient::new(cfg);
+    // BIG-BANG: reuse shared ServiceClient via OnceLock (was per-request new client, 3s timeout)
+    let client = pay_link_client();
 
     // GET /api/v1/pay/links/{slug} → returns
     // { "link": { "intent_id": "...", ... }, "url": "/r/{slug}" }

@@ -4372,6 +4372,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "epsx-analytics-protocol"
+version = "0.1.0"
+dependencies = [
+ "async-trait",
+ "chrono",
+ "epsx-contracts",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "uuid 1.23.3",
+]
+
+[[package]]
 name = "epsx-analytics-service"
 version = "0.1.0"
 dependencies = [
@@ -4380,6 +4393,7 @@ dependencies = [
  "axum 0.8.9",
  "chrono",
  "epsx",
+ "epsx-analytics-protocol",
  "epsx-contracts",
  "epsx-service-auth",
  "futures",
@@ -4430,6 +4444,7 @@ dependencies = [
  "epsx-auth",
  "epsx-client",
  "epsx-crypto",
+ "epsx-dioxus-ui",
  "epsx-templates",
  "http 1.4.2",
  "jsonwebtoken 9.3.1",
@@ -4575,6 +4590,7 @@ dependencies = [
  "diesel-async",
  "epsx-contracts",
  "rustls 0.23.40",
+ "sqlx",
  "thiserror 1.0.69",
  "tokio",
  "tokio-postgres",
@@ -4840,6 +4856,7 @@ dependencies = [
  "axum 0.8.9",
  "dioxus",
  "dioxus-ssr",
+ "epsx-bff",
  "epsx-client",
  "epsx-dioxus-ui",
  "epsx-kernel",

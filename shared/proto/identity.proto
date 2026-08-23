@@ -1,3 +1,5 @@
+// BIG-BANG DEPRECATED: canonical is `proto/identity/v1/identity.proto`. This copy is kept for one release.
+// TODO(bigbang): delete this file after `build.rs` migration.
 // EPSX Identity service — gRPC contract (Wave 13a, Track A) +
 // real-time event schema (Wave 13b, Track A).
 //

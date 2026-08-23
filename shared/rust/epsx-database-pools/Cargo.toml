@@ -25,6 +25,9 @@ tokio-postgres = "0.7"
 tokio = { workspace = true }
 async-trait = { workspace = true }
 
+# BIG-BANG canonical pool — sqlx replaces deadpool+diesel
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json"] }
+
 # Errors / logging
 thiserror = { workspace = true }
 tracing = { workspace = true }

@@ -20,6 +20,7 @@ epsx-auth = { path = "../auth" }
 epsx-crypto = { path = "../crypto" }
 epsx-client = { path = "../client" }
 epsx-templates = { path = "../templates" }
+epsx-dioxus-ui = { path = "../dioxus_ui" }
 
 [dev-dependencies]
 base64.workspace = true
