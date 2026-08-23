@@ -9,11 +9,10 @@ authors.workspace = true
 
 [dependencies]
 async-trait.workspace = true
-diesel = { version = "2.1", features = ["postgres", "serde_json"] }
-diesel-async = { version = "0.4", features = ["postgres", "deadpool"] }
 epsx-contracts = { path = "../epsx-contracts" }
 epsx-database-pools = { path = "../epsx-database-pools" }
 serde_json.workspace = true
+sqlx = { workspace = true }
 
 [dev-dependencies]
 serde.workspace = true

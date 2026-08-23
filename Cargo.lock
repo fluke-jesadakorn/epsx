@@ -4934,12 +4934,11 @@ name = "epsx-ranking-store"
 version = "0.1.0"
 dependencies = [
  "async-trait",
- "diesel",
- "diesel-async",
  "epsx-contracts",
  "epsx-database-pools",
  "serde",
  "serde_json",
+ "sqlx",
 ]
 
 [[package]]

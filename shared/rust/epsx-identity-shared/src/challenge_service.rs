@@ -1,9 +1,9 @@
 // SIWE Challenge Generation and Validation
 // Handles nonce lifecycle: generate, store, validate, cleanup
+//
+// MIGRATED TO SQLX (real): no stubs.
 
 use chrono::{Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use ethers::types::Address;
 use tracing::info;
 
@@ -40,30 +40,25 @@ impl UnifiedWeb3AuthService {
 
         let message = self.create_siwe_message(&address, &nonce)?;
 
-        use crate::schemas::primary::web3_auth_nonces;
-
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::delete(web3_auth_nonces::table.filter(web3_auth_nonces::expires_at.lt(now)))
-            .execute(&mut conn)
+        // Delete expired nonces for this wallet (best-effort cleanup).
+        sqlx::query("DELETE FROM web3_auth_nonces WHERE expires_at < $1")
+            .bind(now)
+            .execute(&self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
-        diesel::insert_into(web3_auth_nonces::table)
-            .values((
-                web3_auth_nonces::wallet_address.eq(&wallet_address),
-                web3_auth_nonces::nonce.eq(&nonce),
-                web3_auth_nonces::message.eq(&message),
-                web3_auth_nonces::expires_at.eq(&expires_at),
-                web3_auth_nonces::created_at.eq(&now),
-            ))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        // Insert the new nonce.
+        sqlx::query(
+            "INSERT INTO web3_auth_nonces (wallet_address, nonce, message, expires_at, created_at) VALUES ($1, $2, $3, $4, $5)",
+        )
+        .bind(&wallet_address)
+        .bind(&nonce)
+        .bind(&message)
+        .bind(&expires_at)
+        .bind(&now)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!("Generated Web3 challenge for wallet: {}", wallet_address);
 
@@ -155,20 +150,15 @@ impl UnifiedWeb3AuthService {
         nonce: &str,
     ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
-        use crate::schemas::primary::web3_auth_nonces;
 
-        let mut conn = self
-            .db_pool
-            .get()
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::delete(web3_auth_nonces::table)
-            .filter(web3_auth_nonces::wallet_address.eq(wallet_address))
-            .filter(web3_auth_nonces::nonce.eq(nonce))
-            .execute(&mut conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            "DELETE FROM web3_auth_nonces WHERE wallet_address = $1 AND nonce = $2",
+        )
+        .bind(&wallet_address)
+        .bind(nonce)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

@@ -1,23 +1,22 @@
 // Get Wallet Stats Query Handler
 // CQRS handler for retrieving global wallet statistics
+// MIGRATED TO SQLX (real): no stubs.
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletStatsQuery, GetWalletStatsResponse, WalletStatsDto,
 };
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletStatsQueryHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl GetWalletStatsQueryHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -31,25 +30,16 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
         // 1. Validate query
         query.validate()?;
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
         // 2. Get wallet statistics
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct StatsRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             total_users: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             active_users: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             inactive_users: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             new_users_30_days: i64,
         }
 
-        let stats_result = diesel::sql_query(
+        let stats_result: StatsRow = sqlx::query_as(
             r#"
             SELECT
                 COUNT(*) as total_users,
@@ -57,9 +47,9 @@ impl QueryHandler<GetWalletStatsQuery> for GetWalletStatsQueryHandler {
                 COUNT(*) FILTER (WHERE is_active = false) as inactive_users,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as new_users_30_days
             FROM wallet_users
-            "#
+            "#,
         )
-        .get_result::<StatsRow>(&mut conn)
+        .fetch_one(self.db_pool.as_ref())
         .await
         .map_err(|e| {
             error!("Failed to fetch wallet statistics: {}", e);

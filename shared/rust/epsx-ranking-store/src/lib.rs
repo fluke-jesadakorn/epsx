@@ -1,14 +1,14 @@
 //! Core-owned PostgreSQL adapter for atomic ranking-entitlement snapshots.
 //!
-//! This adapter is compiled but deliberately not wired into either runtime.
-//! Its single read-only statement observes assignment, plan, and permission
-//! rows at one database timestamp; pure Rust then validates and groups them.
+//! BIG-BANG: migrated to sqlx (real). The original diesel-async/deadpool
+//! pool manager has been replaced with `sqlx::PgPool`. The single
+//! read-only observation statement observes assignment, plan, and
+//! permission rows at one database timestamp; pure Rust then validates
+//! and groups them.
 
 use std::collections::BTreeMap;
 
 use async_trait::async_trait;
-use diesel::QueryableByName;
-use diesel_async::RunQueryDsl;
 use epsx_contracts::ranking_entitlement_snapshot::{
     RankingEntitlementSnapshot, RankingEntitlementSnapshotError,
     RankingEntitlementSnapshotRepository, RawLegacyRankingOffset, RawPlanRankingEntitlement,
@@ -60,43 +60,28 @@ ORDER BY
     permission.id NULLS FIRST
 "#;
 
-#[derive(Debug, Clone, PartialEq, QueryableByName)]
+#[derive(Debug, Clone, PartialEq, sqlx::FromRow)]
 #[cfg_attr(test, derive(serde::Deserialize))]
 #[cfg_attr(test, serde(rename_all = "camelCase"))]
 struct SnapshotRow {
-    #[diesel(sql_type = diesel::sql_types::Text)]
     normalized_wallet: String,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     observed_at_micros: i64,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     assignment_wallet: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     assignment_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     assignment_plan_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
     assignment_active: Option<bool>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
     expires_at_micros: Option<i64>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     joined_plan_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
     plan_active: Option<bool>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
     plan_metadata: Option<Value>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     plan_permission_link_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     linked_permission_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     permission_id: Option<String>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
     permission_active: Option<bool>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     permission_string: Option<String>,
 }
 
-/// Unwired core-owned adapter using the existing primary-database TLS pool.
+/// Unwired core-owned adapter using the canonical sqlx pool (formerly TlsPool).
 #[derive(Clone)]
 pub struct PostgresRankingEntitlementSnapshotRepository {
     pool: TlsPool,
@@ -115,15 +100,10 @@ impl RankingEntitlementSnapshotRepository for PostgresRankingEntitlementSnapshot
         normalized_wallet: &str,
     ) -> Result<RankingEntitlementSnapshot, RankingEntitlementSnapshotError> {
         let normalized_wallet = normalized_wallet.to_ascii_lowercase();
-        let mut connection = self
-            .pool
-            .get()
-            .await
-            .map_err(|_| RankingEntitlementSnapshotError::Unavailable)?;
 
-        let rows = diesel::sql_query(RANKING_ENTITLEMENT_SNAPSHOT_SQL)
-            .bind::<diesel::sql_types::Text, _>(&normalized_wallet)
-            .load::<SnapshotRow>(&mut connection)
+        let rows: Vec<SnapshotRow> = sqlx::query_as(RANKING_ENTITLEMENT_SNAPSHOT_SQL)
+            .bind(&normalized_wallet)
+            .fetch_all(&self.pool)
             .await
             .map_err(|_| RankingEntitlementSnapshotError::Unavailable)?;
 
@@ -294,7 +274,6 @@ fn absorb_permission(
         }
         return Ok(());
     };
-
     let linked_permission_id = row
         .linked_permission_id
         .clone()

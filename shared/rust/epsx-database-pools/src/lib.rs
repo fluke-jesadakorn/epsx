@@ -1,63 +1,52 @@
 //! `epsx-database-pools` — shared Postgres connection pool types.
 //!
-//! Extracted from `apps/backend/src/infrastructure/database/diesel_connection_manager.rs`
-//! during the wave 10 prep pass so that both the backend and the shared
-//! `epsx-identity-shared` auth crate see the *same* `TlsPool` type.
-//!
-//! Before this crate existed, `epsx-identity-shared::prelude::TlsPool` was
-//! a placeholder alias for `Pool<AsyncPgConnectionManager>` (the non-TLS
-//! Diesel manager) while the backend used `Pool<TlsConnectionManager>`
-//! (the real TLS-enforcing one). The two aliases resolved to different
-//! types, so any attempt to pass a backend pool into a shared-crate
-//! service constructor was an E0308 mismatch.
+//! BIG-BANG: After migration, `TlsPool` is a type alias for the canonical
+//! `sqlx::PgPool`. The historical `TlsConnectionManager` / `ManagerError` /
+//! `deadpool::managed::Pool` / `PoolExt` types are retained as deprecated
+//! shims so that downstream code can still resolve them — they forward to
+//! the canonical sqlx pool via constructors in `apps/backend/src/main.rs`.
 //!
 //! What lives here:
-//!   - `TlsConnectionManager` — the custom `deadpool::managed::Manager`
-//!     impl that creates `AsyncPgConnection` over a TLS-enforcing
-//!     `tokio_postgres_rustls::MakeRustlsConnect`.
-//!   - `ManagerError` — the `thiserror::Error` enum this manager produces.
-//!   - `TlsPool` — `pub type TlsPool = Pool<TlsConnectionManager>`.
-//!   - `PoolExt` — the `async fn conn(&self) -> AppResult<Object<...>>`
-//!     extension trait that maps pool errors to the kernel `AppError`.
+//!   - `TlsPool` — `pub type TlsPool = sqlx::PgPool;` (canonical).
+//!   - `sqlx_pool` — canonical 4-pool creation (`core/payments/analytics/notifications`).
 //!
-//! What does NOT live here (still in the backend):
-//!   - The `GLOBAL_*_POOL` `OnceLock` statics and the
-//!     `DieselConnectionManager` initializer struct — these are
-//!     runtime wiring, not type definitions, and they reach into
-//!     `crate::config::get_fallback_config` and `utoipa`-derived
-//!     health-check schemas that the backend (and only the backend)
-//!     cares about.
-//!   - The `DieselServerlessConfig`, `AllPoolsHealth`, `DieselPoolStats`
-//!     types — backend-shaped configuration and observability structs.
+//! Deprecated legacy shims (kept for one release):
+//!   - `TlsConnectionManager`, `ManagerError`, `PoolExt` (deadpool).
 
 pub mod sqlx_pool;
 
+/// Canonical Postgres connection pool (BIG-BANG: alias for `sqlx::PgPool`).
+pub type TlsPool = sqlx::PgPool;
+
+/// Re-export the sqlx pool creation helpers as the canonical pool API.
+pub use sqlx_pool::{
+    create_pool, create_all_pools, health_check, SqlxPoolConfig,
+};
+
+// ---------------------------------------------------------------------------
+// DEPRECATED shims (retained for one release).
+// ---------------------------------------------------------------------------
+// These types were used by the Diesel/deadpool pool manager. The diesel
+// implementation has been removed; new code must use `sqlx::PgPool`
+// (i.e. `TlsPool` here) directly. The deadpool-specific shims below
+// provide a compatibility surface so the rest of the workspace can
+// still resolve imports during the migration window. Drop after the
+// next minor release.
+
 use async_trait::async_trait;
-use deadpool::managed::{Manager, Pool, RecycleError, RecycleResult};
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
-use rustls::ClientConfig;
-use std::str::FromStr;
-use tokio_postgres_rustls::MakeRustlsConnect;
-use tracing::{debug, error};
+use deadpool::managed::{Manager, RecycleError, RecycleResult};
 
-/// Custom Error type for the Connection Manager
-#[derive(Debug, thiserror::Error)]
-pub enum ManagerError {
-    #[error("Database connection error: {0}")]
-    Connection(#[from] tokio_postgres::Error),
-    #[error("Internal error: {0}")]
-    Internal(String),
-    #[error("Configuration error: {0}")]
-    Config(String),
-}
-
-/// Custom Connection Manager that enforces TLS
+/// Deprecated: use `sqlx::PgPool` (alias `TlsPool`) instead.
+#[deprecated(note = "Diesel migration complete — use sqlx::PgPool (TlsPool) directly")]
 #[derive(Clone)]
 pub struct TlsConnectionManager {
+    #[allow(dead_code)]
     database_url: String,
 }
 
 impl TlsConnectionManager {
+    #[deprecated(note = "Diesel migration complete — use sqlx::PgPool directly")]
+    #[allow(dead_code)]
     pub fn new(database_url: String) -> Self {
         Self { database_url }
     }
@@ -65,113 +54,40 @@ impl TlsConnectionManager {
 
 #[async_trait]
 impl Manager for TlsConnectionManager {
-    type Type = AsyncPgConnection;
-    type Error = ManagerError;
+    type Type = ();
+    type Error = String;
 
-    async fn create(&self) -> Result<AsyncPgConnection, ManagerError> {
-        let config = tokio_postgres::Config::from_str(&self.database_url)
-            .map_err(|e| ManagerError::Config(e.to_string()))?;
-
-        let connect_timeout = std::time::Duration::from_secs(5);
-
-        debug!(
-            "Connecting to database (SSL Mode: {:?})...",
-            config.get_ssl_mode()
-        );
-
-        let client = match config.get_ssl_mode() {
-            tokio_postgres::config::SslMode::Disable => {
-                let (client, connection) =
-                    tokio::time::timeout(connect_timeout, config.connect(tokio_postgres::NoTls))
-                        .await
-                        .map_err(|_| {
-                            ManagerError::Config("Database connection timed out".to_string())
-                        })?
-                        .map_err(|e| {
-                            error!("Connection error: {:?}", e);
-                            ManagerError::Connection(e)
-                        })?;
-
-                tokio::spawn(async move {
-                    if let Err(e) = connection.await {
-                        error!("database connection error: {}", e);
-                    }
-                });
-                client
-            }
-            _ => {
-                let root_store = rustls::RootCertStore::from_iter(
-                    webpki_roots::TLS_SERVER_ROOTS.iter().cloned(),
-                );
-                let client_config = ClientConfig::builder()
-                    .with_root_certificates(root_store)
-                    .with_no_client_auth();
-                let tls = MakeRustlsConnect::new(client_config);
-
-                let (client, connection) =
-                    tokio::time::timeout(connect_timeout, config.connect(tls))
-                        .await
-                        .map_err(|_| {
-                            ManagerError::Config(
-                                "Database connection timed out during TLS handshake".to_string(),
-                            )
-                        })?
-                        .map_err(|e| {
-                            error!("TLS Connection error: {:?}", e);
-                            ManagerError::Connection(e)
-                        })?;
-
-                tokio::spawn(async move {
-                    if let Err(e) = connection.await {
-                        error!("database connection error: {}", e);
-                    }
-                });
-                client
-            }
-        };
-
-        debug!("Wrapping in AsyncPgConnection...");
-        tokio::time::timeout(connect_timeout, AsyncPgConnection::try_from(client))
-            .await
-            .map_err(|_| ManagerError::Config("AsyncPgConnection wrapper timed out".to_string()))?
-            .map_err(|e| {
-                error!("AsyncPgConnection conversion error: {}", e);
-                ManagerError::Internal(e.to_string())
-            })
+    async fn create(&self) -> Result<Self::Type, Self::Error> {
+        Err("diesel removed — use sqlx::PgPool".to_string())
     }
 
-    async fn recycle(&self, conn: &mut AsyncPgConnection) -> RecycleResult<ManagerError> {
-        // Simple health check query
-        diesel::sql_query("SELECT 1")
-            .execute(conn)
-            .await
-            .map(|_| ())
-            .map_err(|e| RecycleError::Backend(ManagerError::Internal(e.to_string())))
+    async fn recycle(&self, _conn: &mut Self::Type) -> RecycleResult<Self::Error> {
+        Err(RecycleError::Backend("diesel removed".to_string()))
     }
 }
 
-/// Pool type used by the backend and (post-wave-10) the shared auth
-/// services. One source of truth so both sides resolve to the same
-/// `Pool<TlsConnectionManager>` type.
-pub type TlsPool = Pool<TlsConnectionManager>;
+/// Deprecated: use `AppError::database_error` directly with sqlx errors.
+#[allow(dead_code)]
+#[derive(Debug, thiserror::Error)]
+pub enum ManagerError {
+    #[error("Database connection error: {0}")]
+    Connection(String),
+    #[error("Internal error: {0}")]
+    Internal(String),
+    #[error("Configuration error: {0}")]
+    Config(String),
+}
 
-/// Extension trait for `TlsPool` that maps pool errors to the kernel
-/// `AppError` for ergonomic `?` propagation in handler code.
+/// Deprecated: use `sqlx::PgPool` directly (no `.conn()` extension needed).
 #[async_trait]
 pub trait PoolExt {
-    /// Get a connection from the pool, mapping errors to `AppError`.
-    async fn conn(
-        &self,
-    ) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>>;
+    /// Deprecated: use `sqlx::PgPool::acquire()` directly.
+    async fn conn(&self) -> epsx_contracts::errors::AppResult<sqlx::PgPool>;
 }
 
 #[async_trait]
 impl PoolExt for TlsPool {
-    async fn conn(
-        &self,
-    ) -> epsx_contracts::errors::AppResult<deadpool::managed::Object<TlsConnectionManager>> {
-        self.get()
-            .await
-            .map_err(|e| epsx_contracts::errors::AppError::database_error(e.to_string()))
+    async fn conn(&self) -> epsx_contracts::errors::AppResult<sqlx::PgPool> {
+        Ok(self.clone())
     }
 }

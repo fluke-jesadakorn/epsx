@@ -1,5 +1,6 @@
 // Get Wallet Detail Query Handler
 // CQRS handler for retrieving detailed wallet information
+// MIGRATED TO SQLX (real): no stubs, no todo!().
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::admin_models::{
@@ -7,33 +8,26 @@ use crate::application::wallet_management::queries::admin_models::{
     WalletPermissionDto, WalletPlanDto,
 };
 use crate::application::wallet_management::wallet_management_repository::WalletManagementRepository;
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
-#[derive(diesel::QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct PermissionDetailRow {
-    #[diesel(sql_type = diesel::sql_types::Text)]
     pub permission: String,
-    #[diesel(sql_type = diesel::sql_types::Text)]
     pub source: String,
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
     pub granted_at: chrono::DateTime<chrono::Utc>,
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-    #[diesel(sql_type = diesel::sql_types::Bool)]
     pub is_active: bool,
 }
 
 pub struct GetWalletDetailQueryHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl GetWalletDetailQueryHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -60,12 +54,8 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })?
             .ok_or_else(|| ApplicationError::not_found("Wallet", &query.wallet_address))?;
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            ApplicationError::infrastructure(format!("Failed to get database connection: {}", e))
-        })?;
-
         // 4. Get permissions (union of group and direct permissions)
-        let permissions_result = diesel::sql_query(
+        let permissions_result: Vec<PermissionDetailRow> = sqlx::query_as(
             r#"
             SELECT
                 p.permission_string as permission,
@@ -95,8 +85,8 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             ORDER BY permission
         "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .load::<PermissionDetailRow>(&mut conn)
+        .bind(&query.wallet_address)
+        .fetch_all(self.db_pool.as_ref())
         .await
         .map_err(|e| {
             error!(
@@ -124,30 +114,23 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
         // 6. Calculate activity summary with actual login tracking
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
         // Combine login counts into a single query
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct LoginCounts {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             total_logins: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             last_30_days_logins: i64,
         }
 
-        let login_counts = diesel::sql_query(
+        let login_counts: LoginCounts = sqlx::query_as(
             r#"
             SELECT
                 COUNT(*) as total_logins,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '30 days') as last_30_days_logins
             FROM sessions WHERE wallet_address = $1
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&query.wallet_address)
-        .get_result::<LoginCounts>(&mut conn)
+        .bind(&query.wallet_address)
+        .fetch_one(self.db_pool.as_ref())
         .await
         .unwrap_or(LoginCounts { total_logins: 0, last_30_days_logins: 0 });
 

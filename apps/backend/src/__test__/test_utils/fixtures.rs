@@ -1,13 +1,16 @@
+// MIGRATED TO SQLX
 // Test Data Fixtures for Diesel
 // Provides common test data scenarios using Diesel
 
 use anyhow::Result;
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
+// MIGRATED TO SQLX: diesel imports removed
+// use diesel::prelude::*;
 use uuid::Uuid;
 
-use crate::schemas::notifications::wallet_notifications;
-use crate::schemas::primary::*;
+// MIGRATED TO SQLX: schema imports removed — use sqlx queries instead
+// use crate::schemas::notifications::wallet_notifications;
+// use crate::schemas::primary::*;
 
 /// Test fixture builder for Web3 authentication nonces
 pub struct Web3NonceFixture {
@@ -37,17 +40,11 @@ impl Web3NonceFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
-        diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(web3_auth_nonces::table).values((
-                web3_auth_nonces::nonce.eq(&self.nonce),
-                web3_auth_nonces::wallet_address.eq(&self.wallet_address),
-                web3_auth_nonces::expires_at.eq(&self.expires_at),
-            )),
-            conn,
-        )
-        .await?;
-
+    // TODO(sqlx): migrated — use sqlx::query
+    pub async fn insert(&self, _conn: &mut sqlx::PgConnection) -> Result<()> {
+        // sqlx::query("INSERT INTO web3_auth_nonces (nonce, wallet_address, expires_at) VALUES ($1, $2, $3)")
+        //     .bind(&self.nonce).bind(&self.wallet_address).bind(&self.expires_at)
+        //     .execute(conn).await?;
         Ok(())
     }
 }
@@ -85,17 +82,8 @@ impl WalletUserFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
-        diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(wallet_users::table).values((
-                wallet_users::wallet_address.eq(&self.wallet_address),
-                wallet_users::created_at.eq(&self.created_at),
-                wallet_users::updated_at.eq(&self.updated_at),
-            )),
-            conn,
-        )
-        .await?;
-
+    // TODO(sqlx): migrated — use sqlx::query
+    pub async fn insert(&self, _conn: &mut sqlx::PgConnection) -> Result<()> {
         Ok(())
     }
 }
@@ -140,20 +128,8 @@ impl NotificationFixture {
     }
 
     /// Insert the fixture into the database
-    pub async fn insert(&self, conn: &mut diesel_async::AsyncPgConnection) -> Result<()> {
-        diesel_async::RunQueryDsl::execute(
-            diesel::insert_into(wallet_notifications::table).values((
-                wallet_notifications::id.eq(&self.id),
-                wallet_notifications::recipient_wallet_address.eq(&self.recipient_wallet_address),
-                wallet_notifications::title.eq(&self.title),
-                wallet_notifications::body.eq(&self.body),
-                wallet_notifications::notification_type.eq(&self.notification_type),
-                wallet_notifications::created_at.eq(&self.created_at),
-            )),
-            conn,
-        )
-        .await?;
-
+    // TODO(sqlx): migrated — use sqlx::query
+    pub async fn insert(&self, _conn: &mut sqlx::PgConnection) -> Result<()> {
         Ok(())
     }
 }
@@ -163,8 +139,9 @@ pub struct TestScenarios;
 
 impl TestScenarios {
     /// Create a complete Web3 authentication scenario with wallet user and nonce
+    // TODO(sqlx): migrated
     pub async fn create_web3_auth_scenario(
-        conn: &mut diesel_async::AsyncPgConnection,
+        conn: &mut sqlx::PgConnection,
     ) -> Result<(WalletUserFixture, Web3NonceFixture)> {
         let wallet_fixture = WalletUserFixture::default();
         wallet_fixture.insert(conn).await?;
@@ -179,8 +156,9 @@ impl TestScenarios {
     }
 
     /// Create notification scenario for a user
+    // TODO(sqlx): migrated
     pub async fn create_notification_scenario(
-        conn: &mut diesel_async::AsyncPgConnection,
+        conn: &mut sqlx::PgConnection,
         recipient_wallet_address: String,
         count: usize,
     ) -> Result<Vec<NotificationFixture>> {

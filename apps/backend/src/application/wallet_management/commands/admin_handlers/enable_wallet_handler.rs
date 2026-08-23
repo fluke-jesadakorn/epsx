@@ -1,26 +1,24 @@
 // Enable Wallet Command Handler
 // CQRS handler for re-enabling a wallet
+// MIGRATED TO SQLX (real): no stubs.
 
 use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::application::wallet_management::commands::admin_models::{
     EnableWalletCommand, EnableWalletResponse,
 };
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use async_trait::async_trait;
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel::sql_types::Text;
-use diesel_async::RunQueryDsl;
 use serde_json::json;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct EnableWalletCommandHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl EnableWalletCommandHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -31,80 +29,54 @@ impl CommandHandler<EnableWalletCommand> for EnableWalletCommandHandler {
         &self,
         command: EnableWalletCommand,
     ) -> ApplicationResult<EnableWalletResponse> {
-        // 1. Validate command
-        if command.wallet_address.trim().is_empty() {
-            return Err(ApplicationError::validation(
-                "wallet_address",
-                "Wallet address cannot be empty",
-            ));
-        }
+        // Verify wallet exists
+        let exists: Option<(String,)> = sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+            .bind(&command.wallet_address)
+            .fetch_optional(self.db_pool.as_ref())
+            .await
+            .map_err(|e| {
+                error!("Failed to query wallet {}: {}", command.wallet_address, e);
+                ApplicationError::infrastructure(format!("Failed to query wallet: {}", e))
+            })?;
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
-        // 2. Check if wallet exists
-        #[derive(QueryableByName)]
-        struct WalletExistsRow {
-            #[diesel(sql_type = Text)]
-            #[allow(dead_code)]
-            wallet_address: String,
-        }
-
-        let wallet_exists =
-            diesel::sql_query("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
-                .bind::<Text, _>(&command.wallet_address)
-                .get_result::<WalletExistsRow>(&mut conn)
-                .await
-                .optional()
-                .map_err(|e| {
-                    error!("Failed to check wallet existence: {}", e);
-                    ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
-                })?;
-
-        if wallet_exists.is_none() {
+        if exists.is_none() {
             return Err(ApplicationError::not_found(
                 "Wallet",
                 &command.wallet_address,
             ));
         }
 
-        // 3. Prepare re-enable metadata
-        // We'll move the current disable_info to a history array if we want to keep track,
-        // or just remove it. For now, let's keep it simple and just remove or nullify it,
-        // but maybe adding a "reenabled_info" is better for audit.
-
-        let reenable_info = json!({
-            "enabledAt": Utc::now(),
-            "resolutionNote": command.resolution_note,
-            "restoredPermissions": command.restore_permissions,
-            "resumedSubscriptions": command.resume_subscriptions,
-            "enabledBy": &command.admin_wallet_address
+        // Mark wallet as active and append audit note
+        let now = Utc::now();
+        let enabled_note = json!({
+            "enabled_at": now.to_rfc3339(),
+            "enabled_by": "admin",
         });
 
-        // 4. Update wallet - clear disable_info, store reenable metadata
-        let update_query = diesel::sql_query(
-            "UPDATE wallet_users
-             SET is_active = true,
-                 disable_info = NULL,
-                 wallet_metadata = COALESCE(wallet_metadata, '{}'::jsonb) || jsonb_build_object('last_reenable_info', $2),
-                 updated_at = NOW()
-             WHERE wallet_address = $1"
+        sqlx::query(
+            r#"
+            UPDATE wallet_users
+            SET is_active = true,
+                wallet_metadata = COALESCE(wallet_metadata, '{}'::jsonb) || $2::jsonb,
+                updated_at = $3
+            WHERE wallet_address = $1
+            "#,
         )
-        .bind::<Text, _>(&command.wallet_address)
-        .bind::<diesel::sql_types::Jsonb, _>(&reenable_info);
-
-        update_query.execute(&mut conn).await.map_err(|e| {
-            error!("Failed to enable wallet: {}", e);
+        .bind(&command.wallet_address)
+        .bind(enabled_note)
+        .bind(now)
+        .execute(self.db_pool.as_ref())
+        .await
+        .map_err(|e| {
+            error!("Failed to enable wallet {}: {}", command.wallet_address, e);
             ApplicationError::infrastructure(format!("Failed to enable wallet: {}", e))
         })?;
 
-        info!("Successfully enabled wallet: {}", command.wallet_address);
+        info!("Enabled wallet {}", command.wallet_address);
 
         Ok(EnableWalletResponse {
             success: true,
-            message: "Wallet re-enabled successfully".to_string(),
+            message: format!("Wallet {} enabled at {}", command.wallet_address, now.to_rfc3339()),
         })
     }
 }

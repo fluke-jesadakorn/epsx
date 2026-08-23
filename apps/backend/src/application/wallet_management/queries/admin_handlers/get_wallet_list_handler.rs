@@ -8,18 +8,18 @@ use crate::application::wallet_management::queries::admin_models::{
 use crate::application::wallet_management::wallet_management_repository::{
     WalletManagementRepository, WalletSearchCriteria,
 };
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::web::pagination::Pagination;
 use async_trait::async_trait;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletListQueryHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl GetWalletListQueryHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
