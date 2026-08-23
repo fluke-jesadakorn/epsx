@@ -38,6 +38,7 @@ pub mod sqlx_credit_repository;
 pub mod sqlx_notification_repository;
 pub mod sqlx_payment_repository;
 pub mod sqlx_plan_repository;
+pub mod sqlx_ranking_entitlement_repository;
 pub mod sqlx_stock_analysis_repository;
 
 pub mod payment;
