@@ -1,9 +1,12 @@
 // Plan Repository Adapter (Infrastructure Layer)
-// PostgreSQL implementation of PlanRepositoryPort using Diesel
-// (Previously PermissionPlanRepositoryAdapter - renamed for clarity)
+// PostgreSQL implementation of PlanRepositoryPort using sqlx
+//
+// BIG-BANG: migrated to sqlx (real). All diesel DSL/derive replaced with raw SQL.
+
 use crate::prelude::*;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::PgPool;
+use std::collections::HashSet;
+use std::sync::Arc;
 use tracing::{error, info};
 
 use crate::domain::permission_management::{
@@ -12,33 +15,32 @@ use crate::domain::permission_management::{
     PermissionString, Plan, PlanCategory, PlanGroup, PlanId, PlanSlug,
 };
 use crate::infrastructure::models::plan::{NewPlanDb, PlanDb};
-use crate::schemas::primary::{plan_permissions, plans};
-use std::collections::HashSet;
 
-#[derive(diesel::QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct PlanStatsRow {
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
-    pub total_plans: i64,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
-    pub active_plans: i64,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
-    pub promoted_plans: i64,
+    total_plans: i64,
+    active_plans: i64,
+    promoted_plans: i64,
 }
 
-#[derive(diesel::QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct CountResult {
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     count: i64,
 }
 
-/// PostgreSQL implementation of PlanRepositoryPort using Diesel
+#[derive(sqlx::FromRow)]
+struct PermStringRow {
+    permission_string: String,
+}
+
+/// PostgreSQL implementation of PlanRepositoryPort using sqlx
 #[derive(Clone)]
 pub struct PlanRepositoryAdapter {
-    db_pool: &'static TlsPool,
+    db_pool: Arc<PgPool>,
 }
 
 impl PlanRepositoryAdapter {
-    pub fn new(db_pool: &'static TlsPool) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -46,45 +48,38 @@ impl PlanRepositoryAdapter {
 #[async_trait]
 impl PlanRepositoryPort for PlanRepositoryAdapter {
     async fn find_by_id(&self, id: &PlanId) -> AppResult<Option<Plan>> {
-        let mut conn = self.db_pool.conn().await?;
+        let plan_result: Option<PlanDb> = sqlx::query_as(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE id = $1",
+        )
+        .bind(id.value())
+        .fetch_optional(self.db_pool.as_ref())
+        .await
+        .map_err(|e| {
+            error!("Failed to find permission plan by id {}: {}", id, e);
+            AppError::database_error(e.to_string())
+        })?;
 
-        let plan_result = plans::table
-            .filter(plans::id.eq(id.value()))
-            .select(PlanDb::as_select())
-            .first::<PlanDb>(&mut conn)
+        if let Some(row) = plan_result {
+            let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+                "SELECT p.permission_string \
+                 FROM plan_permissions pgm JOIN permissions p ON pgm.permission_id = p.id \
+                 WHERE pgm.plan_id = $1",
+            )
+            .bind(id.value())
+            .fetch_all(self.db_pool.as_ref())
             .await
-            .optional()
             .map_err(|e| {
-                error!("Failed to find permission plan by id {}: {}", id, e);
+                error!("Failed to fetch permissions for plan {}: {}", id, e);
                 AppError::database_error(e.to_string())
             })?;
 
-        if let Some(row) = plan_result {
-            // Get permissions for this plan using raw SQL (JOIN query)
-            // Use permission_string directly to preserve 4+ part permissions (e.g. epsx:analytics:view:25)
-            #[derive(diesel::QueryableByName)]
-            struct PermStringRow {
-                #[diesel(sql_type = diesel::sql_types::Text)]
-                permission_string: String,
-            }
-
-            let query = r#"
-                SELECT p.permission_string
-                FROM plan_permissions pgm
-                JOIN permissions p ON pgm.permission_id = p.id
-                WHERE pgm.plan_id = $1
-            "#;
-
-            let permission_rows = diesel::sql_query(query)
-                .bind::<diesel::sql_types::Uuid, _>(id.value())
-                .load::<PermStringRow>(&mut conn)
-                .await
-                .map_err(|e| {
-                    error!("Failed to fetch permissions for plan {}: {}", id, e);
-                    AppError::database_error(e.to_string())
-                })?;
-
-            let permissions: HashSet<PermissionString> = permission_rows
+            let permissions: HashSet<PermissionString> = perm_rows
                 .iter()
                 .filter_map(|r| PermissionString::new(r.permission_string.clone()).ok())
                 .collect();
@@ -93,37 +88,34 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             let slug =
                 PlanSlug::new(row.slug).map_err(|e| AppError::validation_error(e.to_string()))?;
 
-            // Convert BigDecimal to f64 for domain model
             let price_f64 = row
                 .price
+                .as_ref()
                 .and_then(|bd| bd.to_string().parse::<f64>().ok())
                 .unwrap_or(0.0);
 
-            let plan = Plan::load(LoadPlanParams {
-                id: plan_id,
-                name: row.name,
+            let plan = Plan::new(
+                plan_id,
+                row.name,
                 slug,
-                description: row.description,
-                plan_type: row.plan_type,
-                plan_category: PlanCategory::parse(&row.plan_category).unwrap_or_default(),
-                plan_group: PlanGroup::parse(&row.plan_group).unwrap_or_default(),
+                row.description.unwrap_or_default(),
+                row.plan_type,
+                row.plan_metadata,
+                price_f64,
+                row.currency,
+                row.is_active,
+                row.is_promoted,
+                row.display_order,
+                row.created_by,
+                row.tier_level,
+                row.is_public,
+                row.rate_limit_per_minute,
+                row.rate_limit_per_hour,
+                row.rate_limit_per_day,
+                row.burst_capacity,
                 permissions,
-                price: price_f64,
-                currency: row.currency.unwrap_or_else(|| "USD".to_string()),
-                billing_cycle: row.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
-                is_active: row.is_active,
-                is_promoted: row.is_promoted,
-                tier_level: row.tier_level,
-                max_members: row.max_members,
-                auto_assign_enabled: row.auto_assign_enabled.unwrap_or(false),
-                metadata: row.plan_metadata,
-                is_public: row.is_public,
-                grace_period_hours: row.grace_period_hours,
-                is_system: row.is_system,
-                created_at: row.created_at,
-                updated_at: row.updated_at,
-                version: 1,
-            });
+            )
+            .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
 
             Ok(Some(plan))
         } else {
@@ -132,452 +124,488 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn find_by_slug(&self, slug: &PlanSlug) -> AppResult<Option<Plan>> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let id_result = plans::table
-            .filter(plans::slug.eq(slug.as_str()))
-            .select(plans::id)
-            .first::<uuid::Uuid>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!("Failed to find permission plan by slug {}: {}", slug, e);
-                AppError::database_error(e.to_string())
-            })?;
-
-        if let Some(id_uuid) = id_result {
-            let plan_id = PlanId::from_uuid(id_uuid);
-            self.find_by_id(&plan_id).await
-        } else {
-            Ok(None)
-        }
-    }
-
-    async fn find_all(&self, criteria: PlanSearchCriteria) -> AppResult<Vec<Plan>> {
-        let mut conn = self.db_pool.conn().await?;
-
-        // Build dynamic query using Diesel DSL
-        let mut query = plans::table.into_boxed();
-
-        if let Some(plan_type) = &criteria.plan_type {
-            query = query.filter(plans::plan_type.eq(plan_type));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            query = query.filter(plans::is_active.eq(is_active));
-        }
-
-        if let Some(is_promoted) = criteria.is_promoted {
-            query = query.filter(plans::is_promoted.eq(is_promoted));
-        }
-
-        if let Some(plan_group) = &criteria.plan_group {
-            query = query.filter(plans::plan_group.eq(plan_group));
-        }
-
-        if let Some(search_term) = &criteria.search_term {
-            let pattern = format!("%{}%", search_term);
-            let p = pattern.clone();
-            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
-        }
-
-        query = query.order((plans::tier_level.asc(), plans::created_at.desc()));
-
-        if let Some(limit_val) = criteria.limit {
-            query = query.limit(limit_val);
-        }
-
-        if let Some(offset_val) = criteria.offset {
-            query = query.offset(offset_val);
-        }
-
-        let plan_ids = query
-            .select(plans::id)
-            .load::<uuid::Uuid>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find permission plans: {}", e);
-                AppError::database_error(e.to_string())
-            })?;
-
-        let mut plans = Vec::new();
-        for id_uuid in plan_ids {
-            let plan_id = PlanId::from_uuid(id_uuid);
-            if let Some(plan) = self.find_by_id(&plan_id).await? {
-                plans.push(plan);
-            }
-        }
-
-        Ok(plans)
-    }
-
-    async fn save(&self, plan: &Plan) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let new_plan = NewPlanDb {
-            id: *plan.id().value(),
-            name: plan.name().to_string(),
-            slug: plan.slug().as_str().to_string(),
-            description: plan.description().to_string(),
-            plan_type: plan.plan_type().to_string(),
-            plan_metadata: plan.metadata().clone(),
-            price: plan
-                .price()
-                .to_string()
-                .parse::<bigdecimal::BigDecimal>()
-                .ok(),
-            currency: Some(plan.currency().to_string()),
-            billing_cycle: Some(plan.billing_cycle().to_string()),
-            is_active: plan.is_active(),
-            is_promoted: plan.is_promoted(),
-            max_members: plan.max_members(),
-            auto_assign_enabled: Some(plan.auto_assign_enabled()),
-            assignment_rules: None,
-            created_at: plan.created_at(),
-            updated_at: plan.updated_at(),
-            created_by: None,
-            last_modified_by: None,
-            grace_period_hours: plan.grace_period_hours(),
-            rate_limit_per_minute: 0,
-            rate_limit_per_hour: 0,
-            rate_limit_per_day: 0,
-            burst_capacity: 0,
-            tier_level: plan.tier_level(),
-            is_public: plan.is_public(),
-            plan_category: plan.plan_category().as_str().to_string(),
-            plan_group: plan.plan_group().as_str().to_string(),
-            is_system: plan.is_system(),
-        };
-
-        // Upsert permission plan
-        diesel::insert_into(plans::table)
-            .values(&new_plan)
-            .on_conflict(plans::id)
-            .do_update()
-            .set((
-                plans::name.eq(&new_plan.name),
-                plans::description.eq(&new_plan.description),
-                plans::price.eq(&new_plan.price),
-                plans::currency.eq(&new_plan.currency),
-                plans::billing_cycle.eq(&new_plan.billing_cycle),
-                plans::is_active.eq(new_plan.is_active),
-                plans::is_promoted.eq(new_plan.is_promoted),
-                plans::tier_level.eq(new_plan.tier_level),
-                plans::max_members.eq(&new_plan.max_members),
-                plans::auto_assign_enabled.eq(&new_plan.auto_assign_enabled),
-                plans::plan_metadata.eq(&new_plan.plan_metadata),
-                plans::updated_at.eq(new_plan.updated_at),
-                plans::is_public.eq(new_plan.is_public),
-                plans::grace_period_hours.eq(new_plan.grace_period_hours),
-                plans::plan_category.eq(&new_plan.plan_category),
-                plans::plan_group.eq(&new_plan.plan_group),
-                plans::is_system.eq(new_plan.is_system),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to save permission plan: {}", e);
-                AppError::database_error(e.to_string())
-            })?;
-
-        // Atomically replace permission associations using a single transaction-like CTE
-        // First: ensure all permissions exist in the permissions table
-        let permissions_vec: Vec<&PermissionString> = plan.permissions().iter().collect();
-        for permission in &permissions_vec {
-            let parts: Vec<&str> = permission.as_str().splitn(3, ':').collect();
-            if parts.len() >= 3 {
-                diesel::sql_query(
-                    r#"INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
-                    VALUES ($1, $2, $3, $4, 'manual')
-                    ON CONFLICT (permission_string) DO NOTHING"#
-                )
-                .bind::<diesel::sql_types::Text, _>(permission.as_str())
-                .bind::<diesel::sql_types::Text, _>(parts[0])
-                .bind::<diesel::sql_types::Text, _>(parts[1])
-                .bind::<diesel::sql_types::Text, _>(parts[2])
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| AppError::database_error(e.to_string()))?;
-            }
-        }
-
-        // Build permission strings for the atomic replace query
-        let perm_strings: Vec<&str> = permissions_vec.iter().map(|p| p.as_str()).collect();
-
-        if perm_strings.is_empty() {
-            // No permissions - just delete all existing associations
-            diesel::delete(plan_permissions::table)
-                .filter(plan_permissions::plan_id.eq(plan.id().value()))
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| AppError::database_error(e.to_string()))?;
-        } else {
-            // Delete then insert in a transaction for atomicity
-            diesel::sql_query("BEGIN")
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| AppError::database_error(e.to_string()))?;
-
-            let delete_result = diesel::delete(plan_permissions::table)
-                .filter(plan_permissions::plan_id.eq(plan.id().value()))
-                .execute(&mut *conn)
-                .await;
-
-            if let Err(e) = delete_result {
-                let _ = diesel::sql_query("ROLLBACK").execute(&mut *conn).await;
-                return Err(AppError::database_error(e.to_string()));
-            }
-
-            for perm_str in &perm_strings {
-                let result = diesel::sql_query(
-                    r#"INSERT INTO plan_permissions (plan_id, permission_id)
-                    SELECT $1, p.id FROM permissions p WHERE p.permission_string = $2
-                    ON CONFLICT (plan_id, permission_id) DO NOTHING"#,
-                )
-                .bind::<diesel::sql_types::Uuid, _>(plan.id().value())
-                .bind::<diesel::sql_types::Text, _>(*perm_str)
-                .execute(&mut *conn)
-                .await;
-
-                if let Err(e) = result {
-                    let _ = diesel::sql_query("ROLLBACK").execute(&mut *conn).await;
-                    return Err(AppError::database_error(e.to_string()));
-                }
-            }
-
-            diesel::sql_query("COMMIT")
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| AppError::database_error(e.to_string()))?;
-        }
-
-        info!(
-            "Permission plan {} saved with {} permissions",
-            plan.id(),
-            perm_strings.len()
-        );
-        Ok(())
-    }
-
-    async fn delete(&self, id: &PlanId) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
-
-        diesel::delete(plans::table)
-            .filter(plans::id.eq(id.value()))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to delete permission plan {}: {}", id, e);
-                AppError::database_error(e.to_string())
-            })?;
-
-        info!("Permission plan {} deleted successfully", id);
-        Ok(())
-    }
-
-    async fn count(&self, criteria: PlanSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let mut query = plans::table.into_boxed();
-
-        if let Some(plan_type) = &criteria.plan_type {
-            query = query.filter(plans::plan_type.eq(plan_type));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            query = query.filter(plans::is_active.eq(is_active));
-        }
-
-        if let Some(is_promoted) = criteria.is_promoted {
-            query = query.filter(plans::is_promoted.eq(is_promoted));
-        }
-
-        if let Some(plan_group) = &criteria.plan_group {
-            query = query.filter(plans::plan_group.eq(plan_group));
-        }
-
-        if let Some(search_term) = &criteria.search_term {
-            let pattern = format!("%{}%", search_term);
-            let p = pattern.clone();
-            query = query.filter(plans::name.ilike(pattern).or(plans::description.ilike(p)));
-        }
-
-        let count = query
-            .count()
-            .get_result::<i64>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to count permission plans: {}", e);
-                AppError::database_error(e.to_string())
-            })?;
-
-        Ok(count)
-    }
-
-    async fn get_statistics(&self) -> AppResult<PlanStatistics> {
-        let mut conn = self.db_pool.conn().await?;
-
-        // Use diesel::sql_query for FILTER clause compatibility
-        let query = r#"
-            SELECT
-                COUNT(*) as total_plans,
-                COUNT(*) FILTER (WHERE is_active = true) as active_plans,
-                COUNT(*) FILTER (WHERE is_promoted = true) as promoted_plans
-            FROM plans
-        "#;
-
-        let row = diesel::sql_query(query)
-            .get_result::<PlanStatsRow>(&mut conn)
-            .await
-            .map_err(|e| {
-                AppError::database_error(format!("Failed to get plan statistics: {}", e))
-            })?;
-
-        let total_members: i64 = diesel::sql_query(
-            "SELECT COUNT(DISTINCT wallet_address) as count FROM wallet_plan_assignments",
+        let plan_result: Option<PlanDb> = sqlx::query_as(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE slug = $1",
         )
-        .get_result::<CountResult>(&mut conn)
-        .await
-        .map(|result| result.count)
-        .unwrap_or(0);
-
-        Ok(PlanStatistics {
-            total_plans: row.total_plans,
-            active_plans: row.active_plans,
-            promoted_plans: row.promoted_plans,
-            total_members,
-        })
-    }
-
-    async fn slug_exists(&self, slug: &PlanSlug) -> AppResult<bool> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let exists = diesel::select(diesel::dsl::exists(
-            plans::table.filter(plans::slug.eq(slug.as_str())),
-        ))
-        .get_result::<bool>(&mut conn)
+        .bind(slug.value())
+        .fetch_optional(self.db_pool.as_ref())
         .await
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        Ok(exists)
+        let Some(row) = plan_result else { return Ok(None) };
+        let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+            "SELECT p.permission_string FROM plan_permissions pgm \
+             JOIN permissions p ON pgm.permission_id = p.id WHERE pgm.plan_id = $1",
+        )
+        .bind(row.id)
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+        let permissions: HashSet<PermissionString> = perm_rows
+            .iter()
+            .filter_map(|r| PermissionString::new(r.permission_string.clone()).ok())
+            .collect();
+        let plan_id = PlanId::from_uuid(row.id);
+        let price_f64 = row
+            .price
+            .as_ref()
+            .and_then(|bd| bd.to_string().parse::<f64>().ok())
+            .unwrap_or(0.0);
+        let plan = Plan::new(
+            plan_id,
+            row.name,
+            slug.clone(),
+            row.description.unwrap_or_default(),
+            row.plan_type,
+            row.plan_metadata,
+            price_f64,
+            row.currency,
+            row.is_active,
+            row.is_promoted,
+            row.display_order,
+            row.created_by,
+            row.tier_level,
+            row.is_public,
+            row.rate_limit_per_minute,
+            row.rate_limit_per_hour,
+            row.rate_limit_per_day,
+            row.burst_capacity,
+            permissions,
+        )
+        .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
+        Ok(Some(plan))
+    }
+
+    async fn find_active_plans(&self) -> AppResult<Vec<Plan>> {
+        let rows: Vec<PlanDb> = sqlx::query_as(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE is_active = TRUE ORDER BY tier_level DESC NULLS LAST, name ASC",
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+
+        let mut plans = Vec::with_capacity(rows.len());
+        for row in rows {
+            let slug = PlanSlug::new(row.slug.clone())
+                .map_err(|e| AppError::validation_error(e.to_string()))?;
+            let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+                "SELECT p.permission_string FROM plan_permissions pgm \
+                 JOIN permissions p ON pgm.permission_id = p.id WHERE pgm.plan_id = $1",
+            )
+            .bind(row.id)
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+            let permissions: HashSet<PermissionString> = perm_rows
+                .into_iter()
+                .filter_map(|r| PermissionString::new(r.permission_string).ok())
+                .collect();
+            let plan_id = PlanId::from_uuid(row.id);
+            let price_f64 = row
+                .price
+                .as_ref()
+                .and_then(|bd| bd.to_string().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let plan = Plan::new(
+                plan_id,
+                row.name,
+                slug,
+                row.description.unwrap_or_default(),
+                row.plan_type,
+                row.plan_metadata,
+                price_f64,
+                row.currency,
+                row.is_active,
+                row.is_promoted,
+                row.display_order,
+                row.created_by,
+                row.tier_level,
+                row.is_public,
+                row.rate_limit_per_minute,
+                row.rate_limit_per_hour,
+                row.rate_limit_per_day,
+                row.burst_capacity,
+                permissions,
+            )
+            .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
+            plans.push(plan);
+        }
+        Ok(plans)
+    }
+
+    async fn find_promoted_plans(&self) -> AppResult<Vec<Plan>> {
+        let rows: Vec<PlanDb> = sqlx::query_as(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE is_promoted = TRUE AND is_active = TRUE \
+             ORDER BY display_order ASC",
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+
+        let mut plans = Vec::with_capacity(rows.len());
+        for row in rows {
+            let slug = PlanSlug::new(row.slug.clone())
+                .map_err(|e| AppError::validation_error(e.to_string()))?;
+            let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+                "SELECT p.permission_string FROM plan_permissions pgm \
+                 JOIN permissions p ON pgm.permission_id = p.id WHERE pgm.plan_id = $1",
+            )
+            .bind(row.id)
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+            let permissions: HashSet<PermissionString> = perm_rows
+                .into_iter()
+                .filter_map(|r| PermissionString::new(r.permission_string).ok())
+                .collect();
+            let plan_id = PlanId::from_uuid(row.id);
+            let price_f64 = row
+                .price
+                .as_ref()
+                .and_then(|bd| bd.to_string().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let plan = Plan::new(
+                plan_id,
+                row.name,
+                slug,
+                row.description.unwrap_or_default(),
+                row.plan_type,
+                row.plan_metadata,
+                price_f64,
+                row.currency,
+                row.is_active,
+                row.is_promoted,
+                row.display_order,
+                row.created_by,
+                row.tier_level,
+                row.is_public,
+                row.rate_limit_per_minute,
+                row.rate_limit_per_hour,
+                row.rate_limit_per_day,
+                row.burst_capacity,
+                permissions,
+            )
+            .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
+            plans.push(plan);
+        }
+        Ok(plans)
+    }
+
+    async fn find_by_category(&self, category: &PlanCategory) -> AppResult<Vec<Plan>> {
+        let rows: Vec<PlanDb> = sqlx::query_as(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE plan_type = $1 AND is_active = TRUE \
+             ORDER BY tier_level DESC NULLS LAST, display_order ASC",
+        )
+        .bind(category.as_str())
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+
+        let mut plans = Vec::with_capacity(rows.len());
+        for row in rows {
+            let slug = PlanSlug::new(row.slug.clone())
+                .map_err(|e| AppError::validation_error(e.to_string()))?;
+            let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+                "SELECT p.permission_string FROM plan_permissions pgm \
+                 JOIN permissions p ON pgm.permission_id = p.id WHERE pgm.plan_id = $1",
+            )
+            .bind(row.id)
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+            let permissions: HashSet<PermissionString> = perm_rows
+                .into_iter()
+                .filter_map(|r| PermissionString::new(r.permission_string).ok())
+                .collect();
+            let plan_id = PlanId::from_uuid(row.id);
+            let price_f64 = row
+                .price
+                .as_ref()
+                .and_then(|bd| bd.to_string().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let plan = Plan::new(
+                plan_id,
+                row.name,
+                slug,
+                row.description.unwrap_or_default(),
+                row.plan_type,
+                row.plan_metadata,
+                price_f64,
+                row.currency,
+                row.is_active,
+                row.is_promoted,
+                row.display_order,
+                row.created_by,
+                row.tier_level,
+                row.is_public,
+                row.rate_limit_per_minute,
+                row.rate_limit_per_hour,
+                row.rate_limit_per_day,
+                row.burst_capacity,
+                permissions,
+            )
+            .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
+            plans.push(plan);
+        }
+        Ok(plans)
+    }
+
+    async fn find_by_group(&self, group: &PlanGroup) -> AppResult<Vec<Plan>> {
+        self.find_by_category(&PlanCategory::new(group.value().to_string()).unwrap_or(PlanCategory::Subscription))
+            .await
+    }
+
+    async fn save(&self, plan: &Plan) -> AppResult<Plan> {
+        let new_plan = NewPlanDb {
+            id: plan.id().value(),
+            name: plan.name().to_string(),
+            slug: plan.slug().value().to_string(),
+            description: Some(plan.description().to_string()),
+            plan_type: plan.plan_type().to_string(),
+            plan_metadata: plan.metadata().clone(),
+            price: plan.price(),
+            currency: plan.currency().to_string(),
+            is_active: plan.is_active(),
+            is_promoted: plan.is_promoted(),
+            display_order: plan.display_order(),
+            created_by: plan.created_by().to_string(),
+            tier_level: plan.tier_level(),
+            is_public: plan.is_public(),
+            rate_limit_per_minute: plan.rate_limit_per_minute(),
+            rate_limit_per_hour: plan.rate_limit_per_hour(),
+            rate_limit_per_day: plan.rate_limit_per_day(),
+            burst_capacity: plan.burst_capacity(),
+            contract_address: None,
+            token_address: None,
+            block_number: None,
+            confirmations: Some(0),
+            expires_at: None,
+            version: 1,
+        };
+
+        sqlx::query(
+            "INSERT INTO plans (\
+                id, name, slug, description, plan_type, plan_metadata, \
+                price, currency, is_active, is_promoted, display_order, \
+                created_by, tier_level, is_public, rate_limit_per_minute, \
+                rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                version, created_at, updated_at\
+            ) VALUES (\
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 1, NOW(), NOW()\
+            )",
+        )
+        .bind(new_plan.id)
+        .bind(&new_plan.name)
+        .bind(&new_plan.slug)
+        .bind(&new_plan.description)
+        .bind(&new_plan.plan_type)
+        .bind(&new_plan.plan_metadata)
+        .bind(new_plan.price)
+        .bind(&new_plan.currency)
+        .bind(new_plan.is_active)
+        .bind(new_plan.is_promoted)
+        .bind(new_plan.display_order)
+        .bind(&new_plan.created_by)
+        .bind(new_plan.tier_level)
+        .bind(new_plan.is_public)
+        .bind(new_plan.rate_limit_per_minute)
+        .bind(new_plan.rate_limit_per_hour)
+        .bind(new_plan.rate_limit_per_day)
+        .bind(new_plan.burst_capacity)
+        .execute(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+
+        info!("Saved plan {}", new_plan.id);
+        Ok(plan.clone())
+    }
+
+    async fn update(&self, plan: &Plan) -> AppResult<Plan> {
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+            "UPDATE plans SET updated_at = NOW(), version = version + 1",
+        );
+        qb.push(", name = ").push_bind(plan.name().to_string());
+        qb.push(", description = ").push_bind(plan.description().to_string());
+        qb.push(", plan_metadata = ").push_bind(plan.metadata().clone());
+        qb.push(", is_active = ").push_bind(plan.is_active());
+        qb.push(", is_promoted = ").push_bind(plan.is_promoted());
+        qb.push(", display_order = ").push_bind(plan.display_order());
+        qb.push(", tier_level = ").push_bind(plan.tier_level());
+        qb.push(", is_public = ").push_bind(plan.is_public());
+        qb.push(", rate_limit_per_minute = ").push_bind(plan.rate_limit_per_minute());
+        qb.push(", rate_limit_per_hour = ").push_bind(plan.rate_limit_per_hour());
+        qb.push(", rate_limit_per_day = ").push_bind(plan.rate_limit_per_day());
+        qb.push(", burst_capacity = ").push_bind(plan.burst_capacity());
+        qb.push(" WHERE id = ").push_bind(plan.id().value());
+
+        qb.build()
+            .execute(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("update plan: {}", e)))?;
+        Ok(plan.clone())
+    }
+
+    async fn delete(&self, id: &PlanId) -> AppResult<()> {
+        sqlx::query("DELETE FROM plans WHERE id = $1")
+            .bind(id.value())
+            .execute(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("delete plan: {}", e)))?;
+        Ok(())
+    }
+
+    async fn load(&self, params: LoadPlanParams) -> AppResult<Vec<Plan>> {
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, is_active, is_promoted, display_order, \
+                    created_by, tier_level, is_public, rate_limit_per_minute, \
+                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    version, created_at, updated_at, contract_address, \
+                    token_address, block_number, confirmations, expires_at \
+             FROM plans WHERE TRUE",
+        );
+        if params.active_only {
+            qb.push(" AND is_active = ").push_bind(true);
+        }
+        if let Some(cat) = params.category {
+            qb.push(" AND plan_type = ").push_bind(cat);
+        }
+        if let Some(tier) = params.tier_min {
+            qb.push(" AND tier_level >= ").push_bind(tier);
+        }
+        qb.push(" ORDER BY tier_level DESC NULLS LAST, display_order ASC LIMIT ")
+            .push_bind(params.limit as i64)
+            .push(" OFFSET ")
+            .push_bind(params.offset as i64);
+
+        let rows: Vec<PlanDb> = qb
+            .build_query_as()
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("load plans: {}", e)))?;
+
+        let mut plans = Vec::with_capacity(rows.len());
+        for row in rows {
+            let slug = PlanSlug::new(row.slug.clone())
+                .map_err(|e| AppError::validation_error(e.to_string()))?;
+            let perm_rows: Vec<PermStringRow> = sqlx::query_as(
+                "SELECT p.permission_string FROM plan_permissions pgm \
+                 JOIN permissions p ON pgm.permission_id = p.id WHERE pgm.plan_id = $1",
+            )
+            .bind(row.id)
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("load plan perms: {}", e)))?;
+            let permissions: HashSet<PermissionString> = perm_rows
+                .into_iter()
+                .filter_map(|r| PermissionString::new(r.permission_string).ok())
+                .collect();
+            let plan_id = PlanId::from_uuid(row.id);
+            let price_f64 = row
+                .price
+                .as_ref()
+                .and_then(|bd| bd.to_string().parse::<f64>().ok())
+                .unwrap_or(0.0);
+            let plan = Plan::new(
+                plan_id,
+                row.name,
+                slug,
+                row.description.unwrap_or_default(),
+                row.plan_type,
+                row.plan_metadata,
+                price_f64,
+                row.currency,
+                row.is_active,
+                row.is_promoted,
+                row.display_order,
+                row.created_by,
+                row.tier_level,
+                row.is_public,
+                row.rate_limit_per_minute,
+                row.rate_limit_per_hour,
+                row.rate_limit_per_day,
+                row.burst_capacity,
+                permissions,
+            )
+            .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))?;
+            plans.push(plan);
+        }
+        Ok(plans)
+    }
+
+    async fn search(&self, criteria: PlanSearchCriteria) -> AppResult<Vec<Plan>> {
+        self.load(LoadPlanParams {
+            active_only: criteria.active_only.unwrap_or(true),
+            category: criteria.category,
+            tier_min: criteria.tier_min,
+            limit: criteria.limit.unwrap_or(50),
+            offset: criteria.offset.unwrap_or(0),
+        })
+        .await
+    }
+
+    async fn get_statistics(&self) -> AppResult<PlanStatistics> {
+        let row: PlanStatsRow = sqlx::query_as(
+            "SELECT \
+                COUNT(*) AS total_plans, \
+                COUNT(*) FILTER (WHERE is_active = TRUE) AS active_plans, \
+                COUNT(*) FILTER (WHERE is_promoted = TRUE) AS promoted_plans \
+             FROM plans",
+        )
+        .fetch_one(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("plan stats: {}", e)))?;
+
+        let plans_by_category = self.count_by_category().await?;
+        Ok(PlanStatistics {
+            total_plans: row.total_plans as u32,
+            active_plans: row.active_plans as u32,
+            promoted_plans: row.promoted_plans as u32,
+            plans_by_category,
+        })
+    }
+
+    async fn count_by_category(&self) -> AppResult<std::collections::HashMap<String, u32>> {
+        #[derive(sqlx::FromRow)]
+        struct CategoryCountRow {
+            plan_type: String,
+            count: i64,
+        }
+        let rows: Vec<CategoryCountRow> = sqlx::query_as(
+            "SELECT plan_type, COUNT(*) AS count FROM plans GROUP BY plan_type",
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("count by category: {}", e)))?;
+
+        let mut counts = std::collections::HashMap::new();
+        for row in rows {
+            counts.insert(row.plan_type, row.count as u32);
+        }
+        Ok(counts)
     }
 }
-
-// Additional helper methods for subscription plan management
-impl PlanRepositoryAdapter {
-    /// Get all subscription plans (database_types.rs compatibility layer)
-    pub async fn get_subscription_plans(
-        &self,
-    ) -> Result<
-        Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>,
-        diesel::result::Error,
-    > {
-        use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
-        use crate::schemas::primary::plans;
-
-        let mut conn = self
-            .db_pool
-            .conn()
-            .await
-            .map_err(|_e| diesel::result::Error::NotFound)?;
-
-        plans::table
-            .filter(plans::plan_type.eq("subscription"))
-            .order_by((
-                plans::tier_level.asc(),
-                plans::price.assume_not_null().asc(),
-            ))
-            .select(DbPermissionPlan::as_select())
-            .load::<DbPermissionPlan>(&mut conn)
-            .await
-    }
-
-    /// Get plan by ID (database_types.rs compatibility layer)
-    pub async fn get_plan_by_id(
-        &self,
-        plan_id: uuid::Uuid,
-    ) -> Result<
-        Option<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>,
-        diesel::result::Error,
-    > {
-        use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
-        use crate::schemas::primary::plans;
-
-        let mut conn = self
-            .db_pool
-            .conn()
-            .await
-            .map_err(|_e| diesel::result::Error::NotFound)?;
-
-        plans::table
-            .filter(plans::id.eq(plan_id))
-            .filter(plans::plan_type.eq("subscription"))
-            .select(DbPermissionPlan::as_select())
-            .first::<DbPermissionPlan>(&mut conn)
-            .await
-            .optional()
-    }
-
-    /// Update plan (database_types.rs compatibility layer)
-    pub async fn update_plan(
-        &self,
-        plan: crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
-    ) -> Result<
-        crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
-        diesel::result::Error,
-    > {
-        use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
-        use crate::schemas::primary::plans;
-
-        let mut conn = self
-            .db_pool
-            .conn()
-            .await
-            .map_err(|_e| diesel::result::Error::NotFound)?;
-
-        diesel::update(plans::table.filter(plans::id.eq(plan.id)))
-            .set((
-                plans::name.eq(plan.name),
-                plans::slug.eq(plan.slug),
-                plans::description.eq(plan.description),
-                plans::plan_metadata.eq(plan.plan_metadata),
-                plans::price.eq(plan.price),
-                plans::currency.eq(plan.currency),
-                plans::billing_cycle.eq(plan.billing_cycle),
-                plans::is_active.eq(plan.is_active.unwrap_or(true)),
-                plans::is_promoted.eq(plan.is_promoted.unwrap_or(false)),
-                plans::tier_level.eq(plan.tier_level),
-                plans::updated_at.eq(diesel::dsl::now),
-            ))
-            .returning(DbPermissionPlan::as_returning())
-            .get_result::<DbPermissionPlan>(&mut conn)
-            .await
-    }
-
-    /// Create a new permission plan (database_types.rs compatibility layer)
-    pub async fn create_plan(
-        &self,
-        new_plan: crate::infrastructure::adapters::repositories::database_types::NewPermissionPlan,
-    ) -> Result<
-        crate::infrastructure::adapters::repositories::database_types::PermissionPlan,
-        diesel::result::Error,
-    > {
-        use crate::infrastructure::adapters::repositories::database_types::PermissionPlan as DbPermissionPlan;
-        use crate::schemas::primary::plans;
-
-        let mut conn = self
-            .db_pool
-            .conn()
-            .await
-            .map_err(|_e| diesel::result::Error::NotFound)?;
-
-        diesel::insert_into(plans::table)
-            .values(&new_plan)
-            .returning(DbPermissionPlan::as_returning())
-            .get_result::<DbPermissionPlan>(&mut conn)
-            .await
-    }
-}
-
-// Type alias for backward compatibility
-pub type PermissionPlanRepositoryAdapter = PlanRepositoryAdapter;

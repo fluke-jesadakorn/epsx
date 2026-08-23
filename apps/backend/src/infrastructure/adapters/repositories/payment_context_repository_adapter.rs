@@ -1,20 +1,16 @@
 //! Payment Context Repository Adapter (Infrastructure Layer)
-//! PostgreSQL implementation for payment context persistence using Diesel
+//! PostgreSQL implementation for payment context persistence using sqlx
 //!
-//! NOTE: This requires the `payment_contexts` table to exist. Run migrations first:
-//! ```bash
-//! cd apps/backend
-//! diesel migration run --migration-dir diesel_migrations_payments
-//! ```
+//! BIG-BANG: migrated to sqlx (real). All diesel DSL/derive replaced with raw SQL.
 
 use crate::domain::payment::repository_ports::payment_context_port::PaymentContextRepositoryPort;
 use crate::prelude::*;
 use async_trait::async_trait;
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
+use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
@@ -22,10 +18,8 @@ use uuid::Uuid;
 // DATABASE MODELS
 // ============================================================================
 
-/// Database model for payment_contexts table
-#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
-#[diesel(table_name = crate::schemas::payments::payment_contexts)]
-#[diesel(check_for_backend(diesel::pg::Pg))]
+/// Database model for payment_contexts table (sqlx)
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PaymentContextDb {
     pub id: Uuid,
     pub context_type: String,
@@ -47,8 +41,7 @@ pub struct PaymentContextDb {
 }
 
 /// New payment context for insert
-#[derive(Debug, Clone, Insertable, Serialize, Deserialize)]
-#[diesel(table_name = crate::schemas::payments::payment_contexts)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NewPaymentContextDb {
     pub id: Uuid,
     pub context_type: String,
@@ -67,8 +60,7 @@ pub struct NewPaymentContextDb {
 }
 
 /// Changeset for updating payment context
-#[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schemas::payments::payment_contexts)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdatePaymentContextDb {
     pub name: Option<String>,
     pub description: Option<Option<String>>,
@@ -78,344 +70,227 @@ pub struct UpdatePaymentContextDb {
     pub max_uses: Option<Option<i32>>,
     pub is_active: Option<bool>,
     pub metadata: Option<serde_json::Value>,
-    pub updated_at: DateTime<Utc>,
 }
 
-// ============================================================================
-// SEARCH CRITERIA
-// ============================================================================
-
-/// Search criteria for payment contexts
-#[derive(Debug, Clone, Default)]
-pub struct PaymentContextSearchCriteria {
-    pub context_type: Option<String>,
-    pub is_active: Option<bool>,
-    pub created_by: Option<String>,
-    pub limit: Option<i64>,
-    pub offset: Option<i64>,
-}
-
-// ============================================================================
-// REPOSITORY ADAPTER
-// ============================================================================
-
-/// PostgreSQL payment context repository adapter
 #[derive(Clone)]
 pub struct PaymentContextRepositoryAdapter {
-    db_pool: &'static TlsPool,
+    db_pool: Arc<PgPool>,
 }
 
 impl PaymentContextRepositoryAdapter {
-    pub fn new(db_pool: &'static TlsPool) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 
-    /// Save a new payment context
-    pub async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        info!(
-            "Saving payment context: {} ({})",
-            context.name, context.slug
-        );
-
-        let result = diesel::insert_into(payment_contexts::table)
-            .values(&context)
-            .returning(PaymentContextDb::as_returning())
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to save payment context: {}", e);
-                AppError::database_error(format!("Failed to save payment context: {}", e))
-            })?;
-
-        info!("Successfully saved payment context: {}", result.id);
-        Ok(result)
-    }
-
-    /// Find payment context by ID
-    pub async fn find_by_id(&self, id: Uuid) -> AppResult<Option<PaymentContextDb>> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        debug!("Finding payment context by ID: {}", id);
-
-        let result = payment_contexts::table
-            .filter(payment_contexts::id.eq(id))
-            .first::<PaymentContextDb>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!("Failed to find payment context by ID {}: {}", id, e);
-                AppError::database_error(format!("Failed to find payment context: {}", e))
-            })?;
-
-        Ok(result)
-    }
-
-    /// Find payment context by slug
-    pub async fn find_by_slug(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        debug!("Finding payment context by slug: {}", slug);
-
-        let result = payment_contexts::table
-            .filter(payment_contexts::slug.eq(slug))
-            .first::<PaymentContextDb>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!("Failed to find payment context by slug {}: {}", slug, e);
-                AppError::database_error(format!("Failed to find payment context: {}", e))
-            })?;
-
-        Ok(result)
-    }
-
-    /// Find all payment contexts with criteria
-    pub async fn find_all(
+    async fn save_impl(
         &self,
-        criteria: PaymentContextSearchCriteria,
-    ) -> AppResult<Vec<PaymentContextDb>> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        debug!("Finding all payment contexts with criteria: {:?}", criteria);
-
-        let mut query = payment_contexts::table.into_boxed();
-
-        if let Some(ref context_type) = criteria.context_type {
-            query = query.filter(payment_contexts::context_type.eq(context_type));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            query = query.filter(payment_contexts::is_active.eq(is_active));
-        }
-
-        if let Some(ref created_by) = criteria.created_by {
-            query = query.filter(payment_contexts::created_by.eq(created_by));
-        }
-
-        if let Some(limit) = criteria.limit {
-            query = query.limit(limit);
-        }
-
-        if let Some(offset) = criteria.offset {
-            query = query.offset(offset);
-        }
-
-        query = query.order(payment_contexts::created_at.desc());
-
-        let results = query
-            .load::<PaymentContextDb>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find payment contexts: {}", e);
-                AppError::database_error(format!("Failed to find payment contexts: {}", e))
-            })?;
-
-        info!("Found {} payment contexts", results.len());
-        Ok(results)
+        context: NewPaymentContextDb,
+    ) -> AppResult<PaymentContextDb> {
+        sqlx::query_as::<_, PaymentContextDb>(
+            r#"
+            INSERT INTO payment_contexts (
+                id, context_type, context_id, slug, name, description,
+                amount, currency, expires_at, max_uses, current_uses,
+                is_active, created_by, metadata, version, created_at, updated_at
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6,
+                $7, $8, $9, $10, $11,
+                $12, $13, $14, 1, NOW(), NOW()
+            )
+            ON CONFLICT (id) DO UPDATE SET
+                context_type = EXCLUDED.context_type,
+                context_id = EXCLUDED.context_id,
+                slug = EXCLUDED.slug,
+                name = EXCLUDED.name,
+                description = EXCLUDED.description,
+                amount = EXCLUDED.amount,
+                currency = EXCLUDED.currency,
+                expires_at = EXCLUDED.expires_at,
+                max_uses = EXCLUDED.max_uses,
+                current_uses = EXCLUDED.current_uses,
+                is_active = EXCLUDED.is_active,
+                created_by = EXCLUDED.created_by,
+                metadata = EXCLUDED.metadata,
+                version = payment_contexts.version + 1,
+                updated_at = NOW()
+            RETURNING id, context_type, context_id, slug, name, description,
+                      amount, currency, expires_at, max_uses, current_uses,
+                      is_active, created_by, metadata, version, created_at, updated_at
+            "#,
+        )
+        .bind(context.id)
+        .bind(&context.context_type)
+        .bind(context.context_id)
+        .bind(&context.slug)
+        .bind(&context.name)
+        .bind(&context.description)
+        .bind(&context.amount)
+        .bind(&context.currency)
+        .bind(context.expires_at)
+        .bind(context.max_uses)
+        .bind(context.current_uses)
+        .bind(context.is_active)
+        .bind(&context.created_by)
+        .bind(&context.metadata)
+        .fetch_one(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("save payment_context: {}", e)))
     }
 
-    /// Update a payment context
-    pub async fn update(
+    async fn find_by_id_impl(
+        &self,
+        id: Uuid,
+    ) -> AppResult<Option<PaymentContextDb>> {
+        sqlx::query_as::<_, PaymentContextDb>(
+            "SELECT id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at \
+             FROM payment_contexts WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("find_by_id: {}", e)))
+    }
+
+    async fn find_by_slug_impl(
+        &self,
+        slug: &str,
+    ) -> AppResult<Option<PaymentContextDb>> {
+        sqlx::query_as::<_, PaymentContextDb>(
+            "SELECT id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at \
+             FROM payment_contexts WHERE slug = $1",
+        )
+        .bind(slug)
+        .fetch_optional(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("find_by_slug: {}", e)))
+    }
+
+    async fn find_all_impl(
+        &self,
+        active_only: bool,
+    ) -> AppResult<Vec<PaymentContextDb>> {
+        let sql = if active_only {
+            "SELECT id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at \
+             FROM payment_contexts WHERE is_active = TRUE \
+             ORDER BY created_at DESC"
+        } else {
+            "SELECT id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at \
+             FROM payment_contexts ORDER BY created_at DESC"
+        };
+        sqlx::query_as::<_, PaymentContextDb>(sql)
+            .fetch_all(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("find_all: {}", e)))
+    }
+
+    async fn update_impl(
         &self,
         id: Uuid,
         changeset: UpdatePaymentContextDb,
     ) -> AppResult<PaymentContextDb> {
-        use crate::schemas::payments::payment_contexts;
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+            "UPDATE payment_contexts SET updated_at = NOW()",
+        );
+        if let Some(name) = changeset.name {
+            qb.push(", name = ").push_bind(name);
+        }
+        if let Some(description) = changeset.description {
+            qb.push(", description = ").push_bind(description);
+        }
+        if let Some(amount) = changeset.amount {
+            qb.push(", amount = ").push_bind(amount);
+        }
+        if let Some(currency) = changeset.currency {
+            qb.push(", currency = ").push_bind(currency);
+        }
+        if let Some(expires_at) = changeset.expires_at {
+            qb.push(", expires_at = ").push_bind(expires_at);
+        }
+        if let Some(max_uses) = changeset.max_uses {
+            qb.push(", max_uses = ").push_bind(max_uses);
+        }
+        if let Some(is_active) = changeset.is_active {
+            qb.push(", is_active = ").push_bind(is_active);
+        }
+        if let Some(metadata) = changeset.metadata {
+            qb.push(", metadata = ").push_bind(metadata);
+        }
+        qb.push(", version = version + 1 WHERE id = ")
+            .push_bind(id)
+            .push(" RETURNING id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at");
 
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        info!("Updating payment context: {}", id);
-
-        let result = diesel::update(payment_contexts::table.filter(payment_contexts::id.eq(id)))
-            .set(&changeset)
-            .returning(PaymentContextDb::as_returning())
-            .get_result(&mut conn)
+        qb.build_query_as::<PaymentContextDb>()
+            .fetch_one(self.db_pool.as_ref())
             .await
-            .map_err(|e| {
-                error!("Failed to update payment context: {}", e);
-                AppError::database_error(format!("Failed to update payment context: {}", e))
-            })?;
-
-        info!("Successfully updated payment context: {}", id);
-        Ok(result)
+            .map_err(|e| AppError::database_error(format!("update: {}", e)))
     }
 
-    /// Soft delete (deactivate) a payment context
-    pub async fn soft_delete(&self, id: Uuid) -> AppResult<()> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        warn!("Soft deleting payment context: {}", id);
-
-        diesel::update(payment_contexts::table.filter(payment_contexts::id.eq(id)))
-            .set((
-                payment_contexts::is_active.eq(false),
-                payment_contexts::updated_at.eq(Utc::now()),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to delete payment context: {}", e);
-                AppError::database_error(format!("Failed to delete payment context: {}", e))
-            })?;
-
-        info!("Successfully soft deleted payment context: {}", id);
+    async fn soft_delete_impl(&self, id: Uuid) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE payment_contexts SET is_active = FALSE, updated_at = NOW(), version = version + 1 WHERE id = $1",
+        )
+        .bind(id)
+        .execute(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("soft_delete: {}", e)))?;
         Ok(())
     }
 
-    /// Increment usage count
-    pub async fn increment_usage(&self, id: Uuid) -> AppResult<PaymentContextDb> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        info!("Incrementing usage for payment context: {}", id);
-
-        let result = diesel::update(payment_contexts::table.filter(payment_contexts::id.eq(id)))
-            .set((
-                payment_contexts::current_uses.eq(payment_contexts::current_uses + 1),
-                payment_contexts::updated_at.eq(Utc::now()),
-            ))
-            .returning(PaymentContextDb::as_returning())
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to increment usage: {}", e);
-                AppError::database_error(format!("Failed to increment usage: {}", e))
-            })?;
-
-        info!(
-            "Usage incremented to {} for payment context: {}",
-            result.current_uses, id
-        );
-        Ok(result)
+    async fn increment_usage_impl(&self, id: Uuid) -> AppResult<PaymentContextDb> {
+        sqlx::query_as::<_, PaymentContextDb>(
+            "UPDATE payment_contexts SET current_uses = current_uses + 1, \
+                                       updated_at = NOW(), version = version + 1 \
+             WHERE id = $1 \
+             RETURNING id, context_type, context_id, slug, name, description, \
+                       amount, currency, expires_at, max_uses, current_uses, \
+                       is_active, created_by, metadata, version, created_at, updated_at",
+        )
+        .bind(id)
+        .fetch_one(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("increment_usage: {}", e)))
     }
 
-    /// Count payment contexts matching criteria
-    pub async fn count(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        let mut query = payment_contexts::table.into_boxed();
-
-        if let Some(ref context_type) = criteria.context_type {
-            query = query.filter(payment_contexts::context_type.eq(context_type));
-        }
-
-        if let Some(is_active) = criteria.is_active {
-            query = query.filter(payment_contexts::is_active.eq(is_active));
-        }
-
-        if let Some(ref created_by) = criteria.created_by {
-            query = query.filter(payment_contexts::created_by.eq(created_by));
-        }
-
-        let count = query
-            .count()
-            .get_result::<i64>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to count payment contexts: {}", e);
-                AppError::database_error(format!("Failed to count payment contexts: {}", e))
-            })?;
-
-        Ok(count)
-    }
-
-    /// Find expired but still active payment contexts
-    pub async fn find_expired(&self) -> AppResult<Vec<PaymentContextDb>> {
-        use crate::schemas::payments::payment_contexts;
-
-        let mut conn =
-            self.db_pool.acquire().await.map_err(|e| {
-                AppError::database_error(format!("Failed to get connection: {}", e))
-            })?;
-
-        let now = Utc::now();
-
-        let results = payment_contexts::table
-            .filter(payment_contexts::is_active.eq(true))
-            .filter(payment_contexts::expires_at.lt(now))
-            .load::<PaymentContextDb>(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find expired payment contexts: {}", e);
-                AppError::database_error(format!("Failed to find expired contexts: {}", e))
-            })?;
-
-        info!("Found {} expired payment contexts", results.len());
-        Ok(results)
+    async fn find_expired_impl(&self) -> AppResult<Vec<PaymentContextDb>> {
+        sqlx::query_as::<_, PaymentContextDb>(
+            "SELECT id, context_type, context_id, slug, name, description, \
+                    amount, currency, expires_at, max_uses, current_uses, \
+                    is_active, created_by, metadata, version, created_at, updated_at \
+             FROM payment_contexts \
+             WHERE expires_at IS NOT NULL AND expires_at < NOW() AND is_active = TRUE",
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("find_expired: {}", e)))
     }
 }
-
-// -----------------------------------------------------------------------------
-// `PaymentContextRepositoryPort` impl
-// -----------------------------------------------------------------------------
-//
-// Wave 11 — Track B (outbound-leakage fold). The pre-wave-11
-// `PaymentContextRepositoryPort` was an unused narrow port. Track
-// B replaces it with a wider surface that this adapter
-// implements 1:1. The methods delegate to the `self.*` concrete
-// methods above, so the existing tested logic is preserved and
-// the `Arc<dyn PaymentContextRepositoryPort>` injection in
-// `AppState` and the `web/payments/payment_link_handlers.rs`
-// move target get a stable trait surface to depend on.
 
 #[async_trait]
 impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
     async fn save(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
-        self.save(context).await
+        self.save_impl(context).await
     }
 
     async fn find_by_id(&self, id: Uuid) -> AppResult<Option<PaymentContextDb>> {
-        self.find_by_id(id).await
+        self.find_by_id_impl(id).await
     }
 
     async fn find_by_slug(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
-        self.find_by_slug(slug).await
+        self.find_by_slug_impl(slug).await
     }
 
-    async fn find_all(
-        &self,
-        criteria: PaymentContextSearchCriteria,
-    ) -> AppResult<Vec<PaymentContextDb>> {
-        self.find_all(criteria).await
+    async fn find_all(&self, active_only: bool) -> AppResult<Vec<PaymentContextDb>> {
+        self.find_all_impl(active_only).await
     }
 
     async fn update(
@@ -423,59 +298,106 @@ impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
         id: Uuid,
         changeset: UpdatePaymentContextDb,
     ) -> AppResult<PaymentContextDb> {
-        self.update(id, changeset).await
+        self.update_impl(id, changeset).await
     }
 
     async fn soft_delete(&self, id: Uuid) -> AppResult<()> {
-        self.soft_delete(id).await
+        self.soft_delete_impl(id).await
     }
 
     async fn increment_usage(&self, id: Uuid) -> AppResult<PaymentContextDb> {
-        self.increment_usage(id).await
+        self.increment_usage_impl(id).await
     }
 
-    async fn count(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
-        self.count(criteria).await
+    async fn count(&self, active_only: bool) -> AppResult<i64> {
+        let count: (i64,) = if active_only {
+            sqlx::query_as("SELECT COUNT(*) FROM payment_contexts WHERE is_active = TRUE")
+                .fetch_one(self.db_pool.as_ref())
+                .await
+                .map_err(|e| AppError::database_error(format!("count: {}", e)))?
+        } else {
+            sqlx::query_as("SELECT COUNT(*) FROM payment_contexts")
+                .fetch_one(self.db_pool.as_ref())
+                .await
+                .map_err(|e| AppError::database_error(format!("count: {}", e)))?
+        };
+        Ok(count.0)
     }
 
     async fn find_expired(&self) -> AppResult<Vec<PaymentContextDb>> {
-        self.find_expired().await
+        self.find_expired_impl().await
     }
 }
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/// Check if a payment context is usable
-pub fn is_context_usable(context: &PaymentContextDb) -> bool {
+#[allow(dead_code)]
+fn is_context_usable(context: &PaymentContextDb) -> bool {
     if !context.is_active {
         return false;
     }
-
-    // Check expiration
-    if let Some(expires_at) = context.expires_at {
-        if Utc::now() > expires_at {
+    if let Some(max) = context.max_uses {
+        if context.current_uses >= max {
             return false;
         }
     }
-
-    // Check usage limits
-    if let Some(max_uses) = context.max_uses {
-        if context.current_uses >= max_uses {
+    if let Some(expires) = context.expires_at {
+        if expires < Utc::now() {
             return false;
         }
     }
-
     true
 }
 
-/// Compute link hash for smart contract verification
-pub fn compute_link_hash(slug: &str) -> String {
-    // Simple hash for now - proper keccak256 would need sha3 crate
-    use std::collections::hash_map::DefaultHasher;
-    use std::hash::{Hash, Hasher};
-    let mut hasher = DefaultHasher::new();
-    slug.hash(&mut hasher);
-    format!("0x{:064x}", hasher.finish())
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn usable_when_active_with_remaining_uses() {
+        let now = Utc::now();
+        let c = PaymentContextDb {
+            id: Uuid::new_v4(),
+            context_type: "subscription".to_string(),
+            context_id: None,
+            slug: "s".to_string(),
+            name: "n".to_string(),
+            description: None,
+            amount: BigDecimal::from(0),
+            currency: "USD".to_string(),
+            expires_at: Some(now + chrono::Duration::days(7)),
+            max_uses: Some(5),
+            current_uses: 1,
+            is_active: true,
+            created_by: "system".to_string(),
+            metadata: serde_json::json!({}),
+            version: 1,
+            created_at: now,
+            updated_at: now,
+        };
+        assert!(is_context_usable(&c));
+    }
+
+    #[test]
+    fn unusable_when_expired() {
+        let now = Utc::now();
+        let c = PaymentContextDb {
+            id: Uuid::new_v4(),
+            context_type: "subscription".to_string(),
+            context_id: None,
+            slug: "s".to_string(),
+            name: "n".to_string(),
+            description: None,
+            amount: BigDecimal::from(0),
+            currency: "USD".to_string(),
+            expires_at: Some(now - chrono::Duration::days(1)),
+            max_uses: None,
+            current_uses: 0,
+            is_active: true,
+            created_by: "system".to_string(),
+            metadata: serde_json::json!({}),
+            version: 1,
+            created_at: now,
+            updated_at: now,
+        };
+        assert!(!is_context_usable(&c));
+    }
 }
