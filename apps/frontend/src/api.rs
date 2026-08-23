@@ -714,11 +714,13 @@ fn refresh_response(mut response: Response, disposition: RefreshDisposition) -> 
 }
 
 pub async fn logout(State(state): State<AppState>, headers: axum::http::HeaderMap) -> Response {
-    let refresh_token = super::auth::refresh_token(&headers, state.cookie_environment);
-    let wallet =
-        super::auth::current_user(&headers, state.verifier.as_ref(), state.cookie_environment)
-            .await
-            .map(|user| user.wallet_address);
+    // BIG-BANG Phase B: use AppState::session() (TypedBffSession) instead of manual verifier+env
+    let refresh_token = state.session().refresh_token(&headers);
+    let wallet = state
+        .session()
+        .current_user(&headers)
+        .await
+        .map(|user| user.wallet_address);
     let request = LogoutRequest {
         wallet_address: wallet.as_deref(),
         refresh_token: refresh_token.as_deref(),

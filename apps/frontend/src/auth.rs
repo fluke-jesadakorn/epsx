@@ -40,6 +40,7 @@ pub async fn access_verification(
         .await
 }
 
+#[allow(dead_code)]
 pub async fn current_user(
     headers: &HeaderMap,
     verifier: &JwksVerifier,

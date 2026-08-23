@@ -812,12 +812,13 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     } else {
         ConnectedWalletState::from_cookies(&headers)
     };
+    // BIG-BANG Phase B: use AppState::session() (TypedBffSession)
     let access_verification = if offline_shell {
         AccessVerification::MissingOrRejected
     } else {
-        auth::access_verification(&headers, state.verifier.as_ref(), state.cookie_environment).await
+        state.session().access_verification(&headers).await
     };
-    let refresh_cookie_present = auth::refresh_token(&headers, state.cookie_environment).is_some();
+    let refresh_cookie_present = state.session().refresh_token(&headers).is_some();
     let recover_session = access_verification.permits_refresh_recovery()
         && refresh_cookie_present
         && path != "/offline";
@@ -827,7 +828,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         auth_page_session_state == Some(AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE);
     let (verified_access_token, user) = match access_verification {
         AccessVerification::Verified { token, user } => {
-            (Some(token), Some(auth::ui_user(user, wallet.chain_id)))
+            (Some(token), Some(state.session().ui_user(user, wallet.chain_id)))
         }
         AccessVerification::MissingOrRejected | AccessVerification::VerifierUnavailable => {
             (None, None)
