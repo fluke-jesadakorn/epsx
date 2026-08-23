@@ -20,6 +20,7 @@ pub mod constants;
 pub mod core;
 pub mod infrastructure;
 pub mod prelude;
+pub mod schemas;
 
 // Auth domain modules (moved from apps/backend/src/auth/*)
 pub mod auth_service;

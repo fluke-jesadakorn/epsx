@@ -1,10 +1,3 @@
-use crate::prelude::TlsPool;
-// ============================================================================
-// OPENID TOKEN SERVICE WITH WEB3 AUTHENTICATION TRIGGER
-// Standard OpenID Connect token issuance after Web3 wallet signature verification
-// ============================================================================
-
-use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use diesel::prelude::*;
 use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
@@ -91,7 +84,7 @@ fn refresh_token_expiry_seconds(days: i64) -> i64 {
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
 #[derive(Clone)]
 pub struct OpenIDTokenService {
-    db_pool: &'static TlsPool,
+    db_pool: Arc<sqlx::PgPool>,
     issuer: String,               // "https://api.epsx.io"
     audiences: Vec<String>,       // ["epsx-frontend", "epsx-admin"]
     key_manager: Arc<KeyManager>, // RSA key manager for JWT signing/validation

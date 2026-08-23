@@ -35,6 +35,10 @@ siwe = "0.6"
 ethers = "2.0"
 utoipa = "5.1"
 sqlx = { workspace = true }
+diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "serde_json", "r2d2"] }
+diesel-async = { version = "0.4", features = ["postgres", "deadpool", "async-connection-wrapper", "bb8"] }
+deadpool = "0.9"
+tokio-postgres = "0.7"
 anyhow = "1.0"
 validator = { version = "0.18", features = ["derive"] }
 tower = "0.5"

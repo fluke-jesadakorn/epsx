@@ -1,15 +1,13 @@
+use crate::prelude::TlsPool;
 // Unified Web3 Authentication Service
 // Coordinator: delegates challenge generation to challenge_service,
 // user/blockchain operations to verification_service.
-//
-// MIGRATED TO SQLX (real): no stubs.
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
 use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
-use sqlx::PgPool;
 use std::str::FromStr;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -19,7 +17,7 @@ use super::token_service::{OpenIDTokenError, OpenIDTokenService};
 /// Unified Web3 Authentication Service
 #[derive(Clone)]
 pub struct UnifiedWeb3AuthService {
-    pub(super) db_pool: Arc<PgPool>,
+    pub(super) db_pool: &'static TlsPool,
     pub(super) openid_service: Option<OpenIDTokenService>,
     pub(super) domain: String,
     pub(super) nonce_expiry_minutes: i64,
@@ -118,7 +116,7 @@ pub enum Web3AuthError {
 
 impl UnifiedWeb3AuthService {
     /// Create new unified Web3 auth service
-    pub fn new(db_pool: Arc<PgPool>, domain: String) -> Self {
+    pub fn new(db_pool: &'static TlsPool, domain: String) -> Self {
         Self {
             db_pool,
             openid_service: None,
@@ -129,7 +127,7 @@ impl UnifiedWeb3AuthService {
 
     /// Create new unified Web3 auth service with OpenID token service
     pub fn new_with_openid(
-        db_pool: Arc<PgPool>,
+        db_pool: &'static TlsPool,
         domain: String,
         openid_service: OpenIDTokenService,
     ) -> Self {
@@ -180,7 +178,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind(&wallet_address)
         .bind(&request.nonce)
-        .fetch_optional(&*self.db_pool)
+        .fetch_optional(self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
         .ok_or_else(|| {
