@@ -35,6 +35,7 @@ pub mod plan_repository_adapter; // NEW // Developer portal API keys and modules
 pub mod credit_repository_adapter;
 pub mod payment_context_repository_adapter;
 pub mod sqlx_credit_repository;
+pub mod sqlx_notification_repository;
 pub mod sqlx_payment_repository;
 pub mod sqlx_plan_repository;
 pub mod sqlx_stock_analysis_repository;
