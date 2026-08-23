@@ -6,6 +6,7 @@ pub mod commands;
 pub mod controllers; // HTTP controllers (inbound adapters)
 pub mod dtos; // Request/Response DTOs
 pub mod queries;
+pub mod sqlx_wallet_management_repository;
 pub mod wallet_management_repository; // Repository for wallet query operations
 
 // Re-export command and query models for easy access
