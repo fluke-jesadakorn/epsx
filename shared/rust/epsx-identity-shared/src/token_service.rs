@@ -1,6 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
+
+
 use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -397,7 +397,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -489,7 +489,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -827,7 +827,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -850,13 +850,12 @@ impl OpenIDTokenService {
         }
 
         // Query effective permissions from normalized tables (plans + direct)
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionResult {
-            #[diesel(sql_type = diesel::sql_types::VarChar)]
-            permission_string: String,
+                        permission_string: String,
         }
 
-        let permission_records = diesel::sql_query(
+        let permission_records = sqlx::query(
             r#"
             -- Permissions from plans
             SELECT DISTINCT p.permission_string
@@ -882,8 +881,8 @@ impl OpenIDTokenService {
             ORDER BY permission_string
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .load::<PermissionResult>(&mut conn)
+        .bind(wallet_address)
+        
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -988,7 +987,7 @@ impl OpenIDTokenService {
     async fn current_database_time(&self) -> Result<DateTime<Utc>, OpenIDTokenError> {
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
         Self::database_clock(&mut conn)
@@ -1001,13 +1000,12 @@ impl OpenIDTokenService {
     ) -> Result<DateTime<Utc>, diesel::result::Error> {
         use diesel::sql_types::Timestamptz;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct DatabaseClock {
-            #[diesel(sql_type = Timestamptz)]
-            observed_at: DateTime<Utc>,
+                        observed_at: DateTime<Utc>,
         }
 
-        diesel::sql_query("SELECT clock_timestamp() AS observed_at")
+        sqlx::query("SELECT clock_timestamp() AS observed_at")
             .get_result::<DatabaseClock>(conn)
             .await
             .map(|clock| clock.observed_at)
@@ -1019,16 +1017,15 @@ impl OpenIDTokenService {
     ) -> Result<(), diesel::result::Error> {
         use diesel::sql_types::{BigInt, Uuid as SqlUuid};
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct FamilyLockResult {
-            #[diesel(sql_type = BigInt)]
-            lock_result: i64,
+                        lock_result: i64,
         }
 
         // A transaction-scoped advisory lock gives every row in one family the
         // same immutable serialization point. A 64-bit hash collision can only
         // over-serialize unrelated families; it cannot weaken mutual exclusion.
-        let lock = diesel::sql_query(
+        let lock = sqlx::query(
             r#"
             WITH family_lock AS MATERIALIZED (
                 SELECT pg_advisory_xact_lock(hashtextextended($1::text, 0))
@@ -1037,7 +1034,7 @@ impl OpenIDTokenService {
             FROM family_lock
             "#,
         )
-        .bind::<SqlUuid, _>(family_id)
+        .bind(family_id)
         .get_result::<FamilyLockResult>(conn)
         .await?;
         debug_assert_eq!(lock.lock_result, 1);
@@ -1064,7 +1061,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -1085,7 +1082,7 @@ impl OpenIDTokenService {
                 openid_refresh_tokens::revoked_at.eq(Option::<DateTime<Utc>>::None),
                 openid_refresh_tokens::replay_detected_at.eq(Option::<DateTime<Utc>>::None),
             ))
-            .execute(&mut conn)
+            .execute(&mut *conn)
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -1105,8 +1102,7 @@ impl OpenIDTokenService {
         let digest_key_id = digested.digest_key_id().to_string();
         let token_digest = digested.digest().to_db_bytes();
 
-        #[derive(Queryable, Selectable)]
-        #[diesel(table_name = crate::schemas::primary::openid_refresh_tokens)]
+        #[derive(sqlx::FromRow)]
         struct RefreshTokenDb {
             token_id: String,
             wallet_address: String,
@@ -1122,7 +1118,7 @@ impl OpenIDTokenService {
 
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
@@ -1207,7 +1203,7 @@ impl OpenIDTokenService {
         let client_id = client.as_str().to_owned();
         let mut conn = self
             .db_pool
-            .get()
+            .acquire()
             .await
             .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 

@@ -20,8 +20,8 @@ use crate::prelude::TlsPool;
 // ============================================================================
 
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+
+
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 // Note: wallet_plan_assignments table not implemented yet
@@ -161,21 +161,20 @@ impl UnifiedPermissionService {
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionCheck {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
-            wallet_has_permission: Option<bool>,
+                        wallet_has_permission: Option<bool>,
         }
 
-        let has_permission = diesel::sql_query("SELECT wallet_has_permission($1, $2)")
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .bind::<diesel::sql_types::Text, _>(permission)
-            .get_result::<PermissionCheck>(&mut conn)
+        let has_permission = sqlx::query("SELECT wallet_has_permission($1, $2)")
+            .bind(&wallet_lower)
+            .bind(permission)
+            
             .await
             .map_err(|e| {
                 error!("Database error checking permission: {}", e);
@@ -211,33 +210,25 @@ impl UnifiedPermissionService {
         }
 
         // Query database using optimized function
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
         // Define PermissionDetailRow inline since it's only used here
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionDetailRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            pub permission_string: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-            pub permission_id: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            pub source_type: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-            pub source_id: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
-            pub source_name: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            pub granted_at: chrono::DateTime<chrono::Utc>,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
-            pub is_permanent: bool,
+                        pub permission_string: String,
+                        pub permission_id: Option<String>,
+                        pub source_type: String,
+                        pub source_id: Option<String>,
+                        pub source_name: Option<String>,
+                        pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
+                        pub granted_at: chrono::DateTime<chrono::Utc>,
+                        pub is_permanent: bool,
         }
 
-        let rows = diesel::sql_query(
+        let rows = sqlx::query(
             r#"
             SELECT
                 permission_string,
@@ -251,8 +242,8 @@ impl UnifiedPermissionService {
             FROM public.get_wallet_permissions_detailed_working($1)
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<PermissionDetailRow>(&mut conn)
+        .bind(&wallet_lower)
+        
         .await
         .map_err(|e| {
             error!("Database error fetching wallet permissions: {}", e);
@@ -337,28 +328,26 @@ impl UnifiedPermissionService {
         // Convert to PostgreSQL array
         let perms_array: Vec<String> = permissions.to_vec();
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct BatchPermissionResult {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            permission_string: String,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
-            has_permission: bool,
+                        permission_string: String,
+                        has_permission: bool,
         }
 
-        let rows = diesel::sql_query(
+        let rows = sqlx::query(
             r#"
             SELECT permission_string, has_permission
             FROM wallet_has_permissions_batch($1, $2)
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
+        .bind(&wallet_lower)
         .bind::<diesel::sql_types::Array<diesel::sql_types::Text>, _>(&perms_array)
-        .load::<BatchPermissionResult>(&mut conn)
+        
         .await
         .map_err(|e| {
             error!("Database error in batch permission check: {}", e);
@@ -397,18 +386,17 @@ impl UnifiedPermissionService {
             .await?;
 
         // Insert into wallet_direct_permissions
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct InsertResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: Uuid,
+                        id: Uuid,
         }
 
-        let direct_permission_id = diesel::sql_query(
+        let direct_permission_id = sqlx::query(
             r#"
             INSERT INTO wallet_direct_permissions (
                 wallet_address,
@@ -429,12 +417,12 @@ impl UnifiedPermissionService {
             RETURNING id
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .bind::<diesel::sql_types::Uuid, _>(permission_id)
+        .bind(&wallet_lower)
+        .bind(permission_id)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.expires_at)
-        .bind::<diesel::sql_types::Text, _>(&request.granted_by)
+        .bind(&request.granted_by)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&request.reason)
-        .get_result::<InsertResult>(&mut conn)
+        
         .await
         .map_err(|e| {
             error!("Database error granting permission: {}", e);
@@ -474,12 +462,12 @@ impl UnifiedPermissionService {
             .ok_or_else(|| AppError::not_found("Permission not found"))?;
 
         // Delete from wallet_direct_permissions
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        let rows_affected = diesel::sql_query(
+        let rows_affected = sqlx::query(
             r#"
             DELETE FROM wallet_direct_permissions
             WHERE wallet_address = $1
@@ -487,14 +475,14 @@ impl UnifiedPermissionService {
               AND is_active = TRUE
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .bind::<diesel::sql_types::Uuid, _>(permission_id)
-        .execute(&mut conn)
+        .bind(&wallet_lower)
+        .bind(permission_id)
+        .execute(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error revoking permission: {}", e);
             AppError::database_error(format!("Failed to revoke permission: {}", e))
-        })? as u64;
+        })?;
 
         if rows_affected == 0 {
             warn!(
@@ -526,7 +514,7 @@ impl UnifiedPermissionService {
             request.plan_id, wallet_lower, request.assigned_by
         );
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -551,22 +539,21 @@ impl UnifiedPermissionService {
             RETURNING id
             "#;
 
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct AssignmentResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: Uuid,
+                        id: Uuid,
         }
 
         let expires_str: Option<String> = request.expires_at.map(|dt| dt.to_rfc3339());
         let reason = request.reason.unwrap_or_default();
 
-        let assignment_id = diesel::sql_query(query)
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .bind::<diesel::sql_types::Uuid, _>(&request.plan_id)
+        let assignment_id = sqlx::query(query)
+            .bind(&wallet_lower)
+            .bind(&request.plan_id)
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&expires_str)
-            .bind::<diesel::sql_types::Text, _>(&request.assigned_by)
-            .bind::<diesel::sql_types::Text, _>(&reason)
-            .get_result::<AssignmentResult>(&mut conn)
+            .bind(&request.assigned_by)
+            .bind(&reason)
+            
             .await
             .map_err(|e| {
                 error!("Database error assigning plan: {}", e);
@@ -597,7 +584,7 @@ impl UnifiedPermissionService {
         );
 
         // Get database connection
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             AppError::database_error(format!("Failed to get database connection: {}", e))
         })?;
 
@@ -609,10 +596,10 @@ impl UnifiedPermissionService {
               AND is_active = TRUE
             "#;
 
-        let rows_affected = diesel::sql_query(query)
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .bind::<diesel::sql_types::Uuid, _>(&request.plan_id)
-            .execute(&mut conn)
+        let rows_affected = sqlx::query(query)
+            .bind(&wallet_lower)
+            .bind(&request.plan_id)
+            .execute(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Database error removing plan: {}", e);
@@ -654,32 +641,25 @@ impl UnifiedPermissionService {
     ) -> Result<PermissionStats, AppError> {
         let wallet_lower = wallet_address.to_lowercase();
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct StatsRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            total_permissions: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            direct_permissions: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            plan_permissions: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            permanent_permissions: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            temporary_permissions: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            plans_count: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            expiring_soon_count: i64,
+                        total_permissions: i64,
+                        direct_permissions: i64,
+                        plan_permissions: i64,
+                        permanent_permissions: i64,
+                        temporary_permissions: i64,
+                        plans_count: i64,
+                        expiring_soon_count: i64,
         }
 
-        let row = diesel::sql_query("SELECT * FROM get_wallet_permission_stats($1)")
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .get_result::<StatsRow>(&mut conn)
+        let row = sqlx::query("SELECT * FROM get_wallet_permission_stats($1)")
+            .bind(&wallet_lower)
+            
             .await
             .map_err(|e| {
                 error!("Database error fetching permission stats: {}", e);
@@ -750,18 +730,17 @@ impl UnifiedPermissionService {
     async fn get_or_create_permission(&self, permission_string: &str) -> Result<Uuid, AppError> {
         let parts: Vec<&str> = permission_string.split(':').collect();
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionId {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: Uuid,
+                        id: Uuid,
         }
 
-        let permission_id = diesel::sql_query(
+        let permission_id = sqlx::query(
             r#"
             INSERT INTO permissions (
                 permission_string,
@@ -776,11 +755,11 @@ impl UnifiedPermissionService {
             RETURNING id
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(permission_string)
-        .bind::<diesel::sql_types::Text, _>(parts[0])
-        .bind::<diesel::sql_types::Text, _>(parts[1])
-        .bind::<diesel::sql_types::Text, _>(parts[2])
-        .get_result::<PermissionId>(&mut conn)
+        .bind(permission_string)
+        .bind(parts[0])
+        .bind(parts[1])
+        .bind(parts[2])
+        
         .await
         .map_err(|e| {
             error!("Database error creating permission: {}", e);
@@ -793,22 +772,21 @@ impl UnifiedPermissionService {
 
     /// Get permission ID by string
     async fn get_permission_id(&self, permission_string: &str) -> Result<Option<Uuid>, AppError> {
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionIdResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            id: Uuid,
+                        id: Uuid,
         }
 
-        let permission_id = diesel::sql_query(
+        let permission_id = sqlx::query(
             "SELECT id FROM permissions WHERE permission_string = $1 AND is_active = TRUE",
         )
-        .bind::<diesel::sql_types::Text, _>(permission_string)
-        .get_result::<PermissionIdResult>(&mut conn)
+        .bind(permission_string)
+        
         .await
         .optional()
         .map_err(|e| {
@@ -830,21 +808,19 @@ impl UnifiedPermissionService {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting ranking offset for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PlanRow {
-            #[diesel(sql_type = diesel::sql_types::Jsonb)]
-            plan_metadata: serde_json::Value,
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            plan_id: uuid::Uuid,
+                        plan_metadata: serde_json::Value,
+                        plan_id: uuid::Uuid,
         }
 
         // Query all active plan assignments for this wallet
-        let rows = diesel::sql_query(
+        let rows = sqlx::query(
             r#"
             SELECT g.plan_metadata, g.id as plan_id
             FROM wallet_plan_assignments wgm
@@ -855,8 +831,8 @@ impl UnifiedPermissionService {
               AND (wgm.expires_at IS NULL OR wgm.expires_at > NOW())
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<PlanRow>(&mut conn)
+        .bind(&wallet_lower)
+        
         .await
         .map_err(|e| {
             error!("Database error fetching group metadata: {}", e);
@@ -877,15 +853,13 @@ impl UnifiedPermissionService {
         let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|r| r.plan_id).collect();
 
         // Query permissions for offset
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermRow {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            plan_id: uuid::Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            permission_string: String,
+                        plan_id: uuid::Uuid,
+                        permission_string: String,
         }
 
-        let perm_rows = diesel::sql_query(
+        let perm_rows = sqlx::query(
             r#"
             SELECT pp.plan_id, p.permission_string
             FROM plan_permissions pp
@@ -895,7 +869,7 @@ impl UnifiedPermissionService {
             "#,
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-        .load::<PermRow>(&mut conn)
+        
         .await
         .unwrap_or_default();
 
@@ -942,20 +916,18 @@ impl UnifiedPermissionService {
         let wallet_lower = wallet_address.to_lowercase();
         debug!("Getting rankings limit for wallet: {}", wallet_lower);
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
+        let mut conn = self.db_pool.acquire().await.map_err(|e| {
             error!("Pool error: {}", e);
             AppError::database_error(format!("Pool error: {}", e))
         })?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PlanRow {
-            #[diesel(sql_type = diesel::sql_types::Jsonb)]
-            plan_metadata: serde_json::Value,
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            plan_id: uuid::Uuid,
+                        plan_metadata: serde_json::Value,
+                        plan_id: uuid::Uuid,
         }
 
-        let rows = diesel::sql_query(
+        let rows = sqlx::query(
             r#"
             SELECT g.plan_metadata, g.id AS plan_id
             FROM wallet_plan_assignments wpa
@@ -966,8 +938,8 @@ impl UnifiedPermissionService {
               AND (wpa.expires_at IS NULL OR wpa.expires_at > NOW())
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<PlanRow>(&mut conn)
+        .bind(&wallet_lower)
+        
         .await
         .map_err(|e| {
             error!("Database error fetching ranking limits: {}", e);
@@ -979,12 +951,11 @@ impl UnifiedPermissionService {
         }
 
         let plan_ids: Vec<uuid::Uuid> = rows.iter().map(|row| row.plan_id).collect();
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            permission_string: String,
+                        permission_string: String,
         }
-        let permission_rows = diesel::sql_query(
+        let permission_rows = sqlx::query(
             r#"
             SELECT p.permission_string
             FROM plan_permissions pp
@@ -994,7 +965,7 @@ impl UnifiedPermissionService {
             "#,
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-        .load::<PermRow>(&mut conn)
+        
         .await
         .unwrap_or_default();
 
