@@ -1,16 +1,11 @@
-// BIG-BANG TODO: this domain service leaks infrastructure (DbPool + diesel::sql_query).
-// Canonical: extract `DeveloperEntitlementRepositoryPort` trait in `domain/developer_portal/repository_ports/`
-// and move this impl to `infrastructure/adapters/repositories/developer_entitlement_adapter.rs`
-// using `sqlx::query_as`. Kept as-is for single-branch big-bang scaffold to keep build green.
+// BIG-BANG: migrated to sqlx (real). Previously leaked DbPool + diesel::sql_query.
+// Now uses sqlx::PgPool + raw SQL queries with typed row structs.
 use chrono::{DateTime, Utc};
-use diesel::sql_types::{Bool, Int4, Nullable, Text, Timestamptz, Uuid as SqlUuid};
-use diesel::QueryableByName;
-use diesel_async::RunQueryDsl;
 use serde::Serialize;
+use sqlx::PgPool;
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
-use crate::infrastructure::adapter_repositories::DbPool;
 use crate::prelude::{AppError, AppResult};
 
 #[derive(Clone, Debug, Serialize, PartialEq, Eq)]
@@ -39,36 +34,26 @@ pub struct DeveloperEntitlement {
     pub has_active_api_entitlement: bool,
 }
 
-#[derive(QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct PlanRow {
-    #[diesel(sql_type = SqlUuid)]
     id: Uuid,
-    #[diesel(sql_type = Text)]
     name: String,
-    #[diesel(sql_type = Text)]
     slug: String,
-    #[diesel(sql_type = Nullable<Timestamptz>)]
     expires_at: Option<DateTime<Utc>>,
-    #[diesel(sql_type = Int4)]
     rate_limit_per_minute: i32,
-    #[diesel(sql_type = Int4)]
     rate_limit_per_hour: i32,
-    #[diesel(sql_type = Int4)]
     rate_limit_per_day: i32,
-    #[diesel(sql_type = Int4)]
     burst_capacity: i32,
 }
 
-#[derive(QueryableByName)]
+#[derive(sqlx::FromRow)]
 struct PermissionRow {
-    #[diesel(sql_type = Text)]
     permission_string: String,
-    #[diesel(sql_type = Bool)]
     api_assignable: bool,
 }
 
 pub struct DeveloperEntitlementService {
-    core_pool: DbPool,
+    core_pool: PgPool,
 }
 
 fn maximum_rate_limits(plans: &[PlanRow]) -> EffectiveApiRateLimits {
@@ -108,7 +93,7 @@ fn intersect_api_scopes(selected: &[String], allowed: &[String]) -> Vec<String> 
 }
 
 impl DeveloperEntitlementService {
-    pub fn new(core_pool: DbPool) -> Self {
+    pub fn new(core_pool: PgPool) -> Self {
         Self { core_pool }
     }
 
@@ -116,11 +101,7 @@ impl DeveloperEntitlementService {
     /// never contribute scopes or limits, and the catalog must explicitly mark
     /// a permission as API-assignable before it can be delegated.
     pub async fn resolve(&self, wallet_address: &str) -> AppResult<DeveloperEntitlement> {
-        let mut conn = self.core_pool.acquire().await.map_err(|error| {
-            AppError::database_error(format!("developer entitlement pool: {error}"))
-        })?;
-
-        let plans = diesel::sql_query(
+        let plans: Vec<PlanRow> = sqlx::query_as(
             r#"
             SELECT p.id, p.name::text, p.slug::text, wpa.expires_at,
                    p.rate_limit_per_minute, p.rate_limit_per_hour,
@@ -135,12 +116,12 @@ impl DeveloperEntitlementService {
             ORDER BY p.tier_level DESC, p.name ASC
             "#,
         )
-        .bind::<Text, _>(wallet_address)
-        .load::<PlanRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_all(&self.core_pool)
         .await
         .map_err(|error| AppError::database_error(format!("load API plans: {error}")))?;
 
-        let permission_rows = diesel::sql_query(
+        let permission_rows: Vec<PermissionRow> = sqlx::query_as(
             r#"
             WITH current_permissions AS (
                 SELECT DISTINCT permission.id
@@ -171,8 +152,8 @@ impl DeveloperEntitlementService {
             ORDER BY permission.permission_string
             "#,
         )
-        .bind::<Text, _>(wallet_address)
-        .load::<PermissionRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_all(&self.core_pool)
         .await
         .map_err(|error| AppError::database_error(format!("load API permissions: {error}")))?;
 
@@ -180,13 +161,13 @@ impl DeveloperEntitlementService {
             .iter()
             .map(|row| row.permission_string.clone())
             .collect();
-        let assignable_scopes = permission_rows
+        let assignable_scopes: Vec<String> = permission_rows
             .into_iter()
             .filter(|row| row.api_assignable)
             .map(|row| row.permission_string)
             .collect::<BTreeSet<_>>()
             .into_iter()
-            .collect::<Vec<_>>();
+            .collect();
         let can_read =
             epsx_contracts::permissions::has_permission(&all_permissions, "epsx:api:read");
         let can_write =
