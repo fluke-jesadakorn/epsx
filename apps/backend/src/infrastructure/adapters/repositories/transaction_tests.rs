@@ -57,7 +57,7 @@ mod tests {
             for wallet_addr in &self.test_wallet_addresses {
                 diesel::delete(crate::schemas::primary::wallet_users::table
                     .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                    .execute(&mut *conn)
+                    .execute(&mut **conn)
                     .await
                     .ok();
             }
@@ -299,7 +299,7 @@ mod tests {
             let wallet_addr = format!("0x{:040x}", i + 1000);
             diesel::delete(crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                .execute(&mut *conn)
+                .execute(&mut **conn)
                 .await
                 .ok();
         }
@@ -323,7 +323,7 @@ mod tests {
 
         diesel::insert_into(crate::schemas::primary::wallet_users::table)
             .values(&existing_user)
-            .execute(&mut *conn)
+            .execute(&mut **conn)
             .await
             .unwrap();
 
@@ -439,7 +439,7 @@ mod tests {
             let wallet_addr = format!("0x{:040x}", i + 2000);
             diesel::delete(crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr)))
-                .execute(&mut *conn)
+                .execute(&mut **conn)
                 .await
                 .ok();
         }

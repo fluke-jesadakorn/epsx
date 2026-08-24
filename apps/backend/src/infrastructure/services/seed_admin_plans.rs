@@ -2,8 +2,9 @@
 //!
 //! Seeds constant system admin plans on startup.
 //! Uses ON CONFLICT to safely re-run (idempotent).
+//!
+//! BIG-BANG: migrated to sqlx (real).
 
-use diesel_async::RunQueryDsl;
 use tracing::{error, info};
 use uuid::Uuid;
 
@@ -63,14 +64,6 @@ const ADMIN_PLANS: &[AdminPlanDef] = &[
 /// Seed system admin plans into the database.
 /// Safe to call multiple times (idempotent via ON CONFLICT).
 pub async fn seed_system_admin_plans(pool: &TlsPool) {
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Failed to get DB connection for admin plan seeding: {}", e);
-            return;
-        }
-    };
-
     for def in ADMIN_PLANS {
         let plan_id = match Uuid::parse_str(def.id) {
             Ok(id) => id,
@@ -81,14 +74,14 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
         };
 
         // Upsert plan - only update description/permissions on conflict, never name/slug
-        let result = diesel::sql_query(
+        if let Err(e) = sqlx::query(
             r#"INSERT INTO plans (
                 id, name, slug, description, plan_type, plan_metadata,
                 is_active, is_promoted, is_public, is_system,
                 plan_category, plan_group, tier_level, grace_period_hours,
                 rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity
             ) VALUES (
-                $1, $2, $3, $4, 'admin', '{}',
+                $1, $2, $3, $4, 'admin', '{}'::jsonb,
                 true, false, false, true,
                 'system', 'custom', 99, 0,
                 0, 0, 0, 0
@@ -100,17 +93,19 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
                 plan_category = 'system',
                 updated_at = NOW()"#,
         )
-        .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .bind::<diesel::sql_types::Text, _>(def.name)
-        .bind::<diesel::sql_types::Text, _>(def.slug)
-        .bind::<diesel::sql_types::Text, _>(def.description)
-        .execute(&mut *conn)
-        .await;
-
-        if let Err(e) = result {
-            error!("Failed to seed admin plan {}: {}", def.name, e);
-            continue;
-        }
+        .bind(plan_id)
+        .bind(def.name)
+        .bind(def.slug)
+        .bind(def.description)
+        .execute(pool.as_ref())
+        .await
+        {
+            Err(e) => {
+                error!("Failed to seed admin plan {}: {}", def.name, e);
+                continue;
+            }
+            _ => {}
+        };
 
         // Seed permissions: ensure each permission exists, then link
         for perm_str in def.permissions {
@@ -120,27 +115,27 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             }
 
             // Ensure permission record exists
-            let _ = diesel::sql_query(
+            let _ = sqlx::query(
                 r#"INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
                 VALUES ($1, $2, $3, $4, 'system')
-                ON CONFLICT (permission_string) DO NOTHING"#
+                ON CONFLICT (permission_string) DO NOTHING"#,
             )
-            .bind::<diesel::sql_types::Text, _>(*perm_str)
-            .bind::<diesel::sql_types::Text, _>(parts[0])
-            .bind::<diesel::sql_types::Text, _>(parts[1])
-            .bind::<diesel::sql_types::Text, _>(parts[2])
-            .execute(&mut *conn)
+            .bind(*perm_str)
+            .bind(parts[0])
+            .bind(parts[1])
+            .bind(parts[2])
+            .execute(pool.as_ref())
             .await;
 
             // Link permission to plan
-            let _ = diesel::sql_query(
+            let _ = sqlx::query(
                 r#"INSERT INTO plan_permissions (plan_id, permission_id)
                 SELECT $1, p.id FROM permissions p WHERE p.permission_string = $2
                 ON CONFLICT (plan_id, permission_id) DO NOTHING"#,
             )
-            .bind::<diesel::sql_types::Uuid, _>(plan_id)
-            .bind::<diesel::sql_types::Text, _>(*perm_str)
-            .execute(&mut *conn)
+            .bind(plan_id)
+            .bind(*perm_str)
+            .execute(pool.as_ref())
             .await;
         }
 
@@ -156,17 +151,6 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
 /// Assign SUPER_ADMIN_WALLET to the Super Admin plan.
 /// Ensures wallet_users row exists (FK), then upserts assignment.
 async fn seed_super_admin_wallet(pool: &TlsPool) {
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!(
-                "Failed to get DB connection for super admin wallet seeding: {}",
-                e
-            );
-            return;
-        }
-    };
-
     let plan_id = match Uuid::parse_str(SUPER_ADMIN_PLAN_ID) {
         Ok(id) => id,
         Err(e) => {
@@ -188,13 +172,13 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     }
 
     // Ensure wallet_users entry exists (FK constraint)
-    if let Err(e) = diesel::sql_query(
+    if let Err(e) = sqlx::query(
         r#"INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
-        VALUES ($1, true, 'Bronze', '{}')
+        VALUES ($1, true, 'Bronze', '{}'::jsonb)
         ON CONFLICT (wallet_address) DO NOTHING"#,
     )
-    .bind::<diesel::sql_types::Text, _>(&env_wallet)
-    .execute(&mut *conn)
+    .bind(&env_wallet)
+    .execute(pool.as_ref())
     .await
     {
         error!("Failed to ensure wallet_users entry for super admin: {}", e);
@@ -202,19 +186,20 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     }
 
     // Upsert wallet_plan_assignments
-    match diesel::sql_query(
+    if let Err(e) = sqlx::query(
         r#"INSERT INTO wallet_plan_assignments (id, wallet_address, plan_id, is_active, assigned_at, assigned_by, assignment_source)
         VALUES (gen_random_uuid(), $1, $2, true, NOW(), 'system:seed', 'system_seed')
         ON CONFLICT (wallet_address, plan_id) DO UPDATE SET
             is_active = true,
-            assignment_source = 'system_seed'"#
+            assignment_source = 'system_seed'"#,
     )
-    .bind::<diesel::sql_types::Text, _>(&env_wallet)
-    .bind::<diesel::sql_types::Uuid, _>(plan_id)
-    .execute(&mut *conn)
+    .bind(&env_wallet)
+    .bind(plan_id)
+    .execute(pool.as_ref())
     .await
     {
-        Ok(_) => info!("Seeded Super Admin wallet assignment: {}", env_wallet),
-        Err(e) => error!("Failed to seed Super Admin wallet assignment: {}", e),
+        error!("Failed to seed Super Admin wallet assignment: {}", e);
+    } else {
+        info!("Seeded Super Admin wallet assignment: {}", env_wallet);
     }
 }
