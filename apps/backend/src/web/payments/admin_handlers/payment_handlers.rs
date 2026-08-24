@@ -345,3 +345,40 @@ pub async fn admin_refund_payment_handler(
         rows_affected: result.rows_affected(),
     }))
 }
+
+/// Get payment details (stub — full impl in cross_pool migration)
+pub async fn admin_get_payment_details_handler(
+    State(_app_state): State<crate::web::auth::AppState>,
+    Path(_payment_id): Path<Uuid>,
+) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+    Err(Json(UnifiedErrorResponse::new(
+        500,
+        "NotImplemented",
+        "Payment details endpoint migration in progress",
+    )))
+}
+
+/// Process refund (stub)
+pub async fn admin_process_refund_handler(
+    State(_app_state): State<crate::web::auth::AppState>,
+    Path(_payment_id): Path<Uuid>,
+) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
+    Err(Json(UnifiedErrorResponse::new(
+        501,
+        "NotImplemented",
+        "Process refund endpoint migration in progress",
+    )))
+}
+
+/// Update payment status (stub)
+pub async fn admin_update_payment_status_handler(
+    State(_app_state): State<crate::web::auth::AppState>,
+    Path(_payment_id): Path<Uuid>,
+    _body: Option<axum::extract::Json<serde_json::Value>>,
+) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
+    Err(Json(UnifiedErrorResponse::new(
+        501,
+        "NotImplemented",
+        "Update payment status endpoint migration in progress",
+    )))
+}
