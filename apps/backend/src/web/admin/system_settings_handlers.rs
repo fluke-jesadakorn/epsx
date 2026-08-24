@@ -242,7 +242,7 @@ pub async fn get_all_settings_handler(
     let rows: Vec<SystemSettingRow> = diesel::sql_query(
         "SELECT id, category, key, value, description, updated_at FROM system_settings ORDER BY category, key"
     )
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to query settings: {}", e);
@@ -311,7 +311,7 @@ pub async fn get_settings_by_category_handler(
         "SELECT id, category, key, value, description, updated_at FROM system_settings WHERE category = $1"
     )
     .bind::<diesel::sql_types::Varchar, _>(&category)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .map_err(|e| {
         error!("Failed to query settings: {}", e);

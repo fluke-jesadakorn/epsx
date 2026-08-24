@@ -65,7 +65,7 @@ impl ModuleRepository {
 
         let rows = query
             .order(api_modules::display_name.asc())
-            .load::<ModuleRow>(&mut conn)
+            .load::<ModuleRow>(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list modules: {}", e)))?;
 
@@ -122,7 +122,7 @@ impl ModuleRepository {
 
         let row = api_modules::table
             .filter(api_modules::id.eq(&id))
-            .first::<ModuleRow>(&mut conn)
+            .first::<ModuleRow>(&mut *conn)
             .await
             .optional()
             .map_err(|e| AppError::database_error(format!("Failed to fetch module: {}", e)))?;

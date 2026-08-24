@@ -454,7 +454,7 @@ pub async fn list_available_plans_handler(State(state): State<AppState>) -> Resp
             .filter(plans::plan_type.ne("admin"))
             .select((plans::id, plans::name, plans::slug, plans::description))
             .order(plans::name.asc())
-            .load::<(Uuid, String, String, String)>(&mut conn)
+            .load::<(Uuid, String, String, String)>(&mut *conn)
             .await?;
         let mut result = Vec::with_capacity(plan_rows.len());
         for (id, name, slug, description) in plan_rows {
@@ -468,7 +468,7 @@ pub async fn list_available_plans_handler(State(state): State<AppState>) -> Resp
                 .filter(permissions::permission_string.not_like("admin:%"))
                 .select(permissions::permission_string)
                 .order(permissions::permission_string.asc())
-                .load::<String>(&mut conn)
+                .load::<String>(&mut *conn)
                 .await?;
             result.push(AvailablePlan {
                 id,

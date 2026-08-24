@@ -106,12 +106,12 @@ pub async fn get_usage_analytics_handler(
         diesel::sql_query(sql)
             .bind::<Timestamptz, _>(start_date)
             .bind::<SqlUuid, _>(uuid)
-            .load::<UsageData>(&mut conn)
+            .load::<UsageData>(&mut *conn)
             .await
     } else {
         diesel::sql_query(sql)
             .bind::<Timestamptz, _>(start_date)
-            .load::<UsageData>(&mut conn)
+            .load::<UsageData>(&mut *conn)
             .await
     };
 

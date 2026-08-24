@@ -83,27 +83,27 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
                     .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
                     .bind::<diesel::sql_types::Integer, _>(limit as i32)
                     .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                    .load::<WalletUserQueryResult>(&mut conn).await
+                    .load::<WalletUserQueryResult>(&mut *conn).await
             }
             (true, false) => {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
                     .bind::<diesel::sql_types::Integer, _>(limit as i32)
                     .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                    .load::<WalletUserQueryResult>(&mut conn).await
+                    .load::<WalletUserQueryResult>(&mut *conn).await
             }
             (false, true) => {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
                     .bind::<diesel::sql_types::Integer, _>(limit as i32)
                     .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                    .load::<WalletUserQueryResult>(&mut conn).await
+                    .load::<WalletUserQueryResult>(&mut *conn).await
             }
             (false, false) => {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Integer, _>(limit as i32)
                     .bind::<diesel::sql_types::Integer, _>(offset as i32)
-                    .load::<WalletUserQueryResult>(&mut conn).await
+                    .load::<WalletUserQueryResult>(&mut *conn).await
             }
         }
         .map_err(|e| {
@@ -173,21 +173,21 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
                     .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
-                    .load::<CountResult>(&mut conn).await
+                    .load::<CountResult>(&mut *conn).await
             }
             (true, false) => {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Text, _>(search_pattern.as_ref().unwrap())
-                    .load::<CountResult>(&mut conn).await
+                    .load::<CountResult>(&mut *conn).await
             }
             (false, true) => {
                 diesel::sql_query(&query)
                     .bind::<diesel::sql_types::Bool, _>(criteria.is_active.unwrap())
-                    .load::<CountResult>(&mut conn).await
+                    .load::<CountResult>(&mut *conn).await
             }
             (false, false) => {
                 diesel::sql_query(&query)
-                    .load::<CountResult>(&mut conn).await
+                    .load::<CountResult>(&mut *conn).await
             }
         }
         .map_err(|e| {

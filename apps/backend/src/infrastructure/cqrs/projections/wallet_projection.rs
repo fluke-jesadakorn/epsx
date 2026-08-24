@@ -90,7 +90,7 @@ impl Projection for WalletReadModelProjection {
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(self.projection_name())
-        .get_result::<CheckpointRow>(&mut conn)
+        .get_result::<CheckpointRow>(&mut *conn)
         .await
         .optional()
         .map_err(|e| AppError::database_error(format!("Failed to get checkpoint: {}", e)))?;

@@ -97,10 +97,10 @@ pub async fn get_user_permissions(
     // Conditionally bind wallet filter
     let wallets = if has_wallet_filter {
         sql.bind::<diesel::sql_types::Text, _>(&wallet_pattern)
-            .load::<WalletPermRow>(&mut conn)
+            .load::<WalletPermRow>(&mut *conn)
             .await
     } else {
-        sql.load::<WalletPermRow>(&mut conn).await
+        sql.load::<WalletPermRow>(&mut *conn).await
     };
 
     let wallets = match wallets {
@@ -153,7 +153,7 @@ pub async fn get_user_permissions(
       "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .get_result::<PrimaryPermRow>(&mut conn)
+        .get_result::<PrimaryPermRow>(&mut *conn)
         .await
         .optional();
 

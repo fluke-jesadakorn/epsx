@@ -203,7 +203,7 @@ impl Web3PermissionServiceAdapter {
 
         match diesel::sql_query("SELECT get_wallet_effective_permissions($1)")
             .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .get_result::<PermissionsJson>(&mut conn)
+            .get_result::<PermissionsJson>(&mut *conn)
             .await
         {
             Ok(result) => {
@@ -266,7 +266,7 @@ impl Web3PermissionServiceAdapter {
         match diesel::sql_query("SELECT wallet_has_permission($1, $2)")
             .bind::<diesel::sql_types::Text, _>(&wallet_lower)
             .bind::<diesel::sql_types::Text, _>(perm)
-            .get_result::<PermissionCheck>(&mut conn)
+            .get_result::<PermissionCheck>(&mut *conn)
             .await
         {
             Ok(result) => {

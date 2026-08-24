@@ -49,7 +49,7 @@ pub async fn remove_assignment(
         "SELECT wpa.wallet_address, p.name as plan_name FROM wallet_plan_assignments wpa JOIN plans p ON wpa.plan_id = p.id WHERE wpa.id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
-    .get_result::<AssignmentInfo>(&mut conn)
+    .get_result::<AssignmentInfo>(&mut *conn)
     .await
     .ok();
 

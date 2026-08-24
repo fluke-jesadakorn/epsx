@@ -105,7 +105,7 @@ impl PaymentSubscriptionRepositoryAdapter {
 
         let result = subscriptions::table
             .filter(subscriptions::id.eq(id))
-            .first::<SubscriptionDb>(&mut conn)
+            .first::<SubscriptionDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -152,7 +152,7 @@ impl PaymentSubscriptionRepositoryAdapter {
 
         query = query.order(subscriptions::started_at.desc().nulls_last());
 
-        let results = query.load::<SubscriptionDb>(&mut conn).await.map_err(|e| {
+        let results = query.load::<SubscriptionDb>(&mut *conn).await.map_err(|e| {
             error!("Failed to find subscriptions: {}", e);
             AppError::database_error(format!("Failed to find subscriptions: {}", e))
         })?;
@@ -227,7 +227,7 @@ impl PaymentSubscriptionRepositoryAdapter {
 
         let count = query
             .count()
-            .get_result::<i64>(&mut conn)
+            .get_result::<i64>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to count subscriptions: {}", e);
@@ -252,7 +252,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         let results = subscriptions::table
             .filter(subscriptions::wallet_address.eq(wallet_address))
             .order(subscriptions::started_at.desc().nulls_last())
-            .load::<SubscriptionDb>(&mut conn)
+            .load::<SubscriptionDb>(&mut *conn)
             .await
             .map_err(|e| {
                 error!(
@@ -280,7 +280,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         let results = subscriptions::table
             .filter(subscriptions::plan_id.eq(plan_id))
             .order(subscriptions::started_at.desc().nulls_last())
-            .load::<SubscriptionDb>(&mut conn)
+            .load::<SubscriptionDb>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to find subscriptions for plan {}: {}", plan_id, e);
@@ -306,7 +306,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         let result = diesel::insert_into(subscriptions::table)
             .values(&new_row)
             .returning(SubscriptionDb::as_returning())
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to save subscription: {}", e);
@@ -363,7 +363,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         let results = stock_ranking_assignments::table
             .filter(stock_ranking_assignments::wallet_address.eq(wallet_address))
             .order(stock_ranking_assignments::assigned_at.desc())
-            .load::<StockRankingAssignmentRow>(&mut conn)
+            .load::<StockRankingAssignmentRow>(&mut *conn)
             .await
             .map_err(|e| {
                 error!(

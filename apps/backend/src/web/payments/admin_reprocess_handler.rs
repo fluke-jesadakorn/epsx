@@ -113,7 +113,7 @@ pub async fn admin_reprocess_payment_handler(
         "SELECT status, error_message, confirmations, last_checked_at FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
     .bind::<diesel::sql_types::Text, _>(&tx_hash)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .ok();
 
@@ -205,7 +205,7 @@ pub async fn admin_payment_events_handler(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&tx_hash)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .unwrap_or_default();
 

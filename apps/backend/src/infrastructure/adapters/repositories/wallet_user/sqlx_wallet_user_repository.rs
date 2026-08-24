@@ -42,7 +42,7 @@ impl SqlxWalletUserRepository {
     /// Example: find by wallet_address (case-insensitive, mirrors Diesel `lower()` query).
     /// Diesel version:
     ///   diesel::sql_query("SELECT ... FROM wallet_users WHERE lower(wallet_address)=lower($1)")
-    ///     .bind::<Text,_>(addr).load::<WalletUserQueryResult>(&mut conn)
+    ///     .bind::<Text,_>(addr).load::<WalletUserQueryResult>(&mut *conn)
     /// SQLx version:
     pub async fn find_by_wallet_address(
         &self,

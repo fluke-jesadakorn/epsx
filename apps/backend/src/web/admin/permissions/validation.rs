@@ -365,7 +365,7 @@ pub async fn get_wallet_permissions(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<PlanRow>(&mut conn)
+    .load::<PlanRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -422,7 +422,7 @@ pub async fn get_wallet_permissions(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count as i32,
@@ -440,7 +440,7 @@ pub async fn get_wallet_permissions(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count as i32,

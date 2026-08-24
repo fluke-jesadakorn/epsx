@@ -178,7 +178,7 @@ pub async fn get_user_plans_handler(
         "#
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -457,7 +457,7 @@ pub async fn get_upgrade_preview_handler(
         "SELECT id, name, price, tier_level, billing_cycle, COALESCE(plan_metadata, '{}'::jsonb) as plan_metadata FROM plans WHERE id = $1"
     )
     .bind::<diesel::sql_types::Uuid, _>(new_plan_uuid)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .optional()
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch plan", e.to_string()))?;
@@ -527,7 +527,7 @@ pub async fn get_upgrade_preview_handler(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .optional()
     .ok()
@@ -553,7 +553,7 @@ pub async fn get_upgrade_preview_handler(
         let plan: Option<CurPlanRow> =
             diesel::sql_query("SELECT id, name, price, billing_cycle FROM plans WHERE id = $1")
                 .bind::<diesel::sql_types::Uuid, _>(a.plan_id)
-                .get_result(&mut conn)
+                .get_result(&mut *conn)
                 .await
                 .optional()
                 .ok()
@@ -796,7 +796,7 @@ pub async fn execute_plan_switch_handler(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .optional()
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch plan", e.to_string()))?;
@@ -853,7 +853,7 @@ pub async fn execute_plan_switch_handler(
         "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(assignment.plan_id)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch current plan", e.to_string()))?;
 
@@ -862,7 +862,7 @@ pub async fn execute_plan_switch_handler(
         "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(new_plan_uuid)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .optional()
     .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch new plan", e.to_string()))?

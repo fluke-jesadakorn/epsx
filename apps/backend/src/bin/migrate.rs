@@ -103,7 +103,7 @@ async fn run_migrations(
         .await
         .map_err(|e| format!("Failed to connect to database: {}", e))?;
 
-    match migrator.run(&mut conn).await {
+    match migrator.run(&mut *conn).await {
         Ok(applied) => {
             if applied.is_empty() {
                 println!("Schema is up to date.");

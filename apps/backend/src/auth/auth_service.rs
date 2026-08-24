@@ -171,7 +171,7 @@ impl UnifiedWeb3AuthService {
                 web3_auth_nonces::message,
                 web3_auth_nonces::expires_at,
             ))
-            .first::<NonceRecord>(&mut conn)
+            .first::<NonceRecord>(&mut *conn)
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?
@@ -438,7 +438,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
         .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .load::<PermissionResult>(&mut conn)
+        .load::<PermissionResult>(&mut *conn)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 

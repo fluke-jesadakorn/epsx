@@ -35,7 +35,7 @@ mod notification_tests {
         .bind::<diesel::sql_types::Text, _>("Test Notification")
         .bind::<diesel::sql_types::Text, _>("This is a test notification")
         .bind::<diesel::sql_types::Text, _>("normal")
-        .bind::<diesel::sql_types::Timestamptz, _>(Utc::now()), &mut conn)
+        .bind::<diesel::sql_types::Timestamptz, _>(Utc::now()), &mut *conn)
         .await?;
 
         Ok(id)
@@ -45,7 +45,7 @@ mod notification_tests {
         let mut conn = pool.acquire().await?;
         diesel_async::RunQueryDsl::execute(
             diesel::sql_query("DELETE FROM wallet_notifications WHERE title = 'Test Notification'"),
-            &mut conn,
+            &mut *conn,
         )
         .await?;
         Ok(())
@@ -73,7 +73,7 @@ mod notification_tests {
             "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
         assert!(result.exists);
@@ -86,7 +86,7 @@ mod notification_tests {
             "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
         assert!(!result.exists);
@@ -119,7 +119,7 @@ mod notification_tests {
         let result: CountResult = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications WHERE title = 'Test Notification'",
         )
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
         assert!(result.count >= 3);
@@ -158,7 +158,7 @@ mod notification_tests {
             WHERE title = 'Test Notification'
             "#,
         )
-        .load(&mut conn)
+        .load(&mut *conn)
         .await?;
 
         assert_eq!(results.len(), 2);

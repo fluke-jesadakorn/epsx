@@ -166,7 +166,7 @@ impl UnifiedPermissionService {
         let has_permission = diesel::sql_query("SELECT wallet_has_permission($1, $2)")
             .bind::<diesel::sql_types::Text, _>(&wallet_lower)
             .bind::<diesel::sql_types::Text, _>(permission)
-            .get_result::<PermissionCheck>(&mut conn)
+            .get_result::<PermissionCheck>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Database error checking permission: {}", e);
@@ -242,7 +242,7 @@ impl UnifiedPermissionService {
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<PermissionDetailRow>(&mut conn)
+        .load::<PermissionDetailRow>(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error fetching wallet permissions: {}", e);
@@ -338,7 +338,7 @@ impl UnifiedPermissionService {
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
         .bind::<diesel::sql_types::Array<diesel::sql_types::Text>, _>(&perms_array)
-        .load::<BatchPermissionResult>(&mut conn)
+        .load::<BatchPermissionResult>(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error in batch permission check: {}", e);
@@ -413,7 +413,7 @@ impl UnifiedPermissionService {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.expires_at)
         .bind::<diesel::sql_types::Text, _>(&request.granted_by)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&request.reason)
-        .get_result::<InsertResult>(&mut conn)
+        .get_result::<InsertResult>(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error granting permission: {}", e);
@@ -538,7 +538,7 @@ impl UnifiedPermissionService {
             .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&expires_str)
             .bind::<diesel::sql_types::Text, _>(&request.assigned_by)
             .bind::<diesel::sql_types::Text, _>(&reason)
-            .get_result::<AssignmentResult>(&mut conn)
+            .get_result::<AssignmentResult>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Database error assigning plan: {}", e);
@@ -644,7 +644,7 @@ impl UnifiedPermissionService {
 
         let row = diesel::sql_query("SELECT * FROM get_wallet_permission_stats($1)")
             .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .get_result::<StatsRow>(&mut conn)
+            .get_result::<StatsRow>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Database error fetching permission stats: {}", e);
@@ -745,7 +745,7 @@ impl UnifiedPermissionService {
         .bind::<diesel::sql_types::Text, _>(parts[0])
         .bind::<diesel::sql_types::Text, _>(parts[1])
         .bind::<diesel::sql_types::Text, _>(parts[2])
-        .get_result::<PermissionId>(&mut conn)
+        .get_result::<PermissionId>(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error creating permission: {}", e);
@@ -774,7 +774,7 @@ impl UnifiedPermissionService {
             "SELECT id FROM permissions WHERE permission_string = $1 AND is_active = TRUE"
         )
         .bind::<diesel::sql_types::Text, _>(permission_string)
-        .get_result::<PermissionIdResult>(&mut conn)
+        .get_result::<PermissionIdResult>(&mut *conn)
         .await
         .optional()
         .map_err(|e| {
@@ -826,7 +826,7 @@ impl UnifiedPermissionService {
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-        .load::<PlanRow>(&mut conn)
+        .load::<PlanRow>(&mut *conn)
         .await
         .map_err(|e| {
             error!("Database error fetching group metadata: {}", e);
@@ -860,7 +860,7 @@ impl UnifiedPermissionService {
             "#
         )
         .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-        .load::<PermRow>(&mut conn)
+        .load::<PermRow>(&mut *conn)
         .await
         .unwrap_or_default();
 

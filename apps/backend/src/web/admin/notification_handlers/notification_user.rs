@@ -405,7 +405,7 @@ pub async fn get_unread_count_handler(
          AND status != 'read' AND status != 'deleted'"
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread notifications: {}", e)))?
     .count;

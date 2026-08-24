@@ -867,7 +867,7 @@ impl SimpleContainer {
             }
 
             diesel::sql_query("SELECT 1 as _check")
-                .get_result::<HealthCheck>(&mut conn)
+                .get_result::<HealthCheck>(&mut *conn)
                 .await
                 .ok()
         }

@@ -57,7 +57,7 @@ pub async fn get_platform_overview_handler(
          FROM wallet_users",
     )
     .bind::<diesel::sql_types::Timestamptz, _>(period_start)
-    .get_result::<UserMetrics>(&mut conn)
+    .get_result::<UserMetrics>(&mut *conn)
     .await
     {
         Ok(metrics) => metrics,
@@ -128,7 +128,7 @@ pub async fn get_platform_overview_handler(
         "#,
     )
     .bind::<diesel::sql_types::Timestamptz, _>(period_start)
-    .load::<SignupTrend>(&mut conn)
+    .load::<SignupTrend>(&mut *conn)
     .await
     {
         Ok(results) => results
@@ -165,7 +165,7 @@ pub async fn get_platform_overview_handler(
              INNER JOIN plans pg ON wga.plan_id = pg.id
              WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
         )
-        .get_result::<RevenueResult>(&mut conn)
+        .get_result::<RevenueResult>(&mut *conn)
         .await
         {
             Ok(result) => result
@@ -184,7 +184,7 @@ pub async fn get_platform_overview_handler(
              WHERE wga.is_active = true AND pg.plan_type = 'subscription'
              AND wga.created_at >= NOW() - INTERVAL '30 days'",
         )
-        .get_result::<RevenueResult>(&mut conn)
+        .get_result::<RevenueResult>(&mut *conn)
         .await
         {
             Ok(result) => result

@@ -724,7 +724,7 @@ pub async fn admin_list_user_access_handler(
     .bind::<diesel::sql_types::Text, _>(&search_filter)
     .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
     .bind::<diesel::sql_types::BigInt, _>(pg.offset)
-    .get_results(&mut conn)
+    .get_results(&mut *conn)
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to query user access data");

@@ -103,7 +103,7 @@ mod tests {
         let mut conn = setup.pool.acquire().await.unwrap();
         let user = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
 
         assert!(user.is_ok(), "User should exist after transaction commit");
@@ -160,7 +160,7 @@ mod tests {
         for wallet_addr in &setup.test_wallet_addresses[..2] {
             let user = crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
-                .first::<WalletUserDb>(&mut conn)
+                .first::<WalletUserDb>(&mut *conn)
                 .await;
 
             assert!(user.is_err(), "User should not exist after transaction rollback");
@@ -227,7 +227,7 @@ mod tests {
         for wallet_addr in &setup.test_wallet_addresses[..2] {
             let user = crate::schemas::primary::wallet_users::table
                 .filter(crate::schemas::primary::wallet_users::wallet_address.eq(wallet_addr))
-                .first::<WalletUserDb>(&mut conn)
+                .first::<WalletUserDb>(&mut *conn)
                 .await;
 
             assert!(user.is_ok(), "User should exist: {}", wallet_addr);
@@ -362,7 +362,7 @@ mod tests {
         // Verify the original user still exists
         let existing_user = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
 
         assert!(existing_user.is_ok(), "Original user should still exist after rollback");
@@ -370,7 +370,7 @@ mod tests {
         // Verify the third user was not inserted
         let third_user = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
 
         assert!(third_user.is_err(), "Third user should not exist after rollback");
@@ -477,7 +477,7 @@ mod tests {
                 let mut conn = setup.pool.acquire().await.unwrap();
                 let user = crate::schemas::primary::wallet_users::table
                     .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
-                    .first::<WalletUserDb>(&mut conn)
+                    .first::<WalletUserDb>(&mut *conn)
                     .await;
 
                 // In case of timeout, transaction should have rolled back
@@ -579,21 +579,21 @@ mod tests {
         // First user should exist (inserted before savepoint)
         let user1 = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[0]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
         assert!(user1.is_ok(), "User before savepoint should exist");
 
         // Second user should not exist (rolled back)
         let user2 = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[1]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
         assert!(user2.is_err(), "User after savepoint should not exist (rolled back)");
 
         // Fourth user should exist (inserted after rollback)
         let user4 = crate::schemas::primary::wallet_users::table
             .filter(crate::schemas::primary::wallet_users::wallet_address.eq(&setup.test_wallet_addresses[2]))
-            .first::<WalletUserDb>(&mut conn)
+            .first::<WalletUserDb>(&mut *conn)
             .await;
         assert!(user4.is_ok(), "User after rollback should exist");
         assert_eq!(user4.unwrap().is_active, false, "User should have inactive status from after rollback");
@@ -620,7 +620,7 @@ mod tests {
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
         // Execute operation
-        match operation(&mut conn).await {
+        match operation(&mut *conn).await {
             Ok(result) => {
                 // Commit transaction
                 conn.commit_transaction()

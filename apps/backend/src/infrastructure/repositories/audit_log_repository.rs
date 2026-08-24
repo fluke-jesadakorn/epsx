@@ -154,7 +154,7 @@ impl DieselAuditLogRepository {
             .bind::<Nullable<Text>, _>(&bind_search)
             .bind::<Nullable<Timestamptz>, _>(&bind_from)
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
             .context("Failed to count analytics audit logs")?;
 
@@ -197,7 +197,7 @@ impl DieselAuditLogRepository {
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
             .bind::<BigInt, _>(limit)
             .bind::<BigInt, _>(offset)
-            .get_results::<UnifiedRow>(&mut conn)
+            .get_results::<UnifiedRow>(&mut *conn)
             .await
             .context("Failed to query analytics audit logs")?;
 
@@ -258,7 +258,7 @@ impl DieselAuditLogRepository {
             .bind::<Nullable<Text>, _>(&bind_search)
             .bind::<Nullable<Timestamptz>, _>(&bind_from)
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
             .context("Failed to count payment audit logs")?;
 
@@ -294,7 +294,7 @@ impl DieselAuditLogRepository {
             .bind::<Nullable<Timestamptz>, _>(&bind_to)
             .bind::<BigInt, _>(limit)
             .bind::<BigInt, _>(offset)
-            .get_results::<PaymentRow>(&mut conn)
+            .get_results::<PaymentRow>(&mut *conn)
             .await
             .context("Failed to query payment audit logs")?;
 
@@ -486,7 +486,7 @@ impl AuditLogRepository for DieselAuditLogRepository {
 
         let inserted: AuditLogDb = diesel::insert_into(audit_logs::table)
             .values(&new_log)
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .context("Failed to insert audit log")?;
 

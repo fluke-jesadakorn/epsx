@@ -40,7 +40,7 @@ impl WalletUserAnalyticsPort for PostgresWalletUserAnalyticsAdapter {
         "#;
 
         let results = diesel::sql_query(query)
-            .load::<StatsResult>(&mut conn)
+            .load::<StatsResult>(&mut *conn)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to get wallet user statistics: {}", e);

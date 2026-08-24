@@ -373,7 +373,7 @@ impl TransactionMonitorService {
             )
             .filter(payments::transaction_hash.is_not_null())
             .select((payments::transaction_hash, payments::block_number))
-            .load::<(Option<String>, Option<i64>)>(&mut conn)
+            .load::<(Option<String>, Option<i64>)>(&mut *conn)
             .await
             .map_err(|e| format!("Failed to query pending payments: {}", e))?
             .into_iter()
@@ -1049,7 +1049,7 @@ pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
         "SELECT status, error_message FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
     .bind::<diesel::sql_types::Text, _>(tx_hash)
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await
     .ok();
 

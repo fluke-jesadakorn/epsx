@@ -135,7 +135,7 @@ impl BlockchainMonitor {
         )
         .bind::<diesel::sql_types::Text, _>(&event.transaction_hash)
         .bind::<diesel::sql_types::Integer, _>(event.log_index as i32)
-        .get_result::<EventIdRow>(&mut conn)
+        .get_result::<EventIdRow>(&mut *conn)
         .await
         .optional()
         .map_err(|e| AppError::database_error(format!("Failed to check event: {}", e)))?;
@@ -194,7 +194,7 @@ impl BlockchainMonitor {
         let plan_uuid: Uuid =
             diesel::sql_query("SELECT id FROM plans WHERE tier_level = $1 LIMIT 1")
                 .bind::<diesel::sql_types::Integer, _>(event.context_id as i32)
-                .get_result::<IdResult>(&mut conn)
+                .get_result::<IdResult>(&mut *conn)
                 .await
                 .map(|r| r.id)
                 .map_err(|_| {
@@ -244,7 +244,7 @@ impl BlockchainMonitor {
         )
         .bind::<diesel::sql_types::Text, _>(wallet_addr.as_str())
         .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await
         .optional()
         .map_err(|e| AppError::database_error(format!("Failed to check existing assignment: {}", e)))?;

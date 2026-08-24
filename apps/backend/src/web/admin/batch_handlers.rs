@@ -83,7 +83,7 @@ async fn fetch_wallet_stats(app_state: &AppState) -> Result<serde_json::Value, S
                 COUNT(*) FILTER (WHERE last_auth_at >= NOW() - INTERVAL '24 hours')::bigint as today_connections
          FROM wallet_users"
     )
-    .get_result::<WalletCounts>(&mut conn)
+    .get_result::<WalletCounts>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -106,7 +106,7 @@ async fn fetch_perm_system_stats(app_state: &AppState) -> Result<serde_json::Val
     let result = diesel::sql_query(
         "SELECT COUNT(*)::bigint as total FROM user_effective_permissions WHERE expires_at IS NULL OR expires_at > NOW()"
     )
-    .get_result::<PermCounts>(&mut conn)
+    .get_result::<PermCounts>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -207,7 +207,7 @@ async fn fetch_notifications(
         "SELECT id::text, title, message, notification_type, created_at FROM notifications ORDER BY created_at DESC LIMIT $1"
     )
     .bind::<diesel::sql_types::BigInt, _>(limit)
-    .load::<NotifRow>(&mut conn)
+    .load::<NotifRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -230,7 +230,7 @@ async fn fetch_notification_stats(app_state: &AppState) -> Result<serde_json::Va
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::bigint as today
          FROM notifications",
     )
-    .get_result::<StatsRow>(&mut conn)
+    .get_result::<StatsRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -305,7 +305,7 @@ async fn fetch_available_permissions(app_state: &AppState) -> Result<Vec<String>
     let results = diesel::sql_query(
         "SELECT DISTINCT permission_string FROM user_effective_permissions WHERE permission_string IS NOT NULL ORDER BY permission_string"
     )
-    .load::<PermRow>(&mut conn)
+    .load::<PermRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -338,7 +338,7 @@ async fn fetch_available_plans(app_state: &AppState) -> Result<serde_json::Value
          GROUP BY p.id, p.name, p.description, p.plan_group
          ORDER BY p.name",
     )
-    .load::<PlanRow>(&mut conn)
+    .load::<PlanRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -361,7 +361,7 @@ async fn fetch_wallet_permissions(
         "SELECT permission_string FROM user_effective_permissions WHERE wallet_address = $1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY permission_string"
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<PermRow>(&mut conn)
+    .load::<PermRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -394,7 +394,7 @@ async fn fetch_wallet_plan_assignments(
          ORDER BY wpa.created_at DESC"
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<AssignRow>(&mut conn)
+    .load::<AssignRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 

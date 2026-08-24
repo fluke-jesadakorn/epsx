@@ -110,7 +110,7 @@ async fn claim_chat_operation(
          FROM admin_chat_operations WHERE idempotency_key = $1",
     )
     .bind::<Text, _>(&key)
-    .get_result::<ExistingChatOperation>(&mut conn)
+    .get_result::<ExistingChatOperation>(&mut *conn)
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
     let _same_operation = existing.action == action
@@ -467,7 +467,7 @@ pub async fn admin_list_conversations(
 
     let total = count_query
         .select(count_star())
-        .first::<i64>(&mut conn)
+        .first::<i64>(&mut *conn)
         .await
         .map_err(|_| epsx_contracts::errors::AppError::database_error("chat count unavailable"))?;
     let mut rows_query = chat_conversations::table.into_boxed();
@@ -484,7 +484,7 @@ pub async fn admin_list_conversations(
         .order(chat_conversations::last_message_at.desc())
         .limit(i64::from(query.limit))
         .offset(offset(&query))
-        .load::<ChatConversationDb>(&mut conn)
+        .load::<ChatConversationDb>(&mut *conn)
         .await
         .map_err(|_| {
             epsx_contracts::errors::AppError::database_error("chat conversations unavailable")

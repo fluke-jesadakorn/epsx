@@ -40,7 +40,7 @@ pub async fn get_revenue_analytics_handler(
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
     )
-    .get_result::<RevenueResult>(&mut conn)
+    .get_result::<RevenueResult>(&mut *conn)
     .await
     {
         Ok(result) => result
@@ -63,7 +63,7 @@ pub async fn get_revenue_analytics_handler(
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          AND pg.billing_cycle IN ('monthly', 'yearly')",
     )
-    .get_result::<RevenueResult>(&mut conn)
+    .get_result::<RevenueResult>(&mut *conn)
     .await
     {
         Ok(result) => result
@@ -100,7 +100,7 @@ pub async fn get_revenue_analytics_handler(
          GROUP BY pg.id, pg.name
          ORDER BY revenue DESC",
     )
-    .load::<TierRevenueRow>(&mut conn)
+    .load::<TierRevenueRow>(&mut *conn)
     .await
     {
         Ok(results) => results
@@ -130,7 +130,7 @@ pub async fn get_revenue_analytics_handler(
          INNER JOIN plans pg ON wga.plan_id = pg.id
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
     )
-    .get_result::<CountResult>(&mut conn)
+    .get_result::<CountResult>(&mut *conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
@@ -143,7 +143,7 @@ pub async fn get_revenue_analytics_handler(
          WHERE wga.is_active = true AND pg.plan_type = 'subscription'
          AND wga.created_at >= NOW() - INTERVAL '30 days'",
     )
-    .get_result::<CountResult>(&mut conn)
+    .get_result::<CountResult>(&mut *conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
@@ -156,7 +156,7 @@ pub async fn get_revenue_analytics_handler(
          WHERE wga.is_active = false AND pg.plan_type = 'subscription'
          AND wga.updated_at >= NOW() - INTERVAL '30 days'",
     )
-    .get_result::<CountResult>(&mut conn)
+    .get_result::<CountResult>(&mut *conn)
     .await
     {
         Ok(result) => result.count.unwrap_or(0) as i32,
@@ -191,7 +191,7 @@ pub async fn get_revenue_analytics_handler(
         ORDER BY trend_date ASC
         "#,
     )
-    .load::<RevenueTrendRow>(&mut conn)
+    .load::<RevenueTrendRow>(&mut *conn)
     .await
     {
         Ok(results) => results

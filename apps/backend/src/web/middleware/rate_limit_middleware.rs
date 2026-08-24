@@ -52,7 +52,7 @@ async fn get_user_plan_from_plans(
          LIMIT 1",
     )
     .bind::<diesel::sql_types::Text, _>(wallet_address)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await;
 
     match result {

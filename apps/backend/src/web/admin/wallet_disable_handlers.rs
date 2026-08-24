@@ -417,7 +417,7 @@ pub async fn get_wallet_activity_handler(
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
     .bind::<diesel::sql_types::Integer, _>(limit)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -432,7 +432,7 @@ pub async fn get_wallet_activity_handler(
         "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1",
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     .map(|r| r.count)
     .unwrap_or(0);

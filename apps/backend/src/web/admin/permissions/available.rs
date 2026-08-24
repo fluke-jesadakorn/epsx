@@ -84,7 +84,7 @@ pub async fn list_permission_definitions(State(app_state): State<AppState>) -> i
          WHERE is_active = TRUE
          ORDER BY platform, category, permission_string"
     )
-    .load::<PermRow>(&mut conn)
+    .load::<PermRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| PermissionDefinition {
@@ -128,7 +128,7 @@ pub async fn list_available_permissions(State(app_state): State<AppState>) -> im
     let permissions: Vec<String> = match diesel::sql_query(
         "SELECT DISTINCT permission_string FROM permissions WHERE is_active = TRUE ORDER BY permission_string"
     )
-    .load::<PermissionStringRow>(&mut conn)
+    .load::<PermissionStringRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| r.permission_string).collect(),
@@ -231,7 +231,7 @@ pub async fn create_permission_definition(
     .bind::<diesel::sql_types::Nullable<Varchar>, _>(&name)
     .bind::<diesel::sql_types::Nullable<Text>, _>(&req.description)
     .bind::<diesel::sql_types::Nullable<Varchar>, _>(&category)
-    .get_result::<NewPermRow>(&mut conn)
+    .get_result::<NewPermRow>(&mut *conn)
     .await;
 
     match result {
@@ -278,7 +278,7 @@ pub async fn update_permission_definition(
 
     let check_result = diesel::sql_query("SELECT is_system FROM permissions WHERE id = $1")
         .bind::<SqlUuid, _>(id)
-        .get_result::<CheckRow>(&mut conn)
+        .get_result::<CheckRow>(&mut *conn)
         .await;
 
     match check_result {
@@ -349,7 +349,7 @@ pub async fn update_permission_definition(
     .bind::<diesel::sql_types::Nullable<Text>, _>(req.description)
     .bind::<diesel::sql_types::Nullable<Varchar>, _>(req.category)
     .bind::<diesel::sql_types::Nullable<Bool>, _>(req.is_active)
-    .get_result::<UpdatedPermRow>(&mut conn)
+    .get_result::<UpdatedPermRow>(&mut *conn)
     .await;
 
     match result {
@@ -395,7 +395,7 @@ pub async fn delete_permission_definition(
 
     let check_result = diesel::sql_query("SELECT is_system FROM permissions WHERE id = $1")
         .bind::<SqlUuid, _>(id)
-        .get_result::<CheckRow>(&mut conn)
+        .get_result::<CheckRow>(&mut *conn)
         .await;
 
     match check_result {

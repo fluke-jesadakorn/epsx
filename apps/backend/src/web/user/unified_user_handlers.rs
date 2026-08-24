@@ -168,7 +168,7 @@ pub async fn get_current_user_profile(
         "SELECT created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1",
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_result::<UserRow>(&mut conn)
+    .get_result::<UserRow>(&mut *conn)
     .await
     .optional()
     {
@@ -295,7 +295,7 @@ pub async fn get_user_access_overview(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .load::<PermissionDetailRow>(&mut conn)
+    .load::<PermissionDetailRow>(&mut *conn)
     .await
     .map_err(|e| {
         error!("Database error fetching detailed permissions: {}", e);
@@ -419,7 +419,7 @@ pub async fn get_user_access_overview(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .load(&mut conn)
+    .load(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -585,7 +585,7 @@ pub async fn get_user_permissions(
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-        .load::<PermissionRow>(&mut conn)
+        .load::<PermissionRow>(&mut *conn)
         .await
         .map(|rows| rows.into_iter().map(|r| r.permission_string).collect())
         .unwrap_or_else(|_| user_context.permissions.clone())
@@ -801,7 +801,7 @@ pub async fn get_user_by_wallet_address(
         "SELECT wallet_address, is_active, created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1"
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address.to_lowercase())
-    .get_result::<WalletUserRow>(&mut conn)
+    .get_result::<WalletUserRow>(&mut *conn)
     .await
     .optional();
 
@@ -846,7 +846,7 @@ pub async fn get_user_by_wallet_address(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_addr)
-    .load::<UserPermissionRow>(&mut conn)
+    .load::<UserPermissionRow>(&mut *conn)
     .await
     .map(|rows| rows.into_iter().map(|r| r.permission_string).collect())
     .unwrap_or_default();
@@ -931,7 +931,7 @@ pub async fn get_user_notification_preferences(
     let result =
         diesel::sql_query("SELECT wallet_metadata FROM wallet_users WHERE wallet_address = $1")
             .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-            .get_result::<MetadataRow>(&mut conn)
+            .get_result::<MetadataRow>(&mut *conn)
             .await
             .optional();
 
@@ -998,7 +998,7 @@ async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Va
          WHERE wpa.wallet_address = $1 AND wpa.is_active = true",
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<PlanRow>(&mut conn)
+    .load::<PlanRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -1027,7 +1027,7 @@ async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<
         "SELECT symbol FROM user_watchlist WHERE wallet_address = $1 ORDER BY added_at DESC",
     )
     .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<WatchlistRow>(&mut conn)
+    .load::<WatchlistRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 

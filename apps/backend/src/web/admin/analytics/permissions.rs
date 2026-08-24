@@ -48,7 +48,7 @@ pub async fn get_permission_analytics_handler(
 
     // Get total plans count
     let total_plans = match diesel::sql_query("SELECT COUNT(*)::bigint as total_plans FROM plans")
-        .get_result::<TotalPlansRow>(&mut conn)
+        .get_result::<TotalPlansRow>(&mut *conn)
         .await
     {
         Ok(result) => result.total_plans as i32,
@@ -69,7 +69,7 @@ pub async fn get_permission_analytics_handler(
          ORDER BY member_count DESC
         "#,
     )
-    .load::<PlanStatsRow>(&mut conn)
+    .load::<PlanStatsRow>(&mut *conn)
     .await
     {
         Ok(stats) => stats
@@ -115,7 +115,7 @@ pub async fn get_permission_analytics_handler(
         ORDER BY users_count DESC
         "#,
     )
-    .load::<PermissionUsageRow>(&mut conn)
+    .load::<PermissionUsageRow>(&mut *conn)
     .await
     {
         Ok(results) => results
@@ -155,7 +155,7 @@ pub async fn get_permission_analytics_handler(
         ORDER BY trend_date ASC
         "#,
     )
-    .load::<TrendRow>(&mut conn)
+    .load::<TrendRow>(&mut *conn)
     .await
     {
         Ok(results) => results
@@ -201,7 +201,7 @@ pub async fn get_permission_analytics_handler(
         LIMIT 100
         "#,
     )
-    .load::<ExpiringRow>(&mut conn)
+    .load::<ExpiringRow>(&mut *conn)
     .await
     {
         Ok(results) => results

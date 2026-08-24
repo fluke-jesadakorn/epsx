@@ -327,7 +327,7 @@ pub async fn bulk_revoke(
             let perm_id =
                 match diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
                     .bind::<diesel::sql_types::Text, _>(perm_string)
-                    .get_result::<PermId>(&mut conn)
+                    .get_result::<PermId>(&mut *conn)
                     .await
                     .optional()
                 {
@@ -598,7 +598,7 @@ pub async fn bulk_validate(
             "#
         )
         .bind::<diesel::sql_types::Text, _>(&wallet)
-        .load::<PermissionRow>(&mut conn)
+        .load::<PermissionRow>(&mut *conn)
         .await
         {
             Ok(rows) => rows,

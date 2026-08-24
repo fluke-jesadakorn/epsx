@@ -132,13 +132,13 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
 
     // Check database connection
     let db_connected = diesel::sql_query("SELECT 1 as check")
-        .get_result::<HealthCheck>(&mut conn)
+        .get_result::<HealthCheck>(&mut *conn)
         .await
         .is_ok();
 
     // Get system statistics
     let total_plans = match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM plans")
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
     {
         Ok(row) => row.count,
@@ -148,7 +148,7 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
     let active_assignments = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -158,7 +158,7 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
     let total_wallets = match diesel::sql_query(
         "SELECT COUNT(DISTINCT wallet_address)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -168,7 +168,7 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
     let total_permissions = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM permissions WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -240,7 +240,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
 
     // Total plans
     let total_plans = match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM plans")
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
     {
         Ok(row) => row.count,
@@ -250,7 +250,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     let active_plans = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM plans WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -260,7 +260,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     // Total permissions
     let total_permissions =
         match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM permissions")
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
         {
             Ok(row) => row.count,
@@ -270,7 +270,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     // Wallet assignments
     let total_assignments =
         match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments")
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
         {
             Ok(row) => row.count,
@@ -280,7 +280,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     let active_assignments = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -296,7 +296,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
           AND expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
         "#,
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -307,7 +307,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     let total_direct = match diesel::sql_query(
         "SELECT COUNT(*)::bigint as count FROM wallet_direct_permissions WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count,
@@ -330,7 +330,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
         LIMIT 10
         "#,
     )
-    .load::<TopPlanRow>(&mut conn)
+    .load::<TopPlanRow>(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -349,7 +349,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     let platform_rows = diesel::sql_query(
         "SELECT platform, COUNT(*)::bigint as count FROM permissions GROUP BY platform ORDER BY count DESC"
     )
-    .load::<PlatformRow>(&mut conn)
+    .load::<PlatformRow>(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -365,7 +365,7 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     let type_rows = diesel::sql_query(
         "SELECT permission_type, COUNT(*)::bigint as count FROM permissions GROUP BY permission_type ORDER BY count DESC"
     )
-    .load::<TypeRow>(&mut conn)
+    .load::<TypeRow>(&mut *conn)
     .await
     .unwrap_or_default();
 

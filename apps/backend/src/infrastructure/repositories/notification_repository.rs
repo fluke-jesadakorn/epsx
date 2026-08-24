@@ -133,7 +133,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             "#,
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
-        .get_result::<NotificationQueryRow>(&mut conn)
+        .get_result::<NotificationQueryRow>(&mut *conn)
         .await
         .optional()
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
@@ -199,7 +199,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         )
         .bind::<diesel::sql_types::BigInt, _>(criteria.limit.unwrap_or(100))
         .bind::<diesel::sql_types::BigInt, _>(criteria.offset.unwrap_or(0))
-        .load::<NotificationQueryRow>(&mut conn)
+        .load::<NotificationQueryRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
@@ -387,7 +387,7 @@ impl NotificationRepositoryPort for NotificationRepository {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(
             criteria.notification_type.as_ref().map(|t| t.as_str()),
         )
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
         .map_err(|e| {
             AppError::new(
@@ -424,7 +424,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             "SELECT EXISTS(SELECT 1 FROM wallet_notifications WHERE id = $1) as exists",
         )
         .bind::<diesel::sql_types::Uuid, _>(id)
-        .get_result::<ExistsRow>(&mut conn)
+        .get_result::<ExistsRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
@@ -455,7 +455,7 @@ impl NotificationRepositoryPort for NotificationRepository {
             "#,
         )
         .bind::<diesel::sql_types::BigInt, _>(limit as i64)
-        .load::<NotificationQueryRow>(&mut conn)
+        .load::<NotificationQueryRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 
@@ -516,7 +516,7 @@ impl NotificationRepositoryPort for NotificationRepository {
               AND status NOT IN ('expired', 'delivered', 'cancelled')
             "#,
         )
-        .load::<NotificationQueryRow>(&mut conn)
+        .load::<NotificationQueryRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Database error: {}", e)))?;
 

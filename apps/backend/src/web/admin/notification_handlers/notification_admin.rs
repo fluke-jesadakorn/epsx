@@ -128,7 +128,7 @@ pub async fn send_notification_handler(
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(&plan)
-        .load::<PlanMemberRow>(&mut conn)
+        .load::<PlanMemberRow>(&mut *conn)
         .await
         .map_err(|e| {
             AppError::new(
@@ -521,7 +521,7 @@ pub async fn get_notification_stats_handler(
     let total_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     .map_err(|e| {
         AppError::new(
@@ -535,7 +535,7 @@ pub async fn get_notification_stats_handler(
     let today_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?
         .count;
@@ -544,7 +544,7 @@ pub async fn get_notification_stats_handler(
     let week_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?
         .count;
@@ -553,7 +553,7 @@ pub async fn get_notification_stats_handler(
     let month_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut conn)
+        .get_result::<CountRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?
         .count;
@@ -570,7 +570,7 @@ pub async fn get_notification_stats_handler(
     let type_counts = diesel::sql_query(
         "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY notification_type"
     )
-        .load::<TypeCountRow>(&mut conn)
+        .load::<TypeCountRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get type counts: {}", e)))?;
 
@@ -591,7 +591,7 @@ pub async fn get_notification_stats_handler(
     let priority_counts = diesel::sql_query(
         "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY priority"
     )
-        .load::<PriorityCountRow>(&mut conn)
+        .load::<PriorityCountRow>(&mut *conn)
         .await
         .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get priority counts: {}", e)))?;
 
@@ -607,7 +607,7 @@ pub async fn get_notification_stats_handler(
     let read_count: i64 = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'",
     )
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     .map_err(|e| {
         AppError::new(
@@ -629,7 +629,7 @@ pub async fn get_notification_stats_handler(
         let clicked_count: i64 = diesel::sql_query(
             "SELECT COUNT(*) as count FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
         )
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?
             .count;
@@ -663,7 +663,7 @@ pub async fn get_notification_stats_handler(
         LIMIT 10
         "#,
     )
-    .load::<RecentActivityRow>(&mut conn)
+    .load::<RecentActivityRow>(&mut *conn)
     .await
     .map_err(|e| {
         AppError::new(

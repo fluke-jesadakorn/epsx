@@ -183,7 +183,7 @@ async fn fetch_user_stats(app_state: &AppState) -> Result<AdminAnalyticsUserStat
                 COUNT(*) FILTER (WHERE last_auth_at >= NOW() - INTERVAL '24 hours')::bigint as today_connections
          FROM wallet_users"
     )
-    .get_result::<UserCounts>(&mut conn)
+    .get_result::<UserCounts>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -212,7 +212,7 @@ async fn fetch_permission_stats(
     }
 
     let result = diesel::sql_query(ADMIN_PERMISSION_STATS_SQL)
-        .get_result::<PermStats>(&mut conn)
+        .get_result::<PermStats>(&mut *conn)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -250,7 +250,7 @@ async fn fetch_plan_stats(app_state: &AppState) -> Result<AdminAnalyticsPlanStat
             (SELECT COUNT(*)::bigint FROM wallet_plan_assignments WHERE created_at >= NOW() - INTERVAL '30 days') as recent_assignments
          FROM plans"
     )
-    .get_result::<PlanCounts>(&mut conn)
+    .get_result::<PlanCounts>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -287,7 +287,7 @@ async fn fetch_developer_stats(
                 COUNT(*) FILTER (WHERE status = 'active')::bigint as active_api_keys
          FROM api_keys",
     )
-    .get_result::<DevStats>(&mut conn)
+    .get_result::<DevStats>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 

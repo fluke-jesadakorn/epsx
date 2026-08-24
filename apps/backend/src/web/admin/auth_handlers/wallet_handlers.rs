@@ -106,7 +106,7 @@ pub async fn get_recent_wallets(
     )
     .bind::<diesel::sql_types::BigInt, _>(limit as i64)
     .bind::<diesel::sql_types::Integer, _>(days_back)
-    .load::<RecentWalletRow>(&mut conn)
+    .load::<RecentWalletRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -131,7 +131,7 @@ pub async fn get_recent_wallets(
     "#,
     )
     .bind::<diesel::sql_types::Integer, _>(days_back)
-    .get_result::<CountRow>(&mut conn)
+    .get_result::<CountRow>(&mut *conn)
     .await
     {
         Ok(row) => row.count.unwrap_or(0),
@@ -162,7 +162,7 @@ pub async fn get_recent_wallets(
     "#,
     )
     .bind::<diesel::sql_types::Integer, _>(days_back)
-    .load::<AnalyticsRow>(&mut conn)
+    .load::<AnalyticsRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -364,20 +364,20 @@ pub async fn search_wallets(
         (true, true) => {
             base.bind::<diesel::sql_types::Text, _>(&search_pattern)
                 .bind::<diesel::sql_types::Uuid, _>(exclude_plan_uuid.unwrap())
-                .load::<SearchWalletRow>(&mut conn)
+                .load::<SearchWalletRow>(&mut *conn)
                 .await
         }
         (true, false) => {
             base.bind::<diesel::sql_types::Text, _>(&search_pattern)
-                .load::<SearchWalletRow>(&mut conn)
+                .load::<SearchWalletRow>(&mut *conn)
                 .await
         }
         (false, true) => {
             base.bind::<diesel::sql_types::Uuid, _>(exclude_plan_uuid.unwrap())
-                .load::<SearchWalletRow>(&mut conn)
+                .load::<SearchWalletRow>(&mut *conn)
                 .await
         }
-        (false, false) => base.load::<SearchWalletRow>(&mut conn).await,
+        (false, false) => base.load::<SearchWalletRow>(&mut *conn).await,
     };
 
     let wallets = match wallets {
@@ -422,24 +422,24 @@ pub async fn search_wallets(
             diesel::sql_query(&count_query)
                 .bind::<diesel::sql_types::Text, _>(&search_pattern)
                 .bind::<diesel::sql_types::Uuid, _>(exclude_plan_uuid.unwrap())
-                .get_result::<SearchCountRow>(&mut conn)
+                .get_result::<SearchCountRow>(&mut *conn)
                 .await
         }
         (true, false) => {
             diesel::sql_query(&count_query)
                 .bind::<diesel::sql_types::Text, _>(&search_pattern)
-                .get_result::<SearchCountRow>(&mut conn)
+                .get_result::<SearchCountRow>(&mut *conn)
                 .await
         }
         (false, true) => {
             diesel::sql_query(&count_query)
                 .bind::<diesel::sql_types::Uuid, _>(exclude_plan_uuid.unwrap())
-                .get_result::<SearchCountRow>(&mut conn)
+                .get_result::<SearchCountRow>(&mut *conn)
                 .await
         }
         (false, false) => {
             diesel::sql_query(&count_query)
-                .get_result::<SearchCountRow>(&mut conn)
+                .get_result::<SearchCountRow>(&mut *conn)
                 .await
         }
     };
@@ -484,7 +484,7 @@ pub async fn search_wallets(
       "#,
         )
         .bind::<diesel::sql_types::Text, _>(&row.wallet_address)
-        .load::<PlanRow>(&mut conn)
+        .load::<PlanRow>(&mut *conn)
         .await
         {
             Ok(plan_rows) => plan_rows
@@ -571,7 +571,7 @@ pub async fn get_tiers(State(app_state): State<AppState>) -> Result<Json<Vec<Str
     ORDER BY tier_level
     "#,
     )
-    .load::<TierRow>(&mut conn)
+    .load::<TierRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| r.tier_level).collect(),

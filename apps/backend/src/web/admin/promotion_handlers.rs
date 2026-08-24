@@ -132,7 +132,7 @@ pub async fn list_promotions_handler(
         ORDER BY pc.created_at DESC
         "#,
     )
-    .load::<CampaignRow>(&mut conn)
+    .load::<CampaignRow>(&mut *conn)
     .await;
 
     let campaigns = match query {
@@ -237,7 +237,7 @@ pub async fn create_promotion_handler(
     .bind::<diesel::sql_types::Bool, _>(request.is_active)
     .bind::<diesel::sql_types::Timestamptz, _>(request.start_date)
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(request.end_date)
-    .get_result::<InsertResult>(&mut conn)
+    .get_result::<InsertResult>(&mut *conn)
     .await;
 
     match result {
@@ -340,7 +340,7 @@ pub async fn get_promotion_handler(
         "#,
     )
     .bind::<diesel::sql_types::Integer, _>(id)
-    .get_result::<PromotionRow>(&mut conn)
+    .get_result::<PromotionRow>(&mut *conn)
     .await
     .optional();
 
@@ -444,7 +444,7 @@ pub async fn update_promotion_handler(
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(request.description.as_deref())
     .bind::<diesel::sql_types::Nullable<diesel::sql_types::Bool>, _>(request.is_active)
     .bind::<diesel::sql_types::Integer, _>(id)
-    .get_result::<UpdateResult>(&mut conn)
+    .get_result::<UpdateResult>(&mut *conn)
     .await
     .optional();
 
@@ -532,7 +532,7 @@ pub async fn delete_promotion_handler(
 
     let result = diesel::sql_query("DELETE FROM promotional_campaigns WHERE id = $1 RETURNING id")
         .bind::<diesel::sql_types::Integer, _>(id)
-        .get_result::<DeleteResult>(&mut conn)
+        .get_result::<DeleteResult>(&mut *conn)
         .await
         .optional();
 

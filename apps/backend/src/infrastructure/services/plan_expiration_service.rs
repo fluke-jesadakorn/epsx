@@ -279,7 +279,7 @@ impl PlanExpirationService {
         )
         .bind::<diesel::sql_types::Text, _>(wallet)
         .bind::<diesel::sql_types::Text, _>(dedup_key)
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await
         .ok();
 

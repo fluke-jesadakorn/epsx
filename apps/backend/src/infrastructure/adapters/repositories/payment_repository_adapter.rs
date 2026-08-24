@@ -227,7 +227,7 @@ impl PaymentRepositoryAdapter {
 
         let payment_db = payments::table
             .filter(payments::id.eq(payment_id.value()))
-            .first::<PaymentDb>(&mut conn)
+            .first::<PaymentDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -359,7 +359,7 @@ impl PaymentRepositoryAdapter {
 
         let payment_db = payments::table
             .filter(payments::payment_reference.eq(reference.value()))
-            .first::<PaymentDb>(&mut conn)
+            .first::<PaymentDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| {

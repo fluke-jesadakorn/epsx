@@ -51,7 +51,7 @@ pub async fn get_user_analytics_handler(
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users
          FROM wallet_users",
     )
-    .get_result::<UserCounts>(&mut conn)
+    .get_result::<UserCounts>(&mut *conn)
     .await
     {
         Ok(counts) => counts,
@@ -138,7 +138,7 @@ pub async fn get_user_analytics_handler(
         ORDER BY cohort_month DESC
         "#
     )
-    .load::<CohortRow>(&mut conn)
+    .load::<CohortRow>(&mut *conn)
     .await
     {
         Ok(results) => results

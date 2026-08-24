@@ -125,7 +125,7 @@ pub async fn list_assignments(
     // Get total count
     let total: i64 =
         match diesel::sql_query("SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments")
-            .get_result::<CountRow>(&mut conn)
+            .get_result::<CountRow>(&mut *conn)
             .await
         {
             Ok(row) => row.count,
@@ -145,7 +145,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (Some(wallet), Some(plan_uuid), None) => {
@@ -154,7 +154,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (Some(wallet), None, Some(is_active)) => {
@@ -163,7 +163,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
                 .bind::<diesel::sql_types::Bool, _>(is_active)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (Some(wallet), None, None) => {
@@ -171,7 +171,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Text, _>(wallet.to_lowercase())
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (None, Some(plan_uuid), Some(is_active)) => {
@@ -180,7 +180,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (None, Some(plan_uuid), None) => {
@@ -188,7 +188,7 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Uuid, _>(*plan_uuid)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (None, None, Some(is_active)) => {
@@ -196,14 +196,14 @@ pub async fn list_assignments(
                 .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
                 .bind::<diesel::sql_types::Bool, _>(is_active)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
         (None, None, None) => {
             diesel::sql_query(&sql)
                 .bind::<diesel::sql_types::Integer, _>(pg.limit as i32)
                 .bind::<diesel::sql_types::Integer, _>(pg.offset as i32)
-                .load::<AssignmentRow>(&mut conn)
+                .load::<AssignmentRow>(&mut *conn)
                 .await
         }
     };
@@ -292,7 +292,7 @@ pub async fn get_expiring_assignments(
         "#,
     )
     .bind::<diesel::sql_types::BigInt, _>(days)
-    .load::<ExpiringRow>(&mut conn)
+    .load::<ExpiringRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -402,7 +402,7 @@ pub async fn get_assignment_history(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<HistoryRow>(&mut conn)
+    .load::<HistoryRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -490,7 +490,7 @@ pub async fn get_wallet_plans(
         "#,
     )
     .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<PlanRow>(&mut conn)
+    .load::<PlanRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,
@@ -632,7 +632,7 @@ pub async fn get_plan_history(
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&search_pattern)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&date_from_str)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&date_to_str)
-        .load::<AuditRow>(&mut conn)
+        .load::<AuditRow>(&mut *conn)
         .await;
 
     let rows = match result {

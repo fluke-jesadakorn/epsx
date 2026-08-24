@@ -364,7 +364,7 @@ pub async fn get_plan(
 
         match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1 AND is_active = true")
             .bind::<diesel::sql_types::Uuid, _>(*plan.id().value())
-            .get_result::<Count>(&mut conn)
+            .get_result::<Count>(&mut *conn)
             .await
         {
             Ok(c) => c.count as i32,
@@ -463,7 +463,7 @@ pub async fn list_plans(
 
                 match diesel::sql_query(sql)
                     .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-                    .load::<CountRow>(&mut conn)
+                    .load::<CountRow>(&mut *conn)
                     .await
                 {
                     Ok(rows) => rows.into_iter().map(|r| (r.plan_id, r.count)).collect(),
@@ -765,7 +765,7 @@ pub async fn get_plan_members(
         "SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .load::<WalletAddress>(&mut conn)
+    .load::<WalletAddress>(&mut *conn)
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| r.wallet_address).collect(),
@@ -896,7 +896,7 @@ pub async fn get_plan_assignments(
         "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1",
     )
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .get_result::<Count>(&mut conn)
+    .get_result::<Count>(&mut *conn)
     .await
     {
         Ok(c) => c.count,
@@ -917,7 +917,7 @@ pub async fn get_plan_assignments(
     .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
     .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
     .bind::<diesel::sql_types::BigInt, _>(pg.offset)
-    .load::<AssignmentRow>(&mut conn)
+    .load::<AssignmentRow>(&mut *conn)
     .await
     {
         Ok(rows) => rows,

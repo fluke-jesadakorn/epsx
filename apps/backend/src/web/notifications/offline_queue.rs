@@ -61,7 +61,7 @@ pub async fn fetch_queued_notifications(
         "#
     )
     .bind::<diesel::sql_types::Text, _>(wallet_address.to_lowercase())
-    .load::<NotificationRow>(&mut conn)
+    .load::<NotificationRow>(&mut *conn)
     .await?;
 
     let notifications: Vec<_> = records
@@ -211,19 +211,19 @@ pub async fn get_notification_stats(db_pool: &TlsPool) -> Result<NotificationSta
     let total: CountRow = diesel::sql_query(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
     )
-    .get_result(&mut conn)
+    .get_result(&mut *conn)
     .await?;
 
     let queued: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('created', 'queued') AND status != 'deleted'")
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
     let delivered: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status IN ('sent', 'delivered') AND status != 'deleted'")
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
     let acknowledged: CountRow = diesel::sql_query("SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read' AND status != 'deleted'")
-        .get_result(&mut conn)
+        .get_result(&mut *conn)
         .await?;
 
     Ok(NotificationStats {

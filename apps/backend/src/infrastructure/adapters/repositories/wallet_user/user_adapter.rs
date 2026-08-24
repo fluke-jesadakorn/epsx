@@ -36,7 +36,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
                 wallet_address.as_str()
             )))
             .select(WalletUserDb::as_select())
-            .first(&mut conn)
+            .first(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -97,7 +97,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             )))
             .order(wallet_users::created_at.desc())
             .select(WalletUserDb::as_select())
-            .load(&mut conn)
+            .load(&mut *conn)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to find wallet users by addresses: {}", e);

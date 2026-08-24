@@ -159,7 +159,7 @@ async fn fetch_watchlist(
         .filter(user_watchlist::wallet_address.eq(wallet))
         .order((user_watchlist::added_at.asc(), user_watchlist::id.asc()))
         .select(user_watchlist::symbol)
-        .load::<String>(&mut conn)
+        .load::<String>(&mut *conn)
         .await
         .map_err(|error_value| error_value.to_string())
 }
@@ -302,7 +302,7 @@ pub async fn get_watchlist_layout(
             "Failed to load watchlist layout",
         )
     })?;
-    let layout = fetch_layout_conn(&mut conn, &ctx.wallet_address)
+    let layout = fetch_layout_conn(&mut *conn, &ctx.wallet_address)
         .await
         .map_err(MutationError::Database)
         .map_err(mutation_api_error)?;

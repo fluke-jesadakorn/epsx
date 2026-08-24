@@ -309,7 +309,7 @@ pub async fn submit_transaction_handler(
     )
     .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<DedupRow>(&mut conn)
+    .get_result::<DedupRow>(&mut *conn)
     .await
     .optional();
 
@@ -337,7 +337,7 @@ pub async fn submit_transaction_handler(
         "SELECT COALESCE((SELECT balance FROM wallet_credits WHERE wallet_address = $1), 0) as bal",
     )
     .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<BalanceRow>(&mut conn)
+    .get_result::<BalanceRow>(&mut *conn)
     .await
     .map(|r| r.bal)
     .unwrap_or_else(|_| BigDecimal::from(0));
@@ -476,7 +476,7 @@ pub async fn submit_transaction_handler(
                 )
                 .bind::<diesel::sql_types::Text, _>(&payload.transaction_hash)
                 .bind::<diesel::sql_types::Text, _>(&wallet_address)
-                .get_result::<DedupRow>(&mut conn)
+                .get_result::<DedupRow>(&mut *conn)
                 .await
                 .optional()
                 .ok()

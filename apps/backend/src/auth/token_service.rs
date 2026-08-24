@@ -513,7 +513,7 @@ impl OpenIDTokenService {
             .filter(wallet_users::wallet_address.eq(wallet_address))
             .filter(wallet_users::is_active.eq(true))
             .select(wallet_users::is_active)
-            .first::<bool>(&mut conn)
+            .first::<bool>(&mut *conn)
             .await
             .optional()
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
@@ -560,7 +560,7 @@ impl OpenIDTokenService {
             "#,
         )
         .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .load::<PermissionResult>(&mut conn)
+        .load::<PermissionResult>(&mut *conn)
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -707,7 +707,7 @@ impl OpenIDTokenService {
 
         let token = openid_refresh_tokens::table
             .filter(openid_refresh_tokens::token_id.eq(token_id))
-            .first::<RefreshTokenDb>(&mut conn)
+            .first::<RefreshTokenDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?

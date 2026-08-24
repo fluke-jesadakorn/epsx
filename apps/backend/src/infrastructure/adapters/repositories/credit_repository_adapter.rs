@@ -45,7 +45,7 @@ impl CreditRepositoryAdapter {
 
         let result = wallet_credits::table
             .filter(wallet_credits::wallet_address.eq(wallet_address))
-            .first::<WalletCreditDb>(&mut conn)
+            .first::<WalletCreditDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -71,7 +71,7 @@ impl CreditRepositoryAdapter {
         // Try to get existing record first
         let existing = wallet_credits::table
             .filter(wallet_credits::wallet_address.eq(wallet_address))
-            .first::<WalletCreditDb>(&mut conn)
+            .first::<WalletCreditDb>(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -104,7 +104,7 @@ impl CreditRepositoryAdapter {
         // Fetch the created record
         let created = wallet_credits::table
             .filter(wallet_credits::wallet_address.eq(wallet_address))
-            .first::<WalletCreditDb>(&mut conn)
+            .first::<WalletCreditDb>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to fetch created credit balance: {}", e);
@@ -154,7 +154,7 @@ impl CreditRepositoryAdapter {
         query = query.order(credit_transactions::created_at.desc());
 
         let results = query
-            .load::<CreditTransactionDb>(&mut conn)
+            .load::<CreditTransactionDb>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get credit transactions: {}", e);
@@ -209,7 +209,7 @@ impl CreditRepositoryAdapter {
         query = query.order(credit_transactions::created_at.desc());
 
         let results = query
-            .load::<CreditTransactionDb>(&mut conn)
+            .load::<CreditTransactionDb>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get all credit transactions: {}", e);
@@ -259,7 +259,7 @@ impl CreditRepositoryAdapter {
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Varchar>, _>(granted_by)
         .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
         .bind::<diesel::sql_types::Jsonb, _>(metadata.unwrap_or(serde_json::json!({})))
-        .get_result::<TransactionResult>(&mut conn)
+        .get_result::<TransactionResult>(&mut *conn)
         .await
         .map(|r| r.add_credit_transaction)
         .map_err(|e| {
@@ -280,7 +280,7 @@ impl CreditRepositoryAdapter {
         // Total credits outstanding
         let total_outstanding: BigDecimal = wallet_credits::table
             .select(diesel::dsl::sum(wallet_credits::balance))
-            .first::<Option<BigDecimal>>(&mut conn)
+            .first::<Option<BigDecimal>>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get total outstanding credits: {}", e);
@@ -292,7 +292,7 @@ impl CreditRepositoryAdapter {
         let active_users: i64 = wallet_credits::table
             .filter(wallet_credits::balance.gt(BigDecimal::from(0)))
             .count()
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to count active users: {}", e);
@@ -303,7 +303,7 @@ impl CreditRepositoryAdapter {
         let average_balance: BigDecimal = wallet_credits::table
             .filter(wallet_credits::balance.gt(BigDecimal::from(0)))
             .select(diesel::dsl::avg(wallet_credits::balance))
-            .first::<Option<BigDecimal>>(&mut conn)
+            .first::<Option<BigDecimal>>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get average balance: {}", e);
@@ -322,7 +322,7 @@ impl CreditRepositoryAdapter {
             .filter(credit_transactions::created_at.ge(today_start))
             .filter(credit_transactions::tx_type.eq("grant"))
             .select(diesel::dsl::sum(credit_transactions::amount))
-            .first::<Option<BigDecimal>>(&mut conn)
+            .first::<Option<BigDecimal>>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get today's grants: {}", e);
@@ -334,7 +334,7 @@ impl CreditRepositoryAdapter {
             .filter(credit_transactions::created_at.ge(today_start))
             .filter(credit_transactions::tx_type.eq("payment_debit"))
             .select(diesel::dsl::sum(credit_transactions::amount))
-            .first::<Option<BigDecimal>>(&mut conn)
+            .first::<Option<BigDecimal>>(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get today's usage: {}", e);
@@ -346,7 +346,7 @@ impl CreditRepositoryAdapter {
         let total_transactions_today: i64 = credit_transactions::table
             .filter(credit_transactions::created_at.ge(today_start))
             .count()
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to count today's transactions: {}", e);

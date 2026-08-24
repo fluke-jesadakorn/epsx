@@ -30,7 +30,7 @@ impl UnifiedWeb3AuthService {
 
         let user_exists: Option<String> = diesel_async::RunQueryDsl::first(wallet_users::table
             .filter(wallet_users::wallet_address.eq(wallet_address))
-            .select(wallet_users::wallet_address), &mut conn)
+            .select(wallet_users::wallet_address), &mut *conn)
             .await
             .optional()
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
@@ -42,7 +42,7 @@ impl UnifiedWeb3AuthService {
                 .set((
                     wallet_users::last_auth_at.eq(&now),
                     wallet_users::updated_at.eq(&now),
-                )), &mut conn)
+                )), &mut *conn)
                 .await
                 .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -77,7 +77,7 @@ impl UnifiedWeb3AuthService {
                 wallet_users::created_at.eq(&now),
                 wallet_users::updated_at.eq(&now),
                 wallet_users::last_auth_at.eq(&now),
-            )), &mut conn)
+            )), &mut *conn)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -140,7 +140,7 @@ impl UnifiedWeb3AuthService {
 
         let plan_id = match diesel::sql_query("SELECT id FROM plans WHERE slug = $1")
             .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
-            .get_result::<PlanIdResult>(&mut conn)
+            .get_result::<PlanIdResult>(&mut *conn)
             .await
         {
             Ok(result) => result.id,
@@ -188,7 +188,7 @@ impl UnifiedWeb3AuthService {
                 .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
                 .bind::<diesel::sql_types::Text, _>("Get started with basic analytics and stock rankings")
                 .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
-                .get_result::<PlanIdResult>(&mut conn)
+                .get_result::<PlanIdResult>(&mut *conn)
                 .await
                 {
                     Ok(result) => {
@@ -218,7 +218,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind::<diesel::sql_types::Text, _>(&wallet_address)
         .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .get_result::<CountResult>(&mut conn)
+        .get_result::<CountResult>(&mut *conn)
         .await
         .map(|r| r.count > 0)
         .unwrap_or(false);

@@ -67,7 +67,7 @@ impl ApiKeyRepository {
         let now = Utc::now();
         let total = api_keys::table
             .count()
-            .get_result::<i64>(&mut conn)
+            .get_result::<i64>(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
         let active = api_keys::table
@@ -78,7 +78,7 @@ impl ApiKeyRepository {
                     .or(api_keys::expires_at.ge(now)),
             )
             .count()
-            .get_result::<i64>(&mut conn)
+            .get_result::<i64>(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::database_error(format!("Failed to count active API keys: {}", e))
@@ -86,7 +86,7 @@ impl ApiKeyRepository {
         let revoked = api_keys::table
             .filter(api_keys::status.eq("revoked"))
             .count()
-            .get_result::<i64>(&mut conn)
+            .get_result::<i64>(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::database_error(format!("Failed to count revoked API keys: {}", e))
@@ -95,7 +95,7 @@ impl ApiKeyRepository {
             .filter(api_keys::status.eq("active"))
             .filter(api_keys::expires_at.lt(now))
             .count()
-            .get_result::<i64>(&mut conn)
+            .get_result::<i64>(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::database_error(format!("Failed to count expired API keys: {}", e))
@@ -497,7 +497,7 @@ impl ApiKeyRepository {
                 api_keys::created_at,
                 api_keys::created_by,
             ))
-            .first(&mut conn)
+            .first(&mut *conn)
             .await
             .optional()
             .map_err(|e| AppError::database_error(format!("Failed to fetch API key: {}", e)))?;
@@ -511,7 +511,7 @@ impl ApiKeyRepository {
                 api_keys::revocation_reason,
                 api_keys::updated_at,
             ))
-            .first(&mut conn)
+            .first(&mut *conn)
             .await
             .optional()
             .map_err(|e| {
@@ -520,9 +520,9 @@ impl ApiKeyRepository {
 
         if let (Some(core), Some(meta)) = (core_row, meta_row) {
             // Fetch module access (legacy)
-            let modules = self.get_module_access_for_key(&mut conn, id).await?;
+            let modules = self.get_module_access_for_key(&mut *conn, id).await?;
             // Fetch permission plans (new system)
-            let permission_plans = self.get_permission_plans_for_key(&mut conn, id).await?;
+            let permission_plans = self.get_permission_plans_for_key(&mut *conn, id).await?;
 
             Ok(Some(ApiKey {
                 id: core.id,
@@ -546,7 +546,7 @@ impl ApiKeyRepository {
                 },
                 allowed_modules: modules,
                 permission_plans,
-                selected_permissions: self.get_selected_permissions_for_key(&mut conn, id).await?,
+                selected_permissions: self.get_selected_permissions_for_key(&mut *conn, id).await?,
                 expires_at: core.expires_at,
                 last_used_at: meta.last_used_at,
                 revoked_at: meta.revoked_at,
@@ -753,7 +753,7 @@ impl ApiKeyRepository {
 
         let total: i64 = count_query
             .count()
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
 
@@ -784,7 +784,7 @@ impl ApiKeyRepository {
             .limit(limit.unwrap_or(50))
             .offset(offset.unwrap_or(0))
             .select(api_keys::id)
-            .load(&mut conn)
+            .load(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
         drop(conn);
@@ -830,7 +830,7 @@ impl ApiKeyRepository {
 
         let total: i64 = count_query
             .count()
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
 
@@ -862,7 +862,7 @@ impl ApiKeyRepository {
             .limit(limit.unwrap_or(50))
             .offset(offset.unwrap_or(0))
             .select(api_keys::id)
-            .load(&mut conn)
+            .load(&mut *conn)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list API keys: {}", e)))?;
 
@@ -917,7 +917,7 @@ impl ApiKeyRepository {
             .filter(api_keys::key_hash.eq(&key_hash))
             .filter(api_keys::status.eq("active"))
             .select(api_keys::id)
-            .first(&mut conn)
+            .first(&mut *conn)
             .await
             .optional()
             .map_err(|e| AppError::database_error(format!("Failed to validate key: {}", e)))?;
@@ -985,7 +985,7 @@ impl ApiKeyRepository {
             .filter(api_keys::status.eq("active"));
         let total: i64 = count_query
             .count()
-            .get_result(&mut conn)
+            .get_result(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::database_error(format!("Failed to count expiring keys: {}", e))
@@ -1000,7 +1000,7 @@ impl ApiKeyRepository {
             .limit(limit.unwrap_or(50))
             .offset(offset.unwrap_or(0))
             .select(api_keys::id)
-            .load(&mut conn)
+            .load(&mut *conn)
             .await
             .map_err(|e| {
                 AppError::database_error(format!("Failed to list expiring keys: {}", e))
