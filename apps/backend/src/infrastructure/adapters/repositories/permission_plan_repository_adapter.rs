@@ -609,3 +609,6 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         Ok(counts)
     }
 }
+/// Backward-compatible alias: many call sites still use the old name.
+#[deprecated(note = "Use PlanRepositoryAdapter — old name kept for migration period")]
+pub type PermissionPlanRepositoryAdapter = PlanRepositoryAdapter;

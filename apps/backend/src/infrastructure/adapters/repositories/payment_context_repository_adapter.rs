@@ -72,6 +72,16 @@ pub struct UpdatePaymentContextDb {
     pub metadata: Option<serde_json::Value>,
 }
 
+/// Search criteria for listing payment contexts
+#[derive(Debug, Clone, Default)]
+pub struct PaymentContextSearchCriteria {
+    pub context_type: Option<String>,
+    pub is_active: Option<bool>,
+    pub created_by: Option<String>,
+    pub limit: Option<i64>,
+    pub offset: Option<i64>,
+}
+
 #[derive(Clone)]
 pub struct PaymentContextRepositoryAdapter {
     db_pool: Arc<PgPool>,

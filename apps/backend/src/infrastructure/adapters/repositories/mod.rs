@@ -1,4 +1,3 @@
-use crate::prelude::TlsPool;
 // Repository Adapters
 // Web3-first repository implementations with comprehensive blockchain integration
 
@@ -21,17 +20,6 @@ pub mod permission_plan_repository_adapter;
 pub mod plan_repository_adapter; // NEW // Developer portal API keys and modules
 
 // Payment-bounded-context repository adapters.
-//
-// Pre-wave-11 these all sat in this central layer. Wave 11 /
-// Track B moves ONLY `subscription_repository_adapter` into
-// `payment/` (see audit-payments.md §3 row 3, the "strongest
-// outward leak"). The other three
-// (`payment_repository_adapter`,
-// `payment_context_repository_adapter`,
-// `credit_repository_adapter`) stay at the central layer for
-// one more wave; the `payment/` subdir re-exports them as a
-// forward-move marker so future call sites can use the
-// destination path today.
 pub mod credit_repository_adapter;
 pub mod payment_context_repository_adapter;
 pub mod sqlx_credit_repository;
@@ -43,23 +31,12 @@ pub mod sqlx_stock_analysis_repository;
 
 pub mod payment;
 
-// `use payment::*` keeps the legacy flat re-exports working
-// for any pre-wave-11 callers (e.g.
-// `use crate::infrastructure::adapters::repositories::SubscriptionRepositoryAdapter`).
-// The real type now lives at
-// `repositories::payment::PaymentSubscriptionRepositoryAdapter`.
 pub use payment::{
     is_context_usable, CreditRepositoryAdapter, NewPaymentContextDb, PaymentContextDb,
     PaymentContextRepositoryAdapter, PaymentContextSearchCriteria, PaymentRepositoryAdapter,
     PaymentSubscriptionRepositoryAdapter, SubscriptionSearchCriteria, UpdatePaymentContextDb,
 };
 
-// wave11(track-b) deprecation shim: pre-wave-11 callers used
-// `SubscriptionRepositoryAdapter` (without the `Payment` prefix).
-// The wave-11 task brief renames it to
-// `PaymentSubscriptionRepositoryAdapter` to make ownership
-// explicit. This alias lets any pre-wave-11 import keep
-// compiling for one minor version. Drop after the next wave.
 #[deprecated(
     since = "0.2.0",
     note = "Use `PaymentSubscriptionRepositoryAdapter` (in `infrastructure::adapters::repositories::payment::subscription_repository_adapter`) — wave11(track-b) renamed the type to make ownership explicit."
@@ -76,44 +53,30 @@ pub use tradingview_eps_repository::TradingViewEPSRepository;
 pub use plan_repository_adapter::PostgresPlanRepositoryAdapter;
 pub use wallet_user::WalletUserRepositoryAdapter;
 
-// Export both new and legacy names for backward compatibility
-pub use permission_plan_repository_adapter::{
-    PermissionPlanRepositoryAdapter, PlanRepositoryAdapter,
-};
+pub use permission_plan_repository_adapter::PlanRepositoryAdapter;
 
-// Database connection pool type - Diesel async PostgreSQL pool
-pub type DbPool = &'static TlsPool;
+// Database connection pool type - alias for sqlx::PgPool (BIG-BANG migration)
+pub type TlsPool = sqlx::PgPool;
+pub type DbPool = sqlx::PgPool;
 
-/// Create a database connection pool for production use
-pub async fn create_pool() -> anyhow::Result<&'static TlsPool> {
+/// Create a database connection pool for production use (sqlx)
+pub async fn create_pool() -> anyhow::Result<sqlx::PgPool> {
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-
-    let manager =
-        crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager::new(
-            database_url,
-        );
-    let pool = deadpool::managed::Pool::builder(manager)
-        .max_size(10)
-        .build()?;
-
-    // Leak pool to make it 'static
-    Ok(Box::leak(Box::new(pool)))
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
+        .await?;
+    Ok(pool)
 }
 
-/// Create a test database connection pool
-pub async fn create_test_pool() -> anyhow::Result<&'static TlsPool> {
+/// Create a test database connection pool (sqlx)
+pub async fn create_test_pool() -> anyhow::Result<sqlx::PgPool> {
     let database_url = std::env::var("DATABASE_URL").unwrap_or_else(|_| {
         "postgresql://postgres:password@localhost:5432/epsx_test_db".to_string()
     });
-
-    let manager =
-        crate::infrastructure::database::diesel_connection_manager::TlsConnectionManager::new(
-            database_url,
-        );
-    let pool = deadpool::managed::Pool::builder(manager)
-        .max_size(5)
-        .build()?;
-
-    // Leak pool to make it 'static
-    Ok(Box::leak(Box::new(pool)))
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(5)
+        .connect(&database_url)
+        .await?;
+    Ok(pool)
 }
