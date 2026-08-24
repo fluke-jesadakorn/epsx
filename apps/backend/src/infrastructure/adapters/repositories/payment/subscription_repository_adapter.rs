@@ -37,8 +37,8 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+
+
 use epsx_contracts::errors::{AppError, AppResult};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
