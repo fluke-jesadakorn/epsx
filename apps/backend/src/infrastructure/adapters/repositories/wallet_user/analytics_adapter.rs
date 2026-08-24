@@ -1,6 +1,4 @@
 use crate::prelude::*;
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
 use crate::domain::wallet_management::repository_ports::{WalletUserAnalyticsPort, WalletUserStatistics};
 
 pub struct PostgresWalletUserAnalyticsAdapter {
@@ -16,50 +14,30 @@ impl PostgresWalletUserAnalyticsAdapter {
 #[async_trait]
 impl WalletUserAnalyticsPort for PostgresWalletUserAnalyticsAdapter {
     async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
-        let mut conn = self.db_pool.acquire().await?;
+        let pool: sqlx::PgPool = self.db_pool.clone();
 
-        #[derive(diesel::QueryableByName)]
-        struct StatsResult {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            total_users: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            active_users: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            recent_auth_24h: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            new_wallets_24h: i64,
-        }
-
-        let query = r#"
-            SELECT
+        let row: (i64, i64, i64, i64) = sqlx::query_as(
+            "SELECT
                 COUNT(*) as total_users,
-                COUNT(*) FILTER (WHERE is_active = true) as active_users,
+                COUNT(*) FILTER (WHERE is_active = TRUE) as active_users,
                 COUNT(*) FILTER (WHERE last_auth_at > NOW() - INTERVAL '24 hours') as recent_auth_24h,
                 COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_wallets_24h
-            FROM wallet_users
-        "#;
-
-        let results = diesel::sql_query(query)
-            .load::<StatsResult>(&mut *conn)
-            .await
-            .map_err(|e| {
-                tracing::error!("Failed to get wallet user statistics: {}", e);
-                AppError::database_error(e.to_string())
-                    .with_component("wallet_user_analytics_adapter")
-                    .with_operation("get_statistics")
-            })?;
-
-        let stats = results.first().ok_or_else(|| {
-            AppError::database_error("No statistics returned".to_string())
+             FROM wallet_users",
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to get wallet user statistics: {}", e);
+            AppError::database_error(e.to_string())
                 .with_component("wallet_user_analytics_adapter")
+                .with_operation("get_statistics")
         })?;
 
         Ok(WalletUserStatistics {
-            total_users: stats.total_users as u64,
-            active_users: stats.active_users as u64,
-            recent_auth_24h: stats.recent_auth_24h as u64,
-            new_wallets_24h: stats.new_wallets_24h as u64,
+            total_users: row.0 as u64,
+            active_users: row.1 as u64,
+            recent_auth_24h: row.2 as u64,
+            new_wallets_24h: row.3 as u64,
         })
     }
 }
-
