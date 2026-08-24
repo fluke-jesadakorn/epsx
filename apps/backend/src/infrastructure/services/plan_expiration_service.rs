@@ -16,7 +16,7 @@
 //! not expose a "check for existing" method (and should not — the
 //! audit's R3 scope is *delivery*, not admin / read paths).
 
-use diesel_async::RunQueryDsl;
+
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
@@ -131,22 +131,22 @@ impl PlanExpirationService {
 
         for &days in &self.config.notification_days {
             // Find active assignments expiring within this window
-            #[derive(diesel::QueryableByName)]
+            #[derive(sqlx::FromRow)]
             #[allow(dead_code)]
             struct ExpiringRow {
-                #[diesel(sql_type = diesel::sql_types::Uuid)]
+                
                 assignment_id: Uuid,
-                #[diesel(sql_type = diesel::sql_types::Text)]
+                
                 wallet_address: String,
-                #[diesel(sql_type = diesel::sql_types::Uuid)]
+                
                 plan_id: Uuid,
-                #[diesel(sql_type = diesel::sql_types::Text)]
+                
                 plan_name: String,
-                #[diesel(sql_type = diesel::sql_types::BigInt)]
+                
                 days_left: i64,
             }
 
-            let rows: Vec<ExpiringRow> = diesel::sql_query(
+            let rows: Vec<ExpiringRow> = sqlx::query(
                 r#"
                 SELECT
                     wpa.id as assignment_id,
@@ -162,7 +162,7 @@ impl PlanExpirationService {
                   AND wpa.expires_at <= NOW() + ($1 || ' days')::INTERVAL
                 "#,
             )
-            .bind::<diesel::sql_types::Text, _>(days.to_string())
+            .bind(days.to_string())
             .load(&mut db_conn)
             .await
             .unwrap_or_default();
@@ -261,13 +261,13 @@ impl PlanExpirationService {
             Err(_) => return false,
         };
 
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct CountRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
+            
             cnt: i64,
         }
 
-        let result: Option<CountRow> = diesel::sql_query(
+        let result: Option<CountRow> = sqlx::query(
             r#"
             SELECT COUNT(*)::BIGINT as cnt
             FROM wallet_notifications
@@ -277,8 +277,8 @@ impl PlanExpirationService {
               AND status != 'deleted'
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet)
-        .bind::<diesel::sql_types::Text, _>(dedup_key)
+        .bind(wallet)
+        .bind(dedup_key)
         .get_result(&mut *conn)
         .await
         .ok();
@@ -294,7 +294,7 @@ impl PlanExpirationService {
             .await
             .map_err(|e| format!("DB pool error: {}", e))?;
 
-        let affected = diesel::sql_query(
+        let affected = sqlx::query(
             r#"
             UPDATE wallet_plan_assignments wpa
             SET is_active = false, updated_at = NOW()
