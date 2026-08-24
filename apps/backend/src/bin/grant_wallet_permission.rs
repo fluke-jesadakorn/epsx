@@ -1,8 +1,9 @@
 use clap::{Arg, Command};
-use diesel::prelude::*;
 use epsx::infrastructure::models::permission::{NewWalletDirectPermissionDb, PermissionDb};
 use epsx::infrastructure::models::wallet_user::NewWalletUserDb;
+use sqlx::PgPool;
 use std::env;
+use uuid::Uuid;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,17 +33,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .get_matches();
 
-    // Get database connection
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL environment variable not set");
-
-    let mut conn = diesel::PgConnection::establish(&database_url)?;
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(2)
+        .connect(&database_url)
+        .await?;
 
     let wallet_address = matches.get_one::<String>("wallet").unwrap();
 
     if matches.get_flag("analytics") {
-        grant_analytics_permissions(&mut conn, wallet_address)?;
+        grant_analytics_permissions(&pool, wallet_address).await?;
     } else if let Some(permission) = matches.get_one::<String>("permission") {
-        grant_single_permission(&mut conn, wallet_address, permission)?;
+        grant_single_permission(&pool, wallet_address, permission).await?;
     } else {
         eprintln!("Error: Either --analytics or --permission must be specified");
         std::process::exit(1);
@@ -51,8 +53,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn grant_analytics_permissions(
-    conn: &mut diesel::PgConnection,
+async fn grant_analytics_permissions(
+    pool: &PgPool,
     wallet_address: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let permissions = vec![
@@ -62,16 +64,12 @@ fn grant_analytics_permissions(
         "epsx:analytics:professional",
     ];
 
-    println!(
-        "Granting analytics permissions to wallet: {}",
-        wallet_address
-    );
+    println!("Granting analytics permissions to wallet: {}", wallet_address);
 
-    // First, ensure the wallet user exists
-    let wallet_addr = ensure_wallet_user_exists(conn, wallet_address)?;
+    ensure_wallet_user_exists(pool, wallet_address).await?;
 
     for permission in permissions {
-        grant_single_permission_direct(conn, &wallet_addr, permission)?;
+        grant_single_permission_direct(pool, wallet_address, permission).await?;
         println!("Granted: {}", permission);
     }
 
@@ -79,74 +77,74 @@ fn grant_analytics_permissions(
     Ok(())
 }
 
-fn grant_single_permission(
-    conn: &mut diesel::PgConnection,
+async fn grant_single_permission(
+    pool: &PgPool,
     wallet_address: &str,
     permission: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!(
-        "Granting permission '{}' to wallet: {}",
-        permission, wallet_address
-    );
+    println!("Granting permission '{}' to wallet: {}", permission, wallet_address);
 
-    // Ensure the wallet user exists
-    let wallet_addr = ensure_wallet_user_exists(conn, wallet_address)?;
-
-    // Grant the permission
-    grant_single_permission_direct(conn, &wallet_addr, permission)?;
+    ensure_wallet_user_exists(pool, wallet_address).await?;
+    grant_single_permission_direct(pool, wallet_address, permission).await?;
 
     println!("Permission granted successfully!");
     Ok(())
 }
 
-fn ensure_wallet_user_exists(
-    conn: &mut diesel::PgConnection,
+async fn ensure_wallet_user_exists(
+    pool: &PgPool,
     wallet_addr_str: &str,
-) -> Result<String, Box<dyn std::error::Error>> {
-    use epsx::schemas::primary::wallet_users::dsl::*;
+) -> Result<(), Box<dyn std::error::Error>> {
+    let existing: Option<(String,)> = sqlx::query_as(
+        "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
+    )
+    .bind(wallet_addr_str)
+    .fetch_optional(pool)
+    .await?;
 
-    // Check if user exists
-    let existing_user: Option<String> = wallet_users
-        .select(wallet_address)
-        .filter(wallet_address.eq(wallet_addr_str))
-        .first(conn)
-        .optional()?;
-
-    if let Some(user_addr) = existing_user {
-        println!("Found existing wallet user: {}", user_addr);
-        return Ok(user_addr);
+    if existing.is_some() {
+        println!("Found existing wallet user: {}", wallet_addr_str);
+        return Ok(());
     }
 
-    // Create new wallet user
     let new_wallet_user = NewWalletUserDb {
         wallet_address: wallet_addr_str.to_string(),
         is_active: true,
         wallet_metadata: serde_json::json!({}),
     };
 
-    diesel::insert_into(wallet_users)
-        .values(&new_wallet_user)
-        .execute(conn)?;
+    sqlx::query(
+        "INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata, created_at, updated_at) \
+         VALUES ($1, $2, 'Bronze', $3, NOW(), NOW())",
+    )
+    .bind(&new_wallet_user.wallet_address)
+    .bind(new_wallet_user.is_active)
+    .bind(&new_wallet_user.wallet_metadata)
+    .execute(pool)
+    .await?;
 
     println!("Created new wallet user: {}", wallet_addr_str);
-    Ok(wallet_addr_str.to_string())
+    Ok(())
 }
 
-fn grant_single_permission_direct(
-    conn: &mut diesel::PgConnection,
+async fn grant_single_permission_direct(
+    pool: &PgPool,
     wallet_addr_str: &str,
     permission_str: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    use epsx::schemas::primary::permissions::dsl::*;
-    use epsx::schemas::primary::wallet_direct_permissions::dsl as wdp;
+    #[derive(sqlx::FromRow)]
+    struct PermRow {
+        id: Uuid,
+    }
 
-    // 1. Get permission definition
-    let perm_def: Option<PermissionDb> = permissions
-        .filter(permission_string.eq(permission_str))
-        .first(conn)
-        .optional()?;
+    let perm_row: Option<PermRow> = sqlx::query_as(
+        "SELECT id FROM permissions WHERE permission_string = $1",
+    )
+    .bind(permission_str)
+    .fetch_optional(pool)
+    .await?;
 
-    let perm = match perm_def {
+    let perm = match perm_row {
         Some(p) => p,
         None => {
             eprintln!(
@@ -158,14 +156,16 @@ fn grant_single_permission_direct(
         }
     };
 
-    // 2. Check if already granted
-    let existing_count: i64 = wdp::wallet_direct_permissions
-        .count()
-        .filter(wdp::wallet_address.eq(wallet_addr_str))
-        .filter(wdp::permission_id.eq(perm.id))
-        .get_result(conn)?;
+    let existing_count: (i64,) = sqlx::query_as(
+        "SELECT COUNT(*) FROM wallet_direct_permissions \
+         WHERE wallet_address = $1 AND permission_id = $2",
+    )
+    .bind(wallet_addr_str)
+    .bind(perm.id)
+    .fetch_one(pool)
+    .await?;
 
-    if existing_count > 0 {
+    if existing_count.0 > 0 {
         println!(
             "Permission '{}' already granted to wallet '{}'",
             permission_str, wallet_addr_str
@@ -173,7 +173,6 @@ fn grant_single_permission_direct(
         return Ok(());
     }
 
-    // 3. Grant permission
     let new_grant = NewWalletDirectPermissionDb {
         wallet_address: wallet_addr_str.to_string(),
         permission_id: perm.id,
@@ -183,9 +182,18 @@ fn grant_single_permission_direct(
         is_active: true,
     };
 
-    diesel::insert_into(wdp::wallet_direct_permissions)
-        .values(&new_grant)
-        .execute(conn)?;
+    sqlx::query(
+        "INSERT INTO wallet_direct_permissions (wallet_address, permission_id, granted_by, grant_reason, expires_at, is_active, granted_at) \
+         VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+    )
+    .bind(&new_grant.wallet_address)
+    .bind(new_grant.permission_id)
+    .bind(&new_grant.granted_by)
+    .bind(&new_grant.grant_reason)
+    .bind(new_grant.expires_at)
+    .bind(new_grant.is_active)
+    .execute(pool)
+    .await?;
 
     println!(
         "Permission '{}' granted to wallet '{}'",

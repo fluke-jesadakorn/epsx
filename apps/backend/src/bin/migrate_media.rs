@@ -7,11 +7,8 @@
 /// Uploads each to the appropriate MinIO bucket, preserving filenames.
 /// Also patches existing DB rows to use new CDN URLs.
 ///
-/// Usage:
-///   cargo run --bin migrate_media
-///
-/// Environment:
-///   MINIO_ENDPOINT, MINIO_ACCESS_KEY, MINIO_SECRET_KEY, MINIO_PUBLIC_URL, DATABASE_URL
+/// BIG-BANG: migrated to sqlx (real).
+
 use std::env;
 use std::path::Path;
 
@@ -20,6 +17,7 @@ use aws_sdk_s3::{
     primitives::ByteStream,
     Client,
 };
+use sqlx::PgPool;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -40,7 +38,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build();
     let client = Client::from_conf(config);
 
-    // Ensure buckets exist
     for bucket in ["chat", "news", "notifications", "public"] {
         if client.head_bucket().bucket(bucket).send().await.is_err() {
             client.create_bucket().bucket(bucket).send().await?;
@@ -51,7 +48,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut success = 0u64;
     let mut fail = 0u64;
 
-    // --- Migrate news uploads ---
     let news_dir = env::var("NEWS_UPLOAD_DIR").unwrap_or_else(|_| "/tmp/news_uploads".to_string());
     if Path::new(&news_dir).exists() {
         println!("\n=== Migrating news uploads from {} ===", news_dir);
@@ -62,7 +58,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("News upload dir {} does not exist, skipping", news_dir);
     }
 
-    // --- Migrate chat uploads ---
     let chat_dir = env::var("CHAT_UPLOAD_DIR").unwrap_or_else(|_| "/data/chat_uploads".to_string());
     if Path::new(&chat_dir).exists() {
         println!("\n=== Migrating chat uploads from {} ===", chat_dir);
@@ -76,10 +71,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n=== Migration complete ===");
     println!("Uploaded: {}, Failed: {}", success, fail);
 
-    // --- Patch DB cover_image_url values ---
     if let Ok(db_url) = env::var("DATABASE_URL") {
         println!("\n=== Patching news_articles cover_image_url → CDN URLs ===");
-        patch_news_urls(&db_url, &public_url)?;
+        let pool = match sqlx::postgres::PgPoolOptions::new()
+            .max_connections(2)
+            .connect(&db_url)
+            .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("Failed to connect for URL patching: {}", e);
+                return Ok(());
+            }
+        };
+        patch_news_urls(&pool, &public_url).await?;
     }
 
     Ok(())
@@ -216,26 +221,21 @@ async fn migrate_chat_dir(client: &Client, base_dir: &str) -> (u64, u64) {
 }
 
 /// Patch news_articles.cover_image_url from /api/public/news/images/X to CDN URL
-fn patch_news_urls(db_url: &str, public_url: &str) -> Result<(), Box<dyn std::error::Error>> {
-    use diesel::pg::PgConnection;
-    use diesel::prelude::*;
-    use diesel::sql_types::Text;
-
-    let mut conn = PgConnection::establish(db_url)?;
-
+async fn patch_news_urls(pool: &PgPool, public_url: &str) -> Result<(), Box<dyn std::error::Error>> {
     let old_prefix = "/api/public/news/images/";
     let new_prefix = format!("{}/news/", public_url.trim_end_matches('/'));
     let like_pattern = format!("{}%", old_prefix);
 
-    let rows = diesel::sql_query(
+    let rows = sqlx::query(
         "UPDATE news_articles SET cover_image_url = REPLACE(cover_image_url, $1, $2) WHERE cover_image_url LIKE $3",
     )
-    .bind::<Text, _>(old_prefix)
-    .bind::<Text, _>(&new_prefix)
-    .bind::<Text, _>(&like_pattern)
-    .execute(&mut *conn)?;
+    .bind(old_prefix)
+    .bind(&new_prefix)
+    .bind(&like_pattern)
+    .execute(pool)
+    .await?;
 
-    println!("Updated {} news article cover_image_url values", rows);
+    println!("Updated {} news article cover_image_url values", rows.rows_affected());
     Ok(())
 }
 

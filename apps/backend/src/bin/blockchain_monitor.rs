@@ -1,30 +1,26 @@
 // Blockchain Monitor Binary
 // Standalone service for monitoring BSC blockchain events and processing payments
+//
+// BIG-BANG: migrated to sqlx (real).
 
-use diesel_async::RunQueryDsl;
 use epsx::infrastructure::BlockchainMonitor;
-use epsx::prelude::{TlsConnectionManager, TlsPool};
+use epsx::prelude::TlsPool;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Load environment variables
     epsx::config::env::load_env();
 
-    // Determine environment and log level
     let is_production = std::env::var("RUST_ENV").unwrap_or_default() == "production"
         || std::env::var("NODE_ENV").unwrap_or_default() == "production";
     let log_level = std::env::var("LOG_LEVEL").unwrap_or_else(|_| "info".to_string());
 
-    // Initialize unified logger
     epsx::infrastructure::logger::init_logger(is_production, &log_level);
 
     info!("Starting EPSX Blockchain Payment Monitor");
 
-    // Environment already loaded above
-
-    // Load configuration from environment
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
 
     let network = std::env::var("BLOCKCHAIN_NETWORK").unwrap_or_else(|_| "testnet".to_string());
@@ -44,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     let contract_address = std::env::var(contract_address_var).unwrap_or_else(|_| {
-        warn!(" {} not set, using placeholder", contract_address_var);
+        warn!("{} not set, using placeholder", contract_address_var);
         "0x0000000000000000000000000000000000000000".to_string()
     });
 
@@ -65,7 +61,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     info!("   Start Block: {}", start_block);
     info!("   Poll Interval: {}s", poll_interval);
 
-    // Validate contract address
     if contract_address == "0x0000000000000000000000000000000000000000" {
         error!(
             "Invalid contract address. Please set {} in your active environment configuration",
@@ -75,65 +70,40 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         std::process::exit(1);
     }
 
-    // Connect to database
     info!("Connecting to PostgreSQL database...");
-    let config = TlsConnectionManager::new(database_url.clone());
-    let pool = TlsPool::builder(config)
-        .max_size(10)
-        .build()
-        .expect("Failed to create database pool");
-
-    // Test connection
-    let _ = pool
-        .acquire().await
+    let pool: PgPool = sqlx::postgres::PgPoolOptions::new()
+        .max_connections(10)
+        .connect(&database_url)
         .await
         .expect("Failed to connect to PostgreSQL database");
     info!("Database connection established");
 
-    // Verify database migration
     info!("Verifying database schema...");
-
-    #[derive(diesel::QueryableByName)]
-    struct TableExistsResult {
-        #[diesel(sql_type = diesel::sql_types::Bool)]
-        exists: bool,
-    }
-
-    let mut conn = pool.acquire().await.expect("Failed to get database connection");
-    let migration_check = diesel::sql_query(
-        "SELECT EXISTS (
-            SELECT FROM information_schema.tables
-            WHERE table_name = 'processed_blockchain_events'
-        ) as exists",
+    let row: (bool,) = sqlx::query_as(
+        "SELECT EXISTS (\
+            SELECT FROM information_schema.tables \
+            WHERE table_name = 'processed_blockchain_events'\
+         ) as exists",
     )
-    .get_result::<TableExistsResult>(&mut conn)
-    .await;
+    .fetch_one(&pool)
+    .await
+    .map_err(|e| {
+        error!("Failed to verify database schema: {}", e);
+        e
+    })?;
 
-    match migration_check {
-        Ok(row) => {
-            let exists: bool = row.exists;
-            if !exists {
-                error!("Database migration not applied!");
-                error!("   Run: diesel migration run");
-                error!(
-                    "   Or: psql -d {} -f migrations/008_blockchain_payments.sql",
-                    database_url
-                );
-                std::process::exit(1);
-            }
-            info!("Database schema verified");
-        }
-        Err(e) => {
-            error!("Failed to verify database schema: {}", e);
-            std::process::exit(1);
-        }
+    if !row.0 {
+        error!("Database migration not applied!");
+        error!("   Run: sqlx migrate run");
+        error!("   Or: psql -d {} -f migrations/008_blockchain_payments.sql", database_url);
+        std::process::exit(1);
     }
+    info!("Database schema verified");
 
     // Leak the pool to make it 'static (required for BlockchainMonitor)
     let pool_static: &'static TlsPool = Box::leak(Box::new(pool));
     let pool_arc = Arc::new(pool_static);
 
-    // Parse supported tokens
     let supported_tokens_str = std::env::var("SUPPORTED_PAYMENT_TOKENS")
         .unwrap_or_else(|_| "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930".to_string());
 
@@ -145,7 +115,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("   Supported Tokens: {} configured", supported_tokens.len());
 
-    // Create blockchain monitor
     info!("Initializing blockchain monitor...");
     let monitor = BlockchainMonitor::new(
         rpc_url.clone(),
@@ -159,7 +128,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     info!("Monitor initialized successfully");
 
-    // Start monitoring in background
     info!("Starting event listener...");
     monitor
         .start_monitoring()
@@ -173,7 +141,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
     info!("   Press Ctrl+C to stop");
 
-    // Wait for shutdown signal
     match tokio::signal::ctrl_c().await {
         Ok(()) => {
             info!("Shutdown signal received");
@@ -183,7 +150,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    // Graceful shutdown
     info!("Stopping blockchain monitor...");
     monitor.stop_monitoring().await;
     info!("Blockchain monitor stopped successfully");
