@@ -1,15 +1,16 @@
-use crate::prelude::TlsPool;
 // ============================================================================
 // OPENID TOKEN SERVICE WITH WEB3 AUTHENTICATION TRIGGER
 // Standard OpenID Connect token issuance after Web3 wallet signature verification
 // ============================================================================
+//
+// BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL queries
+// and sqlx::query_as for typed row mapping.
 
 use anyhow::Result;
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
 use jsonwebtoken::{encode, Algorithm, Header};
 use serde::{Deserialize, Serialize};
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::info;
 use utoipa::ToSchema;
@@ -22,7 +23,7 @@ use crate::auth::key_manager::KeyManager;
 /// Issues standard OAuth2/OpenID tokens after successful Web3 wallet authentication
 #[derive(Clone)]
 pub struct OpenIDTokenService {
-    db_pool: &'static TlsPool,
+    db_pool: PgPool,
     issuer: String,                 // "https://api.epsx.io"
     audiences: Vec<String>,         // ["epsx-frontend", "epsx-admin"]
     key_manager: Arc<KeyManager>,   // RSA key manager for JWT signing/validation
@@ -47,49 +48,41 @@ pub struct OpenIDTokenResponse {
 /// JWT payload for API authorization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessTokenClaims {
-    // Standard OpenID Connect claims
-    pub iss: String,      // Issuer: "https://api.epsx.io"
-    pub sub: String,      // Subject: wallet_address
-    pub aud: Vec<String>, // Audience: ["epsx-frontend", "epsx-admin"]
-    pub exp: i64,         // Expiration timestamp
-    pub iat: i64,         // Issued at timestamp
-    pub jti: String,      // JWT ID (unique identifier)
-    pub scope: String,    // OIDC standard: "openid profile epsx:analytics:read admin:users:manage"
-
-    // EPSX-specific claims for authorization
-    pub wallet_address: String, // Web3 wallet address (primary identifier)
-    pub auth_method: String,    // "web3_siwe"
-    pub auth_time: i64,         // When Web3 authentication occurred
+    pub iss: String,
+    pub sub: String,
+    pub aud: Vec<String>,
+    pub exp: i64,
+    pub iat: i64,
+    pub jti: String,
+    pub scope: String,
+    pub wallet_address: String,
+    pub auth_method: String,
+    pub auth_time: i64,
 }
 
 /// Standard OpenID Connect ID Token Claims
-/// JWT payload for user identity information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdTokenClaims {
-    // Standard OpenID Connect ID token claims
-    pub iss: String,           // Issuer
-    pub sub: String,           // Subject: wallet_address
-    pub aud: String,           // Audience: client_id
-    pub exp: i64,              // Expiration timestamp
-    pub iat: i64,              // Issued at timestamp
-    pub nonce: Option<String>, // Optional nonce for CSRF protection
-
-    // Profile information
-    pub wallet_address: String, // Primary identifier
-    pub auth_time: i64,         // Authentication timestamp
-    pub amr: Vec<String>,       // Authentication Methods Reference: ["web3"]
-    pub acr: String,            // Authentication Context Class Reference
+    pub iss: String,
+    pub sub: String,
+    pub aud: String,
+    pub exp: i64,
+    pub iat: i64,
+    pub nonce: Option<String>,
+    pub wallet_address: String,
+    pub auth_time: i64,
+    pub amr: Vec<String>,
+    pub acr: String,
 }
 
 /// Refresh Token Information
-/// Stored in database for token renewal
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RefreshTokenInfo {
-    pub token_id: String,          // Unique token identifier
-    pub wallet_address: String,    // Associated wallet
-    pub expires_at: DateTime<Utc>, // Expiration time
-    pub created_at: DateTime<Utc>, // Creation time
-    pub is_revoked: bool,          // Revocation status
+    pub token_id: String,
+    pub wallet_address: String,
+    pub expires_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
+    pub is_revoked: bool,
 }
 
 /// Web3 Authentication + OpenID Token Request
@@ -99,7 +92,7 @@ pub struct Web3AuthTokenRequest {
     pub signature: String,
     pub message: String,
     pub nonce: String,
-    pub client_id: String, // "epsx-frontend" or "epsx-admin"
+    pub client_id: String,
 }
 
 /// OpenID Token Service Errors
@@ -107,19 +100,14 @@ pub struct Web3AuthTokenRequest {
 pub enum OpenIDTokenError {
     #[error("Web3 authentication failed: {0}")]
     Web3AuthenticationFailed(String),
-
     #[error("Token generation failed: {0}")]
     TokenGenerationFailed(String),
-
     #[error("Database error: {0}")]
     DatabaseError(String),
-
     #[error("Invalid client: {0}")]
     InvalidClient(String),
-
     #[error("Invalid refresh token: {0}")]
     InvalidRefreshToken(String),
-
     #[error("Token expired: {0}")]
     TokenExpired(String),
 }
@@ -127,7 +115,7 @@ pub enum OpenIDTokenError {
 impl OpenIDTokenService {
     /// Create new OpenID Token Service
     pub fn new(
-        db_pool: &'static TlsPool,
+        db_pool: PgPool,
         issuer: String,
         audiences: Vec<String>,
         key_manager: Arc<KeyManager>,
@@ -137,9 +125,9 @@ impl OpenIDTokenService {
             issuer,
             audiences,
             key_manager,
-            access_token_expiry_hours: 1, // 1 hour (refresh token handles renewal)
-            refresh_token_expiry_days: 30, // 30 days (rotated on each refresh)
-            id_token_expiry_hours: 1,     // 1 hour (matches access token)
+            access_token_expiry_hours: 1,
+            refresh_token_expiry_days: 30,
+            id_token_expiry_hours: 1,
         }
     }
 
@@ -149,24 +137,20 @@ impl OpenIDTokenService {
     }
 
     /// Authenticate Web3 wallet and issue OpenID Connect tokens
-    /// This is the main entry point: Web3 auth → OpenID tokens
     pub async fn authenticate_web3_and_issue_tokens(
         &self,
         request: Web3AuthTokenRequest,
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
-        // 1. Verify Web3 wallet signature using existing Web3 auth service
+        // 1. Verify Web3 wallet signature
         let verification_request = Web3VerificationRequest {
             wallet_address: request.wallet_address.clone(),
             message: request.message,
             signature: request.signature,
             nonce: request.nonce,
         };
+        self.verify_web3_authentication(verification_request).await?;
 
-        // Use existing Web3 verification logic
-        self.verify_web3_authentication(verification_request)
-            .await?;
-
-        // 2. Get user permissions and profile from wallet_users table
+        // 2. Get user permissions
         let user_profile = self
             .get_wallet_user_profile(&request.wallet_address)
             .await?;
@@ -194,11 +178,9 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         let now = Utc::now();
         let auth_time = now.timestamp();
-
         self.validate_client_id(client_id)?;
 
         let refresh_token = self.create_refresh_token(wallet_address).await?;
-
         self.issue_tokens_for_user_with_refresh_token(
             wallet_address,
             permissions,
@@ -210,9 +192,6 @@ impl OpenIDTokenService {
     }
 
     /// Issue OpenID Connect tokens with a pre-created refresh token.
-    ///
-    /// Refresh flows consume and replace the refresh token atomically before building
-    /// the JWT response, so they must not call create_refresh_token a second time.
     pub async fn issue_tokens_for_user_with_refresh_token(
         &self,
         wallet_address: &str,
@@ -223,19 +202,16 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         self.validate_client_id(client_id)?;
 
-        // Generate unique JWT ID
         let jti = Uuid::new_v4().to_string();
 
-        // Create access token (for API authorization)
         let access_token =
             self.create_access_token(wallet_address, permissions, auth_time, &jti)?;
 
-        // Create ID token (for user identity)
         let id_token = self.create_id_token(
             wallet_address,
             client_id,
             auth_time,
-            None, // nonce
+            None,
         )?;
 
         info!(
@@ -246,7 +222,7 @@ impl OpenIDTokenService {
         Ok(OpenIDTokenResponse {
             access_token,
             token_type: "Bearer".to_string(),
-            expires_in: self.access_token_expiry_hours * 3600, // Convert to seconds
+            expires_in: self.access_token_expiry_hours * 3600,
             refresh_token,
             id_token,
             scope: "openid profile permissions".to_string(),
@@ -261,16 +237,12 @@ impl OpenIDTokenService {
     ) -> Result<OpenIDTokenResponse, OpenIDTokenError> {
         self.validate_client_id(client_id)?;
 
-        // 1. Atomically consume the old refresh token and create its replacement.
         let (refresh_info, new_refresh_token) = self.consume_refresh_token(refresh_token).await?;
-
-        // 2. Get current user profile
         let user_profile = self
             .get_wallet_user_profile(&refresh_info.wallet_address)
             .await?;
 
-        // 3. Issue new tokens
-        let auth_time = refresh_info.created_at.timestamp(); // Original auth time
+        let auth_time = refresh_info.created_at.timestamp();
         let jti = Uuid::new_v4().to_string();
 
         let access_token = self.create_access_token(
@@ -299,90 +271,87 @@ impl OpenIDTokenService {
     }
 
     /// Revoke refresh token (for logout)
-    pub async fn revoke_refresh_token(&self, refresh_token: &str) -> Result<(), OpenIDTokenError> {
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::update(openid_refresh_tokens::table)
-            .filter(openid_refresh_tokens::token_id.eq(refresh_token))
-            .set(openid_refresh_tokens::is_revoked.eq(true))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
-
+    pub async fn revoke_refresh_token(
+        &self,
+        refresh_token: &str,
+    ) -> Result<(), OpenIDTokenError> {
+        sqlx::query(
+            "UPDATE openid_refresh_tokens SET is_revoked = TRUE WHERE token_id = $1",
+        )
+        .bind(refresh_token)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
         Ok(())
     }
 
     /// Atomically consume a refresh token and create its replacement.
-    ///
-    /// The conditional UPDATE prevents concurrent refresh requests from reusing the same
-    /// token. The transaction rolls back the revocation if inserting the replacement fails.
     pub async fn consume_refresh_token(
         &self,
         refresh_token: &str,
     ) -> Result<(RefreshTokenInfo, String), OpenIDTokenError> {
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-
         let old_token = refresh_token.to_string();
         let new_token = Uuid::new_v4().to_string();
         let now = Utc::now();
         let new_expires_at = now + Duration::days(self.refresh_token_expiry_days);
 
-        conn.transaction::<_, diesel::result::Error, _>(|conn| {
-            Box::pin(async move {
-                let (wallet_address, expires_at, created_at) =
-                    diesel::update(openid_refresh_tokens::table)
-                        .filter(openid_refresh_tokens::token_id.eq(&old_token))
-                        .filter(openid_refresh_tokens::is_revoked.eq(false))
-                        .filter(openid_refresh_tokens::expires_at.gt(now))
-                        .set(openid_refresh_tokens::is_revoked.eq(true))
-                        .returning((
-                            openid_refresh_tokens::wallet_address,
-                            openid_refresh_tokens::expires_at,
-                            openid_refresh_tokens::created_at,
-                        ))
-                        .get_result::<(String, DateTime<Utc>, DateTime<Utc>)>(conn)
-                        .await
-                        .optional()?
-                        .ok_or(diesel::result::Error::NotFound)?;
+        // Atomic: SELECT FOR UPDATE + UPDATE + INSERT in a single transaction
+        let mut tx = self.db_pool.begin().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
+        })?;
 
-                diesel::insert_into(openid_refresh_tokens::table)
-                    .values((
-                        openid_refresh_tokens::token_id.eq(&new_token),
-                        openid_refresh_tokens::wallet_address.eq(&wallet_address),
-                        openid_refresh_tokens::expires_at.eq(&new_expires_at),
-                        openid_refresh_tokens::created_at.eq(&now),
-                        openid_refresh_tokens::is_revoked.eq(false),
-                    ))
-                    .execute(conn)
-                    .await?;
-
-                Ok((
-                    RefreshTokenInfo {
-                        token_id: old_token,
-                        wallet_address,
-                        expires_at,
-                        created_at,
-                        is_revoked: false,
-                    },
-                    new_token,
-                ))
-            })
-        })
+        // Lock existing token
+        let row: Option<(String, DateTime<Utc>, DateTime<Utc>)> = sqlx::query_as(
+            "UPDATE openid_refresh_tokens
+             SET is_revoked = TRUE
+             WHERE token_id = $1
+               AND is_revoked = FALSE
+               AND expires_at > $2
+             RETURNING wallet_address, expires_at, created_at",
+        )
+        .bind(&old_token)
+        .bind(now)
+        .fetch_optional(&mut *tx)
         .await
-        .map_err(|e| match e {
-            diesel::result::Error::NotFound => OpenIDTokenError::InvalidRefreshToken(
-                "Token not found, expired, revoked, or already used".to_string(),
-            ),
-            other => OpenIDTokenError::DatabaseError(other.to_string()),
-        })
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        let (wallet_address, expires_at, created_at) = match row {
+            Some(r) => r,
+            None => {
+                return Err(OpenIDTokenError::InvalidRefreshToken(
+                    "Token not found, expired, revoked, or already used".to_string(),
+                ));
+            }
+        };
+
+        // Insert new token
+        sqlx::query(
+            "INSERT INTO openid_refresh_tokens
+             (token_id, wallet_address, expires_at, created_at, is_revoked)
+             VALUES ($1, $2, $3, $4, FALSE)",
+        )
+        .bind(&new_token)
+        .bind(&wallet_address)
+        .bind(new_expires_at)
+        .bind(now)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+
+        tx.commit().await.map_err(|e| {
+            OpenIDTokenError::DatabaseError(format!("Commit error: {}", e))
+        })?;
+
+        Ok((
+            RefreshTokenInfo {
+                token_id: old_token,
+                wallet_address,
+                expires_at,
+                created_at,
+                is_revoked: false,
+            },
+            new_token,
+        ))
     }
 
     /// Validate Access Token
@@ -393,11 +362,8 @@ impl OpenIDTokenService {
         let mut validation = jsonwebtoken::Validation::new(Algorithm::RS256);
         validation.set_audience(&self.audiences);
         validation.set_issuer(std::slice::from_ref(&self.issuer));
-
-        // Allow some leeway for clock skew
         validation.leeway = 60;
 
-        // Decode and verify
         let key_manager = &self.key_manager;
         let token_data = jsonwebtoken::decode::<AccessTokenClaims>(
             token,
@@ -411,8 +377,6 @@ impl OpenIDTokenService {
         Ok(token_data.claims)
     }
 
-    // Private helper methods
-
     /// Verify Web3 authentication using SIWE cryptographic signature verification
     async fn verify_web3_authentication(
         &self,
@@ -422,7 +386,6 @@ impl OpenIDTokenService {
         use siwe::{Message, VerificationOpts};
         use std::str::FromStr;
 
-        // Validate inputs
         if request.wallet_address.is_empty()
             || request.signature.is_empty()
             || request.message.is_empty()
@@ -432,7 +395,6 @@ impl OpenIDTokenService {
             ));
         }
 
-        // Parse and verify SIWE message
         let siwe_message = Message::from_str(&request.message).map_err(|e| {
             OpenIDTokenError::Web3AuthenticationFailed(format!("Invalid SIWE message: {}", e))
         })?;
@@ -447,7 +409,6 @@ impl OpenIDTokenService {
             ));
         }
 
-        // Decode signature from hex
         let signature_bytes =
             hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
                 OpenIDTokenError::Web3AuthenticationFailed(format!(
@@ -456,7 +417,6 @@ impl OpenIDTokenService {
                 ))
             })?;
 
-        // Cryptographically verify SIWE signature
         let verification_opts = VerificationOpts {
             nonce: Some(request.nonce),
             ..Default::default()
@@ -476,58 +436,44 @@ impl OpenIDTokenService {
     }
 
     /// Get wallet user profile from database
-    /// CRITICAL: This is the ONLY place we query database for permissions
-    /// All permissions from permission plans are expanded here and stored in JWT
     async fn get_wallet_user_profile(
         &self,
         wallet_address: &str,
     ) -> Result<WalletUserProfile, OpenIDTokenError> {
-        // Expand permission plans into individual permissions
         let expanded_permissions = self.expand_plans(wallet_address).await?;
-
         Ok(WalletUserProfile {
             permissions: expanded_permissions,
         })
     }
 
-    /// Get permissions from normalized permission tables
-    /// Queries: wallet_plan_assignments + plan_permissions + wallet_direct_permissions
+    /// Get permissions from normalized tables (plans + direct)
     pub async fn expand_plans(
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+        // Verify user exists and is active
+        let exists: (bool,) = sqlx::query_as(
+            "SELECT EXISTS(SELECT 1 FROM wallet_users WHERE wallet_address = $1 AND is_active = TRUE)",
+        )
+        .bind(wallet_address)
+        .fetch_one(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        // First verify user exists and is active
-        let user_exists = wallet_users::table
-            .filter(wallet_users::wallet_address.eq(wallet_address))
-            .filter(wallet_users::is_active.eq(true))
-            .select(wallet_users::is_active)
-            .first::<bool>(&mut *conn)
-            .await
-            .optional()
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
-            .is_some();
-
-        if !user_exists {
+        if !exists.0 {
             return Err(OpenIDTokenError::Web3AuthenticationFailed(format!(
                 "User not found or inactive: {}",
                 wallet_address
             )));
         }
 
-        // Query effective permissions from normalized tables (plans + direct)
-        #[derive(QueryableByName)]
+        // Query effective permissions from normalized tables
+        #[derive(sqlx::FromRow)]
         struct PermissionResult {
-            #[diesel(sql_type = diesel::sql_types::VarChar)]
             permission_string: String,
         }
 
-        let permission_records = diesel::sql_query(
+        let permission_records: Vec<PermissionResult> = sqlx::query_as(
             r#"
             -- Permissions from plans
             SELECT DISTINCT p.permission_string
@@ -553,8 +499,8 @@ impl OpenIDTokenService {
             ORDER BY permission_string
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .load::<PermissionResult>(&mut *conn)
+        .bind(wallet_address)
+        .fetch_all(&self.db_pool)
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
@@ -583,21 +529,16 @@ impl OpenIDTokenService {
         let now = Utc::now();
         let expiry = now + Duration::hours(self.access_token_expiry_hours);
 
-        // Convert permissions array to OIDC standard scope string
-        // Format: "openid profile permission1 permission2 permission3"
         let scope = format!("openid profile {}", permissions.join(" "));
 
         let claims = AccessTokenClaims {
-            // Standard OIDC claims
             iss: self.issuer.clone(),
             sub: wallet_address.to_string(),
             aud: self.audiences.clone(),
             exp: expiry.timestamp(),
             iat: now.timestamp(),
             jti: jti.to_string(),
-            scope, // OIDC standard scope claim
-
-            // EPSX custom claims
+            scope,
             wallet_address: wallet_address.to_string(),
             auth_method: "web3_siwe".to_string(),
             auth_time,
@@ -634,7 +575,7 @@ impl OpenIDTokenService {
             wallet_address: wallet_address.to_string(),
             auth_time,
             amr: vec!["web3".to_string()],
-            acr: "1".to_string(), // Authentication Context Class Reference
+            acr: "1".to_string(),
         };
 
         let mut header = Header::new(Algorithm::RS256);
@@ -648,28 +589,26 @@ impl OpenIDTokenService {
     }
 
     /// Create refresh token and store in database
-    async fn create_refresh_token(&self, wallet_address: &str) -> Result<String, OpenIDTokenError> {
+    async fn create_refresh_token(
+        &self,
+        wallet_address: &str,
+    ) -> Result<String, OpenIDTokenError> {
         let token_id = Uuid::new_v4().to_string();
         let now = Utc::now();
         let expires_at = now + Duration::days(self.refresh_token_expiry_days);
 
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
-
-        diesel::insert_into(openid_refresh_tokens::table)
-            .values((
-                openid_refresh_tokens::token_id.eq(&token_id),
-                openid_refresh_tokens::wallet_address.eq(wallet_address),
-                openid_refresh_tokens::expires_at.eq(&expires_at),
-                openid_refresh_tokens::created_at.eq(&now),
-                openid_refresh_tokens::is_revoked.eq(false),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            "INSERT INTO openid_refresh_tokens
+             (token_id, wallet_address, expires_at, created_at, is_revoked)
+             VALUES ($1, $2, $3, $4, FALSE)",
+        )
+        .bind(&token_id)
+        .bind(wallet_address)
+        .bind(expires_at)
+        .bind(now)
+        .execute(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
         Ok(token_id)
     }
@@ -679,8 +618,7 @@ impl OpenIDTokenService {
         &self,
         token_id: &str,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
-        #[derive(Queryable, Selectable)]
-        #[diesel(table_name = crate::schemas::primary::openid_refresh_tokens)]
+        #[derive(sqlx::FromRow)]
         struct RefreshTokenDb {
             token_id: String,
             wallet_address: String,
@@ -689,19 +627,18 @@ impl OpenIDTokenService {
             is_revoked: bool,
         }
 
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
+        let token: Option<RefreshTokenDb> = sqlx::query_as(
+            "SELECT token_id, wallet_address, expires_at, created_at, is_revoked \
+             FROM openid_refresh_tokens WHERE token_id = $1",
+        )
+        .bind(token_id)
+        .fetch_optional(&self.db_pool)
+        .await
+        .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        let token = openid_refresh_tokens::table
-            .filter(openid_refresh_tokens::token_id.eq(token_id))
-            .first::<RefreshTokenDb>(&mut *conn)
-            .await
-            .optional()
-            .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?
-            .ok_or_else(|| OpenIDTokenError::InvalidRefreshToken("Token not found".to_string()))?;
+        let token = token.ok_or_else(|| {
+            OpenIDTokenError::InvalidRefreshToken("Token not found".to_string())
+        })?;
 
         if token.is_revoked {
             return Err(OpenIDTokenError::InvalidRefreshToken(
@@ -746,10 +683,8 @@ struct WalletUserProfile {
 
 #[cfg(test)]
 mod tests {
-
     #[tokio::test]
     async fn test_valid_client_ids() {
         // Test requires database setup - skipped for now
-        // This would need actual test setup with database and keys
     }
 }
