@@ -99,7 +99,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// `SubscriptionId`). Preserved as a `pub` helper for adapter
     /// internal tests and any pre-wave-11 callers.
     pub async fn find_by_id(&self, id: Uuid) -> AppResult<Option<SubscriptionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Finding subscription by ID: {}", id);
 
@@ -124,7 +124,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         &self,
         criteria: SubscriptionSearchCriteria,
     ) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Finding all subscriptions with criteria: {:?}", criteria);
 
@@ -166,7 +166,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn update_status(&self, id: Uuid, status: &str) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         info!("Updating subscription {} status to {}", id, status);
 
@@ -188,7 +188,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn delete(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         warn!("Deleting subscription: {}", id);
 
@@ -209,7 +209,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn count(&self, criteria: SubscriptionSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         let mut query = subscriptions::table.into_boxed();
 
@@ -245,7 +245,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// List subscriptions for a wallet (raw row form). Used by
     /// `list_for_wallet` to fan out to the domain conversion.
     async fn find_by_wallet_raw(&self, wallet_address: &str) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Finding subscriptions for wallet: {}", wallet_address);
 
@@ -273,7 +273,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// List subscriptions for a plan (raw row form). Used by
     /// `list_for_plan` to fan out to the domain conversion.
     async fn find_by_plan_raw(&self, plan_id: Uuid) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Finding subscriptions for plan: {}", plan_id);
 
@@ -296,7 +296,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Used by `create` to bridge between the port's
     /// `CreateSubscriptionCommand` and the Diesel model.
     async fn save_new(&self, new_row: NewSubscriptionDb) -> AppResult<SubscriptionDb> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         info!(
             "Saving subscription for wallet {} on plan {}",
@@ -321,7 +321,7 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// semantics: sets `status = "cancelled"` and
     /// `cancelled_at = now()`.
     async fn cancel_by_id(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         warn!("Cancelling subscription: {}", id);
 
@@ -350,7 +350,7 @@ impl PaymentSubscriptionRepositoryAdapter {
         &self,
         wallet_address: &str,
     ) -> AppResult<Vec<StockRankingAssignment>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!(
             "Reading stock_ranking_assignments for wallet: {}",

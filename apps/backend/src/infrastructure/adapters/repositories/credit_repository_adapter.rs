@@ -39,7 +39,7 @@ impl CreditRepositoryAdapter {
 
     /// Get credit balance for a wallet
     pub async fn get_balance(&self, wallet_address: &str) -> AppResult<Option<WalletCreditDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Getting credit balance for wallet: {}", wallet_address);
 
@@ -61,7 +61,7 @@ impl CreditRepositoryAdapter {
 
     /// Get or create wallet credits record (returns balance)
     pub async fn get_or_create_balance(&self, wallet_address: &str) -> AppResult<WalletCreditDb> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!(
             "Getting or creating credit balance for wallet: {}",
@@ -121,7 +121,7 @@ impl CreditRepositoryAdapter {
         wallet_address: &str,
         filters: Option<CreditTransactionFilters>,
     ) -> AppResult<Vec<CreditTransactionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Getting credit transactions for wallet: {}", wallet_address);
 
@@ -174,7 +174,7 @@ impl CreditRepositoryAdapter {
         &self,
         filters: Option<CreditTransactionFilters>,
     ) -> AppResult<Vec<CreditTransactionDb>> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Getting all credit transactions");
 
@@ -233,7 +233,7 @@ impl CreditRepositoryAdapter {
         expires_at: Option<chrono::DateTime<Utc>>,
         metadata: Option<serde_json::Value>,
     ) -> AppResult<Uuid> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         info!(
             "Adding credit transaction for wallet {}: amount={}, type={}",
@@ -273,7 +273,7 @@ impl CreditRepositoryAdapter {
 
     /// Get credit statistics (admin)
     pub async fn get_stats(&self) -> AppResult<CreditStatsResponse> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Getting credit statistics");
 
@@ -369,7 +369,7 @@ impl CreditRepositoryAdapter {
         wallet_address: &str,
         update: UpdateWalletCreditDb,
     ) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
+        let mut conn = self.db_pool.acquire().await?;
 
         debug!("Updating credit balance for wallet: {}", wallet_address);
 

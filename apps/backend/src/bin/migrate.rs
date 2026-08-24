@@ -64,7 +64,7 @@ fn ensure_database_exists(url: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let row: (bool,) = sqlx::query_as("SELECT EXISTS(SELECT 1 FROM pg_database WHERE datname = $1)")
         .bind(&db_name)
-        .fetch_one(&mut conn)
+        .fetch_one(&mut *conn)
         .await
         .map_err(|e| format!("Failed to query pg_database: {}", e))?;
 

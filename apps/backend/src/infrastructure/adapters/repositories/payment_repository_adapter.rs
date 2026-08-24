@@ -49,7 +49,7 @@ impl PaymentRepositoryAdapter {
         Self { db_pool }
     }
 
-    /// Shorthand for `self.db_pool.conn().await` that the
+    /// Shorthand for `self.db_pool.acquire().await` that the
     /// cross-pool port methods in
     /// `payment_repository_adapter_cross_pool.rs` use so they
     /// don't have to reach into the private `db_pool` field.
@@ -60,7 +60,7 @@ impl PaymentRepositoryAdapter {
         &self,
     ) -> Result<deadpool::managed::Object<TlsConnectionManager>, String> {
         self.db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("conn: {}", e))
     }
@@ -198,7 +198,7 @@ impl PaymentRepositoryAdapter {
     pub async fn _save_impl(&self, payment: &Payment) -> Result<(), String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -232,7 +232,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Option<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -269,7 +269,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Vec<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -311,7 +311,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Vec<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -364,7 +364,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Option<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -406,7 +406,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Vec<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -441,7 +441,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<Vec<Payment>, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -482,7 +482,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<(), String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -538,7 +538,7 @@ impl PaymentRepositoryAdapter {
     pub async fn _delete_impl(&self, payment_id: &PaymentId) -> Result<(), String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
@@ -565,7 +565,7 @@ impl PaymentRepositoryAdapter {
     ) -> Result<PaymentStats, String> {
         let mut conn = self
             .db_pool
-            .conn()
+            .acquire()
             .await
             .map_err(|e| format!("Failed to get database connection: {}", e))?;
 
