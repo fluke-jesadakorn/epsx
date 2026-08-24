@@ -1,5 +1,7 @@
 // Direct Permission Management
 // Consolidates direct permission operations from normalized_permission_handlers.rs and granular_permissions.rs
+//
+// BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL.
 
 use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
@@ -9,17 +11,11 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-
-// ============================================================================
-// REQUEST/RESPONSE TYPES
-// ============================================================================
 
 #[derive(Debug, Deserialize)]
 pub struct GrantDirectPermissionRequest {
@@ -54,10 +50,6 @@ pub struct AddPermissionToPlanRequest {
     pub permission_string: String,
 }
 
-// ============================================================================
-// HANDLERS
-// ============================================================================
-
 /// Grant a direct permission to a wallet
 /// POST /admin/permissions/direct
 pub async fn grant_permission(
@@ -70,12 +62,10 @@ pub async fn grant_permission(
 ) -> impl IntoResponse {
     let wallet = req.wallet_address.to_lowercase();
 
-    // Validate wallet address format
     if !wallet.starts_with("0x") || wallet.len() != 42 {
         return AdminResponse::bad_request("Invalid wallet address format").into_response();
     }
 
-    // Parse permission string into owned parts for use in transaction
     let parts_owned: Vec<String> = req
         .permission_string
         .split(':')
@@ -88,77 +78,69 @@ pub async fn grant_permission(
         .into_response();
     }
 
-    // Get database connection
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
+    let mut tx = match app_state.db_pool.begin().await {
+        Ok(t) => t,
         Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
+            tracing::error!("Failed to begin transaction: {}", e);
+            return AdminResponse::server_error("Database transaction failed").into_response();
         }
     };
 
-    #[derive(QueryableByName)]
-    struct PermId {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
+    #[derive(sqlx::FromRow)]
+    struct IdOnly {
         id: Uuid,
     }
 
-    // Clone values for use in transaction
-    let permission_string_clone = req.permission_string.clone();
-    let wallet_clone = wallet.clone();
-    let platform = parts_owned[0].clone();
-    let resource = parts_owned[1].clone();
-    let action = parts_owned[2].clone();
-    let expires_at = req.expires_at;
-
-    // Run transaction
-    let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
-        Box::pin(async move {
-            // Get or create permission
-            let perm_id = diesel::sql_query(
-                r#"
-                INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
-                VALUES ($1, $2, $3, $4, 'manual')
-                ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
-                RETURNING id
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&permission_string_clone)
-            .bind::<diesel::sql_types::Text, _>(&platform)
-            .bind::<diesel::sql_types::Text, _>(&resource)
-            .bind::<diesel::sql_types::Text, _>(&action)
-            .get_result::<PermId>(conn)
-            .await?
-            .id;
-
-            // Grant direct permission to wallet
-            let grant_id = diesel::sql_query(
-                r#"
-                INSERT INTO wallet_direct_permissions (wallet_address, permission_id, expires_at)
-                VALUES ($1, $2, $3)
-                ON CONFLICT (wallet_address, permission_id) DO UPDATE
-                SET expires_at = EXCLUDED.expires_at, is_active = true
-                RETURNING id
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(perm_id)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-            .get_result::<PermId>(conn)
-            .await?
-            .id;
-
-            Ok((perm_id, grant_id))
-        })
-    }).await;
-
-    let (perm_id, grant_id) = match result {
-        Ok(ids) => ids,
+    // Get or create permission
+    let perm_id: IdOnly = match sqlx::query_as(
+        r#"
+        INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
+        VALUES ($1, $2, $3, $4, 'manual')
+        ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
+        RETURNING id
+        "#,
+    )
+    .bind(&req.permission_string)
+    .bind(&parts_owned[0])
+    .bind(&parts_owned[1])
+    .bind(&parts_owned[2])
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(p) => p,
         Err(e) => {
-            tracing::error!("Transaction failed: {}", e);
-            return AdminResponse::server_error("Failed to grant permission").into_response();
+            tracing::error!("Failed to upsert permission: {}", e);
+            return AdminResponse::server_error("Failed to upsert permission").into_response();
         }
     };
+
+    // Grant direct permission
+    let grant_id: IdOnly = match sqlx::query_as(
+        r#"
+        INSERT INTO wallet_direct_permissions (wallet_address, permission_id, expires_at)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (wallet_address, permission_id) DO UPDATE
+        SET expires_at = EXCLUDED.expires_at, is_active = true
+        RETURNING id
+        "#,
+    )
+    .bind(&wallet)
+    .bind(perm_id.id)
+    .bind(req.expires_at)
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::error!("Failed to grant direct permission: {}", e);
+            return AdminResponse::server_error("Failed to grant direct permission").into_response();
+        }
+    };
+
+    if let Err(e) = tx.commit().await {
+        tracing::error!("Failed to commit transaction: {}", e);
+        return AdminResponse::server_error("Failed to commit transaction").into_response();
+    }
 
     tracing::info!(
         "Granted direct permission '{}' to wallet {}",
@@ -167,9 +149,9 @@ pub async fn grant_permission(
     );
 
     let response = DirectPermissionResponse {
-        id: grant_id.to_string(),
+        id: grant_id.id.to_string(),
         wallet_address: wallet.clone(),
-        permission_id: perm_id.to_string(),
+        permission_id: perm_id.id.to_string(),
         permission_string: req.permission_string.clone(),
         platform: parts_owned[0].clone(),
         resource: parts_owned[1].clone(),
@@ -191,7 +173,6 @@ pub async fn grant_permission(
             })),
     );
 
-    // Invalidate cached permissions so next request gets live DB permissions
     set_perm_invalidated(app_state.cache.as_ref(), &wallet);
 
     AdminResponse::created(response, "Direct permission granted successfully").into_response()
@@ -209,73 +190,51 @@ pub async fn revoke_permission(
 ) -> impl IntoResponse {
     let wallet = req.wallet_address.to_lowercase();
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
-    struct PermId {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
-        id: Uuid,
-    }
-
-    // Get permission ID
-    let perm_id = match diesel::sql_query("SELECT id FROM permissions WHERE permission_string = $1")
-        .bind::<diesel::sql_types::Text, _>(&req.permission_string)
-        .get_result::<PermId>(&mut *conn)
-        .await
-        .optional()
-    {
-        Ok(Some(result)) => result.id,
-        Ok(None) => return AdminResponse::not_found("Permission").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to fetch permission: {}", e);
-            return AdminResponse::server_error("Database query failed").into_response();
-        }
-    };
-
-    // Revoke direct permission
-    match diesel::sql_query(
-        "DELETE FROM wallet_direct_permissions WHERE wallet_address = $1 AND permission_id = $2",
+    let result = sqlx::query(
+        "DELETE FROM wallet_direct_permissions \
+         WHERE wallet_address IN (\
+             SELECT wallet_address FROM permissions \
+             WHERE permission_string = $1\
+         ) AND wallet_address = $2",
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet)
-    .bind::<diesel::sql_types::Uuid, _>(perm_id)
-    .execute(&mut *conn)
-    .await
-    {
-        Ok(rows) if rows > 0 => {
-            tracing::info!(
-                "Revoked direct permission '{}' from wallet {}",
-                req.permission_string,
-                wallet
-            );
-            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(
-                ctx,
-                AuditEntry::new("permission", "revoke", "permission")
-                    .id(&wallet)
-                    .before(serde_json::json!({ "permission": req.permission_string })),
-            );
+    .bind(&req.permission_string)
+    .bind(&wallet)
+    .execute(&app_state.db_pool)
+    .await;
 
-            // Invalidate cached permissions so next request gets live DB permissions
-            set_perm_invalidated(app_state.cache.as_ref(), &wallet);
-
-            AdminResponse::success_with_message(
-                serde_json::json!({"deleted": true}),
-                "Direct permission revoked successfully",
-            )
-            .into_response()
-        }
-        Ok(_) => AdminResponse::not_found("Direct permission grant").into_response(),
+    let result = match result {
+        Ok(r) => r,
         Err(e) => {
             tracing::error!("Failed to revoke permission: {}", e);
-            AdminResponse::server_error("Failed to revoke permission").into_response()
+            return AdminResponse::server_error("Failed to revoke permission").into_response();
         }
+    };
+
+    if result.rows_affected() == 0 {
+        return AdminResponse::not_found("Direct permission grant").into_response();
     }
+
+    tracing::info!(
+        "Revoked direct permission '{}' from wallet {}",
+        req.permission_string,
+        wallet
+    );
+
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("permission", "revoke", "permission")
+            .id(&wallet)
+            .before(serde_json::json!({ "permission": req.permission_string })),
+    );
+
+    set_perm_invalidated(app_state.cache.as_ref(), &wallet);
+
+    AdminResponse::success_with_message(
+        serde_json::json!({"deleted": true}),
+        "Direct permission revoked successfully",
+    )
+    .into_response()
 }
 
 /// List direct permissions for a wallet
@@ -286,37 +245,20 @@ pub async fn list_wallet_permissions(
 ) -> impl IntoResponse {
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermissionRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         permission_id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         granted_at: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         platform: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         resource: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         action: String,
     }
 
-    let rows = match diesel::sql_query(
+    let rows = match sqlx::query_as::<_, PermissionRow>(
         r#"
         SELECT
             wdp.id, wdp.permission_id, wdp.granted_at, wdp.expires_at, wdp.is_active,
@@ -327,8 +269,8 @@ pub async fn list_wallet_permissions(
         ORDER BY wdp.granted_at DESC
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<PermissionRow>(&mut *conn)
+    .bind(&wallet)
+    .fetch_all(&app_state.db_pool)
     .await
     {
         Ok(rows) => rows,
@@ -378,7 +320,6 @@ pub async fn add_permission_to_plan(
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    // Parse permission string into owned parts for use in transaction
     let parts_owned: Vec<String> = req
         .permission_string
         .split(':')
@@ -391,86 +332,77 @@ pub async fn add_permission_to_plan(
         .into_response();
     }
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
+    let mut tx = match app_state.db_pool.begin().await {
+        Ok(t) => t,
         Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
+            tracing::error!("Failed to begin transaction: {}", e);
+            return AdminResponse::server_error("Database transaction failed").into_response();
         }
     };
 
-    #[derive(QueryableByName)]
-    struct PermId {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
+    #[derive(sqlx::FromRow)]
+    struct IdOnly {
         id: Uuid,
     }
 
-    #[derive(QueryableByName)]
+    // Get or create permission
+    let perm_id: IdOnly = match sqlx::query_as(
+        r#"
+        INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
+        VALUES ($1, $2, $3, $4, 'manual')
+        ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
+        RETURNING id
+        "#,
+    )
+    .bind(&req.permission_string)
+    .bind(&parts_owned[0])
+    .bind(&parts_owned[1])
+    .bind(&parts_owned[2])
+    .fetch_one(&mut *tx)
+    .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!("Failed to upsert permission: {}", e);
+            return AdminResponse::server_error("Failed to upsert permission").into_response();
+        }
+    };
+
+    // Insert into plan_permissions
+    #[derive(sqlx::FromRow)]
     struct MembershipRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         plan_id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         permission_id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         granted_at: DateTime<Utc>,
     }
 
-    // Clone values for use in transaction
-    let permission_string_clone = req.permission_string.clone();
-    let platform = parts_owned[0].clone();
-    let resource = parts_owned[1].clone();
-    let action = parts_owned[2].clone();
-
-    // Run transaction
-    let membership = conn.transaction::<_, diesel::result::Error, _>(|conn| {
-        Box::pin(async move {
-            // Get or create permission
-            let perm_id = diesel::sql_query(
-                r#"
-                INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
-                VALUES ($1, $2, $3, $4, 'manual')
-                ON CONFLICT (permission_string) DO UPDATE SET permission_string = EXCLUDED.permission_string
-                RETURNING id
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&permission_string_clone)
-            .bind::<diesel::sql_types::Text, _>(&platform)
-            .bind::<diesel::sql_types::Text, _>(&resource)
-            .bind::<diesel::sql_types::Text, _>(&action)
-            .get_result::<PermId>(conn)
-            .await?
-            .id;
-
-            // Add permission to plan
-            let membership = diesel::sql_query(
-                r#"
-                INSERT INTO plan_permissions (plan_id, permission_id)
-                VALUES ($1, $2)
-                ON CONFLICT (plan_id, permission_id) DO NOTHING
-                RETURNING id, plan_id, permission_id, granted_at
-                "#
-            )
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Uuid, _>(perm_id)
-            .get_result::<MembershipRow>(conn)
-            .await
-            .optional()?;
-
-            Ok(membership)
-        })
-    }).await;
-
-    let membership = match membership {
+    let membership_result: Option<MembershipRow> = match sqlx::query_as(
+        r#"
+        INSERT INTO plan_permissions (plan_id, permission_id)
+        VALUES ($1, $2)
+        ON CONFLICT (plan_id, permission_id) DO NOTHING
+        RETURNING id, plan_id, permission_id, granted_at
+        "#,
+    )
+    .bind(plan_uuid)
+    .bind(perm_id.id)
+    .fetch_optional(&mut *tx)
+    .await
+    {
         Ok(m) => m,
         Err(e) => {
-            tracing::error!("Transaction failed: {}", e);
+            tracing::error!("Failed to add permission to plan: {}", e);
             return AdminResponse::server_error("Failed to add permission to plan").into_response();
         }
     };
 
-    if let Some(m) = membership {
+    if let Err(e) = tx.commit().await {
+        tracing::error!("Failed to commit transaction: {}", e);
+        return AdminResponse::server_error("Failed to commit transaction").into_response();
+    }
+
+    if let Some(m) = membership_result {
         let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
         app_state.audit.log(
             ctx,
@@ -519,40 +451,37 @@ pub async fn remove_permission_from_plan(
         }
     };
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
+    let result = sqlx::query(
+        "DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2",
+    )
+    .bind(plan_uuid)
+    .bind(perm_uuid)
+    .execute(&app_state.db_pool)
+    .await;
+
+    let result = match result {
+        Ok(r) => r,
         Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
+            tracing::error!("Failed to remove permission from plan: {}", e);
+            return AdminResponse::server_error("Failed to remove permission from plan").into_response();
         }
     };
 
-    match diesel::sql_query(
-        "DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2",
-    )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .bind::<diesel::sql_types::Uuid, _>(perm_uuid)
-    .execute(&mut *conn)
-    .await
-    {
-        Ok(rows) if rows > 0 => {
-            let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-            app_state.audit.log(
-                ctx,
-                AuditEntry::new("plan_permission", "delete", "permission")
-                    .id(&plan_id)
-                    .before(serde_json::json!({ "permission_id": permission_id })),
-            );
-            AdminResponse::success_with_message(
-                serde_json::json!({"deleted": true}),
-                "Permission removed from plan successfully",
-            )
-            .into_response()
-        }
-        Ok(_) => AdminResponse::not_found("Permission membership").into_response(),
-        Err(e) => {
-            tracing::error!("Failed to remove permission from plan: {}", e);
-            AdminResponse::server_error("Failed to remove permission from plan").into_response()
-        }
+    if result.rows_affected() == 0 {
+        return AdminResponse::not_found("Permission membership").into_response();
     }
+
+    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+    app_state.audit.log(
+        ctx,
+        AuditEntry::new("plan_permission", "delete", "permission")
+            .id(&plan_id)
+            .before(serde_json::json!({ "permission_id": permission_id })),
+    );
+
+    AdminResponse::success_with_message(
+        serde_json::json!({"deleted": true}),
+        "Permission removed from plan successfully",
+    )
+    .into_response()
 }
