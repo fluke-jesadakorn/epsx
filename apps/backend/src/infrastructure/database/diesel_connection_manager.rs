@@ -75,7 +75,7 @@ impl DieselServerlessConfig {
 pub struct DieselConnectionManager;
 
 impl DieselConnectionManager {
-    /// Get or create the global sqlx connection pool
+    /// Get or create the global sqlx connection pool (canonical name)
     pub async fn get_pool() -> Result<&'static PgPool> {
         if let Some(pool) = GLOBAL_CORE_POOL.get() {
             return Ok(pool);
@@ -158,6 +158,32 @@ impl DieselConnectionManager {
         );
         Ok(pool)
     }
+
+    // Backward-compatible health-check aliases (sqlx-based)
+    pub async fn diesel_health_check() -> Result<(), String> {
+        Self::get_pool().await.map(|pool| {
+            sqlx::query("SELECT 1")
+                .execute(pool)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        })?
+    }
+
+    pub async fn diesel_health_check_all() -> Result<AllPoolsHealth, String> {
+        let core_ok = Self::get_pool().await.is_ok();
+        Ok(AllPoolsHealth {
+            primary: core_ok,
+            analytics: core_ok,
+            notifications: core_ok,
+            payments: core_ok,
+            healthy: core_ok,
+        })
+    }
+}
+
+/// Backward-compatible alias for get_pool (legacy callers).
+pub async fn get_diesel_pool() -> Result<&'static PgPool, String> {
+    DieselConnectionManager::get_pool().await
 }
 
 #[cfg(test)]

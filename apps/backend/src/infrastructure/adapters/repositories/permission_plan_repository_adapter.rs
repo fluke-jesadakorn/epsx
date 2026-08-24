@@ -351,3 +351,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         Ok(row.0 > 0)
     }
 }
+
+/// Backward-compatible alias (BIG-BANG migration): callers may use the legacy name.
+#[deprecated(note = "Use PlanRepositoryAdapter — old name kept for migration period")]
+pub type PermissionPlanRepositoryAdapter = PlanRepositoryAdapter;
