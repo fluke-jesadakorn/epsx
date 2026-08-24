@@ -270,8 +270,8 @@ impl UserCreateResponse {
 
 // Permission Plan Types - Updated to match database schema exactly
 // Supports both SQLx (legacy) and Diesel (new) during migration
-#[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schemas::primary::plans)]
+#[derive(Debug, Clone, sqlx::FromRow)]
+
 pub struct PermissionPlan {
     pub id: Uuid,
     pub name: String,
@@ -318,8 +318,8 @@ impl PermissionPlan {
 }
 
 // Diesel Insertable model for creating new permission plans
-#[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schemas::primary::plans)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct NewPermissionPlan {
     pub name: String,
     pub slug: String,
@@ -351,8 +351,8 @@ impl NewPermissionPlan {
 }
 
 // Diesel AsChangeset model for updating permission plans
-#[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schemas::primary::plans)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct UpdatePermissionPlan {
     pub name: Option<String>,
     pub description: Option<String>,
@@ -382,7 +382,7 @@ impl UpdatePermissionPlan {
 
 // PermissionPlanRepository has been removed - use PermissionPlanRepositoryAdapter instead
 // Supports both SQLx (legacy) and Diesel (new) during migration
-#[derive(Debug, Clone, diesel::Queryable)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct WalletAssignment {
     pub id: Uuid,
     pub wallet_address: String,
@@ -400,8 +400,8 @@ pub struct WalletAssignment {
 // Models for wallet_users table with Diesel support
 
 /// Diesel Queryable model for wallet_users table
-#[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schemas::primary::wallet_users)]
+#[derive(Debug, Clone, sqlx::FromRow)]
+
 pub struct WalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -417,8 +417,8 @@ pub struct WalletUserDb {
 }
 
 /// Diesel Insertable model for creating new wallet users
-#[derive(Debug, Clone, diesel::Insertable)]
-#[diesel(table_name = crate::schemas::primary::wallet_users)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct NewWalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -427,8 +427,8 @@ pub struct NewWalletUserDb {
 }
 
 /// Diesel AsChangeset model for updating wallet users
-#[derive(Debug, Clone, diesel::AsChangeset)]
-#[diesel(table_name = crate::schemas::primary::wallet_users)]
+#[derive(Debug, Clone, sqlx::Type)]
+
 pub struct UpdateWalletUserDb {
     pub is_active: Option<bool>,
     pub tier_level: Option<String>,
@@ -443,8 +443,8 @@ pub struct UpdateWalletUserDb {
 // ============================================================================
 
 /// Diesel Queryable model for plans table
-#[derive(Debug, Clone, diesel::Queryable, diesel::Selectable)]
-#[diesel(table_name = crate::schemas::primary::plans)]
+#[derive(Debug, Clone, sqlx::FromRow)]
+
 pub struct PermissionPlanDb {
     pub id: uuid::Uuid,
     pub name: String,
@@ -478,8 +478,8 @@ pub struct PermissionPlanDb {
 }
 
 /// Diesel Insertable model for creating/updating permission plans
-#[derive(Debug, Clone, diesel::Insertable, diesel::AsChangeset)]
-#[diesel(table_name = crate::schemas::primary::plans)]
+#[derive(Debug, Clone, sqlx::Type, sqlx::Type)]
+
 pub struct NewPermissionPlanDb {
     pub id: uuid::Uuid,
     pub name: String,
@@ -510,23 +510,23 @@ pub struct NewPermissionPlanDb {
 }
 
 /// Query result for permission data from JOIN query
-#[derive(Debug, Clone, diesel::QueryableByName)]
+#[derive(Debug, Clone, sqlx::FromRowByName)]
 pub struct PermissionRow {
-    #[diesel(sql_type = diesel::sql_types::Varchar)]
+    
     pub permission_string: String,
-    #[diesel(sql_type = diesel::sql_types::Text)]
+    
     pub platform: String,
-    #[diesel(sql_type = diesel::sql_types::Text)]
+    
     pub resource: String,
-    #[diesel(sql_type = diesel::sql_types::Text)]
+    
     pub action: String,
 }
 
 /// Query result for batch permission fetch (includes plan_id for grouping)
-#[derive(Debug, Clone, diesel::QueryableByName)]
+#[derive(Debug, Clone, sqlx::FromRowByName)]
 pub struct PlanPermissionRow {
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
+    
     pub plan_id: uuid::Uuid,
-    #[diesel(sql_type = diesel::sql_types::Varchar)]
+    
     pub permission_string: String,
 }
