@@ -5,6 +5,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{debug, warn};
 
@@ -13,27 +14,14 @@ async fn get_user_plan_from_plans(
     container: &Arc<DomainContainer>,
     wallet_address: &str,
 ) -> Option<String> {
-    use diesel_async::RunQueryDsl;
+    let pool: PgPool = container.db_pool.clone();
 
-    // Get database connection from container
-    let pool = container.db_pool.clone();
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            warn!("Failed to get database connection for plan lookup: {}", e);
-            return None;
-        }
-    };
-
-    // Query user's active plan assignments to determine rate limit tier
-    // We prioritize by plan type: elite > premium > basic > free
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlanInfo {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
     }
 
-    let result: Result<Vec<PlanInfo>, _> = diesel::sql_query(
+    let result: Result<Vec<PlanInfo>, sqlx::Error> = sqlx::query_as(
         "SELECT g.plan_type 
          FROM wallet_plan_assignments wga
          JOIN plans g ON g.id = wga.plan_id
@@ -51,8 +39,8 @@ async fn get_user_plan_from_plans(
          END
          LIMIT 1",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet_address)
-    .load(&mut *conn)
+    .bind(wallet_address)
+    .fetch_all(pool.as_ref())
     .await;
 
     match result {

@@ -6,24 +6,9 @@ use axum::{
     response::Response,
 };
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info, warn};
-
-#[derive(Insertable)]
-#[diesel(table_name = analytics_events)]
-struct NewAnalyticsEvent {
-    id: uuid::Uuid,
-    event_type: String,
-    wallet_address: Option<String>,
-    resource_path: String,
-    method: String,
-    status_code: i32,
-    duration_ms: i32,
-    metadata: Option<serde_json::Value>,
-    created_at: chrono::DateTime<Utc>,
-}
 
 /// Track completed API-key requests exactly once. This middleware must wrap
 /// the rate limiter and permission guard so rejected 429/4xx/5xx responses are
@@ -61,25 +46,23 @@ pub async fn usage_tracking_middleware(
             error!("analytics pool unavailable; request analytics not persisted");
             return;
         };
-        let Ok(mut conn) = pool.acquire().await else {
-            error!("analytics connection unavailable; request analytics not persisted");
-            return;
-        };
-        let event = NewAnalyticsEvent {
-            id: uuid::Uuid::new_v4(),
-            event_type: "API_REQUEST".to_string(),
-            wallet_address: analytics_wallet,
-            resource_path: analytics_path,
-            method: analytics_method,
-            status_code,
-            duration_ms: duration,
-            metadata: None,
-            created_at: Utc::now(),
-        };
-        if let Err(error) = diesel::insert_into(analytics_events::table)
-            .values(&event)
-            .execute(&mut *conn)
-            .await
+        if let Err(error) = sqlx::query(
+            "INSERT INTO analytics_events (\
+                id, event_type, wallet_address, resource_path, method, status_code, \
+                duration_ms, metadata, created_at\
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+        )
+        .bind(uuid::Uuid::new_v4())
+        .bind("API_REQUEST")
+        .bind(analytics_wallet)
+        .bind(&analytics_path)
+        .bind(&analytics_method)
+        .bind(status_code)
+        .bind(duration)
+        .bind(serde_json::Value::Null)
+        .bind(Utc::now())
+        .execute(pool.as_ref())
+        .await
         {
             warn!("failed to persist request analytics: {error}");
         }
@@ -129,44 +112,33 @@ async fn persist_api_key_usage(
         error!(api_key_id = %api_key_id, "analytics pool unavailable for API-key usage");
         return;
     };
-    let mut analytics_conn = match analytics_pool.acquire().await {
-        Ok(connection) => connection,
-        Err(error) => {
-            error!(api_key_id = %api_key_id, "analytics connection failed: {error}");
-            return;
-        }
-    };
 
-    let inserted = diesel::insert_into(api_key_usage_logs::table)
-        .values((
-            api_key_usage_logs::api_key_id.eq(api_key_id),
-            api_key_usage_logs::method.eq(&method),
-            api_key_usage_logs::endpoint.eq(&endpoint),
-            api_key_usage_logs::response_status.eq(status_code),
-            api_key_usage_logs::response_time_ms.eq(duration_ms),
-            api_key_usage_logs::request_at.eq(Utc::now()),
-        ))
-        .execute(&mut analytics_conn)
-        .await;
-    if let Err(error) = inserted {
+    if let Err(error) = sqlx::query(
+        "INSERT INTO api_key_usage_logs (\
+            id, api_key_id, method, endpoint, response_status, response_time_ms, request_at\
+        ) VALUES (gen_random_uuid(), $1, $2, $3, $4, $5, NOW())",
+    )
+    .bind(api_key_id)
+    .bind(&method)
+    .bind(&endpoint)
+    .bind(status_code)
+    .bind(duration_ms)
+    .execute(analytics_pool.as_ref())
+    .await
+    {
         warn!(api_key_id = %api_key_id, "failed to insert usage log: {error}");
         return;
     }
 
     // Metadata remains in core; it advances only after the authoritative
     // analytics row was accepted, so totals cannot count validation twice.
-    let core_pool = container.db_pool();
-    let Ok(mut core_conn) = core_pool.acquire().await else {
-        warn!(api_key_id = %api_key_id, "core connection failed after usage insert");
-        return;
-    };
-    if let Err(error) = diesel::update(api_keys::table.find(api_key_id))
-        .set((
-            api_keys::last_used_at.eq(Utc::now()),
-            api_keys::total_requests.eq(api_keys::total_requests + 1),
-        ))
-        .execute(&mut core_conn)
-        .await
+    let core_pool: PgPool = container.db_pool().clone();
+    if let Err(error) = sqlx::query(
+        "UPDATE api_keys SET last_used_at = NOW(), total_requests = total_requests + 1 WHERE id = $1",
+    )
+    .bind(api_key_id)
+    .execute(&core_pool)
+    .await
     {
         warn!(api_key_id = %api_key_id, "failed to update API-key metadata: {error}");
     }
