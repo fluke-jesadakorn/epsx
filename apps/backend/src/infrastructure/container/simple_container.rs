@@ -238,7 +238,7 @@ impl SimpleContainer {
         let refresh_token_keyring = RefreshTokenKeyring::from_env()
             .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service_impl = OpenIDTokenService::new(
-            *db_pool,
+            (*db_pool).clone(),
             Self::get_oidc_issuer(),
             vec![
                 "epsx-frontend".to_string(),
