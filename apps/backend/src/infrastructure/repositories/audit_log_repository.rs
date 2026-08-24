@@ -6,7 +6,6 @@ use crate::infrastructure::database::diesel_connection_manager::{
     get_analytics_pool, get_payments_pool,
 };
 use crate::infrastructure::models::audit::{AuditLogDb, NewAuditLogDb};
-use crate::schemas::infra_logs::audit_logs;
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};

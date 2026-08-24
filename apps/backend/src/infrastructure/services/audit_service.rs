@@ -1,6 +1,5 @@
 use crate::infrastructure::models::audit::NewUnifiedAuditDb;
 use crate::prelude::TlsPool;
-use crate::schemas::infra_logs::unified_audit_log;
 use axum::http::HeaderMap;
 use diesel_async::RunQueryDsl;
 use serde_json::Value as JsonValue;

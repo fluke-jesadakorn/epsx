@@ -30,7 +30,6 @@ pub async fn admin_list_payments_handler(
 ) -> Result<Json<AdminPaymentListResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
     use crate::infrastructure::models::payment::PaymentDb;
-    use crate::schemas::payments::payments;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
     // Scoped import: this handler is NOT in the 8-site cross-pool
@@ -38,8 +37,6 @@ pub async fn admin_list_payments_handler(
     // `plans::name` lookup on the primary pool because the
     // list-with-filters port method (analogous to
     // `list_user_payments_with_plan_names`) is wave-12 work.
-    use crate::schemas::primary::plans;
-
     info!("Admin listing payments with params: {:?}", params);
 
     // Get PAYMENTS database connection
@@ -273,7 +270,6 @@ pub async fn admin_get_payment_details_handler(
     Path(payment_id): Path<Uuid>,
 ) -> Result<Json<AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::payment_audit_log;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 
@@ -412,7 +408,6 @@ pub async fn admin_update_payment_status_handler(
     Json(request): Json<UpdatePaymentStatusRequest>,
 ) -> Result<Json<UpdatePaymentStatusResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payment_audit_log, payments};
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 
@@ -550,7 +545,6 @@ pub async fn admin_process_refund_handler(
     Json(request): Json<RefundPaymentRequest>,
 ) -> Result<Json<RefundPaymentResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::{payment_audit_log, payments, subscriptions};
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 

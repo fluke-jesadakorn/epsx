@@ -502,8 +502,6 @@ pub async fn create_subscription_handler(
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use crate::infrastructure::models::payment::NewSubscriptionDb;
-    use crate::schemas::payments::subscriptions;
-    use crate::schemas::primary::plans;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 

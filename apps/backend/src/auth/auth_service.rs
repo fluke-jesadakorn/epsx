@@ -144,9 +144,6 @@ impl UnifiedWeb3AuthService {
             );
             Web3AuthError::InvalidWalletAddress(e.to_string())
         })?;
-
-        use crate::schemas::primary::web3_auth_nonces;
-
         let mut conn = self
             .db_pool
             .acquire().await

@@ -1,4 +1,3 @@
-use crate::schemas::infra_logs::{audit_logs, unified_audit_log};
 use chrono::{DateTime, Utc};
 use diesel::prelude::*;
 use serde_json::Value as JsonValue;

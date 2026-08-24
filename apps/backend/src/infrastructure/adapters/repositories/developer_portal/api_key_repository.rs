@@ -13,8 +13,6 @@ use crate::domain::developer_portal::{
     PlanInfo, RateLimits, RevokeApiKeyRequest,
 };
 use crate::prelude::*;
-use crate::schemas::primary::{api_key_module_access, api_key_permissions, api_keys, api_modules};
-
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
     pool: &'static TlsPool,
@@ -632,9 +630,6 @@ impl ApiKeyRepository {
         conn: &mut diesel_async::AsyncPgConnection,
         api_key_id: Uuid,
     ) -> AppResult<Vec<PlanInfo>> {
-        use crate::schemas::primary::api_key_permissions;
-        use crate::schemas::primary::plans;
-
         // 1. Get plan IDs from permissions table
         let plan_ids: Vec<Uuid> = api_key_permissions::table
             .filter(api_key_permissions::api_key_id.eq(&api_key_id))

@@ -23,8 +23,6 @@ impl UnifiedWeb3AuthService {
     pub(super) async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
-        use crate::schemas::primary::wallet_users;
-
         let mut conn = self.db_pool.acquire().await
             .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
 

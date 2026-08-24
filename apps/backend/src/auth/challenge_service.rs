@@ -25,9 +25,6 @@ impl UnifiedWeb3AuthService {
         let expires_at = now + Duration::minutes(self.nonce_expiry_minutes);
 
         let message = self.create_siwe_message(&address, &nonce)?;
-
-        use crate::schemas::primary::web3_auth_nonces;
-
         let mut conn = self
             .db_pool
             .acquire().await
@@ -140,8 +137,6 @@ impl UnifiedWeb3AuthService {
         nonce: &str,
     ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
-        use crate::schemas::primary::web3_auth_nonces;
-
         let mut conn = self
             .db_pool
             .acquire().await

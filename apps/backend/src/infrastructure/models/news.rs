@@ -3,9 +3,6 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
-
-use crate::schemas::primary::news_articles;
-
 // ============================================================================
 // DB MODELS
 // ============================================================================

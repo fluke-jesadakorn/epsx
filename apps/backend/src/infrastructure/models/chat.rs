@@ -3,9 +3,6 @@ use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
-
-use crate::schemas::primary::{chat_conversations, chat_messages, chat_topics};
-
 // ============================================================================
 // TOPIC MODELS
 // ============================================================================

@@ -24,8 +24,6 @@ use crate::infrastructure::models::credit::{
     CreditStatsResponse, CreditTransactionDb, CreditTransactionFilters, NewWalletCreditDb,
     UpdateWalletCreditDb, WalletCreditDb,
 };
-use crate::schemas::payments::{credit_transactions, wallet_credits};
-
 /// PostgreSQL credit repository adapter
 #[derive(Clone)]
 pub struct CreditRepositoryAdapter {

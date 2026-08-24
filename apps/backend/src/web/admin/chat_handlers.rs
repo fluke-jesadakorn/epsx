@@ -22,7 +22,6 @@ use uuid::Uuid;
 use crate::infrastructure::models::chat::*;
 use crate::infrastructure::repositories::ChatRepository;
 use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
-use crate::schemas::primary::chat_conversations;
 use crate::web::{
     auth::AppState,
     middleware::{OpenIDUserContext, RequestId},

@@ -33,7 +33,6 @@ pub async fn admin_list_subscriptions_handler(
 ) -> Result<Json<AdminSubscriptionListResponse>, Json<UnifiedErrorResponse>> {
     use crate::domain::payment::repository_ports::SubscriptionFilters;
     use crate::infrastructure::database::get_payments_pool;
-    use crate::schemas::payments::subscriptions;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 
@@ -174,7 +173,6 @@ pub async fn admin_list_subscriptions_handler(
         .unwrap_or(0);
 
     // Monthly revenue from payments (this month, completed/confirmed)
-    use crate::schemas::payments::payments;
     let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = payments::table
         .filter(payments::created_at.ge(month_start))
         .filter(

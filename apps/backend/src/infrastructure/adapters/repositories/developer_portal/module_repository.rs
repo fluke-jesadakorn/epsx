@@ -13,8 +13,6 @@ use crate::domain::developer_portal::{
     UpdateModuleRequest,
 };
 use crate::prelude::*;
-use crate::schemas::primary::api_modules;
-
 /// Module Repository for database operations
 pub struct ModuleRepository {
     pool: &'static TlsPool,

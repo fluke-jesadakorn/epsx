@@ -300,8 +300,6 @@ impl OpenIDTokenService {
 
     /// Revoke refresh token (for logout)
     pub async fn revoke_refresh_token(&self, refresh_token: &str) -> Result<(), OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let mut conn = self
             .db_pool
             .acquire().await
@@ -326,8 +324,6 @@ impl OpenIDTokenService {
         &self,
         refresh_token: &str,
     ) -> Result<(RefreshTokenInfo, String), OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let mut conn = self
             .db_pool
             .acquire().await
@@ -500,8 +496,6 @@ impl OpenIDTokenService {
         &self,
         wallet_address: &str,
     ) -> Result<Vec<String>, OpenIDTokenError> {
-        use crate::schemas::primary::wallet_users;
-
         let mut conn = self
             .db_pool
             .acquire().await
@@ -655,8 +649,6 @@ impl OpenIDTokenService {
 
     /// Create refresh token and store in database
     async fn create_refresh_token(&self, wallet_address: &str) -> Result<String, OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         let token_id = Uuid::new_v4().to_string();
         let now = Utc::now();
         let expires_at = now + Duration::days(self.refresh_token_expiry_days);
@@ -687,8 +679,6 @@ impl OpenIDTokenService {
         &self,
         token_id: &str,
     ) -> Result<RefreshTokenInfo, OpenIDTokenError> {
-        use crate::schemas::primary::openid_refresh_tokens;
-
         #[derive(Queryable, Selectable)]
         #[diesel(table_name = crate::schemas::primary::openid_refresh_tokens)]
         struct RefreshTokenDb {

@@ -11,8 +11,6 @@ use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use utoipa::ToSchema;
 use uuid::Uuid;
-
-use crate::schemas::primary::user_watchlist;
 use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
 
 const MAX_GROUPS: usize = 200;

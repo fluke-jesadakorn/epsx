@@ -443,7 +443,6 @@ pub async fn revoke_my_key_handler(
 
 pub async fn list_available_plans_handler(State(state): State<AppState>) -> Response {
     let result: AppResult<AvailablePlansResponse> = async {
-        use crate::schemas::primary::{permissions, plan_permissions, plans};
         let mut conn =
             state.db_pool.acquire().await.map_err(|error| {
                 AppError::database_error(format!("available plans pool: {error}"))

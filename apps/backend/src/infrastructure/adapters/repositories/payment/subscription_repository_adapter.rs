@@ -53,8 +53,6 @@ use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::infrastructure::database::PoolExt;
 use crate::infrastructure::models::payment::{NewSubscriptionDb, SubscriptionDb};
 use crate::prelude::TlsPool;
-use crate::schemas::payments::{stock_ranking_assignments, subscriptions};
-
 /// Search criteria for subscriptions.
 ///
 /// Preserved from the pre-wave-11 adapter as a `pub` type so any

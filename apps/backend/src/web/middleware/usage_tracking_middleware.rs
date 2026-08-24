@@ -1,6 +1,4 @@
 use crate::infrastructure::container::DomainContainer;
-use crate::schemas::infra_logs::{analytics_events, api_key_usage_logs};
-use crate::schemas::primary::api_keys;
 use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 use axum::{
     extract::{Request, State},

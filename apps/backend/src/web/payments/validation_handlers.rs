@@ -305,7 +305,6 @@ pub async fn get_payment_details_handler(
 ) -> Result<Json<PaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
     use crate::infrastructure::models::payment::PaymentDb;
-    use crate::schemas::payments::payments;
     use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 
