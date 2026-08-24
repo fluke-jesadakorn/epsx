@@ -26,29 +26,27 @@ impl NewsRepository {
         sqlx::query_as(
             r#"
             INSERT INTO news_articles (
-                id, slug, title, summary, content, category, tags, status,
-                is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+                title, slug, summary, content, cover_image_url, author_wallet,
+                status, tags, is_pinned, pinned_at, published_at
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            RETURNING id, slug, title, summary, content, cover_image_url, author_wallet,
+                      status, tags, is_pinned, pinned_at, published_at, created_at, updated_at
             "#,
         )
-        .bind(new.id)
-        .bind(&new.slug)
         .bind(&new.title)
+        .bind(&new.slug)
         .bind(&new.summary)
         .bind(&new.content)
-        .bind(&new.category)
-        .bind(&new.tags)
+        .bind(&new.cover_image_url)
+        .bind(&new.author_wallet)
         .bind(&new.status)
-        .bind(new.is_pinned)
-        .bind(new.pinned_at)
-        .bind(&new.author_id)
-        .bind(&new.metadata)
+        .bind(&new.tags)
+        .bind(false)  // is_pinned default
+        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)  // pinned_at
         .bind(new.published_at)
         .fetch_one(pool.as_ref())
         .await
-        .map_err(|e| e.to_string())
+            .map_err(|e| e.to_string())
     }
 
     pub async fn update(
@@ -59,20 +57,19 @@ impl NewsRepository {
         let row: NewsArticleDb = sqlx::query_as(
             r#"
             UPDATE news_articles SET
-                title = $1, summary = $2, content = $3, category = $4, tags = $5,
-                status = $6, metadata = $7, published_at = $8, updated_at = NOW()
-            WHERE id = $9
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+                title = $1, summary = $2, content = $3, cover_image_url = $4, tags = $5,
+                status = $6, published_at = $7, updated_at = NOW()
+            WHERE id = $8
+            RETURNING id, slug, title, summary, content, status, tags, is_pinned, pinned_at,
+                      published_at, created_at, updated_at
             "#,
         )
         .bind(&update.title)
         .bind(&update.summary)
         .bind(&update.content)
-        .bind(&update.category)
+        .bind(&update.cover_image_url)
         .bind(&update.tags)
         .bind(&update.status)
-        .bind(&update.metadata)
         .bind(update.published_at)
         .bind(id)
         .fetch_one(pool.as_ref())
@@ -94,26 +91,25 @@ impl NewsRepository {
         let row: Option<NewsArticleDb> = sqlx::query_as(
             r#"
             UPDATE news_articles SET
-                title = $1, summary = $2, content = $3, category = $4, tags = $5,
-                status = $6, metadata = $7, published_at = $8, updated_at = NOW()
-            WHERE id = $9 AND updated_at = $10
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+                title = $1, summary = $2, content = $3, cover_image_url = $4, tags = $5,
+                status = $6, published_at = $7, updated_at = NOW()
+            WHERE id = $8 AND updated_at = $9
+            RETURNING id, slug, title, summary, content, status, tags, is_pinned, pinned_at,
+                      published_at, created_at, updated_at
             "#,
         )
         .bind(&update.title)
         .bind(&update.summary)
         .bind(&update.content)
-        .bind(&update.category)
+        .bind(&update.cover_image_url)
         .bind(&update.tags)
         .bind(&update.status)
-        .bind(&update.metadata)
         .bind(update.published_at)
         .bind(id)
         .bind(expected_updated_at)
         .fetch_optional(pool.as_ref())
         .await
-        .map_err(|e| e.to_string())?;
+            .map_err(|e| e.to_string())?;
         Ok(row)
     }
 
