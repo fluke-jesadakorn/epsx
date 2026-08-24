@@ -20,8 +20,7 @@
 //! cross-pool file too — same reason.
 
 use crate::prelude::*;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::{PgPool, QueryBuilder};
 use tracing::{debug, error, info, warn};
 
 use bigdecimal::BigDecimal;
@@ -36,33 +35,21 @@ use crate::domain::payment::{
 use crate::domain::wallet_management::value_objects::WalletAddress;
 
 use crate::infrastructure::models::payment::{NewPaymentDb, PaymentDb};
-use crate::schemas::payments::payments;
+
 
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct PaymentRepositoryAdapter {
-    pub(crate) db_pool: &'static TlsPool,
+    pub(crate) db_pool: PgPool,
 }
 
 impl PaymentRepositoryAdapter {
-    pub fn new(db_pool: &'static TlsPool) -> Self {
+    pub fn new(db_pool: PgPool) -> Self {
         Self { db_pool }
     }
 
-    /// Shorthand for `self.db_pool.acquire().await` that the
-    /// cross-pool port methods in
-    /// `payment_repository_adapter_cross_pool.rs` use so they
-    /// don't have to reach into the private `db_pool` field.
-    /// Returns the inner deadpool Object (not the AppResult
-    /// wrapper) so the cross-pool methods can plug it straight
-    /// into `diesel_async::RunQueryDsl`.
-    pub(crate) async fn conn(
-        &self,
-    ) -> Result<deadpool::managed::Object<TlsConnectionManager>, String> {
-        self.db_pool
-            .acquire()
-            .await
-            .map_err(|e| format!("conn: {}", e))
+    pub(crate) async fn conn(&self) -> Result<sqlx::pool::PoolConnection<sqlx::Postgres>, String> {
+        self.db_pool.acquire().await.map_err(|e| format!("conn: {}", e))
     }
 
     /// Convert PaymentDb domain model to database model
@@ -278,7 +265,7 @@ impl PaymentRepositoryAdapter {
         let payments_db = payments::table
             .filter(payments::wallet_address.eq(wallet_address.as_str()))
             .order(payments::created_at.desc())
-            .load::<PaymentDb>(&mut conn)
+            .fetch_all(&mut *conn)
             .await
             .map_err(|e| {
                 error!(
@@ -335,7 +322,7 @@ impl PaymentRepositoryAdapter {
         let payments_db = payments::table
             .filter(payments::status.eq(status_str))
             .order(payments::created_at.desc())
-            .load::<PaymentDb>(&mut conn)
+            .fetch_all(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to find payments with status {}: {}", status_str, e);
@@ -416,7 +403,7 @@ impl PaymentRepositoryAdapter {
             .filter(payments::created_at.ge(start))
             .filter(payments::created_at.le(end))
             .order(payments::created_at.desc())
-            .load::<PaymentDb>(&mut conn)
+            .fetch_all(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to find payments in date range: {}", e);
@@ -456,7 +443,7 @@ impl PaymentRepositoryAdapter {
             .filter(payments::created_at.lt(threshold))
             .filter(payments::expires_at.lt(threshold))
             .order(payments::created_at.asc())
-            .load::<PaymentDb>(&mut conn)
+            .fetch_all(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to find expired pending payments: {}", e);
@@ -603,9 +590,9 @@ impl PaymentRepositoryAdapter {
             last_payment_date: Option<DateTime<Utc>>,
         }
 
-        let stats_row = diesel::sql_query(stats_query)
-            .bind::<diesel::sql_types::Text, _>(wallet_address.as_str())
-            .load::<StatsRow>(&mut conn)
+        let stats_row = sqlx::query(stats_query)
+            .bind(wallet_address.as_str())
+            .fetch_all(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get payment stats: {}", e);
