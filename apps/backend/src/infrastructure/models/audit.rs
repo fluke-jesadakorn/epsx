@@ -1,10 +1,8 @@
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
 use serde_json::Value as JsonValue;
 use uuid::Uuid;
 
-#[derive(Queryable, Selectable, Insertable, Debug, Clone)]
-#[diesel(table_name = audit_logs)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct AuditLogDb {
     pub id: Uuid,
     pub wallet_address: Option<String>,
@@ -18,8 +16,8 @@ pub struct AuditLogDb {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = audit_logs)]
+#[derive(Debug, Clone, sqlx::Type)]
+#[sqlx(type_name = "audit_log_new")]
 pub struct NewAuditLogDb {
     pub wallet_address: Option<String>,
     pub action: String,
@@ -31,8 +29,7 @@ pub struct NewAuditLogDb {
     pub details: Option<JsonValue>,
 }
 
-#[derive(Queryable, Selectable, Debug, Clone)]
-#[diesel(table_name = unified_audit_log)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct UnifiedAuditDb {
     pub id: Uuid,
     pub actor: Option<String>,
@@ -50,8 +47,8 @@ pub struct UnifiedAuditDb {
     pub category: String,
 }
 
-#[derive(Insertable, Debug, Clone)]
-#[diesel(table_name = unified_audit_log)]
+#[derive(Debug, Clone, sqlx::Type)]
+#[sqlx(type_name = "unified_audit_log_new")]
 pub struct NewUnifiedAuditDb {
     pub actor: Option<String>,
     pub actor_type: String,

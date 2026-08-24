@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 /// Diesel Queryable model for wallet_credits table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schemas::payments::wallet_credits)]
+
 pub struct WalletCreditDb {
     pub wallet_address: String,
     pub balance: BigDecimal,
@@ -24,7 +24,7 @@ pub struct WalletCreditDb {
 
 /// Diesel Insertable model for creating new wallet_credits record
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schemas::payments::wallet_credits)]
+
 pub struct NewWalletCreditDb {
     pub wallet_address: String,
     pub balance: BigDecimal,
@@ -35,7 +35,7 @@ pub struct NewWalletCreditDb {
 
 /// Diesel AsChangeset model for updating wallet_credits
 #[derive(Debug, Clone, AsChangeset)]
-#[diesel(table_name = crate::schemas::payments::wallet_credits)]
+
 pub struct UpdateWalletCreditDb {
     pub balance: Option<BigDecimal>,
     pub pending_balance: Option<BigDecimal>,
@@ -46,7 +46,7 @@ pub struct UpdateWalletCreditDb {
 
 /// Diesel Queryable model for credit_transactions table
 #[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = crate::schemas::payments::credit_transactions)]
+
 pub struct CreditTransactionDb {
     pub id: Uuid,
     pub wallet_address: String,
@@ -64,7 +64,7 @@ pub struct CreditTransactionDb {
 
 /// Diesel Insertable model for creating new credit transactions
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schemas::payments::credit_transactions)]
+
 pub struct NewCreditTransactionDb {
     pub wallet_address: String,
     pub amount: BigDecimal,

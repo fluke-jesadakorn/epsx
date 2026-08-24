@@ -1,5 +1,4 @@
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 use uuid::Uuid;
@@ -8,7 +7,7 @@ use uuid::Uuid;
 // ============================================================================
 
 #[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_topics)]
+
 pub struct ChatTopicDb {
     pub id: Uuid,
     pub name: String,
@@ -25,7 +24,7 @@ pub struct ChatTopicDb {
 // ============================================================================
 
 #[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_conversations)]
+
 pub struct ChatConversationDb {
     pub id: Uuid,
     pub topic_id: Uuid,
@@ -42,7 +41,7 @@ pub struct ChatConversationDb {
 }
 
 #[derive(Debug, Insertable)]
-#[diesel(table_name = chat_conversations)]
+
 pub struct NewConversation {
     pub topic_id: Uuid,
     pub wallet_address: String,
@@ -55,7 +54,7 @@ pub struct NewConversation {
 // ============================================================================
 
 #[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
-#[diesel(table_name = chat_messages)]
+
 pub struct ChatMessageDb {
     pub id: Uuid,
     pub conversation_id: Uuid,
@@ -68,7 +67,7 @@ pub struct ChatMessageDb {
 }
 
 #[derive(Debug, Insertable)]
-#[diesel(table_name = chat_messages)]
+
 pub struct NewMessage {
     pub conversation_id: Uuid,
     pub sender_type: String,

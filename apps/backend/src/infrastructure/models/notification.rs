@@ -6,7 +6,7 @@ use uuid::Uuid;
 
 /// Diesel Queryable model for notifications table
 #[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
-#[diesel(table_name = crate::schemas::notifications::wallet_notifications)]
+
 pub struct WalletNotificationDb {
     pub id: Uuid,
     pub recipient_wallet_address: Option<String>,
@@ -37,7 +37,7 @@ pub struct WalletNotificationDb {
 
 /// Diesel Insertable model for creating new notifications
 #[derive(Debug, Clone, Insertable)]
-#[diesel(table_name = crate::schemas::notifications::wallet_notifications)]
+
 pub struct NewWalletNotificationDb {
     pub id: Uuid,
     pub recipient_wallet_address: Option<String>,
