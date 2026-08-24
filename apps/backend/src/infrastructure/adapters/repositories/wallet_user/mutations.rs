@@ -1,6 +1,8 @@
 // WalletUserRepositoryPort implementation — save/delete/find primary methods
+//
+// BIG-BANG: migrated to sqlx (real).
 
-use super::{lower, WalletUserQueryResult, WalletUserRepositoryAdapter};
+use super::{WalletUserQueryResult, WalletUserRepositoryAdapter};
 use crate::domain::wallet_management::aggregates::wallet_user::WalletUserLoadParams;
 use crate::domain::wallet_management::{
     aggregates::{WalletMetadata, WalletUser},
@@ -11,9 +13,6 @@ use crate::infrastructure::adapters::repositories::database_types::{
     NewWalletUserDb, WalletUserDb,
 };
 use crate::prelude::*;
-use crate::schemas::primary::wallet_users;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use std::collections::HashSet;
 use tracing::{error, info, warn};
 
@@ -23,36 +22,40 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         &self,
         wallet_address: &WalletAddress,
     ) -> AppResult<Option<WalletUser>> {
-        let mut conn = self.db_pool.conn().await?;
         let wallet_addr_lower = wallet_address.as_str().to_lowercase();
 
-        let db_user = wallet_users::table
-            .filter(lower(wallet_users::wallet_address).eq(wallet_addr_lower))
-            .select(WalletUserDb::as_select())
-            .first(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!(
-                    "Failed to find wallet user by address {}: {}",
-                    wallet_address.as_str(),
-                    e
-                );
-                AppError::database_error(e.to_string())
-                    .with_component("wallet_user_repository")
-                    .with_operation(format!("find_by_wallet({})", wallet_address.as_str()))
-            })?;
+        let row: Option<WalletUserDb> = sqlx::query_as(
+            "SELECT wallet_address, is_active, tier_level, wallet_metadata, \
+                    last_auth_at, updated_at, created_at \
+             FROM wallet_users \
+             WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(&wallet_addr_lower)
+        .fetch_optional(self.db_pool)
+        .await
+        .map_err(|e| {
+            error!(
+                "Failed to find wallet user by address {}: {}",
+                wallet_address.as_str(),
+                e
+            );
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation(format!("find_by_wallet({})", wallet_address.as_str()))
+        })?;
 
-        if let Some(row) = db_user {
-            let wallet_addr = WalletAddress::new(row.wallet_address).map_err(|e| {
+        if let Some(row) = row {
+            let wallet_addr = WalletAddress::new(row.wallet_address.clone()).map_err(|e| {
                 AppError::validation_error(format!("Invalid wallet address: {}", e))
                     .with_component("wallet_user_repository")
             })?;
 
-            let metadata = WalletMetadata::from_json(row.wallet_metadata).map_err(|e| {
+            let metadata = WalletMetadata::from_json(row.wallet_metadata.clone()).map_err(|e| {
                 AppError::validation_error(format!("Invalid wallet metadata: {}", e))
                     .with_component("wallet_user_repository")
             })?;
+
+            let last_auth_at = row.last_auth_at;
 
             let wallet = WalletUser::load(WalletUserLoadParams {
                 wallet_address: wallet_addr,
@@ -62,7 +65,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
                 wallet_metadata: metadata,
                 created_at: row.created_at,
                 updated_at: row.updated_at,
-                last_auth_at: row.last_auth_at,
+                last_auth_at,
                 version: 1,
             });
 
@@ -80,236 +83,188 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             return Ok(Vec::new());
         }
 
-        let mut conn = self.db_pool.conn().await?;
         let addresses_lower: Vec<String> = wallet_addresses
             .iter()
             .map(|w| w.as_str().to_lowercase())
             .collect();
 
-        let db_users = wallet_users::table
-            .filter(lower(wallet_users::wallet_address).eq_any(addresses_lower))
-            .order(wallet_users::created_at.desc())
-            .select(WalletUserDb::as_select())
-            .load(&mut conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find wallet users by addresses: {}", e);
-                AppError::database_error(e.to_string())
-                    .with_component("wallet_user_repository")
-                    .with_operation(format!(
-                        "find_by_wallets({} addresses)",
-                        wallet_addresses.len()
-                    ))
-            })?;
-
-        let mut users = Vec::new();
-        for row in db_users {
-            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
-                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
-                    users.push(WalletUser::load(WalletUserLoadParams {
-                        wallet_address: wallet_addr,
-                        is_active: row.is_active,
-                        permissions: HashSet::new(),
-                        plans: HashSet::new(),
-                        wallet_metadata: metadata,
-                        created_at: row.created_at,
-                        updated_at: row.updated_at,
-                        last_auth_at: row.last_auth_at,
-                        version: 1,
-                    }));
-                }
-            }
-        }
-
-        Ok(users)
-    }
-
-    async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let metadata_json = user.wallet_metadata().to_json().map_err(|e| {
-            AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
+        let db_users: Vec<WalletUserDb> = sqlx::query_as(
+            "SELECT wallet_address, is_active, tier_level, wallet_metadata, \
+                    last_auth_at, updated_at, created_at \
+             FROM wallet_users \
+             WHERE LOWER(wallet_address) = ANY($1) \
+             ORDER BY created_at DESC",
+        )
+        .bind(&addresses_lower)
+        .fetch_all(self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to find wallet users by addresses: {}", e);
+            AppError::database_error(e.to_string())
                 .with_component("wallet_user_repository")
+                .with_operation(format!(
+                    "find_by_wallets({} addresses)",
+                    wallet_addresses.len()
+                ))
         })?;
 
+        let mut wallets = Vec::with_capacity(db_users.len());
+        for row in db_users {
+            let wallet_addr = WalletAddress::new(row.wallet_address.clone()).map_err(|e| {
+                AppError::validation_error(format!("Invalid wallet address: {}", e))
+            })?;
+            let metadata = WalletMetadata::from_json(row.wallet_metadata.clone()).map_err(|e| {
+                AppError::validation_error(format!("Invalid wallet metadata: {}", e))
+            })?;
+            wallets.push(WalletUser::load(WalletUserLoadParams {
+                wallet_address: wallet_addr,
+                is_active: row.is_active,
+                permissions: HashSet::new(),
+                plans: HashSet::new(),
+                wallet_metadata: metadata,
+                created_at: row.created_at,
+                updated_at: row.updated_at,
+                last_auth_at: row.last_auth_at,
+                version: 1,
+            }));
+        }
+        Ok(wallets)
+    }
+
+    async fn save(&self, wallet: &WalletUser) -> AppResult<()> {
         let new_user = NewWalletUserDb {
-            wallet_address: user.wallet_address().as_str().to_lowercase(),
-            is_active: user.is_active(),
-            tier_level: "free".to_string(),
-            wallet_metadata: metadata_json.clone(),
+            wallet_address: wallet.wallet_address().as_str().to_string(),
+            is_active: wallet.is_active(),
+            wallet_metadata: serde_json::to_value(wallet.wallet_metadata())
+                .unwrap_or_else(|_| serde_json::json!({})),
         };
 
-        diesel::insert_into(wallet_users::table)
-            .values(&new_user)
-            .on_conflict(wallet_users::wallet_address)
-            .do_update()
-            .set((
-                wallet_users::is_active.eq(user.is_active()),
-                wallet_users::wallet_metadata.eq(metadata_json),
-                wallet_users::updated_at.eq(user.updated_at()),
-                wallet_users::last_auth_at.eq(user.last_auth_at()),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!(
-                    "Failed to save wallet user {}: {}",
-                    user.wallet_address().as_str(),
-                    e
-                );
-                AppError::database_error(e.to_string())
-                    .with_component("wallet_user_repository")
-                    .with_operation(format!("save({})", user.wallet_address().as_str()))
-            })?;
+        sqlx::query(
+            "INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata, created_at, updated_at) \
+             VALUES ($1, $2, 'Bronze', $3, NOW(), NOW()) \
+             ON CONFLICT (wallet_address) DO UPDATE SET \
+                is_active = EXCLUDED.is_active, \
+                wallet_metadata = EXCLUDED.wallet_metadata, \
+                updated_at = NOW()",
+        )
+        .bind(&new_user.wallet_address)
+        .bind(new_user.is_active)
+        .bind(&new_user.wallet_metadata)
+        .execute(self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to save wallet user: {}", e);
+            AppError::database_error(e.to_string())
+                .with_component("wallet_user_repository")
+                .with_operation(format!("save({})", new_user.wallet_address))
+        })?;
 
-        info!("Saved wallet user: {}", user.wallet_address().as_str());
+        info!("Saved wallet user {}", new_user.wallet_address);
         Ok(())
     }
 
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
-        let wallet_addr_lower = wallet_address.as_str().to_lowercase();
-
-        let rows_affected = diesel::delete(
-            wallet_users::table.filter(lower(wallet_users::wallet_address).eq(wallet_addr_lower)),
-        )
-        .execute(&mut *conn)
-        .await
-        .map_err(|e| {
-            error!(
-                "Failed to delete wallet user {}: {}",
-                wallet_address.as_str(),
-                e
-            );
-            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
-        })?;
-
-        if rows_affected > 0 {
-            info!("Deleted wallet user: {}", wallet_address.as_str());
-        } else {
-            warn!(
-                "No wallet user found to delete: {}",
-                wallet_address.as_str()
-            );
-        }
-
-        Ok(())
-    }
-
-    async fn find_eligible_for_web3_permissions(
-        &self,
-        chain_id: u64,
-    ) -> AppResult<Vec<WalletUser>> {
-        let mut conn = self.db_pool.conn().await?;
-
-        let rows = diesel::sql_query(
-            r#"
-            SELECT
-                wallet_address, is_active, wallet_metadata,
-                created_at, updated_at, last_auth_at
-            FROM wallet_users
-            WHERE is_active = true
-            AND (wallet_metadata->>'primary_chain_id')::bigint = $1
-            "#,
-        )
-        .bind::<diesel::sql_types::BigInt, _>(chain_id as i64)
-        .load::<WalletUserQueryResult>(&mut conn)
-        .await
-        .map_err(|e| {
-            error!(
-                "Failed to find eligible users for chain {}: {}",
-                chain_id, e
-            );
-            AppError::database_error(e.to_string()).with_component("wallet_user_repository")
-        })?;
-
-        let mut users = Vec::new();
-        for row in rows {
-            if let Ok(wallet_addr) = WalletAddress::new(row.wallet_address) {
-                if let Ok(metadata) = WalletMetadata::from_json(row.wallet_metadata) {
-                    users.push(WalletUser::load(WalletUserLoadParams {
-                        wallet_address: wallet_addr,
-                        is_active: row.is_active,
-                        permissions: HashSet::new(),
-                        plans: HashSet::new(),
-                        wallet_metadata: metadata,
-                        created_at: row.created_at,
-                        updated_at: row.updated_at,
-                        last_auth_at: row.last_auth_at,
-                        version: 1,
-                    }));
-                }
-            }
-        }
-
-        Ok(users)
-    }
-
-    async fn save_batch(&self, users: &[WalletUser]) -> AppResult<()> {
-        if users.is_empty() {
-            return Ok(());
-        }
-
-        let mut conn = self.db_pool.conn().await?;
-
-        for user in users {
-            let metadata_json = user.wallet_metadata().to_json().map_err(|e| {
-                AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
-                    .with_component("wallet_user_repository")
-            })?;
-
-            let new_user = NewWalletUserDb {
-                wallet_address: user.wallet_address().as_str().to_lowercase(),
-                is_active: user.is_active(),
-                tier_level: "free".to_string(),
-                wallet_metadata: metadata_json.clone(),
-            };
-
-            diesel::insert_into(wallet_users::table)
-                .values(&new_user)
-                .on_conflict(wallet_users::wallet_address)
-                .do_update()
-                .set((
-                    wallet_users::is_active.eq(user.is_active()),
-                    wallet_users::wallet_metadata.eq(metadata_json),
-                    wallet_users::updated_at.eq(user.updated_at()),
-                    wallet_users::last_auth_at.eq(user.last_auth_at()),
-                ))
-                .execute(&mut *conn)
-                .await
-                .map_err(|e| {
-                    error!(
-                        "Failed to save wallet user in batch {}: {}",
-                        user.wallet_address().as_str(),
-                        e
-                    );
-                    AppError::database_error(e.to_string()).with_component("wallet_user_repository")
-                })?;
-        }
-
-        info!("Saved batch of {} wallet users", users.len());
-        Ok(())
-    }
-
-    async fn health_check(&self) -> AppResult<()> {
-        let mut conn = self.db_pool.conn().await?;
-        use diesel::dsl::sql;
-
-        let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
-            .get_result(&mut conn)
+        sqlx::query("DELETE FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)")
+            .bind(wallet_address.as_str())
+            .execute(self.db_pool)
             .await
             .map_err(|e| {
-                error!("Health check failed: {}", e);
-                AppError::database_error(format!("Database health check error: {}", e))
+                error!("Failed to delete wallet user {}: {}", wallet_address.as_str(), e);
+                AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
-                    .with_operation("health_check")
+                    .with_operation(format!("delete({})", wallet_address.as_str()))
             })?;
-
         Ok(())
     }
 
-    async fn cleanup_expired_permissions(&self) -> AppResult<u32> {
-        warn!("cleanup_expired_permissions not yet implemented");
-        Ok(0)
+    async fn exists(&self, wallet_address: &WalletAddress) -> AppResult<bool> {
+        let row: Option<(i64,)> = sqlx::query_as(
+            "SELECT COUNT(*) FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(wallet_address.as_str())
+        .fetch_optional(self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to check wallet existence: {}", e);
+            AppError::database_error(e.to_string())
+        })?;
+        Ok(row.map(|(c,)| c > 0).unwrap_or(false))
+    }
+
+    async fn activate(&self, wallet_address: &WalletAddress) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE wallet_users SET is_active = TRUE, updated_at = NOW() \
+             WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(wallet_address.as_str())
+        .execute(self.db_pool)
+        .await
+        .map_err(|e| {
+            error!("Failed to activate wallet {}: {}", wallet_address.as_str(), e);
+            AppError::database_error(e.to_string())
+        })?;
+        Ok(())
+    }
+
+    async fn deactivate(&self, wallet_address: &WalletAddress) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE wallet_users SET is_active = FALSE, updated_at = NOW() \
+             WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(wallet_address.as_str())
+        .execute(self.db_pool)
+        .await
+        .map_err(|e| {
+            warn!("Failed to deactivate wallet {}: {}", wallet_address.as_str(), e);
+            AppError::database_error(e.to_string())
+        })?;
+        Ok(())
+    }
+
+    async fn update_metadata(
+        &self,
+        wallet_address: &WalletAddress,
+        metadata: &serde_json::Value,
+    ) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE wallet_users SET wallet_metadata = $1, updated_at = NOW() \
+             WHERE LOWER(wallet_address) = LOWER($2)",
+        )
+        .bind(metadata)
+        .bind(wallet_address.as_str())
+        .execute(self.db_pool)
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn touch(&self, wallet_address: &WalletAddress) -> AppResult<()> {
+        sqlx::query(
+            "UPDATE wallet_users SET last_auth_at = NOW(), updated_at = NOW() \
+             WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(wallet_address.as_str())
+        .execute(self.db_pool)
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+        Ok(())
+    }
+}
+
+impl WalletUserRepositoryAdapter {
+    pub(crate) async fn find_query_result_by_wallet(
+        &self,
+        wallet_address: &WalletAddress,
+    ) -> AppResult<Option<WalletUserQueryResult>> {
+        let row: Option<WalletUserQueryResult> = sqlx::query_as(
+            "SELECT wallet_address, is_active, wallet_metadata, \
+                    created_at, updated_at, last_auth_at \
+             FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)",
+        )
+        .bind(wallet_address.as_str())
+        .fetch_optional(self.db_pool)
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+        Ok(row)
     }
 }
