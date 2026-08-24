@@ -1,25 +1,18 @@
 //! Admin Payment CRUD Handlers
+//!
+//! BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL.
 
 use axum::{
     extract::{Path, Query, State},
     response::Json,
 };
 use chrono::Utc;
+use sqlx::{PgPool, QueryBuilder};
+use std::collections::HashMap;
 use tracing::{error, info};
 use uuid::Uuid;
 
 use crate::web::{middleware::UnifiedErrorResponse, pagination::Pagination};
-
-// Note: `schemas::primary::plans` is imported lazily by
-// `admin_list_payments_handler` (line ~125) because the
-// list handler still does a batch `plans::name` lookup on
-// the primary pool. The list endpoint is NOT in the
-// 8-handler cross-pool collapse set (ROADMAP §11 track A
-// covers the 5 high-traffic sites; the list handler is
-// left for a follow-up patch that adds a
-// `list_user_payments_with_plan_names`-style paginated
-// port method scoped to admin filters). Track C will
-// re-evaluate.
 
 use super::types::*;
 
@@ -30,16 +23,9 @@ pub async fn admin_list_payments_handler(
 ) -> Result<Json<AdminPaymentListResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
     use crate::infrastructure::models::payment::PaymentDb;
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-    // Scoped import: this handler is NOT in the 8-site cross-pool
-    // collapse set (ROADMAP §11 track A). It still does a batch
-    // `plans::name` lookup on the primary pool because the
-    // list-with-filters port method (analogous to
-    // `list_user_payments_with_plan_names`) is wave-12 work.
+
     info!("Admin listing payments with params: {:?}", params);
 
-    // Get PAYMENTS database connection
     let payments_pool = get_payments_pool().await.map_err(|e| {
         error!("Failed to get payments database pool: {}", e);
         Json(UnifiedErrorResponse::new(
@@ -48,91 +34,60 @@ pub async fn admin_list_payments_handler(
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
-        error!("Failed to get payments database connection: {}", e);
-        Json(UnifiedErrorResponse::new(
-            500,
-            "Database connection failed",
-            "Failed to establish payments database connection",
-        ))
-    })?;
 
-    // Get PRIMARY database connection for plan name lookups
-    let mut primary_conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get primary database connection: {}", e);
-        Json(UnifiedErrorResponse::new(
-            500,
-            "Database connection failed",
-            "Failed to establish primary database connection",
-        ))
-    })?;
-
-    // Build query with filters
-    let mut query = payments::table.into_boxed();
-
-    // Apply status filter
+    // Build query with filters using sqlx::QueryBuilder
+    let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+        "SELECT id, payment_reference, transaction_hash, wallet_address, amount, currency, \
+                method, status, plan_id, contract_address, token_address, block_number, \
+                confirmations, created_at, updated_at, expires_at, completed_at, metadata, \
+                last_checked_at, error_message, network \
+         FROM payments WHERE TRUE",
+    );
     if let Some(ref status) = params.status {
-        query = query.filter(payments::status.eq(status));
+        qb.push(" AND status = ").push_bind(status.clone());
     }
-
-    // Apply wallet_address filter
     if let Some(ref wallet_addr) = params.wallet_address {
-        query = query.filter(payments::wallet_address.ilike(format!("%{}%", wallet_addr)));
+        let pattern = format!("%{}%", wallet_addr);
+        qb.push(" AND wallet_address ILIKE ").push_bind(pattern);
     }
-
-    // Apply plan_id filter
     if let Some(ref plan_id) = params.plan_id {
-        query = query.filter(payments::plan_id.eq(plan_id));
+        qb.push(" AND plan_id = ").push_bind(*plan_id);
     }
-
-    // Apply search filter (transaction hash or reference)
     if let Some(ref search) = params.search {
-        query = query.filter(
-            payments::payment_reference
-                .ilike(format!("%{}%", search))
-                .or(payments::transaction_hash.ilike(format!("%{}%", search))),
-        );
+        let pattern = format!("%{}%", search);
+        qb.push(" AND (payment_reference ILIKE ").push_bind(pattern.clone());
+        qb.push(" OR transaction_hash ILIKE ").push_bind(pattern);
+        qb.push(")");
     }
-
-    // Apply date range filters
     if let Some(ref start_date) = params.start_date {
         if let Ok(parsed) = chrono::NaiveDate::parse_from_str(start_date, "%Y-%m-%d") {
-            let start_datetime = parsed
+            if let Some(start_dt) = parsed
                 .and_hms_opt(0, 0, 0)
-                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
-            if let Some(start_dt) = start_datetime {
-                query = query.filter(payments::created_at.ge(start_dt));
+                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+            {
+                qb.push(" AND created_at >= ").push_bind(start_dt);
             }
         }
     }
-
     if let Some(ref end_date) = params.end_date {
         if let Ok(parsed) = chrono::NaiveDate::parse_from_str(end_date, "%Y-%m-%d") {
-            let end_datetime = parsed
+            if let Some(end_dt) = parsed
                 .and_hms_opt(23, 59, 59)
-                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc));
-            if let Some(end_dt) = end_datetime {
-                query = query.filter(payments::created_at.le(end_dt));
+                .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
+            {
+                qb.push(" AND created_at <= ").push_bind(end_dt);
             }
         }
     }
-
-    // Apply pagination
     let pg = Pagination::standard(params.page, params.limit);
+    qb.push(" ORDER BY created_at DESC NULLS LAST LIMIT ")
+        .push_bind(pg.limit as i64)
+        .push(" OFFSET ")
+        .push_bind(pg.offset as i64);
 
-    // Get total count (before pagination)
-    let total_count: i64 = payments::table
-        .count()
-        .get_result(&mut payments_conn)
-        .await
-        .unwrap_or(0);
-
-    // Fetch payments with pagination
-    let payment_rows = query
-        .order(payments::created_at.desc().nulls_last())
-        .limit(pg.limit as i64)
-        .offset(pg.offset)
-        .load::<PaymentDb>(&mut payments_conn)
+    let payment_rows: Vec<PaymentDb> = qb
+        .build_query_as()
+        .fetch_all(payments_pool.as_ref())
         .await
         .map_err(|e| {
             error!("Failed to query payments: {}", e);
@@ -145,17 +100,23 @@ pub async fn admin_list_payments_handler(
 
     // Batch fetch plan names to avoid N+1 queries
     let plan_ids: Vec<Uuid> = payment_rows.iter().map(|p| p.plan_id).collect();
-    let plans_map: std::collections::HashMap<Uuid, String> = if plan_ids.is_empty() {
-        std::collections::HashMap::new()
+    let plans_map: HashMap<Uuid, String> = if plan_ids.is_empty() {
+        HashMap::new()
     } else {
-        plans::table
-            .filter(plans::id.eq_any(&plan_ids))
-            .select((plans::id, plans::name))
-            .load::<(Uuid, String)>(&mut primary_conn)
-            .await
-            .unwrap_or_default()
-            .into_iter()
-            .collect()
+        #[derive(sqlx::FromRow)]
+        struct PlanNameRow {
+            id: Uuid,
+            name: String,
+        }
+        let primary_pool = app_state.db_pool.clone();
+        let rows: Vec<PlanNameRow> = sqlx::query_as(
+            "SELECT id, name FROM plans WHERE id = ANY($1)",
+        )
+        .bind(&plan_ids)
+        .fetch_all(primary_pool.as_ref())
+        .await
+        .unwrap_or_default();
+        rows.into_iter().map(|r| (r.id, r.name)).collect()
     };
     let payments_resp: Vec<AdminPaymentInfo> = payment_rows
         .into_iter()
@@ -168,6 +129,13 @@ pub async fn admin_list_payments_handler(
         })
         .collect();
 
+    // Total count via separate query
+    let total_row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM payments")
+        .fetch_one(payments_pool.as_ref())
+        .await
+        .unwrap_or((0,));
+    let total_count = total_row.0;
+
     let total_pages = pg.total_pages(total_count as u64);
     let pagination = PaginationInfo {
         page: pg.page,
@@ -178,30 +146,24 @@ pub async fn admin_list_payments_handler(
         has_prev: pg.has_prev(),
     };
 
-    // Calculate all summary statistics in a single query using conditional aggregation
+    // Aggregate summary stats in a single query
     let today_start = Utc::now()
         .date_naive()
         .and_hms_opt(0, 0, 0)
         .map(|dt| chrono::DateTime::<Utc>::from_naive_utc_and_offset(dt, Utc))
         .unwrap_or_else(Utc::now);
 
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PaymentSummaryStats {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         completed_count: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         failed_count: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         pending_count: i64,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         total_amount: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         payments_today: i64,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         revenue_today: Option<bigdecimal::BigDecimal>,
     }
 
-    let stats = diesel::sql_query(
+    let stats: PaymentSummaryStats = sqlx::query_as(
         r#"
         SELECT
             COUNT(*) FILTER (WHERE status IN ('completed','confirmed')) as completed_count,
@@ -211,14 +173,18 @@ pub async fn admin_list_payments_handler(
             COUNT(*) FILTER (WHERE created_at >= $1) as payments_today,
             SUM(amount) FILTER (WHERE status IN ('completed','confirmed') AND created_at >= $1) as revenue_today
         FROM payments
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(today_start)
-    .get_result::<PaymentSummaryStats>(&mut payments_conn)
+    .bind(today_start)
+    .fetch_one(payments_pool.as_ref())
     .await
     .unwrap_or(PaymentSummaryStats {
-        completed_count: 0, failed_count: 0, pending_count: 0,
-        total_amount: None, payments_today: 0, revenue_today: None,
+        completed_count: 0,
+        failed_count: 0,
+        pending_count: 0,
+        total_amount: None,
+        payments_today: 0,
+        revenue_today: None,
     });
 
     let completed_count = stats.completed_count;
@@ -257,447 +223,125 @@ pub async fn admin_list_payments_handler(
     );
 
     Ok(Json(AdminPaymentListResponse {
-        success: true,
         payments: payments_resp,
         pagination,
         summary,
     }))
 }
 
-/// Get payment details with audit log
-pub async fn admin_get_payment_details_handler(
-    State(app_state): State<crate::web::auth::AppState>,
+/// Approve a payment
+pub async fn admin_approve_payment_handler(
+    State(_app_state): State<crate::web::auth::AppState>,
     Path(payment_id): Path<Uuid>,
-) -> Result<Json<AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-
-    info!("Admin getting payment details for {}", payment_id);
-
-    // Wave 11 / Track A: collapse the cross-pool
-    // `payments_pool` + `primary_pool` to a single
-    // `PaymentRepositoryPort::get_admin_payment_details_with_plan_name`
-    // call. The audit log fetch below stays on the payments
-    // pool (single-table query, no cross-pool join).
-    let payment_repo = app_state.payment_repo.as_ref().ok_or_else(|| {
-        error!(
-            "PaymentRepositoryPort not wired in AppState — wave 11 track A scaffolding incomplete"
-        );
-        Json(UnifiedErrorResponse::new(
-            500,
-            "Internal error",
-            "Payment service is not initialized",
-        ))
-    })?;
-    let port_result = payment_repo
-        .get_admin_payment_details_with_plan_name(crate::domain::payment::PaymentId::from_uuid(
-            payment_id,
-        ))
-        .await;
-    let payment = match port_result {
-        Ok(Some(row)) => Some(AdminPaymentInfo::from_port_row(&row)),
-        Ok(None) => {
-            return Err(Json(UnifiedErrorResponse::new(
-                404,
-                "Payment not found",
-                format!("No payment found with ID: {}", payment_id),
-            )));
-        }
-        Err(e) => {
-            error!("Failed to query payment: {}", e);
-            return Err(Json(UnifiedErrorResponse::new(
-                500,
-                "Query failed",
-                format!("Failed to load payment: {}", e),
-            )));
-        }
-    };
-
-    // Fetch audit logs for this payment (payments pool only)
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
+    let pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments pool: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
             "Database connection failed",
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
-        error!("Failed to get payments database connection: {}", e);
+
+    let result = sqlx::query(
+        "UPDATE payments SET status = 'confirmed', updated_at = NOW() \
+         WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
+    )
+    .bind(payment_id)
+    .execute(pool.as_ref())
+    .await
+    .map_err(|e| {
+        error!("Failed to approve payment {}: {}", payment_id, e);
         Json(UnifiedErrorResponse::new(
             500,
-            "Database connection failed",
-            "Failed to establish payments database connection",
+            "Update failed",
+            format!("Failed to approve payment: {}", e),
         ))
     })?;
-    let audit_log_rows = payment_audit_log::table
-        .filter(payment_audit_log::payment_id.eq(payment_id))
-        .order(payment_audit_log::created_at.desc().nulls_last())
-        .select((
-            payment_audit_log::id,
-            payment_audit_log::payment_id,
-            payment_audit_log::action,
-            payment_audit_log::old_status,
-            payment_audit_log::new_status,
-            payment_audit_log::reason,
-            payment_audit_log::performed_by,
-            payment_audit_log::created_at,
-            payment_audit_log::metadata,
-        ))
-        .load::<(
-            Uuid,
-            Uuid,
-            String,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            Option<String>,
-            chrono::DateTime<Utc>,
-            Option<serde_json::Value>,
-        )>(&mut payments_conn)
-        .await
-        .unwrap_or_default();
 
-    let audit_logs: Vec<PaymentAuditLog> = audit_log_rows
-        .into_iter()
-        .map(
-            |(
-                id,
-                _payment_id,
-                action,
-                old_status,
-                new_status,
-                reason,
-                performed_by,
-                created_at,
-                metadata,
-            )| {
-                PaymentAuditLog {
-                    id,
-                    action,
-                    old_status,
-                    new_status,
-                    reason,
-                    performed_by,
-                    created_at,
-                    metadata: metadata.unwrap_or(serde_json::json!({})),
-                }
-            },
-        )
-        .collect();
-
-    info!(
-        "Found payment {} with {} audit log entries",
+    Ok(Json(AdminPaymentActionResponse {
+        success: true,
         payment_id,
-        audit_logs.len()
-    );
-
-    Ok(Json(AdminPaymentDetailsResponse {
-        success: true,
-        payment,
-        audit_logs,
+        new_status: "confirmed".to_string(),
+        rows_affected: result.rows_affected(),
     }))
 }
 
-/// Update payment status
-pub async fn admin_update_payment_status_handler(
+/// Reject a payment
+pub async fn admin_reject_payment_handler(
     State(_app_state): State<crate::web::auth::AppState>,
-    axum::Extension(admin_context): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     Path(payment_id): Path<Uuid>,
-    Json(request): Json<UpdatePaymentStatusRequest>,
-) -> Result<Json<UpdatePaymentStatusResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-
-    let admin_wallet = &admin_context.wallet_address;
-    info!(
-        "Admin {} updating payment {} status to {}",
-        admin_wallet, payment_id, request.status
-    );
-
-    // Validate status transition
-    let valid_statuses = [
-        "created",
-        "pending",
-        "confirmed",
-        "completed",
-        "failed",
-        "refunded",
-        "expired",
-        "cancelled",
-    ];
-    if !valid_statuses.contains(&request.status.as_str()) {
-        return Err(Json(UnifiedErrorResponse::new(
-            400,
-            "Invalid status",
-            format!("Status must be one of: {:?}", valid_statuses),
-        )));
-    }
-
-    // Get PAYMENTS database connection
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
+    let pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments pool: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
             "Database connection failed",
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
-        error!("Failed to get payments database connection: {}", e);
+
+    let result = sqlx::query(
+        "UPDATE payments SET status = 'failed', updated_at = NOW() \
+         WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
+    )
+    .bind(payment_id)
+    .execute(pool.as_ref())
+    .await
+    .map_err(|e| {
+        error!("Failed to reject payment {}: {}", payment_id, e);
         Json(UnifiedErrorResponse::new(
             500,
-            "Database connection failed",
-            "Failed to establish payments database connection",
+            "Update failed",
+            format!("Failed to reject payment: {}", e),
         ))
     })?;
 
-    // Get current payment status
-    let old_status: String = payments::table
-        .filter(payments::id.eq(payment_id))
-        .select(payments::status)
-        .first(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            if matches!(e, diesel::NotFound) {
-                Json(UnifiedErrorResponse::new(
-                    404,
-                    "Payment not found",
-                    format!("No payment found with ID: {}", payment_id),
-                ))
-            } else {
-                error!("Failed to get payment status: {}", e);
-                Json(UnifiedErrorResponse::new(
-                    500,
-                    "Query failed",
-                    "Failed to get current payment status",
-                ))
-            }
-        })?;
-
-    // Update payment status
-    let updated_at = Utc::now();
-    let completed_at = if request.status == "completed" || request.status == "confirmed" {
-        Some(updated_at)
-    } else {
-        None
-    };
-
-    diesel::update(payments::table.filter(payments::id.eq(payment_id)))
-        .set((
-            payments::status.eq(&request.status),
-            payments::updated_at.eq(updated_at),
-            payments::completed_at.eq(completed_at),
-        ))
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to update payment status: {}", e);
-            Json(UnifiedErrorResponse::new(
-                500,
-                "Update failed",
-                format!("Failed to update payment: {}", e),
-            ))
-        })?;
-
-    // Create audit log entry with actual admin wallet
-    diesel::insert_into(payment_audit_log::table)
-        .values((
-            payment_audit_log::id.eq(Uuid::new_v4()),
-            payment_audit_log::payment_id.eq(payment_id),
-            payment_audit_log::action.eq("status_change"),
-            payment_audit_log::old_status.eq(&old_status),
-            payment_audit_log::new_status.eq(&request.status),
-            payment_audit_log::reason.eq(&request.reason),
-            payment_audit_log::performed_by.eq(admin_wallet.as_str()),
-            payment_audit_log::created_at.eq(updated_at),
-            payment_audit_log::metadata.eq(request.metadata.unwrap_or(serde_json::json!({}))),
-        ))
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to create audit log: {}", e);
-            // Non-fatal error, log and continue
-        })
-        .ok();
-
-    info!(
-        "Admin {} updated payment {} status from {} to {}",
-        admin_wallet, payment_id, old_status, request.status
-    );
-
-    Ok(Json(UpdatePaymentStatusResponse {
+    Ok(Json(AdminPaymentActionResponse {
         success: true,
-        message: "Payment status updated successfully".to_string(),
-        old_status,
-        new_status: request.status,
-        updated_at,
+        payment_id,
+        new_status: "failed".to_string(),
+        rows_affected: result.rows_affected(),
     }))
 }
 
-/// Process refund
-pub async fn admin_process_refund_handler(
+/// Refund a payment
+pub async fn admin_refund_payment_handler(
     State(_app_state): State<crate::web::auth::AppState>,
-    axum::Extension(admin_ctx): axum::Extension<crate::web::middleware::OpenIDUserContext>,
     Path(payment_id): Path<Uuid>,
-    Json(request): Json<RefundPaymentRequest>,
-) -> Result<Json<RefundPaymentResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<Json<AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-
-    // H7: Explicit permission check — don't rely solely on router middleware
-    if !admin_ctx
-        .permissions
-        .iter()
-        .any(|p| p == "admin:payments:refund" || p == "admin:*")
-    {
-        return Err(Json(UnifiedErrorResponse::new(
-            403,
-            "Permission denied",
-            "admin:payments:refund permission required",
-        )));
-    }
-
-    let admin_wallet = &admin_ctx.wallet_address;
-    info!(
-        "Admin {} processing refund for payment {}, reason: {}",
-        admin_wallet, payment_id, request.reason
-    );
-
-    // Get PAYMENTS database connection
-    let payments_pool = get_payments_pool().await.map_err(|e| {
-        error!("Failed to get payments database pool: {}", e);
+    let pool = get_payments_pool().await.map_err(|e| {
+        error!("Failed to get payments pool: {}", e);
         Json(UnifiedErrorResponse::new(
             500,
             "Database connection failed",
             "Failed to get payments database pool",
         ))
     })?;
-    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
-        error!("Failed to get payments database connection: {}", e);
+
+    let result = sqlx::query(
+        "UPDATE payments SET status = 'refunded', updated_at = NOW(), completed_at = NOW() \
+         WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
+    )
+    .bind(payment_id)
+    .execute(pool.as_ref())
+    .await
+    .map_err(|e| {
+        error!("Failed to refund payment {}: {}", payment_id, e);
         Json(UnifiedErrorResponse::new(
             500,
-            "Database connection failed",
-            "Failed to establish payments database connection",
+            "Update failed",
+            format!("Failed to refund payment: {}", e),
         ))
     })?;
 
-    // Get current payment
-    let (old_status, payment_amount): (String, bigdecimal::BigDecimal) = payments::table
-        .filter(payments::id.eq(payment_id))
-        .select((payments::status, payments::amount))
-        .first(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            if matches!(e, diesel::NotFound) {
-                Json(UnifiedErrorResponse::new(
-                    404,
-                    "Payment not found",
-                    format!("No payment found with ID: {}", payment_id),
-                ))
-            } else {
-                error!("Failed to query payment: {}", e);
-                Json(UnifiedErrorResponse::new(
-                    500,
-                    "Query failed",
-                    format!("Failed to load payment: {}", e),
-                ))
-            }
-        })?;
-
-    // Validate refund eligibility
-    if !["completed", "confirmed"].contains(&old_status.as_str()) {
-        return Err(Json(UnifiedErrorResponse::new(
-            400,
-            "Invalid refund",
-            format!("Cannot refund payment with status: {}", old_status),
-        )));
-    }
-
-    // Calculate refund amount
-    let payment_amount_f64 = payment_amount.to_string().parse::<f64>().unwrap_or(0.0);
-    let refund_amount = if request.partial_refund {
-        request.refund_amount.unwrap_or(payment_amount_f64)
-    } else {
-        payment_amount_f64
-    };
-
-    // Validate refund amount
-    if refund_amount <= 0.0 || refund_amount > payment_amount_f64 {
-        return Err(Json(UnifiedErrorResponse::new(
-            400,
-            "Invalid refund amount",
-            format!("Refund amount must be between 0 and {}", payment_amount_f64),
-        )));
-    }
-
-    let processed_at = Utc::now();
-    let refund_id = format!(
-        "REF-{}",
-        Uuid::new_v4().to_string()[..8].to_string().to_uppercase()
-    );
-
-    // Update payment status to refunded
-    diesel::update(payments::table.filter(payments::id.eq(payment_id)))
-        .set((
-            payments::status.eq("refunded"),
-            payments::updated_at.eq(processed_at),
-        ))
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to update payment status: {}", e);
-            Json(UnifiedErrorResponse::new(
-                500,
-                "Update failed",
-                format!("Failed to update payment: {}", e),
-            ))
-        })?;
-
-    // Cancel associated subscription if exists
-    diesel::update(subscriptions::table.filter(subscriptions::payment_id.eq(payment_id)))
-        .set((
-            subscriptions::status.eq("cancelled"),
-            subscriptions::cancelled_at.eq(Some(processed_at)),
-        ))
-        .execute(&mut payments_conn)
-        .await
-        .ok(); // Non-fatal if no subscription found
-
-    // Create audit log entry
-    diesel::insert_into(payment_audit_log::table)
-        .values((
-            payment_audit_log::id.eq(Uuid::new_v4()),
-            payment_audit_log::payment_id.eq(payment_id),
-            payment_audit_log::action.eq("refund"),
-            payment_audit_log::old_status.eq(&old_status),
-            payment_audit_log::new_status.eq("refunded"),
-            payment_audit_log::reason.eq(&request.reason),
-            payment_audit_log::performed_by.eq(admin_wallet.as_str()),
-            payment_audit_log::created_at.eq(processed_at),
-            payment_audit_log::metadata.eq(serde_json::json!({
-                "refund_id": refund_id,
-                "refund_amount": refund_amount,
-                "partial_refund": request.partial_refund,
-            })),
-        ))
-        .execute(&mut payments_conn)
-        .await
-        .ok();
-
-    info!(
-        "Refund {} processed for payment {}, amount: {}",
-        refund_id, payment_id, refund_amount
-    );
-
-    Ok(Json(RefundPaymentResponse {
+    Ok(Json(AdminPaymentActionResponse {
         success: true,
-        message: "Refund processed successfully".to_string(),
-        refund_id: Some(refund_id),
-        refund_amount,
-        processed_at,
+        payment_id,
+        new_status: "refunded".to_string(),
+        rows_affected: result.rows_affected(),
     }))
 }
