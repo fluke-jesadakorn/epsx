@@ -2,13 +2,14 @@
 //!
 //! Allows admins to manually re-trigger finalize_payment for stuck transactions.
 //! Useful when verify_transfer_logs or plan assignment failed silently.
+//!
+//! BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL.
 
 use axum::{
     extract::{Path, State},
     response::Json,
 };
 use chrono::{DateTime, Utc};
-use diesel_async::RunQueryDsl;
 use serde::Serialize;
 use tracing::info;
 
@@ -61,9 +62,6 @@ pub struct PaymentEventEntry {
 // ============================================================================
 
 /// POST /api/payments/admin/tx/:tx_hash/reprocess
-///
-/// Re-trigger full payment finalization for a stuck transaction.
-/// Requires admin:payments:manage permission (enforced by middleware).
 #[axum::debug_handler]
 pub async fn admin_reprocess_payment_handler(
     State(_app_state): State<AppState>,
@@ -79,43 +77,29 @@ pub async fn admin_reprocess_payment_handler(
 
     info!("Admin reprocess requested for tx: {}", tx_hash);
 
-    // Run the full check+finalize cycle
     let result = reprocess_payment_tx(&tx_hash).await;
-
     let reprocess_err = result.err();
 
-    // Query current payment state
     let payments_pool = get_payments_pool().await.map_err(|e| {
         UnifiedErrorResponse::json(500, "Database error", format!("Cannot connect: {}", e))
     })?;
 
-    let mut conn = payments_pool.acquire().await.map_err(|e| {
-        UnifiedErrorResponse::json(
-            500,
-            "Database error",
-            format!("Cannot get connection: {}", e),
-        )
-    })?;
-
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PaymentStateRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         status: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         error_message: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
         confirmations: Option<i32>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         last_checked_at: Option<DateTime<Utc>>,
     }
 
-    let state: Option<PaymentStateRow> = diesel::sql_query(
+    let state: Option<PaymentStateRow> = sqlx::query_as(
         "SELECT status, error_message, confirmations, last_checked_at FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
-    .bind::<diesel::sql_types::Text, _>(&tx_hash)
-    .get_result(&mut *conn)
+    .bind(&tx_hash)
+    .fetch_optional(payments_pool.as_ref())
     .await
-    .ok();
+    .ok()
+    .flatten();
 
     let Some(state) = state else {
         return Err(UnifiedErrorResponse::json(
@@ -148,9 +132,6 @@ pub async fn admin_reprocess_payment_handler(
 }
 
 /// GET /api/payments/admin/tx/:tx_hash/events
-///
-/// Return full audit trail for a transaction.
-/// Requires admin:payments:manage permission (enforced by middleware).
 #[axum::debug_handler]
 pub async fn admin_payment_events_handler(
     State(_app_state): State<AppState>,
@@ -168,33 +149,18 @@ pub async fn admin_payment_events_handler(
         UnifiedErrorResponse::json(500, "Database error", format!("Cannot connect: {}", e))
     })?;
 
-    let mut conn = payments_pool.acquire().await.map_err(|e| {
-        UnifiedErrorResponse::json(
-            500,
-            "Database error",
-            format!("Cannot get connection: {}", e),
-        )
-    })?;
-
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct AuditRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         action: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         old_status: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         new_status: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         reason: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         performed_by: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
         metadata: Option<serde_json::Value>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         created_at: DateTime<Utc>,
     }
 
-    let rows: Vec<AuditRow> = diesel::sql_query(
+    let rows: Vec<AuditRow> = sqlx::query_as(
         r#"
         SELECT pal.action, pal.old_status, pal.new_status, pal.reason,
                pal.performed_by, pal.metadata, pal.created_at
@@ -204,8 +170,8 @@ pub async fn admin_payment_events_handler(
         ORDER BY pal.created_at ASC
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&tx_hash)
-    .load(&mut *conn)
+    .bind(&tx_hash)
+    .fetch_all(payments_pool.as_ref())
     .await
     .unwrap_or_default();
 
