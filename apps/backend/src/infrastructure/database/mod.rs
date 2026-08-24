@@ -1,11 +1,14 @@
 // Database Infrastructure Module
-// Diesel async connection manager for serverless-optimized database access
+// sqlx-based connection pool management
 
 pub mod diesel_connection_manager;
 
-// Re-export Diesel types
+// Re-export sqlx pool types from epsx-database-pools (canonical)
 pub use diesel_connection_manager::{
-    diesel_health_check, diesel_health_check_all, get_analytics_pool, get_diesel_pool,
-    get_notifications_pool, get_payments_pool, AllPoolsHealth, DieselConnectionManager,
-    DieselPoolStats, DieselServerlessConfig, PoolExt,
+    AllPoolsHealth, DieselConnectionManager, DieselServerlessConfig,
 };
+
+// Backward-compatible shim re-exports (BIG-BANG migration).
+// These names are kept for one minor release to avoid breaking callers.
+pub use diesel_connection_manager::DieselConnectionManager as _DieselCompat;
+pub use epsx_database_pools::PoolExt;

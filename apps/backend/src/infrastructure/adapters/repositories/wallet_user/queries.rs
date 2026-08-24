@@ -130,7 +130,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
                  WHERE p.permission_string = '{}' AND p.is_active = TRUE AND wga.is_active = TRUE \
                  UNION SELECT wdp.wallet_address FROM wallet_direct_permissions wdp \
                  JOIN permissions p ON wdp.permission_id = p.id \
-                 WHERE p.permission_string = '{}}' AND p.is_active = TRUE AND wdp.is_active = TRUE)",
+                 WHERE p.permission_string = '{}' AND p.is_active = TRUE AND wdp.is_active = TRUE)",
                 p, p
             ));
         }
