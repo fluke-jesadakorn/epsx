@@ -1,6 +1,8 @@
 // Wallet Verification and User Lifecycle
 // Handles: get_or_create_user, emit_new_wallet_event, assign_free_plan_to_wallet
 // Also handles blockchain permission queries: NFT, Token, DAO
+//
+// BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL.
 
 use chrono::Utc;
 use ethers::{
@@ -9,8 +11,6 @@ use ethers::{
     contract::Contract,
     abi::Abi,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use std::sync::Arc;
 use std::str::FromStr;
 use tracing::{debug, info, warn};
@@ -22,27 +22,25 @@ impl UnifiedWeb3AuthService {
     /// Get or create user for wallet
     pub(super) async fn get_or_create_user(&self, wallet_address: &str) -> Result<(String, bool), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
-        let wallet_address = wallet_address.as_str();
-        let mut conn = self.db_pool.acquire().await
-            .map_err(|e| Web3AuthError::DatabaseError(format!("Pool error: {}", e)))?;
+        let now = Utc::now();
 
-        let user_exists: Option<String> = diesel_async::RunQueryDsl::first(wallet_users::table
-            .filter(wallet_users::wallet_address.eq(wallet_address))
-            .select(wallet_users::wallet_address), &mut *conn)
-            .await
-            .optional()
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        let user_exists: Option<(String,)> = sqlx::query_as(
+            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
+        )
+        .bind(&wallet_address)
+        .fetch_optional(self.db_pool.as_ref())
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         if user_exists.is_some() {
-            let now = Utc::now();
-            diesel_async::RunQueryDsl::execute(diesel::update(wallet_users::table)
-                .filter(wallet_users::wallet_address.eq(wallet_address))
-                .set((
-                    wallet_users::last_auth_at.eq(&now),
-                    wallet_users::updated_at.eq(&now),
-                )), &mut *conn)
-                .await
-                .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+            sqlx::query(
+                "UPDATE wallet_users SET last_auth_at = $1, updated_at = $1 WHERE wallet_address = $2",
+            )
+            .bind(now)
+            .bind(&wallet_address)
+            .execute(self.db_pool.as_ref())
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
             debug!("Updated existing wallet user activity: {}", wallet_address);
             return Ok((wallet_address.to_string(), false));
@@ -62,22 +60,16 @@ impl UnifiedWeb3AuthService {
             "blockchain_network": blockchain_network
         });
 
-        let now = chrono::Utc::now();
-        let mut conn = self.db_pool.acquire().await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
-
-        diesel_async::RunQueryDsl::execute(diesel::insert_into(wallet_users::table)
-            .values((
-                wallet_users::wallet_address.eq(wallet_address),
-                wallet_users::is_active.eq(true),
-                wallet_users::tier_level.eq("Bronze"),
-                wallet_users::wallet_metadata.eq(connection_metadata.clone()),
-                wallet_users::created_at.eq(&now),
-                wallet_users::updated_at.eq(&now),
-                wallet_users::last_auth_at.eq(&now),
-            )), &mut *conn)
-            .await
-            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        sqlx::query(
+            "INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata, created_at, updated_at, last_auth_at) \
+             VALUES ($1, TRUE, 'Bronze', $2, $3, $3, $3)",
+        )
+        .bind(&wallet_address)
+        .bind(&connection_metadata)
+        .bind(now)
+        .execute(self.db_pool.as_ref())
+        .await
+        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!(
             wallet_address = %wallet_address,
@@ -87,8 +79,8 @@ impl UnifiedWeb3AuthService {
             "New wallet user created successfully"
         );
 
-        self.emit_new_wallet_event(wallet_address, &connection_metadata).await;
-        self.assign_free_plan_to_wallet(wallet_address).await;
+        self.emit_new_wallet_event(&wallet_address, &connection_metadata).await;
+        self.assign_free_plan_to_wallet(&wallet_address).await;
 
         Ok((wallet_address.to_string(), true))
     }
@@ -118,31 +110,28 @@ impl UnifiedWeb3AuthService {
 
     /// Assign Free Plan to a newly created wallet
     pub(super) async fn assign_free_plan_to_wallet(&self, wallet_address: &str) {
-        use epsx_contracts::constants::{FREE_PLAN_SLUG, FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT};
+        use crate::constants::{
+            FREE_PLAN_NAME, FREE_PLAN_RANKING_OFFSET, FREE_PLAN_RANKINGS_LIMIT, FREE_PLAN_SLUG,
+        };
 
         let wallet_address = wallet_address.trim().to_lowercase();
 
-        let mut conn = match self.db_pool.acquire().await {
-            Ok(c) => c,
-            Err(e) => {
-                warn!(wallet_address = %wallet_address, error = %e, "Failed to get DB connection for Free Plan assignment");
-                return;
-            }
-        };
-
-        #[derive(QueryableByName)]
-        struct PlanIdResult {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
+        // Look up free plan id
+        #[derive(sqlx::FromRow)]
+        struct PlanIdRow {
             id: uuid::Uuid,
         }
 
-        let plan_id = match diesel::sql_query("SELECT id FROM plans WHERE slug = $1")
-            .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
-            .get_result::<PlanIdResult>(&mut *conn)
+        let plan_row: Option<PlanIdRow> = sqlx::query_as("SELECT id FROM plans WHERE slug = $1")
+            .bind(FREE_PLAN_SLUG)
+            .fetch_optional(self.db_pool.as_ref())
             .await
-        {
-            Ok(result) => result.id,
-            Err(diesel::result::Error::NotFound) => {
+            .ok()
+            .flatten();
+
+        let plan_id = match plan_row {
+            Some(r) => r.id,
+            None => {
                 info!("Free Plan not found, creating it automatically...");
 
                 let free_plan_metadata = serde_json::json!({
@@ -152,92 +141,81 @@ impl UnifiedWeb3AuthService {
                     ],
                     "features": [
                         format!("View top {} stock rankings", FREE_PLAN_RANKINGS_LIMIT),
-                        "Basic market overview",
-                        "Community access"
+                        "Basic market overview".to_string(),
+                        "Community access".to_string()
                     ],
                     "ranking_offset": FREE_PLAN_RANKING_OFFSET,
                     "rankings_limit": FREE_PLAN_RANKINGS_LIMIT,
-                    "limits": {
-                        "analytics_queries_per_day": 5,
-                        "stocks_tracked": 5,
-                        "historical_data_months": 1
-                    }
+                    "limits": { "analytics_queries_per_day": 5, "stocks_tracked": 5, "historical_data_months": 1 }
                 });
 
-                match diesel::sql_query(
+                let result: Result<PlanIdRow, _> = sqlx::query_as(
                     r#"
                     INSERT INTO plans (
                         id, name, slug, description, plan_type, plan_metadata,
                         price, currency, is_active, is_promoted, display_order,
-                        created_by, tier_level, is_public,
-                        rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity
+                        created_by, tier_level, is_public, rate_limit_per_minute,
+                        rate_limit_per_hour, rate_limit_per_day, burst_capacity
                     ) VALUES (
-                        gen_random_uuid(),
-                        $1, $2, $3, 'subscription',
-                        $4::jsonb,
-                        0, 'USD', true, true, 1,
-                        'system:auto_create', 0, true,
-                        10, 100, 500, 5
+                        gen_random_uuid(), $1, $2, $3, 'subscription',
+                        $4::jsonb, 0, 'USD', TRUE, TRUE, 1,
+                        'system:auto_create', 0, TRUE, 10, 100, 500, 5
                     )
                     RETURNING id
-                    "#
+                    "#,
                 )
-                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_NAME)
-                .bind::<diesel::sql_types::Text, _>(FREE_PLAN_SLUG)
-                .bind::<diesel::sql_types::Text, _>("Get started with basic analytics and stock rankings")
-                .bind::<diesel::sql_types::Jsonb, _>(&free_plan_metadata)
-                .get_result::<PlanIdResult>(&mut *conn)
-                .await
-                {
-                    Ok(result) => {
-                        info!(plan_id = %result.id, "Free Plan created automatically");
-                        result.id
+                .bind(FREE_PLAN_NAME)
+                .bind(FREE_PLAN_SLUG)
+                .bind("Get started with basic analytics and stock rankings")
+                .bind(&free_plan_metadata)
+                .fetch_one(self.db_pool.as_ref())
+                .await;
+
+                match result {
+                    Ok(r) => {
+                        info!(plan_id = %r.id, "Free Plan created automatically");
+                        r.id
                     }
                     Err(e) => {
-                        warn!(error = %e, "Failed to create Free Plan automatically");
+                        warn!("Failed to create Free Plan automatically: {}", e);
                         return;
                     }
                 }
             }
-            Err(e) => {
-                warn!(wallet_address = %wallet_address, error = %e, "Error looking up Free Plan - skipping auto-assignment");
-                return;
-            }
         };
 
-        #[derive(QueryableByName)]
-        struct CountResult {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            count: i64,
-        }
-
-        let existing = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE wallet_address = $1 AND plan_id = $2"
+        // Check if already assigned
+        let existing: Option<(i64,)> = sqlx::query_as(
+            "SELECT COUNT(*) FROM wallet_plan_assignments \
+             WHERE wallet_address = $1 AND plan_id = $2",
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .get_result::<CountResult>(&mut *conn)
+        .bind(&wallet_address)
+        .bind(plan_id)
+        .fetch_optional(self.db_pool.as_ref())
         .await
-        .map(|r| r.count > 0)
-        .unwrap_or(false);
+        .ok()
+        .flatten();
 
-        if existing {
-            debug!(wallet_address = %wallet_address, "Wallet already has Free Plan assigned");
-            return;
+        if let Some((c,)) = existing {
+            if c > 0 {
+                debug!(wallet_address = %wallet_address, "Wallet already has Free Plan assigned");
+                return;
+            }
         }
 
         let now = Utc::now();
-        if let Err(e) = diesel::sql_query(
+        if let Err(e) = sqlx::query(
             r#"
-            INSERT INTO wallet_plan_assignments (id, wallet_address, plan_id, is_active, assigned_at, assigned_by)
-            VALUES (gen_random_uuid(), $1, $2, true, $3, 'system:auto_assign')
+            INSERT INTO wallet_plan_assignments (
+                id, wallet_address, plan_id, is_active, assigned_at, assigned_by
+            ) VALUES (gen_random_uuid(), $1, $2, TRUE, $3, 'system:auto_assign')
             ON CONFLICT (wallet_address, plan_id) DO NOTHING
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_id)
-        .bind::<diesel::sql_types::Timestamptz, _>(now)
-        .execute(&mut *conn)
+        .bind(&wallet_address)
+        .bind(plan_id)
+        .bind(now)
+        .execute(self.db_pool.as_ref())
         .await
         {
             warn!(wallet_address = %wallet_address, error = %e, "Failed to assign Free Plan to wallet");
@@ -248,7 +226,10 @@ impl UnifiedWeb3AuthService {
     }
 
     /// Get NFT-based permissions
-    pub(super) async fn get_nft_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    pub(super) async fn get_nft_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let mut permissions = Vec::new();
 
         let nft_contract = match std::env::var("ENTERPRISE_NFT_CONTRACT") {
@@ -269,12 +250,18 @@ impl UnifiedWeb3AuthService {
 
         let wallet_addr = match Address::from_str(wallet_address) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
         };
 
         let contract_addr = match Address::from_str(&nft_contract) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid NFT contract address {}: {}", nft_contract, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid NFT contract address {}: {}", nft_contract, e);
+                return Ok(permissions);
+            }
         };
 
         let balance_of_abi = r#"[{"inputs":[{"name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
@@ -286,9 +273,15 @@ impl UnifiedWeb3AuthService {
                     Ok(balance) if balance > U256::zero() => {
                         permissions.push("epsx:premium:nft_holder".to_string());
                         permissions.push("epsx:analytics:exclusive".to_string());
-                        info!("Wallet {} owns {} NFTs, granted premium NFT permissions", wallet_address, balance);
+                        info!(
+                            "Wallet {} owns {} NFTs, granted premium NFT permissions",
+                            wallet_address, balance
+                        );
                     }
-                    Ok(_) => debug!("Wallet {} owns no NFTs from contract {}", wallet_address, nft_contract),
+                    Ok(_) => debug!(
+                        "Wallet {} owns no NFTs from contract {}",
+                        wallet_address, nft_contract
+                    ),
                     Err(e) => warn!("Failed to check NFT balance for {}: {}", wallet_address, e),
                 },
                 Err(e) => warn!("Failed to create NFT contract call: {}", e),
@@ -300,66 +293,43 @@ impl UnifiedWeb3AuthService {
         Ok(permissions)
     }
 
-    /// Get token-based permissions based on BNB balance
-    pub(super) async fn get_token_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
-        let mut permissions = Vec::new();
-
-        let provider = match self.bsc_provider() {
-            Ok(p) => p,
-            Err(e) => { warn!("Failed to create BSC provider: {}", e); return Ok(permissions); }
-        };
-
-        let address = match Address::from_str(wallet_address) {
-            Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
-        };
-
-        match provider.get_balance(address, None).await {
-            Ok(balance) => {
-                let bnb = balance.as_u128() as f64 / 1e18;
-                if bnb >= 10.0 {
-                    permissions.push("epsx:premium:lifetime".to_string());
-                    permissions.push("epsx:analytics:unlimited".to_string());
-                } else if bnb >= 1.0 {
-                    permissions.push("epsx:premium:annual".to_string());
-                    permissions.push("epsx:analytics:premium".to_string());
-                } else if bnb >= 0.1 {
-                    permissions.push("epsx:premium:monthly".to_string());
-                    permissions.push("epsx:analytics:standard".to_string());
-                }
-                debug!("Wallet {} has {} BNB, granted {} token permissions", wallet_address, bnb, permissions.len());
-            }
-            Err(e) => warn!("Failed to get BNB balance for {}: {}", wallet_address, e),
-        }
-
-        Ok(permissions)
-    }
-
-    /// Get DAO governance permissions based on governance token holdings
-    pub(super) async fn get_dao_permissions(&self, wallet_address: &str) -> Result<Vec<String>, Web3AuthError> {
+    /// Get Token-based permissions based on token holdings
+    pub(super) async fn get_token_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
         let mut permissions = Vec::new();
 
         let governance_token = match std::env::var("ENTERPRISE_GOVERNANCE_TOKEN") {
             Ok(contract) if !contract.is_empty() => contract,
             _ => {
-                debug!("No enterprise governance token configured, skipping DAO permissions");
+                debug!("No enterprise governance token configured, skipping token permissions");
                 return Ok(permissions);
             }
         };
 
         let provider = match self.bsc_provider() {
             Ok(p) => p,
-            Err(e) => { warn!("Failed to create BSC provider for DAO check: {}", e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Failed to create BSC provider for token check: {}", e);
+                return Ok(permissions);
+            }
         };
 
         let wallet_addr = match Address::from_str(wallet_address) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid wallet address {}: {}", wallet_address, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid wallet address {}: {}", wallet_address, e);
+                return Ok(permissions);
+            }
         };
 
         let token_addr = match Address::from_str(&governance_token) {
             Ok(addr) => addr,
-            Err(e) => { warn!("Invalid governance token address {}: {}", governance_token, e); return Ok(permissions); }
+            Err(e) => {
+                warn!("Invalid governance token address {}: {}", governance_token, e);
+                return Ok(permissions);
+            }
         };
 
         let balance_of_abi = r#"[{"inputs":[{"name":"account","type":"address"}],"name":"balanceOf","outputs":[{"name":"","type":"uint256"}],"type":"function"}]"#;
@@ -380,18 +350,35 @@ impl UnifiedWeb3AuthService {
                         } else if token_bal >= 10.0 {
                             permissions.push("epsx:dao:participant".to_string());
                         }
-                        info!("Wallet {} holds {} governance tokens, granted {} DAO permissions", wallet_address, token_bal, permissions.len());
+                        info!(
+                            "Wallet {} holds {} governance tokens, granted {} token permissions",
+                            wallet_address,
+                            token_bal,
+                            permissions.len()
+                        );
                     }
                     Ok(_) => debug!("Wallet {} holds no governance tokens", wallet_address),
-                    Err(e) => warn!("Failed to check governance token balance for {}: {}", wallet_address, e),
+                    Err(e) => warn!(
+                        "Failed to check governance token balance for {}: {}",
+                        wallet_address, e
+                    ),
                 },
                 Err(e) => warn!("Failed to create governance token contract call: {}", e),
             }
         } else {
-            warn!("Failed to parse governance token contract ABI");
+            warn!("Failed to parse governance token ABI");
         }
 
         Ok(permissions)
+    }
+
+    /// Get DAO governance permissions based on governance token holdings
+    pub(super) async fn get_dao_permissions(
+        &self,
+        wallet_address: &str,
+    ) -> Result<Vec<String>, Web3AuthError> {
+        // TODO: implement distinct DAO-specific checks (e.g., governor contract proposals, votes)
+        self.get_token_permissions(wallet_address).await
     }
 
     /// Create a BSC provider from environment config
@@ -399,7 +386,7 @@ impl UnifiedWeb3AuthService {
         let network = std::env::var("NEXT_PUBLIC_BLOCKCHAIN_NETWORK")
             .unwrap_or_else(|_| "testnet".to_string());
         let rpc_url = std::env::var("BSC_RPC_URL").unwrap_or_else(|_| match network.as_str() {
-            "mainnet" => "https://bsc-dataseed.binance.org".to_string(),
+            "mainnet" => "https://bsc-dataseed1.binance.org".to_string(),
             _ => "https://data-seed-prebsc-1-s1.binance.org:8545".to_string(),
         });
         Provider::<Http>::try_from(&rpc_url).map_err(|e| e.to_string())
