@@ -5,8 +5,7 @@
 // Reduces code duplication across all repository implementations
 
 use crate::prelude::*;
-use diesel_async::pooled_connection::deadpool::Object;
-use diesel_async::{AsyncPgConnection, RunQueryDsl};
+use sqlx::{PgPool, Postgres};
 use std::future::Future;
 use std::pin::Pin;
 use tracing::error;
@@ -78,8 +77,8 @@ macro_rules! handle_validation_error {
 /// Base trait for all repository implementations with common functionality
 #[async_trait::async_trait]
 pub trait RepositoryBase {
-    /// Get a database connection from the pool
-    async fn get_connection(&self) -> Result<Object<AsyncPgConnection>, AppError>;
+    /// Get a database connection from the pool (sqlx)
+    async fn get_connection(&self) -> Result<sqlx::pool::PoolConnection<Postgres>, AppError>;
 
     /// Perform a health check on the database connection
     async fn health_check(&self) -> Result<(), AppError>;
@@ -163,15 +162,13 @@ impl<T> PaginatedResult<T> {
 pub struct DatabaseOperations;
 
 impl DatabaseOperations {
-    /// Execute a health check query
+    /// Execute a health check query (sqlx)
     pub async fn health_check_query(
-        conn: &mut diesel_async::AsyncPgConnection,
+        conn: &mut sqlx::PgConnection,
         component: &str,
     ) -> Result<(), AppError> {
-        use diesel::dsl::sql;
-
-        let _: i32 = diesel::select(sql::<diesel::sql_types::Integer>("SELECT 1"))
-            .get_result(conn)
+        let _: (i32,) = sqlx::query_as("SELECT 1::INTEGER")
+            .fetch_one(conn)
             .await
             .map_err(|e| {
                 error!("Health check failed: {}", e);
@@ -179,7 +176,6 @@ impl DatabaseOperations {
                     .with_component(component)
                     .with_operation("health_check")
             })?;
-
         Ok(())
     }
 }
@@ -204,7 +200,7 @@ impl ConnectionPoolManager {
     pub async fn execute<F, R>(&self, operation: &str, f: F) -> Result<R, AppError>
     where
         F: FnOnce(
-            &mut AsyncPgConnection,
+            &mut sqlx::PgConnection,
         ) -> Pin<Box<dyn Future<Output = Result<R, AppError>> + Send>>,
     {
         let mut conn_obj = self.pool.acquire().await.map_err(|e| {
