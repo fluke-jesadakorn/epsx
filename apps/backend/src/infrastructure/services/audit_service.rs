@@ -1,18 +1,17 @@
 use crate::infrastructure::models::audit::NewUnifiedAuditDb;
 use crate::prelude::TlsPool;
 use axum::http::HeaderMap;
-use diesel_async::RunQueryDsl;
 use serde_json::Value as JsonValue;
 use std::sync::Arc;
 
 /// Service for writing to unified_audit_log (fire-and-forget or sync)
 #[derive(Clone)]
 pub struct AuditService {
-    pool: Arc<&'static TlsPool>,
+    pool: Arc<TlsPool>,
 }
 
 impl AuditService {
-    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(pool: Arc<TlsPool>) -> Self {
         Self { pool }
     }
 
@@ -32,15 +31,10 @@ impl AuditService {
     }
 
     async fn insert(
-        pool: &Arc<&'static TlsPool>,
+        pool: &TlsPool,
         ctx: &AuditCtx,
         entry: &AuditEntry,
     ) -> anyhow::Result<()> {
-        let mut conn = pool
-            .acquire().await
-            .await
-            .map_err(|e| anyhow::anyhow!("audit pool error: {:?}", e))?;
-
         let row = NewUnifiedAuditDb {
             actor: ctx.actor.clone(),
             actor_type: ctx.actor_type.clone(),
@@ -56,10 +50,29 @@ impl AuditService {
             category: entry.category.clone(),
         };
 
-        diesel::insert_into(unified_audit_log::table)
-            .values(&row)
-            .execute(&mut *conn)
-            .await?;
+        sqlx::query(
+            "INSERT INTO unified_audit_log (
+                actor, actor_type, resource_type, resource_id, action, effect,
+                before_state, after_state, ip_address, user_agent, metadata, category
+            ) VALUES (
+                $1, $2, $3, $4, $5, $6,
+                $7, $8, $9, $10, $11, $12
+            )",
+        )
+        .bind(&row.actor)
+        .bind(&row.actor_type)
+        .bind(&row.resource_type)
+        .bind(&row.resource_id)
+        .bind(&row.action)
+        .bind(&row.effect)
+        .bind(&row.before_state)
+        .bind(&row.after_state)
+        .bind(&row.ip_address)
+        .bind(&row.user_agent)
+        .bind(&row.metadata)
+        .bind(&row.category)
+        .execute(pool)
+        .await?;
 
         Ok(())
     }
@@ -107,7 +120,6 @@ impl AuditCtx {
             .get("x-wallet-address")
             .and_then(|v| v.to_str().ok())
             .map(|s| s.to_string());
-
         Self::from_wallet(actor.as_deref().unwrap_or("unknown"), headers)
     }
 
