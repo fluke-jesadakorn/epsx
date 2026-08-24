@@ -6,7 +6,7 @@
 //! falls back to primary in production).
 
 use crate::prelude::*;
-use bigdecimal::{BigDecimal, ToPrimitive};
+use rust_decimal::prelude::*;
 use chrono::{DateTime, Datelike, Utc};
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use std::str::FromStr;
@@ -32,7 +32,7 @@ pub struct PaymentWithPlanRow {
     pub payment_reference: String,
     pub transaction_hash: Option<String>,
     pub wallet_address: String,
-    pub amount: BigDecimal,
+    pub amount: rust_decimal::Decimal,
     pub currency: String,
     pub method: String,
     pub status: String,
@@ -379,7 +379,7 @@ impl PaymentRepositoryAdapter {
         #[derive(sqlx::FromRow)]
         struct DailyRevenueRow {
             payment_date: chrono::NaiveDate,
-            daily_revenue: Option<BigDecimal>,
+            daily_revenue: Option<rust_decimal::Decimal>,
             payment_count: i64,
         }
         let daily_rows: Vec<DailyRevenueRow> = sqlx::query_as(
@@ -412,7 +412,7 @@ impl PaymentRepositoryAdapter {
         #[derive(sqlx::FromRow)]
         struct PlanBreakdownRow {
             plan_id: Uuid,
-            total_revenue: Option<BigDecimal>,
+            total_revenue: Option<rust_decimal::Decimal>,
             subscription_count: i64,
             plan_name: Option<String>,
         }
