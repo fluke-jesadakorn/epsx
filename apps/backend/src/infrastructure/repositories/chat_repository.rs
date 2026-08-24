@@ -1,12 +1,15 @@
+// Chat Repository
+// Handles topics, conversations, and messages
+//
+// BIG-BANG: migrated to sqlx (real). All diesel DSL replaced with raw SQL.
+
 use chrono::Utc;
-use diesel::dsl::count_star;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use sqlx::{PgPool, QueryBuilder};
+use std::sync::Arc;
 use uuid::Uuid;
 
 use crate::infrastructure::models::chat::*;
 use crate::prelude::TlsPool;
-use crate::schemas::primary::{chat_conversations, chat_messages, chat_topics};
 
 pub struct ChatRepository;
 
@@ -16,13 +19,13 @@ impl ChatRepository {
     // ========================================================================
 
     pub async fn list_topics(pool: &TlsPool) -> Result<Vec<ChatTopicDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_topics::table
-            .filter(chat_topics::is_active.eq(true))
-            .order(chat_topics::sort_order.asc())
-            .load::<ChatTopicDb>(&mut conn)
-            .await
-            .map_err(|e| e.to_string())
+        sqlx::query_as(
+            "SELECT id, name, slug, description, icon, color, is_active, sort_order, created_at, updated_at \
+             FROM chat_topics WHERE is_active = TRUE ORDER BY sort_order ASC",
+        )
+        .fetch_all(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())
     }
 
     // ========================================================================
@@ -36,43 +39,51 @@ impl ChatRepository {
         subject: &str,
         first_message: &str,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
+        let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
-        let conv = NewConversation {
-            topic_id,
-            wallet_address: wallet.to_string(),
-            subject: subject.to_string(),
-            status: "open".to_string(),
-        };
-
-        let created: ChatConversationDb = diesel::insert_into(chat_conversations::table)
-            .values(&conv)
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        // Insert conversation
+        let created: ChatConversationDb = sqlx::query_as(
+            r#"
+            INSERT INTO chat_conversations (
+                topic_id, wallet_address, subject, status
+            ) VALUES ($1, $2, $3, 'open')
+            RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
+                      last_message_at, unread_user, unread_agent, created_at, updated_at,
+                      closed_at, resolution
+            "#,
+        )
+        .bind(topic_id)
+        .bind(wallet)
+        .bind(subject)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
         // Insert first message
-        let msg = NewMessage {
-            conversation_id: created.id,
-            sender_type: "user".to_string(),
-            sender_address: Some(wallet.to_string()),
-            content: first_message.to_string(),
-            metadata: serde_json::Value::Null,
-        };
-
-        diesel::insert_into(chat_messages::table)
-            .values(&msg)
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            r#"
+            INSERT INTO chat_messages (
+                conversation_id, sender_type, sender_address, content, metadata
+            ) VALUES ($1, 'user', $2, $3, 'null'::jsonb)
+            "#,
+        )
+        .bind(created.id)
+        .bind(wallet)
+        .bind(first_message)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
         // Update unread_agent
-        diesel::update(chat_conversations::table.find(created.id))
-            .set(chat_conversations::unread_agent.eq(1))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        sqlx::query(
+            "UPDATE chat_conversations SET unread_agent = 1, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(created.id)
+        .execute(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
+        tx.commit().await.map_err(|e| e.to_string())?;
         Ok(created)
     }
 
@@ -80,13 +91,18 @@ impl ChatRepository {
         pool: &TlsPool,
         wallet: &str,
     ) -> Result<Vec<ChatConversationDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_conversations::table
-            .filter(chat_conversations::wallet_address.eq(wallet))
-            .order(chat_conversations::last_message_at.desc())
-            .load::<ChatConversationDb>(&mut conn)
-            .await
-            .map_err(|e| e.to_string())
+        sqlx::query_as(
+            "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
+                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
+                    closed_at, resolution \
+             FROM chat_conversations \
+             WHERE wallet_address = $1 \
+             ORDER BY last_message_at DESC NULLS LAST",
+        )
+        .bind(wallet)
+        .fetch_all(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())
     }
 
     pub async fn list_all_conversations(
@@ -95,22 +111,25 @@ impl ChatRepository {
         topic_filter: Option<Uuid>,
         agent_filter: Option<&str>,
     ) -> Result<Vec<ChatConversationDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        let mut query = chat_conversations::table.into_boxed();
-
+        let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+            "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
+                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
+                    closed_at, resolution \
+             FROM chat_conversations WHERE TRUE",
+        );
         if let Some(status) = status_filter {
-            query = query.filter(chat_conversations::status.eq(status));
+            qb.push(" AND status = ").push_bind(status);
         }
         if let Some(topic) = topic_filter {
-            query = query.filter(chat_conversations::topic_id.eq(topic));
+            qb.push(" AND topic_id = ").push_bind(topic);
         }
         if let Some(agent) = agent_filter {
-            query = query.filter(chat_conversations::assigned_agent.eq(agent));
+            qb.push(" AND assigned_agent = ").push_bind(agent);
         }
+        qb.push(" ORDER BY last_message_at DESC NULLS LAST");
 
-        query
-            .order(chat_conversations::last_message_at.desc())
-            .load::<ChatConversationDb>(&mut conn)
+        qb.build_query_as()
+            .fetch_all(pool.as_ref())
             .await
             .map_err(|e| e.to_string())
     }
@@ -119,13 +138,16 @@ impl ChatRepository {
         pool: &TlsPool,
         conv_id: Uuid,
     ) -> Result<Option<ChatConversationDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_conversations::table
-            .find(conv_id)
-            .first::<ChatConversationDb>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| e.to_string())
+        sqlx::query_as(
+            "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
+                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
+                    closed_at, resolution \
+             FROM chat_conversations WHERE id = $1",
+        )
+        .bind(conv_id)
+        .fetch_optional(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())
     }
 
     pub async fn update_status(
@@ -133,15 +155,22 @@ impl ChatRepository {
         conv_id: Uuid,
         status: &str,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        diesel::update(chat_conversations::table.find(conv_id))
-            .set((
-                chat_conversations::status.eq(status),
-                chat_conversations::updated_at.eq(Utc::now()),
-            ))
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| e.to_string())
+        let row: ChatConversationDb = sqlx::query_as(
+            r#"
+            UPDATE chat_conversations
+            SET status = $1, updated_at = NOW()
+            WHERE id = $2
+            RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
+                      last_message_at, unread_user, unread_agent, created_at, updated_at,
+                      closed_at, resolution
+            "#,
+        )
+        .bind(status)
+        .bind(conv_id)
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(row)
     }
 
     pub async fn assign_agent(
@@ -149,23 +178,25 @@ impl ChatRepository {
         conv_id: Uuid,
         agent: Option<&str>,
     ) -> Result<ChatConversationDb, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
+        let new_status = if agent.is_some() { "in_progress" } else { "open" };
 
-        let new_status = if agent.is_some() {
-            "in_progress"
-        } else {
-            "open"
-        };
-
-        diesel::update(chat_conversations::table.find(conv_id))
-            .set((
-                chat_conversations::assigned_agent.eq(agent),
-                chat_conversations::status.eq(new_status),
-                chat_conversations::updated_at.eq(Utc::now()),
-            ))
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| e.to_string())
+        let row: ChatConversationDb = sqlx::query_as(
+            r#"
+            UPDATE chat_conversations
+            SET assigned_agent = $1, status = $2, updated_at = NOW()
+            WHERE id = $3
+            RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
+                      last_message_at, unread_user, unread_agent, created_at, updated_at,
+                      closed_at, resolution
+            "#,
+        )
+        .bind(agent)
+        .bind(new_status)
+        .bind(conv_id)
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(row)
     }
 
     // ========================================================================
@@ -176,13 +207,17 @@ impl ChatRepository {
         pool: &TlsPool,
         conv_id: Uuid,
     ) -> Result<Vec<ChatMessageDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_messages::table
-            .filter(chat_messages::conversation_id.eq(conv_id))
-            .order(chat_messages::created_at.asc())
-            .load::<ChatMessageDb>(&mut conn)
-            .await
-            .map_err(|e| e.to_string())
+        sqlx::query_as(
+            "SELECT id, conversation_id, sender_type, sender_address, content, metadata, \
+                    is_read, read_at, created_at \
+             FROM chat_messages \
+             WHERE conversation_id = $1 \
+             ORDER BY created_at ASC",
+        )
+        .bind(conv_id)
+        .fetch_all(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())
     }
 
     pub async fn send_message(
@@ -204,72 +239,74 @@ impl ChatRepository {
         content: &str,
         metadata: Option<serde_json::Value>,
     ) -> Result<ChatMessageDb, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
+        let mut tx = pool.begin().await.map_err(|e| e.to_string())?;
 
-        let msg = NewMessage {
-            conversation_id: conv_id,
-            sender_type: sender_type.to_string(),
-            sender_address: sender_address.map(|s| s.to_string()),
-            content: content.to_string(),
-            metadata: metadata.unwrap_or(serde_json::Value::Null),
-        };
+        let meta = metadata.unwrap_or(serde_json::Value::Null);
 
-        let created: ChatMessageDb = diesel::insert_into(chat_messages::table)
-            .values(&msg)
-            .get_result(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        let created: ChatMessageDb = sqlx::query_as(
+            r#"
+            INSERT INTO chat_messages (
+                conversation_id, sender_type, sender_address, content, metadata
+            ) VALUES ($1, $2, $3, $4, $5)
+            RETURNING id, conversation_id, sender_type, sender_address, content, metadata,
+                      is_read, read_at, created_at
+            "#,
+        )
+        .bind(conv_id)
+        .bind(sender_type)
+        .bind(sender_address)
+        .bind(content)
+        .bind(&meta)
+        .fetch_one(&mut *tx)
+        .await
+        .map_err(|e| e.to_string())?;
 
-        // Update conversation timestamps and unread counts
         let now = Utc::now();
         match sender_type {
             "user" => {
-                diesel::update(chat_conversations::table.find(conv_id))
-                    .set((
-                        chat_conversations::last_message_at.eq(now),
-                        chat_conversations::updated_at.eq(now),
-                        chat_conversations::unread_agent.eq(chat_conversations::unread_agent + 1),
-                    ))
-                    .execute(&mut *conn)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                sqlx::query(
+                    "UPDATE chat_conversations \
+                     SET last_message_at = $1, updated_at = $1, unread_agent = unread_agent + 1 \
+                     WHERE id = $2",
+                )
+                .bind(now)
+                .bind(conv_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
             }
             "agent" | "system" | "ai" => {
-                diesel::update(chat_conversations::table.find(conv_id))
-                    .set((
-                        chat_conversations::last_message_at.eq(now),
-                        chat_conversations::updated_at.eq(now),
-                        chat_conversations::unread_user.eq(chat_conversations::unread_user + 1),
-                    ))
-                    .execute(&mut *conn)
-                    .await
-                    .map_err(|e| e.to_string())?;
+                sqlx::query(
+                    "UPDATE chat_conversations \
+                     SET last_message_at = $1, updated_at = $1, unread_user = unread_user + 1 \
+                     WHERE id = $2",
+                )
+                .bind(now)
+                .bind(conv_id)
+                .execute(&mut *tx)
+                .await
+                .map_err(|e| e.to_string())?;
             }
             _ => {}
         }
 
+        tx.commit().await.map_err(|e| e.to_string())?;
         Ok(created)
     }
 
     pub async fn mark_read_by_user(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-
-        // Mark all agent/system messages as read
-        diesel::update(
-            chat_messages::table
-                .filter(chat_messages::conversation_id.eq(conv_id))
-                .filter(chat_messages::sender_type.ne("user"))
-                .filter(chat_messages::is_read.eq(false)),
+        sqlx::query(
+            "UPDATE chat_messages SET is_read = TRUE, read_at = NOW() \
+             WHERE conversation_id = $1 AND sender_type <> 'user' AND is_read = FALSE",
         )
-        .set(chat_messages::is_read.eq(true))
-        .execute(&mut *conn)
+        .bind(conv_id)
+        .execute(pool.as_ref())
         .await
         .map_err(|e| e.to_string())?;
 
-        // Reset user unread count
-        diesel::update(chat_conversations::table.find(conv_id))
-            .set(chat_conversations::unread_user.eq(0))
-            .execute(&mut *conn)
+        sqlx::query("UPDATE chat_conversations SET unread_user = 0 WHERE id = $1")
+            .bind(conv_id)
+            .execute(pool.as_ref())
             .await
             .map_err(|e| e.to_string())?;
 
@@ -277,22 +314,18 @@ impl ChatRepository {
     }
 
     pub async fn mark_read_by_agent(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-
-        diesel::update(
-            chat_messages::table
-                .filter(chat_messages::conversation_id.eq(conv_id))
-                .filter(chat_messages::sender_type.eq("user"))
-                .filter(chat_messages::is_read.eq(false)),
+        sqlx::query(
+            "UPDATE chat_messages SET is_read = TRUE, read_at = NOW() \
+             WHERE conversation_id = $1 AND sender_type = 'user' AND is_read = FALSE",
         )
-        .set(chat_messages::is_read.eq(true))
-        .execute(&mut *conn)
+        .bind(conv_id)
+        .execute(pool.as_ref())
         .await
         .map_err(|e| e.to_string())?;
 
-        diesel::update(chat_conversations::table.find(conv_id))
-            .set(chat_conversations::unread_agent.eq(0))
-            .execute(&mut *conn)
+        sqlx::query("UPDATE chat_conversations SET unread_agent = 0 WHERE id = $1")
+            .bind(conv_id)
+            .execute(pool.as_ref())
             .await
             .map_err(|e| e.to_string())?;
 
@@ -300,29 +333,26 @@ impl ChatRepository {
     }
 
     pub async fn get_unread_count(pool: &TlsPool, wallet: &str) -> Result<i64, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-
-        let total: i64 = chat_conversations::table
-            .filter(chat_conversations::wallet_address.eq(wallet))
-            .select(diesel::dsl::sum(chat_conversations::unread_user))
-            .first::<Option<i64>>(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?
-            .unwrap_or(0);
-
-        Ok(total)
+        let row: (Option<i64>,) = sqlx::query_as(
+            "SELECT COALESCE(SUM(unread_user), 0)::BIGINT FROM chat_conversations WHERE wallet_address = $1",
+        )
+        .bind(wallet)
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(row.0.unwrap_or(0))
     }
 
     pub async fn get_last_message(pool: &TlsPool, conv_id: Uuid) -> Result<Option<String>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_messages::table
-            .filter(chat_messages::conversation_id.eq(conv_id))
-            .order(chat_messages::created_at.desc())
-            .select(chat_messages::content)
-            .first::<String>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| e.to_string())
+        let row: Option<(String,)> = sqlx::query_as(
+            "SELECT content FROM chat_messages WHERE conversation_id = $1 \
+             ORDER BY created_at DESC LIMIT 1",
+        )
+        .bind(conv_id)
+        .fetch_optional(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(row.map(|(c,)| c))
     }
 
     // ========================================================================
@@ -330,52 +360,54 @@ impl ChatRepository {
     // ========================================================================
 
     pub async fn get_stats(pool: &TlsPool) -> Result<ChatStatsResponse, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
+        let total_open: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'open'",
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
 
-        let total_open: i64 = chat_conversations::table
-            .filter(chat_conversations::status.eq("open"))
-            .select(count_star())
-            .first(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        let total_in_progress: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'in_progress'",
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
 
-        let total_in_progress: i64 = chat_conversations::table
-            .filter(chat_conversations::status.eq("in_progress"))
-            .select(count_star())
-            .first(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        let total_resolved: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'resolved'",
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
 
-        let total_resolved: i64 = chat_conversations::table
-            .filter(chat_conversations::status.eq("resolved"))
-            .select(count_star())
-            .first(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
-
-        let total_unassigned: i64 = chat_conversations::table
-            .filter(chat_conversations::assigned_agent.is_null())
-            .filter(chat_conversations::status.ne("closed"))
-            .select(count_star())
-            .first(&mut conn)
-            .await
-            .map_err(|e| e.to_string())?;
+        let total_unassigned: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*) FROM chat_conversations \
+             WHERE assigned_agent IS NULL AND status <> 'closed'",
+        )
+        .fetch_one(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())?;
 
         Ok(ChatStatsResponse {
-            total_open,
-            total_in_progress,
-            total_resolved,
-            total_unassigned,
+            total_open: total_open.0,
+            total_in_progress: total_in_progress.0,
+            total_resolved: total_resolved.0,
+            total_unassigned: total_unassigned.0,
         })
     }
 
     pub async fn get_topic(pool: &TlsPool, topic_id: Uuid) -> Result<Option<ChatTopicDb>, String> {
-        let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-        chat_topics::table
-            .find(topic_id)
-            .first::<ChatTopicDb>(&mut conn)
-            .await
-            .optional()
-            .map_err(|e| e.to_string())
+        sqlx::query_as(
+            "SELECT id, name, slug, description, icon, color, is_active, sort_order, created_at, updated_at \
+             FROM chat_topics WHERE id = $1",
+        )
+        .bind(topic_id)
+        .fetch_optional(pool.as_ref())
+        .await
+        .map_err(|e| e.to_string())
     }
 }
+
+// Re-export type alias for backward compatibility
+pub type _ChatPoolArc = Arc<PgPool>;
