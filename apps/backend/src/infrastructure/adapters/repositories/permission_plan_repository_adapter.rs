@@ -182,7 +182,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         Ok(Some(plan))
     }
 
-    async fn find_active_plans(&self) -> AppResult<Vec<Plan>> {
+    async fn find_active(&self) -> AppResult<Vec<Plan>> {
         let rows: Vec<PlanDb> = sqlx::query_as(
             "SELECT id, name, slug, description, plan_type, plan_metadata, \
                     price, currency, is_active, is_promoted, display_order, \
@@ -245,7 +245,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         Ok(plans)
     }
 
-    async fn find_promoted_plans(&self) -> AppResult<Vec<Plan>> {
+    async fn find_promoted(&self) -> AppResult<Vec<Plan>> {
         let rows: Vec<PlanDb> = sqlx::query_as(
             "SELECT id, name, slug, description, plan_type, plan_metadata, \
                     price, currency, is_active, is_promoted, display_order, \
