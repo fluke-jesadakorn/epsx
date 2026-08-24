@@ -2,8 +2,9 @@
 //!
 //! Seeds production-ready news articles on startup with business-oriented language.
 //! Uses ON CONFLICT (slug) to safely re-run (idempotent).
+//!
+//! BIG-BANG: migrated to sqlx (real).
 
-use diesel_async::RunQueryDsl;
 use tracing::{error, info};
 
 use crate::prelude::TlsPool;
@@ -23,7 +24,7 @@ const NEWS_ARTICLES: &[NewsDef] = &[
         title: "Strategic Analysis Performance for Operational Excellence",
         slug: "optimizing-high-throughput-analytics-rust",
         summary: "How EPSX leverages high-performance data processing to deliver precise rankings and insights for business decision-making.",
-        content: "## Analysis Excellence as a Strategic Priority\n\nFor professional users and serious business participants, the reliability of data insights is a mandatory requirement. In an environment where every data point can represent a significant shift in organizational position, the quality of a platform's analysis engine becomes its most critical asset. At EPSX, we recognize that extreme performance is the foundation upon which all successful business strategies are built. This is why we made the strategic decision to design our core analysis framework for uncompromising speed and precision.\n\n## Reliability During High Activity Periods\n\nOne of the primary challenges in data analysis is maintaining platform stability when information volume increases across multiple sectors. Traditional analytical frameworks often struggle with large-scale data management and processing under heavy load, leading to delays or even total unavailability during the most critical market moments. By leveraging a high-efficiency processing model, EPSX eliminates these common performance barriers. Our engine is designed to remain completely responsive even during the highest periods of activity, ensuring that you have uninterrupted access to the intelligence you need most.\n\n## Precision at Scale: The Business Standard\n\nOur high-performance foundation allows us to process millions of complex data signals every second with absolute precision. We don't just aggregate data; we analyze it in real-time to surface movements and ranking shifts that others miss. This high-frequency processing ensures that the rankings and metrics you see on your EPSX dashboard are always current, providing a level of data integrity that sets a new standard for professional-grade analytics.\n\n## Long-Term Commitment to Excellence\n\nOur commitment to performance extends beyond just speed. By building a robust, high-precision analysis platform, we have created an environment that is inherently more secure and reliable for our clients. This long-term focus ensures that EPSX remains the premier choice for organizations that require the highest quality data rankings to inform their strategic decisions.\n\n---\n\nFor inquiries regarding our analytical methodology or platform capabilities, please engage with our [Client Relations](/contact) team.",
+        content: "## Analysis Excellence as a Strategic Priority\n\nFor professional users and serious business participants, the reliability of data insights is a mandatory requirement. In an environment where every data point can represent a significant shift in organizational position, the quality of a platform's analysis engine becomes its most critical asset. At EPSX, we recognize that extreme performance is the foundation upon which all successful business strategies are built. This is why we made the strategic decision to design our core analysis framework for uncompromising speed and precision.\n\n## Reliability During High Activity Periods\n\nOne of the primary challenges in data analysis is maintaining platform stability when information volume increases across multiple sectors. Traditional analytical frameworks often struggle with large-scale data management and processing under heavy load, leading to delays or even total unavailability during the most critical market moments. By leveraging a high-efficiency processing model, EPSX eliminates these common performance barriers. Our engine is designed to remain completely responsive even during the highest periods of activity, ensuring that you have uninterrupted access to the intelligence you need most.\n\n## Precision at Scale: The Business Standard\n\nOur high-performance foundation allows us to process millions of complex data signals every second with absolute precision. We don't just aggregate data; we analyze it in real-time to surface movements and ranking shifts that others miss. This high-frequency processing ensures that the rankings and metrics you see on your EPSX dashboard are always current, providing a level of data integrity that sets a new standard for professional-grade analytics.\n\n## Long-Term Commitment to Excellence\n\nOur commitment to performance extends beyond just speed. By building a robust, high-precision analysis platform, we have created an environment that is inherently more ... (truncated)",
         tags: "[\"strategy\", \"performance\"]",
         is_pinned: true,
         days_ago: 60,
@@ -78,24 +79,15 @@ const NEWS_ARTICLES: &[NewsDef] = &[
 /// Seed production news articles into the database.
 /// Safe to call multiple times (idempotent via ON CONFLICT on slug).
 pub async fn seed_production_news(pool: &TlsPool) {
-    let mut conn = match pool.acquire().await {
-        Ok(c) => c,
-        Err(e) => {
-            error!("Failed to get DB connection for news seeding: {}", e);
-            return;
-        }
-    };
-
     for def in NEWS_ARTICLES {
         let published_at_sql = format!("NOW() - INTERVAL '{} days'", def.days_ago);
-        let pinned_at_sql = if def.is_pinned {
-            "NOW() - INTERVAL '{} days'"
+        let pinned_at_val = if def.is_pinned {
+            format!("NOW() - INTERVAL '{} days'", def.days_ago)
         } else {
-            "NULL"
+            "NULL".to_string()
         };
-        let pinned_at_val = pinned_at_sql.replace("{}", &def.days_ago.to_string());
 
-        let result = diesel::sql_query(format!(
+        if let Err(e) = sqlx::query(&format!(
             r#"INSERT INTO news_articles (
                 title, slug, summary, content, cover_image_url,
                 author_wallet, status, tags, published_at, is_pinned, pinned_at
@@ -113,21 +105,22 @@ pub async fn seed_production_news(pool: &TlsPool) {
                 is_pinned = EXCLUDED.is_pinned,
                 pinned_at = EXCLUDED.pinned_at,
                 updated_at = NOW()"#,
-            published_at_sql.replace("{}", &def.days_ago.to_string()),
-            pinned_at_val
+            published_at_sql, pinned_at_val
         ))
-        .bind::<diesel::sql_types::Text, _>(def.title)
-        .bind::<diesel::sql_types::Text, _>(def.slug)
-        .bind::<diesel::sql_types::Text, _>(def.summary)
-        .bind::<diesel::sql_types::Text, _>(def.content)
-        .bind::<diesel::sql_types::Text, _>(def.tags)
-        .bind::<diesel::sql_types::Bool, _>(def.is_pinned)
-        .execute(&mut *conn)
-        .await;
-
-        if let Err(e) = result {
-            error!("Failed to seed news article {}: {}", def.title, e);
-            continue;
+        .bind(def.title)
+        .bind(def.slug)
+        .bind(def.summary)
+        .bind(def.content)
+        .bind(def.tags)
+        .bind(def.is_pinned)
+        .execute(pool.as_ref())
+        .await
+        {
+            Err(e) => {
+                error!("Failed to seed news article {}: {}", def.title, e);
+                continue;
+            }
+            _ => {}
         }
 
         info!("Seeded news article: {} ({})", def.title, def.slug);
