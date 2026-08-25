@@ -156,21 +156,18 @@ pub async fn get_current_user_profile(
         }
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UserRow {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let (created_at, last_login) = match diesel::sql_query(
+    let (created_at, last_login) = match sqlx::query_as::<_, UserRow>(
         "SELECT created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1",
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .get_result::<UserRow>(&mut *conn)
+    .bind(&user_context.wallet_address)
+    .fetch_optional(&mut *conn)
     .await
-    .optional()
     {
         Ok(Some(row)) => (
             row.created_at.unwrap_or_else(chrono::Utc::now).to_rfc3339(),
@@ -258,29 +255,21 @@ pub async fn get_user_access_overview(
     };
 
     // Define the row structure for the stored procedure
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     #[allow(dead_code)]
     struct PermissionDetailRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         pub permission_string: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         pub permission_id: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         pub source_type: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         pub source_id: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         pub source_name: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         pub granted_at: chrono::DateTime<chrono::Utc>,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         pub is_permanent: bool,
     }
 
     // Call the stored procedure
-    let rows = diesel::sql_query(
+    let rows: Vec<PermissionDetailRow> = sqlx::query_as::<_, PermissionDetailRow>(
         r#"
         SELECT
             permission_string,
@@ -294,8 +283,8 @@ pub async fn get_user_access_overview(
         FROM public.get_wallet_permissions_detailed_working($1)
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .load::<PermissionDetailRow>(&mut *conn)
+    .bind(&user_context.wallet_address)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| {
         error!("Database error fetching detailed permissions: {}", e);
@@ -384,28 +373,20 @@ pub async fn get_user_access_overview(
 
     // Also directly query wallet_plan_assignments for active plans
     // This catches plans that may not have plan_permissions entries yet
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     #[allow(dead_code)]
     struct ActivePlanRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_id: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: chrono::DateTime<chrono::Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         billing_cycle: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         price: Option<bigdecimal::BigDecimal>,
-        #[diesel(sql_type = diesel::sql_types::Integer)]
         tier_level: i32,
     }
 
-    let active_plans: Vec<ActivePlanRow> = diesel::sql_query(
+    let active_plans: Vec<ActivePlanRow> = sqlx::query_as::<_, ActivePlanRow>(
         r#"
         SELECT pl.id::text as plan_id, pl.name as plan_name, pl.description,
                wpa.expires_at, wpa.assigned_at, pl.billing_cycle, pl.price, pl.tier_level
@@ -418,8 +399,8 @@ pub async fn get_user_access_overview(
         ORDER BY pl.tier_level DESC
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .load(&mut *conn)
+    .bind(&user_context.wallet_address)
+    .fetch_all(&mut *conn)
     .await
     .unwrap_or_default();
 
@@ -570,13 +551,12 @@ pub async fn get_user_permissions(
             }
         };
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
             permission_string: String,
         }
 
-        diesel::sql_query(
+        sqlx::query_as::<_, PermissionRow>(
             r#"
             SELECT DISTINCT permission_string
             FROM user_effective_permissions
@@ -584,8 +564,8 @@ pub async fn get_user_permissions(
             ORDER BY permission_string
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-        .load::<PermissionRow>(&mut *conn)
+        .bind(&user_context.wallet_address)
+        .fetch_all(&mut *conn)
         .await
         .map(|rows| rows.into_iter().map(|r| r.permission_string).collect())
         .unwrap_or_else(|_| user_context.permissions.clone())
@@ -675,7 +655,7 @@ pub async fn update_user_preferences(
         }
     };
 
-    let update_result = diesel::sql_query(
+    let update_result = sqlx::query(
         r#"
         UPDATE wallet_users
         SET wallet_metadata = jsonb_set(
@@ -688,8 +668,8 @@ pub async fn update_user_preferences(
         WHERE wallet_address = $1
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .bind::<diesel::sql_types::Jsonb, _>(&preferences_json)
+    .bind(&user_context.wallet_address)
+    .bind(&preferences_json)
     .execute(&mut *conn)
     .await;
 
@@ -785,25 +765,20 @@ pub async fn get_user_by_wallet_address(
         }
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct WalletUserRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let user_data = diesel::sql_query(
+    let user_data: Option<WalletUserRow> = sqlx::query_as::<_, WalletUserRow>(
         "SELECT wallet_address, is_active, created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1"
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address.to_lowercase())
-    .get_result::<WalletUserRow>(&mut *conn)
-    .await
-    .optional();
+    .bind(&wallet_address.to_lowercase())
+    .fetch_optional(&mut *conn)
+    .await;
 
     // Check if user exists
     let (wallet_addr, _is_active, created_at, last_auth) = match user_data {
@@ -831,9 +806,8 @@ pub async fn get_user_by_wallet_address(
     };
 
     // Get user permissions from user_effective_permissions read model
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UserPermissionRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
     }
 
@@ -845,7 +819,7 @@ pub async fn get_user_by_wallet_address(
           AND (expires_at IS NULL OR expires_at > NOW())
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_addr)
+    .bind(&wallet_addr)
     .load::<UserPermissionRow>(&mut *conn)
     .await
     .map(|rows| rows.into_iter().map(|r| r.permission_string).collect())
@@ -922,15 +896,14 @@ pub async fn get_user_notification_preferences(
         }
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct MetadataRow {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
         wallet_metadata: Option<serde_json::Value>,
     }
 
     let result =
         diesel::sql_query("SELECT wallet_metadata FROM wallet_users WHERE wallet_address = $1")
-            .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+            .bind(&user_context.wallet_address)
             .get_result::<MetadataRow>(&mut *conn)
             .await
             .optional();
@@ -983,11 +956,8 @@ async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Va
 
     #[derive(QueryableByName, Serialize)]
     struct PlanRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_id: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
@@ -997,7 +967,7 @@ async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Va
          INNER JOIN plans p ON wpa.plan_id = p.id
          WHERE wpa.wallet_address = $1 AND wpa.is_active = true",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
+    .bind(wallet)
     .load::<PlanRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
@@ -1017,16 +987,15 @@ fn normalize_watchlist_symbol(symbol: &str) -> String {
 async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<String>, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct WatchlistRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         symbol: String,
     }
 
     let results = diesel::sql_query(
         "SELECT symbol FROM user_watchlist WHERE wallet_address = $1 ORDER BY added_at DESC",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
+    .bind(wallet)
     .load::<WatchlistRow>(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
@@ -1173,7 +1142,7 @@ pub async fn update_user_notification_preferences(
         WHERE wallet_address = $1
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
+    .bind(&user_context.wallet_address)
     .execute(&mut *conn)
     .await;
 
@@ -1191,8 +1160,8 @@ pub async fn update_user_notification_preferences(
         WHERE wallet_address = $1
         "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&user_context.wallet_address)
-    .bind::<diesel::sql_types::Jsonb, _>(serde_json::to_value(&preferences).unwrap_or_default())
+    .bind(&user_context.wallet_address)
+    .bind(serde_json::to_value(&preferences).unwrap_or_default())
     .execute(&mut *conn)
     .await;
 

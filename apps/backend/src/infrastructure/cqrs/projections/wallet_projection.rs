@@ -7,7 +7,7 @@ use crate::infrastructure::cqrs::projection::{Projection, ProjectionCheckpoint, 
 use crate::prelude::*;
 use async_trait::async_trait;
 use chrono::Utc;
-use sqlx::{PgPool, Postgres};
+use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -74,8 +74,8 @@ impl Projection for WalletReadModelProjection {
             ProjectionCheckpoint {
                 projection_name: self.projection_name().to_string(),
                 last_processed_event_id: event_id_text.and_then(|s| Uuid::parse_str(&s).ok()),
-                last_processed_sequence: seq as u64,
-                events_processed_count: count as u64,
+                last_processed_sequence: seq,
+                events_processed_count: count,
                 processed_at: Utc::now(),
                 is_healthy: healthy,
             }
