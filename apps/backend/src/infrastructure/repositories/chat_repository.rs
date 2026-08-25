@@ -23,7 +23,7 @@ impl ChatRepository {
             "SELECT id, name, slug, description, icon, color, is_active, sort_order, created_at, updated_at \
              FROM chat_topics WHERE is_active = TRUE ORDER BY sort_order ASC",
         )
-        .fetch_all(pool.as_ref())
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -100,7 +100,7 @@ impl ChatRepository {
              ORDER BY last_message_at DESC NULLS LAST",
         )
         .bind(wallet)
-        .fetch_all(pool.as_ref())
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -129,7 +129,7 @@ impl ChatRepository {
         qb.push(" ORDER BY last_message_at DESC NULLS LAST");
 
         qb.build_query_as()
-            .fetch_all(pool.as_ref())
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())
     }
@@ -145,7 +145,7 @@ impl ChatRepository {
              FROM chat_conversations WHERE id = $1",
         )
         .bind(conv_id)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -167,7 +167,7 @@ impl ChatRepository {
         )
         .bind(status)
         .bind(conv_id)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(row)
@@ -193,7 +193,7 @@ impl ChatRepository {
         .bind(agent)
         .bind(new_status)
         .bind(conv_id)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(row)
@@ -215,7 +215,7 @@ impl ChatRepository {
              ORDER BY created_at ASC",
         )
         .bind(conv_id)
-        .fetch_all(pool.as_ref())
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -300,13 +300,13 @@ impl ChatRepository {
              WHERE conversation_id = $1 AND sender_type <> 'user' AND is_read = FALSE",
         )
         .bind(conv_id)
-        .execute(pool.as_ref())
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
         sqlx::query("UPDATE chat_conversations SET unread_user = 0 WHERE id = $1")
             .bind(conv_id)
-            .execute(pool.as_ref())
+            .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -319,13 +319,13 @@ impl ChatRepository {
              WHERE conversation_id = $1 AND sender_type = 'user' AND is_read = FALSE",
         )
         .bind(conv_id)
-        .execute(pool.as_ref())
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
 
         sqlx::query("UPDATE chat_conversations SET unread_agent = 0 WHERE id = $1")
             .bind(conv_id)
-            .execute(pool.as_ref())
+            .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
 
@@ -337,7 +337,7 @@ impl ChatRepository {
             "SELECT COALESCE(SUM(unread_user), 0)::BIGINT FROM chat_conversations WHERE wallet_address = $1",
         )
         .bind(wallet)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(row.0.unwrap_or(0))
@@ -349,7 +349,7 @@ impl ChatRepository {
              ORDER BY created_at DESC LIMIT 1",
         )
         .bind(conv_id)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(row.map(|(c,)| c))
@@ -363,21 +363,21 @@ impl ChatRepository {
         let total_open: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM chat_conversations WHERE status = 'open'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
         let total_in_progress: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM chat_conversations WHERE status = 'in_progress'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
         let total_resolved: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM chat_conversations WHERE status = 'resolved'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -385,7 +385,7 @@ impl ChatRepository {
             "SELECT COUNT(*) FROM chat_conversations \
              WHERE assigned_agent IS NULL AND status <> 'closed'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -403,7 +403,7 @@ impl ChatRepository {
              FROM chat_topics WHERE id = $1",
         )
         .bind(topic_id)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
     }

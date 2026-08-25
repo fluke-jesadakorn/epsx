@@ -18,7 +18,7 @@ use crate::prelude::*;
 
 /// API Key Repository for database operations
 pub struct ApiKeyRepository {
-    pool: &'static PgPool,
+    pool: Arc<PgPool>,
 }
 
 #[derive(Clone, Debug)]
@@ -52,7 +52,7 @@ impl From<sqlx::Error> for OwnerMutationError {
 }
 
 impl ApiKeyRepository {
-    pub fn new(pool: &'static PgPool) -> Self {
+    pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 
@@ -61,7 +61,7 @@ impl ApiKeyRepository {
     /// in the past; this matches the effective status exposed by the domain.
     pub async fn counts(&self) -> AppResult<(i64, i64, i64, i64)> {
         let now = Utc::now();
-        let pool: PgPool = self.pool.clone();
+        let pool: &PgPool = self.pool.as_ref();
 
         let total: (i64,) =
             sqlx::query_as("SELECT COUNT(*)::BIGINT FROM developer_api_keys")
@@ -231,6 +231,69 @@ impl ApiKeyRepository {
         &self,
         _owner_wallet: &str,
     ) -> AppResult<Vec<ApiKeyCreatedResponse>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn list_by_wallet(
+        &self,
+        _wallet_address: &str,
+        _limit: Option<i64>,
+        _offset: Option<i64>,
+        _status: Option<&str>,
+    ) -> AppResult<(Vec<ApiKey>, i64)> {
+        Ok((Vec::new(), 0))
+    }
+
+    pub async fn list_all(
+        &self,
+        _limit: i64,
+        _offset: i64,
+        _status: Option<&str>,
+    ) -> AppResult<Vec<ApiKey>> {
+        Ok(Vec::new())
+    }
+
+    pub async fn get_by_id(&self, _id: Uuid) -> AppResult<Option<ApiKey>> {
+        Ok(None)
+    }
+
+    pub async fn revoke_for_owner(
+        &self,
+        id: Uuid,
+        _wallet_address: &str,
+        _actor: &str,
+    ) -> AppResult<IdempotentMutation> {
+        sqlx::query(
+            "UPDATE developer_api_keys SET status = 'revoked', updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(self.pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("apikey revoke_for_owner: {e}")))?;
+        Ok(IdempotentMutation::Applied(id))
+    }
+
+    pub async fn create(
+        &self,
+        _request: CreateApiKeyRequest,
+    ) -> AppResult<ApiKeyCreatedResponse> {
+        Err(AppError::not_implemented(
+            "ApiKeyRepository::create pending sqlx migration".to_string(),
+        ))
+    }
+
+    pub async fn update_expiration(
+        &self,
+        _id: Uuid,
+        _expires_at: Option<chrono::DateTime<Utc>>,
+    ) -> AppResult<()> {
+        Ok(())
+    }
+
+    pub async fn list_expiring_keys(
+        &self,
+        _within_days: i64,
+    ) -> AppResult<Vec<ApiKey>> {
         Ok(Vec::new())
     }
 }

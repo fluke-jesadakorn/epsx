@@ -564,13 +564,18 @@ pub async fn list_api_keys_handler(
             json!({}),
         );
     }
-    let repo = ApiKeyRepository::new(*state.db_pool);
-    let result = if let Some(wallet) = &query.wallet {
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
+    let result: Result<(Vec<ApiKey>, i64), _> = if let Some(wallet) = &query.wallet {
         repo.list_by_wallet(wallet, Some(limit), Some(offset), query.status.as_deref())
             .await
     } else {
-        repo.list_all(Some(limit), Some(offset), query.status.as_deref())
-            .await
+        match repo.list_all(limit, offset, query.status.as_deref()).await {
+            Ok(rows) => {
+                let total = rows.len() as i64;
+                Ok((rows, total))
+            }
+            Err(e) => Err(e),
+        }
     };
     match result {
         Ok((api_keys, total)) => response_with_id(
@@ -659,7 +664,7 @@ pub async fn create_api_key_handler(
         expires_at,
         created_by: context.wallet_address.to_lowercase(),
     };
-    let repo = ApiKeyRepository::new(*state.db_pool);
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
     let created = match repo.create(request).await {
         Ok(value) => value,
         Err(_) => {
@@ -700,7 +705,6 @@ pub async fn create_api_key_handler(
     {
         let _ = repo
             .revoke(
-                created.api_key.id,
                 RevokeApiKeyRequest {
                     reason: "audit write failed".to_string(),
                     revoked_by: context.wallet_address.clone(),
@@ -760,7 +764,7 @@ pub async fn get_api_key_handler(
             )
         }
     };
-    let repo = ApiKeyRepository::new(*state.db_pool);
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
     match repo.get_by_id(id).await {
         Ok(Some(key)) => response_with_id(
             UnifiedApiResponse::success(AdminApiKeyView::from(key)),
@@ -844,10 +848,9 @@ pub async fn revoke_api_key_handler(
             )
         }
     };
-    let repo = ApiKeyRepository::new(*state.db_pool);
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
     match repo
         .revoke(
-            id,
             RevokeApiKeyRequest {
                 reason: body.reason.clone(),
                 revoked_by: context.wallet_address.clone(),
@@ -855,7 +858,7 @@ pub async fn revoke_api_key_handler(
         )
         .await
     {
-        Ok(key) => {
+        Ok(_key) => {
             if state
                 .audit
                 .log_sync(
@@ -876,6 +879,19 @@ pub async fn revoke_api_key_handler(
                     json!({}),
                 );
             }
+            let key = match repo.get_by_id(id).await {
+                Ok(Some(k)) => k,
+                _ => {
+                    return error_response::<AdminApiKeyView>(
+                        &request_id,
+                        StatusCode::BAD_GATEWAY,
+                        "Developer portal unavailable",
+                        "The revoked key could not be reloaded",
+                        "repository_read_failed",
+                        json!({}),
+                    );
+                }
+            };
             response_with_id(
                 UnifiedApiResponse::success(AdminApiKeyView::from(key)),
                 &request_id,
@@ -954,9 +970,22 @@ pub async fn update_expiration_handler(
             )
         }
     };
-    let repo = ApiKeyRepository::new(*state.db_pool);
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
     match repo.update_expiration(id, expires_at).await {
-        Ok(key) => {
+        Ok(_key) => {
+            let key = match repo.get_by_id(id).await {
+                Ok(Some(k)) => k,
+                _ => {
+                    return error_response::<AdminApiKeyView>(
+                        &request_id,
+                        StatusCode::BAD_GATEWAY,
+                        "Developer portal unavailable",
+                        "The updated key could not be reloaded",
+                        "repository_read_failed",
+                        json!({}),
+                    );
+                }
+            };
             if state
                 .audit
                 .log_sync(
@@ -1044,20 +1073,20 @@ pub async fn list_expiring_keys_handler(
             )
         }
     };
-    let repo = ApiKeyRepository::new(*state.db_pool);
-    match repo
-        .list_expiring_keys(days, Some(limit), Some(offset))
-        .await
-    {
-        Ok((api_keys, total)) => response_with_id(
-            UnifiedApiResponse::success(ExpiringKeysResponse {
-                api_keys: api_keys.into_iter().map(AdminApiKeyView::from).collect(),
-                total,
-                days_ahead: days,
-            }),
-            &request_id,
-            None,
-        ),
+    let repo = ApiKeyRepository::new(state.db_pool.clone());
+    match repo.list_expiring_keys(days).await {
+        Ok(api_keys) => {
+            let total = api_keys.len() as i64;
+            response_with_id(
+                UnifiedApiResponse::success(ExpiringKeysResponse {
+                    api_keys: api_keys.into_iter().map(AdminApiKeyView::from).collect(),
+                    total,
+                    days_ahead: days,
+                }),
+                &request_id,
+                None,
+            )
+        }
         Err(_) => error_response::<ExpiringKeysResponse>(
             &request_id,
             StatusCode::BAD_GATEWAY,
@@ -1078,8 +1107,7 @@ pub async fn list_modules_handler(
     State(state): State<AppState>,
     Query(query): Query<ListModulesQuery>,
 ) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ModuleRepository::new(pool);
+    let repo = ModuleRepository::new(state.db_pool.clone());
 
     match repo
         .list(query.status.as_deref(), query.category.as_deref())
@@ -1098,8 +1126,7 @@ pub async fn get_module_handler(
     State(state): State<AppState>,
     Path(id): Path<String>,
 ) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ModuleRepository::new(pool);
+    let repo = ModuleRepository::new(state.db_pool.clone());
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
@@ -1131,8 +1158,7 @@ pub async fn create_module_handler(
     headers: HeaderMap,
     Json(body): Json<CreateModuleBody>,
 ) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ModuleRepository::new(pool);
+    let repo = ModuleRepository::new(state.db_pool.clone());
 
     let request = CreateModuleRequest {
         name: body.name.clone(),
@@ -1183,8 +1209,7 @@ pub async fn update_module_handler(
     Path(id): Path<String>,
     Json(body): Json<UpdateModuleBody>,
 ) -> impl IntoResponse {
-    let pool = *state.db_pool;
-    let repo = ModuleRepository::new(pool);
+    let repo = ModuleRepository::new(state.db_pool.clone());
 
     let uuid = match Uuid::parse_str(&id) {
         Ok(u) => u,
@@ -1262,9 +1287,9 @@ pub async fn get_stats_handler(
         return response;
     }
 
-    let core_pool = *state.db_pool;
-    let api_key_repo = ApiKeyRepository::new(core_pool);
-    let module_repo = ModuleRepository::new(core_pool);
+    let core_pool: sqlx::PgPool = (*state.db_pool).clone();
+    let api_key_repo = ApiKeyRepository::new(state.db_pool.clone());
+    let module_repo = ModuleRepository::new(state.db_pool.clone());
 
     // Get authoritative counts from the database; do not classify a bounded
     // page of keys as if it were the complete inventory.

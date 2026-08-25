@@ -179,14 +179,15 @@ impl SimpleContainer {
         let diesel_pool = crate::infrastructure::database::get_diesel_pool()
             .await
             .expect("Failed to get Diesel pool");
-        let db_pool = Arc::new(diesel_pool);
+        let db_pool: Arc<sqlx::PgPool> = Arc::new(diesel_pool.clone());
+        let _ = diesel_pool;
 
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
 
         let permission_plan_repository =
-            Arc::new(PermissionPlanRepositoryAdapter::new(diesel_pool));
-        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(diesel_pool));
+            Arc::new(PermissionPlanRepositoryAdapter::new(db_pool.clone()));
+        let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(db_pool.clone()));
 
         // Initialize dedicated pools
         let payments_pool = crate::infrastructure::database::get_payments_pool()
@@ -221,7 +222,7 @@ impl SimpleContainer {
             // If no dedicated pool, we could fallback to db_pool OR just return None/default
             // Since we updated NotificationRepositoryAdapter::new to take a pool, we MUST provide one.
             // Fallback to db_pool if notifications_pool is missing (e.g. single DB setup)
-            Some(Arc::new(NotificationRepositoryAdapter::new(*db_pool)))
+            Some(Arc::new(NotificationRepositoryAdapter::new((*db_pool).clone())))
         };
 
         // Create domain services
@@ -238,7 +239,7 @@ impl SimpleContainer {
         let refresh_token_keyring = RefreshTokenKeyring::from_env()
             .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service_impl = OpenIDTokenService::new(
-            (*db_pool).clone(),
+            ((*db_pool).clone()).clone(),
             Self::get_oidc_issuer(),
             vec![
                 "epsx-frontend".to_string(),
@@ -253,7 +254,7 @@ impl SimpleContainer {
         // Create unified auth service with environment-based domain & OpenID support
         let domain = Self::get_web3_domain();
         let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
-            *db_pool,
+            &*db_pool,
             domain,
             token_service_impl,
         ));
@@ -380,14 +381,14 @@ impl SimpleContainer {
                     Ok(_) => {
                         // PERMISSION CACHE DISABLED FOR SECURITY CONTROL
                         let perm_service =
-                            Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                            Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
                         tracing::info!("UnifiedPermissionService initialized (cache disabled for security control)");
                         (pool, port, None, perm_service)
                     }
                     Err(e) => {
                         tracing::warn!("Failed to create Redis client for permission cache: {}", e);
                         let perm_service =
-                            Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                            Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
                         tracing::info!(
                             "UnifiedPermissionService initialized (without Redis cache)"
                         );
@@ -399,7 +400,7 @@ impl SimpleContainer {
                 tracing::warn!(
                     "No REDIS_URL configured - notifications and permission caching will not work"
                 );
-                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(*db_pool));
+                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
                 (None, None, None, perm_service)
             }
         };
@@ -408,7 +409,7 @@ impl SimpleContainer {
         let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
             cache.as_ref().map(Arc::clone),
             blockchain_config,
-            *db_pool,
+            &*db_pool,
         ));
 
         // Create TransactionHistoryProvider based on environment
@@ -724,7 +725,7 @@ impl SimpleContainer {
             self.web3_permission_adapter = Some(Arc::new(Web3PermissionServiceAdapter::new(
                 Some(Arc::clone(cache)),
                 Some(blockchain_config),
-                *self.db_pool,
+                &*self.db_pool,
             )));
         }
         self

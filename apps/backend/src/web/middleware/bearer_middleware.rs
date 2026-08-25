@@ -359,7 +359,7 @@ async fn validate_api_key(
     token: &str,
     app_state: &AppState,
 ) -> Result<OpenIDUserContext, (StatusCode, Json<UnifiedErrorResponse>)> {
-    let repo = ApiKeyRepository::new(*app_state.db_pool);
+    let repo = ApiKeyRepository::new(app_state.db_pool.clone());
 
     let api_key = match repo.validate_key(token).await {
         Ok(Some(key)) => key,

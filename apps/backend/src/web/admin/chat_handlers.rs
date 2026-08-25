@@ -453,37 +453,47 @@ pub async fn admin_list_conversations(
         epsx_contracts::errors::AppError::database_error("chat database unavailable")
     })?;
 
-    let mut count_query = chat_conversations::table.into_boxed();
+    let mut count_query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        "SELECT COUNT(*) FROM chat_conversations WHERE TRUE",
+    );
     if let Some(status) = query.status.as_deref() {
-        count_query = count_query.filter(chat_conversations::status.eq(status));
+        count_query.push(" AND status = ").push_bind(status.to_string());
     }
     if let Some(topic_id) = query.topic_id {
-        count_query = count_query.filter(chat_conversations::topic_id.eq(topic_id));
+        count_query.push(" AND topic_id = ").push_bind(topic_id);
     }
     if let Some(agent) = query.agent.as_deref() {
-        count_query = count_query.filter(chat_conversations::assigned_agent.eq(agent));
+        count_query.push(" AND assigned_agent = ").push_bind(agent.to_string());
     }
 
-    let total = count_query
-        .select(count_star())
-        .first::<i64>(&mut *conn)
+    let total: i64 = count_query
+        .build_query_scalar::<i64>()
+        .fetch_one(&mut *conn)
         .await
         .map_err(|_| epsx_contracts::errors::AppError::database_error("chat count unavailable"))?;
-    let mut rows_query = chat_conversations::table.into_boxed();
+
+    let mut rows_query = sqlx::QueryBuilder::<sqlx::Postgres>::new(
+        "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
+         last_message_at, unread_user, unread_agent, metadata, created_at, updated_at \
+         FROM chat_conversations WHERE TRUE",
+    );
     if let Some(status) = query.status.as_deref() {
-        rows_query = rows_query.filter(chat_conversations::status.eq(status));
+        rows_query.push(" AND status = ").push_bind(status.to_string());
     }
     if let Some(topic_id) = query.topic_id {
-        rows_query = rows_query.filter(chat_conversations::topic_id.eq(topic_id));
+        rows_query.push(" AND topic_id = ").push_bind(topic_id);
     }
     if let Some(agent) = query.agent.as_deref() {
-        rows_query = rows_query.filter(chat_conversations::assigned_agent.eq(agent));
+        rows_query.push(" AND assigned_agent = ").push_bind(agent.to_string());
     }
-    let rows = rows_query
-        .order(chat_conversations::last_message_at.desc())
-        .limit(i64::from(query.limit))
-        .offset(offset(&query))
-        .load::<ChatConversationDb>(&mut *conn)
+    rows_query
+        .push(" ORDER BY last_message_at DESC LIMIT ")
+        .push_bind(i64::from(query.limit))
+        .push(" OFFSET ")
+        .push_bind(offset(&query));
+    let rows: Vec<ChatConversationDb> = rows_query
+        .build_query_as::<ChatConversationDb>()
+        .fetch_all(&mut *conn)
         .await
         .map_err(|_| {
             epsx_contracts::errors::AppError::database_error("chat conversations unavailable")

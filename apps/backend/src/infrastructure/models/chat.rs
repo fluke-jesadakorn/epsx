@@ -6,7 +6,7 @@ use uuid::Uuid;
 // TOPIC MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
 
 pub struct ChatTopicDb {
     pub id: Uuid,
@@ -23,7 +23,7 @@ pub struct ChatTopicDb {
 // CONVERSATION MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
 
 pub struct ChatConversationDb {
     pub id: Uuid,
@@ -40,7 +40,7 @@ pub struct ChatConversationDb {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Clone, sqlx::Type)]
 
 pub struct NewConversation {
     pub topic_id: Uuid,
@@ -53,7 +53,7 @@ pub struct NewConversation {
 // MESSAGE MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, ToSchema)]
+#[derive(Debug, Serialize, ToSchema, sqlx::FromRow)]
 
 pub struct ChatMessageDb {
     pub id: Uuid,
@@ -66,7 +66,7 @@ pub struct ChatMessageDb {
     pub created_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Clone, sqlx::Type)]
 
 pub struct NewMessage {
     pub conversation_id: Uuid,

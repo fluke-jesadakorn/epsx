@@ -6,7 +6,7 @@ use uuid::Uuid;
 // DB MODELS
 // ============================================================================
 
-#[derive(Debug, Queryable, Selectable, Serialize, Clone, ToSchema)]
+#[derive(Debug, Serialize, Clone, ToSchema, sqlx::FromRow)]
 
 pub struct NewsArticleDb {
     pub id: Uuid,
@@ -25,7 +25,7 @@ pub struct NewsArticleDb {
     pub pinned_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, AsChangeset)]
+#[derive(Debug, Clone)]
 
 pub struct PinNewsArticle {
     pub is_pinned: bool,
@@ -33,7 +33,7 @@ pub struct PinNewsArticle {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Insertable)]
+#[derive(Debug, Clone, sqlx::Type)]
 
 pub struct NewNewsArticle {
     pub title: String,
@@ -47,7 +47,7 @@ pub struct NewNewsArticle {
     pub published_at: Option<DateTime<Utc>>,
 }
 
-#[derive(Debug, AsChangeset)]
+#[derive(Debug, Clone)]
 
 pub struct UpdateNewsArticle {
     pub title: Option<String>,

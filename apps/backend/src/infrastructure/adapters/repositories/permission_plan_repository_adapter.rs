@@ -34,37 +34,48 @@ struct PermStringRow {
 
 /// Helper to map a PlanDb row + permissions to Plan aggregate
 fn row_to_plan(row: PlanDb, permissions: HashSet<PermissionString>) -> Result<Plan, AppError> {
-    use crate::domain::permission_management::PlanCategory;
-    let plan_id = PlanId::from_uuid(row.id);
-    let slug = PlanSlug::new(row.slug)
-        .map_err(|e| AppError::validation_error(e.to_string()))?;
+    use crate::domain::permission_management::aggregates::plan::LoadPlanParams;
+    use crate::domain::permission_management::{PlanCategory, PlanGroup};
     let price_f64 = row
         .price
         .as_ref()
         .and_then(|bd| bd.to_string().parse::<f64>().ok())
         .unwrap_or(0.0);
-    Plan::new(
-        plan_id,
-        row.name,
+    let slug = PlanSlug::new(row.slug.clone())
+        .map_err(|e| AppError::validation_error(e.to_string()))?;
+    let plan_category = PlanCategory::parse(&row.plan_category).unwrap_or_default();
+    let plan_group = PlanGroup::parse(&row.plan_group).unwrap_or_default();
+    Ok(Plan::load(LoadPlanParams {
+        id: PlanId::from_uuid(row.id),
+        name: row.name,
         slug,
-        row.description.unwrap_or_default(),
-        row.plan_type,
-        row.plan_metadata,
-        price_f64,
-        row.currency,
-        row.is_active,
-        row.is_promoted,
-        row.display_order,
-        row.created_by,
-        row.tier_level,
-        row.is_public,
-        row.rate_limit_per_minute,
-        row.rate_limit_per_hour,
-        row.rate_limit_per_day,
-        row.burst_capacity,
+        description: row.description,
+        plan_type: row.plan_type,
+        plan_category,
+        plan_group,
         permissions,
-    )
-    .map_err(|e| AppError::validation_error(format!("Invalid plan: {}", e)))
+        price: price_f64,
+        currency: row.currency.unwrap_or_else(|| "USD".to_string()),
+        billing_cycle: row.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
+        is_active: row.is_active,
+        is_promoted: row.is_promoted,
+        tier_level: row.tier_level,
+        display_order: row.display_order,
+        max_members: row.max_members,
+        auto_assign_enabled: row.auto_assign_enabled.unwrap_or(false),
+        metadata: row.plan_metadata,
+        is_public: row.is_public,
+        grace_period_hours: row.grace_period_hours,
+        is_system: row.is_system,
+        created_by: row.created_by,
+        rate_limit_per_minute: row.rate_limit_per_minute,
+        rate_limit_per_hour: row.rate_limit_per_hour,
+        rate_limit_per_day: row.rate_limit_per_day,
+        burst_capacity: row.burst_capacity,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+        version: 0,
+    }))
 }
 
 /// PostgreSQL implementation of PlanRepositoryPort using sqlx
@@ -140,7 +151,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
         let Some(row) = row else { return Ok(None) };
-        let permissions = self.fetch_permissions(*id).await?;
+        let permissions = self.fetch_permissions(id.clone()).await?;
         Ok(Some(row_to_plan(row, permissions)?))
     }
 
@@ -214,7 +225,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 .remove(&row.id)
                 .unwrap_or_default()
                 .into_iter()
-                .filter_map(PermissionString::new)
+                .filter_map(|s| PermissionString::new(s).ok())
                 .collect();
             plans.push(row_to_plan(row, perms)?);
         }
@@ -266,7 +277,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         .bind(plan.is_active())
         .bind(plan.is_promoted())
         .bind(plan.display_order())
-        .bind(plan.created_by().to_string())
+        .bind(plan.created_by().map(|s| s.to_string()))
         .bind(plan.tier_level())
         .bind(plan.is_public())
         .bind(plan.rate_limit_per_minute())
@@ -335,10 +346,10 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
         Ok(PlanStatistics {
-            total_plans: row.total_plans as u32,
-            active_plans: row.active_plans as u32,
-            promoted_plans: row.promoted_plans as u32,
-            total_members: row.total_plans as u32, // No separate members table, reuse count
+            total_plans: row.total_plans,
+            active_plans: row.active_plans,
+            promoted_plans: row.promoted_plans,
+            total_members: row.total_plans, // No separate members table, reuse count
         })
     }
 

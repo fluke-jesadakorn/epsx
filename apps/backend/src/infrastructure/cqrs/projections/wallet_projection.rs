@@ -12,11 +12,11 @@ use std::sync::Arc;
 use uuid::Uuid;
 
 pub struct WalletReadModelProjection {
-    _pool: Arc<&'static PgPool>,
+    _pool: Arc<PgPool>,
 }
 
 impl WalletReadModelProjection {
-    pub fn new(pool: Arc<&'static PgPool>) -> Self {
+    pub fn new(pool: Arc<PgPool>) -> Self {
         Self { _pool: pool }
     }
 }

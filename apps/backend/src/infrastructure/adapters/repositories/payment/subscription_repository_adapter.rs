@@ -37,6 +37,8 @@
 
 use async_trait::async_trait;
 use chrono::Utc;
+use sqlx::QueryBuilder;
+use std::sync::Arc;
 
 
 use epsx_contracts::errors::{AppError, AppResult};
@@ -50,7 +52,6 @@ use crate::domain::payment::aggregates::subscription::{
 use crate::domain::payment::repository_ports::subscription_port::SubscriptionRepositoryPort;
 use crate::domain::subscription_management::value_objects::PlanId;
 use crate::domain::wallet_management::value_objects::WalletAddress;
-use crate::infrastructure::database::PoolExt;
 use crate::infrastructure::models::payment::{NewSubscriptionDb, SubscriptionDb};
 use crate::prelude::TlsPool;
 /// Search criteria for subscriptions.
@@ -82,12 +83,12 @@ pub struct SubscriptionSearchCriteria {
 /// `web::auth::AppState` makes the clone cost zero.
 #[derive(Clone)]
 pub struct PaymentSubscriptionRepositoryAdapter {
-    db_pool: &'static TlsPool,
+    db_pool: Arc<TlsPool>,
 }
 
 impl PaymentSubscriptionRepositoryAdapter {
     /// Construct with a payments DB pool.
-    pub fn new(db_pool: &'static TlsPool) -> Self {
+    pub fn new(db_pool: Arc<TlsPool>) -> Self {
         Self { db_pool }
     }
 
@@ -97,19 +98,26 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// `SubscriptionId`). Preserved as a `pub` helper for adapter
     /// internal tests and any pre-wave-11 callers.
     pub async fn find_by_id(&self, id: Uuid) -> AppResult<Option<SubscriptionDb>> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         debug!("Finding subscription by ID: {}", id);
 
-        let result = subscriptions::table
-            .filter(subscriptions::id.eq(id))
-            .first::<SubscriptionDb>(&mut *conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!("Failed to find subscription by ID {}: {}", id, e);
-                AppError::database_error(format!("Failed to find subscription: {}", e))
-            })?;
+        let result: Option<SubscriptionDb> = sqlx::query_as::<_, SubscriptionDb>(
+            "SELECT id, wallet_address, plan_id, payment_id, status, started_at, \
+             expires_at, cancelled_at, auto_renew, metadata \
+             FROM subscriptions WHERE id = $1",
+        )
+        .bind(id)
+        .fetch_optional(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find subscription by ID {}: {}", id, e);
+            AppError::database_error(format!("Failed to find subscription: {}", e))
+        })?;
 
         Ok(result)
     }
@@ -122,38 +130,46 @@ impl PaymentSubscriptionRepositoryAdapter {
         &self,
         criteria: SubscriptionSearchCriteria,
     ) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         debug!("Finding all subscriptions with criteria: {:?}", criteria);
 
-        let mut query = subscriptions::table.into_boxed();
+        let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+            "SELECT id, wallet_address, plan_id, payment_id, status, started_at, \
+             expires_at, cancelled_at, auto_renew, metadata \
+             FROM subscriptions WHERE TRUE",
+        );
 
         if let Some(ref wallet_addr) = criteria.wallet_address {
-            query = query.filter(subscriptions::wallet_address.eq(wallet_addr));
+            qb.push(" AND wallet_address = ").push_bind(wallet_addr.clone());
         }
-
         if let Some(ref plan_id) = criteria.plan_id {
-            query = query.filter(subscriptions::plan_id.eq(plan_id));
+            qb.push(" AND plan_id = ").push_bind(*plan_id);
         }
-
         if let Some(ref status) = criteria.status {
-            query = query.filter(subscriptions::status.eq(status));
+            qb.push(" AND status = ").push_bind(status.clone());
         }
-
         if let Some(limit) = criteria.limit {
-            query = query.limit(limit);
+            qb.push(" LIMIT ").push_bind(limit);
         }
-
         if let Some(offset) = criteria.offset {
-            query = query.offset(offset);
+            qb.push(" OFFSET ").push_bind(offset);
         }
 
-        query = query.order(subscriptions::started_at.desc().nulls_last());
+        qb.push(" ORDER BY started_at DESC NULLS LAST");
 
-        let results = query.load::<SubscriptionDb>(&mut *conn).await.map_err(|e| {
-            error!("Failed to find subscriptions: {}", e);
-            AppError::database_error(format!("Failed to find subscriptions: {}", e))
-        })?;
+        let results: Vec<SubscriptionDb> = qb
+            .build_query_as::<SubscriptionDb>()
+            .fetch_all(&mut *conn)
+            .await
+            .map_err(|e| {
+                error!("Failed to find subscriptions: {}", e);
+                AppError::database_error(format!("Failed to find subscriptions: {}", e))
+            })?;
 
         info!("Found {} subscriptions matching criteria", results.len());
         Ok(results)
@@ -164,12 +180,17 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn update_status(&self, id: Uuid, status: &str) -> AppResult<()> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         info!("Updating subscription {} status to {}", id, status);
 
-        diesel::update(subscriptions::table.filter(subscriptions::id.eq(id)))
-            .set(subscriptions::status.eq(status))
+        sqlx::query("UPDATE subscriptions SET status = $1 WHERE id = $2")
+            .bind(status)
+            .bind(id)
             .execute(&mut *conn)
             .await
             .map_err(|e| {
@@ -186,11 +207,16 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn delete(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         warn!("Deleting subscription: {}", id);
 
-        diesel::delete(subscriptions::table.filter(subscriptions::id.eq(id)))
+        sqlx::query("DELETE FROM subscriptions WHERE id = $1")
+            .bind(id)
             .execute(&mut *conn)
             .await
             .map_err(|e| {
@@ -207,25 +233,28 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// Not part of the port surface. Pre-wave-11 callers: 0 in the
     /// source tree. Kept for backward compat.
     pub async fn count(&self, criteria: SubscriptionSearchCriteria) -> AppResult<i64> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
-        let mut query = subscriptions::table.into_boxed();
+        let mut qb: QueryBuilder<sqlx::Postgres> =
+            QueryBuilder::new("SELECT COUNT(*) FROM subscriptions WHERE TRUE");
 
         if let Some(ref wallet_addr) = criteria.wallet_address {
-            query = query.filter(subscriptions::wallet_address.eq(wallet_addr));
+            qb.push(" AND wallet_address = ").push_bind(wallet_addr.clone());
         }
-
         if let Some(ref plan_id) = criteria.plan_id {
-            query = query.filter(subscriptions::plan_id.eq(plan_id));
+            qb.push(" AND plan_id = ").push_bind(*plan_id);
         }
-
         if let Some(ref status) = criteria.status {
-            query = query.filter(subscriptions::status.eq(status));
+            qb.push(" AND status = ").push_bind(status.clone());
         }
 
-        let count = query
-            .count()
-            .get_result::<i64>(&mut *conn)
+        let count: i64 = qb
+            .build_query_scalar::<i64>()
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to count subscriptions: {}", e);
@@ -243,22 +272,30 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// List subscriptions for a wallet (raw row form). Used by
     /// `list_for_wallet` to fan out to the domain conversion.
     async fn find_by_wallet_raw(&self, wallet_address: &str) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         debug!("Finding subscriptions for wallet: {}", wallet_address);
 
-        let results = subscriptions::table
-            .filter(subscriptions::wallet_address.eq(wallet_address))
-            .order(subscriptions::started_at.desc().nulls_last())
-            .load::<SubscriptionDb>(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!(
-                    "Failed to find subscriptions for wallet {}: {}",
-                    wallet_address, e
-                );
-                AppError::database_error(format!("Failed to find subscriptions: {}", e))
-            })?;
+        let results: Vec<SubscriptionDb> = sqlx::query_as::<_, SubscriptionDb>(
+            "SELECT id, wallet_address, plan_id, payment_id, status, started_at, \
+             expires_at, cancelled_at, auto_renew, metadata \
+             FROM subscriptions WHERE wallet_address = $1 \
+             ORDER BY started_at DESC NULLS LAST",
+        )
+        .bind(wallet_address)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!(
+                "Failed to find subscriptions for wallet {}: {}",
+                wallet_address, e
+            );
+            AppError::database_error(format!("Failed to find subscriptions: {}", e))
+        })?;
 
         info!(
             "Found {} subscriptions for wallet {}",
@@ -271,45 +308,68 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// List subscriptions for a plan (raw row form). Used by
     /// `list_for_plan` to fan out to the domain conversion.
     async fn find_by_plan_raw(&self, plan_id: Uuid) -> AppResult<Vec<SubscriptionDb>> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         debug!("Finding subscriptions for plan: {}", plan_id);
 
-        let results = subscriptions::table
-            .filter(subscriptions::plan_id.eq(plan_id))
-            .order(subscriptions::started_at.desc().nulls_last())
-            .load::<SubscriptionDb>(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find subscriptions for plan {}: {}", plan_id, e);
-                AppError::database_error(format!("Failed to find subscriptions: {}", e))
-            })?;
+        let results: Vec<SubscriptionDb> = sqlx::query_as::<_, SubscriptionDb>(
+            "SELECT id, wallet_address, plan_id, payment_id, status, started_at, \
+             expires_at, cancelled_at, auto_renew, metadata \
+             FROM subscriptions WHERE plan_id = $1 \
+             ORDER BY started_at DESC NULLS LAST",
+        )
+        .bind(plan_id)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find subscriptions for plan {}: {}", plan_id, e);
+            AppError::database_error(format!("Failed to find subscriptions: {}", e))
+        })?;
 
         info!("Found {} subscriptions for plan {}", results.len(), plan_id);
         Ok(results)
     }
 
     /// Save a new subscription row from a `NewSubscriptionDb`.
-    ///
-    /// Used by `create` to bridge between the port's
-    /// `CreateSubscriptionCommand` and the Diesel model.
     async fn save_new(&self, new_row: NewSubscriptionDb) -> AppResult<SubscriptionDb> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         info!(
             "Saving subscription for wallet {} on plan {}",
             new_row.wallet_address, new_row.plan_id
         );
 
-        let result = diesel::insert_into(subscriptions::table)
-            .values(&new_row)
-            .returning(SubscriptionDb::as_returning())
-            .get_result(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to save subscription: {}", e);
-                AppError::database_error(format!("Failed to save subscription: {}", e))
-            })?;
+        let result: SubscriptionDb = sqlx::query_as::<_, SubscriptionDb>(
+            "INSERT INTO subscriptions \
+             (wallet_address, plan_id, payment_id, status, started_at, expires_at, \
+              cancelled_at, auto_renew, metadata) \
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) \
+             RETURNING id, wallet_address, plan_id, payment_id, status, started_at, \
+             expires_at, cancelled_at, auto_renew, metadata",
+        )
+        .bind(&new_row.wallet_address)
+        .bind(new_row.plan_id)
+        .bind(new_row.payment_id)
+        .bind(&new_row.status)
+        .bind(new_row.started_at)
+        .bind(new_row.expires_at)
+        .bind(new_row.cancelled_at)
+        .bind(new_row.auto_renew)
+        .bind(&new_row.metadata)
+        .fetch_one(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to save subscription: {}", e);
+            AppError::database_error(format!("Failed to save subscription: {}", e))
+        })?;
 
         info!("Successfully saved subscription: {}", result.id);
         Ok(result)
@@ -319,15 +379,17 @@ impl PaymentSubscriptionRepositoryAdapter {
     /// semantics: sets `status = "cancelled"` and
     /// `cancelled_at = now()`.
     async fn cancel_by_id(&self, id: Uuid) -> AppResult<()> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         warn!("Cancelling subscription: {}", id);
 
-        diesel::update(subscriptions::table.filter(subscriptions::id.eq(id)))
-            .set((
-                subscriptions::status.eq("cancelled"),
-                subscriptions::cancelled_at.eq(Some(Utc::now())),
-            ))
+        sqlx::query("UPDATE subscriptions SET status = 'cancelled', cancelled_at = $1 WHERE id = $2")
+            .bind(Utc::now())
+            .bind(id)
             .execute(&mut *conn)
             .await
             .map_err(|e| {
@@ -348,28 +410,34 @@ impl PaymentSubscriptionRepositoryAdapter {
         &self,
         wallet_address: &str,
     ) -> AppResult<Vec<StockRankingAssignment>> {
-        let mut conn = self.db_pool.acquire().await?;
+        let mut conn = self
+            .db_pool
+            .acquire()
+            .await
+            .map_err(|e| AppError::database_error(format!("conn: {}", e)))?;
 
         debug!(
             "Reading stock_ranking_assignments for wallet: {}",
             wallet_address
         );
 
-        // The schema generator emits `stock_ranking_assignments`
-        // as a `table!` block; columns are camelCase. See
-        // `apps/backend/src/schemas/payments.rs:415-499`.
-        let results = stock_ranking_assignments::table
-            .filter(stock_ranking_assignments::wallet_address.eq(wallet_address))
-            .order(stock_ranking_assignments::assigned_at.desc())
-            .load::<StockRankingAssignmentRow>(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!(
-                    "Failed to read stock_ranking_assignments for wallet {}: {}",
-                    wallet_address, e
-                );
-                AppError::database_error(format!("Failed to read stock_ranking_assignments: {}", e))
-            })?;
+        let results: Vec<StockRankingAssignmentRow> = sqlx::query_as::<_, StockRankingAssignmentRow>(
+            "SELECT assignment_id, wallet_address, package_id, package_name, \
+             rank_access_level, assigned_at, expires_at, is_active, assignment_source, \
+             auto_renew, payment_reference, created_at, updated_at \
+             FROM stock_ranking_assignments WHERE wallet_address = $1 \
+             ORDER BY assigned_at DESC",
+        )
+        .bind(wallet_address)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!(
+                "Failed to read stock_ranking_assignments for wallet {}: {}",
+                wallet_address, e
+            );
+            AppError::database_error(format!("Failed to read stock_ranking_assignments: {}", e))
+        })?;
 
         let now = Utc::now();
         let assignments: Vec<StockRankingAssignment> = results
@@ -501,8 +569,7 @@ fn subscription_db_to_domain(row: SubscriptionDb) -> Subscription {
 /// `payment_reference` / `created_at` / `updated_at` is required
 /// even though the port method does not surface them; the
 /// `#[allow(dead_code)]` attribute keeps clippy quiet.
-#[derive(Debug, Clone, Queryable, Selectable)]
-#[diesel(table_name = stock_ranking_assignments)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 #[allow(dead_code)]
 struct StockRankingAssignmentRow {
     pub assignment_id: Uuid,

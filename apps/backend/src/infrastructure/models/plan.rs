@@ -93,3 +93,101 @@ pub struct UpdatePlanDb {
     pub rate_limit_per_day: Option<i32>,
     pub burst_capacity: Option<i32>,
 }
+
+/// CreatePlanRequest — request body for creating a new plan
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePlanRequest {
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub plan_type: String,
+    pub plan_metadata: Option<serde_json::Value>,
+    pub price: Option<rust_decimal::Decimal>,
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_promoted: Option<bool>,
+    pub display_order: Option<i32>,
+    pub max_members: Option<i32>,
+    pub auto_assign_enabled: Option<bool>,
+    pub assignment_rules: Option<serde_json::Value>,
+    pub rate_limit_per_minute: Option<i32>,
+    pub rate_limit_per_hour: Option<i32>,
+    pub rate_limit_per_day: Option<i32>,
+    pub burst_capacity: Option<i32>,
+    pub grace_period_hours: Option<i32>,
+    pub tier_level: Option<i32>,
+    pub is_public: Option<bool>,
+    pub plan_category: Option<String>,
+    pub plan_group: Option<String>,
+    pub is_system: Option<bool>,
+}
+
+/// UpdatePlanRequest — request body for updating a plan
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdatePlanRequest {
+    pub name: Option<String>,
+    pub slug: Option<String>,
+    pub description: Option<String>,
+    pub plan_metadata: Option<serde_json::Value>,
+    pub price: Option<rust_decimal::Decimal>,
+    pub currency: Option<String>,
+    pub billing_cycle: Option<String>,
+    pub is_active: Option<bool>,
+    pub is_promoted: Option<bool>,
+    pub display_order: Option<i32>,
+    pub max_members: Option<i32>,
+    pub auto_assign_enabled: Option<bool>,
+    pub assignment_rules: Option<serde_json::Value>,
+    pub rate_limit_per_minute: Option<i32>,
+    pub rate_limit_per_hour: Option<i32>,
+    pub rate_limit_per_day: Option<i32>,
+    pub burst_capacity: Option<i32>,
+    pub grace_period_hours: Option<i32>,
+    pub tier_level: Option<i32>,
+    pub is_public: Option<bool>,
+    pub plan_category: Option<String>,
+    pub plan_group: Option<String>,
+}
+
+/// Permission group alias types (legacy names, mapped to plans).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PermissionGroupDb {
+    pub id: Uuid,
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub is_active: bool,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NewPermissionGroupDb {
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub is_active: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdatePermissionGroupDb {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CreatePermissionGroupRequest {
+    pub name: String,
+    pub slug: String,
+    pub description: String,
+    pub is_active: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct UpdatePermissionGroupRequest {
+    pub name: Option<String>,
+    pub description: Option<String>,
+    pub is_active: Option<bool>,
+}

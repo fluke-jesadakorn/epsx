@@ -1,9 +1,8 @@
 use chrono::Utc;
-use sqlx::{PgPool, QueryBuilder};
 use uuid::Uuid;
 
 use crate::infrastructure::models::news::{
-    NewNewsArticle, NewsArticleDb, NewsListQuery, PinNewsArticle, UpdateNewsArticle,
+    NewNewsArticle, NewsArticleDb, NewsListQuery, UpdateNewsArticle,
 };
 use crate::prelude::TlsPool;
 
@@ -44,7 +43,7 @@ impl NewsRepository {
         .bind(false)  // is_pinned default
         .bind(Option::<chrono::DateTime<chrono::Utc>>::None)  // pinned_at
         .bind(new.published_at)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
             .map_err(|e| e.to_string())
     }
@@ -72,7 +71,7 @@ impl NewsRepository {
         .bind(&update.status)
         .bind(update.published_at)
         .bind(id)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(row)
@@ -107,7 +106,7 @@ impl NewsRepository {
         .bind(update.published_at)
         .bind(id)
         .bind(expected_updated_at)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
             .map_err(|e| e.to_string())?;
         Ok(row)
@@ -116,7 +115,7 @@ impl NewsRepository {
     pub async fn delete(pool: &TlsPool, id: Uuid) -> Result<(), String> {
         sqlx::query("DELETE FROM news_articles WHERE id = $1")
             .bind(id)
-            .execute(pool.as_ref())
+            .execute(pool)
             .await
             .map_err(|e| e.to_string())?;
         Ok(())
@@ -132,7 +131,7 @@ impl NewsRepository {
         )
         .bind(id)
         .bind(expected_updated_at)
-        .execute(pool.as_ref())
+        .execute(pool)
         .await
         .map_err(|e| e.to_string())?;
         Ok(deleted.rows_affected() == 1)
@@ -145,7 +144,7 @@ impl NewsRepository {
              FROM news_articles WHERE id = $1",
         )
         .bind(id)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -157,7 +156,7 @@ impl NewsRepository {
              FROM news_articles WHERE slug = $1 AND status = 'published'",
         )
         .bind(slug)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -174,12 +173,12 @@ impl NewsRepository {
         let total_row: (i64,) = if let Some(ref s) = query.status {
             sqlx::query_as("SELECT COUNT(*) FROM news_articles WHERE status = $1")
                 .bind(s)
-                .fetch_one(pool.as_ref())
+                .fetch_one(pool)
                 .await
                 .map_err(|e| e.to_string())?
         } else {
             sqlx::query_as("SELECT COUNT(*) FROM news_articles")
-                .fetch_one(pool.as_ref())
+                .fetch_one(pool)
                 .await
                 .map_err(|e| e.to_string())?
         };
@@ -197,7 +196,7 @@ impl NewsRepository {
             .bind(s)
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool.as_ref())
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?
         } else {
@@ -210,7 +209,7 @@ impl NewsRepository {
             )
             .bind(limit)
             .bind(offset)
-            .fetch_all(pool.as_ref())
+            .fetch_all(pool)
             .await
             .map_err(|e| e.to_string())?
         };
@@ -230,7 +229,7 @@ impl NewsRepository {
         let total_row: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM news_articles WHERE status = 'published'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -244,7 +243,7 @@ impl NewsRepository {
         )
         .bind(limit)
         .bind(offset)
-        .fetch_all(pool.as_ref())
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -254,7 +253,7 @@ impl NewsRepository {
     pub async fn slug_exists(pool: &TlsPool, slug: &str) -> Result<bool, String> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM news_articles WHERE slug = $1")
             .bind(slug)
-            .fetch_one(pool.as_ref())
+            .fetch_one(pool)
             .await
             .map_err(|e| e.to_string())?;
         Ok(row.0 > 0)
@@ -273,7 +272,7 @@ impl NewsRepository {
         .bind(Utc::now())
         .bind(Utc::now())
         .bind(id)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -290,7 +289,7 @@ impl NewsRepository {
         )
         .bind(Utc::now())
         .bind(id)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| e.to_string())
     }
@@ -314,9 +313,10 @@ impl NewsRepository {
         .bind(if pinned { Some(Utc::now()) } else { None })
         .bind(id)
         .bind(expected_updated_at)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+        Ok(row)
     }
 
     pub async fn list_featured(pool: &TlsPool, limit: i64) -> Result<Vec<NewsArticleDb>, String> {
@@ -329,7 +329,7 @@ impl NewsRepository {
              LIMIT $1",
         )
         .bind(limit.clamp(1, 10))
-        .fetch_all(pool.as_ref())
+        .fetch_all(pool)
         .await
         .map_err(|e| e.to_string())
     }

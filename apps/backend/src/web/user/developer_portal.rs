@@ -7,8 +7,6 @@ use axum::{
     Extension, Json,
 };
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeSet;
@@ -194,7 +192,7 @@ fn api_key_summary(
 }
 
 async fn live_entitlement(state: &AppState, wallet: &str) -> AppResult<DeveloperEntitlement> {
-    DeveloperEntitlementService::new(*state.db_pool)
+    DeveloperEntitlementService::new((*state.db_pool).clone())
         .resolve(wallet)
         .await
 }
@@ -236,7 +234,7 @@ pub async fn list_my_keys_handler(
         {
             return Err(AppError::bad_request("invalid API key status"));
         }
-        let (keys, total) = ApiKeyRepository::new(*state.db_pool)
+        let (keys, total) = ApiKeyRepository::new(state.db_pool.clone())
             .list_by_wallet(
                 &context.wallet_address,
                 Some(limit),
@@ -269,7 +267,7 @@ pub async fn get_my_key_handler(
     let result = async {
         let entitlement = live_entitlement(&state, &context.wallet_address).await?;
         require_read(&entitlement)?;
-        let key = ApiKeyRepository::new(*state.db_pool)
+        let key = ApiKeyRepository::new(state.db_pool.clone())
             .get_by_id(id)
             .await?
             .filter(|key| {
@@ -354,7 +352,7 @@ pub async fn create_my_key_handler(
             scopes: &requested,
             expires_at,
         })?;
-        let repo = ApiKeyRepository::new(*state.db_pool);
+        let repo = ApiKeyRepository::new(state.db_pool.clone());
         let (mutation, secret) = repo
             .create_for_owner(
                 OwnerApiKeyCreateRequest {
@@ -419,13 +417,11 @@ pub async fn revoke_my_key_handler(
         }
         let idempotency_key = require_idempotency_key(&headers)?;
         let hash = payload_hash(&serde_json::json!({"id": id, "reason": reason}))?;
-        let mutation = ApiKeyRepository::new(*state.db_pool)
+        let mutation = ApiKeyRepository::new(state.db_pool.clone())
             .revoke_for_owner(
                 id,
                 &context.wallet_address.to_ascii_lowercase(),
                 &reason,
-                idempotency_key,
-                &hash,
             )
             .await?;
         Ok(RevokeMyApiKeyResponse {
@@ -447,28 +443,27 @@ pub async fn list_available_plans_handler(State(state): State<AppState>) -> Resp
             state.db_pool.acquire().await.map_err(|error| {
                 AppError::database_error(format!("available plans pool: {error}"))
             })?;
-        let plan_rows = plans::table
-            .filter(plans::is_active.eq(true))
-            .filter(plans::is_public.eq(true))
-            .filter(plans::plan_type.ne("admin"))
-            .select((plans::id, plans::name, plans::slug, plans::description))
-            .order(plans::name.asc())
-            .load::<(Uuid, String, String, String)>(&mut *conn)
-            .await?;
+        let plan_rows: Vec<(Uuid, String, String, String)> = sqlx::query_as(
+            "SELECT id, name, slug, description FROM plans \
+             WHERE is_active = TRUE AND is_public = TRUE AND plan_type != 'admin' \
+             ORDER BY name ASC",
+        )
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| AppError::database_error(format!("plans query: {e}")))?;
         let mut result = Vec::with_capacity(plan_rows.len());
         for (id, name, slug, description) in plan_rows {
-            let plan_scopes = plan_permissions::table
-                .inner_join(
-                    permissions::table.on(permissions::id.eq(plan_permissions::permission_id)),
-                )
-                .filter(plan_permissions::plan_id.eq(id))
-                .filter(permissions::is_active.eq(true))
-                .filter(permissions::api_assignable.eq(true))
-                .filter(permissions::permission_string.not_like("admin:%"))
-                .select(permissions::permission_string)
-                .order(permissions::permission_string.asc())
-                .load::<String>(&mut *conn)
-                .await?;
+            let plan_scopes: Vec<String> = sqlx::query_scalar(
+                "SELECT p.permission_string FROM plan_permissions pp \
+                 INNER JOIN permissions p ON p.id = pp.permission_id \
+                 WHERE pp.plan_id = $1 AND p.is_active = TRUE AND p.api_assignable = TRUE \
+                 AND p.permission_string NOT LIKE 'admin:%' \
+                 ORDER BY p.permission_string ASC",
+            )
+            .bind(id)
+            .fetch_all(&mut *conn)
+            .await
+            .map_err(|e| AppError::database_error(format!("plan scopes query: {e}")))?;
             result.push(AvailablePlan {
                 id,
                 name,
@@ -513,7 +508,8 @@ async fn usage_report(state: &AppState, wallet: &str, days: Option<i32>) -> AppR
             "usage analytics unavailable",
         )
     })?;
-    UsageService::new(*state.db_pool, **analytics_pool)
+    let analytics_pool: sqlx::PgPool = (**analytics_pool).clone();
+    UsageService::new((*state.db_pool).clone(), analytics_pool)
         .get_report(wallet, days)
         .await
         .map_err(|error| {
@@ -565,7 +561,7 @@ pub async fn developer_overview_handler(
         let days = parse_days(query.days)?;
         let entitlement = live_entitlement(&state, &context.wallet_address).await?;
         require_read(&entitlement)?;
-        let repo = ApiKeyRepository::new(*state.db_pool);
+        let repo = ApiKeyRepository::new(state.db_pool.clone());
         let (keys, total_api_keys) = repo
             .list_by_wallet(&context.wallet_address, Some(100), Some(0), None)
             .await?;

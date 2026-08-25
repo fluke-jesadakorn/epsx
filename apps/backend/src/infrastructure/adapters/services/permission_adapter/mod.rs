@@ -29,14 +29,14 @@ pub struct Web3PermissionServiceAdapter {
     nft: NftValidator,
     token: TokenValidator,
     dao: DaoValidator,
-    pool: &'static TlsPool,
+    pool: Arc<TlsPool>,
 }
 
 impl Web3PermissionServiceAdapter {
     pub fn new(
         cache: Option<Arc<dyn Cache>>,
         cfg: Option<BlockchainConfig>,
-        pool: &'static TlsPool,
+        pool: Arc<TlsPool>,
     ) -> Self {
         let cache_mgr = Web3CacheMgr::new(cache);
         let blockchain_cfg = cfg.unwrap_or_default();
@@ -191,20 +191,21 @@ impl Web3PermissionServiceAdapter {
         let wallet_lower = wallet.to_lowercase();
         let mut conn = self
             .pool
-            .acquire().await
+            .acquire()
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionsJson {
-            #[diesel(sql_type = diesel::sql_types::Jsonb)]
             get_wallet_effective_permissions: serde_json::Value,
         }
 
-        match diesel::sql_query("SELECT get_wallet_effective_permissions($1)")
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .get_result::<PermissionsJson>(&mut *conn)
-            .await
+        match sqlx::query_as::<_, PermissionsJson>(
+            "SELECT get_wallet_effective_permissions($1) AS get_wallet_effective_permissions",
+        )
+        .bind(&wallet_lower)
+        .fetch_one(&mut *conn)
+        .await
         {
             Ok(result) => {
                 let perm_strings: Vec<String> = if let serde_json::Value::Array(arr) =
@@ -253,21 +254,22 @@ impl Web3PermissionServiceAdapter {
         let wallet_lower = wallet.to_lowercase();
         let mut conn = self
             .pool
-            .acquire().await
+            .acquire()
             .await
             .map_err(|e| AppError::database_error(format!("Pool error: {}", e)))?;
 
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionCheck {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
             wallet_has_permission: Option<bool>,
         }
 
-        match diesel::sql_query("SELECT wallet_has_permission($1, $2)")
-            .bind::<diesel::sql_types::Text, _>(&wallet_lower)
-            .bind::<diesel::sql_types::Text, _>(perm)
-            .get_result::<PermissionCheck>(&mut *conn)
-            .await
+        match sqlx::query_as::<_, PermissionCheck>(
+            "SELECT wallet_has_permission($1, $2) AS wallet_has_permission",
+        )
+        .bind(&wallet_lower)
+        .bind(perm)
+        .fetch_one(&mut *conn)
+        .await
         {
             Ok(result) => {
                 let has_perm = result.wallet_has_permission.unwrap_or(false);

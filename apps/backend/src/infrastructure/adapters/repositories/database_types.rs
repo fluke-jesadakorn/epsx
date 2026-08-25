@@ -283,9 +283,7 @@ pub struct PermissionPlan {
     pub currency: Option<String>,
     pub billing_cycle: Option<String>,
     // Note: DB schema has non-null bool, but we keep Option for backward compatibility during migration
-    #[diesel(deserialize_as = bool)]
     pub is_active: Option<bool>,
-    #[diesel(deserialize_as = bool)]
     pub is_promoted: Option<bool>,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: Option<bool>,
@@ -477,8 +475,8 @@ pub struct PermissionPlanDb {
     pub is_system: bool,
 }
 
-/// Diesel Insertable model for creating/updating permission plans
-#[derive(Debug, Clone, sqlx::Type, sqlx::Type)]
+/// Insert model for creating/updating permission plans
+#[derive(Debug, Clone)]
 
 pub struct NewPermissionPlanDb {
     pub id: uuid::Uuid,
@@ -510,23 +508,17 @@ pub struct NewPermissionPlanDb {
 }
 
 /// Query result for permission data from JOIN query
-#[derive(Debug, Clone, sqlx::FromRowByName)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PermissionRow {
-    
     pub permission_string: String,
-    
     pub platform: String,
-    
     pub resource: String,
-    
     pub action: String,
 }
 
 /// Query result for batch permission fetch (includes plan_id for grouping)
-#[derive(Debug, Clone, sqlx::FromRowByName)]
+#[derive(Debug, Clone, sqlx::FromRow)]
 pub struct PlanPermissionRow {
-    
     pub plan_id: uuid::Uuid,
-    
     pub permission_string: String,
 }

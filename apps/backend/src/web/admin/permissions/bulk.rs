@@ -122,7 +122,7 @@ pub async fn bulk_grant(
     }
 
     let mut successful = Vec::new();
-    let failed = Vec::new();
+    let mut failed = Vec::new();
     let mut total_granted = 0;
 
     for wallet_address in &req.wallet_addresses {
@@ -146,7 +146,7 @@ pub async fn bulk_grant(
             }
 
             // Get or create permission
-            let perm_id: Result<uuid::Uuid, _> = match sqlx::query_scalar(
+            let perm_id = match sqlx::query_scalar::<_, uuid::Uuid>(
                 r#"
                 INSERT INTO permissions (permission_string, platform, resource, action, permission_type)
                 VALUES ($1, $2, $3, $4, 'manual')
@@ -154,23 +154,18 @@ pub async fn bulk_grant(
                 RETURNING id
                 "#,
             )
-            .bind(*perm_string)
+            .bind(perm_string.as_str())
             .bind(parts[0])
             .bind(parts[1])
             .bind(parts[2])
-            .fetch_one(&app_state.db_pool)
+            .fetch_one(&*app_state.db_pool)
             .await
             {
-                Ok(id) => Ok(id),
+                Ok(id) => id,
                 Err(e) => {
                     tracing::warn!("Failed to find/create permission {}: {}", perm_string, e);
                     continue;
                 }
-            };
-
-            let perm_id = match perm_id {
-                Ok(id) => id,
-                _ => continue,
             };
 
             // Grant direct permission
@@ -185,7 +180,7 @@ pub async fn bulk_grant(
             .bind(&wallet)
             .bind(perm_id)
             .bind(req.expires_at)
-            .execute(&app_state.db_pool)
+            .execute(&*app_state.db_pool)
             .await;
 
             if let Ok(r) = result {
@@ -251,7 +246,7 @@ pub async fn bulk_revoke(
     }
 
     let mut successful = Vec::new();
-    let failed = Vec::new();
+    let mut failed = Vec::new();
     let mut total_revoked = 0;
 
     for wallet_address in &req.wallet_addresses {
@@ -263,8 +258,8 @@ pub async fn bulk_revoke(
             let perm_id: Option<uuid::Uuid> = sqlx::query_scalar(
                 "SELECT id FROM permissions WHERE permission_string = $1",
             )
-            .bind(*perm_string)
-            .fetch_optional(&app_state.db_pool)
+            .bind(perm_string.as_str())
+            .fetch_optional(&*app_state.db_pool)
             .await
             .ok()
             .flatten();
@@ -280,7 +275,7 @@ pub async fn bulk_revoke(
             )
             .bind(&wallet)
             .bind(perm_id)
-            .execute(&app_state.db_pool)
+            .execute(&*app_state.db_pool)
             .await;
 
             if let Ok(r) = result {
@@ -347,7 +342,7 @@ pub async fn bulk_assign_plans(
     }
 
     let mut successful = Vec::new();
-    let failed = Vec::new();
+    let mut failed = Vec::new();
 
     for wallet_address in &req.wallet_addresses {
         let wallet = wallet_address.to_lowercase();
@@ -380,7 +375,7 @@ pub async fn bulk_assign_plans(
         .bind(plan_uuid)
         .bind(req.expires_at)
         .bind(&assignment_source)
-        .execute(&app_state.db_pool)
+        .execute(&*app_state.db_pool)
         .await;
 
         if result.is_ok() {
@@ -484,7 +479,7 @@ pub async fn bulk_validate(
             "#,
         )
         .bind(&wallet)
-        .fetch_all(&app_state.db_pool)
+        .fetch_all(&*app_state.db_pool)
         .await
         {
             Ok(rows) => rows,

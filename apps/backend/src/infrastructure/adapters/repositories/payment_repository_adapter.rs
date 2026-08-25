@@ -20,7 +20,7 @@
 //! cross-pool file too — same reason.
 
 use crate::prelude::*;
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::PgPool;
 use tracing::{debug, error, info, warn};
 
 use bigdecimal::BigDecimal;
@@ -200,14 +200,35 @@ impl PaymentRepositoryAdapter {
             payment.wallet_address().as_str()
         );
 
-        diesel::insert_into(payments::table)
-            .values(&payment_db)
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to save payment {}: {}", payment.id().value(), e);
-                format!("Failed to save payment: {}", e)
-            })?;
+        sqlx::query(
+            r#"
+            INSERT INTO payments (
+                payment_reference, wallet_address, amount, currency, method,
+                status, plan_id, contract_address, token_address, block_number,
+                confirmations, expires_at, metadata
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+            "#,
+        )
+        .bind(&payment_db.payment_reference)
+        .bind(&payment_db.wallet_address)
+        .bind(&payment_db.amount)
+        .bind(&payment_db.currency)
+        .bind(&payment_db.method)
+        .bind(&payment_db.status)
+        .bind(payment_db.plan_id)
+        .bind(&payment_db.contract_address)
+        .bind(&payment_db.token_address)
+        .bind(payment_db.block_number)
+        .bind(payment_db.confirmations)
+        .bind(payment_db.expires_at)
+        .bind(&payment_db.metadata)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to save payment {}: {}", payment.id().value(), e);
+            format!("Failed to save payment: {}", e)
+        })?;
 
         info!("Successfully saved payment {}", payment.id().value());
         Ok(())
@@ -225,15 +246,20 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding payment by ID: {}", payment_id.value());
 
-        let payment_db = payments::table
-            .filter(payments::id.eq(payment_id.value()))
-            .first::<PaymentDb>(&mut *conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!("Failed to find payment by ID {}: {}", payment_id.value(), e);
-                format!("Failed to find payment: {}", e)
-            })?;
+        let payment_db: Option<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE id = $1",
+        )
+        .bind(payment_id.value())
+        .fetch_optional(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find payment by ID {}: {}", payment_id.value(), e);
+            format!("Failed to find payment: {}", e)
+        })?;
 
         match payment_db {
             Some(row) => {
@@ -262,19 +288,24 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding payments for wallet: {}", wallet_address.as_str());
 
-        let payments_db = payments::table
-            .filter(payments::wallet_address.eq(wallet_address.as_str()))
-            .order(payments::created_at.desc())
-            .fetch_all(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!(
-                    "Failed to find payments for wallet {}: {}",
-                    wallet_address.as_str(),
-                    e
-                );
-                format!("Failed to find payments: {}", e)
-            })?;
+        let payments_db: Vec<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE wallet_address = $1 ORDER BY created_at DESC",
+        )
+        .bind(wallet_address.as_str())
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!(
+                "Failed to find payments for wallet {}: {}",
+                wallet_address.as_str(),
+                e
+            );
+            format!("Failed to find payments: {}", e)
+        })?;
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
@@ -319,15 +350,20 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding payments with status: {}", status_str);
 
-        let payments_db = payments::table
-            .filter(payments::status.eq(status_str))
-            .order(payments::created_at.desc())
-            .fetch_all(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find payments with status {}: {}", status_str, e);
-                format!("Failed to find payments: {}", e)
-            })?;
+        let payments_db: Vec<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE status = $1 ORDER BY created_at DESC",
+        )
+        .bind(status_str)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find payments with status {}: {}", status_str, e);
+            format!("Failed to find payments: {}", e)
+        })?;
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
@@ -357,19 +393,24 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding payment by reference: {}", reference.value());
 
-        let payment_db = payments::table
-            .filter(payments::payment_reference.eq(reference.value()))
-            .first::<PaymentDb>(&mut *conn)
-            .await
-            .optional()
-            .map_err(|e| {
-                error!(
-                    "Failed to find payment by reference {}: {}",
-                    reference.value(),
-                    e
-                );
-                format!("Failed to find payment: {}", e)
-            })?;
+        let payment_db: Option<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE payment_reference = $1",
+        )
+        .bind(reference.value())
+        .fetch_optional(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!(
+                "Failed to find payment by reference {}: {}",
+                reference.value(),
+                e
+            );
+            format!("Failed to find payment: {}", e)
+        })?;
 
         match payment_db {
             Some(row) => {
@@ -399,16 +440,22 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding payments between {} and {}", start, end);
 
-        let payments_db = payments::table
-            .filter(payments::created_at.ge(start))
-            .filter(payments::created_at.le(end))
-            .order(payments::created_at.desc())
-            .fetch_all(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find payments in date range: {}", e);
-                format!("Failed to find payments: {}", e)
-            })?;
+        let payments_db: Vec<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE created_at >= $1 AND created_at <= $2 \
+             ORDER BY created_at DESC",
+        )
+        .bind(start)
+        .bind(end)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find payments in date range: {}", e);
+            format!("Failed to find payments: {}", e)
+        })?;
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
@@ -434,21 +481,22 @@ impl PaymentRepositoryAdapter {
 
         debug!("Finding expired pending payments older than {}", threshold);
 
-        let payments_db = payments::table
-            .filter(
-                payments::status
-                    .eq("pending")
-                    .or(payments::status.eq("awaiting_payment")),
-            )
-            .filter(payments::created_at.lt(threshold))
-            .filter(payments::expires_at.lt(threshold))
-            .order(payments::created_at.asc())
-            .fetch_all(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to find expired pending payments: {}", e);
-                format!("Failed to find payments: {}", e)
-            })?;
+        let payments_db: Vec<PaymentDb> = sqlx::query_as::<_, PaymentDb>(
+            "SELECT id, payment_reference, transaction_hash, wallet_address, amount, \
+             currency, method, status, plan_id, contract_address, token_address, \
+             block_number, confirmations, created_at, updated_at, expires_at, \
+             completed_at, metadata, last_checked_at, error_message, network \
+             FROM payments WHERE (status = 'pending' OR status = 'awaiting_payment') \
+             AND created_at < $1 AND expires_at < $1 \
+             ORDER BY created_at ASC",
+        )
+        .bind(threshold)
+        .fetch_all(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to find expired pending payments: {}", e);
+            format!("Failed to find payments: {}", e)
+        })?;
 
         let mut payments = Vec::new();
         for payment_db in payments_db {
@@ -501,18 +549,20 @@ impl PaymentRepositoryAdapter {
             _ => None,
         };
 
-        diesel::update(payments::table.filter(payments::id.eq(payment_id.value())))
-            .set((
-                payments::status.eq(status_str.to_string()),
-                payments::updated_at.eq(Utc::now()),
-                payments::completed_at.eq(completed_at),
-            ))
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to update payment status: {}", e);
-                format!("Failed to update payment status: {}", e)
-            })?;
+        sqlx::query(
+            "UPDATE payments SET status = $1, updated_at = $2, completed_at = $3 \
+             WHERE id = $4",
+        )
+        .bind(status_str)
+        .bind(Utc::now())
+        .bind(completed_at)
+        .bind(payment_id.value())
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to update payment status: {}", e);
+            format!("Failed to update payment status: {}", e)
+        })?;
 
         info!(
             "Successfully updated payment {} status to {}",
@@ -534,7 +584,8 @@ impl PaymentRepositoryAdapter {
             payment_id.value()
         );
 
-        diesel::delete(payments::table.filter(payments::id.eq(payment_id.value())))
+        sqlx::query("DELETE FROM payments WHERE id = $1")
+            .bind(payment_id.value())
             .execute(&mut *conn)
             .await
             .map_err(|e| {
@@ -574,33 +625,24 @@ impl PaymentRepositoryAdapter {
             WHERE wallet_address = $1
         "#;
 
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct StatsRow {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             total_payments: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             completed_payments: i64,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             failed_payments: i64,
-            #[diesel(sql_type = diesel::sql_types::Numeric)]
             total_amount: BigDecimal,
-            #[diesel(sql_type = diesel::sql_types::Numeric)]
             average_amount: BigDecimal,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             last_payment_date: Option<DateTime<Utc>>,
         }
 
-        let stats_row = sqlx::query(stats_query)
+        let stats_row: StatsRow = sqlx::query_as::<_, StatsRow>(stats_query)
             .bind(wallet_address.as_str())
-            .fetch_all(&mut *conn)
+            .fetch_one(&mut *conn)
             .await
             .map_err(|e| {
                 error!("Failed to get payment stats: {}", e);
                 format!("Failed to get payment stats: {}", e)
-            })?
-            .into_iter()
-            .next()
-            .ok_or_else(|| "No payment stats found".to_string())?;
+            })?;
 
         // Convert BigDecimal to Decimal
         let total_amount_decimal =

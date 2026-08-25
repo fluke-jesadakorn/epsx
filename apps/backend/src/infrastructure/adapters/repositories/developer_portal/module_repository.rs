@@ -18,11 +18,11 @@ use crate::prelude::*;
 
 /// Module Repository for database operations
 pub struct ModuleRepository {
-    pool: &'static PgPool,
+    pool: Arc<PgPool>,
 }
 
 impl ModuleRepository {
-    pub fn new(pool: &'static PgPool) -> Self {
+    pub fn new(pool: Arc<PgPool>) -> Self {
         Self { pool }
     }
 
@@ -32,7 +32,7 @@ impl ModuleRepository {
         status_filter: Option<&str>,
         category_filter: Option<&str>,
     ) -> AppResult<ModuleListResponse> {
-        let pool: PgPool = self.pool.clone();
+        let pool: &PgPool = self.pool.as_ref();
 
         let mut sql = String::from(
             "SELECT id, name, display_name, description, category, status, base_path, \
@@ -108,7 +108,7 @@ impl ModuleRepository {
 
     /// Get a module by ID
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiModule>> {
-        let pool: PgPool = self.pool.clone();
+        let pool: &PgPool = self.pool.as_ref();
 
         let row: Option<(
             Uuid,
@@ -158,7 +158,7 @@ impl ModuleRepository {
 
     /// Create a new module
     pub async fn create(&self, request: CreateModuleRequest) -> AppResult<ApiModule> {
-        let pool: PgPool = self.pool.clone();
+        let pool: &PgPool = self.pool.as_ref();
 
         let id = Uuid::new_v4();
         let now = Utc::now();
@@ -196,7 +196,7 @@ impl ModuleRepository {
 
     /// Update a module
     pub async fn update(&self, id: Uuid, request: UpdateModuleRequest) -> AppResult<ApiModule> {
-        let pool: PgPool = self.pool.clone();
+        let pool: &PgPool = self.pool.as_ref();
 
         let now = Utc::now();
 
