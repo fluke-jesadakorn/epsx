@@ -4,7 +4,6 @@ use axum::{extract::State, http::StatusCode, Json};
 use epsx_contracts::constants::*;
 use serde::Serialize;
 use serde_json::json;
-use sqlx::PgPool;
 use utoipa::ToSchema;
 
 #[derive(Serialize, ToSchema)]
@@ -53,7 +52,7 @@ pub async fn seed_subscription_plans(
     });
 
     let free_res = upsert_plan_by_id(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         FREE_PLAN_ID,
         FREE_PLAN_NAME,
         FREE_PLAN_SLUG,
@@ -74,7 +73,7 @@ pub async fn seed_subscription_plans(
 
     // Helper: insert/upsert a plan by slug (async, sqlx)
     async fn upsert_plan_by_id(
-        db_pool: PgPool,
+        db_pool: &sqlx::PgPool,
         id: &str,
         name: &str,
         slug: &str,
@@ -120,14 +119,14 @@ pub async fn seed_subscription_plans(
         .bind(_created_by)
         .bind(tier)
         .bind(is_public)
-        .execute(&db_pool)
+        .execute(db_pool)
         .await
         .map_err(|e| format!("upsert_plan {}: {}", slug, e))?;
         Ok(())
     }
 
     async fn upsert_plan_by_slug(
-        db_pool: PgPool,
+        db_pool: &sqlx::PgPool,
         name: &str,
         slug: &str,
         desc: &str,
@@ -175,13 +174,13 @@ pub async fn seed_subscription_plans(
         .bind(rph)
         .bind(rpd)
         .bind(burst)
-        .execute(&db_pool)
+        .execute(db_pool)
         .await
         .map_err(|e| format!("upsert_plan_by_slug {}: {}", slug, e))?;
         Ok(())
     }
 
-    async fn seed_perms(db_pool: PgPool, slug: &str, perms: &[&str]) -> Result<(), String> {
+    async fn seed_perms(db_pool: &sqlx::PgPool, slug: &str, perms: &[&str]) -> Result<(), String> {
         #[derive(sqlx::FromRow)]
         struct GId {
             id: uuid::Uuid,
@@ -189,7 +188,7 @@ pub async fn seed_subscription_plans(
 
         let plan_id: GId = sqlx::query_as("SELECT id FROM plans WHERE slug = $1")
             .bind(slug)
-            .fetch_one(&db_pool)
+            .fetch_one(db_pool)
             .await
             .map_err(|e| format!("Plan {} not found: {}", slug, e))?;
 
@@ -208,7 +207,7 @@ pub async fn seed_subscription_plans(
             .bind(platform)
             .bind(resource)
             .bind(action)
-            .execute(&db_pool)
+            .execute(db_pool)
             .await
             .map_err(|e| format!("Failed to insert perm {}: {}", p_str, e))?;
 
@@ -219,7 +218,7 @@ pub async fn seed_subscription_plans(
 
             let perm_id: PId = sqlx::query_as("SELECT id FROM permissions WHERE permission_string = $1")
                 .bind(p_str)
-                .fetch_one(&db_pool)
+                .fetch_one(db_pool)
                 .await
                 .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?;
 
@@ -230,7 +229,7 @@ pub async fn seed_subscription_plans(
             )
             .bind(plan_id.id)
             .bind(perm_id.id)
-            .execute(&db_pool)
+            .execute(db_pool)
             .await
             .map_err(|e| format!("Failed to link perm {}: {}", p_str, e))?;
         }
@@ -244,7 +243,7 @@ pub async fn seed_subscription_plans(
         "promotion": { "enabled": true, "type": "percentage", "value": 80.0, "price": 1.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
     let one_day_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "One Day Plan",
         "one-day",
         "24-hour trial access to explore the platform",
@@ -269,7 +268,7 @@ pub async fn seed_subscription_plans(
         "promotion": { "enabled": true, "type": "percentage", "value": 90.0, "price": 9.9, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
     let starter_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "Starter Plan",
         "starter",
         "Advanced analytics for individual investors and traders",
@@ -294,7 +293,7 @@ pub async fn seed_subscription_plans(
         "promotion": { "enabled": true, "type": "percentage", "value": 50.0, "price": 4999.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
     let lifetime_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "Life Time",
         "lifetime",
         "Full platform access with lifetime membership",
@@ -319,7 +318,7 @@ pub async fn seed_subscription_plans(
         "promotion": { "enabled": true, "type": "percentage", "value": 57.0, "price": 2999.0, "start_date": "", "end_date": "2026-04-04T05:00:00Z" }
     });
     let company_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "Company Plan",
         "company",
         "Complete solutions for professional teams and institutions",
@@ -344,7 +343,7 @@ pub async fn seed_subscription_plans(
         "promotion": { "enabled": true, "type": "percentage", "value": 75.0, "price": 999.0, "start_date": "", "end_date": "2026-03-25T14:00:00Z" }
     });
     let api_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "API Personal",
         "api-personal",
         "Integrate our powerful API into your systems",
@@ -368,7 +367,7 @@ pub async fn seed_subscription_plans(
         "contact_sales": true
     });
     let custom_res = upsert_plan_by_slug(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "Custom",
         "custom",
         "Tailored solutions for partners, corporate, and enterprise needs",
@@ -388,19 +387,19 @@ pub async fn seed_subscription_plans(
 
     // Seed permissions per plan
     let free_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "free",
         &["epsx:rankings:view:5", "epsx:rankings:offset:100"],
     )
     .await;
     let one_day_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "one-day",
         &["epsx:analytics:view", "epsx:trading:basic"],
     )
     .await;
     let starter_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "starter",
         &[
             "epsx:analytics:view",
@@ -411,7 +410,7 @@ pub async fn seed_subscription_plans(
     )
     .await;
     let lifetime_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "lifetime",
         &[
             "epsx:analytics:view",
@@ -423,7 +422,7 @@ pub async fn seed_subscription_plans(
     )
     .await;
     let company_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "company",
         &[
             "epsx:analytics:view",
@@ -439,7 +438,7 @@ pub async fn seed_subscription_plans(
     )
     .await;
     let api_seed = seed_perms(
-        app_state.db_pool.clone(),
+        &app_state.db_pool,
         "api-personal",
         &["epsx:analytics:view", "epsx:api:read", "epsx:data:export"],
     )
@@ -468,7 +467,7 @@ pub async fn seed_subscription_plans(
     let _ = sqlx::query(
         "UPDATE plans SET is_active = false WHERE slug IN ('pro', 'enterprise', 'api-developer') AND is_active = true",
     )
-    .execute(&app_state.db_pool)
+    .execute(app_state.db_pool.as_ref())
     .await;
 
     let mut inserted = 0;
@@ -511,7 +510,7 @@ pub async fn seed_subscription_plans(
     }
 
     let total_plans: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM plans WHERE is_active = true")
-        .fetch_one(&app_state.db_pool)
+        .fetch_one(app_state.db_pool.as_ref())
         .await
         .unwrap_or((0,));
 

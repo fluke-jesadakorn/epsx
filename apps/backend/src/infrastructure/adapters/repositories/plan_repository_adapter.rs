@@ -220,7 +220,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
 
     async fn save(&self, plan: &Plan) -> AppResult<()> {
         let price_bd = Some(
-            bigdecimal::BigDecimal::from_str(&plan.price().amount().to_string())
+            Decimal::from_str(&plan.price().amount().to_string())
                 .unwrap_or_default(),
         );
         let currency_str = Some(plan.price().currency().to_string());
@@ -241,6 +241,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             is_active: plan.is_active(),
             is_promoted: plan.is_promoted(),
             tier_level: plan.tier_level(),
+            display_order: plan.display_order(),
             max_members: None,
             auto_assign_enabled: Some(false),
             assignment_rules: None,

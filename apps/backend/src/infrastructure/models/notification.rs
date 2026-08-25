@@ -1,12 +1,13 @@
-//! Diesel models for notifications
+//! Database models for notifications (sqlx-friendly).
+//!
+//! BIG-BANG: migrated from diesel to plain sqlx structs.
+
 use chrono::{DateTime, Utc};
-use diesel::{Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Diesel Queryable model for notifications table
-#[derive(Debug, Clone, Queryable, Selectable, Serialize, Deserialize)]
-
+/// Row model for wallet_notifications table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WalletNotificationDb {
     pub id: Uuid,
     pub recipient_wallet_address: Option<String>,
@@ -35,9 +36,8 @@ pub struct WalletNotificationDb {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Diesel Insertable model for creating new notifications
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for wallet_notifications.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewWalletNotificationDb {
     pub id: Uuid,
     pub recipient_wallet_address: Option<String>,
@@ -65,12 +65,3 @@ pub struct NewWalletNotificationDb {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
 }
-
-// wave10(track-c): the two `notification_subscriptions` models
-// (`NotificationSubscriptionDb`, `NewNotificationSubscriptionDb`)
-// that used to live in this file as a `/* … */` block of
-// commented-out code have been removed. The underlying table is
-// dropped in
-// `apps/backend/migrations/notifications/20260613000000_drop_notification_subscriptions/up.sql`.
-// See the deliverable.md for the rg evidence (no live INSERT
-// or SELECT in apps/backend/src/).

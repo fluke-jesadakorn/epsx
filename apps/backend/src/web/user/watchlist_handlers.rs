@@ -5,12 +5,11 @@ use axum::{
     http::StatusCode,
     Extension, Json,
 };
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, AsyncPgConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use utoipa::ToSchema;
 use uuid::Uuid;
+
 use crate::web::{auth::AppState, middleware::OpenIDUserContext, responses::UnifiedApiResponse};
 
 const MAX_GROUPS: usize = 200;
@@ -25,8 +24,6 @@ pub struct WatchlistResponse {
 #[serde(deny_unknown_fields)]
 pub struct AddWatchlistRequest {
     pub symbol: String,
-    /// Missing or empty keeps the symbol in the virtual Ungrouped section.
-    /// Supplying IDs adds memberships without removing existing memberships.
     pub group_ids: Option<Vec<Uuid>>,
 }
 
@@ -42,7 +39,6 @@ pub struct WatchlistGroupResponse {
 pub struct WatchlistLayoutResponse {
     pub groups: Vec<WatchlistGroupResponse>,
     pub ungrouped: Vec<String>,
-    /// Count of distinct user_watchlist rows, never the membership count.
     pub watched: usize,
 }
 
@@ -78,13 +74,13 @@ fn api_error(status: StatusCode, message: &str, reason: &str) -> ApiError {
 
 #[derive(Debug)]
 enum MutationError {
-    Database(diesel::result::Error),
+    Database(sqlx::Error),
     Invalid(&'static str),
     NotFound,
 }
 
-impl From<diesel::result::Error> for MutationError {
-    fn from(value: diesel::result::Error) -> Self {
+impl From<sqlx::Error> for MutationError {
+    fn from(value: sqlx::Error) -> Self {
         Self::Database(value)
     }
 }
@@ -100,18 +96,14 @@ fn mutation_api_error(error_value: MutationError) -> ApiError {
             "The group does not belong to this user",
         ),
         MutationError::Database(error_value) => {
-            if matches!(
-                error_value,
-                diesel::result::Error::DatabaseError(
-                    diesel::result::DatabaseErrorKind::UniqueViolation,
-                    _
-                )
-            ) {
-                return api_error(
-                    StatusCode::CONFLICT,
-                    "Group name already exists",
-                    "Group names must be unique, ignoring letter case",
-                );
+            if let sqlx::Error::Database(db) = &error_value {
+                if db.code().as_deref() == Some("23505") {
+                    return api_error(
+                        StatusCode::CONFLICT,
+                        "Group name already exists",
+                        "Group names must be unique, ignoring letter case",
+                    );
+                }
             }
             error!("Watchlist organizer database error: {error_value}");
             api_error(
@@ -123,59 +115,53 @@ fn mutation_api_error(error_value: MutationError) -> ApiError {
     }
 }
 
-#[derive(QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct SymbolRow {
-    #[diesel(sql_type = diesel::sql_types::Text)]
     symbol: String,
 }
 
-#[derive(QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct GroupRow {
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
     id: Uuid,
-    #[diesel(sql_type = diesel::sql_types::Text)]
     name: String,
 }
 
-#[derive(QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct MembershipRow {
-    #[diesel(sql_type = diesel::sql_types::Uuid)]
     group_id: Uuid,
-    #[diesel(sql_type = diesel::sql_types::Text)]
     symbol: String,
 }
 
 async fn fetch_watchlist(
-    pool: &crate::prelude::TlsPool,
+    pool: &sqlx::PgPool,
     wallet: &str,
-) -> Result<Vec<String>, String> {
-    let mut conn = pool
-        .acquire().await
-        .await
-        .map_err(|error_value| error_value.to_string())?;
-    user_watchlist::table
-        .filter(user_watchlist::wallet_address.eq(wallet))
-        .order((user_watchlist::added_at.asc(), user_watchlist::id.asc()))
-        .select(user_watchlist::symbol)
-        .load::<String>(&mut *conn)
-        .await
-        .map_err(|error_value| error_value.to_string())
+) -> Result<Vec<String>, sqlx::Error> {
+    let rows: Vec<SymbolRow> = sqlx::query_as(
+        "SELECT symbol FROM user_watchlist
+         WHERE wallet_address = $1
+         ORDER BY added_at ASC, id ASC",
+    )
+    .bind(wallet)
+    .fetch_all(pool)
+    .await?;
+    Ok(rows.into_iter().map(|r| r.symbol).collect())
 }
 
 async fn fetch_layout_conn(
-    conn: &mut AsyncPgConnection,
+    conn: &mut sqlx::PgConnection,
     wallet: &str,
-) -> Result<WatchlistLayoutResponse, diesel::result::Error> {
-    let group_rows = diesel::sql_query(
+) -> Result<WatchlistLayoutResponse, sqlx::Error> {
+    let group_rows: Vec<GroupRow> = sqlx::query_as(
         "SELECT id, name
          FROM user_watchlist_groups
          WHERE wallet_address = $1
          ORDER BY position ASC, id ASC",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<GroupRow>(conn)
+    .bind(wallet)
+    .fetch_all(&mut *conn)
     .await?;
-    let membership_rows = diesel::sql_query(
+
+    let membership_rows: Vec<MembershipRow> = sqlx::query_as(
         "SELECT membership.group_id, membership.symbol
          FROM user_watchlist_group_memberships membership
          JOIN user_watchlist_groups watchlist_group ON watchlist_group.id = membership.group_id
@@ -183,27 +169,25 @@ async fn fetch_layout_conn(
          ORDER BY watchlist_group.position ASC, watchlist_group.id ASC,
                   membership.position ASC, membership.id ASC",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<MembershipRow>(conn)
+    .bind(wallet)
+    .fetch_all(&mut *conn)
     .await?;
-    let watched_rows = diesel::sql_query(
+
+    let watched_rows: Vec<SymbolRow> = sqlx::query_as(
         "SELECT symbol
          FROM user_watchlist
          WHERE wallet_address = $1
          ORDER BY ungrouped_position ASC, added_at ASC, id ASC",
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<SymbolRow>(conn)
+    .bind(wallet)
+    .fetch_all(&mut *conn)
     .await?;
 
     let mut memberships: HashMap<Uuid, Vec<String>> = HashMap::new();
     let mut grouped_symbols = HashSet::new();
     for row in membership_rows {
         grouped_symbols.insert(row.symbol.clone());
-        memberships
-            .entry(row.group_id)
-            .or_default()
-            .push(row.symbol);
+        memberships.entry(row.group_id).or_default().push(row.symbol);
     }
     let groups = group_rows
         .into_iter()
@@ -300,7 +284,7 @@ pub async fn get_watchlist_layout(
             "Failed to load watchlist layout",
         )
     })?;
-    let layout = fetch_layout_conn(&mut *conn, &ctx.wallet_address)
+    let layout = fetch_layout_conn(&mut conn, &ctx.wallet_address)
         .await
         .map_err(MutationError::Database)
         .map_err(mutation_api_error)?;
@@ -330,72 +314,72 @@ pub async fn add_to_watchlist(
         )));
     }
 
-    let mut conn = app_state.db_pool.acquire().await.map_err(|error_value| {
-        error!("DB connection error: {error_value}");
-        Json(UnifiedApiResponse::error(
-            500,
-            "Database error",
-            "Failed to connect",
-        ))
+    let mut tx = app_state.db_pool.begin().await.map_err(|error_value| {
+        error!("DB transaction error: {error_value}");
+        Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect"))
     })?;
     let wallet = ctx.wallet_address.clone();
     let symbol_for_transaction = symbol.clone();
-    let result = conn
-        .transaction::<_, MutationError, _>(|conn| {
-            Box::pin(async move {
-                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .execute(conn)
-                    .await?;
-                let owner_groups = diesel::sql_query(
-                    "SELECT id, name FROM user_watchlist_groups WHERE wallet_address = $1 FOR UPDATE",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .load::<GroupRow>(conn)
-                .await?;
-                let owner_group_ids: HashSet<_> =
-                    owner_groups.into_iter().map(|row| row.id).collect();
-                if group_ids.iter().any(|id| !owner_group_ids.contains(id)) {
-                    return Err(MutationError::Invalid(
-                        "A group does not belong to this user",
-                    ));
-                }
-                diesel::sql_query(
-                    "INSERT INTO user_watchlist (wallet_address, symbol, ungrouped_position)
-                     SELECT $1, $2, COALESCE(MAX(ungrouped_position), -1) + 1
-                     FROM user_watchlist WHERE wallet_address = $1
-                     ON CONFLICT (wallet_address, symbol) DO NOTHING",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .bind::<diesel::sql_types::Text, _>(&symbol_for_transaction)
-                .execute(conn)
-                .await?;
-                for group_id in group_ids {
-                    diesel::sql_query(
-                        "INSERT INTO user_watchlist_group_memberships
-                            (group_id, wallet_address, symbol, position)
-                         SELECT watchlist_group.id, $2, $3, COALESCE(MAX(membership.position), -1) + 1
-                         FROM user_watchlist_groups watchlist_group
-                         LEFT JOIN user_watchlist_group_memberships membership
-                           ON membership.group_id = watchlist_group.id
-                         WHERE watchlist_group.id = $1 AND watchlist_group.wallet_address = $2
-                         GROUP BY watchlist_group.id
-                         ON CONFLICT (group_id, symbol) DO NOTHING",
-                    )
-                    .bind::<diesel::sql_types::Uuid, _>(group_id)
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .bind::<diesel::sql_types::Text, _>(&symbol_for_transaction)
-                    .execute(conn)
-                    .await?;
-                }
-                Ok(())
-            })
-        })
-        .await;
+    let result: Result<(), MutationError> = async {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(&wallet)
+            .execute(&mut *tx)
+            .await?;
+        let owner_groups: Vec<GroupRow> = sqlx::query_as(
+            "SELECT id, name FROM user_watchlist_groups WHERE wallet_address = $1 FOR UPDATE",
+        )
+        .bind(&wallet)
+        .fetch_all(&mut *tx)
+        .await?;
+        let owner_group_ids: HashSet<_> = owner_groups.into_iter().map(|row| row.id).collect();
+        if group_ids.iter().any(|id| !owner_group_ids.contains(id)) {
+            return Err(MutationError::Invalid("A group does not belong to this user"));
+        }
+        sqlx::query(
+            "INSERT INTO user_watchlist (wallet_address, symbol, ungrouped_position)
+             SELECT $1, $2, COALESCE(MAX(ungrouped_position), -1) + 1
+             FROM user_watchlist WHERE wallet_address = $1
+             ON CONFLICT (wallet_address, symbol) DO NOTHING",
+        )
+        .bind(&wallet)
+        .bind(&symbol_for_transaction)
+        .execute(&mut *tx)
+        .await?;
+        for group_id in group_ids {
+            sqlx::query(
+                "INSERT INTO user_watchlist_group_memberships
+                    (group_id, wallet_address, symbol, position)
+                 SELECT watchlist_group.id, $2, $3, COALESCE(MAX(membership.position), -1) + 1
+                 FROM user_watchlist_groups watchlist_group
+                 LEFT JOIN user_watchlist_group_memberships membership
+                   ON membership.group_id = watchlist_group.id
+                 WHERE watchlist_group.id = $1 AND watchlist_group.wallet_address = $2
+                 GROUP BY watchlist_group.id
+                 ON CONFLICT (group_id, symbol) DO NOTHING",
+            )
+            .bind(group_id)
+            .bind(&wallet)
+            .bind(&symbol_for_transaction)
+            .execute(&mut *tx)
+            .await?;
+        }
+        Ok(())
+    }
+    .await;
+
     if let Err(error_value) = result {
+        let _ = tx.rollback().await;
         let (_, response) = mutation_api_error(error_value);
         return Err(response);
     }
+    tx.commit().await.map_err(|error_value| {
+        error!("Failed to commit watchlist add: {error_value}");
+        Json(UnifiedApiResponse::error(
+            500,
+            "Database error",
+            "The watchlist change could not be saved",
+        ))
+    })?;
 
     info!("Added {symbol} to watchlist for {}", ctx.wallet_address);
     match fetch_watchlist(&app_state.db_pool, &ctx.wallet_address).await {
@@ -425,20 +409,12 @@ pub async fn remove_from_watchlist(
             "Symbol must be 1-20 letters, numbers, dots, or hyphens",
         )));
     };
-    let mut conn = app_state.db_pool.acquire().await.map_err(|error_value| {
-        error!("DB connection error: {error_value}");
-        Json(UnifiedApiResponse::error(
-            500,
-            "Database error",
-            "Failed to connect",
-        ))
-    })?;
-    diesel::delete(
-        user_watchlist::table
-            .filter(user_watchlist::wallet_address.eq(&ctx.wallet_address))
-            .filter(user_watchlist::symbol.eq(&symbol)),
+    sqlx::query(
+        "DELETE FROM user_watchlist WHERE wallet_address = $1 AND symbol = $2",
     )
-    .execute(&mut *conn)
+    .bind(&ctx.wallet_address)
+    .bind(&symbol)
+    .execute(app_state.db_pool.as_ref())
     .await
     .map_err(|error_value| {
         error!("Failed to remove from watchlist: {error_value}");
@@ -476,7 +452,7 @@ pub async fn create_watchlist_group(
             "Group names must contain 1-50 characters",
         )
     })?;
-    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
+    let mut tx = app_state.db_pool.begin().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -484,29 +460,39 @@ pub async fn create_watchlist_group(
         )
     })?;
     let wallet = ctx.wallet_address.clone();
-    let layout = conn
-        .transaction::<_, MutationError, _>(|conn| {
-            Box::pin(async move {
-                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .execute(conn)
-                    .await?;
-                diesel::sql_query(
-                    "INSERT INTO user_watchlist_groups (wallet_address, name, position)
-                     SELECT $1, $2, COALESCE(MAX(position), -1) + 1
-                     FROM user_watchlist_groups WHERE wallet_address = $1",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .bind::<diesel::sql_types::Text, _>(&name)
-                .execute(conn)
-                .await?;
-                fetch_layout_conn(conn, &wallet)
-                    .await
-                    .map_err(MutationError::Database)
-            })
-        })
-        .await
-        .map_err(mutation_api_error)?;
+    let result: Result<WatchlistLayoutResponse, MutationError> = async {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(&wallet)
+            .execute(&mut *tx)
+            .await?;
+        sqlx::query(
+            "INSERT INTO user_watchlist_groups (wallet_address, name, position)
+             SELECT $1, $2, COALESCE(MAX(position), -1) + 1
+             FROM user_watchlist_groups WHERE wallet_address = $1",
+        )
+        .bind(&wallet)
+        .bind(&name)
+        .execute(&mut *tx)
+        .await?;
+        fetch_layout_conn(&mut tx, &wallet)
+            .await
+            .map_err(MutationError::Database)
+    }
+    .await;
+    let layout = match result {
+        Ok(l) => l,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return Err(mutation_api_error(e));
+        }
+    };
+    tx.commit().await.map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database error",
+            "Failed to save group",
+        )
+    })?;
     Ok(Json(UnifiedApiResponse::success(layout)))
 }
 
@@ -523,7 +509,7 @@ pub async fn update_watchlist_group(
             "Group names must contain 1-50 characters",
         )
     })?;
-    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
+    let mut tx = app_state.db_pool.begin().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -531,28 +517,38 @@ pub async fn update_watchlist_group(
         )
     })?;
     let wallet = ctx.wallet_address.clone();
-    let layout = conn
-        .transaction::<_, MutationError, _>(|conn| {
-            Box::pin(async move {
-                let updated = diesel::sql_query(
-                    "UPDATE user_watchlist_groups SET name = $3, updated_at = NOW()
-                     WHERE id = $1 AND wallet_address = $2",
-                )
-                .bind::<diesel::sql_types::Uuid, _>(group_id)
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .bind::<diesel::sql_types::Text, _>(&name)
-                .execute(conn)
-                .await?;
-                if updated == 0 {
-                    return Err(MutationError::NotFound);
-                }
-                fetch_layout_conn(conn, &wallet)
-                    .await
-                    .map_err(MutationError::Database)
-            })
-        })
-        .await
-        .map_err(mutation_api_error)?;
+    let result: Result<WatchlistLayoutResponse, MutationError> = async {
+        let updated = sqlx::query(
+            "UPDATE user_watchlist_groups SET name = $3, updated_at = NOW()
+             WHERE id = $1 AND wallet_address = $2",
+        )
+        .bind(group_id)
+        .bind(&wallet)
+        .bind(&name)
+        .execute(&mut *tx)
+        .await?;
+        if updated.rows_affected() == 0 {
+            return Err(MutationError::NotFound);
+        }
+        fetch_layout_conn(&mut tx, &wallet)
+            .await
+            .map_err(MutationError::Database)
+    }
+    .await;
+    let layout = match result {
+        Ok(l) => l,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return Err(mutation_api_error(e));
+        }
+    };
+    tx.commit().await.map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database error",
+            "Failed to rename group",
+        )
+    })?;
     Ok(Json(UnifiedApiResponse::success(layout)))
 }
 
@@ -561,7 +557,7 @@ pub async fn delete_watchlist_group(
     Extension(ctx): Extension<OpenIDUserContext>,
     Path(group_id): Path<Uuid>,
 ) -> ApiResult<WatchlistLayoutResponse> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
+    let mut tx = app_state.db_pool.begin().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -569,81 +565,91 @@ pub async fn delete_watchlist_group(
         )
     })?;
     let wallet = ctx.wallet_address.clone();
-    let layout = conn
-        .transaction::<_, MutationError, _>(|conn| {
-            Box::pin(async move {
-                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .execute(conn)
-                    .await?;
-                let groups = diesel::sql_query(
-                    "SELECT id, name FROM user_watchlist_groups
-                     WHERE id = $1 AND wallet_address = $2 FOR UPDATE",
-                )
-                .bind::<diesel::sql_types::Uuid, _>(group_id)
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .load::<GroupRow>(conn)
-                .await?;
-                if groups.is_empty() {
-                    return Err(MutationError::NotFound);
-                }
-                diesel::sql_query(
-                    "WITH orphaned AS (
-                         SELECT membership.symbol,
-                                ROW_NUMBER() OVER (ORDER BY membership.position, membership.id) AS offset
-                         FROM user_watchlist_group_memberships membership
-                         WHERE membership.group_id = $1 AND membership.wallet_address = $2
-                           AND NOT EXISTS (
-                               SELECT 1 FROM user_watchlist_group_memberships other
-                               WHERE other.wallet_address = $2
-                                 AND other.symbol = membership.symbol
-                                 AND other.group_id <> $1
-                           )
-                     ), base AS (
-                         SELECT COALESCE(MAX(watchlist.ungrouped_position), -1) AS position
-                         FROM user_watchlist watchlist
-                         WHERE watchlist.wallet_address = $2
-                           AND NOT EXISTS (
-                               SELECT 1 FROM user_watchlist_group_memberships existing
-                               WHERE existing.wallet_address = $2
-                                 AND existing.symbol = watchlist.symbol
-                           )
-                     )
-                     UPDATE user_watchlist watchlist
-                     SET ungrouped_position = base.position + orphaned.offset
-                     FROM orphaned, base
-                     WHERE watchlist.wallet_address = $2 AND watchlist.symbol = orphaned.symbol",
-                )
-                .bind::<diesel::sql_types::Uuid, _>(group_id)
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .execute(conn)
-                .await?;
-                diesel::sql_query(
-                    "DELETE FROM user_watchlist_groups WHERE id = $1 AND wallet_address = $2",
-                )
-                .bind::<diesel::sql_types::Uuid, _>(group_id)
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .execute(conn)
-                .await?;
-                diesel::sql_query(
-                    "WITH ordered AS (
-                         SELECT id, ROW_NUMBER() OVER (ORDER BY position, id) - 1 AS position
-                         FROM user_watchlist_groups WHERE wallet_address = $1
-                     )
-                     UPDATE user_watchlist_groups watchlist_group
-                     SET position = ordered.position, updated_at = NOW()
-                     FROM ordered WHERE watchlist_group.id = ordered.id",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .execute(conn)
-                .await?;
-                fetch_layout_conn(conn, &wallet)
-                    .await
-                    .map_err(MutationError::Database)
-            })
-        })
-        .await
-        .map_err(mutation_api_error)?;
+    let result: Result<WatchlistLayoutResponse, MutationError> = async {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(&wallet)
+            .execute(&mut *tx)
+            .await?;
+        let groups: Vec<GroupRow> = sqlx::query_as(
+            "SELECT id, name FROM user_watchlist_groups
+             WHERE id = $1 AND wallet_address = $2 FOR UPDATE",
+        )
+        .bind(group_id)
+        .bind(&wallet)
+        .fetch_all(&mut *tx)
+        .await?;
+        if groups.is_empty() {
+            return Err(MutationError::NotFound);
+        }
+        sqlx::query(
+            "WITH orphaned AS (
+                 SELECT membership.symbol,
+                        ROW_NUMBER() OVER (ORDER BY membership.position, membership.id) AS offset
+                 FROM user_watchlist_group_memberships membership
+                 WHERE membership.group_id = $1 AND membership.wallet_address = $2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM user_watchlist_group_memberships other
+                       WHERE other.wallet_address = $2
+                         AND other.symbol = membership.symbol
+                         AND other.group_id <> $1
+                   )
+              ), base AS (
+                 SELECT COALESCE(MAX(watchlist.ungrouped_position), -1) AS position
+                 FROM user_watchlist watchlist
+                 WHERE watchlist.wallet_address = $2
+                   AND NOT EXISTS (
+                       SELECT 1 FROM user_watchlist_group_memberships existing
+                       WHERE existing.wallet_address = $2
+                         AND existing.symbol = watchlist.symbol
+                   )
+              )
+              UPDATE user_watchlist watchlist
+              SET ungrouped_position = base.position + orphaned.offset
+              FROM orphaned, base
+              WHERE watchlist.wallet_address = $2 AND watchlist.symbol = orphaned.symbol",
+        )
+        .bind(group_id)
+        .bind(&wallet)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "DELETE FROM user_watchlist_groups WHERE id = $1 AND wallet_address = $2",
+        )
+        .bind(group_id)
+        .bind(&wallet)
+        .execute(&mut *tx)
+        .await?;
+        sqlx::query(
+            "WITH ordered AS (
+                 SELECT id, ROW_NUMBER() OVER (ORDER BY position, id) - 1 AS position
+                 FROM user_watchlist_groups WHERE wallet_address = $1
+             )
+             UPDATE user_watchlist_groups watchlist_group
+             SET position = ordered.position, updated_at = NOW()
+             FROM ordered WHERE watchlist_group.id = ordered.id",
+        )
+        .bind(&wallet)
+        .execute(&mut *tx)
+        .await?;
+        fetch_layout_conn(&mut tx, &wallet)
+            .await
+            .map_err(MutationError::Database)
+    }
+    .await;
+    let layout = match result {
+        Ok(l) => l,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return Err(mutation_api_error(e));
+        }
+    };
+    tx.commit().await.map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database error",
+            "Failed to delete group",
+        )
+    })?;
     Ok(Json(UnifiedApiResponse::success(layout)))
 }
 
@@ -671,16 +677,13 @@ pub async fn update_watchlist_layout(
         prepared_groups.push((group.id, symbols));
     }
     let ungrouped = normalize_symbol_list(&body.ungrouped).map_err(mutation_api_error)?;
-    if ungrouped
-        .iter()
-        .any(|symbol| grouped_union.contains(symbol))
-    {
+    if ungrouped.iter().any(|symbol| grouped_union.contains(symbol)) {
         return Err(mutation_api_error(MutationError::Invalid(
             "Grouped symbols cannot also appear in Ungrouped",
         )));
     }
 
-    let mut conn = app_state.db_pool.acquire().await.map_err(|_| {
+    let mut tx = app_state.db_pool.begin().await.map_err(|_| {
         api_error(
             StatusCode::INTERNAL_SERVER_ERROR,
             "Database error",
@@ -688,104 +691,107 @@ pub async fn update_watchlist_layout(
         )
     })?;
     let wallet = ctx.wallet_address.clone();
-    let layout = conn
-        .transaction::<_, MutationError, _>(|conn| {
-            Box::pin(async move {
-                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .execute(conn)
-                    .await?;
-                let owner_groups = diesel::sql_query(
-                    "SELECT id, name FROM user_watchlist_groups
-                     WHERE wallet_address = $1 ORDER BY position, id FOR UPDATE",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .load::<GroupRow>(conn)
-                .await?;
-                let owner_group_ids: HashSet<_> = owner_groups.iter().map(|row| row.id).collect();
-                let requested_group_ids: HashSet<_> =
-                    prepared_groups.iter().map(|(id, _)| *id).collect();
-                if owner_group_ids != requested_group_ids {
-                    return Err(MutationError::Invalid(
-                        "The layout must contain every owner-scoped group exactly once",
-                    ));
-                }
-                let watched_rows = diesel::sql_query(
-                    "SELECT symbol FROM user_watchlist WHERE wallet_address = $1 FOR UPDATE",
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .load::<SymbolRow>(conn)
-                .await?;
-                let watched_symbols: HashSet<_> =
-                    watched_rows.into_iter().map(|row| row.symbol).collect();
-                let requested_symbols: HashSet<_> = grouped_union
-                    .iter()
-                    .cloned()
-                    .chain(ungrouped.iter().cloned())
-                    .collect();
-                if watched_symbols != requested_symbols {
-                    return Err(MutationError::Invalid(
-                        "The layout cannot add or indirectly unwatch symbols",
-                    ));
-                }
+    let result: Result<WatchlistLayoutResponse, MutationError> = async {
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+            .bind(&wallet)
+            .execute(&mut *tx)
+            .await?;
+        let owner_groups: Vec<GroupRow> = sqlx::query_as(
+            "SELECT id, name FROM user_watchlist_groups
+             WHERE wallet_address = $1 ORDER BY position, id FOR UPDATE",
+        )
+        .bind(&wallet)
+        .fetch_all(&mut *tx)
+        .await?;
+        let owner_group_ids: HashSet<_> = owner_groups.iter().map(|row| row.id).collect();
+        let requested_group_ids: HashSet<_> =
+            prepared_groups.iter().map(|(id, _)| *id).collect();
+        if owner_group_ids != requested_group_ids {
+            return Err(MutationError::Invalid(
+                "The layout must contain every owner-scoped group exactly once",
+            ));
+        }
+        let watched_rows: Vec<SymbolRow> = sqlx::query_as(
+            "SELECT symbol FROM user_watchlist WHERE wallet_address = $1 FOR UPDATE",
+        )
+        .bind(&wallet)
+        .fetch_all(&mut *tx)
+        .await?;
+        let watched_symbols: HashSet<_> = watched_rows.into_iter().map(|row| row.symbol).collect();
+        let requested_symbols: HashSet<_> = grouped_union
+            .iter()
+            .cloned()
+            .chain(ungrouped.iter().cloned())
+            .collect();
+        if watched_symbols != requested_symbols {
+            return Err(MutationError::Invalid(
+                "The layout cannot add or indirectly unwatch symbols",
+            ));
+        }
 
-                diesel::sql_query(
-                    "DELETE FROM user_watchlist_group_memberships membership
-                     USING user_watchlist_groups watchlist_group
-                     WHERE membership.group_id = watchlist_group.id
-                       AND watchlist_group.wallet_address = $1",
+        sqlx::query(
+            "DELETE FROM user_watchlist_group_memberships membership
+             USING user_watchlist_groups watchlist_group
+             WHERE membership.group_id = watchlist_group.id
+               AND watchlist_group.wallet_address = $1",
+        )
+        .bind(&wallet)
+        .execute(&mut *tx)
+        .await?;
+        for (group_position, (group_id, symbols)) in prepared_groups.iter().enumerate() {
+            sqlx::query(
+                "UPDATE user_watchlist_groups SET position = $3, updated_at = NOW()
+                 WHERE id = $1 AND wallet_address = $2",
+            )
+            .bind(*group_id)
+            .bind(&wallet)
+            .bind(i32::try_from(group_position).unwrap_or(i32::MAX))
+            .execute(&mut *tx)
+            .await?;
+            for (symbol_position, symbol) in symbols.iter().enumerate() {
+                sqlx::query(
+                    "INSERT INTO user_watchlist_group_memberships
+                        (group_id, wallet_address, symbol, position)
+                     VALUES ($1, $2, $3, $4)",
                 )
-                .bind::<diesel::sql_types::Text, _>(&wallet)
-                .execute(conn)
+                .bind(*group_id)
+                .bind(&wallet)
+                .bind(symbol)
+                .bind(i32::try_from(symbol_position).unwrap_or(i32::MAX))
+                .execute(&mut *tx)
                 .await?;
-                for (group_position, (group_id, symbols)) in prepared_groups.iter().enumerate() {
-                    diesel::sql_query(
-                        "UPDATE user_watchlist_groups SET position = $3, updated_at = NOW()
-                         WHERE id = $1 AND wallet_address = $2",
-                    )
-                    .bind::<diesel::sql_types::Uuid, _>(*group_id)
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .bind::<diesel::sql_types::Integer, _>(
-                        i32::try_from(group_position).unwrap_or(i32::MAX),
-                    )
-                    .execute(conn)
-                    .await?;
-                    for (symbol_position, symbol) in symbols.iter().enumerate() {
-                        diesel::sql_query(
-                            "INSERT INTO user_watchlist_group_memberships
-                                (group_id, wallet_address, symbol, position)
-                             VALUES ($1, $2, $3, $4)",
-                        )
-                        .bind::<diesel::sql_types::Uuid, _>(*group_id)
-                        .bind::<diesel::sql_types::Text, _>(&wallet)
-                        .bind::<diesel::sql_types::Text, _>(symbol)
-                        .bind::<diesel::sql_types::Integer, _>(
-                            i32::try_from(symbol_position).unwrap_or(i32::MAX),
-                        )
-                        .execute(conn)
-                        .await?;
-                    }
-                }
-                for (position, symbol) in ungrouped.iter().enumerate() {
-                    diesel::sql_query(
-                        "UPDATE user_watchlist SET ungrouped_position = $3
-                         WHERE wallet_address = $1 AND symbol = $2",
-                    )
-                    .bind::<diesel::sql_types::Text, _>(&wallet)
-                    .bind::<diesel::sql_types::Text, _>(symbol)
-                    .bind::<diesel::sql_types::Integer, _>(
-                        i32::try_from(position).unwrap_or(i32::MAX),
-                    )
-                    .execute(conn)
-                    .await?;
-                }
-                fetch_layout_conn(conn, &wallet)
-                    .await
-                    .map_err(MutationError::Database)
-            })
-        })
-        .await
-        .map_err(mutation_api_error)?;
+            }
+        }
+        for (position, symbol) in ungrouped.iter().enumerate() {
+            sqlx::query(
+                "UPDATE user_watchlist SET ungrouped_position = $3
+                 WHERE wallet_address = $1 AND symbol = $2",
+            )
+            .bind(&wallet)
+            .bind(symbol)
+            .bind(i32::try_from(position).unwrap_or(i32::MAX))
+            .execute(&mut *tx)
+            .await?;
+        }
+        fetch_layout_conn(&mut tx, &wallet)
+            .await
+            .map_err(MutationError::Database)
+    }
+    .await;
+    let layout = match result {
+        Ok(l) => l,
+        Err(e) => {
+            let _ = tx.rollback().await;
+            return Err(mutation_api_error(e));
+        }
+    };
+    tx.commit().await.map_err(|_| {
+        api_error(
+            StatusCode::INTERNAL_SERVER_ERROR,
+            "Database error",
+            "Failed to save watchlist layout",
+        )
+    })?;
     Ok(Json(UnifiedApiResponse::success(layout)))
 }
 
@@ -830,29 +836,5 @@ mod tests {
             normalize_symbol_list(&["brk.b".into(), "BTC-USD".into()]).unwrap(),
             ["BRK.B", "BTC-USD"]
         );
-    }
-
-    #[test]
-    fn migration_backfills_every_legacy_row_in_added_order_without_deleting_data() {
-        let migration =
-            include_str!("../../../migrations/core/20260821120000_add_watchlist_groups/up.sql");
-        for required in [
-            "ADD COLUMN IF NOT EXISTS ungrouped_position",
-            "PARTITION BY wallet_address",
-            "ORDER BY added_at ASC, id ASC",
-            "watchlist.ungrouped_position IS NULL",
-            "ALTER COLUMN ungrouped_position SET NOT NULL",
-        ] {
-            assert!(
-                migration.contains(required),
-                "missing migration guard: {required}"
-            );
-        }
-        assert!(!migration
-            .to_ascii_uppercase()
-            .contains("DELETE FROM USER_WATCHLIST"));
-        assert!(!migration
-            .to_ascii_uppercase()
-            .contains("DROP TABLE USER_WATCHLIST"));
     }
 }

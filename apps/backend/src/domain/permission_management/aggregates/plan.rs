@@ -24,12 +24,18 @@ pub struct Plan {
     is_active: bool,
     is_promoted: bool,
     tier_level: i32,
+    display_order: i32,
     max_members: Option<i32>,
     auto_assign_enabled: bool,
     metadata: serde_json::Value,
     is_public: bool,
     grace_period_hours: i32,
     is_system: bool,
+    created_by: Option<String>,
+    rate_limit_per_minute: i32,
+    rate_limit_per_hour: i32,
+    rate_limit_per_day: i32,
+    burst_capacity: i32,
     base: AggregateBase,
 }
 
@@ -69,12 +75,18 @@ pub struct LoadPlanParams {
     pub is_active: bool,
     pub is_promoted: bool,
     pub tier_level: i32,
+    pub display_order: i32,
     pub max_members: Option<i32>,
     pub auto_assign_enabled: bool,
     pub metadata: serde_json::Value,
     pub is_public: bool,
     pub grace_period_hours: i32,
     pub is_system: bool,
+    pub created_by: Option<String>,
+    pub rate_limit_per_minute: i32,
+    pub rate_limit_per_hour: i32,
+    pub rate_limit_per_day: i32,
+    pub burst_capacity: i32,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub version: u64,
@@ -124,12 +136,18 @@ impl Plan {
             is_active: params.is_active.unwrap_or(true),
             is_promoted: params.is_promoted.unwrap_or(false),
             tier_level: params.tier_level.unwrap_or(0),
+            display_order: 0,
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled.unwrap_or(false),
             metadata: params.metadata.unwrap_or_else(|| serde_json::json!({})),
             is_public: params.is_public.unwrap_or(true),
             grace_period_hours: params.grace_period_hours.unwrap_or(0),
             is_system: false,
+            created_by: None,
+            rate_limit_per_minute: 0,
+            rate_limit_per_hour: 0,
+            rate_limit_per_day: 0,
+            burst_capacity: 0,
             base: AggregateBase::new(),
         };
 
@@ -164,12 +182,18 @@ impl Plan {
             is_active: params.is_active,
             is_promoted: params.is_promoted,
             tier_level: params.tier_level,
+            display_order: params.display_order,
             max_members: params.max_members,
             auto_assign_enabled: params.auto_assign_enabled,
             metadata: params.metadata,
             is_public: params.is_public,
             grace_period_hours: params.grace_period_hours,
             is_system: params.is_system,
+            created_by: params.created_by,
+            rate_limit_per_minute: params.rate_limit_per_minute,
+            rate_limit_per_hour: params.rate_limit_per_hour,
+            rate_limit_per_day: params.rate_limit_per_day,
+            burst_capacity: params.burst_capacity,
             base: AggregateBase {
                 version: params.version,
                 created_at: params.created_at,
@@ -358,6 +382,30 @@ impl Plan {
 
     pub fn is_system(&self) -> bool {
         self.is_system
+    }
+
+    pub fn display_order(&self) -> i32 {
+        self.display_order
+    }
+
+    pub fn created_by(&self) -> Option<&str> {
+        self.created_by.as_deref()
+    }
+
+    pub fn rate_limit_per_minute(&self) -> i32 {
+        self.rate_limit_per_minute
+    }
+
+    pub fn rate_limit_per_hour(&self) -> i32 {
+        self.rate_limit_per_hour
+    }
+
+    pub fn rate_limit_per_day(&self) -> i32 {
+        self.rate_limit_per_day
+    }
+
+    pub fn burst_capacity(&self) -> i32 {
+        self.burst_capacity
     }
 }
 

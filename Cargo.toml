@@ -90,7 +90,7 @@ tonic-build = "0.12"
 tokio-stream = { version = "0.1", features = ["net"] }
 
 # Database
-sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "migrate"] }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "migrate", "rust_decimal", "bigdecimal"] }
 redis = { version = "0.28", features = ["tokio-comp", "connection-manager", "streams"] }
 deadpool = { version = "0.9", features = ["rt_tokio_1"] }
 deadpool-redis = "0.23"

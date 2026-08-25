@@ -8,13 +8,13 @@ use crate::prelude::*;
 /// Query handler for getting multi-source system metrics
 pub struct GetSystemMetricsQueryHandler {
     tradingview_service: Arc<TradingViewApiService>,
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<TlsPool>,
 }
 
 impl GetSystemMetricsQueryHandler {
     pub fn new(
         tradingview_service: Arc<TradingViewApiService>,
-        db_pool: Arc<&'static TlsPool>,
+        db_pool: Arc<TlsPool>,
     ) -> Self {
         Self {
             tradingview_service,

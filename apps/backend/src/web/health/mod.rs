@@ -12,7 +12,7 @@ use crate::infrastructure::cache::Cache;
 /// Health state for health endpoint
 #[derive(Clone)]
 pub struct HealthState {
-    pub pool: Arc<&'static TlsPool>,
+    pub pool: Arc<TlsPool>,
     pub cache: Arc<dyn Cache>,
 }
 

@@ -60,7 +60,7 @@ use epsx_contracts::pubsub_port::PubsubPort;
 /// `WalletNotificationRepository`, plus the kernel-level
 /// `PubsubPort` for real-time fanout.
 pub struct InProcessNotificationAdapter {
-    pool: Arc<&'static TlsPool>,
+    pool: Arc<TlsPool>,
     broadcaster: Option<Arc<dyn PubsubPort>>,
 }
 
@@ -97,7 +97,7 @@ impl InProcessNotificationAdapter {
     /// the env-var check and is intended for **tests** that wire up
     /// a mock pool. Production wiring must use `try_new`.
     pub fn from_pool(
-        pool: Arc<&'static TlsPool>,
+        pool: Arc<TlsPool>,
         broadcaster: Option<Arc<dyn PubsubPort>>,
     ) -> Self {
         Self { pool, broadcaster }
@@ -659,7 +659,7 @@ mod tests {
 
         // The `try_new` constructor would return Err here. The
         // `from_pool` constructor must not — it's the test bypass.
-        // We cannot easily build a real `Arc<&'static TlsPool>` in
+        // We cannot easily build a real `Arc<TlsPool>` in
         // a unit test (it needs a real DB), but the *signature* of
         // `from_pool` is the contract: take an Arc pool, return
         // Self, no env check. The function is small enough to trust

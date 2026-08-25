@@ -483,11 +483,28 @@ impl AuditLogRepository for DieselAuditLogRepository {
             details: entry.additional_data.clone(),
         };
 
-        let inserted: AuditLogDb = diesel::insert_into(audit_logs::table)
-            .values(&new_log)
-            .get_result(&mut *conn)
-            .await
-            .context("Failed to insert audit log")?;
+        let inserted: AuditLogDb = sqlx::query_as(
+            r#"
+            INSERT INTO audit_logs (
+                wallet_address, action, resource_type, resource_id,
+                result, ip_address, user_agent, details
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING id, wallet_address, action, resource_type, resource_id,
+                      result, ip_address, user_agent, details, created_at
+            "#,
+        )
+        .bind(&new_log.wallet_address)
+        .bind(&new_log.action)
+        .bind(&new_log.resource_type)
+        .bind(&new_log.resource_id)
+        .bind(&new_log.result)
+        .bind(&new_log.ip_address)
+        .bind(&new_log.user_agent)
+        .bind(&new_log.details)
+        .fetch_one(&mut *conn)
+        .await
+        .context("Failed to insert audit log")?;
 
         Ok(inserted.into())
     }

@@ -27,7 +27,7 @@ use epsx_contracts::notification_port::NotificationPort;
 /// Provides centralized access to infrastructure dependencies for auth layer
 #[derive(Clone)]
 pub struct AppState {
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
     pub cache: Arc<dyn Cache>,
     pub domain_container: Arc<DomainContainer>,
     pub redis_pool: Option<Arc<RedisPool>>,
@@ -42,7 +42,7 @@ pub struct AppState {
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
     pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
 
-    pub analytics_db_pool: Option<Arc<&'static TlsPool>>,
+    pub analytics_db_pool: Option<Arc<TlsPool>>,
     pub audit: Arc<AuditService>,
     pub s3: Option<Arc<S3Storage>>,
     // Stub for backwards compatibility with admin handlers
@@ -99,12 +99,12 @@ impl AppState {
     /// Create new AppState with required dependencies
     /// Redis pool and pubsub port are optional - if not provided, real-time features won't work
     pub fn new(
-        db_pool: Arc<&'static TlsPool>,
+        db_pool: Arc<TlsPool>,
         cache: Arc<dyn Cache>,
         domain_container: Arc<DomainContainer>,
         redis_pool: Option<Arc<RedisPool>>,
         pubsub: Option<Arc<dyn PubsubPort>>,
-        analytics_db_pool: Option<Arc<&'static TlsPool>>,
+        analytics_db_pool: Option<Arc<TlsPool>>,
     ) -> Self {
         // Diesel-based repository
         let plan_repo = domain_container

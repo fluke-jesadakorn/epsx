@@ -44,10 +44,10 @@ use tracing::info;
 /// Enhanced container with Web3-first services
 #[derive(Clone)]
 pub struct SimpleContainer {
-    pub db_pool: Arc<&'static TlsPool>,
-    pub payments_pool: Option<Arc<&'static TlsPool>>,
-    pub analytics_pool: Option<Arc<&'static TlsPool>>,
-    pub notifications_pool: Option<Arc<&'static TlsPool>>,
+    pub db_pool: Arc<TlsPool>,
+    pub payments_pool: Option<Arc<TlsPool>>,
+    pub analytics_pool: Option<Arc<TlsPool>>,
+    pub notifications_pool: Option<Arc<TlsPool>>,
     // BIG-BANG Phase1: canonical sqlx pools side-by-side with TlsPool.
     // New code should use `sqlx_*_pool`; `TlsPool` fields are deprecated and will be removed
     // when the last Diesel query is gone. See `shared/rust/epsx-database-pools/src/sqlx_pool.rs`.
@@ -119,7 +119,7 @@ impl SimpleContainer {
             .to_string()
     }
 
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<TlsPool>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
@@ -671,7 +671,7 @@ impl SimpleContainer {
         (subscribers_map, handles_map)
     }
 
-    pub fn with_cache(db_pool: Arc<&'static TlsPool>, cache: Arc<dyn Cache>) -> Self {
+    pub fn with_cache(db_pool: Arc<TlsPool>, cache: Arc<dyn Cache>) -> Self {
         Self {
             db_pool,
             payments_pool: None,
@@ -731,7 +731,7 @@ impl SimpleContainer {
     }
 
     // Compatibility methods
-    pub fn db_pool(&self) -> Arc<&'static TlsPool> {
+    pub fn db_pool(&self) -> Arc<TlsPool> {
         Arc::clone(&self.db_pool)
     }
 
@@ -740,15 +740,15 @@ impl SimpleContainer {
     }
 
     // Pool Getters
-    pub fn get_payments_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_payments_pool(&self) -> Option<Arc<TlsPool>> {
         self.payments_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_analytics_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_analytics_pool(&self) -> Option<Arc<TlsPool>> {
         self.analytics_pool.as_ref().map(Arc::clone)
     }
 
-    pub fn get_notifications_pool(&self) -> Option<Arc<&'static TlsPool>> {
+    pub fn get_notifications_pool(&self) -> Option<Arc<TlsPool>> {
         self.notifications_pool.as_ref().map(Arc::clone)
     }
 
@@ -935,7 +935,7 @@ pub struct Web3AppState {
     pub wallet_permission_service: Option<Arc<WalletPermissionService>>,
     pub web3_permission_adapter: Option<Arc<Web3PermissionServiceAdapter>>,
     pub auth_service: Option<Arc<UnifiedWeb3AuthService>>,
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
 }

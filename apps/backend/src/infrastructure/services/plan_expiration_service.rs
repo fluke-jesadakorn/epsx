@@ -42,8 +42,8 @@ impl Default for PlanExpirationConfig {
 }
 
 pub struct PlanExpirationService {
-    db_pool: Arc<&'static TlsPool>,
-    notifications_pool: Option<Arc<&'static TlsPool>>,
+    db_pool: Arc<TlsPool>,
+    notifications_pool: Option<Arc<TlsPool>>,
     // Wave 10 / R3: the notification port is wired by the
     // container factory. When `None`, the service still runs its
     // cleanup and dedup logic but skips the plan-expiry
@@ -55,8 +55,8 @@ pub struct PlanExpirationService {
 
 impl PlanExpirationService {
     pub fn new(
-        db_pool: Arc<&'static TlsPool>,
-        notifications_pool: Option<Arc<&'static TlsPool>>,
+        db_pool: Arc<TlsPool>,
+        notifications_pool: Option<Arc<TlsPool>>,
         // Wave 10 integration gate: the `pubsub` argument is the
         // Track B call-site update (main.rs now passes
         // `container.pubsub` as the 3rd arg). The service itself

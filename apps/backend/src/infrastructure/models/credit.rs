@@ -1,16 +1,14 @@
-// Diesel Models for Credit Wallet System
-//
-// Database models for wallet_credits and credit_transactions tables using Diesel ORM
+//! Database models for the credit wallet system (sqlx-friendly).
+//!
+//! BIG-BANG: migrated from diesel to plain sqlx structs.
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Diesel Queryable model for wallet_credits table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for wallet_credits table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct WalletCreditDb {
     pub wallet_address: String,
     pub balance: BigDecimal,
@@ -22,9 +20,8 @@ pub struct WalletCreditDb {
     pub updated_at: DateTime<Utc>,
 }
 
-/// Diesel Insertable model for creating new wallet_credits record
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for wallet_credits.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewWalletCreditDb {
     pub wallet_address: String,
     pub balance: BigDecimal,
@@ -33,9 +30,8 @@ pub struct NewWalletCreditDb {
     pub lifetime_spent: BigDecimal,
 }
 
-/// Diesel AsChangeset model for updating wallet_credits
-#[derive(Debug, Clone, AsChangeset)]
-
+/// Update model for wallet_credits.
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdateWalletCreditDb {
     pub balance: Option<BigDecimal>,
     pub pending_balance: Option<BigDecimal>,
@@ -44,9 +40,8 @@ pub struct UpdateWalletCreditDb {
     pub last_transaction_at: Option<DateTime<Utc>>,
 }
 
-/// Diesel Queryable model for credit_transactions table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for credit_transactions table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct CreditTransactionDb {
     pub id: Uuid,
     pub wallet_address: String,
@@ -62,9 +57,8 @@ pub struct CreditTransactionDb {
     pub created_at: DateTime<Utc>,
 }
 
-/// Diesel Insertable model for creating new credit transactions
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for credit_transactions.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewCreditTransactionDb {
     pub wallet_address: String,
     pub amount: BigDecimal,
@@ -78,7 +72,7 @@ pub struct NewCreditTransactionDb {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Form data for granting credits (admin API)
+/// Form data for granting credits (admin API).
 #[derive(Debug, Deserialize, Serialize)]
 pub struct GrantCreditsRequest {
     pub wallet_address: String,
@@ -88,7 +82,7 @@ pub struct GrantCreditsRequest {
     pub granted_by: String,
 }
 
-/// Form data for revoking credits (admin API)
+/// Form data for revoking credits (admin API).
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RevokeCreditsRequest {
     pub wallet_address: String,
@@ -97,7 +91,7 @@ pub struct RevokeCreditsRequest {
     pub granted_by: String,
 }
 
-/// Response model for credit balance
+/// Response model for credit balance.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditBalanceResponse {
     pub wallet_address: String,
@@ -109,7 +103,7 @@ pub struct CreditBalanceResponse {
     pub last_transaction_at: Option<DateTime<Utc>>,
 }
 
-/// Response model for credit transaction
+/// Response model for credit transaction.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditTransactionResponse {
     pub id: Uuid,
@@ -125,7 +119,7 @@ pub struct CreditTransactionResponse {
     pub created_at: DateTime<Utc>,
 }
 
-/// Credit statistics for admin dashboard
+/// Credit statistics for admin dashboard.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CreditStatsResponse {
     pub total_credits_outstanding: BigDecimal,
@@ -136,7 +130,7 @@ pub struct CreditStatsResponse {
     pub average_balance: BigDecimal,
 }
 
-/// Transaction filters for querying
+/// Transaction filters for querying.
 #[derive(Debug, Clone, Deserialize)]
 pub struct CreditTransactionFilters {
     pub wallet_address: Option<String>,
@@ -167,7 +161,6 @@ impl From<CreditTransactionDb> for CreditTransactionResponse {
 
 impl From<WalletCreditDb> for CreditBalanceResponse {
     fn from(db: WalletCreditDb) -> Self {
-        // Available balance = balance - pending_balance
         let available = &db.balance - &db.pending_balance;
         Self {
             wallet_address: db.wallet_address,

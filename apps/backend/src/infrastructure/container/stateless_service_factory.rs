@@ -133,7 +133,7 @@ impl StatelessServiceFactory {
         let payments_pool = crate::infrastructure::database::get_payments_pool()
             .await
             .ok()
-            .map(|p| Arc::new(p) as Arc<&'static TlsPool>);
+            .map(|p| Arc::new(p) as Arc<TlsPool>);
         let payment_repository = payments_pool
             .as_ref()
             .map(|p| Arc::new(PaymentRepositoryAdapter::new(**p)));
@@ -219,7 +219,7 @@ impl StatelessServiceFactory {
 
 /// Services created per request - no shared state
 pub struct RequestServices {
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
     pub cache: Option<Arc<dyn Cache>>,
 
     // Service instances (owned by this request)
@@ -372,7 +372,7 @@ impl RequestServices {
 
 /// Minimal services for health checks only
 pub struct HealthServices {
-    pub db_pool: Arc<&'static TlsPool>,
+    pub db_pool: Arc<TlsPool>,
 }
 
 impl HealthServices {

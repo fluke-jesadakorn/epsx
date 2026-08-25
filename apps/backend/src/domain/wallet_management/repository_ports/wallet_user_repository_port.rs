@@ -196,6 +196,9 @@ impl WalletUserSearchResult {
 pub struct WalletUserStatistics {
     pub total_users: u64,
     pub active_users: u64,
+    pub inactive_users: u64,
+    pub recent_auth_24h: u64,
+    pub new_wallets_24h: u64,
     pub users_by_permission_plan: HashMap<String, u64>,
     pub users_by_chain: HashMap<u64, u64>,
     pub manual_permissions: u64,
@@ -203,12 +206,14 @@ pub struct WalletUserStatistics {
     pub token_gated_permissions: u64,
     pub dao_governance_permissions: u64,
     pub recent_authentications_24h: u64,
-    pub new_wallets_24h: u64,
 }
 
 /// Web3-specific analytics for wallet users
 #[derive(Debug, Clone)]
 pub struct Web3Analytics {
+    pub bronze_tier_count: u64,
+    pub silver_tier_count: u64,
+    pub active_24h: u64,
     /// Top NFT contracts by user count
     pub top_nft_contracts: Vec<(String, u64)>,
 

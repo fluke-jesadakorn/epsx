@@ -1,14 +1,12 @@
-//! Diesel Models for Wallet Users
+//! Database models for wallet_users (sqlx-friendly).
 //!
-//! Database models for wallet_users table using Diesel ORM
+//! BIG-BANG: migrated from diesel to plain sqlx structs.
 
 use chrono::{DateTime, Utc};
-use diesel::{AsChangeset, Insertable, Queryable, Selectable};
 use serde::Deserialize;
 
-/// Diesel Queryable model for wallet_users table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for wallet_users table (sqlx).
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, sqlx::FromRow)]
 pub struct WalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
@@ -21,25 +19,24 @@ pub struct WalletUserDb {
     pub disable_info: Option<serde_json::Value>,
 }
 
-/// Diesel Insertable model for creating new wallet users
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for creating new wallet users.
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct NewWalletUserDb {
     pub wallet_address: String,
     pub is_active: bool,
+    pub tier_level: String,
     pub wallet_metadata: serde_json::Value,
 }
 
-/// Diesel AsChangeset model for updating wallet users
-#[derive(Debug, Clone, AsChangeset)]
-
+/// Update model for wallet users.
+#[derive(Debug, Clone, serde::Deserialize, Default)]
 pub struct UpdateWalletUserDb {
     pub is_active: Option<bool>,
     pub wallet_metadata: Option<serde_json::Value>,
     pub updated_at: Option<DateTime<Utc>>,
 }
 
-/// Form data for wallet user updates from API requests
+/// Form data for wallet user updates from API requests.
 #[derive(Debug, Deserialize)]
 pub struct UpdateWalletUserRequest {
     pub is_active: Option<bool>,

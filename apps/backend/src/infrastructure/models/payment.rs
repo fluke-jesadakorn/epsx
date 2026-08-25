@@ -1,16 +1,14 @@
-//! Diesel Models for Payments and Subscriptions
+//! Database models for payments and subscriptions (sqlx-friendly).
 //!
-//! Database models for payments, subscriptions, and payment_audit_log tables using Diesel ORM
+//! BIG-BANG: migrated from diesel to plain sqlx structs.
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use diesel::{AsChangeset, Insertable, Queryable, QueryableByName, Selectable};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-/// Diesel Queryable model for payments table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for payments table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PaymentDb {
     pub id: Uuid,
     pub payment_reference: String,
@@ -35,9 +33,8 @@ pub struct PaymentDb {
     pub network: Option<String>,
 }
 
-/// Diesel Insertable model for creating new payments
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for payments.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewPaymentDb {
     pub payment_reference: String,
     pub wallet_address: String,
@@ -54,9 +51,8 @@ pub struct NewPaymentDb {
     pub metadata: serde_json::Value,
 }
 
-/// Diesel AsChangeset model for updating payments
-#[derive(Debug, Clone, AsChangeset)]
-
+/// Update model for payments.
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdatePaymentDb {
     pub transaction_hash: Option<String>,
     pub status: Option<String>,
@@ -69,14 +65,13 @@ pub struct UpdatePaymentDb {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Diesel Queryable model for subscriptions table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for subscriptions table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct SubscriptionDb {
     pub id: Uuid,
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>, // Nullable for admin-assigned subscriptions
+    pub payment_id: Option<Uuid>,
     pub status: String,
     pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
@@ -85,13 +80,12 @@ pub struct SubscriptionDb {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Diesel Insertable model for creating new subscriptions
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for subscriptions.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewSubscriptionDb {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>, // Nullable for admin-assigned subscriptions
+    pub payment_id: Option<Uuid>,
     pub status: String,
     pub started_at: Option<DateTime<Utc>>,
     pub expires_at: DateTime<Utc>,
@@ -100,9 +94,8 @@ pub struct NewSubscriptionDb {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Diesel AsChangeset model for updating subscriptions
-#[derive(Debug, Clone, AsChangeset)]
-
+/// Update model for subscriptions.
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct UpdateSubscriptionDb {
     pub status: Option<String>,
     pub cancelled_at: Option<DateTime<Utc>>,
@@ -110,9 +103,8 @@ pub struct UpdateSubscriptionDb {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Diesel Queryable model for payment_audit_log table
-#[derive(Debug, Clone, Queryable, Selectable)]
-
+/// Row model for payment_audit_log table.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PaymentAuditLogDb {
     pub id: Uuid,
     pub payment_id: Uuid,
@@ -125,9 +117,8 @@ pub struct PaymentAuditLogDb {
     pub metadata: serde_json::Value,
 }
 
-/// Diesel Insertable model for creating audit log entries
-#[derive(Debug, Clone, Insertable)]
-
+/// Insert model for payment_audit_log.
+#[derive(Debug, Clone, Deserialize)]
 pub struct NewPaymentAuditLogDb {
     pub payment_id: Uuid,
     pub action: String,
@@ -138,7 +129,7 @@ pub struct NewPaymentAuditLogDb {
     pub metadata: serde_json::Value,
 }
 
-/// Form data for payment creation from API requests
+/// Form data for payment creation.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreatePaymentRequest {
     pub payment_reference: String,
@@ -153,7 +144,7 @@ pub struct CreatePaymentRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Form data for payment updates from API requests
+/// Form data for payment updates.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdatePaymentRequest {
     pub transaction_hash: Option<String>,
@@ -166,18 +157,18 @@ pub struct UpdatePaymentRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Form data for subscription creation from API requests
+/// Form data for subscription creation.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct CreateSubscriptionRequest {
     pub wallet_address: String,
     pub plan_id: Uuid,
-    pub payment_id: Option<Uuid>, // Optional for admin-assigned free subscriptions
+    pub payment_id: Option<Uuid>,
     pub expires_at: DateTime<Utc>,
     pub auto_renew: Option<bool>,
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Form data for subscription updates from API requests
+/// Form data for subscription updates.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct UpdateSubscriptionRequest {
     pub status: Option<String>,
@@ -186,7 +177,7 @@ pub struct UpdateSubscriptionRequest {
     pub metadata: Option<serde_json::Value>,
 }
 
-/// Payment statistics aggregation result
+/// Payment statistics aggregation result.
 #[derive(Debug, Clone)]
 pub struct PaymentStatsDb {
     pub total_payments: i64,
@@ -197,9 +188,8 @@ pub struct PaymentStatsDb {
     pub last_payment_date: Option<DateTime<Utc>>,
 }
 
-/// Payment summary for admin dashboard
-#[derive(Debug, Clone, Queryable, Selectable, QueryableByName)]
-
+/// Payment summary for admin dashboard.
+#[derive(Debug, Clone, Serialize, Deserialize, sqlx::FromRow)]
 pub struct PaymentSummaryDb {
     pub id: Uuid,
     pub payment_reference: String,

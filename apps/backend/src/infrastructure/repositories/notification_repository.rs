@@ -10,11 +10,11 @@ use crate::prelude::*;
 use epsx_contracts::errors::{AppError, ErrorKind};
 
 pub struct NotificationRepository {
-    pool: Arc<&'static TlsPool>,
+    pool: Arc<TlsPool>,
 }
 
 impl NotificationRepository {
-    pub fn new(pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(pool: Arc<TlsPool>) -> Self {
         Self { pool }
     }
 
