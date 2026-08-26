@@ -6,8 +6,8 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+// use diesel::prelude::*;
+// use diesel_async::RunQueryDsl;
 
 use super::super::notification_query_helper::NotificationQueryFilter;
 use super::super::wallet_notification_repository::WalletNotificationRepository;
@@ -211,21 +211,21 @@ pub async fn mark_notification_read_handler(
     let now = Utc::now();
 
     // Only allow marking as read if notification belongs to user or is broadcast
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         r#"
         UPDATE wallet_notifications
         SET status = 'read', updated_at = $1
         WHERE id = $2 AND (LOWER(recipient_wallet_address) = $3 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(now)
-    .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind(now)
+    .bind(notif_uuid)
+    .bind(&wallet_address)
     .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as read: {}", e)))?;
 
-    if rows_affected == 0 {
+    if result.rows_affected() == 0 {
         return Err(AppError::new(
             ErrorKind::AggregateNotFound,
             "Notification not found".to_string(),
@@ -266,21 +266,21 @@ pub async fn mark_notification_unread_handler(
 
     let now = Utc::now();
 
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         r#"
         UPDATE wallet_notifications
         SET status = 'unread', updated_at = $1
         WHERE id = $2 AND (LOWER(recipient_wallet_address) = $3 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(now)
-    .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind(now)
+    .bind(notif_uuid)
+    .bind(&wallet_address)
     .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark notification as unread: {}", e)))?;
 
-    if rows_affected == 0 {
+    if result.rows_affected() == 0 {
         return Err(AppError::new(
             ErrorKind::AggregateNotFound,
             "Notification not found".to_string(),
@@ -337,20 +337,20 @@ pub async fn delete_notification_handler(
 
     // Soft delete: Only allow deleting if notification belongs to user or is broadcast
     // Updated to set status = 'deleted'
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         r#"
         UPDATE wallet_notifications
         SET status = 'deleted', updated_at = NOW()
         WHERE id = $1 AND status != 'deleted' AND (LOWER(recipient_wallet_address) = $2 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL)
         "#
     )
-    .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind(notif_uuid)
+    .bind(&wallet_address)
     .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to delete notification: {}", e)))?;
 
-    if rows_affected == 0 {
+    if result.rows_affected() == 0 {
         return Err(AppError::new(
             ErrorKind::AggregateNotFound,
             "Notification not found or already deleted".to_string(),
@@ -393,22 +393,21 @@ pub async fn get_unread_count_handler(
         )
     })?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
-    let unread_count: i64 = diesel::sql_query(
+    let unread_count_row: CountRow = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications \
          WHERE (LOWER(recipient_wallet_address) = $1 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) \
          AND status != 'read' AND status != 'deleted'"
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
-    .get_result::<CountRow>(&mut *conn)
+    .bind(&wallet_address)
+    .fetch_one(&mut *conn)
     .await
-    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread notifications: {}", e)))?
-    .count;
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count unread notifications: {}", e)))?;
+    let unread_count = unread_count_row.count;
 
     Ok(Json(serde_json::json!({
         "unread_count": unread_count
@@ -446,22 +445,22 @@ pub async fn mark_all_notifications_read_handler(
 
     let now = Utc::now();
 
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         r#"
         UPDATE wallet_notifications
         SET status = 'read', updated_at = $1
         WHERE (LOWER(recipient_wallet_address) = $2 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) AND status != 'read' AND status != 'deleted'
         "#
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(now)
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind(now)
+    .bind(&wallet_address)
     .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to mark all notifications as read: {}", e)))?;
 
     Ok(Json(serde_json::json!({
         "success": true,
-        "updated_count": rows_affected,
+        "updated_count": result.rows_affected(),
         "message": "All notifications marked as read"
     })))
 }
@@ -496,21 +495,21 @@ pub async fn clear_all_notifications_handler(
     })?;
 
     // Soft delete: set status to 'deleted'
-    let rows_affected = diesel::sql_query(
+    let result = sqlx::query(
         r#"
         UPDATE wallet_notifications
         SET status = 'deleted', updated_at = NOW()
         WHERE (LOWER(recipient_wallet_address) = $1 OR recipient_wallet_address = 'all' OR recipient_wallet_address IS NULL) AND status != 'deleted'
         "#
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet_address)
+    .bind(&wallet_address)
     .execute(&mut *conn)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to clear all notifications: {}", e)))?;
 
     Ok(Json(serde_json::json!({
         "success": true,
-        "deleted_count": rows_affected,
+        "deleted_count": result.rows_affected(),
         "message": "All notifications cleared successfully"
     })))
 }
