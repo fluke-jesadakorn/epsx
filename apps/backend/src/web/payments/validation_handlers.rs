@@ -9,8 +9,6 @@ use axum::{
     Extension,
 };
 use chrono::{DateTime, Utc};
-use diesel::sql_types::Text;
-use diesel::QueryableByName;
 use serde::{Deserialize, Serialize};
 use tracing::{debug, error, info};
 use uuid::Uuid;
@@ -28,9 +26,8 @@ use epsx_contracts::permission_authority_port::{GrantPermissionRequest, Permissi
 use std::sync::Arc;
 
 /// Helper struct for deduplication query
-#[derive(Debug, QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 pub struct PaymentExistsRow {
-    #[diesel(sql_type = Text)]
     pub payment_reference: String,
 }
 
@@ -305,8 +302,6 @@ pub async fn get_payment_details_handler(
 ) -> Result<Json<PaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
     use crate::infrastructure::database::get_payments_pool;
     use crate::infrastructure::models::payment::PaymentDb;
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
 
     debug!(
         "Getting payment details for user {} with params: {:?}",
@@ -390,7 +385,7 @@ pub async fn get_payment_details_handler(
                 metadata: pay_db.metadata.unwrap_or(serde_json::json!({})),
             })
         }
-        Err(diesel::NotFound) => None,
+        Err(sqlx::Error::RowNotFound) => None,
         Err(e) => {
             error!("Failed to query payment: {}", e);
             return Err(UnifiedErrorResponse::json(

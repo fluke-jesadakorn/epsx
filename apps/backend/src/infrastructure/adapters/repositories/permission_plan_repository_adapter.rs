@@ -131,6 +131,34 @@ impl PlanRepositoryAdapter {
         }
         Ok(map)
     }
+
+    /// Fetch all active subscription plans as PermissionPlan structs (for public and validation handlers)
+    pub async fn get_subscription_plans(
+        &self,
+    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>> {
+        let rows = sqlx::query_as::<_, crate::infrastructure::adapters::repositories::database_types::PermissionPlan>(
+            "SELECT id, name, slug, description, plan_type, plan_metadata, \
+                    price, currency, billing_cycle, is_active, is_promoted, \
+                    max_members, auto_assign_enabled, assignment_rules, \
+                    rate_limit_per_minute, rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
+                    created_at, updated_at, created_by, last_modified_by, grace_period_hours, \
+                    tier_level, is_public, plan_category, plan_group, is_system \
+             FROM plans \
+             WHERE is_active = true \
+             ORDER BY tier_level DESC, name ASC",
+        )
+        .fetch_all(self.db_pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(e.to_string()))?;
+        Ok(rows)
+    }
+
+    /// Alias for get_subscription_plans
+    pub async fn get_all_plans(
+        &self,
+    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>> {
+        self.get_subscription_plans().await
+    }
 }
 
 #[async_trait]

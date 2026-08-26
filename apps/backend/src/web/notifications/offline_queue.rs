@@ -1,7 +1,5 @@
 use crate::prelude::TlsPool;
 use crate::web::notifications::{NotificationPriority, NotificationType, SSENotification};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use epsx_contracts::errors::AppError;
 use uuid::Uuid;
 
@@ -198,8 +196,6 @@ pub async fn get_notification_stats(db_pool: &TlsPool) -> Result<NotificationSta
     let mut conn = db_pool.acquire().await.map_err(|e| {
         AppError::database_error(format!("Failed to get database connection: {}", e))
     })?;
-
-    use diesel::sql_types::BigInt;
 
     #[derive(sqlx::FromRow)]
     struct CountRow {

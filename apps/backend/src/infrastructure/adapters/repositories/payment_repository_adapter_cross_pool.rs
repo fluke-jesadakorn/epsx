@@ -32,7 +32,7 @@ pub struct PaymentWithPlanRow {
     pub payment_reference: String,
     pub transaction_hash: Option<String>,
     pub wallet_address: String,
-    pub amount: rust_decimal::Decimal,
+    pub amount: bigdecimal::BigDecimal,
     pub currency: String,
     pub method: String,
     pub status: String,

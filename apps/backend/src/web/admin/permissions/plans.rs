@@ -8,7 +8,6 @@ use axum::{
 };
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use uuid::Uuid;
@@ -348,24 +347,17 @@ pub async fn get_plan(
 
     // Fetch member count
     let member_count = {
-        let mut conn = match app_state.db_pool.acquire().await {
-            Ok(conn) => conn,
-            Err(e) => {
-                tracing::error!("Failed to get database connection: {}", e);
-                return AdminResponse::server_error("Database connection failed").into_response();
-            }
-        };
-
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct Count {
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
             count: i64,
         }
 
-        match diesel::sql_query("SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1 AND is_active = true")
-            .bind::<diesel::sql_types::Uuid, _>(*plan.id().value())
-            .get_result::<Count>(&mut *conn)
-            .await
+        match sqlx::query_as::<_, Count>(
+            "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1 AND is_active = true",
+        )
+        .bind(*plan.id().value())
+        .fetch_one(app_state.db_pool.as_ref())
+        .await
         {
             Ok(c) => c.count as i32,
             Err(e) => {
@@ -449,33 +441,23 @@ pub async fn list_plans(
     let plan_ids: Vec<Uuid> = domain_plans.iter().map(|g| *g.id().value()).collect();
 
     let member_counts: HashMap<Uuid, i64> = if !plan_ids.is_empty() {
-        match app_state.db_pool.acquire().await {
-            Ok(mut conn) => {
-                #[derive(diesel::QueryableByName)]
-                struct CountRow {
-                    #[diesel(sql_type = diesel::sql_types::Uuid)]
-                    plan_id: Uuid,
-                    #[diesel(sql_type = diesel::sql_types::BigInt)]
-                    count: i64,
-                }
+        #[derive(sqlx::FromRow)]
+        struct CountRow {
+            plan_id: Uuid,
+            count: i64,
+        }
 
-                let sql = "SELECT plan_id, COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = ANY($1) AND is_active = true GROUP BY plan_id";
+        let sql = "SELECT plan_id, COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = ANY($1) AND is_active = true GROUP BY plan_id";
 
-                match diesel::sql_query(sql)
-                    .bind::<diesel::sql_types::Array<diesel::sql_types::Uuid>, _>(&plan_ids)
-                    .load::<CountRow>(&mut *conn)
-                    .await
-                {
-                    Ok(rows) => rows.into_iter().map(|r| (r.plan_id, r.count)).collect(),
-                    Err(e) => {
-                        tracing::error!("Failed to fetch plan member counts: {}", e);
-                        HashMap::new()
-                    }
-                }
-            }
+        match sqlx::query_as::<_, CountRow>(sql)
+            .bind(&plan_ids)
+            .fetch_all(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(rows) => rows.into_iter().map(|r| (r.plan_id, r.count)).collect(),
             Err(e) => {
-                tracing::error!("Failed to get database connection for counts: {}", e);
-                HashMap::new() // Fallback to 0 counts on error
+                tracing::error!("Failed to fetch plan member counts: {}", e);
+                HashMap::new()
             }
         }
     } else {
@@ -747,25 +729,16 @@ pub async fn get_plan_members(
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct WalletAddress {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
     }
 
-    let members: Vec<String> = match diesel::sql_query(
+    let members: Vec<String> = match sqlx::query_as::<_, WalletAddress>(
         "SELECT wallet_address FROM wallet_plan_assignments WHERE plan_id = $1",
     )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .load::<WalletAddress>(&mut *conn)
+    .bind(plan_uuid)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(rows) => rows.into_iter().map(|r| r.wallet_address).collect(),
@@ -808,7 +781,7 @@ pub async fn get_plan_permissions(
 
     let plan_id_obj = PlanId::from_uuid(plan_uuid);
 
-    // Fetch plan using Diesel repository
+    // Fetch plan using repository
     let plan = match app_state.plan_repo.find_by_id(&plan_id_obj).await {
         Ok(Some(g)) => g,
         Ok(None) => return AdminResponse::not_found("Permission plan").into_response(),
@@ -863,40 +836,26 @@ pub async fn get_plan_assignments(
 
     let pg = crate::web::pagination::Pagination::standard(query.page, query.limit);
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(diesel::QueryableByName, Serialize)]
+    #[derive(sqlx::FromRow, Serialize)]
     struct AssignmentRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         created_at: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
     }
 
     // Get total count
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct Count {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
-    let total = match diesel::sql_query(
+    let total = match sqlx::query_as::<_, Count>(
         "SELECT COUNT(*) as count FROM wallet_plan_assignments WHERE plan_id = $1",
     )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .get_result::<Count>(&mut *conn)
+    .bind(plan_uuid)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(c) => c.count,
@@ -907,17 +866,17 @@ pub async fn get_plan_assignments(
     };
 
     // Fetch assignments with pagination
-    let assignments: Vec<AssignmentRow> = match diesel::sql_query(
+    let assignments: Vec<AssignmentRow> = match sqlx::query_as::<_, AssignmentRow>(
         "SELECT id, wallet_address, is_active, created_at, expires_at 
          FROM wallet_plan_assignments 
          WHERE plan_id = $1 
          ORDER BY created_at DESC 
          LIMIT $2 OFFSET $3",
     )
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
-    .bind::<diesel::sql_types::BigInt, _>(pg.offset)
-    .load::<AssignmentRow>(&mut *conn)
+    .bind(plan_uuid)
+    .bind(pg.limit as i64)
+    .bind(pg.offset)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(rows) => rows,

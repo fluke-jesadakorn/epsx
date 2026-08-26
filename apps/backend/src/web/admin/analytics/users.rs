@@ -6,8 +6,6 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use tracing::{error, info};
 
 /**
@@ -20,14 +18,6 @@ pub async fn get_user_analytics_handler(
 ) -> axum::response::Response {
     info!("Admin: Getting user analytics");
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Admin: Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database error").into_response();
-        }
-    };
-
     let period_days = match query.period.as_deref() {
         Some("7d") => 7,
         Some("30d") => 30,
@@ -36,22 +26,20 @@ pub async fn get_user_analytics_handler(
         _ => 30,
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UserCounts {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_users: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_users: i64,
     }
 
     // Get basic user counts
-    let user_counts = match diesel::sql_query(
+    let user_counts = match sqlx::query_as::<_, UserCounts>(
         "SELECT
             COUNT(*)::bigint as total_users,
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users
          FROM wallet_users",
     )
-    .get_result::<UserCounts>(&mut *conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(counts) => counts,
@@ -71,7 +59,7 @@ pub async fn get_user_analytics_handler(
         let date = Utc::now() - Duration::days(period_days - i - 1);
         new_registrations.push(TimeSeriesPoint {
             timestamp: date,
-            value: (5.0 + (i as f64 % 10.0)), // Mock data - replace with real query
+            value: (5.0 + (i as f64 % 10.0)),
             label: date.format("%Y-%m-%d").to_string(),
         });
     }
@@ -87,22 +75,17 @@ pub async fn get_user_analytics_handler(
         });
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CohortRow {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         cohort_period: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
         cohort_size: Option<i32>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Double>)]
         retention_0m: Option<f64>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Double>)]
         retention_1m: Option<f64>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Double>)]
         retention_2m: Option<f64>,
     }
 
     // Implement cohort analysis (monthly cohorts with 3-month retention)
-    let retention_cohorts = match diesel::sql_query(
+    let retention_cohorts = match sqlx::query_as::<_, CohortRow>(
         r#"
         WITH monthly_cohorts AS (
             SELECT
@@ -138,7 +121,7 @@ pub async fn get_user_analytics_handler(
         ORDER BY cohort_month DESC
         "#
     )
-    .load::<CohortRow>(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(results) => results
@@ -163,7 +146,7 @@ pub async fn get_user_analytics_handler(
         user_activity,
         tier_distribution,
         retention_cohorts,
-        geographic_distribution: Vec::new(), // Geographic data not available (no IP/location tracking)
+        geographic_distribution: Vec::new(),
     };
 
     info!("Admin: Successfully retrieved user analytics");

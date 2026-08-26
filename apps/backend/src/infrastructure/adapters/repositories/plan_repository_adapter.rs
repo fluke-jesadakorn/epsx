@@ -117,7 +117,7 @@ impl PostgresPlanRepositoryAdapter {
         )?;
 
         Ok(Plan::reconstruct(LoadPlanParams {
-            id: id_val,
+            id: id_val.clone(),
             name: row.name,
             description: row.description,
             plan_id: id_val,
@@ -241,7 +241,6 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             is_active: plan.is_active(),
             is_promoted: plan.is_promoted(),
             tier_level: plan.tier_level(),
-            display_order: plan.display_order(),
             max_members: None,
             auto_assign_enabled: Some(false),
             assignment_rules: None,

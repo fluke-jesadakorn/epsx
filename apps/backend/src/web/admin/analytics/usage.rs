@@ -3,9 +3,6 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel::sql_types::{BigInt, Double, Timestamptz, Uuid as SqlUuid};
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -21,15 +18,11 @@ pub struct UsageQuery {
     pub api_key: Option<String>,
 }
 
-#[derive(Debug, Serialize, QueryableByName)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct UsageData {
-    #[diesel(sql_type = Timestamptz)]
     pub date: DateTime<Utc>,
-    #[diesel(sql_type = BigInt)]
     pub requests: i64,
-    #[diesel(sql_type = BigInt)]
     pub errors: i64,
-    #[diesel(sql_type = Double)]
     pub latency: f64,
 }
 
@@ -38,27 +31,6 @@ pub async fn get_usage_analytics_handler(
     State(app_state): State<AppState>,
 ) -> axum::response::Response {
     info!("Admin: Getting usage analytics");
-
-    // Connect to ANALYTICS database (where usage logs are stored)
-    // Note: The app_state.db_pool points to the CORE database (usually)
-    // We need to check if there is a separate analytics pool or if we use the same one.
-    // Based on UsageService, it seems there might be two pools, but AppState usually only exposes one.
-    // UsageService::new(core_pool, analytics_pool).
-
-    // NOTE: In the current architecture shown in Overview.rs, we use app_state.db_pool.
-    // If usage logs are in a separate DB, we rely on the implementation detail that
-    // for simple deployments they might be in the same DB or accessible via the same pool.
-    // If they are strictly separate, we might need to access the analytics pool from state if available.
-    // Checking AppState definition would be good, but assuming db_pool is correct for now
-    // as we are patching an existing system.
-
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Admin: Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database error").into_response();
-        }
-    };
 
     let period_days = match query.time_range.as_deref() {
         Some("24h") => 1,
@@ -77,51 +49,49 @@ pub async fn get_usage_analytics_handler(
         None => None,
     };
 
-    // Construct query
-    // Since api_key_usage_logs is partitioned, we should ideally use the base table
-    // or rely on Diesel to handle the table name if it's a view/parent.
-    // The schema defines `api_key_usage_logs` so we use that.
-
-    let sql = format!(
-        r#"
-        SELECT 
-            date_trunc('day', request_at) as date,
-            COUNT(*)::BIGINT as requests,
-            COUNT(*) FILTER (WHERE response_status >= 400)::BIGINT as errors,
-            COALESCE(AVG(response_time_ms), 0.0)::DOUBLE PRECISION as latency
-        FROM api_key_usage_logs
-        WHERE request_at >= $1
-        {}
-        GROUP BY date
-        ORDER BY date ASC
-        "#,
-        if api_key_uuid.is_some() {
-            "AND api_key_id = $2"
-        } else {
-            ""
-        }
-    );
-
-    let result = if let Some(uuid) = api_key_uuid {
-        diesel::sql_query(sql)
-            .bind::<Timestamptz, _>(start_date)
-            .bind::<SqlUuid, _>(uuid)
-            .load::<UsageData>(&mut *conn)
-            .await
+    let pool = if let Some(analytics) = &app_state.analytics_db_pool {
+        analytics
     } else {
-        diesel::sql_query(sql)
-            .bind::<Timestamptz, _>(start_date)
-            .load::<UsageData>(&mut *conn)
-            .await
+        &app_state.db_pool
     };
 
-    let usage_data = match result {
-        Ok(data) => data,
-        Err(e) => {
-            error!("Admin: Failed to fetch usage data: {}", e);
-            // Return empty data instead of 500 to avoid breaking UI completely
-            Vec::new()
-        }
+    let usage_data: Vec<UsageData> = if let Some(uuid) = api_key_uuid {
+        sqlx::query_as::<_, UsageData>(
+            r#"
+            SELECT 
+                date_trunc('day', request_at) as date,
+                COUNT(*)::BIGINT as requests,
+                COUNT(*) FILTER (WHERE response_status >= 400)::BIGINT as errors,
+                COALESCE(AVG(response_time_ms), 0.0)::DOUBLE PRECISION as latency
+            FROM api_key_usage_logs
+            WHERE request_at >= $1 AND api_key_id = $2
+            GROUP BY date
+            ORDER BY date ASC
+            "#,
+        )
+        .bind(start_date)
+        .bind(uuid)
+        .fetch_all(pool.as_ref())
+        .await
+        .unwrap_or_default()
+    } else {
+        sqlx::query_as::<_, UsageData>(
+            r#"
+            SELECT 
+                date_trunc('day', request_at) as date,
+                COUNT(*)::BIGINT as requests,
+                COUNT(*) FILTER (WHERE response_status >= 400)::BIGINT as errors,
+                COALESCE(AVG(response_time_ms), 0.0)::DOUBLE PRECISION as latency
+            FROM api_key_usage_logs
+            WHERE request_at >= $1
+            GROUP BY date
+            ORDER BY date ASC
+            "#,
+        )
+        .bind(start_date)
+        .fetch_all(pool.as_ref())
+        .await
+        .unwrap_or_default()
     };
 
     AdminResponse::success_with_message(usage_data, "Usage analytics retrieved successfully")

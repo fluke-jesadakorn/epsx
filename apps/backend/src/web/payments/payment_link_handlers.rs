@@ -548,7 +548,6 @@ pub async fn update_payment_link_handler(
         max_uses: request.max_uses,
         is_active: request.is_active,
         metadata: request.metadata,
-        updated_at: Utc::now(),
     };
 
     match port.update(id, changeset).await {

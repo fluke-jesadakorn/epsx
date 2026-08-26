@@ -101,7 +101,7 @@ impl UsageService {
 
     pub fn new_core_only(core_pool: PgPool) -> Self {
         Self {
-            core_pool,
+            core_pool: core_pool.clone(),
             analytics_pool: core_pool,
         }
     }

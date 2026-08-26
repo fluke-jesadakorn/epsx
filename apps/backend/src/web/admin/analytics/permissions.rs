@@ -6,9 +6,7 @@ use axum::{
     response::IntoResponse,
 };
 use chrono::{DateTime, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use tracing::{error, info};
+use tracing::info;
 
 /**
  * Get permission analytics
@@ -20,35 +18,22 @@ pub async fn get_permission_analytics_handler(
 ) -> axum::response::Response {
     info!("Admin: Getting permission analytics");
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Admin: Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database error").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlanStatsRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         member_count: Option<i64>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         active_members: Option<i64>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         revenue: Option<bigdecimal::BigDecimal>,
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct TotalPlansRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_plans: i64,
     }
 
     // Get total plans count
-    let total_plans = match diesel::sql_query("SELECT COUNT(*)::bigint as total_plans FROM plans")
-        .get_result::<TotalPlansRow>(&mut *conn)
+    let total_plans = match sqlx::query_as::<_, TotalPlansRow>("SELECT COUNT(*)::bigint as total_plans FROM plans")
+        .fetch_one(app_state.db_pool.as_ref())
         .await
     {
         Ok(result) => result.total_plans as i32,
@@ -56,7 +41,7 @@ pub async fn get_permission_analytics_handler(
     };
 
     // Get permission plan stats with revenue
-    let plan_stats = match diesel::sql_query(
+    let plan_stats = match sqlx::query_as::<_, PlanStatsRow>(
         r#"
         SELECT
             pg.name as plan_name,
@@ -69,7 +54,7 @@ pub async fn get_permission_analytics_handler(
          ORDER BY member_count DESC
         "#,
     )
-    .load::<PlanStatsRow>(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(stats) => stats
@@ -88,17 +73,14 @@ pub async fn get_permission_analytics_handler(
     };
 
     // Get real permission usage data
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermissionUsageRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         users_count: Option<i64>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         active_count: Option<i64>,
     }
 
-    let permission_usage = match diesel::sql_query(
+    let permission_usage = match sqlx::query_as::<_, PermissionUsageRow>(
         r#"
         SELECT
             dp.permission_string,
@@ -115,7 +97,7 @@ pub async fn get_permission_analytics_handler(
         ORDER BY users_count DESC
         "#,
     )
-    .load::<PermissionUsageRow>(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(results) => results
@@ -132,19 +114,17 @@ pub async fn get_permission_analytics_handler(
                 },
             })
             .collect(),
-        Err(_) => vec![], // Return empty if query fails
+        Err(_) => vec![],
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct TrendRow {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         trend_date: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         permission_count: Option<i64>,
     }
 
     // Get permission trends (last 30 days) - count permission grants over time
-    let permission_trends = match diesel::sql_query(
+    let permission_trends = match sqlx::query_as::<_, TrendRow>(
         r#"
         SELECT
             DATE_TRUNC('day', granted_at) as trend_date,
@@ -155,7 +135,7 @@ pub async fn get_permission_analytics_handler(
         ORDER BY trend_date ASC
         "#,
     )
-    .load::<TrendRow>(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(results) => results
@@ -173,20 +153,16 @@ pub async fn get_permission_analytics_handler(
         Err(_) => Vec::new(),
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct ExpiringRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Integer>)]
         days_until_expiry: Option<i32>,
     }
 
     // Get expiring permissions (next 30 days) - use read model for denormalized permission_string
-    let expiring_permissions = match diesel::sql_query(
+    let expiring_permissions = match sqlx::query_as::<_, ExpiringRow>(
         r#"
         SELECT
             wallet_address,
@@ -201,7 +177,7 @@ pub async fn get_permission_analytics_handler(
         LIMIT 100
         "#,
     )
-    .load::<ExpiringRow>(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(results) => results

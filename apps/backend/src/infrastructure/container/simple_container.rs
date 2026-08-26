@@ -725,7 +725,7 @@ impl SimpleContainer {
             self.web3_permission_adapter = Some(Arc::new(Web3PermissionServiceAdapter::new(
                 Some(Arc::clone(cache)),
                 Some(blockchain_config),
-                &*self.db_pool,
+                Arc::clone(&self.db_pool),
             )));
         }
         self
@@ -855,25 +855,11 @@ impl SimpleContainer {
 
     // Health check for all services
     pub async fn health_check(&self) -> ContainerHealthStatus {
-        use diesel_async::RunQueryDsl;
-
         // Check database connectivity
-        let database_healthy = async {
-            let mut conn = self.db_pool.acquire().await.ok()?;
-
-            #[derive(diesel::QueryableByName)]
-            struct HealthCheck {
-                #[diesel(sql_type = diesel::sql_types::Integer)]
-                _check: i32,
-            }
-
-            diesel::sql_query("SELECT 1 as _check")
-                .get_result::<HealthCheck>(&mut *conn)
-                .await
-                .ok()
-        }
-        .await
-        .is_some();
+        let database_healthy = sqlx::query("SELECT 1")
+            .execute(self.db_pool.as_ref())
+            .await
+            .is_ok();
 
         // Check cache connectivity
         let cache_healthy = if let Some(cache) = &self.cache {

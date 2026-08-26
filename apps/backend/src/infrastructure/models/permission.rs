@@ -197,11 +197,15 @@ impl NewPermissionDb {
             );
         }
 
+        let platform = parts[0].to_string();
+        let resource = parts[1].to_string();
+        let action = parts[2].to_string();
+
         Ok(Self {
             permission_string,
-            platform: parts[0].to_string(),
-            resource: parts[1].to_string(),
-            action: parts[2].to_string(),
+            platform,
+            resource,
+            action,
             name,
             category,
             description,

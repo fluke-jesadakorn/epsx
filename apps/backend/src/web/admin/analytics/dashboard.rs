@@ -6,8 +6,6 @@ use axum::{
     http::HeaderValue,
     response::{IntoResponse, Response},
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::Serialize;
 use tracing::info;
 
@@ -165,25 +163,20 @@ pub async fn get_admin_analytics_dashboard_handler(
 }
 
 async fn fetch_user_stats(app_state: &AppState) -> Result<AdminAnalyticsUserStats, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UserCounts {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_users: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_users: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         today_connections: i64,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, UserCounts>(
         "SELECT COUNT(*)::bigint as total_users,
                 COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users,
                 COUNT(*) FILTER (WHERE last_auth_at >= NOW() - INTERVAL '24 hours')::bigint as today_connections
          FROM wallet_users"
     )
-    .get_result::<UserCounts>(&mut *conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     .map_err(|e| e.to_string())?;
 
@@ -199,20 +192,15 @@ async fn fetch_user_stats(app_state: &AppState) -> Result<AdminAnalyticsUserStat
 async fn fetch_permission_stats(
     app_state: &AppState,
 ) -> Result<AdminAnalyticsPermissionStats, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermStats {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_plans: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_permissions: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_permissions: i64,
     }
 
-    let result = diesel::sql_query(ADMIN_PERMISSION_STATS_SQL)
-        .get_result::<PermStats>(&mut *conn)
+    let result = sqlx::query_as::<_, PermStats>(ADMIN_PERMISSION_STATS_SQL)
+        .fetch_one(app_state.db_pool.as_ref())
         .await
         .map_err(|e| e.to_string())?;
 
@@ -225,23 +213,16 @@ async fn fetch_permission_stats(
 }
 
 async fn fetch_plan_stats(app_state: &AppState) -> Result<AdminAnalyticsPlanStats, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlanCounts {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_plans: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_plans: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_memberships: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_memberships: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         recent_assignments: i64,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, PlanCounts>(
         "SELECT
             COUNT(*)::bigint as total_plans,
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_plans,
@@ -250,7 +231,7 @@ async fn fetch_plan_stats(app_state: &AppState) -> Result<AdminAnalyticsPlanStat
             (SELECT COUNT(*)::bigint FROM wallet_plan_assignments WHERE created_at >= NOW() - INTERVAL '30 days') as recent_assignments
          FROM plans"
     )
-    .get_result::<PlanCounts>(&mut *conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     .map_err(|e| e.to_string())?;
 
@@ -272,22 +253,18 @@ async fn fetch_developer_stats(
         &app_state.db_pool
     };
 
-    let mut conn = pool.acquire().await.map_err(|e| e.to_string())?;
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct DevStats {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_api_keys: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_api_keys: i64,
     }
 
-    let result = diesel::sql_query(
+    let result = sqlx::query_as::<_, DevStats>(
         "SELECT COUNT(*)::bigint as total_api_keys,
                 COUNT(*) FILTER (WHERE status = 'active')::bigint as active_api_keys
          FROM api_keys",
     )
-    .get_result::<DevStats>(&mut *conn)
+    .fetch_one(pool.as_ref())
     .await
     .map_err(|e| e.to_string())?;
 
