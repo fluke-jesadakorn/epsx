@@ -103,10 +103,10 @@ pub async fn get_recent_wallets(
     // Get total count for pagination info
     #[derive(sqlx::FromRow)]
     struct CountRow {
-        count: Option<i64>,
+        count: i64,
     }
 
-    let total_count: Option<i64> = sqlx::query_as(
+    let total_count: i64 = sqlx::query_as::<_, CountRow>(
         r#"
         SELECT COUNT(*) as count
         FROM wallet_users
@@ -116,10 +116,7 @@ pub async fn get_recent_wallets(
     .bind(days_back)
     .fetch_one(app_state.db_pool.as_ref())
     .await
-    .ok()
-    .and_then(|r: Option<CountRow>| r)
-    .and_then(|r| r.count)
-    .unwrap_or(Some(0))
+    .map(|r: CountRow| r.count)
     .unwrap_or(0);
 
     // Get analytics data
@@ -203,6 +200,11 @@ pub async fn search_wallets(
     State(app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     info!("Admin: Searching wallets with filters");
+
+    #[derive(sqlx::FromRow)]
+    struct CountRow {
+        count: i64,
+    }
 
     let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
 
@@ -327,7 +329,7 @@ pub async fn search_wallets(
         cq = cq.bind(exclude_plan_uuid.unwrap());
     }
     let total_count = match cq.fetch_one(app_state.db_pool.as_ref()).await {
-        Ok(row) => row.count.unwrap_or(0),
+        Ok(row) => row.count,
         Err(e) => {
             error!("Admin: Failed to count wallets: {}", e);
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
@@ -431,7 +433,7 @@ pub async fn get_tiers(State(app_state): State<AppState>) -> Result<Json<Vec<Str
         tier_level: String,
     }
 
-    let result: Result<Vec<TierRow>, _> = sqlx::query_as(
+    let result = sqlx::query_as::<_, TierRow>(
         r#"
         SELECT DISTINCT tier_level
         FROM wallet_users
@@ -442,7 +444,7 @@ pub async fn get_tiers(State(app_state): State<AppState>) -> Result<Json<Vec<Str
     .fetch_all(app_state.db_pool.as_ref())
     .await;
 
-    let tiers = match result {
+    let tiers: Vec<String> = match result {
         Ok(rows) => rows.into_iter().map(|r| r.tier_level).collect(),
         Err(e) => {
             error!("Admin: Failed to fetch tiers: {}", e);
