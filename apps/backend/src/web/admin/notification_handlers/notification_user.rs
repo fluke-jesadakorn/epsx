@@ -6,8 +6,6 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-// use diesel::prelude::*;
-// use diesel_async::RunQueryDsl;
 
 use super::super::notification_query_helper::NotificationQueryFilter;
 use super::super::wallet_notification_repository::WalletNotificationRepository;

@@ -5,8 +5,6 @@
 //! Verifies ERC20 Transfer events to ensure correct recipient, token, and amount.
 
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use ethers::prelude::*;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -14,10 +12,7 @@ use std::time::Duration;
 use tracing::{debug, error, info, trace, warn};
 use uuid::Uuid;
 
-use crate::{
-    infrastructure::database::{get_diesel_pool, get_payments_pool},
-    schemas::payments::payments,
-};
+use crate::infrastructure::database::{get_diesel_pool, get_payments_pool};
 
 /// ERC20 Transfer(address,address,uint256) event topic
 /// keccak256("Transfer(address,address,uint256)")
@@ -149,12 +144,8 @@ impl TransactionMonitorService {
         let pool = get_payments_pool()
             .await
             .map_err(|e| format!("payments pool unavailable: {}", e))?;
-        let mut conn = pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("payments connection failed: {}", e))?;
-        diesel::sql_query("SELECT 1 FROM payments LIMIT 0")
-            .execute(&mut *conn)
+        sqlx::query("SELECT 1 FROM payments LIMIT 0")
+            .execute(&pool)
             .await
             .map_err(|e| format!("payments table not accessible: {}", e))?;
         Ok(())
@@ -451,12 +442,8 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE payments
             SET confirmations = $1,
@@ -466,10 +453,10 @@ impl TransactionMonitorService {
             WHERE transaction_hash = $3
             "#,
         )
-        .bind::<diesel::sql_types::Integer, _>(confirmations)
-        .bind::<diesel::sql_types::BigInt, _>(block_number)
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut *conn)
+        .bind(confirmations)
+        .bind(block_number)
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to update confirmations: {}", e))?;
 
@@ -486,20 +473,16 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE payments
             SET last_checked_at = NOW()
             WHERE transaction_hash = $1
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut *conn)
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to update last_checked_at: {}", e))?;
 
@@ -511,12 +494,8 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE payments
             SET status = 'failed',
@@ -525,9 +504,9 @@ impl TransactionMonitorService {
             WHERE transaction_hash = $2
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(error_message)
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut *conn)
+        .bind(error_message)
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to mark as failed: {}", e))?;
 
@@ -560,11 +539,8 @@ impl TransactionMonitorService {
         let Ok(payments_pool) = get_payments_pool().await else {
             return;
         };
-        let Ok(mut conn) = payments_pool.acquire().await else {
-            return;
-        };
 
-        let _ = diesel::sql_query(
+        let _ = sqlx::query(
             r#"
             INSERT INTO payment_audit_log
                 (id, payment_id, action, new_status, reason, performed_by, metadata, tx_hash)
@@ -573,12 +549,12 @@ impl TransactionMonitorService {
             WHERE p.transaction_hash = $5
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(action)
-        .bind::<diesel::sql_types::Text, _>(new_status)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(reason)
-        .bind::<diesel::sql_types::Jsonb, _>(&metadata)
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut *conn)
+        .bind(action)
+        .bind(new_status)
+        .bind(reason)
+        .bind(&metadata)
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await;
     }
 
@@ -587,12 +563,8 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE payments
             SET error_message = $1,
@@ -600,9 +572,9 @@ impl TransactionMonitorService {
             WHERE transaction_hash = $2
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(error)
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut *conn)
+        .bind(error)
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to store verify error: {}", e))?;
 
@@ -616,13 +588,9 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
         let ttl_hours = self.config.pending_ttl_hours;
-        let expired_count = diesel::sql_query(
+        let result = sqlx::query(
             r#"
             UPDATE payments
             SET status = 'expired',
@@ -632,10 +600,12 @@ impl TransactionMonitorService {
               AND created_at < NOW() - ($1 || ' hours')::INTERVAL
             "#,
         )
-        .bind::<diesel::sql_types::BigInt, _>(ttl_hours)
-        .execute(&mut *conn)
+        .bind(ttl_hours)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to expire stale payments: {}", e))?;
+
+        let expired_count = result.rows_affected();
 
         if expired_count > 0 {
             warn!(
@@ -658,43 +628,30 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut payments_conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get payments connection: {}", e))?;
 
         let primary_pool = get_diesel_pool()
             .await
             .map_err(|e| format!("Failed to get primary pool: {}", e))?;
-        let mut primary_conn = primary_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get primary connection: {}", e))?;
 
         // Get payment details from database (amount + currency for verification)
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PaymentRow {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
             plan_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Numeric)]
             amount: bigdecimal::BigDecimal,
-            #[diesel(sql_type = diesel::sql_types::Text)]
             currency: String,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
             metadata: Option<serde_json::Value>,
-            #[diesel(sql_type = diesel::sql_types::Text)]
             payment_reference: String,
         }
 
-        let payment: Option<PaymentRow> = diesel::sql_query(
+        let payment: Option<PaymentRow> = sqlx::query_as::<_, PaymentRow>(
             "SELECT plan_id, wallet_address, amount, currency, metadata, payment_reference FROM payments WHERE transaction_hash = $1 LIMIT 1"
         )
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .get_result(&mut payments_conn)
+        .bind(tx_hash)
+        .fetch_optional(&payments_pool)
         .await
-        .ok();
+        .ok()
+        .flatten();
 
         let payment = match payment {
             Some(p) => p,
@@ -704,18 +661,18 @@ impl TransactionMonitorService {
         };
 
         // M5: Check payment expiry — reject if created_at + TTL has passed
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PaymentTimestamp {
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
             created_at: chrono::DateTime<Utc>,
         }
-        let ts: Option<PaymentTimestamp> = diesel::sql_query(
+        let ts: Option<PaymentTimestamp> = sqlx::query_as::<_, PaymentTimestamp>(
             "SELECT created_at FROM payments WHERE transaction_hash = $1 LIMIT 1",
         )
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .get_result(&mut payments_conn)
+        .bind(tx_hash)
+        .fetch_optional(&payments_pool)
         .await
-        .ok();
+        .ok()
+        .flatten();
 
         if let Some(ts) = ts {
             let age_hours = (Utc::now() - ts.created_at).num_hours();
@@ -771,41 +728,35 @@ impl TransactionMonitorService {
         let token_addr = format!("{:?}", verified_token);
 
         // 2. Ensure wallet_users entry exists
-        diesel::sql_query(
+        sqlx::query(
             r#"
             INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
             VALUES ($1, true, 'Bronze', '{}')
             ON CONFLICT (wallet_address) DO NOTHING
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .execute(&mut primary_conn)
+        .bind(&wallet_address)
+        .execute(&primary_pool)
         .await
         .ok();
 
         // 3. Verify plan exists
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         #[allow(dead_code)]
         struct GroupCheck {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Text)]
             name: String,
-            #[diesel(sql_type = diesel::sql_types::Integer)]
             tier_level: i32,
-            #[diesel(sql_type = diesel::sql_types::Jsonb)]
             plan_metadata: serde_json::Value,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             billing_cycle: Option<String>,
         }
 
-        let group_check: Option<GroupCheck> = diesel::sql_query(
+        let group_check: Option<GroupCheck> = sqlx::query_as::<_, GroupCheck>(
             "SELECT id, name, tier_level, plan_metadata, billing_cycle FROM plans WHERE id = $1 AND is_active = true",
         )
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .get_result(&mut primary_conn)
+        .bind(plan_uuid)
+        .fetch_optional(&primary_pool)
         .await
-        .optional()
         .map_err(|e| format!("Failed to load plan terms: {e}"))?;
 
         let (plan_name, tier_level, plan_metadata, billing_cycle) = match group_check {
@@ -831,24 +782,20 @@ impl TransactionMonitorService {
         );
 
         // 4. Check for existing assignment
-        #[derive(diesel::QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct ExistingAssignment {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
             id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
             expires_at: Option<chrono::DateTime<Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
         }
 
-        let existing: Option<ExistingAssignment> = diesel::sql_query(
+        let existing: Option<ExistingAssignment> = sqlx::query_as::<_, ExistingAssignment>(
             "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
         )
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-        .get_result(&mut primary_conn)
+        .bind(&wallet_address)
+        .bind(plan_uuid)
+        .fetch_optional(&primary_pool)
         .await
-        .optional()
         .map_err(|e| format!("Failed to inspect existing plan assignment: {e}"))?;
 
         let assignment_expires_at: Option<chrono::DateTime<Utc>>;
@@ -876,7 +823,7 @@ impl TransactionMonitorService {
             );
 
             // Deactivate other subscription plans
-            diesel::sql_query(
+            sqlx::query(
                 r#"
                 UPDATE wallet_plan_assignments
                 SET is_active = false, updated_at = NOW()
@@ -886,25 +833,23 @@ impl TransactionMonitorService {
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
                 "#,
             )
-            .bind::<diesel::sql_types::Text, _>(&wallet_address)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .execute(&mut primary_conn)
+            .bind(&wallet_address)
+            .bind(plan_uuid)
+            .execute(&primary_pool)
             .await
             .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
-            diesel::sql_query(
+            sqlx::query(
                 r#"
                 UPDATE wallet_plan_assignments
                 SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
                 WHERE id = $3
                 "#,
             )
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(
-                assignment_expires_at,
-            )
-            .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .bind::<diesel::sql_types::Uuid, _>(existing.id)
-            .execute(&mut primary_conn)
+            .bind(assignment_expires_at)
+            .bind(&payment_reference)
+            .bind(existing.id)
+            .execute(&primary_pool)
             .await
             .map_err(|e| format!("Failed to extend plan: {}", e))?;
         } else {
@@ -916,7 +861,7 @@ impl TransactionMonitorService {
             );
             assignment_expires_at = expires_at;
             // Deactivate other subscription plans
-            diesel::sql_query(
+            sqlx::query(
                 r#"
                 UPDATE wallet_plan_assignments
                 SET is_active = false, updated_at = NOW()
@@ -925,12 +870,12 @@ impl TransactionMonitorService {
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
                 "#,
             )
-            .bind::<diesel::sql_types::Text, _>(&wallet_address)
-            .execute(&mut primary_conn)
+            .bind(&wallet_address)
+            .execute(&primary_pool)
             .await
             .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
-            diesel::sql_query(
+            sqlx::query(
                 r#"
                 INSERT INTO wallet_plan_assignments (
                     wallet_address, plan_id, assigned_at, expires_at, is_active,
@@ -940,19 +885,17 @@ impl TransactionMonitorService {
                 VALUES ($1, $2, NOW(), $3, true, 'payment', 'Plan purchase via blockchain payment', $4, false, '{}')
                 "#,
             )
-            .bind::<diesel::sql_types::Text, _>(&wallet_address)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(
-                assignment_expires_at,
-            )
-            .bind::<diesel::sql_types::Text, _>(&payment_reference)
-            .execute(&mut primary_conn)
+            .bind(&wallet_address)
+            .bind(plan_uuid)
+            .bind(assignment_expires_at)
+            .bind(&payment_reference)
+            .execute(&primary_pool)
             .await
             .map_err(|e| format!("Failed to assign plan: {}", e))?;
         }
 
         // 1. Update payment status to confirmed (RC-3: after plan assignment succeeds)
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE payments
             SET status = 'confirmed',
@@ -964,11 +907,11 @@ impl TransactionMonitorService {
             WHERE transaction_hash = $4
             "#,
         )
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>, _>(block_number)
-        .bind::<diesel::sql_types::Integer, _>(self.config.min_confirmations as i32)
-        .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(Some(&token_addr))
-        .bind::<diesel::sql_types::Text, _>(tx_hash)
-        .execute(&mut payments_conn)
+        .bind(block_number)
+        .bind(self.config.min_confirmations as i32)
+        .bind(Some(&token_addr))
+        .bind(tx_hash)
+        .execute(&payments_pool)
         .await
         .map_err(|e| format!("Failed to update payment status: {}", e))?;
 
@@ -980,16 +923,16 @@ impl TransactionMonitorService {
             _ => "Platinum",
         };
 
-        diesel::sql_query(
+        sqlx::query(
             r#"
             UPDATE wallet_users
             SET tier_level = $1, updated_at = NOW()
             WHERE wallet_address = $2
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(tier_name)
-        .bind::<diesel::sql_types::Text, _>(&wallet_address)
-        .execute(&mut primary_conn)
+        .bind(tier_name)
+        .bind(&wallet_address)
+        .execute(&primary_pool)
         .await
         .ok();
 
@@ -1032,26 +975,21 @@ pub async fn reprocess_payment_tx(tx_hash: &str) -> Result<String, String> {
     let payments_pool = get_payments_pool()
         .await
         .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-    let mut conn = payments_pool
-        .acquire().await
-        .await
-        .map_err(|e| format!("Failed to get connection: {}", e))?;
 
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct StatusRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         status: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         error_message: Option<String>,
     }
 
-    let row: Option<StatusRow> = diesel::sql_query(
+    let row: Option<StatusRow> = sqlx::query_as::<_, StatusRow>(
         "SELECT status, error_message FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
-    .bind::<diesel::sql_types::Text, _>(tx_hash)
-    .get_result(&mut *conn)
+    .bind(tx_hash)
+    .fetch_optional(&payments_pool)
     .await
-    .ok();
+    .ok()
+    .flatten();
 
     Ok(row
         .map(|r| {
