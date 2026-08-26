@@ -113,18 +113,18 @@ pub struct RemovePlanRequest {
 /// The single source of truth for all permission operations
 #[derive(Clone)]
 pub struct UnifiedPermissionService {
-    db_pool: &'static TlsPool,
+    db_pool: Arc<TlsPool>,
     cache: Option<Arc<UnifiedPermissionCache>>,
 }
 
 impl UnifiedPermissionService {
     /// Create new unified permission service with cache
-    pub fn new(db_pool: &'static TlsPool, cache: Arc<UnifiedPermissionCache>) -> Self {
+    pub fn new(db_pool: Arc<TlsPool>, cache: Arc<UnifiedPermissionCache>) -> Self {
         Self { db_pool, cache: Some(cache) }
     }
 
     /// Create new unified permission service without cache (direct DB queries only)
-    pub fn new_without_cache(db_pool: &'static TlsPool) -> Self {
+    pub fn new_without_cache(db_pool: Arc<TlsPool>) -> Self {
         Self { db_pool, cache: None }
     }
 

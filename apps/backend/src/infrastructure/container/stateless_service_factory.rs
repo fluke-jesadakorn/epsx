@@ -20,7 +20,6 @@ use crate::infrastructure::adapters::services::permission_adapter::{
 };
 use crate::infrastructure::adapters::RedisPubsubAdapter;
 use crate::infrastructure::cache::{Cache, ServerlessCacheFactory};
-use crate::infrastructure::database::diesel_health_check;
 use crate::infrastructure::redis::RedisPool;
 use anyhow::Result;
 use epsx_contracts::pubsub_port::PubsubPort;
@@ -76,9 +75,8 @@ impl StatelessServiceFactory {
     /// This is called once per HTTP request in serverless environments
     pub async fn create_request_services(&self) -> Result<RequestServices> {
         // Get global Diesel pool (static lifetime, connection pooling)
-        let diesel_pool = crate::infrastructure::database::get_diesel_pool()
-            .await
-            .expect("Failed to get Diesel pool");
+        let db_pool_clone: sqlx::PgPool = crate::infrastructure::database::get_diesel_pool().await.expect("Failed to get Diesel pool").clone();
+        let diesel_pool: &sqlx::PgPool = &db_pool_clone;
 
         // Create cache (Redis ONLY - no fallback to memory for serverless)
         let cache = if let Some(redis_url) = &self.config.redis_url {
@@ -97,7 +95,7 @@ impl StatelessServiceFactory {
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(
             cache.clone(),
             self.config.blockchain_config.clone(),
-            diesel_pool,
+            std::sync::Arc::new(db_pool_clone.clone()),
         );
 
         // Create OpenID token service using Diesel pool and RSA key manager
@@ -106,21 +104,21 @@ impl StatelessServiceFactory {
         let refresh_token_keyring = RefreshTokenKeyring::from_env()
             .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service = OpenIDTokenService::new(
-            diesel_pool,
+            db_pool_clone.clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
             Arc::new(refresh_token_keyring),
         );
         let auth_service = UnifiedWeb3AuthService::new_with_openid(
-            diesel_pool,
+            &db_pool_clone,
             self.config.domain.clone(),
             token_service.clone(),
         );
 
         // Create UnifiedPermissionService (single source of truth for permissions)
         let unified_permission_service =
-            Arc::new(UnifiedPermissionService::new_without_cache(diesel_pool));
+            Arc::new(UnifiedPermissionService::new_without_cache(std::sync::Arc::new(db_pool_clone.clone())));
 
         // Wave 11 / Track A — build the payment + credit
         // repository adapters from the dedicated
@@ -180,7 +178,7 @@ impl StatelessServiceFactory {
             };
 
         Ok(RequestServices {
-            db_pool: Arc::new(diesel_pool),
+            db_pool: Arc::new(db_pool_clone.clone()),
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
@@ -207,12 +205,11 @@ impl StatelessServiceFactory {
     /// Create minimal services for health checks (faster cold start)
     pub async fn create_health_services(&self) -> Result<HealthServices> {
         // Use global Diesel pool for health checks
-        let diesel_pool = crate::infrastructure::database::get_diesel_pool()
-            .await
-            .expect("Failed to get Diesel pool");
+        let db_pool_clone: sqlx::PgPool = crate::infrastructure::database::get_diesel_pool().await.expect("Failed to get Diesel pool").clone();
+        let diesel_pool: &sqlx::PgPool = &db_pool_clone;
 
         Ok(HealthServices {
-            db_pool: Arc::new(diesel_pool),
+            db_pool: Arc::new(db_pool_clone.clone()),
         })
     }
 }
@@ -378,8 +375,11 @@ pub struct HealthServices {
 impl HealthServices {
     /// Health check - test database connectivity using Diesel
     pub async fn health_check(&self) -> bool {
-        // Use the Diesel health check
-        diesel_health_check().await
+        // Use the sqlx-based health check
+        match crate::infrastructure::database::diesel_connection_manager::DieselConnectionManager::diesel_health_check().await {
+            Ok(()) => true,
+            Err(_) => false,
+        }
     }
 }
 
