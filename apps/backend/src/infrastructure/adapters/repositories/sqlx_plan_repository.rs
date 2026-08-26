@@ -68,12 +68,11 @@ impl SqlxPlanRepository {
     }
 
     pub async fn count_active(&self) -> AppResult<i64> {
-        let (count,): (i64,) = sqlx::query_as(
-            r#"SELECT COUNT(*) FROM plans WHERE is_active = true"#,
-        )
-        .fetch_one(self.pool.as_ref())
-        .await
-        .map_err(|e| AppError::database_error(format!("sqlx plan count: {e}")))?;
+        let (count,): (i64,) =
+            sqlx::query_as(r#"SELECT COUNT(*) FROM plans WHERE is_active = true"#)
+                .fetch_one(self.pool.as_ref())
+                .await
+                .map_err(|e| AppError::database_error(format!("sqlx plan count: {e}")))?;
         Ok(count)
     }
 }

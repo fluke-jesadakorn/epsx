@@ -178,7 +178,11 @@ impl ChatRepository {
         conv_id: Uuid,
         agent: Option<&str>,
     ) -> Result<ChatConversationDb, String> {
-        let new_status = if agent.is_some() { "in_progress" } else { "open" };
+        let new_status = if agent.is_some() {
+            "in_progress"
+        } else {
+            "open"
+        };
 
         let row: ChatConversationDb = sqlx::query_as(
             r#"
@@ -360,26 +364,23 @@ impl ChatRepository {
     // ========================================================================
 
     pub async fn get_stats(pool: &TlsPool) -> Result<ChatStatsResponse, String> {
-        let total_open: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'open'",
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let total_open: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM chat_conversations WHERE status = 'open'")
+                .fetch_one(pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
-        let total_in_progress: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'in_progress'",
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let total_in_progress: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM chat_conversations WHERE status = 'in_progress'")
+                .fetch_one(pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
-        let total_resolved: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM chat_conversations WHERE status = 'resolved'",
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let total_resolved: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM chat_conversations WHERE status = 'resolved'")
+                .fetch_one(pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
         let total_unassigned: (i64,) = sqlx::query_as(
             "SELECT COUNT(*) FROM chat_conversations \

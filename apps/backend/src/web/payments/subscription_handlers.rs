@@ -120,6 +120,7 @@ pub async fn get_user_plans_handler(
     let now = Utc::now();
 
     #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
     struct ActiveSubscriptionRow {
         plan_id: Uuid,
         name: String,
@@ -395,6 +396,7 @@ pub async fn get_upgrade_preview_handler(
     })?;
 
     #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
     struct PlanRow {
         id: Uuid,
         name: String,
@@ -479,6 +481,7 @@ pub async fn get_upgrade_preview_handler(
         assignment
     {
         #[derive(sqlx::FromRow)]
+        #[allow(dead_code)]
         struct CurPlanRow {
             id: uuid::Uuid,
             name: String,
@@ -685,13 +688,17 @@ pub async fn execute_plan_switch_handler(
     use std::str::FromStr;
 
     let wallet = &user_context.wallet_address;
-    info!("Plan switch requested by {} to plan {}", wallet, payload.new_plan_id);
+    info!(
+        "Plan switch requested by {} to plan {}",
+        wallet, payload.new_plan_id
+    );
 
     let new_plan_uuid = Uuid::parse_str(&payload.new_plan_id).map_err(|_| {
         UnifiedErrorResponse::json(400, "Invalid plan ID", "Plan ID must be a valid UUID")
     })?;
 
     #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
     struct AssignmentRow {
         plan_id: Uuid,
         assigned_at: DateTime<Utc>,
@@ -745,6 +752,7 @@ pub async fn execute_plan_switch_handler(
     }
 
     #[derive(sqlx::FromRow)]
+    #[allow(dead_code)]
     struct SwitchPlanRow {
         id: Uuid,
         name: String,
@@ -753,24 +761,30 @@ pub async fn execute_plan_switch_handler(
         billing_cycle: Option<String>,
     }
 
-    let current_plan: SwitchPlanRow = sqlx::query_as(
-        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
-    )
-    .bind(assignment.plan_id)
-    .fetch_one(app_state.db_pool.as_ref())
-    .await
-    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch current plan", e.to_string()))?;
+    let current_plan: SwitchPlanRow =
+        sqlx::query_as("SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1")
+            .bind(assignment.plan_id)
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+            .map_err(|e| {
+                UnifiedErrorResponse::json(500, "Failed to fetch current plan", e.to_string())
+            })?;
 
-    let new_plan: SwitchPlanRow = sqlx::query_as(
-        "SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1",
-    )
-    .bind(new_plan_uuid)
-    .fetch_optional(app_state.db_pool.as_ref())
-    .await
-    .map_err(|e| UnifiedErrorResponse::json(500, "Failed to fetch new plan", e.to_string()))?
-    .ok_or_else(|| {
-        UnifiedErrorResponse::json(400, "Plan not found", "The selected plan does not exist")
-    })?;
+    let new_plan: SwitchPlanRow =
+        sqlx::query_as("SELECT id, name, price, is_active, billing_cycle FROM plans WHERE id = $1")
+            .bind(new_plan_uuid)
+            .fetch_optional(app_state.db_pool.as_ref())
+            .await
+            .map_err(|e| {
+                UnifiedErrorResponse::json(500, "Failed to fetch new plan", e.to_string())
+            })?
+            .ok_or_else(|| {
+                UnifiedErrorResponse::json(
+                    400,
+                    "Plan not found",
+                    "The selected plan does not exist",
+                )
+            })?;
 
     if !new_plan.is_active {
         return Err(UnifiedErrorResponse::json(

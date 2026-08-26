@@ -23,7 +23,7 @@ use epsx_contracts::errors::{AppError, ErrorKind};
 // ADMIN HANDLERS
 // ============================================================================
 
-async fn require_notifications_pool() -> Result<&'static TlsPool, AppError> {
+async fn require_notifications_pool() -> Result<TlsPool, AppError> {
     crate::infrastructure::database::get_notifications_pool()
         .await
         .map_err(|error| {
@@ -151,7 +151,7 @@ pub async fn send_notification_handler(
 
     // Use repository for database operations
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
     let repo = WalletNotificationRepository::new(notifications_pool);
 
     // Track total subscribers across all recipients
@@ -424,7 +424,7 @@ pub async fn get_all_notifications_handler(
     }
 
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
     let repo = WalletNotificationRepository::new(notifications_pool);
 
     // Fetch notifications
@@ -504,7 +504,7 @@ pub async fn get_notification_stats_handler(
     let total_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
     )
-    .fetch_one(&*notifications_pool)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -518,7 +518,7 @@ pub async fn get_notification_stats_handler(
     let today_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE AND status != 'deleted'"
     )
-    .fetch_one(&*notifications_pool)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?
     .count;
@@ -527,7 +527,7 @@ pub async fn get_notification_stats_handler(
     let week_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND status != 'deleted'"
     )
-    .fetch_one(&*notifications_pool)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?
     .count;
@@ -536,7 +536,7 @@ pub async fn get_notification_stats_handler(
     let month_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND status != 'deleted'"
     )
-    .fetch_one(&*notifications_pool)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?
     .count;
@@ -551,7 +551,7 @@ pub async fn get_notification_stats_handler(
     let type_counts = sqlx::query_as::<_, TypeCountRow>(
         "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY notification_type"
     )
-    .fetch_all(&*notifications_pool)
+    .fetch_all(&notifications_pool)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get type counts: {}", e)))?;
 
@@ -570,7 +570,7 @@ pub async fn get_notification_stats_handler(
     let priority_counts = sqlx::query_as::<_, PriorityCountRow>(
         "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY priority"
     )
-    .fetch_all(&*notifications_pool)
+    .fetch_all(&notifications_pool)
     .await
     .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get priority counts: {}", e)))?;
 
@@ -586,7 +586,7 @@ pub async fn get_notification_stats_handler(
     let read_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'",
     )
-    .fetch_one(&*notifications_pool)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -630,7 +630,7 @@ pub async fn get_notification_stats_handler(
         LIMIT 10
         "#,
     )
-    .fetch_all(&*notifications_pool)
+    .fetch_all(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -708,7 +708,7 @@ pub async fn delete_admin_notification_handler(
     // Hard delete for admin
     let res = sqlx::query("DELETE FROM wallet_notifications WHERE id = $1")
         .bind(notif_uuid)
-        .execute(&*notifications_pool)
+        .execute(&notifications_pool)
         .await
         .map_err(|e| {
             AppError::new(

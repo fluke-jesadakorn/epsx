@@ -246,7 +246,7 @@ pub async fn bulk_revoke(
     }
 
     let mut successful = Vec::new();
-    let mut failed = Vec::new();
+    let failed: Vec<BulkWalletError> = Vec::new();
     let mut total_revoked = 0;
 
     for wallet_address in &req.wallet_addresses {
@@ -255,14 +255,13 @@ pub async fn bulk_revoke(
 
         for perm_string in &req.permission_strings {
             // Get permission ID
-            let perm_id: Option<uuid::Uuid> = sqlx::query_scalar(
-                "SELECT id FROM permissions WHERE permission_string = $1",
-            )
-            .bind(perm_string.as_str())
-            .fetch_optional(&*app_state.db_pool)
-            .await
-            .ok()
-            .flatten();
+            let perm_id: Option<uuid::Uuid> =
+                sqlx::query_scalar("SELECT id FROM permissions WHERE permission_string = $1")
+                    .bind(perm_string.as_str())
+                    .fetch_optional(&*app_state.db_pool)
+                    .await
+                    .ok()
+                    .flatten();
 
             let perm_id = match perm_id {
                 Some(id) => id,
@@ -494,9 +493,7 @@ pub async fn bulk_validate(
         let mut expired_perms = Vec::new();
         for row in &rows {
             total_perms += 1;
-            let is_expired = check_expired
-                .then(|| row.expires_at.map_or(false, |e| e < now))
-                .unwrap_or(false);
+            let is_expired = check_expired && row.expires_at.is_some_and(|e| e < now);
             if is_expired {
                 expired_perms.push(row.permission_string.clone());
             } else {

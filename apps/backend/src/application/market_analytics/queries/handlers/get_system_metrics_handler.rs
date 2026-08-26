@@ -12,10 +12,7 @@ pub struct GetSystemMetricsQueryHandler {
 }
 
 impl GetSystemMetricsQueryHandler {
-    pub fn new(
-        tradingview_service: Arc<TradingViewApiService>,
-        db_pool: Arc<TlsPool>,
-    ) -> Self {
+    pub fn new(tradingview_service: Arc<TradingViewApiService>, db_pool: Arc<TlsPool>) -> Self {
         Self {
             tradingview_service,
             db_pool,

@@ -133,7 +133,8 @@ pub async fn grant_permission(
         Ok(g) => g,
         Err(e) => {
             tracing::error!("Failed to grant direct permission: {}", e);
-            return AdminResponse::server_error("Failed to grant direct permission").into_response();
+            return AdminResponse::server_error("Failed to grant direct permission")
+                .into_response();
         }
     };
 
@@ -451,19 +452,19 @@ pub async fn remove_permission_from_plan(
         }
     };
 
-    let result = sqlx::query(
-        "DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2",
-    )
-    .bind(plan_uuid)
-    .bind(perm_uuid)
-    .execute(&*app_state.db_pool)
-    .await;
+    let result =
+        sqlx::query("DELETE FROM plan_permissions WHERE plan_id = $1 AND permission_id = $2")
+            .bind(plan_uuid)
+            .bind(perm_uuid)
+            .execute(&*app_state.db_pool)
+            .await;
 
     let result = match result {
         Ok(r) => r,
         Err(e) => {
             tracing::error!("Failed to remove permission from plan: {}", e);
-            return AdminResponse::server_error("Failed to remove permission from plan").into_response();
+            return AdminResponse::server_error("Failed to remove permission from plan")
+                .into_response();
         }
     };
 

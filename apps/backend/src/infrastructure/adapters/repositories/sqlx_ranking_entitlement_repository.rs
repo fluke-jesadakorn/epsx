@@ -25,7 +25,10 @@ impl SqlxRankingEntitlementRepository {
         Self { pool }
     }
 
-    pub async fn find_by_wallet(&self, wallet_address: &str) -> AppResult<Vec<SqlxRankingEntitlementRow>> {
+    pub async fn find_by_wallet(
+        &self,
+        wallet_address: &str,
+    ) -> AppResult<Vec<SqlxRankingEntitlementRow>> {
         let rows = sqlx::query_as::<_, SqlxRankingEntitlementRow>(
             r#"SELECT wallet_address, plan_id, ranking_offset, created_at FROM ranking_entitlements WHERE wallet_address = $1 ORDER BY created_at DESC"#,
         )

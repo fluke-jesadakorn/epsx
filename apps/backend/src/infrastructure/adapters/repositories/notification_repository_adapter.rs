@@ -3,13 +3,13 @@
 //!
 //! MIGRATED TO SQLX (real): no stubs.
 
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use sqlx::PgPool;
 use tracing::{debug, info};
 use uuid::Uuid;
 
-use crate::domain::notification::aggregates::notification::{DeliveryResult, Notification};
 use crate::application::shared::error::ApplicationResult;
+use crate::domain::notification::aggregates::notification::{DeliveryResult, Notification};
 use crate::prelude::AppError;
 
 /// Web3-first notification repository adapter - no email dependencies
@@ -35,7 +35,8 @@ impl NotificationRepositoryAdapter {
             "Sending Web3 notification {} to wallet {}",
             notification_id, wallet_address
         );
-        self.store_wallet_notification(notification, wallet_address).await
+        self.store_wallet_notification(notification, wallet_address)
+            .await
     }
 
     /// Send notification to multiple wallet recipients
@@ -88,11 +89,17 @@ impl NotificationRepositoryAdapter {
         let mut delivered_count = 0;
         let mut failed_count = 0;
         for wallet_address in subscriber_wallets {
-            match self.store_wallet_notification(notification, &wallet_address).await {
+            match self
+                .store_wallet_notification(notification, &wallet_address)
+                .await
+            {
                 Ok(_) => delivered_count += 1,
                 Err(e) => {
                     failed_count += 1;
-                    debug!("Failed to store notification for wallet {}: {}", wallet_address, e);
+                    debug!(
+                        "Failed to store notification for wallet {}: {}",
+                        wallet_address, e
+                    );
                 }
             }
         }
@@ -125,9 +132,12 @@ impl NotificationRepositoryAdapter {
             notification.id().value(),
             wallet_address
         );
-        self.persist_wallet_notification(notification, wallet_address).await?;
-        self.mark_notification_unread(&notification.id().value().to_string(), wallet_address).await?;
-        self.trigger_websocket_update(wallet_address, notification).await?;
+        self.persist_wallet_notification(notification, wallet_address)
+            .await?;
+        self.mark_notification_unread(&notification.id().value().to_string(), wallet_address)
+            .await?;
+        self.trigger_websocket_update(wallet_address, notification)
+            .await?;
         Ok(DeliveryResult::Success {
             delivered_at: Utc::now(),
             message_id: Some(format!("wallet-{}", Uuid::new_v4())),
@@ -139,7 +149,11 @@ impl NotificationRepositoryAdapter {
         info!("Querying subscribers for topic: {}", topic_name);
         // TODO: replace with real topic_subscriptions query when that table exists.
         let subscribers: Vec<String> = Vec::new();
-        debug!("Found {} subscribers for topic {}", subscribers.len(), topic_name);
+        debug!(
+            "Found {} subscribers for topic {}",
+            subscribers.len(),
+            topic_name
+        );
         Ok(subscribers)
     }
 
@@ -178,9 +192,7 @@ impl NotificationRepositoryAdapter {
         .bind(&data_payload)
         .execute(&self.pool)
         .await
-        .map_err(|e| {
-            AppError::database_error(format!("Failed to persist notification: {}", e))
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to persist notification: {}", e)))?;
 
         info!(
             "Successfully persisted notification {} for wallet {}",
@@ -211,7 +223,8 @@ impl NotificationRepositoryAdapter {
     ) -> ApplicationResult<()> {
         info!(
             "Triggering WebSocket update for wallet {} notification {}",
-            wallet_address, notification.id().value()
+            wallet_address,
+            notification.id().value()
         );
         Ok(())
     }

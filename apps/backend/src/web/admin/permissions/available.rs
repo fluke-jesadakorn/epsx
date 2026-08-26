@@ -13,7 +13,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct PermissionDefinition {
     pub id: Uuid,
     pub permission_string: String,
@@ -159,7 +159,7 @@ pub async fn create_permission_definition(
         )
     });
 
-    let row: Result<(Uuid, String, Option<String>, Option<String>, String, Option<String>, bool, bool, chrono::DateTime<chrono::Utc>), _> = sqlx::query_as(
+    let row: Result<PermissionDefinition, _> = sqlx::query_as(
         "INSERT INTO permissions (permission_string, platform, resource, action, name, description, category, is_system, is_active, permission_type)
          VALUES ($1, $2, $3, $4, $5, $6, $7, FALSE, TRUE, 'manual')
          ON CONFLICT (permission_string) DO UPDATE SET is_active = TRUE, updated_at = NOW()
@@ -176,20 +176,7 @@ pub async fn create_permission_definition(
     .await;
 
     match row {
-        Ok((id, permission_string, name, description, platform, cat, is_system, is_active, created_at)) => {
-            AdminResponse::success(PermissionDefinition {
-                id,
-                permission_string,
-                name,
-                description,
-                platform,
-                category: cat,
-                is_system,
-                is_active,
-                created_at,
-            })
-            .into_response()
-        }
+        Ok(def) => AdminResponse::success(def).into_response(),
         Err(e) => {
             tracing::error!("Failed to create permission definition: {}", e);
             AdminResponse::server_error("Failed to create permission").into_response()
@@ -205,12 +192,11 @@ pub async fn update_permission_definition(
     Json(req): Json<UpdatePermissionRequest>,
 ) -> impl IntoResponse {
     // Check if permission exists
-    let check: Result<Option<(bool,)>, _> = sqlx::query_as(
-        "SELECT is_system FROM permissions WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(app_state.db_pool.as_ref())
-    .await;
+    let check: Result<Option<(bool,)>, _> =
+        sqlx::query_as("SELECT is_system FROM permissions WHERE id = $1")
+            .bind(id)
+            .fetch_optional(app_state.db_pool.as_ref())
+            .await;
 
     match check {
         Ok(Some((is_system,))) if is_system => {
@@ -229,7 +215,7 @@ pub async fn update_permission_definition(
     }
 
     // Build dynamic UPDATE with COALESCE
-    let row: Result<(Uuid, String, Option<String>, Option<String>, String, Option<String>, bool, bool, chrono::DateTime<chrono::Utc>), _> = sqlx::query_as(
+    let row: Result<PermissionDefinition, _> = sqlx::query_as(
         "UPDATE permissions SET 
             name = COALESCE($2, name),
             description = COALESCE($3, description),
@@ -248,20 +234,7 @@ pub async fn update_permission_definition(
     .await;
 
     match row {
-        Ok((id, permission_string, name, description, platform, cat, is_system, is_active, created_at)) => {
-            AdminResponse::success(PermissionDefinition {
-                id,
-                permission_string,
-                name,
-                description,
-                platform,
-                category: cat,
-                is_system,
-                is_active,
-                created_at,
-            })
-            .into_response()
-        }
+        Ok(def) => AdminResponse::success(def).into_response(),
         Err(e) => {
             tracing::error!("Failed to update permission definition: {}", e);
             AdminResponse::server_error("Failed to update permission").into_response()
@@ -276,17 +249,15 @@ pub async fn delete_permission_definition(
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
     // Check if it's a system permission
-    let check: Result<Option<(bool,)>, _> = sqlx::query_as(
-        "SELECT is_system FROM permissions WHERE id = $1",
-    )
-    .bind(id)
-    .fetch_optional(app_state.db_pool.as_ref())
-    .await;
+    let check: Result<Option<(bool,)>, _> =
+        sqlx::query_as("SELECT is_system FROM permissions WHERE id = $1")
+            .bind(id)
+            .fetch_optional(app_state.db_pool.as_ref())
+            .await;
 
     match check {
         Ok(Some((is_system,))) if is_system => {
-            return AdminResponse::bad_request("Cannot delete system permissions")
-                .into_response();
+            return AdminResponse::bad_request("Cannot delete system permissions").into_response();
         }
         Ok(None) => {
             return AdminResponse::not_found("Permission not found").into_response();

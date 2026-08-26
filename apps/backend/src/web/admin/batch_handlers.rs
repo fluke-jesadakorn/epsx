@@ -63,7 +63,11 @@ pub async fn admin_dashboard_summary_handler(
 }
 
 async fn fetch_wallet_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct WalletCounts {
@@ -90,7 +94,11 @@ async fn fetch_wallet_stats(app_state: &AppState) -> Result<serde_json::Value, S
 }
 
 async fn fetch_perm_system_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct PermCounts {
@@ -181,7 +189,11 @@ async fn fetch_notifications(
     app_state: &AppState,
     limit: i64,
 ) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow, serde::Serialize)]
     struct NotifRow {
@@ -204,7 +216,11 @@ async fn fetch_notifications(
 }
 
 async fn fetch_notification_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct StatsRow {
@@ -281,7 +297,11 @@ pub async fn wallet_access_summary_handler(
 }
 
 async fn fetch_available_permissions(app_state: &AppState) -> Result<Vec<String>, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct PermRow {
@@ -299,7 +319,11 @@ async fn fetch_available_permissions(app_state: &AppState) -> Result<Vec<String>
 }
 
 async fn fetch_available_plans(app_state: &AppState) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow, serde::Serialize)]
     struct PlanRow {
@@ -330,7 +354,11 @@ async fn fetch_wallet_permissions(
     app_state: &AppState,
     wallet: &str,
 ) -> Result<Vec<String>, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct PermRow {
@@ -352,7 +380,11 @@ async fn fetch_wallet_plan_assignments(
     app_state: &AppState,
     wallet: &str,
 ) -> Result<serde_json::Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow, serde::Serialize)]
     struct AssignRow {

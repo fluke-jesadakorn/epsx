@@ -16,7 +16,6 @@
 //! not expose a "check for existing" method (and should not — the
 //! audit's R3 scope is *delivery*, not admin / read paths).
 
-
 use std::sync::Arc;
 use tokio::time::{sleep, Duration};
 use tracing::{error, info, warn};
@@ -123,30 +122,19 @@ impl PlanExpirationService {
             None => return Ok(()), // No notification DB, skip
         };
 
-        let mut db_conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("DB pool error: {}", e))?;
-
         for &days in &self.config.notification_days {
             // Find active assignments expiring within this window
             #[derive(sqlx::FromRow)]
             #[allow(dead_code)]
             struct ExpiringRow {
-                
                 assignment_id: Uuid,
-                
                 wallet_address: String,
-                
                 plan_id: Uuid,
-                
                 plan_name: String,
-                
                 days_left: i64,
             }
 
-            let rows: Vec<ExpiringRow> = sqlx::query(
+            let rows: Vec<ExpiringRow> = sqlx::query_as::<_, ExpiringRow>(
                 r#"
                 SELECT
                     wpa.id as assignment_id,
@@ -163,7 +151,7 @@ impl PlanExpirationService {
                 "#,
             )
             .bind(days.to_string())
-            .load(&mut db_conn)
+            .fetch_all(self.db_pool.as_ref())
             .await
             .unwrap_or_default();
 
@@ -256,18 +244,12 @@ impl PlanExpirationService {
 
     /// Check if a dedup notification already exists
     async fn notification_exists(&self, pool: &TlsPool, wallet: &str, dedup_key: &str) -> bool {
-        let mut conn = match pool.acquire().await {
-            Ok(c) => c,
-            Err(_) => return false,
-        };
-
         #[derive(sqlx::FromRow)]
         struct CountRow {
-            
             cnt: i64,
         }
 
-        let result: Option<CountRow> = sqlx::query(
+        let result: Option<CountRow> = sqlx::query_as::<_, CountRow>(
             r#"
             SELECT COUNT(*)::BIGINT as cnt
             FROM wallet_notifications
@@ -279,22 +261,17 @@ impl PlanExpirationService {
         )
         .bind(wallet)
         .bind(dedup_key)
-        .get_result(&mut *conn)
+        .fetch_optional(pool)
         .await
-        .ok();
+        .ok()
+        .flatten();
 
         result.map(|r| r.cnt > 0).unwrap_or(false)
     }
 
     /// Deactivate expired assignments, respecting grace_period_hours
     async fn cleanup_expired_assignments(&self) -> Result<(), String> {
-        let mut conn = self
-            .db_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("DB pool error: {}", e))?;
-
-        let affected = sqlx::query(
+        let result = sqlx::query(
             r#"
             UPDATE wallet_plan_assignments wpa
             SET is_active = false, updated_at = NOW()
@@ -305,10 +282,11 @@ impl PlanExpirationService {
               AND wpa.expires_at + (COALESCE(pl.grace_period_hours, 0) || ' hours')::INTERVAL < NOW()
             "#
         )
-        .execute(&mut *conn)
+        .execute(self.db_pool.as_ref())
         .await
         .map_err(|e| format!("Cleanup expired assignments failed: {}", e))?;
 
+        let affected = result.rows_affected();
         if affected > 0 {
             info!("Deactivated {} expired plan assignments", affected);
         }

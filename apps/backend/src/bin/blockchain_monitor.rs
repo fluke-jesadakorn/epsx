@@ -4,7 +4,6 @@
 // BIG-BANG: migrated to sqlx (real).
 
 use epsx::infrastructure::BlockchainMonitor;
-use epsx::prelude::TlsPool;
 use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -95,14 +94,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     if !row.0 {
         error!("Database migration not applied!");
         error!("   Run: sqlx migrate run");
-        error!("   Or: psql -d {} -f migrations/008_blockchain_payments.sql", database_url);
+        error!(
+            "   Or: psql -d {} -f migrations/008_blockchain_payments.sql",
+            database_url
+        );
         std::process::exit(1);
     }
     info!("Database schema verified");
 
-    // Leak the pool to make it 'static (required for BlockchainMonitor)
-    let pool_static: &'static TlsPool = Box::leak(Box::new(pool));
-    let pool_arc = Arc::new(pool_static);
+    let pool_arc = Arc::new(pool);
 
     let supported_tokens_str = std::env::var("SUPPORTED_PAYMENT_TOKENS")
         .unwrap_or_else(|_| "0x55d398326f99059fF775485246999027B3197955,0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d,0x337610d27c682E347C9cD60BD4b3b107C9d34dDD,0x64544969ed7EBf5f083679233325356EbE738930".to_string());

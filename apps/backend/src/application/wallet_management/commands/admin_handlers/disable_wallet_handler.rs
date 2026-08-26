@@ -30,14 +30,15 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
         command: DisableWalletCommand,
     ) -> ApplicationResult<DisableWalletResponse> {
         // Verify wallet exists
-        let exists: Option<(String,)> = sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
-            .bind(&command.wallet_address)
-            .fetch_optional(self.db_pool.as_ref())
-            .await
-            .map_err(|e| {
-                error!("Failed to query wallet {}: {}", command.wallet_address, e);
-                ApplicationError::infrastructure(format!("Failed to query wallet: {}", e))
-            })?;
+        let exists: Option<(String,)> =
+            sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind(&command.wallet_address)
+                .fetch_optional(self.db_pool.as_ref())
+                .await
+                .map_err(|e| {
+                    error!("Failed to query wallet {}: {}", command.wallet_address, e);
+                    ApplicationError::infrastructure(format!("Failed to query wallet: {}", e))
+                })?;
 
         if exists.is_none() {
             return Err(ApplicationError::not_found(
@@ -77,7 +78,11 @@ impl CommandHandler<DisableWalletCommand> for DisableWalletCommandHandler {
 
         Ok(DisableWalletResponse {
             success: true,
-            message: format!("Wallet {} disabled at {}", command.wallet_address, now.to_rfc3339()),
+            message: format!(
+                "Wallet {} disabled at {}",
+                command.wallet_address,
+                now.to_rfc3339()
+            ),
             disabled_until: Some(now + Duration::days(30)),
         })
     }

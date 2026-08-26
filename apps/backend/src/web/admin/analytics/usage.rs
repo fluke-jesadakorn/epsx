@@ -4,7 +4,7 @@ use axum::{
 };
 use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
-use tracing::{error, info};
+use tracing::info;
 use uuid::Uuid;
 
 use crate::web::auth::AppState;

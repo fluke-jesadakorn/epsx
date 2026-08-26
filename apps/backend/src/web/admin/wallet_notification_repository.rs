@@ -132,10 +132,12 @@ impl WalletNotificationRepository {
     ) -> QueryBuilder<'a, sqlx::Postgres> {
         qb.push(" WHERE status != 'deleted'");
         if let Some(ref wallet) = filter.wallet_address {
-            qb.push(" AND recipient_wallet_address = ").push_bind(wallet.clone());
+            qb.push(" AND recipient_wallet_address = ")
+                .push_bind(wallet.clone());
         }
         if let Some(ref notif_type) = filter.notification_type {
-            qb.push(" AND notification_type = ").push_bind(notif_type.clone());
+            qb.push(" AND notification_type = ")
+                .push_bind(notif_type.clone());
         }
         if let Some(ref priority) = filter.priority {
             qb.push(" AND priority = ").push_bind(priority.clone());
@@ -186,16 +188,19 @@ impl WalletNotificationRepository {
             )
         })?;
 
-        Ok(rows.into_iter().next().map(|row| WalletNotificationIdentity {
-            wallet_address: row.recipient_wallet_address.unwrap_or_default(),
-            notification_type: row.notification_type,
-            title: row.title,
-            message: row.body,
-            data: row.data_payload,
-            priority: row.priority,
-            action_url: row.action_url,
-            expires_at: row.expires_at,
-        }))
+        Ok(rows
+            .into_iter()
+            .next()
+            .map(|row| WalletNotificationIdentity {
+                wallet_address: row.recipient_wallet_address.unwrap_or_default(),
+                notification_type: row.notification_type,
+                title: row.title,
+                message: row.body,
+                data: row.data_payload,
+                priority: row.priority,
+                action_url: row.action_url,
+                expires_at: row.expires_at,
+            }))
     }
 
     /// Find notifications with filters and pagination (admin view)
@@ -245,11 +250,13 @@ impl WalletNotificationRepository {
              FROM wallet_notifications",
         );
         qb.push(" WHERE status != 'deleted'");
-        qb.push(" AND (LOWER(recipient_wallet_address) = ").push_bind(escaped_wallet);
+        qb.push(" AND (LOWER(recipient_wallet_address) = ")
+            .push_bind(escaped_wallet);
         qb.push(" OR recipient_wallet_address = 'all')");
 
         if let Some(ref notif_type) = filter.notification_type {
-            qb.push(" AND notification_type = ").push_bind(notif_type.clone());
+            qb.push(" AND notification_type = ")
+                .push_bind(notif_type.clone());
         }
         if let Some(ref priority) = filter.priority {
             qb.push(" AND priority = ").push_bind(priority.clone());
@@ -314,11 +321,13 @@ impl WalletNotificationRepository {
         let escaped_wallet = wallet_address.to_lowercase();
         let mut qb = QueryBuilder::new("SELECT COUNT(*) as count FROM wallet_notifications");
         qb.push(" WHERE status != 'deleted'");
-        qb.push(" AND (LOWER(recipient_wallet_address) = ").push_bind(escaped_wallet);
+        qb.push(" AND (LOWER(recipient_wallet_address) = ")
+            .push_bind(escaped_wallet);
         qb.push(" OR recipient_wallet_address = 'all')");
 
         if let Some(ref notif_type) = filter.notification_type {
-            qb.push(" AND notification_type = ").push_bind(notif_type.clone());
+            qb.push(" AND notification_type = ")
+                .push_bind(notif_type.clone());
         }
         if let Some(ref priority) = filter.priority {
             qb.push(" AND priority = ").push_bind(priority.clone());
@@ -357,10 +366,12 @@ impl WalletNotificationRepository {
             "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'read' AND status != 'deleted'",
         );
         if let Some(ref wallet) = filter.wallet_address {
-            qb.push(" AND recipient_wallet_address = ").push_bind(wallet.clone());
+            qb.push(" AND recipient_wallet_address = ")
+                .push_bind(wallet.clone());
         }
         if let Some(ref notif_type) = filter.notification_type {
-            qb.push(" AND notification_type = ").push_bind(notif_type.clone());
+            qb.push(" AND notification_type = ")
+                .push_bind(notif_type.clone());
         }
         if let Some(ref priority) = filter.priority {
             qb.push(" AND priority = ").push_bind(priority.clone());
@@ -395,7 +406,8 @@ impl WalletNotificationRepository {
         qb.push(" OR recipient_wallet_address = 'all')");
 
         if let Some(ref notif_type) = filter.notification_type {
-            qb.push(" AND notification_type = ").push_bind(notif_type.clone());
+            qb.push(" AND notification_type = ")
+                .push_bind(notif_type.clone());
         }
         if let Some(ref priority) = filter.priority {
             qb.push(" AND priority = ").push_bind(priority.clone());

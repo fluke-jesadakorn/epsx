@@ -43,7 +43,7 @@ impl UnifiedWeb3AuthService {
         // Delete expired nonces for this wallet (best-effort cleanup).
         sqlx::query("DELETE FROM web3_auth_nonces WHERE expires_at < $1")
             .bind(now)
-            .execute(&*self.db_pool)
+            .execute(self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -54,9 +54,9 @@ impl UnifiedWeb3AuthService {
         .bind(&wallet_address)
         .bind(&nonce)
         .bind(&message)
-        .bind(&expires_at)
-        .bind(&now)
-        .execute(&*self.db_pool)
+        .bind(expires_at)
+        .bind(now)
+        .execute(self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -151,14 +151,12 @@ impl UnifiedWeb3AuthService {
     ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.trim().to_lowercase();
 
-        sqlx::query(
-            "DELETE FROM web3_auth_nonces WHERE wallet_address = $1 AND nonce = $2",
-        )
-        .bind(&wallet_address)
-        .bind(nonce)
-        .execute(&*self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        sqlx::query("DELETE FROM web3_auth_nonces WHERE wallet_address = $1 AND nonce = $2")
+            .bind(&wallet_address)
+            .bind(nonce)
+            .execute(self.db_pool)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         Ok(())
     }

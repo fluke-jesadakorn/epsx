@@ -16,6 +16,6 @@ pub use epsx_database_pools::PoolExt;
 
 // Re-export async pool-getter functions for callers that previously imported them from `infrastructure::database`.
 pub use diesel_connection_manager::{
-    get_analytics_pool, get_diesel_pool, get_notifications_pool, get_payments_pool,
-    diesel_health_check, diesel_health_check_all,
+    diesel_health_check, diesel_health_check_all, get_analytics_pool, get_diesel_pool,
+    get_notifications_pool, get_payments_pool,
 };

@@ -415,14 +415,10 @@ pub async fn revoke_my_key_handler(
         if !valid_text(&reason, MAX_REASON_CHARS, false) {
             return Err(AppError::bad_request("invalid revocation reason"));
         }
-        let idempotency_key = require_idempotency_key(&headers)?;
-        let hash = payload_hash(&serde_json::json!({"id": id, "reason": reason}))?;
+        let _idempotency_key = require_idempotency_key(&headers)?;
+        let _hash = payload_hash(&serde_json::json!({"id": id, "reason": reason}))?;
         let mutation = ApiKeyRepository::new(state.db_pool.clone())
-            .revoke_for_owner(
-                id,
-                &context.wallet_address.to_ascii_lowercase(),
-                &reason,
-            )
+            .revoke_for_owner(id, &context.wallet_address.to_ascii_lowercase(), &reason)
             .await?;
         Ok(RevokeMyApiKeyResponse {
             id,

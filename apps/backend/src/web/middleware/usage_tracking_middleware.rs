@@ -6,7 +6,6 @@ use axum::{
     response::Response,
 };
 use chrono::Utc;
-use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info, warn};
 

@@ -96,10 +96,7 @@ impl InProcessNotificationAdapter {
     /// Build an adapter around a *caller-supplied* pool. This bypasses
     /// the env-var check and is intended for **tests** that wire up
     /// a mock pool. Production wiring must use `try_new`.
-    pub fn from_pool(
-        pool: Arc<TlsPool>,
-        broadcaster: Option<Arc<dyn PubsubPort>>,
-    ) -> Self {
+    pub fn from_pool(pool: Arc<TlsPool>, broadcaster: Option<Arc<dyn PubsubPort>>) -> Self {
         Self { pool, broadcaster }
     }
 

@@ -90,7 +90,12 @@ impl WalletManagementRepository {
         .bind(wallet_address)
         .fetch_optional(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallet: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch wallet: {}", e),
+            )
+        })?;
 
         Ok(row.map(|w| WalletBasicInfo {
             wallet_address: w.wallet_address,
@@ -148,7 +153,12 @@ impl WalletManagementRepository {
         .bind(wallet_address)
         .fetch_all(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to fetch permissions: {}", e),
+            )
+        })?;
 
         Ok(rows
             .into_iter()
@@ -257,15 +267,20 @@ impl WalletManagementRepository {
 
         let rows: Vec<WalletSummaryRow> = sqlx::query_as(&query_str)
             .bind(&search_pattern)
-            .bind(&is_active_filter)
-            .bind(&date_from)
-            .bind(&date_to)
+            .bind(is_active_filter)
+            .bind(date_from)
+            .bind(date_to)
             .bind(&exclude_plan)
             .bind(criteria.limit as i64)
             .bind(criteria.offset as i64)
             .fetch_all(self.pool.as_ref())
             .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to fetch wallets: {}", e)))?;
+            .map_err(|e| {
+                AppError::new(
+                    ErrorKind::DatabaseError,
+                    format!("Failed to fetch wallets: {}", e),
+                )
+            })?;
 
         Ok(rows
             .into_iter()
@@ -316,11 +331,11 @@ impl WalletManagementRepository {
                  AND ($4::timestamptz IS NULL OR wu.created_at <= $4)
                  AND ($5::text IS NULL OR NOT EXISTS (SELECT 1 FROM wallet_plan_assignments WHERE wallet_address = wu.wallet_address AND plan_id = $5::uuid AND is_active = true))"#,
         )
-            .bind(&search_pattern)
-            .bind(&is_active_filter)
-            .bind(&date_from)
-            .bind(&date_to)
-            .bind(&exclude_plan)
+            .bind(search_pattern)
+            .bind(is_active_filter)
+            .bind(date_from)
+            .bind(date_to)
+            .bind(exclude_plan)
             .fetch_one(self.pool.as_ref())
             .await
             .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count wallets: {}", e)))?;
@@ -360,7 +375,12 @@ impl WalletManagementRepository {
         .bind(wallet_address)
         .fetch_one(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count permissions: {}", e)))?;
+        .map_err(|e| {
+            AppError::new(
+                ErrorKind::DatabaseError,
+                format!("Failed to count permissions: {}", e),
+            )
+        })?;
 
         Ok(row.total_count.unwrap_or(0))
     }

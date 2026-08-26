@@ -28,13 +28,12 @@ impl UnifiedWeb3AuthService {
         let wallet_address = wallet_address.trim().to_lowercase();
         let wallet_address = wallet_address.as_str();
 
-        let exists: Option<(String,)> = sqlx::query_as(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
-        )
-        .bind(wallet_address)
-        .fetch_optional(&*self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        let exists: Option<(String,)> =
+            sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind(wallet_address)
+                .fetch_optional(self.db_pool)
+                .await
+                .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         if exists.is_some() {
             let now = Utc::now();
@@ -43,7 +42,7 @@ impl UnifiedWeb3AuthService {
             )
             .bind(now)
             .bind(wallet_address)
-            .execute(&*self.db_pool)
+            .execute(self.db_pool)
             .await
             .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -72,7 +71,7 @@ impl UnifiedWeb3AuthService {
         .bind(wallet_address)
         .bind(&connection_metadata)
         .bind(now)
-        .execute(&*self.db_pool)
+        .execute(self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
@@ -135,7 +134,7 @@ impl UnifiedWeb3AuthService {
             "SELECT id FROM plans WHERE slug = $1",
         )
         .bind(FREE_PLAN_SLUG)
-        .fetch_optional(&*self.db_pool)
+        .fetch_optional(self.db_pool)
         .await
         {
             Ok(Some(result)) => result.id,
@@ -183,7 +182,7 @@ impl UnifiedWeb3AuthService {
                 .bind(FREE_PLAN_SLUG)
                 .bind("Get started with basic analytics and stock rankings")
                 .bind(&free_plan_metadata)
-                .fetch_one(&*self.db_pool)
+                .fetch_one(self.db_pool)
                 .await
                 {
                     Ok(result) => {
@@ -212,7 +211,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind(&wallet_address)
         .bind(plan_id)
-        .fetch_optional(&*self.db_pool)
+        .fetch_optional(self.db_pool)
         .await
         .map(|opt| opt.map(|r| r.count > 0).unwrap_or(false))
         .unwrap_or(false);
@@ -233,7 +232,7 @@ impl UnifiedWeb3AuthService {
         .bind(&wallet_address)
         .bind(plan_id)
         .bind(now)
-        .execute(&*self.db_pool)
+        .execute(self.db_pool)
         .await
         {
             warn!(wallet_address = %wallet_address, error = %e, "Failed to assign Free Plan to wallet");

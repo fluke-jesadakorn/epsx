@@ -162,7 +162,10 @@ mod tests {
         struct NoopFetcher;
         #[async_trait::async_trait]
         impl crate::session::JwksFetcher for NoopFetcher {
-            async fn fetch(&self) -> Result<crate::session::Jwks, crate::session::SessionError> {
+            async fn fetch(
+                &self,
+                _url: &str,
+            ) -> Result<crate::session::Jwks, crate::session::SessionError> {
                 Ok(crate::session::Jwks { keys: vec![] })
             }
         }

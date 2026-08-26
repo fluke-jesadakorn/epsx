@@ -27,4 +27,6 @@ pub use crate::domain::shared_kernel::{AggregateRoot, DomainEvent, DomainEventBu
 pub use epsx_contracts::value_objects::{Email, SessionId, UserId};
 // ===== Database =====
 pub use crate::infrastructure::database::diesel_connection_manager::TlsPool;
-pub use epsx_database_pools::{PoolExt, TlsConnectionManager};
+pub use epsx_database_pools::PoolExt;
+#[allow(deprecated)]
+pub use epsx_database_pools::TlsConnectionManager;

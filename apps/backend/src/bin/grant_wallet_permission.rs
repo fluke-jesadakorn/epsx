@@ -1,5 +1,5 @@
 use clap::{Arg, Command};
-use epsx::infrastructure::models::permission::{NewWalletDirectPermissionDb, PermissionDb};
+use epsx::infrastructure::models::permission::NewWalletDirectPermissionDb;
 use epsx::infrastructure::models::wallet_user::NewWalletUserDb;
 use sqlx::PgPool;
 use std::env;
@@ -64,7 +64,10 @@ async fn grant_analytics_permissions(
         "epsx:analytics:professional",
     ];
 
-    println!("Granting analytics permissions to wallet: {}", wallet_address);
+    println!(
+        "Granting analytics permissions to wallet: {}",
+        wallet_address
+    );
 
     ensure_wallet_user_exists(pool, wallet_address).await?;
 
@@ -82,7 +85,10 @@ async fn grant_single_permission(
     wallet_address: &str,
     permission: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("Granting permission '{}' to wallet: {}", permission, wallet_address);
+    println!(
+        "Granting permission '{}' to wallet: {}",
+        permission, wallet_address
+    );
 
     ensure_wallet_user_exists(pool, wallet_address).await?;
     grant_single_permission_direct(pool, wallet_address, permission).await?;
@@ -95,12 +101,11 @@ async fn ensure_wallet_user_exists(
     pool: &PgPool,
     wallet_addr_str: &str,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let existing: Option<(String,)> = sqlx::query_as(
-        "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1",
-    )
-    .bind(wallet_addr_str)
-    .fetch_optional(pool)
-    .await?;
+    let existing: Option<(String,)> =
+        sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+            .bind(wallet_addr_str)
+            .fetch_optional(pool)
+            .await?;
 
     if existing.is_some() {
         println!("Found existing wallet user: {}", wallet_addr_str);
@@ -110,6 +115,7 @@ async fn ensure_wallet_user_exists(
     let new_wallet_user = NewWalletUserDb {
         wallet_address: wallet_addr_str.to_string(),
         is_active: true,
+        tier_level: "Bronze".to_string(),
         wallet_metadata: serde_json::json!({}),
     };
 
@@ -137,12 +143,11 @@ async fn grant_single_permission_direct(
         id: Uuid,
     }
 
-    let perm_row: Option<PermRow> = sqlx::query_as(
-        "SELECT id FROM permissions WHERE permission_string = $1",
-    )
-    .bind(permission_str)
-    .fetch_optional(pool)
-    .await?;
+    let perm_row: Option<PermRow> =
+        sqlx::query_as("SELECT id FROM permissions WHERE permission_string = $1")
+            .bind(permission_str)
+            .fetch_optional(pool)
+            .await?;
 
     let perm = match perm_row {
         Some(p) => p,

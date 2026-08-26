@@ -67,15 +67,17 @@ impl TransactionalOutbox {
                 AppError::internal_error(format!("Failed to serialize event: {}", e))
             })?;
 
-            let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
-                .map_err(|e| {
+            let event_json: serde_json::Value =
+                serde_json::from_str(&event_json_str).map_err(|e| {
                     AppError::internal_error(format!("Failed to parse event JSON: {}", e))
                 })?;
 
             // Append to event store first (immutable log)
-            let mut tx = self.pool.begin().await.map_err(|e| {
-                AppError::database_error(format!("Pool begin error: {}", e))
-            })?;
+            let mut tx = self
+                .pool
+                .begin()
+                .await
+                .map_err(|e| AppError::database_error(format!("Pool begin error: {}", e)))?;
             self.event_store
                 .append_events(
                     &mut tx,
@@ -113,9 +115,9 @@ impl TransactionalOutbox {
                 AppError::database_error(format!("Outbox insert failed: {}", e))
             })?;
 
-            tx.commit().await.map_err(|e| {
-                AppError::database_error(format!("Outbox commit failed: {}", e))
-            })?;
+            tx.commit()
+                .await
+                .map_err(|e| AppError::database_error(format!("Outbox commit failed: {}", e)))?;
         }
 
         info!(
@@ -126,10 +128,9 @@ impl TransactionalOutbox {
         Ok(())
     }
 
-    /// Save aggregate with events atomically.
     pub async fn save_with_events<F, Fut>(&self, params: SaveWithEventsParams<F>) -> AppResult<()>
     where
-        F: FnOnce(&mut sqlx::PgPool) -> Fut + Send,
+        F: FnOnce(&mut sqlx::Transaction<'_, sqlx::Postgres>) -> Fut + Send,
         Fut: std::future::Future<Output = AppResult<()>> + Send,
     {
         if params.events.is_empty() {
@@ -153,9 +154,10 @@ impl TransactionalOutbox {
         let correlation_id = params.correlation_id;
         let user_id = params.user_id.clone();
 
-        let mut tx = self.pool.begin().await.map_err(|e| {
-            AppError::database_error(format!("Transaction begin failed: {}", e))
-        })?;
+        let mut tx =
+            self.pool.begin().await.map_err(|e| {
+                AppError::database_error(format!("Transaction begin failed: {}", e))
+            })?;
 
         // 1. Save aggregate state via callback
         (params.save_aggregate)(&mut tx).await.map_err(|e| {
@@ -166,7 +168,13 @@ impl TransactionalOutbox {
 
         // 2. Append events to event store
         event_store
-            .append_events(&mut tx, &events, causation_id, correlation_id, user_id.clone())
+            .append_events(
+                &mut tx,
+                &events,
+                causation_id,
+                correlation_id,
+                user_id.clone(),
+            )
             .await
             .map_err(|e| {
                 error!("Failed to append events to event store: {}", e);
@@ -176,11 +184,13 @@ impl TransactionalOutbox {
 
         // 3. Save events to outbox (for async publishing)
         for event in &events {
-            let event_json_str = event
-                .to_json()
-                .map_err(|e| AppError::internal_error(format!("Failed to serialize event: {}", e)))?;
-            let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
-                .map_err(|e| AppError::internal_error(format!("Failed to parse event JSON: {}", e)))?;
+            let event_json_str = event.to_json().map_err(|e| {
+                AppError::internal_error(format!("Failed to serialize event: {}", e))
+            })?;
+            let event_json: serde_json::Value =
+                serde_json::from_str(&event_json_str).map_err(|e| {
+                    AppError::internal_error(format!("Failed to parse event JSON: {}", e))
+                })?;
 
             sqlx::query(
                 r#"
@@ -207,9 +217,9 @@ impl TransactionalOutbox {
         }
         debug!("Events saved to outbox");
 
-        tx.commit().await.map_err(|e| {
-            AppError::database_error(format!("Transaction commit failed: {}", e))
-        })?;
+        tx.commit()
+            .await
+            .map_err(|e| AppError::database_error(format!("Transaction commit failed: {}", e)))?;
 
         info!(
             "Atomic save successful: {} events for aggregate {}",

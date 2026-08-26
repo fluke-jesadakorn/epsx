@@ -5,14 +5,13 @@
 //! BIG-BANG: migrated to sqlx (real).
 
 use chrono::Utc;
-use sqlx::{PgPool, Postgres, Transaction};
+use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::info;
 use uuid::Uuid;
 
 use crate::domain::developer_portal::{
-    AccessLevel, ApiKey, ApiKeyCreatedResponse, ApiKeyStatus, CreateApiKeyRequest, ModuleAccess,
-    PlanInfo, RateLimits, RevokeApiKeyRequest,
+    ApiKey, ApiKeyCreatedResponse, ApiKeyStatus, CreateApiKeyRequest, RateLimits,
+    RevokeApiKeyRequest,
 };
 use crate::prelude::*;
 
@@ -39,6 +38,7 @@ pub enum IdempotentMutation {
 }
 
 #[derive(Debug)]
+#[allow(dead_code)]
 enum OwnerMutationError {
     Database(sqlx::Error),
     Conflict,
@@ -63,13 +63,10 @@ impl ApiKeyRepository {
         let now = Utc::now();
         let pool: &PgPool = self.pool.as_ref();
 
-        let total: (i64,) =
-            sqlx::query_as("SELECT COUNT(*)::BIGINT FROM developer_api_keys")
-                .fetch_one(pool)
-                .await
-                .map_err(|e| {
-                    AppError::database_error(format!("Failed to count API keys: {}", e))
-                })?;
+        let total: (i64,) = sqlx::query_as("SELECT COUNT(*)::BIGINT FROM developer_api_keys")
+            .fetch_one(pool)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to count API keys: {}", e)))?;
 
         let active: (i64,) = sqlx::query_as(
             "SELECT COUNT(*)::BIGINT FROM developer_api_keys \
@@ -78,9 +75,7 @@ impl ApiKeyRepository {
         .bind(now)
         .fetch_one(pool)
         .await
-        .map_err(|e| {
-            AppError::database_error(format!("Failed to count active API keys: {}", e))
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to count active API keys: {}", e)))?;
 
         let revoked: (i64,) = sqlx::query_as(
             "SELECT COUNT(*)::BIGINT FROM developer_api_keys WHERE status = 'revoked'",
@@ -150,7 +145,7 @@ impl ApiKeyRepository {
         .bind(&payload_hash)
         .execute(&mut *tx)
         .await
-        .map_err(|e| OwnerMutationError::Database(e))?;
+        .map_err(OwnerMutationError::Database)?;
 
         // Check claim
         #[derive(sqlx::FromRow)]
@@ -168,7 +163,7 @@ impl ApiKeyRepository {
         .bind(&idempotency_key)
         .fetch_one(&mut *tx)
         .await
-        .map_err(|e| OwnerMutationError::Database(e))?;
+        .map_err(OwnerMutationError::Database)?;
 
         if claim.payload_hash != payload_hash {
             return Err(AppError::validation_error(
@@ -204,7 +199,7 @@ impl ApiKeyRepository {
         .bind(now)
         .execute(&mut *tx)
         .await
-        .map_err(|e| OwnerMutationError::Database(e))?;
+        .map_err(OwnerMutationError::Database)?;
 
         // Update idempotency to record resource_id
         sqlx::query(
@@ -215,9 +210,9 @@ impl ApiKeyRepository {
         .bind(&idempotency_key)
         .execute(&mut *tx)
         .await
-        .map_err(|e| OwnerMutationError::Database(e))?;
+        .map_err(OwnerMutationError::Database)?;
 
-        tx.commit().await.map_err(|e| OwnerMutationError::Database(e))?;
+        tx.commit().await.map_err(OwnerMutationError::Database)?;
         Ok((IdempotentMutation::Applied(generated_id), Some(full_key)))
     }
 
@@ -366,10 +361,7 @@ impl ApiKeyRepository {
         Ok(IdempotentMutation::Applied(id))
     }
 
-    pub async fn create(
-        &self,
-        _request: CreateApiKeyRequest,
-    ) -> AppResult<ApiKeyCreatedResponse> {
+    pub async fn create(&self, _request: CreateApiKeyRequest) -> AppResult<ApiKeyCreatedResponse> {
         Err(AppError::internal_error(
             "ApiKeyRepository::create pending sqlx migration".to_string(),
         ))
@@ -383,10 +375,7 @@ impl ApiKeyRepository {
         Ok(())
     }
 
-    pub async fn list_expiring_keys(
-        &self,
-        _within_days: i64,
-    ) -> AppResult<Vec<ApiKey>> {
+    pub async fn list_expiring_keys(&self, _within_days: i64) -> AppResult<Vec<ApiKey>> {
         Ok(Vec::new())
     }
 }

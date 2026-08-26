@@ -10,9 +10,9 @@ use crate::domain::wallet_management::{
     value_objects::WalletAddress,
 };
 use crate::prelude::*;
-use chrono::{NaiveDate, Utc};
+use chrono::NaiveDate;
 use std::collections::{HashMap, HashSet};
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(sqlx::FromRow)]
 struct StatsResult {
@@ -124,13 +124,11 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 
     async fn count_by_tier(&self, tier: &str) -> AppResult<u64> {
-        let row: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM wallet_users WHERE tier_level = $1",
-        )
-        .bind(tier)
-        .fetch_one(self.db_pool)
-        .await
-        .map_err(|e| AppError::database_error(e.to_string()))?;
+        let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_users WHERE tier_level = $1")
+            .bind(tier)
+            .fetch_one(self.db_pool)
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
         Ok(row.0 as u64)
     }
 
@@ -163,6 +161,7 @@ impl WalletUserAnalyticsPort for WalletUserRepositoryAdapter {
     }
 }
 
+#[allow(dead_code)]
 fn build_user(row: WalletUserQueryResult) -> Option<WalletUser> {
     let wallet_addr = WalletAddress::new(row.wallet_address).ok()?;
     let metadata = WalletMetadata::from_json(row.wallet_metadata).unwrap_or_default();

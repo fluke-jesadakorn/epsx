@@ -21,7 +21,7 @@ use epsx_contracts::errors::{AppError, ErrorKind};
 // USER HANDLERS (Authenticated)
 // ============================================================================
 
-async fn require_notifications_pool() -> Result<&'static TlsPool, AppError> {
+async fn require_notifications_pool() -> Result<TlsPool, AppError> {
     crate::infrastructure::database::get_notifications_pool()
         .await
         .map_err(|error| {
@@ -75,7 +75,8 @@ pub async fn get_user_notifications_handler(
     }
 
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let repo = WalletNotificationRepository::new(notifications_pool.clone());
 
     // Fetch notifications for wallet
@@ -198,7 +199,8 @@ pub async fn mark_notification_read_handler(
     })?;
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -254,7 +256,8 @@ pub async fn mark_notification_unread_handler(
         )
     })?;
 
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -325,7 +328,8 @@ pub async fn delete_notification_handler(
     })?;
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -383,7 +387,8 @@ pub async fn get_unread_count_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -433,7 +438,8 @@ pub async fn mark_all_notifications_read_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -484,7 +490,8 @@ pub async fn clear_all_notifications_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
+    let notifications_pool: std::sync::Arc<sqlx::PgPool> =
+        std::sync::Arc::new(require_notifications_pool().await?);
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -540,7 +547,7 @@ pub async fn acknowledge_notification_handler(
     let notifications_pool = require_notifications_pool().await?;
 
     // Call the offline_queue module's mark_as_acknowledged function
-    crate::web::notifications::mark_as_acknowledged(notifications_pool, &notification_id).await?;
+    crate::web::notifications::mark_as_acknowledged(&notifications_pool, &notification_id).await?;
 
     // Audit logging
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);

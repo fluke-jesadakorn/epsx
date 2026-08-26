@@ -106,7 +106,10 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         .fetch_all(self.db_pool)
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission {}: {}", permission_str, e);
+            error!(
+                "Failed to find users by permission {}: {}",
+                permission_str, e
+            );
             AppError::database_error(e.to_string()).with_component("wallet_user_repository")
         })?;
 
@@ -148,17 +151,17 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         .fetch_all(self.db_pool)
         .await
         .map_err(|e| {
-            error!("Failed to find users by permission type {}: {}", type_filter, e);
+            error!(
+                "Failed to find users by permission type {}: {}",
+                type_filter, e
+            );
             AppError::database_error(e.to_string())
         })?;
 
         Ok(rows.into_iter().filter_map(build_user).collect())
     }
 
-    async fn find_by_permission_plan(
-        &self,
-        _permission_plan: &str,
-    ) -> AppResult<Vec<WalletUser>> {
+    async fn find_by_permission_plan(&self, _permission_plan: &str) -> AppResult<Vec<WalletUser>> {
         Ok(Vec::new())
     }
 

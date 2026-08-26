@@ -8,7 +8,6 @@
 /// Also patches existing DB rows to use new CDN URLs.
 ///
 /// BIG-BANG: migrated to sqlx (real).
-
 use std::env;
 use std::path::Path;
 
@@ -221,7 +220,10 @@ async fn migrate_chat_dir(client: &Client, base_dir: &str) -> (u64, u64) {
 }
 
 /// Patch news_articles.cover_image_url from /api/public/news/images/X to CDN URL
-async fn patch_news_urls(pool: &PgPool, public_url: &str) -> Result<(), Box<dyn std::error::Error>> {
+async fn patch_news_urls(
+    pool: &PgPool,
+    public_url: &str,
+) -> Result<(), Box<dyn std::error::Error>> {
     let old_prefix = "/api/public/news/images/";
     let new_prefix = format!("{}/news/", public_url.trim_end_matches('/'));
     let like_pattern = format!("{}%", old_prefix);
@@ -235,7 +237,10 @@ async fn patch_news_urls(pool: &PgPool, public_url: &str) -> Result<(), Box<dyn 
     .execute(pool)
     .await?;
 
-    println!("Updated {} news article cover_image_url values", rows.rows_affected());
+    println!(
+        "Updated {} news article cover_image_url values",
+        rows.rows_affected()
+    );
     Ok(())
 }
 

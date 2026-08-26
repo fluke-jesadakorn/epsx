@@ -7,7 +7,6 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use chrono::Utc;
 use tracing::{error, info};
 
 use crate::web::auth::AppState;
@@ -320,7 +319,10 @@ pub async fn search_wallets(
     };
 
     // Total count
-    let count_query = format!("SELECT COUNT(*) as count FROM wallet_users wu {}", where_clause);
+    let count_query = format!(
+        "SELECT COUNT(*) as count FROM wallet_users wu {}",
+        where_clause
+    );
     let mut cq = sqlx::query_as::<_, CountRow>(&count_query);
     if has_search {
         cq = cq.bind(&search_pattern);

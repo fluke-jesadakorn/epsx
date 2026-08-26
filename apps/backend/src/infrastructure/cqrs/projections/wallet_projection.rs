@@ -66,20 +66,18 @@ impl Projection for WalletReadModelProjection {
         .bind(self.projection_name())
         .fetch_optional(pool)
         .await
-        .map_err(|e| {
-            AppError::database_error(format!("Failed to load checkpoint: {}", e))
-        })?;
+        .map_err(|e| AppError::database_error(format!("Failed to load checkpoint: {}", e)))?;
 
-        Ok(row.map(|(seq, event_id_text, count, _seq_big, healthy)| {
-            ProjectionCheckpoint {
+        Ok(row.map(
+            |(seq, event_id_text, count, _seq_big, healthy)| ProjectionCheckpoint {
                 projection_name: self.projection_name().to_string(),
                 last_processed_event_id: event_id_text.and_then(|s| Uuid::parse_str(&s).ok()),
                 last_processed_sequence: seq,
                 events_processed_count: count,
                 processed_at: Utc::now(),
                 is_healthy: healthy,
-            }
-        }))
+            },
+        ))
     }
 
     async fn save_checkpoint(
@@ -100,8 +98,8 @@ impl Projection for WalletReadModelProjection {
         )
         .bind(checkpoint.projection_name.clone())
         .bind(checkpoint.last_processed_event_id)
-        .bind(checkpoint.last_processed_sequence as i64)
-        .bind(checkpoint.events_processed_count as i64)
+        .bind(checkpoint.last_processed_sequence)
+        .bind(checkpoint.events_processed_count)
         .bind(checkpoint.is_healthy)
         .execute(&mut **tx)
         .await
@@ -285,7 +283,9 @@ impl WalletReadModelProjection {
             .bind(session_id)
             .execute(&mut **tx)
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to invalidate session: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to invalidate session: {}", e))
+            })?;
         Ok(())
     }
 }

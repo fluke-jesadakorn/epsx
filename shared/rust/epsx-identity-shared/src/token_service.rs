@@ -11,7 +11,7 @@ use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation}
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
-use tracing::{debug, error, info};
+use tracing::{error, info};
 use utoipa::ToSchema;
 use uuid::Uuid;
 
@@ -29,6 +29,7 @@ enum RefreshClient {
     Admin,
 }
 
+#[allow(dead_code)]
 enum RefreshRotationOutcome {
     Rotated(RefreshTokenInfo),
     ReuseDetected,
@@ -118,28 +119,28 @@ pub struct OpenIDTokenResponse {
 /// JWT payload for API authorization
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AccessTokenClaims {
-    pub iss: String,      // Issuer: "https://api.epsx.io"
-    pub sub: String,      // Subject: wallet_address
-    pub aud: Vec<String>, // Audience: ["epsx-frontend", "epsx-admin"]
-    pub exp: i64,         // Expiration timestamp
-    pub iat: i64,         // Issued at timestamp
-    pub jti: String,      // JWT ID (unique identifier)
-    pub scope: String,    // OIDC standard: "openid profile epsx:analytics:read admin:users:manage"
+    pub iss: String,            // Issuer: "https://api.epsx.io"
+    pub sub: String,            // Subject: wallet_address
+    pub aud: Vec<String>,       // Audience: ["epsx-frontend", "epsx-admin"]
+    pub exp: i64,               // Expiration timestamp
+    pub iat: i64,               // Issued at timestamp
+    pub jti: String,            // JWT ID (unique identifier)
+    pub scope: String, // OIDC standard: "openid profile epsx:analytics:read admin:users:manage"
     pub wallet_address: String, // Web3 wallet address (primary identifier)
-    pub auth_method: String,    // "web3_siwe"
-    pub auth_time: i64,         // When Web3 authentication occurred
+    pub auth_method: String, // "web3_siwe"
+    pub auth_time: i64, // When Web3 authentication occurred
 }
 
 /// Standard OpenID Connect ID Token Claims
 /// JWT payload for user identity information
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct IdTokenClaims {
-    pub iss: String,           // Issuer
-    pub sub: String,           // Subject: wallet_address
-    pub aud: String,           // Audience: client_id
-    pub exp: i64,              // Expiration timestamp
-    pub iat: i64,              // Issued at timestamp
-    pub nonce: Option<String>, // Optional nonce for CSRF protection
+    pub iss: String,            // Issuer
+    pub sub: String,            // Subject: wallet_address
+    pub aud: String,            // Audience: client_id
+    pub exp: i64,               // Expiration timestamp
+    pub iat: i64,               // Issued at timestamp
+    pub nonce: Option<String>,  // Optional nonce for CSRF protection
     pub wallet_address: String, // Primary identifier
     pub auth_time: i64,         // Authentication timestamp
     pub amr: Vec<String>,       // Authentication Methods Reference: ["web3"]
@@ -232,7 +233,8 @@ impl OpenIDTokenService {
             signature: request.signature,
             nonce: request.nonce,
         };
-        self.verify_web3_authentication(verification_request).await?;
+        self.verify_web3_authentication(verification_request)
+            .await?;
 
         // 2. Get user permissions and profile from wallet_users table
         let user_profile = self
@@ -299,8 +301,7 @@ impl OpenIDTokenService {
         let access_token =
             self.create_access_token(wallet_address, permissions, client_id, auth_time, &jti)?;
 
-        let id_token =
-            self.create_id_token(wallet_address, client_id, auth_time, None)?;
+        let id_token = self.create_id_token(wallet_address, client_id, auth_time, None)?;
 
         info!(
             "Issued OpenID tokens for wallet: {} (client: {})",
@@ -370,9 +371,11 @@ impl OpenIDTokenService {
             Err(_) => return Ok(()),
         };
 
-        let mut tx = self.db_pool.begin().await.map_err(|e| {
-            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
-        })?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         if let Some(digested) = digested {
             // Look up family_id by digest
@@ -445,9 +448,11 @@ impl OpenIDTokenService {
         let new_digest = new_refresh_token.digest().to_db_bytes();
         let refresh_token_expiry_days = self.refresh_token_expiry_days;
 
-        let mut tx = self.db_pool.begin().await.map_err(|e| {
-            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
-        })?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         Self::lock_refresh_family(&mut tx, expected_family_id).await?;
         let now = Self::database_clock_tx(&mut tx).await?;
@@ -521,7 +526,12 @@ impl OpenIDTokenService {
                 .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
                 if matches!(
-                    terminal.map(|t| classify_refresh_state(t.is_revoked, t.consumed_at, t.revoked_at, t.replay_detected_at)),
+                    terminal.map(|t| classify_refresh_state(
+                        t.is_revoked,
+                        t.consumed_at,
+                        t.revoked_at,
+                        t.replay_detected_at
+                    )),
                     Some(StoredRefreshState::Consumed)
                 ) {
                     sqlx::query(
@@ -610,9 +620,9 @@ impl OpenIDTokenService {
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
 
-        tx.commit().await.map_err(|e| {
-            OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e))
-        })?;
+        tx.commit()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e)))?;
 
         Ok(RefreshTokenInfo {
             token_id: row.token_id,
@@ -673,9 +683,13 @@ impl OpenIDTokenService {
             ));
         }
 
-        let signature_bytes = hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
-            OpenIDTokenError::Web3AuthenticationFailed(format!("Invalid signature format: {}", e))
-        })?;
+        let signature_bytes =
+            hex::decode(request.signature.trim_start_matches("0x")).map_err(|e| {
+                OpenIDTokenError::Web3AuthenticationFailed(format!(
+                    "Invalid signature format: {}",
+                    e
+                ))
+            })?;
 
         let verification_opts = VerificationOpts {
             nonce: Some(request.nonce),
@@ -935,8 +949,8 @@ impl OpenIDTokenService {
         .bind(refresh_token.digest_key_id().to_string())
         .bind(REFRESH_DIGEST_VERSION)
         .bind(REFRESH_STORAGE_VERSION)
-        .bind(&expires_at)
-        .bind(&created_at)
+        .bind(expires_at)
+        .bind(created_at)
         .execute(&self.db_pool)
         .await
         .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
@@ -1049,9 +1063,11 @@ impl OpenIDTokenService {
         let token_digest = token_digest.to_vec();
         let client_id = client.as_str().to_owned();
 
-        let mut tx = self.db_pool.begin().await.map_err(|e| {
-            OpenIDTokenError::DatabaseError(format!("Pool error: {}", e))
-        })?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Pool error: {}", e)))?;
 
         Self::lock_refresh_family(&mut tx, family_id).await?;
         let now = Self::database_clock_tx(&mut tx).await?;
@@ -1090,9 +1106,9 @@ impl OpenIDTokenService {
             .map_err(|e| OpenIDTokenError::DatabaseError(e.to_string()))?;
         }
 
-        tx.commit().await.map_err(|e| {
-            OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e))
-        })?;
+        tx.commit()
+            .await
+            .map_err(|e| OpenIDTokenError::DatabaseError(format!("Commit failed: {}", e)))?;
 
         Ok(())
     }

@@ -16,6 +16,22 @@ use crate::domain::developer_portal::{
 };
 use crate::prelude::*;
 
+#[derive(sqlx::FromRow)]
+struct ModuleRow {
+    id: Uuid,
+    name: String,
+    display_name: String,
+    description: Option<String>,
+    category: String,
+    status: String,
+    base_path: String,
+    default_rate_limit: i32,
+    access_levels: serde_json::Value,
+    endpoints: serde_json::Value,
+    created_at: chrono::DateTime<Utc>,
+    updated_at: chrono::DateTime<Utc>,
+}
+
 /// Module Repository for database operations
 pub struct ModuleRepository {
     pool: Arc<PgPool>,
@@ -39,32 +55,16 @@ impl ModuleRepository {
                     default_rate_limit, access_levels, endpoints, created_at, updated_at \
              FROM api_modules WHERE TRUE",
         );
-        if let Some(status) = status_filter {
+        if let Some(_status) = status_filter {
             sql.push_str(" AND status = $1");
         }
-        if let Some(category) = category_filter {
+        if let Some(_category) = category_filter {
             sql.push_str(&format!(
                 " AND category = ${}",
                 if status_filter.is_some() { 2 } else { 1 }
             ));
         }
         sql.push_str(" ORDER BY display_name ASC");
-
-        #[derive(sqlx::FromRow)]
-        struct ModuleRow {
-            id: Uuid,
-            name: String,
-            display_name: String,
-            description: Option<String>,
-            category: String,
-            status: String,
-            base_path: String,
-            default_rate_limit: i32,
-            access_levels: serde_json::Value,
-            endpoints: serde_json::Value,
-            created_at: chrono::DateTime<Utc>,
-            updated_at: chrono::DateTime<Utc>,
-        }
 
         let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(&sql);
         if let Some(status) = status_filter {
@@ -110,20 +110,7 @@ impl ModuleRepository {
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiModule>> {
         let pool: &PgPool = &self.pool;
 
-        let row: Option<(
-            Uuid,
-            String,
-            String,
-            Option<String>,
-            String,
-            String,
-            String,
-            i32,
-            serde_json::Value,
-            serde_json::Value,
-            chrono::DateTime<Utc>,
-            chrono::DateTime<Utc>,
-        )> = sqlx::query_as(
+        let row: Option<ModuleRow> = sqlx::query_as(
             "SELECT id, name, display_name, description, category, status, base_path, \
                     default_rate_limit, access_levels, endpoints, created_at, updated_at \
              FROM api_modules WHERE id = $1",
@@ -133,27 +120,24 @@ impl ModuleRepository {
         .await
         .map_err(|e| AppError::database_error(format!("Failed to fetch module: {}", e)))?;
 
-        Ok(row.map(
-            |(id, name, display_name, description, category, status, base_path,
-                default_rate_limit, access_levels, endpoints, created_at, updated_at)| {
-                let endpoints: Vec<ModuleEndpoint> =
-                    serde_json::from_value(endpoints).unwrap_or_default();
-                ApiModule {
-                    id,
-                    name,
-                    display_name,
-                    description,
-                    category,
-                    status: ModuleStatus::from(status.as_str()),
-                    base_path,
-                    default_rate_limit,
-                    access_levels,
-                    endpoints,
-                    created_at,
-                    updated_at,
-                }
-            },
-        ))
+        Ok(row.map(|r| {
+            let endpoints: Vec<ModuleEndpoint> =
+                serde_json::from_value(r.endpoints).unwrap_or_default();
+            ApiModule {
+                id: r.id,
+                name: r.name,
+                display_name: r.display_name,
+                description: r.description,
+                category: r.category,
+                status: ModuleStatus::from(r.status.as_str()),
+                base_path: r.base_path,
+                default_rate_limit: r.default_rate_limit,
+                access_levels: r.access_levels,
+                endpoints,
+                created_at: r.created_at,
+                updated_at: r.updated_at,
+            }
+        }))
     }
 
     /// Create a new module
@@ -162,9 +146,10 @@ impl ModuleRepository {
 
         let id = Uuid::new_v4();
         let now = Utc::now();
-        let endpoints_json = serde_json::to_value(request.endpoints.unwrap_or_default()).map_err(
-            |e| AppError::internal_error(format!("Failed to serialize endpoints: {}", e)),
-        )?;
+        let endpoints_json =
+            serde_json::to_value(request.endpoints.unwrap_or_default()).map_err(|e| {
+                AppError::internal_error(format!("Failed to serialize endpoints: {}", e))
+            })?;
         let access_levels = request.access_levels.unwrap_or(serde_json::json!({}));
 
         sqlx::query(
@@ -223,7 +208,8 @@ impl ModuleRepository {
             updated = true;
         }
         if let Some(access_levels) = &request.access_levels {
-            qb.push(", access_levels = ").push_bind(access_levels.clone());
+            qb.push(", access_levels = ")
+                .push_bind(access_levels.clone());
             updated = true;
         }
         if let Some(endpoints) = &request.endpoints {

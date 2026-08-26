@@ -5,7 +5,6 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{debug, warn};
 

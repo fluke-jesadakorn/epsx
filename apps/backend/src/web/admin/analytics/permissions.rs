@@ -32,9 +32,11 @@ pub async fn get_permission_analytics_handler(
     }
 
     // Get total plans count
-    let total_plans = match sqlx::query_as::<_, TotalPlansRow>("SELECT COUNT(*)::bigint as total_plans FROM plans")
-        .fetch_one(app_state.db_pool.as_ref())
-        .await
+    let total_plans = match sqlx::query_as::<_, TotalPlansRow>(
+        "SELECT COUNT(*)::bigint as total_plans FROM plans",
+    )
+    .fetch_one(app_state.db_pool.as_ref())
+    .await
     {
         Ok(result) => result.total_plans as i32,
         Err(_) => 0,

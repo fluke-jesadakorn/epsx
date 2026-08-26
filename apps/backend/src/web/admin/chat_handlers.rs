@@ -439,13 +439,17 @@ pub async fn admin_list_conversations(
         "SELECT COUNT(*) FROM chat_conversations WHERE TRUE",
     );
     if let Some(status) = query.status.as_deref() {
-        count_query.push(" AND status = ").push_bind(status.to_string());
+        count_query
+            .push(" AND status = ")
+            .push_bind(status.to_string());
     }
     if let Some(topic_id) = query.topic_id {
         count_query.push(" AND topic_id = ").push_bind(topic_id);
     }
     if let Some(agent) = query.agent.as_deref() {
-        count_query.push(" AND assigned_agent = ").push_bind(agent.to_string());
+        count_query
+            .push(" AND assigned_agent = ")
+            .push_bind(agent.to_string());
     }
 
     let total: i64 = count_query
@@ -460,13 +464,17 @@ pub async fn admin_list_conversations(
          FROM chat_conversations WHERE TRUE",
     );
     if let Some(status) = query.status.as_deref() {
-        rows_query.push(" AND status = ").push_bind(status.to_string());
+        rows_query
+            .push(" AND status = ")
+            .push_bind(status.to_string());
     }
     if let Some(topic_id) = query.topic_id {
         rows_query.push(" AND topic_id = ").push_bind(topic_id);
     }
     if let Some(agent) = query.agent.as_deref() {
-        rows_query.push(" AND assigned_agent = ").push_bind(agent.to_string());
+        rows_query
+            .push(" AND assigned_agent = ")
+            .push_bind(agent.to_string());
     }
     rows_query
         .push(" ORDER BY last_message_at DESC LIMIT ")

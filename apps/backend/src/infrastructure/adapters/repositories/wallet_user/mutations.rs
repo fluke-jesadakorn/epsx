@@ -170,7 +170,11 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
             .execute(self.db_pool)
             .await
             .map_err(|e| {
-                error!("Failed to delete wallet user {}: {}", wallet_address.as_str(), e);
+                error!(
+                    "Failed to delete wallet user {}: {}",
+                    wallet_address.as_str(),
+                    e
+                );
                 AppError::database_error(e.to_string())
                     .with_component("wallet_user_repository")
                     .with_operation(format!("delete({})", wallet_address.as_str()))
@@ -201,7 +205,11 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         .execute(self.db_pool)
         .await
         .map_err(|e| {
-            error!("Failed to activate wallet {}: {}", wallet_address.as_str(), e);
+            error!(
+                "Failed to activate wallet {}: {}",
+                wallet_address.as_str(),
+                e
+            );
             AppError::database_error(e.to_string())
         })?;
         Ok(())
@@ -216,7 +224,11 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         .execute(self.db_pool)
         .await
         .map_err(|e| {
-            warn!("Failed to deactivate wallet {}: {}", wallet_address.as_str(), e);
+            warn!(
+                "Failed to deactivate wallet {}: {}",
+                wallet_address.as_str(),
+                e
+            );
             AppError::database_error(e.to_string())
         })?;
         Ok(())
@@ -251,7 +263,10 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         Ok(())
     }
 
-    async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
+    async fn find_eligible_for_web3_permissions(
+        &self,
+        chain_id: u64,
+    ) -> AppResult<Vec<WalletUser>> {
         let _ = chain_id;
         Ok(Vec::new())
     }
@@ -277,6 +292,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
 }
 
 impl WalletUserRepositoryAdapter {
+    #[allow(dead_code)]
     pub(crate) async fn find_query_result_by_wallet(
         &self,
         wallet_address: &WalletAddress,

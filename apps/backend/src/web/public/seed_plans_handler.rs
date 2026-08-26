@@ -194,9 +194,9 @@ pub async fn seed_subscription_plans(
 
         for p_str in perms {
             let parts: Vec<&str> = p_str.split(':').collect();
-            let platform = parts.get(0).unwrap_or(&"epsx");
-            let resource = parts.get(1).unwrap_or(&"unknown");
-            let action = parts.get(2).unwrap_or(&"access");
+            let platform = parts.first().copied().unwrap_or("epsx");
+            let resource = parts.get(1).copied().unwrap_or("unknown");
+            let action = parts.get(2).copied().unwrap_or("access");
 
             sqlx::query(
                 r#"INSERT INTO permissions (id, permission_string, platform, resource, action, permission_type)
@@ -216,11 +216,12 @@ pub async fn seed_subscription_plans(
                 id: uuid::Uuid,
             }
 
-            let perm_id: PId = sqlx::query_as("SELECT id FROM permissions WHERE permission_string = $1")
-                .bind(p_str)
-                .fetch_one(db_pool)
-                .await
-                .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?;
+            let perm_id: PId =
+                sqlx::query_as("SELECT id FROM permissions WHERE permission_string = $1")
+                    .bind(p_str)
+                    .fetch_one(db_pool)
+                    .await
+                    .map_err(|e| format!("Failed to get ID for perm {}: {}", p_str, e))?;
 
             sqlx::query(
                 r#"INSERT INTO plan_permissions (id, plan_id, permission_id, granted_at)
@@ -514,11 +515,7 @@ pub async fn seed_subscription_plans(
         .await
         .unwrap_or((0,));
 
-    tracing::info!(
-        "Seeded {} plans. Total active: {}",
-        inserted,
-        total_plans.0
-    );
+    tracing::info!("Seeded {} plans. Total active: {}", inserted, total_plans.0);
 
     (
         StatusCode::OK,

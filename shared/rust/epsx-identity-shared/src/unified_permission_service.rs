@@ -161,17 +161,16 @@ impl UnifiedPermissionService {
             wallet_has_permission: Option<bool>,
         }
 
-        let result: PermissionCheck = sqlx::query_as(
-            "SELECT wallet_has_permission($1, $2) AS wallet_has_permission",
-        )
-        .bind(&wallet_lower)
-        .bind(permission)
-        .fetch_one(&self.db_pool)
-        .await
-        .map_err(|e| {
-            error!("Database error checking permission: {}", e);
-            AppError::database_error(format!("Failed to check permission: {}", e))
-        })?;
+        let result: PermissionCheck =
+            sqlx::query_as("SELECT wallet_has_permission($1, $2) AS wallet_has_permission")
+                .bind(&wallet_lower)
+                .bind(permission)
+                .fetch_one(&self.db_pool)
+                .await
+                .map_err(|e| {
+                    error!("Database error checking permission: {}", e);
+                    AppError::database_error(format!("Failed to check permission: {}", e))
+                })?;
 
         let value = result.wallet_has_permission.unwrap_or(false);
 

@@ -186,16 +186,18 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         }
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
-            qb.push(" AND (name ILIKE ").push_bind(pattern.clone())
-                .push(" OR description ILIKE ").push_bind(pattern)
+            qb.push(" AND (name ILIKE ")
+                .push_bind(pattern.clone())
+                .push(" OR description ILIKE ")
+                .push_bind(pattern)
                 .push(")");
         }
         qb.push(" ORDER BY tier_level ASC, price ASC");
         if let Some(limit_val) = criteria.limit {
-            qb.push(" LIMIT ").push_bind(limit_val as i64);
+            qb.push(" LIMIT ").push_bind(limit_val);
         }
         if let Some(offset_val) = criteria.offset {
-            qb.push(" OFFSET ").push_bind(offset_val as i64);
+            qb.push(" OFFSET ").push_bind(offset_val);
         }
 
         let plan_rows: Vec<PlanDb> = qb
@@ -219,10 +221,8 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn save(&self, plan: &Plan) -> AppResult<()> {
-        let price_bd = Some(
-            Decimal::from_str(&plan.price().amount().to_string())
-                .unwrap_or_default(),
-        );
+        let price_bd =
+            Some(Decimal::from_str(&plan.price().amount().to_string()).unwrap_or_default());
         let currency_str = Some(plan.price().currency().to_string());
         let billing_cycle_str = Some(plan.billing_cycle().to_string());
 
@@ -344,12 +344,14 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
 
-                sqlx::query("INSERT INTO plan_permissions (plan_id, permission_id) VALUES ($1, $2)")
-                    .bind(plan.id().value())
-                    .bind(perm_id.id)
-                    .execute(self.db_pool.as_ref())
-                    .await
-                    .map_err(|e| AppError::database_error(e.to_string()))?;
+                sqlx::query(
+                    "INSERT INTO plan_permissions (plan_id, permission_id) VALUES ($1, $2)",
+                )
+                .bind(plan.id().value())
+                .bind(perm_id.id)
+                .execute(self.db_pool.as_ref())
+                .await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
             }
         }
         Ok(())
@@ -368,16 +370,17 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
     }
 
     async fn count(&self, criteria: PlanSearchCriteria) -> AppResult<i64> {
-        let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
-            "SELECT COUNT(*) AS c FROM plans WHERE plan_type = 'subscription'",
-        );
+        let mut qb: QueryBuilder<sqlx::Postgres> =
+            QueryBuilder::new("SELECT COUNT(*) AS c FROM plans WHERE plan_type = 'subscription'");
         if let Some(is_active) = criteria.is_active {
             qb.push(" AND is_active = ").push_bind(is_active);
         }
         if let Some(search_term) = &criteria.search_term {
             let pattern = format!("%{}%", search_term);
-            qb.push(" AND (name ILIKE ").push_bind(pattern.clone())
-                .push(" OR description ILIKE ").push_bind(pattern)
+            qb.push(" AND (name ILIKE ")
+                .push_bind(pattern.clone())
+                .push(" OR description ILIKE ")
+                .push_bind(pattern)
                 .push(")");
         }
 

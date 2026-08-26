@@ -97,7 +97,9 @@ pub async fn mark_as_delivered(db_pool: &TlsPool, notification_id: &str) -> Resu
     .bind(id)
     .execute(&mut *conn)
     .await
-    .map_err(|e| AppError::database_error(format!("Failed to mark notification as delivered: {}", e)))?;
+    .map_err(|e| {
+        AppError::database_error(format!("Failed to mark notification as delivered: {}", e))
+    })?;
 
     Ok(())
 }

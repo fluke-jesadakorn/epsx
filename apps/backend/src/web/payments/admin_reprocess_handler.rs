@@ -96,7 +96,7 @@ pub async fn admin_reprocess_payment_handler(
         "SELECT status, error_message, confirmations, last_checked_at FROM payments WHERE transaction_hash = $1 LIMIT 1",
     )
     .bind(&tx_hash)
-    .fetch_optional(payments_pool.as_ref())
+    .fetch_optional(&payments_pool)
     .await
     .ok()
     .flatten();
@@ -171,7 +171,7 @@ pub async fn admin_payment_events_handler(
         "#,
     )
     .bind(&tx_hash)
-    .fetch_all(payments_pool.as_ref())
+    .fetch_all(&payments_pool)
     .await
     .unwrap_or_default();
 

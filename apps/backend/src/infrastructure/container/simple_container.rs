@@ -12,7 +12,7 @@ use crate::infrastructure::adapters::repositories::{
     credit_repository_adapter::CreditRepositoryAdapter,
     notification_repository_adapter::NotificationRepositoryAdapter,
     payment_repository_adapter::PaymentRepositoryAdapter,
-    permission_plan_repository_adapter::PermissionPlanRepositoryAdapter,
+    permission_plan_repository_adapter::PlanRepositoryAdapter,
     wallet_user::WalletUserRepositoryAdapter,
 };
 use crate::infrastructure::adapters::services::permission_adapter::{
@@ -60,7 +60,7 @@ pub struct SimpleContainer {
     // NEW - Web3-first services (primary)
     pub wallet_user_repository: Option<Arc<WalletUserRepositoryAdapter>>,
 
-    pub permission_plan_repository: Option<Arc<PermissionPlanRepositoryAdapter>>,
+    pub permission_plan_repository: Option<Arc<PlanRepositoryAdapter>>,
     pub payment_repository: Option<Arc<PaymentRepositoryAdapter>>,
     pub credit_repository: Option<Arc<CreditRepositoryAdapter>>,
     pub notification_repository: Option<Arc<NotificationRepositoryAdapter>>,
@@ -185,8 +185,7 @@ impl SimpleContainer {
         // Create repository adapters
         let wallet_user_repository = Arc::new(WalletUserRepositoryAdapter::new(diesel_pool));
 
-        let permission_plan_repository =
-            Arc::new(PermissionPlanRepositoryAdapter::new(db_pool.clone()));
+        let permission_plan_repository = Arc::new(PlanRepositoryAdapter::new(db_pool.clone()));
         let plan_repository = Arc::new(crate::infrastructure::adapters::repositories::plan_repository_adapter::PostgresPlanRepositoryAdapter::new(db_pool.clone()));
 
         // Initialize dedicated pools
@@ -206,23 +205,27 @@ impl SimpleContainer {
         // Payment Repository (uses payments_pool if available)
         let payment_repository = payments_pool
             .as_ref()
-            .map(|pool| Arc::new(PaymentRepositoryAdapter::new(**pool)));
+            .map(|pool| Arc::new(PaymentRepositoryAdapter::new((**pool).clone())));
 
         // Credit Repository (uses payments_pool — same schema as
         // `wallet_credits` / `credit_transactions` live in the
         // payments migrations).
         let credit_repository = payments_pool
             .as_ref()
-            .map(|pool| Arc::new(CreditRepositoryAdapter::new(**pool)));
+            .map(|pool| Arc::new(CreditRepositoryAdapter::new(pool.clone())));
 
         // Notification Repository (uses notifications_pool if available)
         let notification_repository = if let Some(pool) = &notifications_pool {
-            Some(Arc::new(NotificationRepositoryAdapter::new(**pool)))
+            Some(Arc::new(NotificationRepositoryAdapter::new(
+                (**pool).clone(),
+            )))
         } else {
             // If no dedicated pool, we could fallback to db_pool OR just return None/default
             // Since we updated NotificationRepositoryAdapter::new to take a pool, we MUST provide one.
             // Fallback to db_pool if notifications_pool is missing (e.g. single DB setup)
-            Some(Arc::new(NotificationRepositoryAdapter::new((*db_pool).clone())))
+            Some(Arc::new(NotificationRepositoryAdapter::new(
+                (*db_pool).clone(),
+            )))
         };
 
         // Create domain services
@@ -254,7 +257,7 @@ impl SimpleContainer {
         // Create unified auth service with environment-based domain & OpenID support
         let domain = Self::get_web3_domain();
         let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
-            &*db_pool,
+            diesel_pool,
             domain,
             token_service_impl,
         ));
@@ -380,15 +383,17 @@ impl SimpleContainer {
                 match redis::Client::open(url.as_str()) {
                     Ok(_) => {
                         // PERMISSION CACHE DISABLED FOR SECURITY CONTROL
-                        let perm_service =
-                            Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                            (*db_pool).clone(),
+                        ));
                         tracing::info!("UnifiedPermissionService initialized (cache disabled for security control)");
                         (pool, port, None, perm_service)
                     }
                     Err(e) => {
                         tracing::warn!("Failed to create Redis client for permission cache: {}", e);
-                        let perm_service =
-                            Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
+                        let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                            (*db_pool).clone(),
+                        ));
                         tracing::info!(
                             "UnifiedPermissionService initialized (without Redis cache)"
                         );
@@ -400,7 +405,9 @@ impl SimpleContainer {
                 tracing::warn!(
                     "No REDIS_URL configured - notifications and permission caching will not work"
                 );
-                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache((*db_pool).clone()));
+                let perm_service = Arc::new(UnifiedPermissionService::new_without_cache(
+                    (*db_pool).clone(),
+                ));
                 (None, None, None, perm_service)
             }
         };
@@ -409,7 +416,7 @@ impl SimpleContainer {
         let web3_permission_adapter = Arc::new(Web3PermissionServiceAdapter::new(
             cache.as_ref().map(Arc::clone),
             blockchain_config,
-            &*db_pool,
+            db_pool.clone(),
         ));
 
         // Create TransactionHistoryProvider based on environment

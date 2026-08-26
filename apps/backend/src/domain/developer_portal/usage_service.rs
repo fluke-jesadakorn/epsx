@@ -1,5 +1,4 @@
-// BIG-BANG: migrated to sqlx (real). Previously leaked DbPool + diesel DSL.
-use chrono::{DateTime, Datelike, Duration, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::Serialize;
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -56,14 +55,7 @@ pub struct TopEndpoint {
     pub count: i64,
 }
 
-/// Module usage for stats
-#[derive(Debug, Serialize)]
-pub struct ModuleUsage {
-    pub module_id: Uuid,
-    pub module_name: String,
-    pub request_count: i64,
-    pub unique_api_keys: i64,
-}
+use super::api_module::ModuleUsageStats;
 
 /// Usage service with multi-database support
 pub struct UsageService {
@@ -115,12 +107,11 @@ impl UsageService {
             return Err(sqlx::Error::RowNotFound);
         }
 
-        let api_key_ids: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)",
-        )
-        .bind(wallet_address)
-        .fetch_all(&self.core_pool)
-        .await?;
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
 
         let today = Utc::now().date_naive();
         let start_date = today - Duration::days(i64::from(days - 1));
@@ -257,12 +248,11 @@ impl UsageService {
             return Ok(Vec::new());
         }
 
-        let api_key_ids: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)",
-        )
-        .bind(wallet_address)
-        .fetch_all(&self.core_pool)
-        .await?;
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
 
         if api_key_ids.is_empty() {
             return Ok(Vec::new());
@@ -300,12 +290,11 @@ impl UsageService {
             return Ok(Vec::new());
         }
 
-        let api_key_ids: Vec<Uuid> = sqlx::query_scalar(
-            "SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)",
-        )
-        .bind(wallet_address)
-        .fetch_all(&self.core_pool)
-        .await?;
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
 
         if api_key_ids.is_empty() {
             return Ok(Vec::new());
@@ -339,8 +328,60 @@ impl UsageService {
         &self,
         _wallet_address: &str,
         _days: i32,
-    ) -> Result<Vec<ModuleUsage>, sqlx::Error> {
+    ) -> Result<Vec<ModuleUsageStats>, sqlx::Error> {
         // TODO: implement via JOIN against api_modules + usage logs.
         Ok(Vec::new())
+    }
+
+    pub async fn get_requests_today(&self) -> Result<i64, sqlx::Error> {
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::BIGINT FROM infra_logs.api_key_usage_logs WHERE request_at >= CURRENT_DATE",
+        )
+        .fetch_one(&self.analytics_pool)
+        .await
+        .unwrap_or((0,));
+        Ok(count.0)
+    }
+
+    pub async fn get_requests_this_month(&self) -> Result<i64, sqlx::Error> {
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::BIGINT FROM infra_logs.api_key_usage_logs WHERE request_at >= DATE_TRUNC('month', CURRENT_DATE)",
+        )
+        .fetch_one(&self.analytics_pool)
+        .await
+        .unwrap_or((0,));
+        Ok(count.0)
+    }
+
+    pub async fn get_top_modules_by_usage(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<ModuleUsageStats>, sqlx::Error> {
+        let rows: Vec<ModuleUsageStats> = sqlx::query_as::<_, (Uuid, String, i64, i64)>(
+            r#"
+            SELECT am.id, am.name, COUNT(l.id)::BIGINT AS request_count, COUNT(DISTINCT l.api_key_id)::BIGINT AS unique_api_keys
+            FROM api_modules am
+            LEFT JOIN infra_logs.api_key_usage_logs l ON l.endpoint LIKE am.base_path || '%'
+            GROUP BY am.id, am.name
+            ORDER BY request_count DESC
+            LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.analytics_pool)
+        .await
+        .map(|list| {
+            list.into_iter().map(|(module_id, module_name, request_count, unique_api_keys)| {
+                ModuleUsageStats {
+                    module_id,
+                    module_name,
+                    request_count,
+                    unique_api_keys,
+                }
+            }).collect()
+        })
+        .unwrap_or_default();
+
+        Ok(rows)
     }
 }

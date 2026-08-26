@@ -127,7 +127,7 @@ pub async fn sse_notifications_handler(
     let queued_notifications = if wallet_address != "all" {
         match get_notifications_pool().await {
             Ok(notifications_pool) => crate::web::notifications::fetch_queued_notifications(
-                notifications_pool,
+                &notifications_pool,
                 &wallet_address,
             )
             .await
@@ -185,7 +185,7 @@ pub async fn sse_notifications_handler(
                         tokio::spawn(async move {
                             match crate::infrastructure::database::get_notifications_pool().await {
                                 Ok(pool) => {
-                                    match crate::web::notifications::mark_as_delivered(pool, &notif_id).await {
+                                    match crate::web::notifications::mark_as_delivered(&pool, &notif_id).await {
                                         Ok(_) => {
                                             tracing::debug!("Background task: Marked notification as delivered: id={}", notif_id);
                                         }
@@ -290,7 +290,7 @@ pub async fn sse_health_handler(
 
     // Get notification stats from NOTIFICATIONS database
     let stats = match crate::infrastructure::database::get_notifications_pool().await {
-        Ok(pool) => crate::web::notifications::get_notification_stats(pool)
+        Ok(pool) => crate::web::notifications::get_notification_stats(&pool)
             .await
             .ok(),
         Err(_) => None,

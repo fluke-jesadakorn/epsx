@@ -404,7 +404,7 @@ async fn validate_api_key(
 
     // Re-evaluate delegated scopes against the owner's live normalized grants
     // on every request. Downgrade, expiry, or removal takes effect at once.
-    let entitlement_service = DeveloperEntitlementService::new(*app_state.db_pool);
+    let entitlement_service = DeveloperEntitlementService::new((*app_state.db_pool).clone());
     let (permissions, entitlement) = entitlement_service
         .effective_key_scopes(&api_key.wallet_address, &api_key.selected_permissions)
         .await

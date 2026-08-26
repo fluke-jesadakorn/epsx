@@ -67,7 +67,8 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
                 .push("::jsonb");
         }
 
-        qb.push(" WHERE wallet_address = ").push_bind(&command.wallet_address);
+        qb.push(" WHERE wallet_address = ")
+            .push_bind(&command.wallet_address);
 
         qb.build()
             .execute(self.db_pool.as_ref())

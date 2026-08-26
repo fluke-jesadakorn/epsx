@@ -6,8 +6,6 @@
 #![allow(clippy::result_large_err)] // AppError is intentionally rich for debugging
 #![allow(clippy::too_many_arguments)] // Complex domain constructors require many params
 
-
-
 pub mod application; // Application layer with CQRS command/query handlers
 pub mod auth;
 pub mod config; // Configuration

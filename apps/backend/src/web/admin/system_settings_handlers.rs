@@ -209,14 +209,6 @@ pub async fn get_all_settings_handler(
     )?;
     info!("Getting all system settings");
 
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get DB connection: {}", e);
-        AppError::new(
-            ErrorKind::DatabaseError,
-            format!("Failed to get DB connection: {}", e),
-        )
-    })?;
-
     // Query all settings from database
     let rows: Vec<SystemSettingRow> = sqlx::query_as::<_, SystemSettingRow>(
         "SELECT id, category, key, value, description, updated_at FROM system_settings ORDER BY category, key"
@@ -422,9 +414,9 @@ pub async fn update_settings_handler(
         updated_count += 1;
     }
 
-    tx.commit().await.map_err(|e| {
-        AppError::database_error(format!("Failed to commit transaction: {}", e))
-    })?;
+    tx.commit()
+        .await
+        .map_err(|e| AppError::database_error(format!("Failed to commit transaction: {}", e)))?;
 
     Ok(Json(json!({
         "success": true,

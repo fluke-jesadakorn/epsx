@@ -178,8 +178,7 @@ impl ProjectionManager {
                     if processed_count > 0 {
                         debug!(
                             "Projection {} processed {} events",
-                            projection_name,
-                            processed_count
+                            projection_name, processed_count
                         );
                     }
                 }
@@ -385,7 +384,9 @@ impl ProjectionManager {
             .build_query_as()
             .fetch_all(self.pool.as_ref())
             .await
-            .map_err(|e| AppError::database_error(format!("Failed to fetch events from outbox: {}", e)))?;
+            .map_err(|e| {
+                AppError::database_error(format!("Failed to fetch events from outbox: {}", e))
+            })?;
 
         Ok(results
             .into_iter()
@@ -412,7 +413,9 @@ impl ProjectionManager {
         .bind(projection.projection_name())
         .execute(self.pool.as_ref())
         .await
-        .map_err(|e| AppError::database_error(format!("Failed to mark projection unhealthy: {}", e)))?;
+        .map_err(|e| {
+            AppError::database_error(format!("Failed to mark projection unhealthy: {}", e))
+        })?;
 
         Ok(())
     }

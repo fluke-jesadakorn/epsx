@@ -30,11 +30,7 @@ impl AuditService {
         Self::insert(&self.pool, ctx, entry).await
     }
 
-    async fn insert(
-        pool: &TlsPool,
-        ctx: &AuditCtx,
-        entry: &AuditEntry,
-    ) -> anyhow::Result<()> {
+    async fn insert(pool: &TlsPool, ctx: &AuditCtx, entry: &AuditEntry) -> anyhow::Result<()> {
         let row = NewUnifiedAuditDb {
             actor: ctx.actor.clone(),
             actor_type: ctx.actor_type.clone(),

@@ -217,7 +217,8 @@ impl CreditRepositoryAdapter {
 
         if let Some(ref f) = filters {
             if let Some(ref wallet_addr) = f.wallet_address {
-                qb.push(" AND wallet_address = ").push_bind(wallet_addr.clone());
+                qb.push(" AND wallet_address = ")
+                    .push_bind(wallet_addr.clone());
             }
             if let Some(ref tx_type) = f.tx_type {
                 qb.push(" AND tx_type = ").push_bind(tx_type.clone());
@@ -275,24 +276,23 @@ impl CreditRepositoryAdapter {
             wallet_address, amount, tx_type
         );
 
-        let result: Uuid = sqlx::query_scalar(
-            "SELECT add_credit_transaction($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-        )
-        .bind(wallet_address)
-        .bind(&amount)
-        .bind(tx_type)
-        .bind(reference_id)
-        .bind(reference_type)
-        .bind(reason)
-        .bind(granted_by)
-        .bind(expires_at)
-        .bind(metadata.unwrap_or(serde_json::json!({})))
-        .fetch_one(&mut *conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to add credit transaction: {}", e);
-            AppError::database_error(format!("Failed to add transaction: {}", e))
-        })?;
+        let result: Uuid =
+            sqlx::query_scalar("SELECT add_credit_transaction($1, $2, $3, $4, $5, $6, $7, $8, $9)")
+                .bind(wallet_address)
+                .bind(&amount)
+                .bind(tx_type)
+                .bind(reference_id)
+                .bind(reference_type)
+                .bind(reason)
+                .bind(granted_by)
+                .bind(expires_at)
+                .bind(metadata.unwrap_or(serde_json::json!({})))
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|e| {
+                    error!("Failed to add credit transaction: {}", e);
+                    AppError::database_error(format!("Failed to add transaction: {}", e))
+                })?;
 
         info!("Successfully added credit transaction: {}", result);
         Ok(result)
@@ -321,15 +321,14 @@ impl CreditRepositoryAdapter {
         let total_outstanding = total_outstanding.unwrap_or_else(|| BigDecimal::from(0));
 
         // Count active users with credits
-        let active_users: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM wallet_credits WHERE balance > 0",
-        )
-        .fetch_one(&mut *conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to count active users: {}", e);
-            AppError::database_error(format!("Failed to get stats: {}", e))
-        })?;
+        let active_users: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM wallet_credits WHERE balance > 0")
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|e| {
+                    error!("Failed to count active users: {}", e);
+                    AppError::database_error(format!("Failed to get stats: {}", e))
+                })?;
 
         // Average balance
         let average_balance: Option<BigDecimal> = sqlx::query_scalar::<_, Option<BigDecimal>>(
@@ -374,18 +373,19 @@ impl CreditRepositoryAdapter {
             error!("Failed to get today's usage: {}", e);
             AppError::database_error(format!("Failed to get stats: {}", e))
         })?;
-        let total_used_today = total_used_today.unwrap_or_else(|| BigDecimal::from(0)).abs();
+        let total_used_today = total_used_today
+            .unwrap_or_else(|| BigDecimal::from(0))
+            .abs();
 
-        let total_transactions_today: i64 = sqlx::query_scalar(
-            "SELECT COUNT(*) FROM credit_transactions WHERE created_at >= $1",
-        )
-        .bind(today_start)
-        .fetch_one(&mut *conn)
-        .await
-        .map_err(|e| {
-            error!("Failed to count today's transactions: {}", e);
-            AppError::database_error(format!("Failed to get stats: {}", e))
-        })?;
+        let total_transactions_today: i64 =
+            sqlx::query_scalar("SELECT COUNT(*) FROM credit_transactions WHERE created_at >= $1")
+                .bind(today_start)
+                .fetch_one(&mut *conn)
+                .await
+                .map_err(|e| {
+                    error!("Failed to count today's transactions: {}", e);
+                    AppError::database_error(format!("Failed to get stats: {}", e))
+                })?;
 
         Ok(CreditStatsResponse {
             total_credits_outstanding: total_outstanding,

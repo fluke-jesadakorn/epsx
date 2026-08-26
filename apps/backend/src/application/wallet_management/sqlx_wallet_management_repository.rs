@@ -27,7 +27,10 @@ impl SqlxWalletManagementRepository {
         Self { pool }
     }
 
-    pub async fn find_by_wallet(&self, wallet_address: &str) -> AppResult<Option<SqlxWalletBasicInfo>> {
+    pub async fn find_by_wallet(
+        &self,
+        wallet_address: &str,
+    ) -> AppResult<Option<SqlxWalletBasicInfo>> {
         let row = sqlx::query_as::<_, SqlxWalletBasicInfo>(
             r#"SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata FROM wallet_users WHERE lower(wallet_address) = lower($1) LIMIT 1"#,
         )

@@ -225,12 +225,8 @@ impl NotificationRepositoryPort for NotificationRepository {
             "#,
         )
         .bind(record.id)
-        .bind(
-            record.recipient_wallet_address.as_deref(),
-        )
-        .bind(
-            record.topic_name.as_deref(),
-        )
+        .bind(record.recipient_wallet_address.as_deref())
+        .bind(record.topic_name.as_deref())
         .bind(&record.title)
         .bind(&record.body)
         .bind(&record.urgency)
@@ -241,28 +237,18 @@ impl NotificationRepositoryPort for NotificationRepository {
         .bind(record.scheduled_at)
         .bind(record.expires_at)
         .bind(&record.status)
-        .bind(
-            record.send_started_at,
-        )
+        .bind(record.send_started_at)
         .bind(&record.channel_status)
         .bind(record.total_attempts)
-        .bind(
-            record.created_by.as_deref(),
-        )
-        .bind(
-            record.image_url.as_deref(),
-        )
-        .bind(
-            record.action_url.as_deref(),
-        )
+        .bind(record.created_by.as_deref())
+        .bind(record.image_url.as_deref())
+        .bind(record.action_url.as_deref())
         .bind(&record.data_payload)
-        .bind(
-            if record.tags.is_empty() {
-                None
-            } else {
-                Some(&record.tags)
-            },
-        )
+        .bind(if record.tags.is_empty() {
+            None
+        } else {
+            Some(&record.tags)
+        })
         .bind(
             if record.notes.is_empty() {
                 None
@@ -338,16 +324,10 @@ impl NotificationRepositoryPort for NotificationRepository {
               AND ($4::text IS NULL OR notification_type = $4)
             "#,
         )
-        .bind(
-            criteria.recipient_wallet_address.as_deref(),
-        )
+        .bind(criteria.recipient_wallet_address.as_deref())
         .bind(criteria.topic.as_deref())
-        .bind(
-            criteria.status.as_ref().map(|s| s.as_str()),
-        )
-        .bind(
-            criteria.notification_type.as_ref().map(|t| t.as_str()),
-        )
+        .bind(criteria.status.as_ref().map(|s| s.as_str()))
+        .bind(criteria.notification_type.as_ref().map(|t| t.as_str()))
         .fetch_one(&mut *conn)
         .await
         .map_err(|e| {

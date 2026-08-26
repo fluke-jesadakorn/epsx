@@ -7,7 +7,6 @@ use crate::prelude::*;
 use sqlx::{PgPool, QueryBuilder};
 use std::collections::HashSet;
 use std::sync::Arc;
-use tracing::error;
 
 use crate::domain::permission_management::{
     repository_ports::{PlanRepositoryPort, PlanSearchCriteria, PlanStatistics},
@@ -41,8 +40,8 @@ fn row_to_plan(row: PlanDb, permissions: HashSet<PermissionString>) -> Result<Pl
         .as_ref()
         .and_then(|bd| bd.to_string().parse::<f64>().ok())
         .unwrap_or(0.0);
-    let slug = PlanSlug::new(row.slug.clone())
-        .map_err(|e| AppError::validation_error(e.to_string()))?;
+    let slug =
+        PlanSlug::new(row.slug.clone()).map_err(|e| AppError::validation_error(e.to_string()))?;
     let plan_category = PlanCategory::parse(&row.plan_category).unwrap_or_default();
     let plan_group = PlanGroup::parse(&row.plan_group).unwrap_or_default();
     Ok(Plan::load(LoadPlanParams {
@@ -135,7 +134,8 @@ impl PlanRepositoryAdapter {
     /// Fetch all active subscription plans as PermissionPlan structs (for public and validation handlers)
     pub async fn get_subscription_plans(
         &self,
-    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>> {
+    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>>
+    {
         let rows = sqlx::query_as::<_, crate::infrastructure::adapters::repositories::database_types::PermissionPlan>(
             "SELECT id, name, slug, description, plan_type, plan_metadata, \
                     price, currency, billing_cycle, is_active, is_promoted, \
@@ -156,7 +156,8 @@ impl PlanRepositoryAdapter {
     /// Alias for get_subscription_plans
     pub async fn get_all_plans(
         &self,
-    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>> {
+    ) -> AppResult<Vec<crate::infrastructure::adapters::repositories::database_types::PermissionPlan>>
+    {
         self.get_subscription_plans().await
     }
 }

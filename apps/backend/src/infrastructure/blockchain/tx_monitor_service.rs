@@ -344,10 +344,6 @@ impl TransactionMonitorService {
         let payments_pool = get_payments_pool()
             .await
             .map_err(|e| format!("Failed to get payments pool: {}", e))?;
-        let mut conn = payments_pool
-            .acquire().await
-            .await
-            .map_err(|e| format!("Failed to get connection: {}", e))?;
 
         let current_block = self
             .provider
@@ -356,20 +352,23 @@ impl TransactionMonitorService {
             .map_err(|e| format!("Failed to get block number: {}", e))?;
 
         // Query pending/confirming transactions (not expired, not credit-only)
-        let pending_payments: Vec<(String, Option<i64>)> = payments::table
-            .filter(
-                payments::status
-                    .eq("pending")
-                    .or(payments::status.eq("confirming")),
-            )
-            .filter(payments::transaction_hash.is_not_null())
-            .select((payments::transaction_hash, payments::block_number))
-            .load::<(Option<String>, Option<i64>)>(&mut *conn)
-            .await
-            .map_err(|e| format!("Failed to query pending payments: {}", e))?
-            .into_iter()
-            .filter_map(|(tx_hash, block_num)| tx_hash.map(|h| (h, block_num)))
-            .collect();
+        #[derive(sqlx::FromRow)]
+        struct PendingRow {
+            transaction_hash: Option<String>,
+            block_number: Option<i64>,
+        }
+
+        let pending_payments: Vec<(String, Option<i64>)> = sqlx::query_as::<_, PendingRow>(
+            "SELECT transaction_hash, block_number FROM payments \
+             WHERE (status = 'pending' OR status = 'confirming') \
+               AND transaction_hash IS NOT NULL",
+        )
+        .fetch_all(&payments_pool)
+        .await
+        .map_err(|e| format!("Failed to query pending payments: {}", e))?
+        .into_iter()
+        .filter_map(|r| r.transaction_hash.map(|h| (h, r.block_number)))
+        .collect();
 
         if pending_payments.is_empty() {
             trace!("No pending transactions to check");
@@ -736,7 +735,7 @@ impl TransactionMonitorService {
             "#,
         )
         .bind(&wallet_address)
-        .execute(&primary_pool)
+        .execute(primary_pool)
         .await
         .ok();
 
@@ -755,7 +754,7 @@ impl TransactionMonitorService {
             "SELECT id, name, tier_level, plan_metadata, billing_cycle FROM plans WHERE id = $1 AND is_active = true",
         )
         .bind(plan_uuid)
-        .fetch_optional(&primary_pool)
+        .fetch_optional(primary_pool)
         .await
         .map_err(|e| format!("Failed to load plan terms: {e}"))?;
 
@@ -794,7 +793,7 @@ impl TransactionMonitorService {
         )
         .bind(&wallet_address)
         .bind(plan_uuid)
-        .fetch_optional(&primary_pool)
+        .fetch_optional(primary_pool)
         .await
         .map_err(|e| format!("Failed to inspect existing plan assignment: {e}"))?;
 
@@ -835,7 +834,7 @@ impl TransactionMonitorService {
             )
             .bind(&wallet_address)
             .bind(plan_uuid)
-            .execute(&primary_pool)
+            .execute(primary_pool)
             .await
             .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
@@ -849,7 +848,7 @@ impl TransactionMonitorService {
             .bind(assignment_expires_at)
             .bind(&payment_reference)
             .bind(existing.id)
-            .execute(&primary_pool)
+            .execute(primary_pool)
             .await
             .map_err(|e| format!("Failed to extend plan: {}", e))?;
         } else {
@@ -871,7 +870,7 @@ impl TransactionMonitorService {
                 "#,
             )
             .bind(&wallet_address)
-            .execute(&primary_pool)
+            .execute(primary_pool)
             .await
             .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
@@ -889,7 +888,7 @@ impl TransactionMonitorService {
             .bind(plan_uuid)
             .bind(assignment_expires_at)
             .bind(&payment_reference)
-            .execute(&primary_pool)
+            .execute(primary_pool)
             .await
             .map_err(|e| format!("Failed to assign plan: {}", e))?;
         }
@@ -932,7 +931,7 @@ impl TransactionMonitorService {
         )
         .bind(tier_name)
         .bind(&wallet_address)
-        .execute(&primary_pool)
+        .execute(primary_pool)
         .await
         .ok();
 

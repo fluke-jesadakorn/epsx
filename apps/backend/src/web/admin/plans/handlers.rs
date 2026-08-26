@@ -512,12 +512,11 @@ pub async fn create_subscription_handler(
     })?;
 
     // Find plan UUID from permission_plan_name (plans table in PRIMARY DB)
-    let plan_uuid_result: Result<Option<Uuid>, _> = sqlx::query_scalar::<_, Uuid>(
-        "SELECT id FROM plans WHERE name = $1 LIMIT 1",
-    )
-    .bind(&request.permission_plan_name)
-    .fetch_optional(&mut *primary_conn)
-    .await;
+    let plan_uuid_result: Result<Option<Uuid>, _> =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM plans WHERE name = $1 LIMIT 1")
+            .bind(&request.permission_plan_name)
+            .fetch_optional(&mut *primary_conn)
+            .await;
     let plan_uuid = plan_uuid_result.unwrap_or(None).unwrap_or_else(|| {
         tracing::warn!(
             "Could not find plan by name '{}', using placeholder UUID",
@@ -549,13 +548,14 @@ pub async fn create_subscription_handler(
     // BUT since we are deleting the old file, we MUST implement it fully.
 
     // Deactivate existing plan assignments
-            sqlx::query(
+    sqlx::query(
         r#"
         UPDATE wallet_plan_assignments
         SET is_active = false, updated_at = NOW()
         WHERE LOWER(wallet_address) = LOWER($1)
           AND is_active = true"#,
-    ).bind(&request.wallet_address)
+    )
+    .bind(&request.wallet_address)
     .execute(&mut *primary_conn)
     .await
     .map_err(|e| {
@@ -564,7 +564,7 @@ pub async fn create_subscription_handler(
     })?;
 
     // Insert new assignment
-            sqlx::query(
+    sqlx::query(
         r#"
         INSERT INTO wallet_plan_assignments (
             wallet_address, plan_id, assigned_at, expires_at,
@@ -576,7 +576,8 @@ pub async fn create_subscription_handler(
             expires_at = EXCLUDED.expires_at,
             updated_at = NOW(),
             assignment_reason = 'Admin assigned subscription (updated)'"#,
-    ).bind(&request.wallet_address)
+    )
+    .bind(&request.wallet_address)
     .bind(plan_uuid)
     .bind(expires_at)
     .execute(&mut *primary_conn)
@@ -705,7 +706,7 @@ pub async fn admin_list_user_access_handler(
         .map(|s| format!("%{}%", s.to_lowercase()))
         .unwrap_or_else(|| "%".to_string());
 
-    let users: Vec<UserRow> =         sqlx::query_as::<_, UserRow>(
+    let users: Vec<UserRow> = sqlx::query_as::<_, UserRow>(
         r#"
         SELECT
             wga.wallet_address::text AS wallet_address,
@@ -719,7 +720,8 @@ pub async fn admin_list_user_access_handler(
           AND LOWER(wga.wallet_address) LIKE $1
         ORDER BY wga.assigned_at DESC NULLS LAST
         LIMIT $2 OFFSET $3"#,
-    ).bind(&search_filter)
+    )
+    .bind(&search_filter)
     .bind(pg.limit as i64)
     .bind(pg.offset)
     .fetch_all(&mut *conn)

@@ -40,12 +40,12 @@ impl NewsRepository {
         .bind(&new.author_wallet)
         .bind(&new.status)
         .bind(&new.tags)
-        .bind(false)  // is_pinned default
-        .bind(Option::<chrono::DateTime<chrono::Utc>>::None)  // pinned_at
+        .bind(false) // is_pinned default
+        .bind(Option::<chrono::DateTime<chrono::Utc>>::None) // pinned_at
         .bind(new.published_at)
         .fetch_one(pool)
         .await
-            .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())
     }
 
     pub async fn update(
@@ -108,7 +108,7 @@ impl NewsRepository {
         .bind(expected_updated_at)
         .fetch_optional(pool)
         .await
-            .map_err(|e| e.to_string())?;
+        .map_err(|e| e.to_string())?;
         Ok(row)
     }
 
@@ -126,14 +126,12 @@ impl NewsRepository {
         id: Uuid,
         expected_updated_at: chrono::DateTime<Utc>,
     ) -> Result<bool, String> {
-        let deleted = sqlx::query(
-            "DELETE FROM news_articles WHERE id = $1 AND updated_at = $2",
-        )
-        .bind(id)
-        .bind(expected_updated_at)
-        .execute(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let deleted = sqlx::query("DELETE FROM news_articles WHERE id = $1 AND updated_at = $2")
+            .bind(id)
+            .bind(expected_updated_at)
+            .execute(pool)
+            .await
+            .map_err(|e| e.to_string())?;
         Ok(deleted.rows_affected() == 1)
     }
 
@@ -226,12 +224,11 @@ impl NewsRepository {
         let limit = limit.clamp(1, 100);
         let offset = (page - 1) * limit;
 
-        let total_row: (i64,) = sqlx::query_as(
-            "SELECT COUNT(*) FROM news_articles WHERE status = 'published'",
-        )
-        .fetch_one(pool)
-        .await
-        .map_err(|e| e.to_string())?;
+        let total_row: (i64,) =
+            sqlx::query_as("SELECT COUNT(*) FROM news_articles WHERE status = 'published'")
+                .fetch_one(pool)
+                .await
+                .map_err(|e| e.to_string())?;
 
         let articles: Vec<NewsArticleDb> = sqlx::query_as(
             "SELECT id, slug, title, summary, content, category, tags, status, \

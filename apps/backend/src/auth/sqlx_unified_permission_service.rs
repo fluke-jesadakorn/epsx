@@ -29,11 +29,7 @@ impl SqlxUnifiedPermissionService {
         Self { pool }
     }
 
-    pub async fn has_permission(
-        &self,
-        wallet_address: &str,
-        permission: &str,
-    ) -> AppResult<bool> {
+    pub async fn has_permission(&self, wallet_address: &str, permission: &str) -> AppResult<bool> {
         let (exists,): (bool,) = sqlx::query_as(
             r#"
             SELECT EXISTS(

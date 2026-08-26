@@ -40,7 +40,6 @@ use chrono::Utc;
 use sqlx::QueryBuilder;
 use std::sync::Arc;
 
-
 use epsx_contracts::errors::{AppError, AppResult};
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
@@ -145,7 +144,8 @@ impl PaymentSubscriptionRepositoryAdapter {
         );
 
         if let Some(ref wallet_addr) = criteria.wallet_address {
-            qb.push(" AND wallet_address = ").push_bind(wallet_addr.clone());
+            qb.push(" AND wallet_address = ")
+                .push_bind(wallet_addr.clone());
         }
         if let Some(ref plan_id) = criteria.plan_id {
             qb.push(" AND plan_id = ").push_bind(*plan_id);
@@ -243,7 +243,8 @@ impl PaymentSubscriptionRepositoryAdapter {
             QueryBuilder::new("SELECT COUNT(*) FROM subscriptions WHERE TRUE");
 
         if let Some(ref wallet_addr) = criteria.wallet_address {
-            qb.push(" AND wallet_address = ").push_bind(wallet_addr.clone());
+            qb.push(" AND wallet_address = ")
+                .push_bind(wallet_addr.clone());
         }
         if let Some(ref plan_id) = criteria.plan_id {
             qb.push(" AND plan_id = ").push_bind(*plan_id);
@@ -387,15 +388,17 @@ impl PaymentSubscriptionRepositoryAdapter {
 
         warn!("Cancelling subscription: {}", id);
 
-        sqlx::query("UPDATE subscriptions SET status = 'cancelled', cancelled_at = $1 WHERE id = $2")
-            .bind(Utc::now())
-            .bind(id)
-            .execute(&mut *conn)
-            .await
-            .map_err(|e| {
-                error!("Failed to cancel subscription: {}", e);
-                AppError::database_error(format!("Failed to cancel subscription: {}", e))
-            })?;
+        sqlx::query(
+            "UPDATE subscriptions SET status = 'cancelled', cancelled_at = $1 WHERE id = $2",
+        )
+        .bind(Utc::now())
+        .bind(id)
+        .execute(&mut *conn)
+        .await
+        .map_err(|e| {
+            error!("Failed to cancel subscription: {}", e);
+            AppError::database_error(format!("Failed to cancel subscription: {}", e))
+        })?;
 
         info!("Successfully cancelled subscription");
         Ok(())
@@ -421,23 +424,24 @@ impl PaymentSubscriptionRepositoryAdapter {
             wallet_address
         );
 
-        let results: Vec<StockRankingAssignmentRow> = sqlx::query_as::<_, StockRankingAssignmentRow>(
-            "SELECT assignment_id, wallet_address, package_id, package_name, \
+        let results: Vec<StockRankingAssignmentRow> =
+            sqlx::query_as::<_, StockRankingAssignmentRow>(
+                "SELECT assignment_id, wallet_address, package_id, package_name, \
              rank_access_level, assigned_at, expires_at, is_active, assignment_source, \
              auto_renew, payment_reference, created_at, updated_at \
              FROM stock_ranking_assignments WHERE wallet_address = $1 \
              ORDER BY assigned_at DESC",
-        )
-        .bind(wallet_address)
-        .fetch_all(&mut *conn)
-        .await
-        .map_err(|e| {
-            error!(
-                "Failed to read stock_ranking_assignments for wallet {}: {}",
-                wallet_address, e
-            );
-            AppError::database_error(format!("Failed to read stock_ranking_assignments: {}", e))
-        })?;
+            )
+            .bind(wallet_address)
+            .fetch_all(&mut *conn)
+            .await
+            .map_err(|e| {
+                error!(
+                    "Failed to read stock_ranking_assignments for wallet {}: {}",
+                    wallet_address, e
+                );
+                AppError::database_error(format!("Failed to read stock_ranking_assignments: {}", e))
+            })?;
 
         let now = Utc::now();
         let assignments: Vec<StockRankingAssignment> = results

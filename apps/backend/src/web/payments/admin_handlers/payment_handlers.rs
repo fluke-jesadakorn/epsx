@@ -7,7 +7,7 @@ use axum::{
     response::Json,
 };
 use chrono::Utc;
-use sqlx::{PgPool, QueryBuilder};
+use sqlx::QueryBuilder;
 use std::collections::HashMap;
 use tracing::{error, info};
 use uuid::Uuid;
@@ -55,7 +55,8 @@ pub async fn admin_list_payments_handler(
     }
     if let Some(ref search) = params.search {
         let pattern = format!("%{}%", search);
-        qb.push(" AND (payment_reference ILIKE ").push_bind(pattern.clone());
+        qb.push(" AND (payment_reference ILIKE ")
+            .push_bind(pattern.clone());
         qb.push(" OR transaction_hash ILIKE ").push_bind(pattern);
         qb.push(")");
     }
@@ -83,11 +84,11 @@ pub async fn admin_list_payments_handler(
     qb.push(" ORDER BY created_at DESC NULLS LAST LIMIT ")
         .push_bind(pg.limit as i64)
         .push(" OFFSET ")
-        .push_bind(pg.offset as i64);
+        .push_bind(pg.offset);
 
     let payment_rows: Vec<PaymentDb> = qb
         .build_query_as()
-        .fetch_all(payments_pool.as_ref())
+        .fetch_all(&payments_pool)
         .await
         .map_err(|e| {
             error!("Failed to query payments: {}", e);
@@ -109,13 +110,12 @@ pub async fn admin_list_payments_handler(
             name: String,
         }
         let primary_pool = app_state.db_pool.clone();
-        let rows: Vec<PlanNameRow> = sqlx::query_as(
-            "SELECT id, name FROM plans WHERE id = ANY($1)",
-        )
-        .bind(&plan_ids)
-        .fetch_all(primary_pool.as_ref())
-        .await
-        .unwrap_or_default();
+        let rows: Vec<PlanNameRow> =
+            sqlx::query_as("SELECT id, name FROM plans WHERE id = ANY($1)")
+                .bind(&plan_ids)
+                .fetch_all(primary_pool.as_ref())
+                .await
+                .unwrap_or_default();
         rows.into_iter().map(|r| (r.id, r.name)).collect()
     };
     let payments_resp: Vec<AdminPaymentInfo> = payment_rows
@@ -131,7 +131,7 @@ pub async fn admin_list_payments_handler(
 
     // Total count via separate query
     let total_row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM payments")
-        .fetch_one(payments_pool.as_ref())
+        .fetch_one(&payments_pool)
         .await
         .unwrap_or((0,));
     let total_count = total_row.0;
@@ -176,7 +176,7 @@ pub async fn admin_list_payments_handler(
         "#,
     )
     .bind(today_start)
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(PaymentSummaryStats {
         completed_count: 0,
@@ -250,7 +250,7 @@ pub async fn admin_approve_payment_handler(
          WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
     )
     .bind(payment_id)
-    .execute(pool.as_ref())
+    .execute(&pool)
     .await
     .map_err(|e| {
         error!("Failed to approve payment {}: {}", payment_id, e);
@@ -290,7 +290,7 @@ pub async fn admin_reject_payment_handler(
          WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
     )
     .bind(payment_id)
-    .execute(pool.as_ref())
+    .execute(&pool)
     .await
     .map_err(|e| {
         error!("Failed to reject payment {}: {}", payment_id, e);
@@ -330,7 +330,7 @@ pub async fn admin_refund_payment_handler(
          WHERE id = $1 AND status NOT IN ('cancelled', 'refunded')",
     )
     .bind(payment_id)
-    .execute(pool.as_ref())
+    .execute(&pool)
     .await
     .map_err(|e| {
         error!("Failed to refund payment {}: {}", payment_id, e);
@@ -354,7 +354,10 @@ pub async fn admin_refund_payment_handler(
 pub async fn admin_get_payment_details_handler(
     State(_app_state): State<crate::web::auth::AppState>,
     Path(_payment_id): Path<Uuid>,
-) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentDetailsResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<
+    Json<crate::web::payments::admin_handlers::types::AdminPaymentDetailsResponse>,
+    Json<UnifiedErrorResponse>,
+> {
     Err(Json(UnifiedErrorResponse::new(
         500,
         "NotImplemented",
@@ -366,7 +369,10 @@ pub async fn admin_get_payment_details_handler(
 pub async fn admin_process_refund_handler(
     State(_app_state): State<crate::web::auth::AppState>,
     Path(_payment_id): Path<Uuid>,
-) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<
+    Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>,
+    Json<UnifiedErrorResponse>,
+> {
     Err(Json(UnifiedErrorResponse::new(
         501,
         "NotImplemented",
@@ -379,7 +385,10 @@ pub async fn admin_update_payment_status_handler(
     State(_app_state): State<crate::web::auth::AppState>,
     Path(_payment_id): Path<Uuid>,
     _body: Option<axum::extract::Json<serde_json::Value>>,
-) -> Result<Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>, Json<UnifiedErrorResponse>> {
+) -> Result<
+    Json<crate::web::payments::admin_handlers::types::AdminPaymentActionResponse>,
+    Json<UnifiedErrorResponse>,
+> {
     Err(Json(UnifiedErrorResponse::new(
         501,
         "NotImplemented",

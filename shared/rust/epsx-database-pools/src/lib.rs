@@ -19,9 +19,7 @@ pub mod sqlx_pool;
 pub type TlsPool = sqlx::PgPool;
 
 /// Re-export the sqlx pool creation helpers as the canonical pool API.
-pub use sqlx_pool::{
-    create_pool, create_all_pools, health_check, SqlxPoolConfig,
-};
+pub use sqlx_pool::{create_all_pools, create_pool, health_check, SqlxPoolConfig};
 
 // ---------------------------------------------------------------------------
 // DEPRECATED shims (retained for one release).
@@ -44,6 +42,7 @@ pub struct TlsConnectionManager {
     database_url: String,
 }
 
+#[allow(deprecated)]
 impl TlsConnectionManager {
     #[deprecated(note = "Diesel migration complete — use sqlx::PgPool directly")]
     #[allow(dead_code)]
@@ -52,6 +51,7 @@ impl TlsConnectionManager {
     }
 }
 
+#[allow(deprecated)]
 #[async_trait]
 impl Manager for TlsConnectionManager {
     type Type = ();

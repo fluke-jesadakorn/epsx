@@ -48,7 +48,7 @@ pub async fn get_credit_balance(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     // Get or create balance
     let balance = repo
@@ -105,7 +105,7 @@ pub async fn get_credit_history(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     let filters = CreditTransactionFilters {
         wallet_address: None, // Will be filtered in repository
@@ -167,7 +167,7 @@ pub async fn admin_get_user_credits(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     // Get balance
     let balance = repo
@@ -252,7 +252,7 @@ pub async fn admin_grant_credits(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     // Add grant transaction
     let tx_id = repo
@@ -379,7 +379,7 @@ pub async fn admin_revoke_credits(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     // Check if user has sufficient balance
     let current_balance = repo
@@ -478,7 +478,7 @@ pub async fn admin_get_credit_stats(
         ))
     })?;
 
-    let repo = CreditRepositoryAdapter::new(payments_pool);
+    let repo = CreditRepositoryAdapter::new(std::sync::Arc::new(payments_pool));
 
     let stats = repo.get_stats().await.map_err(|e| {
         error!("Failed to get credit stats: {}", e);

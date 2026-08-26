@@ -75,8 +75,9 @@ impl StatelessServiceFactory {
     /// This is called once per HTTP request in serverless environments
     pub async fn create_request_services(&self) -> Result<RequestServices> {
         // Get global Diesel pool (static lifetime, connection pooling)
-        let db_pool_clone: sqlx::PgPool = crate::infrastructure::database::get_diesel_pool().await.expect("Failed to get Diesel pool").clone();
-        let diesel_pool: &sqlx::PgPool = &db_pool_clone;
+        let db_pool: &'static sqlx::PgPool = crate::infrastructure::database::get_diesel_pool()
+            .await
+            .expect("Failed to get Diesel pool");
 
         // Create cache (Redis ONLY - no fallback to memory for serverless)
         let cache = if let Some(redis_url) = &self.config.redis_url {
@@ -86,7 +87,7 @@ impl StatelessServiceFactory {
         };
 
         // Create repository adapters
-        let wallet_user_repository = WalletUserRepositoryAdapter::new(diesel_pool);
+        let wallet_user_repository = WalletUserRepositoryAdapter::new(db_pool);
 
         // Create domain services (stateless by design)
         let wallet_permission_service = WalletPermissionService::new()?;
@@ -95,7 +96,7 @@ impl StatelessServiceFactory {
         let web3_permission_adapter = Web3PermissionServiceAdapter::new(
             cache.clone(),
             self.config.blockchain_config.clone(),
-            std::sync::Arc::new(db_pool_clone.clone()),
+            std::sync::Arc::new((*db_pool).clone()),
         );
 
         // Create OpenID token service using Diesel pool and RSA key manager
@@ -104,21 +105,22 @@ impl StatelessServiceFactory {
         let refresh_token_keyring = RefreshTokenKeyring::from_env()
             .expect("Failed to initialize the required refresh-token HMAC keyring");
         let token_service = OpenIDTokenService::new(
-            db_pool_clone.clone(),
+            (*db_pool).clone(),
             self.config.issuer_url.clone(),
             self.config.oidc_audiences.clone(),
             Arc::new(key_manager),
             Arc::new(refresh_token_keyring),
         );
-        let auth_service = UnifiedWeb3AuthService::new_with_openid(
-            &db_pool_clone,
+        let auth_service = Arc::new(UnifiedWeb3AuthService::new_with_openid(
+            db_pool,
             self.config.domain.clone(),
             token_service.clone(),
-        );
+        ));
 
         // Create UnifiedPermissionService (single source of truth for permissions)
-        let unified_permission_service =
-            Arc::new(UnifiedPermissionService::new_without_cache(std::sync::Arc::new(db_pool_clone.clone())));
+        let unified_permission_service = Arc::new(UnifiedPermissionService::new_without_cache(
+            (*db_pool).clone(),
+        ));
 
         // Wave 11 / Track A — build the payment + credit
         // repository adapters from the dedicated
@@ -134,10 +136,10 @@ impl StatelessServiceFactory {
             .map(|p| Arc::new(p) as Arc<TlsPool>);
         let payment_repository = payments_pool
             .as_ref()
-            .map(|p| Arc::new(PaymentRepositoryAdapter::new(**p)));
+            .map(|p| Arc::new(PaymentRepositoryAdapter::new((**p).clone())));
         let credit_repository = payments_pool
             .as_ref()
-            .map(|p| Arc::new(CreditRepositoryAdapter::new(**p)));
+            .map(|p| Arc::new(CreditRepositoryAdapter::new(p.clone())));
 
         // Create Redis pool and PubsubPort
         let (redis_pool, pubsub): (Option<Arc<RedisPool>>, Option<Arc<dyn PubsubPort>>) =
@@ -178,12 +180,12 @@ impl StatelessServiceFactory {
             };
 
         Ok(RequestServices {
-            db_pool: Arc::new(db_pool_clone.clone()),
+            db_pool: Arc::new((*db_pool).clone()),
             cache,
             wallet_user_repository: Arc::new(wallet_user_repository),
             wallet_permission_service,
             web3_permission_adapter: Arc::new(web3_permission_adapter),
-            auth_service: Arc::new(auth_service),
+            auth_service,
             token_service: Arc::new(token_service),
 
             // Redis notifications
@@ -205,11 +207,12 @@ impl StatelessServiceFactory {
     /// Create minimal services for health checks (faster cold start)
     pub async fn create_health_services(&self) -> Result<HealthServices> {
         // Use global Diesel pool for health checks
-        let db_pool_clone: sqlx::PgPool = crate::infrastructure::database::get_diesel_pool().await.expect("Failed to get Diesel pool").clone();
-        let diesel_pool: &sqlx::PgPool = &db_pool_clone;
+        let db_pool: &'static sqlx::PgPool = crate::infrastructure::database::get_diesel_pool()
+            .await
+            .expect("Failed to get Diesel pool");
 
         Ok(HealthServices {
-            db_pool: Arc::new(db_pool_clone.clone()),
+            db_pool: Arc::new((*db_pool).clone()),
         })
     }
 }

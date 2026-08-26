@@ -774,7 +774,7 @@ pub async fn get_user_by_wallet_address(
     let user_data = sqlx::query_as::<_, WalletUserRow>(
         "SELECT wallet_address, is_active, created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1"
     )
-    .bind(&wallet_address.to_lowercase())
+    .bind(wallet_address.to_lowercase())
     .fetch_optional(&mut *conn)
     .await;
 
@@ -899,11 +899,12 @@ pub async fn get_user_notification_preferences(
         wallet_metadata: Option<serde_json::Value>,
     }
 
-    let result =
-        sqlx::query_as::<_, MetadataRow>("SELECT wallet_metadata AS wallet_metadata FROM wallet_users WHERE wallet_address = $1")
-            .bind(&user_context.wallet_address)
-            .fetch_optional(&mut *conn)
-            .await;
+    let result = sqlx::query_as::<_, MetadataRow>(
+        "SELECT wallet_metadata AS wallet_metadata FROM wallet_users WHERE wallet_address = $1",
+    )
+    .bind(&user_context.wallet_address)
+    .fetch_optional(&mut *conn)
+    .await;
 
     let preferences = match result {
         Ok(Some(row)) => {
@@ -949,7 +950,11 @@ pub async fn dashboard_init_handler(
 }
 
 async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Value, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow, Serialize)]
     struct PlanRow {
@@ -982,7 +987,11 @@ fn normalize_watchlist_symbol(symbol: &str) -> String {
 }
 
 async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<String>, String> {
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
+    let mut conn = app_state
+        .db_pool
+        .acquire()
+        .await
+        .map_err(|e| e.to_string())?;
 
     #[derive(sqlx::FromRow)]
     struct WatchlistRow {

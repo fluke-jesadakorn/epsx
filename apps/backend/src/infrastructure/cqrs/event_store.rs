@@ -111,8 +111,8 @@ impl EventStore for PostgresEventStore {
                 AppError::internal_error(format!("Failed to serialize event: {}", e))
             })?;
 
-            let event_json: serde_json::Value = serde_json::from_str(&event_json_str)
-                .map_err(|e| {
+            let event_json: serde_json::Value =
+                serde_json::from_str(&event_json_str).map_err(|e| {
                     AppError::internal_error(format!("Failed to parse event JSON: {}", e))
                 })?;
 
@@ -192,7 +192,10 @@ impl EventStore for PostgresEventStore {
         .fetch_all(self.pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to load events for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to load events for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Event load failed: {}", e))
         })?;
 
@@ -244,7 +247,10 @@ impl EventStore for PostgresEventStore {
         .fetch_one(self.pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to get aggregate version for {}: {}", aggregate_id, e);
+            error!(
+                "Failed to get aggregate version for {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Version query failed: {}", e))
         })?;
 
@@ -288,7 +294,10 @@ impl EventStore for PostgresEventStore {
         .execute(self.pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to save snapshot for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to save snapshot for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Snapshot save failed: {}", e))
         })?;
 
@@ -324,7 +333,10 @@ impl EventStore for PostgresEventStore {
         .fetch_optional(self.pool.as_ref())
         .await
         .map_err(|e| {
-            error!("Failed to load snapshot for aggregate {}: {}", aggregate_id, e);
+            error!(
+                "Failed to load snapshot for aggregate {}: {}",
+                aggregate_id, e
+            );
             AppError::database_error(format!("Snapshot load failed: {}", e))
         })?;
 

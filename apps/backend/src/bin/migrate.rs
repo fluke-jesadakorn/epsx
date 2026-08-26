@@ -32,7 +32,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let databases = vec![
         ("DATABASE_URL", "migrations/core", "Default/Core"),
-        ("ANALYTICS_DATABASE_URL", "migrations/analytics", "Analytics"),
+        (
+            "ANALYTICS_DATABASE_URL",
+            "migrations/analytics",
+            "Analytics",
+        ),
         ("PAYMENTS_DATABASE_URL", "migrations/payments", "Payments"),
         (
             "NOTIFICATIONS_DATABASE_URL",

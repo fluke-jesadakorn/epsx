@@ -5,8 +5,8 @@
 //! `payments` schema (payments ⋈ plans in same DB; PAYMENTS_DATABASE_URL
 //! falls back to primary in production).
 
-use rust_decimal::prelude::*;
 use chrono::{DateTime, Datelike, Utc};
+use rust_decimal::prelude::*;
 use sqlx::{PgPool, Postgres, QueryBuilder};
 use std::str::FromStr;
 use uuid::Uuid;
@@ -14,12 +14,11 @@ use uuid::Uuid;
 use crate::domain::payment::repository_ports::{
     ActivateSubscriptionCommand, AnalyticsRollup, AnalyticsTrends, AnalyticsWindow,
     CreatePaymentCommand, DailyRevenueEntry, PaymentMethodEntry, PaymentRepositoryPort,
-    PaymentRowWithPlanName, PaymentStats, PlanBreakdownEntry, SubmitTxValidation,
-    Subscription, SubscriptionFilters,
+    PaymentRowWithPlanName, PaymentStats, PlanBreakdownEntry, SubmitTxValidation, Subscription,
+    SubscriptionFilters,
 };
 use crate::domain::payment::{
-    CryptoNetwork, CryptoPaymentDetails, Payment, PaymentAmount, PaymentId, PaymentMethod,
-    PaymentReference, PaymentStatus, PlanId, TransactionHash,
+    Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStatus, TransactionHash,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::infrastructure::models::payment::{PaymentDb, SubscriptionDb};
@@ -100,6 +99,7 @@ struct SubscriptionWithPlanRow {
 
 impl PaymentRepositoryAdapter {
     /// Build a domain `Payment` from a `PaymentDb` row.
+    #[allow(dead_code)]
     pub(crate) fn row_to_domain(&self, payment_db: PaymentDb) -> Result<Payment, String> {
         let amount_decimal = rust_decimal::Decimal::from_str(&payment_db.amount.to_string())
             .unwrap_or(rust_decimal::Decimal::ZERO);
@@ -405,7 +405,10 @@ impl PaymentRepositoryAdapter {
             .into_iter()
             .map(|r| DailyRevenueEntry {
                 date: r.payment_date.format("%Y-%m-%d").to_string(),
-                revenue: r.daily_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0),
+                revenue: r
+                    .daily_revenue
+                    .map(|bd| bd.to_f64().unwrap_or(0.0))
+                    .unwrap_or(0.0),
                 payment_count: r.payment_count as u32,
             })
             .collect();
@@ -439,7 +442,10 @@ impl PaymentRepositoryAdapter {
         let plan_breakdown: Vec<PlanBreakdownEntry> = plan_rows
             .into_iter()
             .map(|r| {
-                let rev = r.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+                let rev = r
+                    .total_revenue
+                    .map(|bd| bd.to_f64().unwrap_or(0.0))
+                    .unwrap_or(0.0);
                 let count = r.subscription_count as u32;
                 let arpu = if count > 0 { rev / count as f64 } else { 0.0 };
                 PlanBreakdownEntry {
@@ -513,7 +519,10 @@ impl PaymentRepositoryAdapter {
             return Err("Plan not found".to_string());
         };
 
-        let price_str = p.price.map(|bd| bd.to_string()).unwrap_or_else(|| "0".to_string());
+        let price_str = p
+            .price
+            .map(|bd| bd.to_string())
+            .unwrap_or_else(|| "0".to_string());
 
         Ok(SubmitTxValidation {
             plan_price: price_str.clone(),
@@ -539,10 +548,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         self._find_by_id_impl(payment_id).await
     }
 
-    async fn find_by_user(
-        &self,
-        wallet_address: &WalletAddress,
-    ) -> Result<Vec<Payment>, String> {
+    async fn find_by_user(&self, wallet_address: &WalletAddress) -> Result<Vec<Payment>, String> {
         self._find_by_user_impl(wallet_address).await
     }
 
@@ -565,10 +571,7 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         self._find_by_date_range_impl(start, end).await
     }
 
-    async fn find_expired_pending(
-        &self,
-        threshold: DateTime<Utc>,
-    ) -> Result<Vec<Payment>, String> {
+    async fn find_expired_pending(&self, threshold: DateTime<Utc>) -> Result<Vec<Payment>, String> {
         self._find_expired_pending_impl(threshold).await
     }
 
@@ -632,12 +635,17 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
         page: u32,
         per_page: u32,
     ) -> Result<(Vec<(Subscription, Option<String>)>, u64), String> {
-        let subs = self.list_admin_subscriptions_with_plan_names_impl(filters.clone(), page, per_page).await?;
+        let subs = self
+            .list_admin_subscriptions_with_plan_names_impl(filters.clone(), page, per_page)
+            .await?;
         let count = self.list_admin_subscriptions_count_impl(filters).await?;
         Ok((subs, count))
     }
 
-    async fn get_analytics_rollup(&self, window: AnalyticsWindow) -> Result<AnalyticsRollup, String> {
+    async fn get_analytics_rollup(
+        &self,
+        window: AnalyticsWindow,
+    ) -> Result<AnalyticsRollup, String> {
         self.get_analytics_rollup_impl(window).await
     }
 
@@ -650,21 +658,17 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
     }
 
     async fn create_payment(&self, cmd: CreatePaymentCommand) -> Result<Payment, String> {
-        let payment_id = PaymentId::new();
-        let reference = PaymentReference::new(cmd.payment_reference)
+        let payment_id = PaymentId::generate();
+        let reference = PaymentReference::from_string(&cmd.payment_reference)
             .map_err(|e| format!("Invalid reference: {:?}", e))?;
         let wallet = WalletAddress::new(cmd.wallet_address)
             .map_err(|e| format!("Invalid wallet: {:?}", e))?;
-        let amount = PaymentAmount::from_f64(
-            cmd.amount.parse::<f64>().unwrap_or(0.0),
-            cmd.currency,
+        let amount = PaymentAmount::new(
+            rust_decimal::Decimal::from_str(&cmd.amount).unwrap_or_default(),
+            crate::domain::payment::value_objects::Currency::USDT,
         )
         .map_err(|e| format!("Invalid amount: {:?}", e))?;
-        let status = match cmd.status.as_str() {
-            "completed" | "confirmed" => PaymentStatus::Completed,
-            "failed" => PaymentStatus::Failed,
-            _ => PaymentStatus::Pending,
-        };
+        let status = PaymentStatus::from_str(&cmd.status).unwrap_or(PaymentStatus::Created);
 
         let payment = Payment::new(
             payment_id,
@@ -672,7 +676,13 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
             wallet,
             amount,
             status,
-            cmd.transaction_hash.and_then(|h| TransactionHash::new(h).ok()),
+            cmd.transaction_hash.and_then(|h| {
+                TransactionHash::new(
+                    h,
+                    crate::domain::payment::value_objects::Network::BinanceSmartChain,
+                )
+                .ok()
+            }),
             cmd.plan_id.to_string(),
             cmd.expires_at.unwrap_or_else(Utc::now),
             cmd.metadata.unwrap_or_else(|| serde_json::json!({})),

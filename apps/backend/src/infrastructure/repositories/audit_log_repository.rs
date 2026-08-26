@@ -141,8 +141,8 @@ impl DieselAuditLogRepository {
 
         let count_result: CountRow = sqlx::query_as(&count_sql)
             .bind(&bind_search)
-            .bind(&bind_from)
-            .bind(&bind_to)
+            .bind(bind_from)
+            .bind(bind_to)
             .fetch_one(&pool)
             .await
             .context("Failed to count analytics audit logs")?;
@@ -171,8 +171,8 @@ impl DieselAuditLogRepository {
 
         let rows: Vec<UnifiedRow> = sqlx::query_as(&data_sql)
             .bind(&bind_search)
-            .bind(&bind_from)
-            .bind(&bind_to)
+            .bind(bind_from)
+            .bind(bind_to)
             .bind(limit)
             .bind(offset)
             .fetch_all(&pool)
@@ -229,8 +229,8 @@ impl DieselAuditLogRepository {
 
         let count_result: CountRow = sqlx::query_as(&count_sql)
             .bind(&bind_search)
-            .bind(&bind_from)
-            .bind(&bind_to)
+            .bind(bind_from)
+            .bind(bind_to)
             .fetch_one(&pool)
             .await
             .context("Failed to count payment audit logs")?;
@@ -254,8 +254,8 @@ impl DieselAuditLogRepository {
 
         let rows: Vec<PaymentRow> = sqlx::query_as(&data_sql)
             .bind(&bind_search)
-            .bind(&bind_from)
-            .bind(&bind_to)
+            .bind(bind_from)
+            .bind(bind_to)
             .bind(limit)
             .bind(offset)
             .fetch_all(&pool)

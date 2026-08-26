@@ -65,10 +65,12 @@ pub async fn create_router(
     > = {
         use crate::infrastructure::adapters::repositories::payment_context_repository_adapter::PaymentContextRepositoryAdapter;
         match crate::infrastructure::database::get_payments_pool().await {
-            Ok(pool) => Some(Arc::new(PaymentContextRepositoryAdapter::new(pool))
-                as Arc<
-                    dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort,
-                >),
+            Ok(pool) => Some(
+                Arc::new(PaymentContextRepositoryAdapter::new(Arc::new(pool)))
+                    as Arc<
+                        dyn crate::domain::payment::repository_ports::PaymentContextRepositoryPort,
+                    >,
+            ),
             Err(e) => {
                 tracing::warn!(
                     "PaymentContextRepositoryPort NOT wired ({}); \
@@ -85,10 +87,12 @@ pub async fn create_router(
     > = {
         use crate::infrastructure::adapters::repositories::payment::PaymentSubscriptionRepositoryAdapter;
         match crate::infrastructure::database::get_payments_pool().await {
-            Ok(pool) => Some(Arc::new(PaymentSubscriptionRepositoryAdapter::new(pool))
-                as Arc<
-                    dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort,
-                >),
+            Ok(pool) => Some(
+                Arc::new(PaymentSubscriptionRepositoryAdapter::new(Arc::new(pool)))
+                    as Arc<
+                        dyn crate::domain::payment::repository_ports::SubscriptionRepositoryPort,
+                    >,
+            ),
             Err(e) => {
                 tracing::warn!(
                     "SubscriptionRepositoryPort NOT wired ({}); \

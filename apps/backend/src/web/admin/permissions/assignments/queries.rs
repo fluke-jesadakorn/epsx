@@ -83,7 +83,8 @@ pub async fn list_assignments(
     );
 
     if let Some(ref wallet) = query.wallet_address {
-        qb.push(" AND wga.wallet_address = ").push_bind(wallet.to_lowercase());
+        qb.push(" AND wga.wallet_address = ")
+            .push_bind(wallet.to_lowercase());
     }
 
     if let Some(ref plan_id_str) = query.plan_id {

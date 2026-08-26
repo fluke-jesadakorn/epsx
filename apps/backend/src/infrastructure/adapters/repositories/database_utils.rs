@@ -5,7 +5,7 @@
 // Reduces code duplication across all repository implementations
 
 use crate::prelude::*;
-use sqlx::{PgPool, Postgres};
+use sqlx::Postgres;
 use std::future::Future;
 use std::pin::Pin;
 use tracing::error;

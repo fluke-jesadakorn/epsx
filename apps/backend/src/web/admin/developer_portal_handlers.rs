@@ -704,12 +704,10 @@ pub async fn create_api_key_handler(
         .is_err()
     {
         let _ = repo
-            .revoke(
-                RevokeApiKeyRequest {
-                    reason: "audit write failed".to_string(),
-                    revoked_by: context.wallet_address.clone(),
-                },
-            )
+            .revoke(RevokeApiKeyRequest {
+                reason: "audit write failed".to_string(),
+                revoked_by: context.wallet_address.clone(),
+            })
             .await;
         return error_response::<AdminApiKeyCreatedResponse>(
             &request_id,
@@ -850,12 +848,10 @@ pub async fn revoke_api_key_handler(
     };
     let repo = ApiKeyRepository::new(state.db_pool.clone());
     match repo
-        .revoke(
-            RevokeApiKeyRequest {
-                reason: body.reason.clone(),
-                revoked_by: context.wallet_address.clone(),
-            },
-        )
+        .revoke(RevokeApiKeyRequest {
+            reason: body.reason.clone(),
+            revoked_by: context.wallet_address.clone(),
+        })
         .await
     {
         Ok(_key) => {
@@ -1060,7 +1056,7 @@ pub async fn list_expiring_keys_handler(
             )
         }
     };
-    let (limit, offset) = match validate_pagination(query.limit, query.offset) {
+    let (_limit, _offset) = match validate_pagination(query.limit, query.offset) {
         Ok(value) => value,
         Err(reason) => {
             return error_response::<ExpiringKeysResponse>(
@@ -1378,15 +1374,7 @@ pub async fn get_stats_handler(
                             json!({}),
                         );
                     }
-                }
-                .into_iter()
-                .map(|m| crate::domain::developer_portal::ModuleUsageStats {
-                    module_id: m.module_id,
-                    module_name: m.module_name,
-                    request_count: m.request_count,
-                    unique_api_keys: m.unique_api_keys,
-                })
-                .collect();
+                };
 
                 (today, month, top_modules)
             }

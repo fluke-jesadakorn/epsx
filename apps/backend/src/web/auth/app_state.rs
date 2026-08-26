@@ -14,7 +14,7 @@ use crate::infrastructure::redis::RedisPool;
 use crate::infrastructure::services::audit_service::AuditService;
 use epsx_contracts::pubsub_port::PubsubPort;
 
-use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PermissionPlanRepositoryAdapter;
+use crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PlanRepositoryAdapter;
 use crate::infrastructure::storage::S3Storage;
 // use crate::infrastructure::adapters::repositories::payment_repository_adapter::PaymentRepositoryAdapter; // Temporarily disabled
 
@@ -38,7 +38,7 @@ pub struct AppState {
     /// `docs/wave8-service-boundary/ROADMAP.md` §5 R2 and
     /// `docs/wave8-service-boundary/audit-notifications.md` §3c.
     pub pubsub: Option<Arc<dyn PubsubPort>>,
-    pub plan_repo: Arc<PermissionPlanRepositoryAdapter>,
+    pub plan_repo: Arc<PlanRepositoryAdapter>,
     pub transaction_history_provider: Option<Arc<dyn TransactionHistoryProvider>>,
     pub identity_provider: Option<Arc<dyn IdentityProviderPort>>,
 

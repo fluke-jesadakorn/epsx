@@ -119,13 +119,14 @@ pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse 
         .is_ok();
 
     // Get system statistics
-    let total_plans = match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
-        .fetch_one(app_state.db_pool.as_ref())
-        .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
+    let total_plans =
+        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
 
     let active_assignments = match sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",
@@ -203,13 +204,14 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
     }
 
     // Total plans
-    let total_plans = match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
-        .fetch_one(app_state.db_pool.as_ref())
-        .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
+    let total_plans =
+        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
 
     let active_plans = match sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*)::bigint as count FROM plans WHERE is_active = true",
@@ -232,14 +234,15 @@ pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoRespo
         };
 
     // Wallet assignments
-    let total_assignments =
-        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments")
-            .fetch_one(app_state.db_pool.as_ref())
-            .await
-        {
-            Ok(row) => row.count,
-            Err(_) => 0,
-        };
+    let total_assignments = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments",
+    )
+    .fetch_one(app_state.db_pool.as_ref())
+    .await
+    {
+        Ok(row) => row.count,
+        Err(_) => 0,
+    };
 
     let active_assignments = match sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",

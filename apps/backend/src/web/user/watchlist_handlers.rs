@@ -132,10 +132,7 @@ struct MembershipRow {
     symbol: String,
 }
 
-async fn fetch_watchlist(
-    pool: &sqlx::PgPool,
-    wallet: &str,
-) -> Result<Vec<String>, sqlx::Error> {
+async fn fetch_watchlist(pool: &sqlx::PgPool, wallet: &str) -> Result<Vec<String>, sqlx::Error> {
     let rows: Vec<SymbolRow> = sqlx::query_as(
         "SELECT symbol FROM user_watchlist
          WHERE wallet_address = $1
@@ -187,7 +184,10 @@ async fn fetch_layout_conn(
     let mut grouped_symbols = HashSet::new();
     for row in membership_rows {
         grouped_symbols.insert(row.symbol.clone());
-        memberships.entry(row.group_id).or_default().push(row.symbol);
+        memberships
+            .entry(row.group_id)
+            .or_default()
+            .push(row.symbol);
     }
     let groups = group_rows
         .into_iter()
@@ -316,7 +316,11 @@ pub async fn add_to_watchlist(
 
     let mut tx = app_state.db_pool.begin().await.map_err(|error_value| {
         error!("DB transaction error: {error_value}");
-        Json(UnifiedApiResponse::error(500, "Database error", "Failed to connect"))
+        Json(UnifiedApiResponse::error(
+            500,
+            "Database error",
+            "Failed to connect",
+        ))
     })?;
     let wallet = ctx.wallet_address.clone();
     let symbol_for_transaction = symbol.clone();
@@ -333,7 +337,9 @@ pub async fn add_to_watchlist(
         .await?;
         let owner_group_ids: HashSet<_> = owner_groups.into_iter().map(|row| row.id).collect();
         if group_ids.iter().any(|id| !owner_group_ids.contains(id)) {
-            return Err(MutationError::Invalid("A group does not belong to this user"));
+            return Err(MutationError::Invalid(
+                "A group does not belong to this user",
+            ));
         }
         sqlx::query(
             "INSERT INTO user_watchlist (wallet_address, symbol, ungrouped_position)
@@ -409,21 +415,19 @@ pub async fn remove_from_watchlist(
             "Symbol must be 1-20 letters, numbers, dots, or hyphens",
         )));
     };
-    sqlx::query(
-        "DELETE FROM user_watchlist WHERE wallet_address = $1 AND symbol = $2",
-    )
-    .bind(&ctx.wallet_address)
-    .bind(&symbol)
-    .execute(app_state.db_pool.as_ref())
-    .await
-    .map_err(|error_value| {
-        error!("Failed to remove from watchlist: {error_value}");
-        Json(UnifiedApiResponse::error(
-            500,
-            "Database error",
-            "The symbol could not be removed",
-        ))
-    })?;
+    sqlx::query("DELETE FROM user_watchlist WHERE wallet_address = $1 AND symbol = $2")
+        .bind(&ctx.wallet_address)
+        .bind(&symbol)
+        .execute(app_state.db_pool.as_ref())
+        .await
+        .map_err(|error_value| {
+            error!("Failed to remove from watchlist: {error_value}");
+            Json(UnifiedApiResponse::error(
+                500,
+                "Database error",
+                "The symbol could not be removed",
+            ))
+        })?;
     info!("Removed {symbol} from watchlist for {}", ctx.wallet_address);
     match fetch_watchlist(&app_state.db_pool, &ctx.wallet_address).await {
         Ok(symbols) => Ok(Json(UnifiedApiResponse::success(WatchlistResponse {
@@ -612,13 +616,11 @@ pub async fn delete_watchlist_group(
         .bind(&wallet)
         .execute(&mut *tx)
         .await?;
-        sqlx::query(
-            "DELETE FROM user_watchlist_groups WHERE id = $1 AND wallet_address = $2",
-        )
-        .bind(group_id)
-        .bind(&wallet)
-        .execute(&mut *tx)
-        .await?;
+        sqlx::query("DELETE FROM user_watchlist_groups WHERE id = $1 AND wallet_address = $2")
+            .bind(group_id)
+            .bind(&wallet)
+            .execute(&mut *tx)
+            .await?;
         sqlx::query(
             "WITH ordered AS (
                  SELECT id, ROW_NUMBER() OVER (ORDER BY position, id) - 1 AS position
@@ -677,7 +679,10 @@ pub async fn update_watchlist_layout(
         prepared_groups.push((group.id, symbols));
     }
     let ungrouped = normalize_symbol_list(&body.ungrouped).map_err(mutation_api_error)?;
-    if ungrouped.iter().any(|symbol| grouped_union.contains(symbol)) {
+    if ungrouped
+        .iter()
+        .any(|symbol| grouped_union.contains(symbol))
+    {
         return Err(mutation_api_error(MutationError::Invalid(
             "Grouped symbols cannot also appear in Ungrouped",
         )));
@@ -704,8 +709,7 @@ pub async fn update_watchlist_layout(
         .fetch_all(&mut *tx)
         .await?;
         let owner_group_ids: HashSet<_> = owner_groups.iter().map(|row| row.id).collect();
-        let requested_group_ids: HashSet<_> =
-            prepared_groups.iter().map(|(id, _)| *id).collect();
+        let requested_group_ids: HashSet<_> = prepared_groups.iter().map(|(id, _)| *id).collect();
         if owner_group_ids != requested_group_ids {
             return Err(MutationError::Invalid(
                 "The layout must contain every owner-scoped group exactly once",

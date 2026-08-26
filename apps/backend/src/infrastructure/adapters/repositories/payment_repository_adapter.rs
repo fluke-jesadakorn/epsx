@@ -36,7 +36,6 @@ use crate::domain::wallet_management::value_objects::WalletAddress;
 
 use crate::infrastructure::models::payment::{NewPaymentDb, PaymentDb};
 
-
 /// PostgreSQL implementation of PaymentRepositoryPort using Diesel
 #[derive(Clone)]
 pub struct PaymentRepositoryAdapter {
@@ -48,8 +47,12 @@ impl PaymentRepositoryAdapter {
         Self { db_pool }
     }
 
+    #[allow(dead_code)]
     pub(crate) async fn conn(&self) -> Result<sqlx::pool::PoolConnection<sqlx::Postgres>, String> {
-        self.db_pool.acquire().await.map_err(|e| format!("conn: {}", e))
+        self.db_pool
+            .acquire()
+            .await
+            .map_err(|e| format!("conn: {}", e))
     }
 
     /// Convert PaymentDb domain model to database model

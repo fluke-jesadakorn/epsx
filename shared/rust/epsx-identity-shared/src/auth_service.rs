@@ -9,7 +9,6 @@ use ethers::types::Address;
 use serde::{Deserialize, Serialize};
 use siwe::{Message, VerificationOpts};
 use std::str::FromStr;
-use std::sync::Arc;
 use tracing::{error, info, warn};
 
 use super::token_service::{OpenIDTokenError, OpenIDTokenService};
@@ -163,8 +162,6 @@ impl UnifiedWeb3AuthService {
             );
             Web3AuthError::InvalidWalletAddress(e.to_string())
         })?;
-
-        use crate::schemas::primary::web3_auth_nonces;
 
         #[derive(sqlx::FromRow)]
         struct NonceRecord {
@@ -351,15 +348,13 @@ impl UnifiedWeb3AuthService {
     ) -> Result<(), Web3AuthError> {
         let wallet_address = wallet_address.to_lowercase();
 
-        sqlx::query(
-            "SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success",
-        )
-        .bind(&wallet_address)
-        .bind(permission)
-        .bind(expires_at)
-        .execute(&*self.db_pool)
-        .await
-        .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        sqlx::query("SELECT add_wallet_user_permission($1, $2, 'Manual', $3, '{}') AS success")
+            .bind(&wallet_address)
+            .bind(permission)
+            .bind(expires_at)
+            .execute(self.db_pool)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 
         info!(
             "Granted manual permission '{}' to wallet: {}",
@@ -420,7 +415,7 @@ impl UnifiedWeb3AuthService {
         )
         .bind(wallet_address)
         .bind(now)
-        .fetch_all(&*self.db_pool)
+        .fetch_all(self.db_pool)
         .await
         .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
 

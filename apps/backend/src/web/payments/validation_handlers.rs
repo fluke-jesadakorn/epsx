@@ -332,15 +332,6 @@ pub async fn get_payment_details_handler(
             "Failed to get payments database pool",
         )
     })?;
-    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
-        error!("Failed to get payments database connection: {}", e);
-        UnifiedErrorResponse::json(
-            500,
-            "Database connection failed",
-            "Failed to establish payments database connection",
-        )
-    })?;
-
     // Build query based on provided parameters
     let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
         "SELECT id, payment_reference, transaction_hash, wallet_address, amount, currency, method, \
@@ -351,18 +342,20 @@ pub async fn get_payment_details_handler(
     qb.push_bind(format!("%{}%", user_context.wallet_address));
 
     if let Some(ref tx_hash) = params.transaction_hash {
-        qb.push(" AND transaction_hash = ").push_bind(tx_hash.clone());
+        qb.push(" AND transaction_hash = ")
+            .push_bind(tx_hash.clone());
     }
 
     if let Some(ref reference) = params.payment_reference {
-        qb.push(" AND payment_reference = ").push_bind(reference.clone());
+        qb.push(" AND payment_reference = ")
+            .push_bind(reference.clone());
     }
 
     qb.push(" ORDER BY created_at DESC NULLS LAST LIMIT 1");
 
     let payment_result: Result<PaymentDb, _> = qb
         .build_query_as::<PaymentDb>()
-        .fetch_one(&mut payments_conn)
+        .fetch_one(&payments_pool)
         .await;
 
     let payment = match payment_result {

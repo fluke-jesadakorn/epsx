@@ -171,14 +171,17 @@ impl BlockchainMonitor {
             .map_err(|e| AppError::validation_error(format!("Invalid wallet_address: {}", e)))?;
 
         // Map contract context_id (tier_level) to database plan UUID
-        let plan_uuid: Uuid = sqlx::query_scalar(
-        "SELECT id FROM plans WHERE tier_level = $1 LIMIT 1",
-    )
-    .bind(event.context_id as i32)
-    .fetch_optional(pool.as_ref())
-    .await
-    .map_err(|_| AppError::entity_not_found(format!("Subscription plan {}", event.context_id)))?
-    .ok_or_else(|| AppError::entity_not_found(format!("Subscription plan {}", event.context_id)))?;
+        let plan_uuid: Uuid =
+            sqlx::query_scalar("SELECT id FROM plans WHERE tier_level = $1 LIMIT 1")
+                .bind(event.context_id as i32)
+                .fetch_optional(pool.as_ref())
+                .await
+                .map_err(|_| {
+                    AppError::entity_not_found(format!("Subscription plan {}", event.context_id))
+                })?
+                .ok_or_else(|| {
+                    AppError::entity_not_found(format!("Subscription plan {}", event.context_id))
+                })?;
 
         let now = Utc::now();
         let standard_duration_days: i64 = 30;

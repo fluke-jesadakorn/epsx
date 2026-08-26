@@ -4,20 +4,17 @@ use std::str::FromStr;
 
 use axum::{
     extract::{Extension, State},
-    http::StatusCode,
     Json,
 };
 use bigdecimal::BigDecimal;
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
-use sqlx::PgPool;
-use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 use crate::prelude::*;
+use crate::web::auth::AppState;
 use crate::web::middleware::{OpenIDUserContext, UnifiedErrorResponse};
-use epsx_contracts::state::AppState;
 
 #[derive(Debug, Deserialize)]
 pub struct SubmitTransactionRequest {
@@ -210,12 +207,12 @@ pub async fn submit_transaction_handler(
 
     let price_to_validate = effective_price.as_ref().unwrap_or(&base_price);
     let price_diff = (&payment_amount - price_to_validate).abs();
-    let tolerance = price_to_validate
-        * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
+    let tolerance =
+        price_to_validate * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
     if price_diff > tolerance && *price_to_validate > 0 {
         let base_diff = (&payment_amount - &base_price).abs();
-        let base_tolerance = &base_price
-            * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
+        let base_tolerance =
+            &base_price * BigDecimal::from_str("0.05").unwrap_or_else(|_| BigDecimal::from(0));
         if base_diff > base_tolerance && base_price > 0 {
             error!(
                 "Amount mismatch: submitted={}, plan_price={}, effective_price={:?}, plan_id={}, tolerance={}%",
@@ -230,7 +227,10 @@ pub async fn submit_transaction_handler(
     }
 
     // Get payments database connection
-    let payments_pool = app_state.db_pool.clone();
+    let payments_pool = match crate::infrastructure::database::get_payments_pool().await {
+        Ok(p) => p,
+        Err(_) => (*app_state.db_pool).clone(),
+    };
 
     // Atomic dedup check (idempotent retry)
     #[derive(sqlx::FromRow)]
@@ -244,7 +244,7 @@ pub async fn submit_transaction_handler(
     )
     .bind(&payload.transaction_hash)
     .bind(&wallet_address)
-    .fetch_optional(payments_pool.as_ref())
+    .fetch_optional(&payments_pool)
     .await
     .map_err(|e| {
         error!("Failed to check for existing transaction: {}", e);
@@ -280,7 +280,7 @@ pub async fn submit_transaction_handler(
         "SELECT COALESCE((SELECT balance FROM wallet_credits WHERE wallet_address = $1), 0)::numeric as bal",
     )
     .bind(&wallet_address)
-    .fetch_optional(payments_pool.as_ref())
+    .fetch_optional(&payments_pool)
     .await
     .ok()
     .flatten()
@@ -355,7 +355,7 @@ pub async fn submit_transaction_handler(
         .bind(&network)
         .bind(&metadata)
         .bind(completed_at)
-        .execute(payments_pool.as_ref())
+        .execute(&payments_pool)
         .await;
 
         match result {
@@ -396,7 +396,7 @@ pub async fn submit_transaction_handler(
         .bind(&network)
         .bind(&metadata)
         .bind(completed_at)
-        .execute(payments_pool.as_ref())
+        .execute(&payments_pool)
         .await;
 
         match result {
@@ -407,7 +407,7 @@ pub async fn submit_transaction_handler(
                 )
                 .bind(&payload.transaction_hash)
                 .bind(&wallet_address)
-                .fetch_optional(payments_pool.as_ref())
+                .fetch_optional(&payments_pool)
                 .await
                 .ok()
                 .flatten();
@@ -635,5 +635,29 @@ pub async fn submit_transaction_handler(
     }))
 }
 
-// Re-export the plan_assignment_expiry helper from the upgrade service module
-use super::upgrade_service::plan_assignment_expiry;
+fn plan_assignment_expiry(
+    now: chrono::DateTime<Utc>,
+    metadata: &serde_json::Value,
+    billing_cycle: &str,
+    existing_expiry: Option<chrono::DateTime<Utc>>,
+) -> Option<chrono::DateTime<Utc>> {
+    let duration_days = metadata
+        .get("duration_days")
+        .and_then(serde_json::Value::as_i64)
+        .filter(|days| (1..=3_650).contains(days))
+        .or(match billing_cycle {
+            "daily" => Some(1),
+            "weekly" => Some(7),
+            "monthly" => Some(30),
+            "quarterly" => Some(90),
+            "yearly" | "annual" => Some(365),
+            "lifetime" => None,
+            _ => Some(30),
+        });
+    duration_days.map(|days| {
+        existing_expiry
+            .filter(|expiry| *expiry > now)
+            .unwrap_or(now)
+            + chrono::Duration::days(days)
+    })
+}

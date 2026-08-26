@@ -11,7 +11,6 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 use std::sync::Arc;
-use tracing::{debug, error, info, warn};
 use uuid::Uuid;
 
 // ============================================================================
@@ -92,10 +91,7 @@ impl PaymentContextRepositoryAdapter {
         Self { db_pool }
     }
 
-    async fn save_impl(
-        &self,
-        context: NewPaymentContextDb,
-    ) -> AppResult<PaymentContextDb> {
+    async fn save_impl(&self, context: NewPaymentContextDb) -> AppResult<PaymentContextDb> {
         sqlx::query_as::<_, PaymentContextDb>(
             r#"
             INSERT INTO payment_contexts (
@@ -147,10 +143,7 @@ impl PaymentContextRepositoryAdapter {
         .map_err(|e| AppError::database_error(format!("save payment_context: {}", e)))
     }
 
-    async fn find_by_id_impl(
-        &self,
-        id: Uuid,
-    ) -> AppResult<Option<PaymentContextDb>> {
+    async fn find_by_id_impl(&self, id: Uuid) -> AppResult<Option<PaymentContextDb>> {
         sqlx::query_as::<_, PaymentContextDb>(
             "SELECT id, context_type, context_id, slug, name, description, \
                     amount, currency, expires_at, max_uses, current_uses, \
@@ -163,10 +156,7 @@ impl PaymentContextRepositoryAdapter {
         .map_err(|e| AppError::database_error(format!("find_by_id: {}", e)))
     }
 
-    async fn find_by_slug_impl(
-        &self,
-        slug: &str,
-    ) -> AppResult<Option<PaymentContextDb>> {
+    async fn find_by_slug_impl(&self, slug: &str) -> AppResult<Option<PaymentContextDb>> {
         sqlx::query_as::<_, PaymentContextDb>(
             "SELECT id, context_type, context_id, slug, name, description, \
                     amount, currency, expires_at, max_uses, current_uses, \
@@ -216,9 +206,8 @@ impl PaymentContextRepositoryAdapter {
         id: Uuid,
         changeset: UpdatePaymentContextDb,
     ) -> AppResult<PaymentContextDb> {
-        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-            "UPDATE payment_contexts SET updated_at = NOW()",
-        );
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> =
+            sqlx::QueryBuilder::new("UPDATE payment_contexts SET updated_at = NOW()");
         if let Some(name) = changeset.name {
             qb.push(", name = ").push_bind(name);
         }
@@ -244,9 +233,11 @@ impl PaymentContextRepositoryAdapter {
             qb.push(", metadata = ").push_bind(metadata);
         }
         qb.push(", version = version + 1 WHERE id = ").push_bind(id);
-        qb.push(" RETURNING id, context_type, context_id, slug, name, description, \
+        qb.push(
+            " RETURNING id, context_type, context_id, slug, name, description, \
                             amount, currency, expires_at, max_uses, current_uses, \
-                            is_active, created_by, metadata, version, created_at, updated_at");
+                            is_active, created_by, metadata, version, created_at, updated_at",
+        );
 
         qb.build_query_as::<PaymentContextDb>()
             .fetch_one(self.db_pool.as_ref())
@@ -255,12 +246,14 @@ impl PaymentContextRepositoryAdapter {
     }
 
     async fn soft_delete_impl(&self, id: Uuid) -> AppResult<()> {
-        sqlx::query("UPDATE payment_contexts SET is_active = FALSE, updated_at = NOW() WHERE id = $1")
-            .bind(id)
-            .execute(self.db_pool.as_ref())
-            .await
-            .map(|_| ())
-            .map_err(|e| AppError::database_error(format!("soft_delete: {}", e)))
+        sqlx::query(
+            "UPDATE payment_contexts SET is_active = FALSE, updated_at = NOW() WHERE id = $1",
+        )
+        .bind(id)
+        .execute(self.db_pool.as_ref())
+        .await
+        .map(|_| ())
+        .map_err(|e| AppError::database_error(format!("soft_delete: {}", e)))
     }
 
     async fn increment_usage_impl(&self, id: Uuid) -> AppResult<PaymentContextDb> {
@@ -279,9 +272,8 @@ impl PaymentContextRepositoryAdapter {
     }
 
     async fn count_impl(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
-        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
-            "SELECT COUNT(*) FROM payment_contexts WHERE 1=1",
-        );
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> =
+            sqlx::QueryBuilder::new("SELECT COUNT(*) FROM payment_contexts WHERE 1=1");
         if let Some(active) = criteria.is_active {
             qb.push(" AND is_active = ").push_bind(active);
         }
@@ -291,7 +283,8 @@ impl PaymentContextRepositoryAdapter {
         if let Some(creator) = criteria.created_by {
             qb.push(" AND created_by = ").push_bind(creator);
         }
-        let count: (i64,) = qb.build_query_as()
+        let count: (i64,) = qb
+            .build_query_as()
             .fetch_one(self.db_pool.as_ref())
             .await
             .map_err(|e| AppError::database_error(format!("count: {}", e)))?;

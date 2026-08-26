@@ -80,8 +80,6 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             return Ok(Vec::new());
         }
 
-        let pool: PgPool = self.db_pool.clone();
-
         let addresses_lower: Vec<String> = wallet_addresses
             .iter()
             .map(|w| w.as_str().to_lowercase())
@@ -98,7 +96,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
 
         let rows: Vec<WalletUserDb> = qb
             .build_query_as()
-            .fetch_all(pool.as_ref())
+            .fetch_all(self.db_pool)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to find wallet users by addresses: {}", e);
@@ -134,7 +132,6 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     }
 
     async fn save(&self, user: &WalletUser) -> AppResult<()> {
-        let pool: PgPool = self.db_pool.clone();
         let metadata_json = user.wallet_metadata().to_json().map_err(|e| {
             AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
                 .with_component("wallet_user_repository")
@@ -154,7 +151,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
         .bind(&metadata_json)
         .bind(user.updated_at())
         .bind(user.last_auth_at())
-        .execute(pool.as_ref())
+        .execute(self.db_pool)
         .await
         .map_err(|e| {
             tracing::error!(
@@ -176,7 +173,6 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             return Ok(());
         }
 
-        let pool: PgPool = self.db_pool.clone();
         for user in users {
             let metadata_json = user.wallet_metadata().to_json().map_err(|e| {
                 AppError::validation_error(format!("Failed to serialize wallet metadata: {}", e))
@@ -196,7 +192,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
             .bind(&metadata_json)
             .bind(user.updated_at())
             .bind(user.last_auth_at())
-            .execute(pool.as_ref())
+            .execute(self.db_pool)
             .await
             .map_err(|e| {
                 tracing::error!(
@@ -213,10 +209,9 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     }
 
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()> {
-        let pool: PgPool = self.db_pool.clone();
         sqlx::query("DELETE FROM wallet_users WHERE LOWER(wallet_address) = LOWER($1)")
             .bind(wallet_address.as_str())
-            .execute(pool.as_ref())
+            .execute(self.db_pool)
             .await
             .map_err(|e| {
                 tracing::error!(

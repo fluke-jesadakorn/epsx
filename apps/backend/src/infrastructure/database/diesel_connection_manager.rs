@@ -10,10 +10,10 @@
 // / pool-statistics accessors.
 
 use anyhow::Result;
-use epsx_database_pools::{create_all_pools, SqlxPoolConfig};
+use epsx_database_pools::SqlxPoolConfig;
 use sqlx::PgPool;
 use std::sync::OnceLock;
-use tracing::{error, info, warn};
+use tracing::{info, warn};
 
 // Re-export the shared types for backward compatibility.
 pub use epsx_database_pools::TlsPool;
@@ -183,28 +183,39 @@ impl DieselConnectionManager {
 
 /// Backward-compatible alias for get_pool (legacy callers).
 pub async fn get_diesel_pool() -> Result<&'static PgPool, String> {
-    DieselConnectionManager::get_pool().await.map_err(|e| e.to_string())
+    DieselConnectionManager::get_pool()
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn get_analytics_pool() -> Result<PgPool, String> {
     if let Ok(Some(pool)) = DieselConnectionManager::get_analytics_pool().await {
         return Ok(pool.clone());
     }
-    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+    DieselConnectionManager::get_pool()
+        .await
+        .cloned()
+        .map_err(|e| e.to_string())
 }
 
 pub async fn get_notifications_pool() -> Result<PgPool, String> {
     if let Ok(Some(pool)) = DieselConnectionManager::get_notifications_pool().await {
         return Ok(pool.clone());
     }
-    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+    DieselConnectionManager::get_pool()
+        .await
+        .cloned()
+        .map_err(|e| e.to_string())
 }
 
 pub async fn get_payments_pool() -> Result<PgPool, String> {
     if let Ok(Some(pool)) = DieselConnectionManager::get_payments_pool().await {
         return Ok(pool.clone());
     }
-    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+    DieselConnectionManager::get_pool()
+        .await
+        .cloned()
+        .map_err(|e| e.to_string())
 }
 
 pub async fn diesel_health_check() -> Result<(), String> {

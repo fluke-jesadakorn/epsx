@@ -108,7 +108,7 @@ pub async fn admin_list_subscriptions_handler(
     let active_count: i64 = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::BIGINT FROM subscriptions WHERE status = 'active'",
     )
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(0);
 
@@ -116,7 +116,7 @@ pub async fn admin_list_subscriptions_handler(
     let expired_count: i64 = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::BIGINT FROM subscriptions WHERE status = 'expired'",
     )
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(0);
 
@@ -124,7 +124,7 @@ pub async fn admin_list_subscriptions_handler(
     let cancelled_count: i64 = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*)::BIGINT FROM subscriptions WHERE status = 'cancelled'",
     )
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(0);
 
@@ -133,7 +133,7 @@ pub async fn admin_list_subscriptions_handler(
         "SELECT COUNT(*)::BIGINT FROM subscriptions WHERE started_at >= $1",
     )
     .bind(today_start)
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(0);
 
@@ -144,19 +144,20 @@ pub async fn admin_list_subscriptions_handler(
     )
     .bind(seven_days_from_now)
     .bind(Utc::now())
-    .fetch_one(payments_pool.as_ref())
+    .fetch_one(&payments_pool)
     .await
     .unwrap_or(0);
 
     // Monthly revenue from payments
-    let monthly_revenue_bd: Option<bigdecimal::BigDecimal> = sqlx::query_scalar::<_, Option<bigdecimal::BigDecimal>>(
-        "SELECT SUM(amount) FROM payments \
+    let monthly_revenue_bd: Option<bigdecimal::BigDecimal> =
+        sqlx::query_scalar::<_, Option<bigdecimal::BigDecimal>>(
+            "SELECT SUM(amount) FROM payments \
          WHERE created_at >= $1 AND (status = 'completed' OR status = 'confirmed')",
-    )
-    .bind(month_start)
-    .fetch_one(payments_pool.as_ref())
-    .await
-    .unwrap_or(None);
+        )
+        .bind(month_start)
+        .fetch_one(&payments_pool)
+        .await
+        .unwrap_or(None);
 
     let monthly_revenue = monthly_revenue_bd
         .map(|bd| bd.to_string().parse::<f64>().unwrap_or(0.0))
