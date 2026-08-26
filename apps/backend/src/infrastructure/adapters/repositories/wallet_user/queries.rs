@@ -56,7 +56,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
         )
         .bind(lim as i64)
         .bind(offset as i64)
-        .fetch_all(self.db_pool.as_ref())
+        .fetch_all(self.db_pool)
         .await
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
@@ -73,7 +73,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
 
     async fn count_by_criteria(&self, _criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
         let row: (i64,) = sqlx::query_as("SELECT COUNT(*) FROM wallet_users")
-            .fetch_one(self.db_pool.as_ref())
+            .fetch_one(self.db_pool)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
         Ok(row.0 as u64)
@@ -103,7 +103,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             "#,
         )
         .bind(permission_str)
-        .fetch_all(self.db_pool.as_ref())
+        .fetch_all(self.db_pool)
         .await
         .map_err(|e| {
             error!("Failed to find users by permission {}: {}", permission_str, e);
@@ -145,7 +145,7 @@ impl WalletUserSearchPort for WalletUserRepositoryAdapter {
             "#,
         )
         .bind(type_filter)
-        .fetch_all(self.db_pool.as_ref())
+        .fetch_all(self.db_pool)
         .await
         .map_err(|e| {
             error!("Failed to find users by permission type {}: {}", type_filter, e);

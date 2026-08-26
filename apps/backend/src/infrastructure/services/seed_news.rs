@@ -113,14 +113,11 @@ pub async fn seed_production_news(pool: &TlsPool) {
         .bind(def.content)
         .bind(def.tags)
         .bind(def.is_pinned)
-        .execute(pool.as_ref())
+        .execute(pool)
         .await
         {
-            Err(e) => {
-                error!("Failed to seed news article {}: {}", def.title, e);
-                continue;
-            }
-            _ => {}
+            error!("Failed to seed news article {}: {}", def.title, e);
+            continue;
         }
 
         info!("Seeded news article: {} ({})", def.title, def.slug);

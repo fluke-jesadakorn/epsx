@@ -161,12 +161,12 @@ impl DieselConnectionManager {
 
     // Backward-compatible health-check aliases (sqlx-based)
     pub async fn diesel_health_check() -> Result<(), String> {
-        Self::get_pool().await.map(|pool| {
-            sqlx::query("SELECT 1")
-                .execute(pool)
-                .map(|_| ())
-                .map_err(|e| e.to_string())
-        })?
+        let pool = Self::get_pool().await.map_err(|e| e.to_string())?;
+        sqlx::query("SELECT 1")
+            .execute(pool)
+            .await
+            .map(|_| ())
+            .map_err(|e| e.to_string())
     }
 
     pub async fn diesel_health_check_all() -> Result<AllPoolsHealth, String> {
@@ -183,7 +183,36 @@ impl DieselConnectionManager {
 
 /// Backward-compatible alias for get_pool (legacy callers).
 pub async fn get_diesel_pool() -> Result<&'static PgPool, String> {
-    DieselConnectionManager::get_pool().await
+    DieselConnectionManager::get_pool().await.map_err(|e| e.to_string())
+}
+
+pub async fn get_analytics_pool() -> Result<PgPool, String> {
+    if let Ok(Some(pool)) = DieselConnectionManager::get_analytics_pool().await {
+        return Ok(pool.clone());
+    }
+    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+}
+
+pub async fn get_notifications_pool() -> Result<PgPool, String> {
+    if let Ok(Some(pool)) = DieselConnectionManager::get_notifications_pool().await {
+        return Ok(pool.clone());
+    }
+    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+}
+
+pub async fn get_payments_pool() -> Result<PgPool, String> {
+    if let Ok(Some(pool)) = DieselConnectionManager::get_payments_pool().await {
+        return Ok(pool.clone());
+    }
+    DieselConnectionManager::get_pool().await.map(|p| p.clone()).map_err(|e| e.to_string())
+}
+
+pub async fn diesel_health_check() -> Result<(), String> {
+    DieselConnectionManager::diesel_health_check().await
+}
+
+pub async fn diesel_health_check_all() -> Result<AllPoolsHealth, String> {
+    DieselConnectionManager::diesel_health_check_all().await
 }
 
 #[cfg(test)]

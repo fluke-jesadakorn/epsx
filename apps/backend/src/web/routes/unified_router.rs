@@ -160,7 +160,7 @@ impl UnifiedRouteBuilder {
             .get_unified_permission_service()
             .unwrap_or_else(|| {
                 Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    self.container.db_pool().clone(),
+                    (*self.container.db_pool()).clone(),
                 ))
             });
         Arc::new(InProcessPermissionAuthorityAdapter::new(service))
@@ -178,7 +178,7 @@ impl UnifiedRouteBuilder {
             .get_unified_permission_service()
             .unwrap_or_else(|| {
                 Arc::new(crate::auth::UnifiedPermissionService::new_without_cache(
-                    self.container.db_pool().clone(),
+                    (*self.container.db_pool()).clone(),
                 ))
             });
         Arc::new(InProcessWalletRankingOffsetAdapter::new(service))

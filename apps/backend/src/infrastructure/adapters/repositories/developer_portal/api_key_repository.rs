@@ -221,6 +221,99 @@ impl ApiKeyRepository {
         Ok((IdempotentMutation::Applied(generated_id), Some(full_key)))
     }
 
+    pub async fn validate_key(&self, token: &str) -> AppResult<Option<ApiKey>> {
+        use sha2::{Digest, Sha256};
+        let mut hasher = Sha256::new();
+        hasher.update(token.as_bytes());
+        let key_hash = format!("{:x}", hasher.finalize());
+
+        #[derive(sqlx::FromRow)]
+        struct KeyRow {
+            id: Uuid,
+            key_prefix: String,
+            client_name: String,
+            client_description: Option<String>,
+            client_contact_email: Option<String>,
+            wallet_address: String,
+            status: String,
+            total_requests: i64,
+            ip_restrictions: Option<serde_json::Value>,
+            rate_limit_per_minute: i32,
+            rate_limit_per_day: i32,
+            selected_permissions: Option<serde_json::Value>,
+            expires_at: Option<chrono::DateTime<Utc>>,
+            last_used_at: Option<chrono::DateTime<Utc>>,
+            revoked_at: Option<chrono::DateTime<Utc>>,
+            revoked_by: Option<String>,
+            revocation_reason: Option<String>,
+            created_at: chrono::DateTime<Utc>,
+            created_by: String,
+            updated_at: chrono::DateTime<Utc>,
+        }
+
+        let row: Option<KeyRow> = sqlx::query_as(
+            "SELECT id, key_prefix, client_name, client_description, client_contact_email, \
+                    wallet_address, status, total_requests, ip_restrictions, rate_limit_per_minute, \
+                    rate_limit_per_day, selected_permissions, expires_at, last_used_at, \
+                    revoked_at, revoked_by, revocation_reason, created_at, created_by, updated_at \
+             FROM developer_api_keys \
+             WHERE key_hash = $1",
+        )
+        .bind(&key_hash)
+        .fetch_optional(self.pool.as_ref())
+        .await
+        .map_err(|e| AppError::database_error(format!("validate_key: {}", e)))?;
+
+        let Some(row) = row else {
+            return Ok(None);
+        };
+
+        let status = match row.status.as_str() {
+            "active" => ApiKeyStatus::Active,
+            "revoked" => ApiKeyStatus::Revoked,
+            "expired" => ApiKeyStatus::Expired,
+            _ => ApiKeyStatus::Active,
+        };
+
+        let selected_permissions: Vec<String> = row
+            .selected_permissions
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+
+        let ip_restrictions: Vec<String> = row
+            .ip_restrictions
+            .and_then(|v| serde_json::from_value(v).ok())
+            .unwrap_or_default();
+
+        Ok(Some(ApiKey {
+            id: row.id,
+            key_prefix: row.key_prefix,
+            full_key: None,
+            client_name: row.client_name,
+            client_description: row.client_description,
+            client_contact_email: row.client_contact_email,
+            wallet_address: row.wallet_address,
+            status,
+            total_requests: row.total_requests,
+            ip_restrictions,
+            rate_limits: RateLimits {
+                per_minute: row.rate_limit_per_minute,
+                per_day: row.rate_limit_per_day,
+            },
+            allowed_modules: Vec::new(),
+            permission_plans: Vec::new(),
+            selected_permissions,
+            expires_at: row.expires_at,
+            last_used_at: row.last_used_at,
+            revoked_at: row.revoked_at,
+            revoked_by: row.revoked_by,
+            revocation_reason: row.revocation_reason,
+            created_at: row.created_at,
+            created_by: row.created_by,
+            updated_at: row.updated_at,
+        }))
+    }
+
     pub async fn revoke(&self, _request: RevokeApiKeyRequest) -> AppResult<()> {
         Err(AppError::internal_error(
             "ApiKeyRepository::revoke not implemented (sqlx migration pending)".to_string(),

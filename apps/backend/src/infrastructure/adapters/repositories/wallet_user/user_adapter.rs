@@ -25,8 +25,6 @@ impl PostgresWalletUserRepositoryAdapter {
 #[async_trait]
 impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
     async fn find_by_wallet(&self, wallet_address: &WalletAddress) -> AppResult<Option<WalletUser>> {
-        let pool: PgPool = self.db_pool.clone();
-
         let row: Option<WalletUserDb> = sqlx::query_as(
             "SELECT wallet_address, is_active, tier_level, wallet_metadata, \
                     permission_plans, disable_info, plan_expires_at, current_plan_id, \
@@ -36,7 +34,7 @@ impl WalletUserRepositoryPort for PostgresWalletUserRepositoryAdapter {
              LIMIT 1",
         )
         .bind(wallet_address.as_str())
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(self.db_pool)
         .await
         .map_err(|e| {
             tracing::error!(

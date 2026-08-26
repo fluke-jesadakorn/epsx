@@ -76,7 +76,7 @@ impl ModuleRepository {
 
         let rows: Vec<ModuleRow> = qb
             .build_query_as()
-            .fetch_all(pool.as_ref())
+            .fetch_all(pool)
             .await
             .map_err(|e| AppError::database_error(format!("Failed to list modules: {}", e)))?;
 
@@ -108,7 +108,7 @@ impl ModuleRepository {
 
     /// Get a module by ID
     pub async fn get_by_id(&self, id: Uuid) -> AppResult<Option<ApiModule>> {
-        let pool: &PgPool = self.pool.as_ref();
+        let pool: &PgPool = &self.pool;
 
         let row: Option<(
             Uuid,
@@ -129,7 +129,7 @@ impl ModuleRepository {
              FROM api_modules WHERE id = $1",
         )
         .bind(id)
-        .fetch_optional(pool.as_ref())
+        .fetch_optional(pool)
         .await
         .map_err(|e| AppError::database_error(format!("Failed to fetch module: {}", e)))?;
 
@@ -158,7 +158,7 @@ impl ModuleRepository {
 
     /// Create a new module
     pub async fn create(&self, request: CreateModuleRequest) -> AppResult<ApiModule> {
-        let pool: &PgPool = self.pool.as_ref();
+        let pool: &PgPool = &self.pool;
 
         let id = Uuid::new_v4();
         let now = Utc::now();
@@ -183,7 +183,7 @@ impl ModuleRepository {
         .bind(&access_levels)
         .bind(&endpoints_json)
         .bind(now)
-        .execute(pool.as_ref())
+        .execute(pool)
         .await
         .map_err(|e| AppError::database_error(format!("Failed to create module: {}", e)))?;
 
@@ -196,7 +196,7 @@ impl ModuleRepository {
 
     /// Update a module
     pub async fn update(&self, id: Uuid, request: UpdateModuleRequest) -> AppResult<ApiModule> {
-        let pool: &PgPool = self.pool.as_ref();
+        let pool: &PgPool = &self.pool;
 
         let now = Utc::now();
 
@@ -237,7 +237,7 @@ impl ModuleRepository {
         if updated {
             qb.push(" WHERE id = ").push_bind(id);
             qb.build()
-                .execute(pool.as_ref())
+                .execute(pool)
                 .await
                 .map_err(|e| AppError::database_error(format!("Failed to update module: {}", e)))?;
         }

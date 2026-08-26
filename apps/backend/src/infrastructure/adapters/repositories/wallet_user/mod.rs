@@ -8,6 +8,8 @@ pub mod mutations;
 pub mod queries;
 pub mod sqlx_wallet_user_repository;
 
+use epsx_database_pools::TlsPool;
+
 // Query result struct shared across submodules (sqlx::FromRow)
 #[derive(sqlx::FromRow, Debug, Clone)]
 pub struct WalletUserQueryResult {

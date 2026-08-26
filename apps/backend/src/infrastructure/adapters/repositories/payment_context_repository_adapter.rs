@@ -181,21 +181,31 @@ impl PaymentContextRepositoryAdapter {
 
     async fn find_all_impl(
         &self,
-        active_only: bool,
+        criteria: PaymentContextSearchCriteria,
     ) -> AppResult<Vec<PaymentContextDb>> {
-        let sql = if active_only {
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
             "SELECT id, context_type, context_id, slug, name, description, \
                     amount, currency, expires_at, max_uses, current_uses, \
                     is_active, created_by, metadata, version, created_at, updated_at \
-             FROM payment_contexts WHERE is_active = TRUE \
-             ORDER BY created_at DESC"
-        } else {
-            "SELECT id, context_type, context_id, slug, name, description, \
-                    amount, currency, expires_at, max_uses, current_uses, \
-                    is_active, created_by, metadata, version, created_at, updated_at \
-             FROM payment_contexts ORDER BY created_at DESC"
-        };
-        sqlx::query_as::<_, PaymentContextDb>(sql)
+             FROM payment_contexts WHERE 1=1",
+        );
+        if let Some(active) = criteria.is_active {
+            qb.push(" AND is_active = ").push_bind(active);
+        }
+        if let Some(ctype) = criteria.context_type {
+            qb.push(" AND context_type = ").push_bind(ctype);
+        }
+        if let Some(creator) = criteria.created_by {
+            qb.push(" AND created_by = ").push_bind(creator);
+        }
+        qb.push(" ORDER BY created_at DESC");
+        if let Some(limit) = criteria.limit {
+            qb.push(" LIMIT ").push_bind(limit);
+        }
+        if let Some(offset) = criteria.offset {
+            qb.push(" OFFSET ").push_bind(offset);
+        }
+        qb.build_query_as::<PaymentContextDb>()
             .fetch_all(self.db_pool.as_ref())
             .await
             .map_err(|e| AppError::database_error(format!("find_all: {}", e)))
@@ -233,11 +243,10 @@ impl PaymentContextRepositoryAdapter {
         if let Some(metadata) = changeset.metadata {
             qb.push(", metadata = ").push_bind(metadata);
         }
-        qb.push(", version = version + 1 WHERE id = ")
-            .push_bind(id)
-            .push(" RETURNING id, context_type, context_id, slug, name, description, \
-                    amount, currency, expires_at, max_uses, current_uses, \
-                    is_active, created_by, metadata, version, created_at, updated_at");
+        qb.push(", version = version + 1 WHERE id = ").push_bind(id);
+        qb.push(" RETURNING id, context_type, context_id, slug, name, description, \
+                            amount, currency, expires_at, max_uses, current_uses, \
+                            is_active, created_by, metadata, version, created_at, updated_at");
 
         qb.build_query_as::<PaymentContextDb>()
             .fetch_one(self.db_pool.as_ref())
@@ -246,20 +255,18 @@ impl PaymentContextRepositoryAdapter {
     }
 
     async fn soft_delete_impl(&self, id: Uuid) -> AppResult<()> {
-        sqlx::query(
-            "UPDATE payment_contexts SET is_active = FALSE, updated_at = NOW(), version = version + 1 WHERE id = $1",
-        )
-        .bind(id)
-        .execute(self.db_pool.as_ref())
-        .await
-        .map_err(|e| AppError::database_error(format!("soft_delete: {}", e)))?;
-        Ok(())
+        sqlx::query("UPDATE payment_contexts SET is_active = FALSE, updated_at = NOW() WHERE id = $1")
+            .bind(id)
+            .execute(self.db_pool.as_ref())
+            .await
+            .map(|_| ())
+            .map_err(|e| AppError::database_error(format!("soft_delete: {}", e)))
     }
 
     async fn increment_usage_impl(&self, id: Uuid) -> AppResult<PaymentContextDb> {
         sqlx::query_as::<_, PaymentContextDb>(
-            "UPDATE payment_contexts SET current_uses = current_uses + 1, \
-                                       updated_at = NOW(), version = version + 1 \
+            "UPDATE payment_contexts \
+             SET current_uses = current_uses + 1, updated_at = NOW() \
              WHERE id = $1 \
              RETURNING id, context_type, context_id, slug, name, description, \
                        amount, currency, expires_at, max_uses, current_uses, \
@@ -271,13 +278,33 @@ impl PaymentContextRepositoryAdapter {
         .map_err(|e| AppError::database_error(format!("increment_usage: {}", e)))
     }
 
+    async fn count_impl(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+            "SELECT COUNT(*) FROM payment_contexts WHERE 1=1",
+        );
+        if let Some(active) = criteria.is_active {
+            qb.push(" AND is_active = ").push_bind(active);
+        }
+        if let Some(ctype) = criteria.context_type {
+            qb.push(" AND context_type = ").push_bind(ctype);
+        }
+        if let Some(creator) = criteria.created_by {
+            qb.push(" AND created_by = ").push_bind(creator);
+        }
+        let count: (i64,) = qb.build_query_as()
+            .fetch_one(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(format!("count: {}", e)))?;
+        Ok(count.0)
+    }
+
     async fn find_expired_impl(&self) -> AppResult<Vec<PaymentContextDb>> {
         sqlx::query_as::<_, PaymentContextDb>(
             "SELECT id, context_type, context_id, slug, name, description, \
                     amount, currency, expires_at, max_uses, current_uses, \
                     is_active, created_by, metadata, version, created_at, updated_at \
              FROM payment_contexts \
-             WHERE expires_at IS NOT NULL AND expires_at < NOW() AND is_active = TRUE",
+             WHERE is_active = TRUE AND expires_at < NOW()",
         )
         .fetch_all(self.db_pool.as_ref())
         .await
@@ -299,8 +326,11 @@ impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
         self.find_by_slug_impl(slug).await
     }
 
-    async fn find_all(&self, active_only: bool) -> AppResult<Vec<PaymentContextDb>> {
-        self.find_all_impl(active_only).await
+    async fn find_all(
+        &self,
+        criteria: PaymentContextSearchCriteria,
+    ) -> AppResult<Vec<PaymentContextDb>> {
+        self.find_all_impl(criteria).await
     }
 
     async fn update(
@@ -319,19 +349,8 @@ impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
         self.increment_usage_impl(id).await
     }
 
-    async fn count(&self, active_only: bool) -> AppResult<i64> {
-        let count: (i64,) = if active_only {
-            sqlx::query_as("SELECT COUNT(*) FROM payment_contexts WHERE is_active = TRUE")
-                .fetch_one(self.db_pool.as_ref())
-                .await
-                .map_err(|e| AppError::database_error(format!("count: {}", e)))?
-        } else {
-            sqlx::query_as("SELECT COUNT(*) FROM payment_contexts")
-                .fetch_one(self.db_pool.as_ref())
-                .await
-                .map_err(|e| AppError::database_error(format!("count: {}", e)))?
-        };
-        Ok(count.0)
+    async fn count(&self, criteria: PaymentContextSearchCriteria) -> AppResult<i64> {
+        self.count_impl(criteria).await
     }
 
     async fn find_expired(&self) -> AppResult<Vec<PaymentContextDb>> {
@@ -340,7 +359,7 @@ impl PaymentContextRepositoryPort for PaymentContextRepositoryAdapter {
 }
 
 #[allow(dead_code)]
-fn is_context_usable(context: &PaymentContextDb) -> bool {
+pub fn is_context_usable(context: &PaymentContextDb) -> bool {
     if !context.is_active {
         return false;
     }

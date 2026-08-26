@@ -425,7 +425,7 @@ pub async fn bulk_assign_plans(
 
 /// Apply a permission template to multiple wallets
 /// POST /admin/permissions/bulk/apply-template
-pub async fn apply_template(
+pub async fn bulk_apply_template(
     State(_app_state): State<AppState>,
     axum::Extension(_user_ctx): axum::Extension<
         crate::web::middleware::bearer_middleware::OpenIDUserContext,

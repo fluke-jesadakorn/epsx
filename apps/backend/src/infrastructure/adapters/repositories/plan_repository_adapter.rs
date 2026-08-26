@@ -257,6 +257,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             plan_category: "base".to_string(),
             plan_group: "personal".to_string(),
             is_system: false,
+            display_order: 0,
         };
 
         // 1. Upsert Plan via sqlx ON CONFLICT

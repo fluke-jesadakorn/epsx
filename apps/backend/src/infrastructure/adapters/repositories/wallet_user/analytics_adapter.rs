@@ -14,8 +14,6 @@ impl PostgresWalletUserAnalyticsAdapter {
 #[async_trait]
 impl WalletUserAnalyticsPort for PostgresWalletUserAnalyticsAdapter {
     async fn get_statistics(&self) -> AppResult<WalletUserStatistics> {
-        let pool: sqlx::PgPool = self.db_pool.clone();
-
         let row: (i64, i64, i64, i64) = sqlx::query_as(
             "SELECT
                 COUNT(*) as total_users,
@@ -24,7 +22,7 @@ impl WalletUserAnalyticsPort for PostgresWalletUserAnalyticsAdapter {
                 COUNT(*) FILTER (WHERE created_at > NOW() - INTERVAL '24 hours') as new_wallets_24h
              FROM wallet_users",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(self.db_pool)
         .await
         .map_err(|e| {
             tracing::error!("Failed to get wallet user statistics: {}", e);

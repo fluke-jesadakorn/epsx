@@ -32,7 +32,7 @@ impl DieselAuditLogRepository {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
-        let pool = get_analytics_pool().await?;
+        let pool = get_analytics_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         // Build sub-selects based on category filter
         let mut unions: Vec<&str> = Vec::new();
@@ -208,7 +208,7 @@ impl DieselAuditLogRepository {
         limit: i64,
         offset: i64,
     ) -> Result<(Vec<AuditLogEntry>, i64)> {
-        let pool = get_payments_pool().await?;
+        let pool = get_payments_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         let bind_search: Option<String> = search
             .filter(|s| !s.is_empty())
@@ -431,7 +431,7 @@ impl From<AuditLogDb> for AuditLogEntry {
 #[async_trait]
 impl AuditLogRepository for DieselAuditLogRepository {
     async fn save(&self, entry: AuditLogEntry) -> Result<AuditLogEntry> {
-        let pool = get_analytics_pool().await?;
+        let pool = get_analytics_pool().await.map_err(|e| anyhow::anyhow!(e))?;
 
         let new_log = NewAuditLogDb {
             wallet_address: entry.wallet_address.map(|w| w.to_string()),

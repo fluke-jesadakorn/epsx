@@ -14,8 +14,6 @@ async fn get_user_plan_from_plans(
     container: &Arc<DomainContainer>,
     wallet_address: &str,
 ) -> Option<String> {
-    let pool: PgPool = container.db_pool.clone();
-
     #[derive(sqlx::FromRow)]
     struct PlanInfo {
         plan_type: String,
@@ -40,7 +38,7 @@ async fn get_user_plan_from_plans(
          LIMIT 1",
     )
     .bind(wallet_address)
-    .fetch_all(pool.as_ref())
+    .fetch_all(container.db_pool.as_ref())
     .await;
 
     match result {

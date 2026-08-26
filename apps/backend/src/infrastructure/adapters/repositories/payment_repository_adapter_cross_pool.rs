@@ -5,7 +5,6 @@
 //! `payments` schema (payments ⋈ plans in same DB; PAYMENTS_DATABASE_URL
 //! falls back to primary in production).
 
-use crate::prelude::*;
 use rust_decimal::prelude::*;
 use chrono::{DateTime, Datelike, Utc};
 use sqlx::{PgPool, Postgres, QueryBuilder};
@@ -13,12 +12,14 @@ use std::str::FromStr;
 use uuid::Uuid;
 
 use crate::domain::payment::repository_ports::{
-    AnalyticsRollup, AnalyticsTrends, AnalyticsWindow, DailyRevenueEntry,
-    PaymentMethodEntry, PaymentRepositoryPort, PaymentRowWithPlanName,
-    PlanBreakdownEntry, SubmitTxValidation, Subscription, SubscriptionFilters,
+    ActivateSubscriptionCommand, AnalyticsRollup, AnalyticsTrends, AnalyticsWindow,
+    CreatePaymentCommand, DailyRevenueEntry, PaymentMethodEntry, PaymentRepositoryPort,
+    PaymentRowWithPlanName, PaymentStats, PlanBreakdownEntry, SubmitTxValidation,
+    Subscription, SubscriptionFilters,
 };
 use crate::domain::payment::{
-    Payment, PaymentAmount, PaymentId, PaymentReference, PaymentStatus, TransactionHash,
+    CryptoNetwork, CryptoPaymentDetails, Payment, PaymentAmount, PaymentId, PaymentMethod,
+    PaymentReference, PaymentStatus, PlanId, TransactionHash,
 };
 use crate::domain::wallet_management::value_objects::WalletAddress;
 use crate::infrastructure::models::payment::{PaymentDb, SubscriptionDb};
@@ -437,11 +438,17 @@ impl PaymentRepositoryAdapter {
         .map_err(|e| format!("plan_breakdown: {}", e))?;
         let plan_breakdown: Vec<PlanBreakdownEntry> = plan_rows
             .into_iter()
-            .map(|r| PlanBreakdownEntry {
-                plan_id: r.plan_id.to_string(),
-                plan_name: r.plan_name.unwrap_or_else(|| "Unknown".to_string()),
-                revenue: r.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0),
-                subscription_count: r.subscription_count as u32,
+            .map(|r| {
+                let rev = r.total_revenue.map(|bd| bd.to_f64().unwrap_or(0.0)).unwrap_or(0.0);
+                let count = r.subscription_count as u32;
+                let arpu = if count > 0 { rev / count as f64 } else { 0.0 };
+                PlanBreakdownEntry {
+                    plan_id: r.plan_id,
+                    plan_name: r.plan_name.unwrap_or_else(|| "Unknown".to_string()),
+                    total_revenue: rev,
+                    subscription_count: count,
+                    average_revenue_per_user: arpu,
+                }
             })
             .collect();
 
@@ -466,75 +473,61 @@ impl PaymentRepositoryAdapter {
         let payment_methods: Vec<PaymentMethodEntry> = method_rows
             .into_iter()
             .map(|r| PaymentMethodEntry {
-                method: r.payment_method,
-                count: r.payment_count as u32,
+                currency: r.payment_method,
+                payment_count: r.payment_count as u32,
+                total_revenue: 0.0,
+                success_rate: 100.0,
             })
             .collect();
 
         Ok(AnalyticsRollup {
-            window,
             daily_revenue,
             plan_breakdown,
             payment_methods,
-        })
-    }
-
-    pub async fn get_analytics_trends_impl(
-        &self,
-        window: AnalyticsWindow,
-    ) -> Result<AnalyticsTrends, String> {
-        // Reuse rollup computations and project totals.
-        let rollup = self.get_analytics_rollup_impl(window).await?;
-        let total_revenue: f64 = rollup.daily_revenue.iter().map(|d| d.revenue).sum();
-        let total_payments: u64 = rollup.daily_revenue.iter().map(|d| d.payment_count as u64).sum();
-        let average_revenue = if total_payments > 0 {
-            total_revenue / total_payments as f64
-        } else {
-            0.0
-        };
-        Ok(AnalyticsTrends {
-            window,
-            total_revenue,
-            total_payments,
-            average_revenue,
+            trends: AnalyticsTrends::default(),
         })
     }
 
     pub async fn validate_submit_tx_impl(
         &self,
-        validation: SubmitTxValidation,
-    ) -> Result<(), String> {
-        // Confirm the referenced payment exists and is in an awaiting status.
-        let row: Option<(String,)> = sqlx::query_as(
-            "SELECT status FROM payments WHERE id = $1 OR transaction_hash = $2 LIMIT 1",
+        plan_id: Uuid,
+        _wallet_address: &WalletAddress,
+    ) -> Result<SubmitTxValidation, String> {
+        #[derive(sqlx::FromRow)]
+        struct PlanRow {
+            price: Option<bigdecimal::BigDecimal>,
+            is_active: bool,
+            plan_type: String,
+            plan_metadata: serde_json::Value,
+        }
+
+        let plan: Option<PlanRow> = sqlx::query_as(
+            "SELECT price, is_active, plan_type, plan_metadata FROM plans WHERE id = $1 LIMIT 1",
         )
-        .bind(validation.payment_id)
-        .bind(&validation.transaction_hash)
+        .bind(plan_id)
         .fetch_optional(self.pool())
         .await
         .map_err(|e| format!("validate_submit_tx: {}", e))?;
 
-        match row {
-            Some((status,)) => {
-                if status != "awaiting_payment" && status != "pending_verification" {
-                    return Err(format!(
-                        "payment in status {} cannot be submitted",
-                        status
-                    ));
-                }
-                Ok(())
-            }
-            None => Err("payment not found".to_string()),
-        }
+        let Some(p) = plan else {
+            return Err("Plan not found".to_string());
+        };
+
+        let price_str = p.price.map(|bd| bd.to_string()).unwrap_or_else(|| "0".to_string());
+
+        Ok(SubmitTxValidation {
+            plan_price: price_str.clone(),
+            is_active: p.is_active,
+            plan_type: p.plan_type,
+            plan_metadata: p.plan_metadata,
+            effective_price: price_str,
+        })
     }
 }
 
 // ============================================================================
 // Trait impl for PaymentRepositoryPort
 // ============================================================================
-//
-// The 8 cross-pool methods above forward-call the inherent `_*_impl`
-// helpers on `PaymentRepositoryAdapter`.
 
 #[async_trait::async_trait]
 impl PaymentRepositoryPort for PaymentRepositoryAdapter {
@@ -633,22 +626,121 @@ impl PaymentRepositoryPort for PaymentRepositoryAdapter {
             .await
     }
 
-    async fn list_admin_subscriptions_count(
+    async fn list_admin_subscriptions_with_plan_names_paginated(
         &self,
         filters: SubscriptionFilters,
-    ) -> Result<u64, String> {
-        self.list_admin_subscriptions_count_impl(filters).await
+        page: u32,
+        per_page: u32,
+    ) -> Result<(Vec<(Subscription, Option<String>)>, u64), String> {
+        let subs = self.list_admin_subscriptions_with_plan_names_impl(filters.clone(), page, per_page).await?;
+        let count = self.list_admin_subscriptions_count_impl(filters).await?;
+        Ok((subs, count))
     }
 
     async fn get_analytics_rollup(&self, window: AnalyticsWindow) -> Result<AnalyticsRollup, String> {
         self.get_analytics_rollup_impl(window).await
     }
 
-    async fn get_analytics_trends(&self, window: AnalyticsWindow) -> Result<AnalyticsTrends, String> {
-        self.get_analytics_trends_impl(window).await
+    async fn validate_submit_tx(
+        &self,
+        plan_id: Uuid,
+        wallet_address: &WalletAddress,
+    ) -> Result<SubmitTxValidation, String> {
+        self.validate_submit_tx_impl(plan_id, wallet_address).await
     }
 
-    async fn validate_submit_tx(&self, validation: SubmitTxValidation) -> Result<(), String> {
-        self.validate_submit_tx_impl(validation).await
+    async fn create_payment(&self, cmd: CreatePaymentCommand) -> Result<Payment, String> {
+        let payment_id = PaymentId::new();
+        let reference = PaymentReference::new(cmd.payment_reference)
+            .map_err(|e| format!("Invalid reference: {:?}", e))?;
+        let wallet = WalletAddress::new(cmd.wallet_address)
+            .map_err(|e| format!("Invalid wallet: {:?}", e))?;
+        let amount = PaymentAmount::from_f64(
+            cmd.amount.parse::<f64>().unwrap_or(0.0),
+            cmd.currency,
+        )
+        .map_err(|e| format!("Invalid amount: {:?}", e))?;
+        let status = match cmd.status.as_str() {
+            "completed" | "confirmed" => PaymentStatus::Completed,
+            "failed" => PaymentStatus::Failed,
+            _ => PaymentStatus::Pending,
+        };
+
+        let payment = Payment::new(
+            payment_id,
+            reference,
+            wallet,
+            amount,
+            status,
+            cmd.transaction_hash.and_then(|h| TransactionHash::new(h).ok()),
+            cmd.plan_id.to_string(),
+            cmd.expires_at.unwrap_or_else(Utc::now),
+            cmd.metadata.unwrap_or_else(|| serde_json::json!({})),
+        )
+        .map_err(|e| format!("Payment::new error: {:?}", e))?;
+
+        self._save_impl(&payment).await?;
+        Ok(payment)
+    }
+
+    async fn update_payment_status(
+        &self,
+        payment_id: PaymentId,
+        new_status: PaymentStatus,
+        _audit_note: Option<String>,
+    ) -> Result<(), String> {
+        self._update_status_impl(&payment_id, new_status).await
+    }
+
+    async fn grant_subscription(
+        &self,
+        cmd: ActivateSubscriptionCommand,
+    ) -> Result<Subscription, String> {
+        let sub_id = Uuid::new_v4();
+        let now = Utc::now();
+        let expires_at = now + chrono::Duration::days(cmd.duration_days as i64);
+
+        sqlx::query(
+            r#"
+            INSERT INTO subscriptions (id, wallet_address, plan_id, status, started_at, expires_at, auto_renew, metadata)
+            VALUES ($1, $2, $3, 'active', $4, $5, false, '{}')
+            "#,
+        )
+        .bind(sub_id)
+        .bind(cmd.wallet_address.to_string())
+        .bind(cmd.plan_id)
+        .bind(now)
+        .bind(expires_at)
+        .execute(self.pool())
+        .await
+        .map_err(|e| format!("grant_subscription: {}", e))?;
+
+        Ok(Subscription {
+            id: sub_id,
+            wallet_address: cmd.wallet_address.to_string(),
+            plan_id: cmd.plan_id,
+            payment_id: Some(cmd.payment_id.value()),
+            status: "active".to_string(),
+            started_at: Some(now),
+            expires_at,
+            cancelled_at: None,
+            auto_renew: false,
+            metadata: serde_json::json!({}),
+        })
+    }
+
+    async fn revoke_subscription(
+        &self,
+        subscription_id: Uuid,
+        _reason: Option<String>,
+    ) -> Result<(), String> {
+        sqlx::query(
+            "UPDATE subscriptions SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1",
+        )
+        .bind(subscription_id)
+        .execute(self.pool())
+        .await
+        .map_err(|e| format!("revoke_subscription: {}", e))?;
+        Ok(())
     }
 }

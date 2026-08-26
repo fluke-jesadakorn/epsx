@@ -3,8 +3,6 @@
 // Uses database-backed permission checks for legacy compatibility
 
 use crate::prelude::*;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use tracing::{debug, info, warn};
 
 use crate::domain::wallet_management::{

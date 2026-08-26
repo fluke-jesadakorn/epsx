@@ -132,12 +132,12 @@ async fn persist_api_key_usage(
 
     // Metadata remains in core; it advances only after the authoritative
     // analytics row was accepted, so totals cannot count validation twice.
-    let core_pool: PgPool = container.db_pool().clone();
+    let core_pool = container.db_pool();
     if let Err(error) = sqlx::query(
         "UPDATE api_keys SET last_used_at = NOW(), total_requests = total_requests + 1 WHERE id = $1",
     )
     .bind(api_key_id)
-    .execute(&core_pool)
+    .execute(core_pool.as_ref())
     .await
     {
         warn!(api_key_id = %api_key_id, "failed to update API-key metadata: {error}");

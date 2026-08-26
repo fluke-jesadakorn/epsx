@@ -40,8 +40,6 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
         limit: u32,
         offset: u32,
     ) -> AppResult<WalletUserSearchResult> {
-        let pool: PgPool = self.db_pool.clone();
-
         let mut sql = String::from(
             "SELECT wallet_address, is_active, wallet_metadata, \
                     created_at, updated_at, last_auth_at \
@@ -57,7 +55,19 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
                 " AND is_active = $1"
             });
         }
-        sql.push_str(" ORDER BY created_at DESC LIMIT $3 OFFSET $4");
+        sql.push_str(&format!(
+            " ORDER BY created_at DESC LIMIT ${} OFFSET ${}",
+            match (criteria.wallet_pattern.is_some(), criteria.is_active.is_some()) {
+                (true, true) => 3,
+                (true, false) | (false, true) => 2,
+                (false, false) => 1,
+            },
+            match (criteria.wallet_pattern.is_some(), criteria.is_active.is_some()) {
+                (true, true) => 4,
+                (true, false) | (false, true) => 3,
+                (false, false) => 2,
+            },
+        ));
 
         let search_pattern = criteria.wallet_pattern.as_ref().map(|p| format!("%{}%", p));
 
@@ -73,7 +83,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
 
         let rows: Vec<WalletSearchRow> = qb
             .build_query_as()
-            .fetch_all(pool.as_ref())
+            .fetch_all(self.db_pool)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to search wallet users: {}", e);
@@ -108,8 +118,6 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
     }
 
     async fn count_by_criteria(&self, criteria: &WalletUserSearchCriteria) -> AppResult<u64> {
-        let pool: PgPool = self.db_pool.clone();
-
         let mut sql = String::from("SELECT COUNT(*)::BIGINT FROM wallet_users WHERE TRUE");
         if criteria.wallet_pattern.is_some() {
             sql.push_str(" AND wallet_address ILIKE $1");
@@ -134,7 +142,7 @@ impl WalletUserSearchPort for PostgresWalletUserSearchAdapter {
 
         let row: (i64,) = qb
             .build_query_as()
-            .fetch_one(pool.as_ref())
+            .fetch_one(self.db_pool)
             .await
             .map_err(|e| {
                 tracing::error!("Failed to count wallet users: {}", e);

@@ -205,7 +205,7 @@ pub async fn update_permission_definition(
     Json(req): Json<UpdatePermissionRequest>,
 ) -> impl IntoResponse {
     // Check if permission exists
-    let check: Result<(bool,), _> = sqlx::query_as(
+    let check: Result<Option<(bool,)>, _> = sqlx::query_as(
         "SELECT is_system FROM permissions WHERE id = $1",
     )
     .bind(id)
@@ -276,7 +276,7 @@ pub async fn delete_permission_definition(
     Path(id): Path<Uuid>,
 ) -> impl IntoResponse {
     // Check if it's a system permission
-    let check: Result<(bool,), _> = sqlx::query_as(
+    let check: Result<Option<(bool,)>, _> = sqlx::query_as(
         "SELECT is_system FROM permissions WHERE id = $1",
     )
     .bind(id)
