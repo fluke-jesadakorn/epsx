@@ -65,7 +65,7 @@ impl ApiKeyRepository {
 
         let total: (i64,) =
             sqlx::query_as("SELECT COUNT(*)::BIGINT FROM developer_api_keys")
-                .fetch_one(pool.as_ref())
+                .fetch_one(pool)
                 .await
                 .map_err(|e| {
                     AppError::database_error(format!("Failed to count API keys: {}", e))
@@ -76,7 +76,7 @@ impl ApiKeyRepository {
              WHERE status = 'active' AND (expires_at IS NULL OR expires_at >= $1)",
         )
         .bind(now)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to count active API keys: {}", e))
@@ -85,7 +85,7 @@ impl ApiKeyRepository {
         let revoked: (i64,) = sqlx::query_as(
             "SELECT COUNT(*)::BIGINT FROM developer_api_keys WHERE status = 'revoked'",
         )
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to count revoked API keys: {}", e))
@@ -96,7 +96,7 @@ impl ApiKeyRepository {
              WHERE status = 'active' AND expires_at < $1",
         )
         .bind(now)
-        .fetch_one(pool.as_ref())
+        .fetch_one(pool)
         .await
         .map_err(|e| {
             AppError::database_error(format!("Failed to count expired API keys: {}", e))
@@ -222,7 +222,7 @@ impl ApiKeyRepository {
     }
 
     pub async fn revoke(&self, _request: RevokeApiKeyRequest) -> AppResult<()> {
-        Err(AppError::not_implemented(
+        Err(AppError::internal_error(
             "ApiKeyRepository::revoke not implemented (sqlx migration pending)".to_string(),
         ))
     }
@@ -277,7 +277,7 @@ impl ApiKeyRepository {
         &self,
         _request: CreateApiKeyRequest,
     ) -> AppResult<ApiKeyCreatedResponse> {
-        Err(AppError::not_implemented(
+        Err(AppError::internal_error(
             "ApiKeyRepository::create pending sqlx migration".to_string(),
         ))
     }
@@ -307,7 +307,7 @@ impl From<OwnerMutationError> for AppError {
             OwnerMutationError::Conflict => AppError::validation_error(
                 "Idempotency payload hash mismatch (replay with different body)".to_string(),
             ),
-            OwnerMutationError::NotFound => AppError::not_found("Resource", "API key"),
+            OwnerMutationError::NotFound => AppError::not_found("API key"),
         }
     }
 }
