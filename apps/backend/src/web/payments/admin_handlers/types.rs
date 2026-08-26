@@ -38,6 +38,16 @@ pub struct AdminPaymentListResponse {
     pub summary: PaymentSummary,
 }
 
+/// Admin payment action response (refund/cancel/approve)
+#[derive(Debug, Serialize)]
+pub struct AdminPaymentActionResponse {
+    pub success: bool,
+    pub payment_id: Uuid,
+    pub new_status: String,
+    pub message: String,
+    pub rows_affected: u64,
+}
+
 /// Admin payment information
 #[derive(Debug, Serialize)]
 pub struct AdminPaymentInfo {

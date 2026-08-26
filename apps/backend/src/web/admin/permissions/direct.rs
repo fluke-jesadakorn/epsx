@@ -199,7 +199,7 @@ pub async fn revoke_permission(
     )
     .bind(&req.permission_string)
     .bind(&wallet)
-    .execute(&app_state.db_pool)
+    .execute(&*app_state.db_pool)
     .await;
 
     let result = match result {
@@ -270,7 +270,7 @@ pub async fn list_wallet_permissions(
         "#,
     )
     .bind(&wallet)
-    .fetch_all(&app_state.db_pool)
+    .fetch_all(&*app_state.db_pool)
     .await
     {
         Ok(rows) => rows,
@@ -456,7 +456,7 @@ pub async fn remove_permission_from_plan(
     )
     .bind(plan_uuid)
     .bind(perm_uuid)
-    .execute(&app_state.db_pool)
+    .execute(&*app_state.db_pool)
     .await;
 
     let result = match result {

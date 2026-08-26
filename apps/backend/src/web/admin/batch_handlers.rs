@@ -1,6 +1,4 @@
 use axum::{extract::State, response::IntoResponse};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::Serialize;
 use tracing::info;
 
@@ -67,23 +65,20 @@ pub async fn admin_dashboard_summary_handler(
 async fn fetch_wallet_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct WalletCounts {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         today_connections: i64,
     }
 
-    let result = diesel::sql_query(
+    let result: WalletCounts = sqlx::query_as::<_, WalletCounts>(
         "SELECT COUNT(*)::bigint as total,
                 COUNT(*) FILTER (WHERE is_active = true)::bigint as active,
                 COUNT(*) FILTER (WHERE last_auth_at >= NOW() - INTERVAL '24 hours')::bigint as today_connections
          FROM wallet_users"
     )
-    .get_result::<WalletCounts>(&mut *conn)
+    .fetch_one(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -97,16 +92,15 @@ async fn fetch_wallet_stats(app_state: &AppState) -> Result<serde_json::Value, S
 async fn fetch_perm_system_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermCounts {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total: i64,
     }
 
-    let result = diesel::sql_query(
+    let result: PermCounts = sqlx::query_as::<_, PermCounts>(
         "SELECT COUNT(*)::bigint as total FROM user_effective_permissions WHERE expires_at IS NULL OR expires_at > NOW()"
     )
-    .get_result::<PermCounts>(&mut *conn)
+    .fetch_one(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -189,25 +183,20 @@ async fn fetch_notifications(
 ) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName, serde::Serialize)]
+    #[derive(sqlx::FromRow, serde::Serialize)]
     struct NotifRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         id: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         title: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         message: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         notification_type: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         created_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let results = diesel::sql_query(
-        "SELECT id::text, title, message, notification_type, created_at FROM notifications ORDER BY created_at DESC LIMIT $1"
+    let results: Vec<NotifRow> = sqlx::query_as::<_, NotifRow>(
+        "SELECT id::text AS id, title, message, notification_type, created_at FROM notifications ORDER BY created_at DESC LIMIT $1"
     )
-    .bind::<diesel::sql_types::BigInt, _>(limit)
-    .load::<NotifRow>(&mut *conn)
+    .bind(limit)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -217,20 +206,18 @@ async fn fetch_notifications(
 async fn fetch_notification_stats(app_state: &AppState) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct StatsRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         today: i64,
     }
 
-    let result = diesel::sql_query(
+    let result: StatsRow = sqlx::query_as::<_, StatsRow>(
         "SELECT COUNT(*)::bigint as total,
                 COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '24 hours')::bigint as today
          FROM notifications",
     )
-    .get_result::<StatsRow>(&mut *conn)
+    .fetch_one(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -296,16 +283,15 @@ pub async fn wallet_access_summary_handler(
 async fn fetch_available_permissions(app_state: &AppState) -> Result<Vec<String>, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
     }
 
-    let results = diesel::sql_query(
+    let results: Vec<PermRow> = sqlx::query_as::<_, PermRow>(
         "SELECT DISTINCT permission_string FROM user_effective_permissions WHERE permission_string IS NOT NULL ORDER BY permission_string"
     )
-    .load::<PermRow>(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -315,30 +301,25 @@ async fn fetch_available_permissions(app_state: &AppState) -> Result<Vec<String>
 async fn fetch_available_plans(app_state: &AppState) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName, serde::Serialize)]
+    #[derive(sqlx::FromRow, serde::Serialize)]
     struct PlanRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         id: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         description: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         plan_group: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         member_count: i64,
     }
 
-    let results = diesel::sql_query(
-        "SELECT p.id::text, p.name, p.description, p.plan_group,
-                COUNT(wpa.id)::bigint as member_count
+    let results: Vec<PlanRow> = sqlx::query_as::<_, PlanRow>(
+        "SELECT p.id::text AS id, p.name AS name, p.description AS description, p.plan_group AS plan_group,
+                COUNT(wpa.id)::bigint AS member_count
          FROM plans p
          LEFT JOIN wallet_plan_assignments wpa ON p.id = wpa.plan_id AND wpa.is_active = true
          WHERE p.is_active = true
          GROUP BY p.id, p.name, p.description, p.plan_group
          ORDER BY p.name",
     )
-    .load::<PlanRow>(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -351,17 +332,16 @@ async fn fetch_wallet_permissions(
 ) -> Result<Vec<String>, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PermRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_string: String,
     }
 
-    let results = diesel::sql_query(
+    let results: Vec<PermRow> = sqlx::query_as::<_, PermRow>(
         "SELECT permission_string FROM user_effective_permissions WHERE wallet_address = $1 AND (expires_at IS NULL OR expires_at > NOW()) ORDER BY permission_string"
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<PermRow>(&mut *conn)
+    .bind(wallet)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -374,27 +354,23 @@ async fn fetch_wallet_plan_assignments(
 ) -> Result<serde_json::Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName, serde::Serialize)]
+    #[derive(sqlx::FromRow, serde::Serialize)]
     struct AssignRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_id: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_name: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         granted_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let results = diesel::sql_query(
-        "SELECT wpa.plan_id::text, p.name as plan_name, wpa.expires_at, wpa.created_at as granted_at
+    let results: Vec<AssignRow> = sqlx::query_as::<_, AssignRow>(
+        "SELECT wpa.plan_id::text AS plan_id, p.name AS plan_name, wpa.expires_at, wpa.created_at AS granted_at
          FROM wallet_plan_assignments wpa
          INNER JOIN plans p ON wpa.plan_id = p.id
          WHERE wpa.wallet_address = $1 AND wpa.is_active = true
          ORDER BY wpa.created_at DESC"
     )
-    .bind::<diesel::sql_types::Text, _>(wallet)
-    .load::<AssignRow>(&mut *conn)
+    .bind(wallet)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 

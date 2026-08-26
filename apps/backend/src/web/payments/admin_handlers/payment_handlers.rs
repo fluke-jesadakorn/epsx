@@ -223,6 +223,7 @@ pub async fn admin_list_payments_handler(
     );
 
     Ok(Json(AdminPaymentListResponse {
+        success: true,
         payments: payments_resp,
         pagination,
         summary,
@@ -265,6 +266,7 @@ pub async fn admin_approve_payment_handler(
         payment_id,
         new_status: "confirmed".to_string(),
         rows_affected: result.rows_affected(),
+        message: "Payment confirmed successfully".to_string(),
     }))
 }
 
@@ -304,6 +306,7 @@ pub async fn admin_reject_payment_handler(
         payment_id,
         new_status: "failed".to_string(),
         rows_affected: result.rows_affected(),
+        message: "Payment rejected successfully".to_string(),
     }))
 }
 
@@ -343,6 +346,7 @@ pub async fn admin_refund_payment_handler(
         payment_id,
         new_status: "refunded".to_string(),
         rows_affected: result.rows_affected(),
+        message: "Payment refunded successfully".to_string(),
     }))
 }
 
