@@ -135,6 +135,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         let new_user = NewWalletUserDb {
             wallet_address: wallet.wallet_address().as_str().to_string(),
             is_active: wallet.is_active(),
+            tier_level: "Bronze".to_string(),
             wallet_metadata: serde_json::to_value(wallet.wallet_metadata())
                 .unwrap_or_else(|_| serde_json::json!({})),
         };
