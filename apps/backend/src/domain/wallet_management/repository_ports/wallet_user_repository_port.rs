@@ -258,6 +258,15 @@ pub trait WalletUserAnalyticsPort: Send + Sync {
     /// Get Web3-specific analytics
     async fn get_web3_analytics(&self) -> AppResult<Web3Analytics>;
 
+    /// Get growth metrics (users added per day)
+    async fn get_growth_metrics(&self, days: u32) -> AppResult<Vec<(NaiveDate, u64)>>;
+
+    /// Get active users count
+    async fn get_active_users(&self, days: u32) -> AppResult<u64>;
+
+    /// Count users by tier
+    async fn count_by_tier(&self, tier: &str) -> AppResult<u64>;
+
     /// Get permission distribution across users
     async fn get_permission_distribution(&self) -> AppResult<HashMap<String, u64>>;
 
