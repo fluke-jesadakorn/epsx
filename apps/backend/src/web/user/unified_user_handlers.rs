@@ -15,8 +15,6 @@ use axum::{
     extract::{Extension, Path, Query, Request, State},
     Json,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
@@ -773,7 +771,7 @@ pub async fn get_user_by_wallet_address(
         last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let user_data: Option<WalletUserRow> = sqlx::query_as::<_, WalletUserRow>(
+    let user_data = sqlx::query_as::<_, WalletUserRow>(
         "SELECT wallet_address, is_active, created_at, last_auth_at FROM wallet_users WHERE wallet_address = $1"
     )
     .bind(&wallet_address.to_lowercase())
@@ -811,7 +809,7 @@ pub async fn get_user_by_wallet_address(
         permission_string: String,
     }
 
-    let user_permissions = diesel::sql_query(
+    let user_permissions = sqlx::query_as::<_, UserPermissionRow>(
         r#"
         SELECT DISTINCT permission_string
         FROM user_effective_permissions
@@ -820,7 +818,7 @@ pub async fn get_user_by_wallet_address(
         "#,
     )
     .bind(&wallet_addr)
-    .load::<UserPermissionRow>(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map(|rows| rows.into_iter().map(|r| r.permission_string).collect())
     .unwrap_or_default();
@@ -902,11 +900,10 @@ pub async fn get_user_notification_preferences(
     }
 
     let result =
-        diesel::sql_query("SELECT wallet_metadata FROM wallet_users WHERE wallet_address = $1")
+        sqlx::query_as::<_, MetadataRow>("SELECT wallet_metadata AS wallet_metadata FROM wallet_users WHERE wallet_address = $1")
             .bind(&user_context.wallet_address)
-            .get_result::<MetadataRow>(&mut *conn)
-            .await
-            .optional();
+            .fetch_optional(&mut *conn)
+            .await;
 
     let preferences = match result {
         Ok(Some(row)) => {
@@ -954,21 +951,21 @@ pub async fn dashboard_init_handler(
 async fn fetch_user_plan_access(app_state: &AppState, wallet: &str) -> Result<Value, String> {
     let mut conn = app_state.db_pool.acquire().await.map_err(|e| e.to_string())?;
 
-    #[derive(QueryableByName, Serialize)]
+    #[derive(sqlx::FromRow, Serialize)]
     struct PlanRow {
         plan_id: String,
         plan_name: String,
         expires_at: Option<chrono::DateTime<chrono::Utc>>,
     }
 
-    let results = diesel::sql_query(
-        "SELECT wpa.plan_id::text, p.name as plan_name, wpa.expires_at
+    let results: Vec<PlanRow> = sqlx::query_as::<_, PlanRow>(
+        "SELECT wpa.plan_id::text AS plan_id, p.name AS plan_name, wpa.expires_at
          FROM wallet_plan_assignments wpa
          INNER JOIN plans p ON wpa.plan_id = p.id
          WHERE wpa.wallet_address = $1 AND wpa.is_active = true",
     )
     .bind(wallet)
-    .load::<PlanRow>(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -992,11 +989,11 @@ async fn fetch_user_watchlist(app_state: &AppState, wallet: &str) -> Result<Vec<
         symbol: String,
     }
 
-    let results = diesel::sql_query(
+    let results: Vec<WatchlistRow> = sqlx::query_as::<_, WatchlistRow>(
         "SELECT symbol FROM user_watchlist WHERE wallet_address = $1 ORDER BY added_at DESC",
     )
     .bind(wallet)
-    .load::<WatchlistRow>(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| e.to_string())?;
 
@@ -1130,7 +1127,7 @@ pub async fn update_user_notification_preferences(
     // For simplicity, let's use a specialized query to ensure structure.
 
     // First ensure 'preferences' object exists
-    let _ = diesel::sql_query(
+    let _ = sqlx::query(
         r#"
         UPDATE wallet_users 
         SET wallet_metadata = jsonb_set(
@@ -1147,7 +1144,7 @@ pub async fn update_user_notification_preferences(
     .await;
 
     // Then update notification_preferences
-    let update_result = diesel::sql_query(
+    let update_result = sqlx::query(
         r#"
         UPDATE wallet_users
         SET wallet_metadata = jsonb_set(
