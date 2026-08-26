@@ -224,6 +224,7 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                                 label: Some("Connect Wallet".to_string()),
                                 disabled: session_state != AuthPageSessionState::SignedOut,
                                 data_connect_wallet: Some(true),
+                                data_provider: Some("metamask".to_string()),
                             }
                         }
                         div { class: "auth-card-divider auth-card-divider-thin", aria_hidden: "true" }

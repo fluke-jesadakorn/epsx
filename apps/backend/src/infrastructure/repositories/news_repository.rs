@@ -59,8 +59,8 @@ impl NewsRepository {
                 title = $1, summary = $2, content = $3, cover_image_url = $4, tags = $5,
                 status = $6, published_at = $7, updated_at = NOW()
             WHERE id = $8
-            RETURNING id, slug, title, summary, content, status, tags, is_pinned, pinned_at,
-                      published_at, created_at, updated_at
+            RETURNING id, title, slug, summary, content, cover_image_url, author_wallet,
+                      status, tags, published_at, created_at, updated_at, is_pinned, pinned_at
             "#,
         )
         .bind(&update.title)
@@ -93,8 +93,8 @@ impl NewsRepository {
                 title = $1, summary = $2, content = $3, cover_image_url = $4, tags = $5,
                 status = $6, published_at = $7, updated_at = NOW()
             WHERE id = $8 AND updated_at = $9
-            RETURNING id, slug, title, summary, content, status, tags, is_pinned, pinned_at,
-                      published_at, created_at, updated_at
+            RETURNING id, title, slug, summary, content, cover_image_url, author_wallet,
+                      status, tags, published_at, created_at, updated_at, is_pinned, pinned_at
             "#,
         )
         .bind(&update.title)
@@ -137,8 +137,8 @@ impl NewsRepository {
 
     pub async fn get_by_id(pool: &TlsPool, id: Uuid) -> Result<Option<NewsArticleDb>, String> {
         sqlx::query_as(
-            "SELECT id, slug, title, summary, content, category, tags, status, \
-                    is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+            "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                    status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
              FROM news_articles WHERE id = $1",
         )
         .bind(id)
@@ -149,8 +149,8 @@ impl NewsRepository {
 
     pub async fn get_by_slug(pool: &TlsPool, slug: &str) -> Result<Option<NewsArticleDb>, String> {
         sqlx::query_as(
-            "SELECT id, slug, title, summary, content, category, tags, status, \
-                    is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+            "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                    status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
              FROM news_articles WHERE slug = $1 AND status = 'published'",
         )
         .bind(slug)
@@ -184,8 +184,8 @@ impl NewsRepository {
         // Articles page
         let articles: Vec<NewsArticleDb> = if let Some(ref s) = query.status {
             sqlx::query_as(
-                "SELECT id, slug, title, summary, content, category, tags, status, \
-                        is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+                "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                        status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
                  FROM news_articles \
                  WHERE status = $1 \
                  ORDER BY created_at DESC \
@@ -199,8 +199,8 @@ impl NewsRepository {
             .map_err(|e| e.to_string())?
         } else {
             sqlx::query_as(
-                "SELECT id, slug, title, summary, content, category, tags, status, \
-                        is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+                "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                        status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
                  FROM news_articles \
                  ORDER BY created_at DESC \
                  LIMIT $1 OFFSET $2",
@@ -231,8 +231,8 @@ impl NewsRepository {
                 .map_err(|e| e.to_string())?;
 
         let articles: Vec<NewsArticleDb> = sqlx::query_as(
-            "SELECT id, slug, title, summary, content, category, tags, status, \
-                    is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+            "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                    status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
              FROM news_articles \
              WHERE status = 'published' \
              ORDER BY published_at DESC NULLS LAST \
@@ -262,8 +262,8 @@ impl NewsRepository {
             UPDATE news_articles
             SET is_pinned = TRUE, pinned_at = $1, updated_at = $2
             WHERE id = $3
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+            RETURNING id, title, slug, summary, content, cover_image_url, author_wallet,
+                      status, tags, published_at, created_at, updated_at, is_pinned, pinned_at
             "#,
         )
         .bind(Utc::now())
@@ -280,8 +280,8 @@ impl NewsRepository {
             UPDATE news_articles
             SET is_pinned = FALSE, pinned_at = NULL, updated_at = $1
             WHERE id = $2
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+            RETURNING id, title, slug, summary, content, cover_image_url, author_wallet,
+                      status, tags, published_at, created_at, updated_at, is_pinned, pinned_at
             "#,
         )
         .bind(Utc::now())
@@ -302,8 +302,8 @@ impl NewsRepository {
             UPDATE news_articles
             SET is_pinned = $1, pinned_at = $2, updated_at = NOW()
             WHERE id = $3 AND updated_at = $4
-            RETURNING id, slug, title, summary, content, category, tags, status,
-                      is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at
+            RETURNING id, title, slug, summary, content, cover_image_url, author_wallet,
+                      status, tags, published_at, created_at, updated_at, is_pinned, pinned_at
             "#,
         )
         .bind(pinned)
@@ -318,8 +318,8 @@ impl NewsRepository {
 
     pub async fn list_featured(pool: &TlsPool, limit: i64) -> Result<Vec<NewsArticleDb>, String> {
         sqlx::query_as(
-            "SELECT id, slug, title, summary, content, category, tags, status, \
-                    is_pinned, pinned_at, author_id, metadata, published_at, created_at, updated_at \
+            "SELECT id, title, slug, summary, content, cover_image_url, author_wallet, \
+                    status, tags, published_at, created_at, updated_at, is_pinned, pinned_at \
              FROM news_articles \
              WHERE status = 'published' \
              ORDER BY is_pinned DESC, pinned_at DESC NULLS LAST, published_at DESC NULLS LAST \

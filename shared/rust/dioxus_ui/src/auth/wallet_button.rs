@@ -143,6 +143,12 @@ pub fn ConnectButton(
     /// The generated Rust/WASM runtime owns the click and SIWE flow.
     #[props(default = None)]
     data_connect_wallet: Option<bool>,
+    /// Wallet connector id forwarded to the runtime as `data-provider`.
+    /// Defaults to `"metamask"` when `data_connect_wallet` is set;
+    /// ignored otherwise. The runtime uses this to pick the EIP-1193
+    /// transport (currently only `"metamask"` is wired).
+    #[props(default = None)]
+    data_provider: Option<String>,
 ) -> Element {
     let size_val = size.unwrap_or_default();
     let label_val = label.unwrap_or_else(|| match size_val {
@@ -169,6 +175,13 @@ pub fn ConnectButton(
         } else {
             ""
         };
+        let provider_attr = match data_provider.as_deref() {
+            Some(provider) if !provider.is_empty() => {
+                let provider_escaped = html_attr_escape(provider);
+                format!(r#" data-provider="{provider_escaped}""#)
+            }
+            _ => r#" data-provider="metamask""#.to_string(),
+        };
         let chevron_svg = if size_val == ConnectButtonSize::Full {
             format!(
                 r#"<span class="connect-btn-chevron">{}</span>"#,
@@ -184,7 +197,7 @@ pub fn ConnectButton(
         };
         let icon_svg = epsx_templates::lucide("wallet", &icon_size.to_string(), "");
         let html = format!(
-            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
+            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}{provider_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
         );
         return rsx! {
             span { class: "connect-btn-wrap inline-flex",
@@ -193,6 +206,11 @@ pub fn ConnectButton(
         };
     }
 
+    let provider_attr = match data_provider.as_deref() {
+        Some(provider) if !provider.is_empty() => provider.to_string(),
+        _ => "metamask".to_string(),
+    };
+
     rsx! {
         if let Some(h) = on_click {
             button {
@@ -200,6 +218,7 @@ pub fn ConnectButton(
                 r#type: "button",
                 disabled: disabled,
                 "aria-label": "Connect wallet",
+                "data-provider": "{provider_attr}",
                 onclick: move |e| h.call(e),
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
@@ -212,6 +231,7 @@ pub fn ConnectButton(
                 class: "{final_class}",
                 href: "{href_val}",
                 "aria-label": "Connect wallet",
+                "data-provider": "{provider_attr}",
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
                 if size_val == ConnectButtonSize::Full {
