@@ -28,6 +28,25 @@ pub trait WalletUserRepositoryPort: WalletUserSearchPort + Send + Sync {
     /// Delete a wallet user
     async fn delete(&self, wallet_address: &WalletAddress) -> AppResult<()>;
 
+    /// Check if a wallet user exists
+    async fn exists(&self, wallet_address: &WalletAddress) -> AppResult<bool>;
+
+    /// Activate a wallet user
+    async fn activate(&self, wallet_address: &WalletAddress) -> AppResult<()>;
+
+    /// Deactivate a wallet user
+    async fn deactivate(&self, wallet_address: &WalletAddress) -> AppResult<()>;
+
+    /// Update wallet metadata
+    async fn update_metadata(
+        &self,
+        wallet_address: &WalletAddress,
+        metadata: serde_json::Value,
+    ) -> AppResult<()>;
+
+    /// Touch (update last_auth_at) a wallet user
+    async fn touch(&self, wallet_address: &WalletAddress) -> AppResult<()>;
+
     /// Find users eligible for automatic Web3 permission assignment
     async fn find_eligible_for_web3_permissions(&self, chain_id: u64)
         -> AppResult<Vec<WalletUser>>;

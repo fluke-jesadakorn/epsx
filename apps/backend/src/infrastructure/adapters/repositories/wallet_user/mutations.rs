@@ -225,7 +225,7 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
     async fn update_metadata(
         &self,
         wallet_address: &WalletAddress,
-        metadata: &serde_json::Value,
+        metadata: serde_json::Value,
     ) -> AppResult<()> {
         sqlx::query(
             "UPDATE wallet_users SET wallet_metadata = $1, updated_at = NOW() \
@@ -249,6 +249,30 @@ impl WalletUserRepositoryPort for WalletUserRepositoryAdapter {
         .await
         .map_err(|e| AppError::database_error(e.to_string()))?;
         Ok(())
+    }
+
+    async fn find_eligible_for_web3_permissions(&self, chain_id: u64) -> AppResult<Vec<WalletUser>> {
+        let _ = chain_id;
+        Ok(Vec::new())
+    }
+
+    async fn save_batch(&self, users: &[WalletUser]) -> AppResult<()> {
+        for user in users {
+            self.save(user).await?;
+        }
+        Ok(())
+    }
+
+    async fn health_check(&self) -> AppResult<()> {
+        sqlx::query("SELECT 1")
+            .execute(self.db_pool)
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+        Ok(())
+    }
+
+    async fn cleanup_expired_permissions(&self) -> AppResult<u32> {
+        Ok(0)
     }
 }
 
