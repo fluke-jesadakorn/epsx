@@ -347,26 +347,27 @@ pub async fn get_payment_details_handler(
     })?;
 
     // Build query based on provided parameters
-    let mut query = payments::table.into_boxed();
+    let mut qb: sqlx::QueryBuilder<sqlx::Postgres> = sqlx::QueryBuilder::new(
+        "SELECT id, payment_reference, transaction_hash, wallet_address, amount, currency, method, \
+         status, plan_id, contract_address, token_address, block_number, confirmations, \
+         created_at, updated_at, expires_at, completed_at, metadata, last_checked_at, \
+         error_message, network FROM payments WHERE wallet_address ILIKE ",
+    );
+    qb.push_bind(format!("%{}%", user_context.wallet_address));
 
-    // Always filter by authenticated user's wallet
-    query =
-        query.filter(payments::wallet_address.ilike(format!("%{}%", user_context.wallet_address)));
-
-    // Apply transaction_hash filter if provided
     if let Some(ref tx_hash) = params.transaction_hash {
-        query = query.filter(payments::transaction_hash.eq(tx_hash));
+        qb.push(" AND transaction_hash = ").push_bind(tx_hash.clone());
     }
 
-    // Apply payment_reference filter if provided
     if let Some(ref reference) = params.payment_reference {
-        query = query.filter(payments::payment_reference.eq(reference));
+        qb.push(" AND payment_reference = ").push_bind(reference.clone());
     }
 
-    // Execute query
-    let payment_result = query
-        .order(payments::created_at.desc().nulls_last())
-        .first::<PaymentDb>(&mut payments_conn)
+    qb.push(" ORDER BY created_at DESC NULLS LAST LIMIT 1");
+
+    let payment_result: Result<PaymentDb, _> = qb
+        .build_query_as::<PaymentDb>()
+        .fetch_one(&mut payments_conn)
         .await;
 
     let payment = match payment_result {
