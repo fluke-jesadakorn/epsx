@@ -502,7 +502,7 @@ pub async fn create_subscription_handler(
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use crate::infrastructure::models::payment::NewSubscriptionDb;
-    use diesel::prelude::*;
+    // use diesel::prelude::*;
     use diesel_async::RunQueryDsl;
 
     let subscription_id = Uuid::new_v4();
@@ -514,18 +514,19 @@ pub async fn create_subscription_handler(
     })?;
 
     // Find plan UUID from permission_plan_name (plans table in PRIMARY DB)
-    let plan_uuid: Uuid = plans::table
-        .filter(plans::name.eq(&request.permission_plan_name))
-        .select(plans::id)
-        .first::<Uuid>(&mut primary_conn)
-        .await
-        .unwrap_or_else(|_| {
-            tracing::warn!(
-                "Could not find plan by name '{}', using placeholder UUID",
-                request.permission_plan_name
-            );
-            Uuid::nil()
-        });
+    let plan_uuid_result: Result<Option<Uuid>, _> = sqlx::query_scalar::<_, Uuid>(
+        "SELECT id FROM plans WHERE name = $1 LIMIT 1",
+    )
+    .bind(&request.permission_plan_name)
+    .fetch_optional(&mut *primary_conn)
+    .await;
+    let plan_uuid = plan_uuid_result.unwrap_or(None).unwrap_or_else(|| {
+        tracing::warn!(
+            "Could not find plan by name '{}', using placeholder UUID",
+            request.permission_plan_name
+        );
+        Uuid::nil()
+    });
 
     let api_key = if request.access_context == "external" {
         Some(generate_api_key())
@@ -550,16 +551,14 @@ pub async fn create_subscription_handler(
     // BUT since we are deleting the old file, we MUST implement it fully.
 
     // Deactivate existing plan assignments
-    diesel::sql_query(
+            sqlx::query(
         r#"
         UPDATE wallet_plan_assignments
         SET is_active = false, updated_at = NOW()
         WHERE LOWER(wallet_address) = LOWER($1)
-          AND is_active = true
-        "#,
-    )
-    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
-    .execute(&mut primary_conn)
+          AND is_active = true"#,
+    ).bind(&request.wallet_address)
+    .execute(&mut *primary_conn)
     .await
     .map_err(|e| {
         tracing::error!("Failed to deactivate existing plan assignments: {}", e);
@@ -567,7 +566,7 @@ pub async fn create_subscription_handler(
     })?;
 
     // Insert new assignment
-    diesel::sql_query(
+            sqlx::query(
         r#"
         INSERT INTO wallet_plan_assignments (
             wallet_address, plan_id, assigned_at, expires_at,
@@ -578,13 +577,11 @@ pub async fn create_subscription_handler(
             is_active = true,
             expires_at = EXCLUDED.expires_at,
             updated_at = NOW(),
-            assignment_reason = 'Admin assigned subscription (updated)'
-        "#,
-    )
-    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
-    .execute(&mut primary_conn)
+            assignment_reason = 'Admin assigned subscription (updated)'"#,
+    ).bind(&request.wallet_address)
+    .bind(plan_uuid)
+    .bind(expires_at)
+    .execute(&mut *primary_conn)
     .await
     .map_err(|e| {
         tracing::error!("Failed to insert plan assignment: {}", e);
@@ -620,14 +617,27 @@ pub async fn create_subscription_handler(
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
 
-    diesel::insert_into(subscriptions::table)
-        .values(&new_subscription)
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to insert subscription: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    sqlx::query(
+        "INSERT INTO subscriptions \
+         (wallet_address, plan_id, payment_id, status, started_at, expires_at, \
+          cancelled_at, auto_renew, metadata) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    )
+    .bind(&new_subscription.wallet_address)
+    .bind(new_subscription.plan_id)
+    .bind(new_subscription.payment_id)
+    .bind(&new_subscription.status)
+    .bind(new_subscription.started_at)
+    .bind(new_subscription.expires_at)
+    .bind(new_subscription.cancelled_at)
+    .bind(new_subscription.auto_renew)
+    .bind(&new_subscription.metadata)
+    .execute(&mut *payments_conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to insert subscription: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Audit log
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
@@ -703,7 +713,7 @@ pub async fn admin_list_user_access_handler(
         .map(|s| format!("%{}%", s.to_lowercase()))
         .unwrap_or_else(|| "%".to_string());
 
-    let users: Vec<UserRow> = diesel::sql_query(
+    let users: Vec<UserRow> =         sqlx::query(
         r#"
         SELECT 
             wga.wallet_address::text,
@@ -716,12 +726,10 @@ pub async fn admin_list_user_access_handler(
           AND g.plan_type = 'subscription'
           AND LOWER(wga.wallet_address) LIKE $1
         ORDER BY wga.assigned_at DESC NULLS LAST
-        LIMIT $2 OFFSET $3
-        "#,
-    )
-    .bind::<diesel::sql_types::Text, _>(&search_filter)
-    .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
-    .bind::<diesel::sql_types::BigInt, _>(pg.offset)
+        LIMIT $2 OFFSET $3"#,
+    ).bind(&search_filter)
+    .bind(pg.limit as i64)
+    .bind(pg.offset)
     .get_results(&mut *conn)
     .await
     .map_err(|e| {
