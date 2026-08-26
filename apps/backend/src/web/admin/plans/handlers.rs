@@ -694,16 +694,12 @@ pub async fn admin_list_user_access_handler(
     };
 
     // Query wallet_plan_assignments with plan info from plans table
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     #[allow(dead_code)]
     struct UserRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         plan_name: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
         plan_id: Option<Uuid>,
     }
 
@@ -713,13 +709,13 @@ pub async fn admin_list_user_access_handler(
         .map(|s| format!("%{}%", s.to_lowercase()))
         .unwrap_or_else(|| "%".to_string());
 
-    let users: Vec<UserRow> =         sqlx::query(
+    let users: Vec<UserRow> =         sqlx::query_as::<_, UserRow>(
         r#"
-        SELECT 
-            wga.wallet_address::text,
+        SELECT
+            wga.wallet_address::text AS wallet_address,
             wga.expires_at,
-            g.name as plan_name,
-            g.id as plan_id
+            g.name AS plan_name,
+            g.id AS plan_id
         FROM wallet_plan_assignments wga
         LEFT JOIN plans g ON wga.plan_id = g.id
         WHERE wga.is_active = true
@@ -730,7 +726,7 @@ pub async fn admin_list_user_access_handler(
     ).bind(&search_filter)
     .bind(pg.limit as i64)
     .bind(pg.offset)
-    .get_results(&mut *conn)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to query user access data");
