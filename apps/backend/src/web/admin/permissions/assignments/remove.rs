@@ -2,8 +2,6 @@ use axum::{
     extract::{Path, State},
     response::IntoResponse,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use uuid::Uuid;
 
 use crate::infrastructure::cache::redis_cache::set_perm_invalidated;
@@ -28,39 +26,30 @@ pub async fn remove_assignment(
         }
     };
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
     // Fetch assignment details before deactivation (for notification)
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct AssignmentInfo {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_name: String,
     }
 
-    let info = diesel::sql_query(
+    let info = sqlx::query_as::<_, AssignmentInfo>(
         "SELECT wpa.wallet_address, p.name as plan_name FROM wallet_plan_assignments wpa JOIN plans p ON wpa.plan_id = p.id WHERE wpa.id = $1"
     )
-    .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
-    .get_result::<AssignmentInfo>(&mut *conn)
+    .bind(assignment_uuid)
+    .fetch_optional(app_state.db_pool.as_ref())
     .await
-    .ok();
+    .ok()
+    .flatten();
 
-    match diesel::sql_query(
+    match sqlx::query(
         "UPDATE wallet_plan_assignments SET is_active = false, updated_at = NOW() WHERE id = $1",
     )
-    .bind::<diesel::sql_types::Uuid, _>(assignment_uuid)
-    .execute(&mut *conn)
+    .bind(assignment_uuid)
+    .execute(app_state.db_pool.as_ref())
     .await
     {
-        Ok(rows) if rows > 0 => {
+        Ok(res) if res.rows_affected() > 0 => {
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
             app_state.audit.log(
                 ctx,

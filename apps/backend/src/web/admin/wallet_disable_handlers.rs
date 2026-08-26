@@ -10,8 +10,6 @@ use axum::{
     Json as RequestJson,
 };
 use chrono::{DateTime, Duration, Utc};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use serde::{Deserialize, Serialize};
 use tracing::{error, info};
 use uuid::Uuid;
@@ -309,20 +307,18 @@ pub async fn enable_wallet_handler(
     if request.resume_subscriptions {
         // Get payments pool for subscription updates
         if let Ok(payments_pool) = crate::infrastructure::database::get_payments_pool().await {
-            if let Ok(mut payments_conn) = payments_pool.acquire().await {
-                // Resume paused subscriptions
-                let _ = diesel::sql_query(
-                    "UPDATE subscriptions 
-                     SET status = 'active', cancelled_at = NULL, metadata = metadata || '{\"resumed_by_admin\": true}'::jsonb
-                     WHERE wallet_address = $1 
-                     AND status = 'paused'"
-                )
-                .bind(&wallet_address)
-                .execute(&mut payments_conn)
-                .await;
+            // Resume paused subscriptions
+            let _ = sqlx::query(
+                "UPDATE subscriptions 
+                 SET status = 'active', cancelled_at = NULL, metadata = metadata || '{\"resumed_by_admin\": true}'::jsonb
+                 WHERE wallet_address = $1 
+                 AND status = 'paused'",
+            )
+            .bind(&wallet_address)
+            .execute(&payments_pool)
+            .await;
 
-                info!("Resumed subscriptions for wallet: {}", wallet_address);
-            }
+            info!("Resumed subscriptions for wallet: {}", wallet_address);
         }
     }
 
@@ -410,12 +406,6 @@ pub async fn get_wallet_activity_handler(
     .unwrap_or_default();
 
     // Get total count
-    #[derive(QueryableByName)]
-    struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
-        count: i64,
-    }
-
     let total: i64 = sqlx::query_scalar::<_, i64>(
         "SELECT COUNT(*) as count FROM wallet_activity_logs WHERE wallet_address = $1",
     )

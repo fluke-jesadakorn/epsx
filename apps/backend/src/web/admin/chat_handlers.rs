@@ -5,13 +5,6 @@ use axum::{
     response::IntoResponse,
     Extension, Json,
 };
-use diesel::dsl::count_star;
-use diesel::{
-    prelude::*,
-    sql_query,
-    sql_types::{Jsonb, Text, Uuid as DieselUuid},
-};
-use diesel_async::RunQueryDsl;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -47,13 +40,10 @@ enum ChatMutationClaimError {
     Database,
 }
 
-#[derive(Debug, QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct ExistingChatOperation {
-    #[diesel(sql_type = Text)]
     action: String,
-    #[diesel(sql_type = DieselUuid)]
     conversation_id: Uuid,
-    #[diesel(sql_type = Text)]
     actor: String,
 }
 
@@ -82,36 +72,33 @@ async fn claim_chat_operation(
 ) -> Result<(Uuid, String), ChatMutationClaimError> {
     let key = chat_idempotency_key(headers)?;
     let operation_id = Uuid::new_v4();
-    let mut conn = app_state
-        .db_pool
-        .acquire().await
-        .await
-        .map_err(|_| ChatMutationClaimError::Database)?;
-    let inserted = sql_query(
+    let res = sqlx::query(
         "INSERT INTO admin_chat_operations
          (operation_id, idempotency_key, conversation_id, action, actor)
          VALUES ($1, $2, $3, $4, $5)
          ON CONFLICT (idempotency_key) DO NOTHING",
     )
-    .bind::<DieselUuid, _>(operation_id)
-    .bind::<Text, _>(&key)
-    .bind::<DieselUuid, _>(conversation_id)
-    .bind::<Text, _>(action)
-    .bind::<Text, _>(&context.wallet_address)
-    .execute(&mut *conn)
+    .bind(operation_id)
+    .bind(&key)
+    .bind(conversation_id)
+    .bind(action)
+    .bind(&context.wallet_address)
+    .execute(app_state.db_pool.as_ref())
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
-    if inserted == 1 {
+
+    if res.rows_affected() == 1 {
         return Ok((operation_id, key));
     }
-    let existing = sql_query(
+    let existing = sqlx::query_as::<_, ExistingChatOperation>(
         "SELECT action, conversation_id, actor
          FROM admin_chat_operations WHERE idempotency_key = $1",
     )
-    .bind::<Text, _>(&key)
-    .get_result::<ExistingChatOperation>(&mut *conn)
+    .bind(&key)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
+
     let _same_operation = existing.action == action
         && existing.conversation_id == conversation_id
         && existing.actor == context.wallet_address;
@@ -123,18 +110,13 @@ async fn complete_chat_operation(
     operation_id: Uuid,
     result: serde_json::Value,
 ) -> Result<(), ChatMutationClaimError> {
-    let mut conn = app_state
-        .db_pool
-        .acquire().await
-        .await
-        .map_err(|_| ChatMutationClaimError::Database)?;
-    diesel::sql_query(
+    sqlx::query(
         "UPDATE admin_chat_operations
          SET result = $1, completed_at = NOW() WHERE operation_id = $2",
     )
-    .bind::<Jsonb, _>(result)
-    .bind::<DieselUuid, _>(operation_id)
-    .execute(&mut *conn)
+    .bind(result)
+    .bind(operation_id)
+    .execute(app_state.db_pool.as_ref())
     .await
     .map_err(|_| ChatMutationClaimError::Database)?;
     Ok(())

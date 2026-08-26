@@ -76,19 +76,9 @@ pub async fn create_dao_proposal(
 
 // Handler: Get NFT gates with real database queries
 pub async fn get_nft_gates(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     info!("Admin: Fetching NFT gates from database");
-
-    // Note: NFT permission configs table not implemented yet
-    // use crate::schemas::primary::nft_permission_configs::dsl::*;
-    // use diesel::prelude::*;
-    // use diesel_async::RunQueryDsl;
-
-    let _conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get database connection: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
 
     // Placeholder for now - models need schema alignment
     let nft_gates: Vec<serde_json::Value> = vec![];
@@ -103,19 +93,9 @@ pub async fn get_nft_gates(
 
 // Handler: Get token gates with real database queries
 pub async fn get_token_gates(
-    State(app_state): State<AppState>,
+    State(_app_state): State<AppState>,
 ) -> Result<Json<serde_json::Value>, StatusCode> {
     info!("Admin: Fetching token gates from database");
-
-    // Note: Token permission configs table not implemented yet
-    // use crate::schemas::primary::token_permission_configs::dsl::*;
-    // use diesel::prelude::*;
-    // use diesel_async::RunQueryDsl;
-
-    let _conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get database connection: {:?}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
 
     // Placeholder for now - models need schema alignment
     let token_gates: Vec<serde_json::Value> = vec![];

@@ -5,8 +5,6 @@ use axum::{
     http::StatusCode,
     response::Json,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use tracing::{error, info};
 
 use crate::application::shared::CommandHandler;
@@ -24,9 +22,6 @@ pub async fn get_user_permissions(
         "Admin: Fetching wallet permissions with filters: {:?}",
         params
     );
-
-    // Get database connection
-    let _db_pool = app_state.db_pool.as_ref();
 
     let limit = params.limit.unwrap_or(50);
     let offset = params.offset.unwrap_or(0);
@@ -68,39 +63,28 @@ pub async fn get_user_permissions(
         where_clause
     );
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct WalletPermRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         created_at: chrono::DateTime<chrono::Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_permissions_count: i64,
     }
 
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Admin: Failed to get database connection: {}", e);
-            return Ok(Json(AdminApiResponse::server_error()));
-        }
-    };
-
-    let sql = diesel::sql_query(&query_str)
-        .bind::<diesel::sql_types::BigInt, _>(limit as i64)
-        .bind::<diesel::sql_types::BigInt, _>(offset as i64);
-
-    // Conditionally bind wallet filter
     let wallets = if has_wallet_filter {
-        sql.bind::<diesel::sql_types::Text, _>(&wallet_pattern)
-            .load::<WalletPermRow>(&mut *conn)
+        sqlx::query_as::<_, WalletPermRow>(&query_str)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .bind(&wallet_pattern)
+            .fetch_all(app_state.db_pool.as_ref())
             .await
     } else {
-        sql.load::<WalletPermRow>(&mut *conn).await
+        sqlx::query_as::<_, WalletPermRow>(&query_str)
+            .bind(limit as i64)
+            .bind(offset as i64)
+            .fetch_all(app_state.db_pool.as_ref())
+            .await
     };
 
     let wallets = match wallets {
@@ -119,15 +103,13 @@ pub async fn get_user_permissions(
         let active_perms_count = row.active_permissions_count;
 
         // Get first permission for this wallet as primary permission
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PrimaryPermRow {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             permission_string: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Text)]
             source: String,
         }
 
-        let primary_perm_query = diesel::sql_query(
+        let primary_perm_query = sqlx::query_as::<_, PrimaryPermRow>(
             r#"
       SELECT DISTINCT p.permission_string, 'plan' as source
       FROM wallet_plan_assignments wga
@@ -152,10 +134,9 @@ pub async fn get_user_permissions(
       LIMIT 1
       "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .get_result::<PrimaryPermRow>(&mut *conn)
-        .await
-        .optional();
+        .bind(wallet_address)
+        .fetch_optional(app_state.db_pool.as_ref())
+        .await;
 
         let (primary_permission, permission_source) = match primary_perm_query {
             Ok(Some(rec)) => (rec.permission_string, rec.source),

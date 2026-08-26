@@ -3,8 +3,6 @@ use axum::{
     Json,
 };
 use chrono::{DateTime, Utc};
-use diesel::QueryableByName;
-use diesel_async::RunQueryDsl;
 use epsx_contracts::errors::{AppError, ErrorKind};
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -28,13 +26,10 @@ pub struct AdminDashboardUserStatusResponse {
     pub active_users: i64,
 }
 
-#[derive(Debug, QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct DashboardUserStatusRow {
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
     observed_at: DateTime<Utc>,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     total_users: i64,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     active_users: i64,
 }
 
@@ -63,12 +58,8 @@ pub async fn admin_dashboard_user_status_handler(
 ) -> Result<Json<AdminApiResponse<AdminDashboardUserStatusResponse>>, AppError> {
     reject_query(raw_query.as_deref())?;
 
-    let mut connection = app_state.db_pool.acquire().await.map_err(|pool_error| {
-        error!(error = ?pool_error, "Failed to acquire dashboard user status database connection");
-        AppError::database_error("Dashboard user status is temporarily unavailable")
-    })?;
-    let row = diesel::sql_query(DASHBOARD_USER_STATUS_SQL)
-        .get_result::<DashboardUserStatusRow>(&mut connection)
+    let row = sqlx::query_as::<_, DashboardUserStatusRow>(DASHBOARD_USER_STATUS_SQL)
+        .fetch_one(app_state.db_pool.as_ref())
         .await
         .map_err(|query_error| {
             error!(error = ?query_error, "Failed to query dashboard user status");

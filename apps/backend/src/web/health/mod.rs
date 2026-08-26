@@ -6,7 +6,6 @@ use axum::{extract::State, response::Json};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use utoipa::ToSchema;
-// use diesel::prelude::*;
 use crate::infrastructure::cache::Cache;
 
 /// Health state for health endpoint

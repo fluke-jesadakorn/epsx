@@ -6,8 +6,6 @@ use axum::{
     Json,
 };
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 use url::Url;
 
 use super::super::notification_query_helper::NotificationQueryFilter;
@@ -106,20 +104,12 @@ pub async fn send_notification_handler(
         vec![addr.to_lowercase()]
     } else if let Some(ref plan) = request.recipient_plan {
         // Fetch wallet addresses for plan from database
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PlanMemberRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
         }
 
-        let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
-            AppError::new(
-                ErrorKind::DatabaseError,
-                format!("Failed to get database connection: {}", e),
-            )
-        })?;
-
-        let plan_members = diesel::sql_query(
+        let plan_members = sqlx::query_as::<_, PlanMemberRow>(
             r#"
             SELECT wallet_address
             FROM wallet_plan_assignments wga
@@ -127,8 +117,8 @@ pub async fn send_notification_handler(
             WHERE pg.slug = $1 AND wga.is_active = true
             "#,
         )
-        .bind::<diesel::sql_types::Text, _>(&plan)
-        .load::<PlanMemberRow>(&mut *conn)
+        .bind(plan)
+        .fetch_all(app_state.db_pool.as_ref())
         .await
         .map_err(|e| {
             AppError::new(
@@ -503,25 +493,18 @@ pub async fn get_notification_stats_handler(
     State(_app_state): State<AppState>,
 ) -> Result<impl IntoResponse, AppError> {
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.acquire().await.map_err(|e| {
-        AppError::new(
-            ErrorKind::DatabaseError,
-            format!("Failed to get database connection: {}", e),
-        )
-    })?;
+    let notifications_pool = require_notifications_pool().await?;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Get total notifications count (exclude soft-deleted)
-    let total_count: i64 = diesel::sql_query(
+    let total_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted'",
     )
-    .get_result::<CountRow>(&mut *conn)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -532,68 +515,64 @@ pub async fn get_notification_stats_handler(
     .count;
 
     // Get notifications sent today (exclude soft-deleted)
-    let today_count: i64 = diesel::sql_query(
+    let today_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut *conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?
-        .count;
+    .fetch_one(&notifications_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count today's notifications: {}", e)))?
+    .count;
 
     // Get notifications sent this week (exclude soft-deleted)
-    let week_count: i64 = diesel::sql_query(
+    let week_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '7 days' AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut *conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?
-        .count;
+    .fetch_one(&notifications_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count week's notifications: {}", e)))?
+    .count;
 
     // Get notifications sent this month (exclude soft-deleted)
-    let month_count: i64 = diesel::sql_query(
+    let month_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND status != 'deleted'"
     )
-        .get_result::<CountRow>(&mut *conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?
-        .count;
+    .fetch_one(&notifications_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count month's notifications: {}", e)))?
+    .count;
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct TypeCountRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         notification_type: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Get count by type (exclude soft-deleted)
-    let type_counts = diesel::sql_query(
+    let type_counts = sqlx::query_as::<_, TypeCountRow>(
         "SELECT notification_type, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY notification_type"
     )
-        .load::<TypeCountRow>(&mut *conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get type counts: {}", e)))?;
+    .fetch_all(&notifications_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get type counts: {}", e)))?;
 
     let mut by_type = serde_json::Map::new();
     for row in type_counts {
         by_type.insert(row.notification_type, serde_json::json!(row.count));
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PriorityCountRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         priority: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Get count by priority (exclude soft-deleted)
-    let priority_counts = diesel::sql_query(
+    let priority_counts = sqlx::query_as::<_, PriorityCountRow>(
         "SELECT priority, COUNT(*) as count FROM wallet_notifications WHERE status != 'deleted' GROUP BY priority"
     )
-        .load::<PriorityCountRow>(&mut *conn)
-        .await
-        .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get priority counts: {}", e)))?;
+    .fetch_all(&notifications_pool)
+    .await
+    .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to get priority counts: {}", e)))?;
 
     let mut by_priority = serde_json::Map::new();
     for row in priority_counts {
@@ -604,10 +583,10 @@ pub async fn get_notification_stats_handler(
     let delivery_rate = if total_count > 0 { 1.0 } else { 0.0 };
 
     // Calculate read rate (exclude soft-deleted)
-    let read_count: i64 = diesel::sql_query(
+    let read_count: i64 = sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(*) as count FROM wallet_notifications WHERE status = 'read'",
     )
-    .get_result::<CountRow>(&mut *conn)
+    .fetch_one(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -623,17 +602,7 @@ pub async fn get_notification_stats_handler(
         0.0
     };
 
-    // Calculate click rate (Not tracked in new schema, defaulting to 0)
     let clicked_count: i64 = 0;
-    /*
-        let clicked_count: i64 = diesel::sql_query(
-            "SELECT COUNT(*) as count FROM wallet_notifications WHERE clicked_at IS NOT NULL AND deleted_at IS NULL"
-        )
-            .get_result::<CountRow>(&mut *conn)
-            .await
-            .map_err(|e| AppError::new(ErrorKind::DatabaseError, format!("Failed to count clicked notifications: {}", e)))?
-            .count;
-    */
 
     let click_rate = if total_count > 0 {
         (clicked_count as f64) / (total_count as f64)
@@ -641,16 +610,14 @@ pub async fn get_notification_stats_handler(
         0.0
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct RecentActivityRow {
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         hour: chrono::DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Get recent activity (last 24 hours, planed by hour, exclude soft-deleted)
-    let recent_activity_records = diesel::sql_query(
+    let recent_activity_records = sqlx::query_as::<_, RecentActivityRow>(
         r#"
         SELECT
             DATE_TRUNC('hour', created_at) as hour,
@@ -663,7 +630,7 @@ pub async fn get_notification_stats_handler(
         LIMIT 10
         "#,
     )
-    .load::<RecentActivityRow>(&mut *conn)
+    .fetch_all(&notifications_pool)
     .await
     .map_err(|e| {
         AppError::new(
@@ -736,18 +703,12 @@ pub async fn delete_admin_notification_handler(
     })?;
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
-    let mut conn = notifications_pool.acquire().await.map_err(|e| {
-        AppError::new(
-            ErrorKind::DatabaseError,
-            format!("Failed to get database connection: {}", e),
-        )
-    })?;
+    let notifications_pool = require_notifications_pool().await?;
 
     // Hard delete for admin
-    let rows_affected = diesel::sql_query("DELETE FROM wallet_notifications WHERE id = $1")
-        .bind::<diesel::sql_types::Uuid, _>(notif_uuid)
-        .execute(&mut *conn)
+    let res = sqlx::query("DELETE FROM wallet_notifications WHERE id = $1")
+        .bind(notif_uuid)
+        .execute(&notifications_pool)
         .await
         .map_err(|e| {
             AppError::new(
@@ -756,7 +717,7 @@ pub async fn delete_admin_notification_handler(
             )
         })?;
 
-    if rows_affected == 0 {
+    if res.rows_affected() == 0 {
         return Err(AppError::new(
             ErrorKind::AggregateNotFound,
             "Notification not found".to_string(),

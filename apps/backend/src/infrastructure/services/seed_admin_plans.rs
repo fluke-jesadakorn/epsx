@@ -74,7 +74,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
         };
 
         // Upsert plan - only update description/permissions on conflict, never name/slug
-        if let Err(e) = sqlx::query(
+        let result = sqlx::query(
             r#"INSERT INTO plans (
                 id, name, slug, description, plan_type, plan_metadata,
                 is_active, is_promoted, is_public, is_system,
@@ -97,15 +97,13 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
         .bind(def.name)
         .bind(def.slug)
         .bind(def.description)
-        .execute(pool.as_ref())
-        .await
-        {
-            Err(e) => {
-                error!("Failed to seed admin plan {}: {}", def.name, e);
-                continue;
-            }
-            _ => {}
-        };
+        .execute(pool)
+        .await;
+
+        if let Err(e) = result {
+            error!("Failed to seed admin plan {}: {}", def.name, e);
+            continue;
+        }
 
         // Seed permissions: ensure each permission exists, then link
         for perm_str in def.permissions {
@@ -124,7 +122,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             .bind(parts[0])
             .bind(parts[1])
             .bind(parts[2])
-            .execute(pool.as_ref())
+            .execute(pool)
             .await;
 
             // Link permission to plan
@@ -135,7 +133,7 @@ pub async fn seed_system_admin_plans(pool: &TlsPool) {
             )
             .bind(plan_id)
             .bind(*perm_str)
-            .execute(pool.as_ref())
+            .execute(pool)
             .await;
         }
 
@@ -178,7 +176,7 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
         ON CONFLICT (wallet_address) DO NOTHING"#,
     )
     .bind(&env_wallet)
-    .execute(pool.as_ref())
+    .execute(pool)
     .await
     {
         error!("Failed to ensure wallet_users entry for super admin: {}", e);
@@ -195,7 +193,7 @@ async fn seed_super_admin_wallet(pool: &TlsPool) {
     )
     .bind(&env_wallet)
     .bind(plan_id)
-    .execute(pool.as_ref())
+    .execute(pool)
     .await
     {
         error!("Failed to seed Super Admin wallet assignment: {}", e);

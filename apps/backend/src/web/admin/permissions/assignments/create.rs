@@ -1,7 +1,5 @@
 use axum::{extract::State, response::IntoResponse, Json};
 use chrono::Utc;
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
 use uuid::Uuid;
 
 use super::{AssignmentResponse, CreateAssignmentRequest};
@@ -35,181 +33,193 @@ pub async fn create_assignment(
         Err(_) => return AdminResponse::bad_request("Invalid plan ID format").into_response(),
     };
 
-    // Get database connection
-    let mut conn = match app_state.db_pool.acquire().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct AssignmentId {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlanDetails {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
-        #[diesel(sql_type = diesel::sql_types::Jsonb)]
         plan_metadata: serde_json::Value,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_group: String,
     }
 
-    // Run transaction
     let assignment_metadata = req
         .assignment_metadata
         .clone()
         .unwrap_or(serde_json::json!({}));
-    let wallet_clone = wallet.clone();
-    let wallet_for_user_insert = wallet.clone();
-    let assignment_source_clone = req.assignment_source.clone();
-    let assignment_reason_clone = req.assignment_reason.clone();
-    let payment_reference_clone = req.payment_reference.clone();
-    let subscription_id_clone = req.subscription_id.clone();
-    let req_expires_at = req.expires_at;
+    let assignment_source = req.assignment_source.clone();
+    let assignment_reason = req.assignment_reason.clone();
+    let payment_reference = req.payment_reference.clone();
+    let subscription_id = req.subscription_id.clone();
     let req_auto_renew = req.auto_renew.unwrap_or(false);
 
-    let result = conn.transaction::<_, diesel::result::Error, _>(|conn| {
-        Box::pin(async move {
-            // CRITICAL: Ensure wallet_users entry exists before assignment (FK constraint)
-            diesel::sql_query(
-                r#"
-                INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
-                VALUES ($1, true, 'Bronze', '{}')
-                ON CONFLICT (wallet_address) DO NOTHING
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&wallet_for_user_insert)
-            .execute(conn)
-            .await?;
-
-            // Fetch plan details early to get expiry settings
-            let plan = diesel::sql_query(
-                "SELECT name, plan_type, plan_metadata, plan_group FROM plans WHERE id = $1"
-            )
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .get_result::<PlanDetails>(conn)
-            .await
-            .optional()?;
-
-            let plan_ref = plan.as_ref().ok_or(diesel::result::Error::NotFound)?;
-
-            // Cross-group validation: reject if wallet has plans from a different group (excluding 'custom')
-            if plan_ref.plan_group != "custom" {
-                #[derive(QueryableByName)]
-                struct ExistingGroup {
-                    #[diesel(sql_type = diesel::sql_types::Text)]
-                    plan_group: String,
-                }
-
-                let existing_groups: Vec<ExistingGroup> = diesel::sql_query(
-                    r#"
-                    SELECT DISTINCT p.plan_group
-                    FROM wallet_plan_assignments wpa
-                    JOIN plans p ON wpa.plan_id = p.id
-                    WHERE wpa.wallet_address = $1 AND wpa.is_active = true AND wpa.plan_id != $2 AND p.plan_group != 'custom'
-                    "#
-                )
-                .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-                .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-                .load(conn)
-                .await?;
-
-                for eg in &existing_groups {
-                    if eg.plan_group != plan_ref.plan_group {
-                        return Err(diesel::result::Error::RollbackTransaction);
-                    }
-                }
-            }
-
-            // Calculate expiry
-            let expires_at = match req_expires_at {
-                Some(at) => Some(at),
-                None => {
-                    let days = plan_ref.plan_metadata.get("default_expiry_days")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(30);
-
-                    if days == -1 {
-                        None
-                    } else {
-                        Some(Utc::now() + chrono::Duration::try_days(days).unwrap_or_else(chrono::Duration::zero))
-                    }
-                }
-            };
-
-            // Deactivate existing subscription plan assignments for this wallet
-            diesel::sql_query(
-                r#"
-                UPDATE wallet_plan_assignments
-                SET is_active = false, updated_at = NOW()
-                WHERE wallet_address = $1
-                  AND is_active = true
-                  AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
-                  AND plan_id != $2
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .execute(conn)
-            .await?;
-
-            // Insert or update assignment
-            let assignment_id = diesel::sql_query(
-                r#"
-                INSERT INTO wallet_plan_assignments (
-                    wallet_address, plan_id, assigned_at, expires_at, is_active,
-                    assignment_source, assignment_reason, payment_reference, subscription_id,
-                    auto_renew, next_billing_date, assignment_metadata
-                )
-                VALUES ($1, $2, NOW(), $3, true, $4, $5, $6, $7, $8, $9, $10)
-                ON CONFLICT (wallet_address, plan_id) DO UPDATE
-                SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
-                RETURNING id
-                "#
-            )
-            .bind::<diesel::sql_types::Text, _>(&wallet_clone)
-            .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-            .bind::<diesel::sql_types::Text, _>(&assignment_source_clone)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&assignment_reason_clone)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&payment_reference_clone)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Text>, _>(&subscription_id_clone)
-            .bind::<diesel::sql_types::Bool, _>(req_auto_renew)
-            .bind::<diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>, _>(expires_at)
-            .bind::<diesel::sql_types::Jsonb, _>(&assignment_metadata)
-            .get_result::<AssignmentId>(conn)
-            .await?
-            .id;
-
-            Ok((assignment_id, plan, expires_at))
-        })
-    }).await;
-
-    let (assignment_id, plan, final_expires_at) = match result {
-        Ok((id, Some(g), exp)) => (id, g, exp),
-        Ok((_, None, _)) => return AdminResponse::not_found("Permission plan").into_response(),
+    let mut tx = match app_state.db_pool.begin().await {
+        Ok(tx) => tx,
         Err(e) => {
-            if matches!(e, diesel::result::Error::NotFound) {
-                return AdminResponse::not_found("Permission plan").into_response();
+            tracing::error!("Failed to start transaction: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
+        }
+    };
+
+    // CRITICAL: Ensure wallet_users entry exists before assignment (FK constraint)
+    if let Err(e) = sqlx::query(
+        r#"
+        INSERT INTO wallet_users (wallet_address, is_active, tier_level, wallet_metadata)
+        VALUES ($1, true, 'Bronze', '{}')
+        ON CONFLICT (wallet_address) DO NOTHING
+        "#,
+    )
+    .bind(&wallet)
+    .execute(&mut *tx)
+    .await
+    {
+        tracing::error!("Failed to insert wallet_user: {}", e);
+        return AdminResponse::server_error("Database error").into_response();
+    }
+
+    // Fetch plan details early to get expiry settings
+    let plan: Option<PlanDetails> = match sqlx::query_as::<_, PlanDetails>(
+        "SELECT name, plan_type, plan_metadata, plan_group FROM plans WHERE id = $1",
+    )
+    .bind(plan_uuid)
+    .fetch_optional(&mut *tx)
+    .await
+    {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::error!("Failed to fetch plan: {}", e);
+            return AdminResponse::server_error("Database error").into_response();
+        }
+    };
+
+    let plan_ref = match plan {
+        Some(ref p) => p,
+        None => return AdminResponse::not_found("Permission plan").into_response(),
+    };
+
+    // Cross-group validation: reject if wallet has plans from a different group (excluding 'custom')
+    if plan_ref.plan_group != "custom" {
+        #[derive(sqlx::FromRow)]
+        struct ExistingGroup {
+            plan_group: String,
+        }
+
+        let existing_groups: Vec<ExistingGroup> = match sqlx::query_as::<_, ExistingGroup>(
+            r#"
+            SELECT DISTINCT p.plan_group
+            FROM wallet_plan_assignments wpa
+            JOIN plans p ON wpa.plan_id = p.id
+            WHERE wpa.wallet_address = $1 AND wpa.is_active = true AND wpa.plan_id != $2 AND p.plan_group != 'custom'
+            "#,
+        )
+        .bind(&wallet)
+        .bind(plan_uuid)
+        .fetch_all(&mut *tx)
+        .await
+        {
+            Ok(groups) => groups,
+            Err(e) => {
+                tracing::error!("Failed to fetch existing groups: {}", e);
+                return AdminResponse::server_error("Database error").into_response();
             }
-            if matches!(e, diesel::result::Error::RollbackTransaction) {
+        };
+
+        for eg in &existing_groups {
+            if eg.plan_group != plan_ref.plan_group {
                 return AdminResponse::bad_request(
                     "Cannot mix plan groups. Wallet already has plans from a different group.",
                 )
                 .into_response();
             }
-            tracing::error!("Transaction failed: {}", e);
+        }
+    }
+
+    // Calculate expiry
+    let expires_at = match req.expires_at {
+        Some(at) => Some(at),
+        None => {
+            let days = plan_ref
+                .plan_metadata
+                .get("default_expiry_days")
+                .and_then(|v| v.as_i64())
+                .unwrap_or(30);
+
+            if days == -1 {
+                None
+            } else {
+                Some(
+                    Utc::now()
+                        + chrono::Duration::try_days(days).unwrap_or_else(chrono::Duration::zero),
+                )
+            }
+        }
+    };
+
+    // Deactivate existing subscription plan assignments for this wallet
+    if let Err(e) = sqlx::query(
+        r#"
+        UPDATE wallet_plan_assignments
+        SET is_active = false, updated_at = NOW()
+        WHERE wallet_address = $1
+          AND is_active = true
+          AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
+          AND plan_id != $2
+        "#,
+    )
+    .bind(&wallet)
+    .bind(plan_uuid)
+    .execute(&mut *tx)
+    .await
+    {
+        tracing::error!("Failed to deactivate existing assignments: {}", e);
+        return AdminResponse::server_error("Database error").into_response();
+    }
+
+    // Insert or update assignment
+    let assignment_id_res = sqlx::query_as::<_, AssignmentId>(
+        r#"
+        INSERT INTO wallet_plan_assignments (
+            wallet_address, plan_id, assigned_at, expires_at, is_active,
+            assignment_source, assignment_reason, payment_reference, subscription_id,
+            auto_renew, next_billing_date, assignment_metadata
+        )
+        VALUES ($1, $2, NOW(), $3, true, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (wallet_address, plan_id) DO UPDATE
+        SET is_active = true, expires_at = EXCLUDED.expires_at, updated_at = NOW()
+        RETURNING id
+        "#,
+    )
+    .bind(&wallet)
+    .bind(plan_uuid)
+    .bind(expires_at)
+    .bind(&assignment_source)
+    .bind(&assignment_reason)
+    .bind(&payment_reference)
+    .bind(&subscription_id)
+    .bind(req_auto_renew)
+    .bind(expires_at)
+    .bind(&assignment_metadata)
+    .fetch_one(&mut *tx)
+    .await;
+
+    let assignment_id = match assignment_id_res {
+        Ok(row) => row.id,
+        Err(e) => {
+            tracing::error!("Failed to insert assignment: {}", e);
             return AdminResponse::server_error("Failed to create assignment").into_response();
         }
     };
+
+    if let Err(e) = tx.commit().await {
+        tracing::error!("Failed to commit assignment transaction: {}", e);
+        return AdminResponse::server_error("Failed to commit transaction").into_response();
+    }
+
+    let plan = plan.unwrap();
+    let final_expires_at = expires_at;
 
     // Build response
     let response = AssignmentResponse {

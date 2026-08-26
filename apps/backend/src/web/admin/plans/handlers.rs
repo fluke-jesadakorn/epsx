@@ -502,8 +502,6 @@ pub async fn create_subscription_handler(
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
     use crate::infrastructure::models::payment::NewSubscriptionDb;
-    // use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
 
     let subscription_id = Uuid::new_v4();
 
@@ -681,8 +679,6 @@ pub async fn admin_list_user_access_handler(
     State(app_state): State<AppState>,
     Query(query): Query<UserAccessListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    use diesel_async::RunQueryDsl;
-
     let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
 
     let mut conn = match (*app_state.db_pool).acquire().await {

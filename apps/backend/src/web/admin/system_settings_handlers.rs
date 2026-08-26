@@ -8,8 +8,6 @@ use axum::{
     http::HeaderMap,
     Json,
 };
-use diesel::prelude::*;
-use diesel_async::{AsyncConnection, RunQueryDsl};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tracing::{error, info};
@@ -50,18 +48,6 @@ pub struct SettingUpdate {
     pub expected_updated_at: Option<String>,
 }
 
-#[derive(Debug)]
-enum SettingsTransactionError {
-    Database(diesel::result::Error),
-    Conflict,
-}
-
-impl From<diesel::result::Error> for SettingsTransactionError {
-    fn from(error: diesel::result::Error) -> Self {
-        Self::Database(error)
-    }
-}
-
 /// Response for a single setting
 #[derive(Debug, Serialize)]
 pub struct SettingResponse {
@@ -89,22 +75,15 @@ pub struct CategorySettingsResponse {
 // Database Types (inline for simplicity)
 // ============================================================================
 
-#[derive(Debug, QueryableByName)]
+#[derive(Debug, sqlx::FromRow)]
 struct SystemSettingRow {
     #[allow(dead_code)]
-    #[diesel(sql_type = diesel::sql_types::Integer)]
     pub id: i32,
-    #[diesel(sql_type = diesel::sql_types::Varchar)]
     pub category: String,
-    #[diesel(sql_type = diesel::sql_types::Varchar)]
     pub key: String,
-    #[diesel(sql_type = diesel::sql_types::Jsonb)]
     pub value: Value,
     #[allow(dead_code)]
-    #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
     pub description: Option<String>,
-    #[allow(dead_code)]
-    #[diesel(sql_type = diesel::sql_types::Timestamptz)]
     pub updated_at: chrono::DateTime<chrono::Utc>,
 }
 
@@ -239,10 +218,10 @@ pub async fn get_all_settings_handler(
     })?;
 
     // Query all settings from database
-    let rows: Vec<SystemSettingRow> = diesel::sql_query(
+    let rows: Vec<SystemSettingRow> = sqlx::query_as::<_, SystemSettingRow>(
         "SELECT id, category, key, value, description, updated_at FROM system_settings ORDER BY category, key"
     )
-    .load(&mut *conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     .map_err(|e| {
         error!("Failed to query settings: {}", e);
@@ -298,20 +277,12 @@ pub async fn get_settings_by_category_handler(
     }
     info!("Getting settings for category: {}", category);
 
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get DB connection: {}", e);
-        AppError::new(
-            ErrorKind::DatabaseError,
-            format!("Failed to get DB connection: {}", e),
-        )
-    })?;
-
     // Query settings for specific category
-    let rows: Vec<SystemSettingRow> = diesel::sql_query(
+    let rows: Vec<SystemSettingRow> = sqlx::query_as::<_, SystemSettingRow>(
         "SELECT id, category, key, value, description, updated_at FROM system_settings WHERE category = $1"
     )
-    .bind::<diesel::sql_types::Varchar, _>(&category)
-    .load(&mut *conn)
+    .bind(&category)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     .map_err(|e| {
         error!("Failed to query settings: {}", e);
@@ -374,90 +345,86 @@ pub async fn update_settings_handler(
         request_id(&headers).unwrap_or_else(|| uuid::Uuid::new_v4().to_string());
     info!("Updating {} settings", request.settings.len());
 
-    let mut conn = app_state.db_pool.acquire().await.map_err(|e| {
-        error!("Failed to get DB connection: {}", e);
-        AppError::database_error("Failed to get DB connection")
+    let mut tx = app_state.db_pool.begin().await.map_err(|e| {
+        error!("Failed to get DB transaction: {}", e);
+        AppError::database_error("Failed to get DB transaction")
     })?;
 
-    let settings = request.settings;
-    let idempotency_key = idempotency_key.to_string();
-    let updated_count = conn
-        .transaction::<_, SettingsTransactionError, _>(|conn| {
-            Box::pin(async move {
-                // The schema has no idempotency ledger. This lock prevents
-                // concurrent reuse of a key, while expected_updated_at keeps
-                // retries from silently overwriting a newer value.
-                diesel::sql_query("SELECT pg_advisory_xact_lock(hashtext($1))")
-                    .bind::<diesel::sql_types::Text, _>(&idempotency_key)
-                    .execute(conn)
-                    .await?;
-
-                let mut updated_count = 0;
-                for setting in settings {
-                    let existing = diesel::sql_query(
-                        "SELECT id, category, key, value, description, updated_at
-                         FROM system_settings WHERE category = $1 AND key = $2 FOR UPDATE",
-                    )
-                    .bind::<diesel::sql_types::Varchar, _>(&setting.category)
-                    .bind::<diesel::sql_types::Varchar, _>(&setting.key)
-                    .get_result::<SystemSettingRow>(conn)
-                    .await;
-                    let existing = match existing {
-                        Ok(row) => Some(row),
-                        Err(diesel::result::Error::NotFound) => None,
-                        Err(error) => return Err(SettingsTransactionError::Database(error)),
-                    };
-
-                    let expected = setting
-                        .expected_updated_at
-                        .as_deref()
-                        .map(|value| value.parse::<chrono::DateTime<chrono::Utc>>())
-                        .transpose()
-                        .map_err(|_| SettingsTransactionError::Conflict)?;
-                    match (&existing, expected) {
-                        (Some(row), Some(expected)) if row.updated_at != expected => {
-                            return Err(SettingsTransactionError::Conflict);
-                        }
-                        (Some(_), None) | (None, Some(_)) => {
-                            return Err(SettingsTransactionError::Conflict);
-                        }
-                        _ => {}
-                    }
-
-                    if existing.is_some() {
-                        diesel::sql_query(
-                            "UPDATE system_settings SET value = $3, updated_at = NOW()
-                             WHERE category = $1 AND key = $2",
-                        )
-                        .bind::<diesel::sql_types::Varchar, _>(&setting.category)
-                        .bind::<diesel::sql_types::Varchar, _>(&setting.key)
-                        .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
-                        .execute(conn)
-                        .await?;
-                    } else {
-                        diesel::sql_query(
-                            "INSERT INTO system_settings (category, key, value, updated_at)
-                             VALUES ($1, $2, $3, NOW())",
-                        )
-                        .bind::<diesel::sql_types::Varchar, _>(&setting.category)
-                        .bind::<diesel::sql_types::Varchar, _>(&setting.key)
-                        .bind::<diesel::sql_types::Jsonb, _>(&setting.value)
-                        .execute(conn)
-                        .await?;
-                    }
-                    updated_count += 1;
-                }
-                Ok(updated_count)
-            })
-        })
+    sqlx::query("SELECT pg_advisory_xact_lock(hashtext($1))")
+        .bind(idempotency_key)
+        .execute(&mut *tx)
         .await
-        .map_err(|error| match error {
-            SettingsTransactionError::Conflict => AppError::new(
-                ErrorKind::ConcurrencyConflict,
-                "settings changed; reload before retrying",
-            ),
-            SettingsTransactionError::Database(error) => AppError::from(error),
-        })?;
+        .map_err(|e| AppError::database_error(format!("Lock error: {}", e)))?;
+
+    let mut updated_count = 0;
+    for setting in request.settings {
+        let existing: Option<SystemSettingRow> = sqlx::query_as::<_, SystemSettingRow>(
+            "SELECT id, category, key, value, description, updated_at
+             FROM system_settings WHERE category = $1 AND key = $2 FOR UPDATE",
+        )
+        .bind(&setting.category)
+        .bind(&setting.key)
+        .fetch_optional(&mut *tx)
+        .await
+        .map_err(|e| AppError::database_error(format!("Failed to query setting: {}", e)))?;
+
+        let expected = setting
+            .expected_updated_at
+            .as_deref()
+            .map(|value| value.parse::<chrono::DateTime<chrono::Utc>>())
+            .transpose()
+            .map_err(|_| {
+                AppError::new(
+                    ErrorKind::ConcurrencyConflict,
+                    "settings changed; reload before retrying",
+                )
+            })?;
+
+        match (&existing, expected) {
+            (Some(row), Some(expected)) if row.updated_at != expected => {
+                return Err(AppError::new(
+                    ErrorKind::ConcurrencyConflict,
+                    "settings changed; reload before retrying",
+                ));
+            }
+            (Some(_), None) | (None, Some(_)) => {
+                return Err(AppError::new(
+                    ErrorKind::ConcurrencyConflict,
+                    "settings changed; reload before retrying",
+                ));
+            }
+            _ => {}
+        }
+
+        if existing.is_some() {
+            sqlx::query(
+                "UPDATE system_settings SET value = $3, updated_at = NOW()
+                 WHERE category = $1 AND key = $2",
+            )
+            .bind(&setting.category)
+            .bind(&setting.key)
+            .bind(&setting.value)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to update setting: {}", e)))?;
+        } else {
+            sqlx::query(
+                "INSERT INTO system_settings (category, key, value, updated_at)
+                 VALUES ($1, $2, $3, NOW())",
+            )
+            .bind(&setting.category)
+            .bind(&setting.key)
+            .bind(&setting.value)
+            .execute(&mut *tx)
+            .await
+            .map_err(|e| AppError::database_error(format!("Failed to insert setting: {}", e)))?;
+        }
+        updated_count += 1;
+    }
+
+    tx.commit().await.map_err(|e| {
+        AppError::database_error(format!("Failed to commit transaction: {}", e))
+    })?;
 
     Ok(Json(json!({
         "success": true,
