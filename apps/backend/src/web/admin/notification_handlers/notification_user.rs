@@ -77,7 +77,7 @@ pub async fn get_user_notifications_handler(
     }
 
     // Use repository for database operations - notifications table is in separate DB
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let repo = WalletNotificationRepository::new(notifications_pool.clone());
 
     // Fetch notifications for wallet
@@ -200,7 +200,7 @@ pub async fn mark_notification_read_handler(
     })?;
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -256,7 +256,7 @@ pub async fn mark_notification_unread_handler(
         )
     })?;
 
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -327,7 +327,7 @@ pub async fn delete_notification_handler(
     })?;
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -385,7 +385,7 @@ pub async fn get_unread_count_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -436,7 +436,7 @@ pub async fn mark_all_notifications_read_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
@@ -487,7 +487,7 @@ pub async fn clear_all_notifications_handler(
     let wallet_address = user_ctx.wallet_address.clone().to_lowercase();
 
     // Get notifications database connection
-    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?);
+    let notifications_pool = std::sync::Arc::new(require_notifications_pool().await?.clone());
     let mut conn = notifications_pool.acquire().await.map_err(|e| {
         AppError::new(
             ErrorKind::DatabaseError,
