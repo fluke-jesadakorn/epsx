@@ -126,10 +126,10 @@ impl WalletNotificationRepository {
     }
 
     /// Build WHERE clause prefix shared by find/count queries.
-    fn apply_filter_to_qb(
-        mut qb: QueryBuilder<sqlx::Postgres>,
+    fn apply_filter_to_qb<'a>(
+        mut qb: QueryBuilder<'a, sqlx::Postgres>,
         filter: &NotificationQueryFilter,
-    ) -> QueryBuilder<sqlx::Postgres> {
+    ) -> QueryBuilder<'a, sqlx::Postgres> {
         qb.push(" WHERE status != 'deleted'");
         if let Some(ref wallet) = filter.wallet_address {
             qb.push(" AND recipient_wallet_address = ").push_bind(wallet.clone());
@@ -142,8 +142,12 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             match status.as_str() {
-                "read" => qb.push(" AND status = 'read'"),
-                "unread" => qb.push(" AND status != 'read'"),
+                "read" => {
+                    qb.push(" AND status = 'read'");
+                }
+                "unread" => {
+                    qb.push(" AND status != 'read'");
+                }
                 _ => {}
             }
         }
@@ -206,9 +210,8 @@ impl WalletNotificationRepository {
                     priority, created_at, expires_at, status, action_url, image_url, updated_at \
              FROM wallet_notifications",
         );
-        let qb = Self::apply_filter_to_qb(qb, filter);
-        let qb = qb
-            .push(" ORDER BY created_at DESC LIMIT ")
+        let mut qb = Self::apply_filter_to_qb(qb, filter);
+        qb.push(" ORDER BY created_at DESC LIMIT ")
             .push_bind(limit)
             .push(" OFFSET ")
             .push_bind(offset);
@@ -253,8 +256,12 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             match status.as_str() {
-                "read" => qb.push(" AND status = 'read'"),
-                "unread" => qb.push(" AND status != 'read'"),
+                "read" => {
+                    qb.push(" AND status = 'read'");
+                }
+                "unread" => {
+                    qb.push(" AND status != 'read'");
+                }
                 _ => {}
             }
         }
@@ -284,7 +291,7 @@ impl WalletNotificationRepository {
         filter: &NotificationQueryFilter,
     ) -> Result<i64, AppError> {
         let qb = QueryBuilder::new("SELECT COUNT(*) as count FROM wallet_notifications");
-        let qb = Self::apply_filter_to_qb(qb, filter);
+        let mut qb = Self::apply_filter_to_qb(qb, filter);
         let row: (i64,) = qb
             .build_query_as()
             .fetch_one(self.pool.as_ref())
@@ -318,8 +325,12 @@ impl WalletNotificationRepository {
         }
         if let Some(ref status) = filter.status {
             match status.as_str() {
-                "read" => qb.push(" AND status = 'read'"),
-                "unread" => qb.push(" AND status != 'read'"),
+                "read" => {
+                    qb.push(" AND status = 'read'");
+                }
+                "unread" => {
+                    qb.push(" AND status != 'read'");
+                }
                 _ => {}
             }
         }
