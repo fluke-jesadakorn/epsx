@@ -16,6 +16,7 @@ pulldown-cmark = { workspace = true }
 reqwest.workspace = true
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio.workspace = true
 url = { workspace = true }
 uuid = { workspace = true }
 
@@ -30,4 +31,5 @@ dioxus-ssr = { workspace = true }
 [features]
 default = []
 ssr = []
-web = []
+web = ["dioxus/web"]
+server = ["dioxus/server"]

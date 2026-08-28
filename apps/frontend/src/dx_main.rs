@@ -4,8 +4,8 @@
 //! Production stays on `bff-frontend` (Axum + dioxus_ssr) until Phase 2
 //! server_fn migration completes. Both share `epsx-dioxus-ui` + `templates`.
 
-use epsx_dioxus_ui::app::FrontendApp;
 use dioxus::prelude::*;
+use epsx_dioxus_ui::app::FrontendApp;
 
 #[component]
 fn App() -> Element {
