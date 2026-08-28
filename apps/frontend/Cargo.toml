@@ -18,6 +18,8 @@ epsx-bff = { path = "../../shared/rust/bff" }
 dioxus = { workspace = true }
 dioxus-ssr = { workspace = true }
 dioxus-web = { workspace = true }
+dioxus-fullstack = { workspace = true }
+dioxus-server = { workspace = true }
 axum.workspace = true
 tokio.workspace = true
 tracing.workspace = true
@@ -26,7 +28,7 @@ serde_json.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 http = { workspace = true }
-reqwest.workspace = true
+reqwest = { workspace = true, features = ["multipart"] }
 futures.workspace = true
 hex.workspace = true
 url.workspace = true

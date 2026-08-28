@@ -19,6 +19,38 @@ pub fn service_workers_enabled(hostname: &str) -> bool {
     )
 }
 
+pub fn chat_topic_icon_svg(name: &str) -> String {
+    // Mirrors epsx_templates::lucide_icon for the 6 chat topic icons.
+    // Returns a 20px SVG with currentColor stroke so the parent's `color` drives visibility.
+    let body = match name {
+        "message-circle" => r#"<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>"#,
+        "credit-card" => {
+            r#"<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>"#
+        }
+        "user" => {
+            r#"<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>"#
+        }
+        "bar-chart" | "bar-chart-2" | "bar-chart-3" | "chart-column" => {
+            r#"<path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>"#
+        }
+        "bug" => {
+            r#"<path d="M12 20v-9"/><path d="M14 7a4 4 0 0 1 4 4v3a6 6 0 0 1-12 0v-3a4 4 0 0 1 4-4z"/><path d="M14.12 3.88 16 2"/><path d="M21 21a4 4 0 0 0-3.81-4"/><path d="M21 5a4 4 0 0 1-3.55 3.97"/><path d="M22 13h-4"/><path d="M3 21a4 4 0 0 1 3.81-4"/><path d="M3 5a4 4 0 0 0 3.55 3.97"/><path d="M6 13H2"/><path d="m8 2 1.88 1.88"/><path d="M9 7.13V6a3 3 0 1 1 6 0v1.13"/>"#
+        }
+        "lightbulb" => {
+            r#"<path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5"/><path d="M9 18h6"/><path d="M10 22h4"/>"#
+        }
+        "headset" => {
+            r#"<path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M21 14h-3a2 2 0 0 0-2 2v3a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2Z"/><path d="M3 14v-2a9 9 0 0 1 18 0v2"/><path d="M21 14v-2"/>"#
+        }
+        _ => r#"<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>"#,
+    };
+    format!(
+        r#"<span class="epsx-icon" style="width:20px;height:20px;"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-{name}" aria-hidden="true">{body}</svg></span>"#,
+        name = name,
+        body = body
+    )
+}
+
 /// Accept only same-origin absolute-path redirects.
 pub fn safe_return_path(raw: &str) -> &str {
     if raw.starts_with('/')
@@ -35,12 +67,39 @@ pub fn safe_return_path(raw: &str) -> &str {
 /// Turn the BFF's deliberately safe error code into a useful browser message.
 /// The upstream response never contains tokens or provider details, so showing
 /// this code helps a user distinguish a rejected signature from a verifier
-/// outage without exposing authentication material.
+/// outage without exposing authentication material. Known infrastructure
+/// outages are surfaced with a clearer plain-text message; everything else
+/// falls back to the closed code/HTTP pair for debugging.
 pub fn auth_http_error(status: u16, code: Option<&str>) -> String {
-    match code.filter(|code| !code.trim().is_empty()) {
+    match code.map(str::trim).filter(|code| !code.is_empty()) {
+        Some("auth_upstream_unavailable") => {
+            "Sign-in service is temporarily unavailable. Please try again in a moment.".to_string()
+        }
+        Some("challenge_rejected") => {
+            "Wallet challenge was rejected. Please reconnect and try again.".to_string()
+        }
+        Some("authentication_rejected") => {
+            "Wallet signature was rejected. Please reconnect and try again.".to_string()
+        }
+        Some("missing_refresh_token") => {
+            "Your session expired. Please reconnect your wallet.".to_string()
+        }
         Some(code) => format!("Sign-in failed: {code} (HTTP {status})"),
         None => format!("Sign-in failed (HTTP {status})"),
     }
+}
+
+/// Classify a formatted BFF error as the closed transient upstream pair so the
+/// browser runtime can decide whether a single retry is worthwhile. Matches any
+/// `auth_upstream_unavailable` code (any HTTP status, e.g. 502, 530, 503) or
+/// the friendly outage message so retries work either before or after
+/// `auth_http_error` rewrites the code and regardless of the mapped gateway
+/// status.
+pub fn is_transient_upstream_error_pub(message: &str) -> bool {
+    let trimmed = message.trim();
+    let closed = trimmed.contains("auth_upstream_unavailable");
+    let friendly = trimmed.starts_with("Sign-in service is temporarily unavailable");
+    closed || friendly
 }
 
 /// Only provider transports implemented by the generated browser runtime may
@@ -167,9 +226,9 @@ mod browser {
     use wasm_bindgen::{closure::Closure, prelude::*, JsCast};
     use wasm_bindgen_futures::{spawn_local, JsFuture};
     use web_sys::{
-        Document, DragEvent, Element, Event, HtmlButtonElement, HtmlInputElement,
-        HtmlSelectElement, HtmlTextAreaElement, KeyboardEvent, PointerEvent, Request, RequestInit,
-        Response, Window,
+        DataTransfer, Document, DragEvent, Element, Event, File, FormData, HtmlButtonElement,
+        HtmlElement, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, KeyboardEvent,
+        PointerEvent, Request, RequestInit, Response, Window,
     };
 
     const GENERATED_WORKER: &str = "/runtime/epsx_service_worker_bootstrap.v3.js?rev=3";
@@ -229,6 +288,7 @@ mod browser {
         bind_watchlist_drag(&document)?;
         bind_watchlist_pointer_drag(&document)?;
         bind_wallet_provider(&document);
+        let _ = bind_chat(&document);
         register_worker(&window);
         start_route_tasks(&window, &document);
         Ok(())
@@ -958,6 +1018,36 @@ mod browser {
         fetch_json_with_headers(path, method, body, &[]).await
     }
 
+    /// Retry a fetch once after a short delay when the BFF returns the
+    /// closed "auth_upstream_unavailable" code (any 5xx, e.g. 502, 530).
+    /// This handles the startup race where the user clicks Connect Wallet
+    /// before the backend has finished warming up, plus short network blips
+    /// and Cloudflare tunnel 530 errors. Deterministic failures (4xx,
+    /// malformed JSON) are surfaced immediately without retry.
+    async fn fetch_json_with_upstream_retry(
+        path: &str,
+        method: &str,
+        body: Option<Value>,
+    ) -> Result<Value, JsValue> {
+        match fetch_json(path, method, body.clone()).await {
+            Ok(value) => Ok(value),
+            Err(error) => {
+                let message = error.as_string().unwrap_or_default();
+                if is_transient_upstream_error(&message) {
+                    delay(750).await;
+                    return fetch_json(path, method, body).await;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    fn is_transient_upstream_error(message: &str) -> bool {
+        let trimmed = message.trim();
+        trimmed.contains("auth_upstream_unavailable")
+            || trimmed.starts_with("Sign-in service is temporarily unavailable")
+    }
+
     fn form_value(form: &Element, name: &str) -> Option<String> {
         form.query_selector(&format!("[name=\"{name}\"]"))
             .ok()
@@ -1214,6 +1304,12 @@ mod browser {
                 }
             }
             if provider_flag(&ethereum, "isMetaMask") {
+                return Ok(ethereum);
+            }
+            if Reflect::get(&ethereum, &JsValue::from_str("request"))
+                .ok()
+                .is_some_and(|f| f.is_function())
+            {
                 return Ok(ethereum);
             }
             return Err(JsValue::from_str(
@@ -1519,9 +1615,12 @@ mod browser {
         set_wallet_busy(&button, true);
         set_status("Connecting wallet…", false);
         let result = async {
-            let connector = button
-                .get_attribute("data-provider")
-                .and_then(|value| supported_injected_wallet(&value))
+            let connector_attr = button.get_attribute("data-provider");
+            let connector_raw = connector_attr
+                .as_deref()
+                .filter(|s| !s.trim().is_empty())
+                .unwrap_or("metamask");
+            let connector = supported_injected_wallet(connector_raw)
                 .ok_or_else(|| JsValue::from_str("This wallet connector is not available"))?;
             let provider = injected_wallet_provider(connector)?;
             let force_selection = button
@@ -1531,7 +1630,7 @@ mod browser {
             let address = request_provider_account(&provider, force_selection).await?;
             let chain_id = provider_chain_id(&provider).await?;
             let challenge: Challenge = serde_json::from_value(
-                fetch_json(
+                fetch_json_with_upstream_retry(
                     "/api/v1/auth/challenge",
                     "POST",
                     Some(json!({"address": address})),
@@ -1548,7 +1647,7 @@ mod browser {
                 .as_string()
                 .ok_or("wallet returned no signature")?;
             ensure_provider_account(&provider, &address).await?;
-            let session = fetch_json(
+            let session = fetch_json_with_upstream_retry(
                 "/api/v1/auth/siwe",
                 "POST",
                 Some(json!({
@@ -1571,6 +1670,21 @@ mod browser {
             write_wallet_cookie(&document, &address, connector, chain_id);
             let target = button
                 .get_attribute("data-return-url")
+                .filter(|url| !url.trim().is_empty())
+                .or_else(|| {
+                    let search = window.location().search().ok()?;
+                    let query = search.strip_prefix('?').unwrap_or(&search);
+                    query.split('&').find_map(|pair| {
+                        let (key, value) = pair.split_once('=')?;
+                        if key == "return_url" {
+                            js_sys::decode_uri_component(value)
+                                .ok()
+                                .and_then(|v| v.as_string())
+                        } else {
+                            None
+                        }
+                    })
+                })
                 .unwrap_or_else(|| "/".to_string());
             window.location().replace(safe_return_path(&target))?;
             Ok::<(), JsValue>(())
@@ -3012,20 +3126,739 @@ mod browser {
         let _ = window;
     }
 
+    fn update_chat_submit_state(document: &Document) {
+        let topic = document
+            .query_selector("[data-chat-topic-input]")
+            .ok()
+            .flatten()
+            .and_then(|el| {
+                el.dyn_ref::<HtmlInputElement>()
+                    .map(|i| i.value())
+                    .or_else(|| el.get_attribute("value"))
+            })
+            .unwrap_or_default();
+        let subject = document
+            .query_selector("[data-chat-subject]")
+            .ok()
+            .flatten()
+            .and_then(|el| {
+                el.dyn_ref::<HtmlInputElement>()
+                    .map(|i| i.value())
+                    .or_else(|| el.dyn_ref::<HtmlTextAreaElement>().map(|t| t.value()))
+            })
+            .unwrap_or_default();
+        let message = document
+            .query_selector("[data-chat-message]")
+            .ok()
+            .flatten()
+            .and_then(|el| {
+                el.dyn_ref::<HtmlTextAreaElement>()
+                    .map(|t| t.value())
+                    .or_else(|| el.dyn_ref::<HtmlInputElement>().map(|i| i.value()))
+            })
+            .unwrap_or_default();
+        let ready =
+            !topic.trim().is_empty() && !subject.trim().is_empty() && !message.trim().is_empty();
+        if let Ok(Some(btn)) = document.query_selector("[data-chat-submit]") {
+            if ready {
+                let _ = btn.remove_attribute("disabled");
+                if let Some(b) = btn.dyn_ref::<HtmlButtonElement>() {
+                    b.set_disabled(false);
+                }
+            } else {
+                let _ = btn.set_attribute("disabled", "");
+                if let Some(b) = btn.dyn_ref::<HtmlButtonElement>() {
+                    b.set_disabled(true);
+                }
+            }
+        }
+    }
+
+    fn handle_chat_file(document: &Document, file: &web_sys::File) {
+        let max_bytes = 5 * 1024 * 1024;
+        let size = file.size() as usize;
+        let name = file.name();
+        let lower = name.to_ascii_lowercase();
+        let allowed = ["jpg", "jpeg", "png", "gif", "webp", "pdf"];
+        let ext = lower.rsplit('.').next().unwrap_or_default();
+        let type_ok = allowed.contains(&ext);
+        let error_el = document
+            .query_selector("[data-chat-file-error]")
+            .ok()
+            .flatten();
+        let list_el = document
+            .query_selector("[data-chat-file-list]")
+            .ok()
+            .flatten();
+        if !type_ok {
+            if let Some(err) = error_el {
+                err.set_text_content(Some(
+                    "Unsupported file type. Use JPG, PNG, GIF, WebP or PDF.",
+                ));
+                let _ = err.remove_attribute("hidden");
+            }
+            if let Some(input) = document
+                .query_selector("[data-chat-file-input]")
+                .ok()
+                .flatten()
+                .and_then(|el| el.dyn_into::<HtmlInputElement>().ok())
+            {
+                input.set_value("");
+            }
+            if let Some(list) = list_el {
+                list.set_inner_html("");
+                let _ = list.set_attribute("hidden", "");
+            }
+            return;
+        }
+        if size > max_bytes {
+            if let Some(err) = error_el {
+                err.set_text_content(Some("File is too large. Max 5MB."));
+                let _ = err.remove_attribute("hidden");
+            }
+            if let Some(input) = document
+                .query_selector("[data-chat-file-input]")
+                .ok()
+                .flatten()
+                .and_then(|el| el.dyn_into::<HtmlInputElement>().ok())
+            {
+                input.set_value("");
+            }
+            if let Some(list) = list_el {
+                list.set_inner_html("");
+                let _ = list.set_attribute("hidden", "");
+            }
+            return;
+        }
+        if let Some(err) = error_el {
+            let _ = err.set_attribute("hidden", "");
+            err.set_text_content(None);
+        }
+        if let Some(list) = list_el {
+            let kb = (size as f64 / 1024.0).ceil() as usize;
+            let display = if kb > 1024 {
+                format!("{:.1} MB", size as f64 / (1024.0 * 1024.0))
+            } else {
+                format!("{kb} KB")
+            };
+            let html = format!(
+                r#"<div class="chat-topic-file-item" style="display:flex;align-items:center;justify-content:space-between;gap:0.5rem;padding:0.5rem 0.625rem;margin-top:0.5rem;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:0.5rem;"><span style="font-size:0.75rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{} ({})</span><button type="button" data-chat-file-remove style="background:transparent;border:0;color:#94a3b8;cursor:pointer;font-size:1rem;line-height:1;">&times;</button></div>"#,
+                {
+                    let mut s = name.clone();
+                    s = s
+                        .replace('&', "&amp;")
+                        .replace('<', "&lt;")
+                        .replace('>', "&gt;")
+                        .replace('"', "&quot;");
+                    s
+                },
+                display
+            );
+            list.set_inner_html(&html);
+            let _ = list.remove_attribute("hidden");
+        }
+    }
+
+    fn filter_chat_conversations(document: &Document) {
+        let search = document
+            .query_selector("[data-chat-search]")
+            .ok()
+            .flatten()
+            .and_then(|el| el.dyn_ref::<HtmlInputElement>().map(|i| i.value()))
+            .unwrap_or_default()
+            .to_ascii_lowercase()
+            .trim()
+            .to_string();
+        let status = document
+            .query_selector("[data-chat-filter-status]")
+            .ok()
+            .flatten()
+            .and_then(|el| el.dyn_ref::<HtmlSelectElement>().map(|s| s.value()))
+            .unwrap_or_else(|| "all".into());
+        let topic = document
+            .query_selector("[data-chat-filter-topic]")
+            .ok()
+            .flatten()
+            .and_then(|el| el.dyn_ref::<HtmlSelectElement>().map(|s| s.value()))
+            .unwrap_or_else(|| "all".into());
+        let Ok(nodes) = document.query_selector_all("[data-conversation-card]") else {
+            return;
+        };
+        for i in 0..nodes.length() {
+            let Some(card) = nodes.item(i).and_then(|n| n.dyn_into::<Element>().ok()) else {
+                continue;
+            };
+            let subj = card
+                .get_attribute("data-conversation-subject")
+                .unwrap_or_default();
+            let card_status = card
+                .get_attribute("data-conversation-status")
+                .unwrap_or_default();
+            let card_topic = card
+                .get_attribute("data-conversation-topic")
+                .unwrap_or_default();
+            let matches_search = search.is_empty() || subj.contains(&search);
+            let matches_status = status == "all" || card_status == status;
+            let matches_topic = topic == "all" || card_topic == topic;
+            let visible = matches_search && matches_status && matches_topic;
+            if visible {
+                let _ = card.remove_attribute("hidden");
+                card.set_attribute("style", "").ok();
+            } else {
+                let _ = card.set_attribute("hidden", "");
+            }
+        }
+    }
+
+    async fn fetch_with_form_data(path: &str, form: web_sys::FormData) -> Result<Value, JsValue> {
+        let window = web_sys::window().ok_or("window unavailable")?;
+        let opts = RequestInit::new();
+        opts.set_method("POST");
+        opts.set_credentials(web_sys::RequestCredentials::SameOrigin);
+        opts.set_body(&form);
+        let request = Request::new_with_str_and_init(path, &opts)?;
+        request.headers().set("accept", "application/json")?;
+        let resp = JsFuture::from(window.fetch_with_request(&request))
+            .await?
+            .dyn_into::<Response>()?;
+        if !resp.ok() {
+            let status = resp.status();
+            let code = match resp.json() {
+                Ok(body) => JsFuture::from(body)
+                    .await
+                    .ok()
+                    .and_then(|b| serde_wasm_bindgen::from_value::<Value>(b).ok())
+                    .and_then(|b| b.get("error").and_then(Value::as_str).map(str::to_owned)),
+                Err(_) => None,
+            };
+            return Err(JsValue::from_str(&auth_http_error(status, code.as_deref())));
+        }
+        let v = JsFuture::from(resp.json()?).await?;
+        serde_wasm_bindgen::from_value(v).map_err(|e| JsValue::from_str(&e.to_string()))
+    }
+
+    async fn chat_create_with_file(
+        _form: Element,
+        topic_id: String,
+        subject: String,
+        message: String,
+    ) -> Result<(), JsValue> {
+        let window = web_sys::window().ok_or("window unavailable")?;
+        let document = window.document().ok_or("document unavailable")?;
+        // 1) create conversation via JSON
+        let payload = json!({
+            "topic_id": topic_id,
+            "subject": subject,
+            "message": message
+        });
+        let created: Value =
+            fetch_json("/api/v1/chat/conversations", "POST", Some(payload)).await?;
+        let conv_id = created
+            .get("data")
+            .and_then(|d| d.get("id"))
+            .and_then(Value::as_str)
+            .or_else(|| created.get("id").and_then(Value::as_str))
+            .ok_or_else(|| JsValue::from_str("Conversation was created but id was missing"))?
+            .to_string();
+        // 2) optional file upload
+        let file_opt: Option<File> = document
+            .query_selector("[data-chat-file-input]")
+            .ok()
+            .flatten()
+            .and_then(|el| {
+                let input = el.dyn_into::<HtmlInputElement>().ok()?;
+                if let Some(files) = input.files() {
+                    if files.length() > 0 {
+                        return files.get(0);
+                    }
+                }
+                // fallback: dropped file stored as property __droppedFile
+                Reflect::get(input.as_ref(), &JsValue::from_str("__droppedFile"))
+                    .ok()
+                    .and_then(|v| {
+                        if v.is_undefined() || v.is_null() {
+                            None
+                        } else {
+                            v.dyn_into::<File>().ok()
+                        }
+                    })
+            });
+        if let Some(file) = file_opt {
+            let form = web_sys::FormData::new()?;
+            form.append_with_blob_and_filename("file", &file, &file.name())?;
+            // BFF upload route
+            let upload_path = format!("/api/v1/chat/conversations/{conv_id}/upload");
+            match fetch_with_form_data(&upload_path, form).await {
+                Ok(_) => {}
+                Err(e) => {
+                    // upload failed but conversation exists: still redirect and show warning via query
+                    let msg = e.as_string().unwrap_or_else(|| "File upload failed".into());
+                    web_sys::console::warn_1(&JsValue::from_str(&format!(
+                        "chat file upload failed: {msg}"
+                    )));
+                }
+            }
+        }
+        let target = format!("/chat/{conv_id}?chat=created");
+        window.location().assign(&target)?;
+        Ok(())
+    }
+
+    fn bind_chat(document: &Document) -> Result<(), JsValue> {
+        let click_doc = document.clone();
+        let click_closure = Closure::<dyn Fn(Event)>::new(move |event: Event| {
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if let Ok(Some(btn)) = target.closest("[data-chat-topic-select]") {
+                event.prevent_default();
+                let topic_id = btn
+                    .get_attribute("data-chat-topic-select")
+                    .unwrap_or_default();
+                let label = btn.get_attribute("data-topic-label").unwrap_or_default();
+                let desc = btn
+                    .get_attribute("data-topic-description")
+                    .unwrap_or_default();
+                let icon = btn
+                    .get_attribute("data-topic-icon")
+                    .unwrap_or_else(|| "message-circle".into());
+                let bg = btn
+                    .get_attribute("data-topic-icon-bg")
+                    .unwrap_or_else(|| "rgba(59,130,246,0.15)".into());
+                let fg = btn
+                    .get_attribute("data-topic-icon-fg")
+                    .unwrap_or_else(|| "#60a5fa".into());
+                if let Ok(Some(input)) = click_doc.query_selector("[data-chat-topic-input]") {
+                    let _ = input.set_attribute("value", &topic_id);
+                    if let Some(html) = input.dyn_ref::<HtmlInputElement>() {
+                        html.set_value(&topic_id);
+                    }
+                }
+                if let Ok(Some(icon_el)) = click_doc.query_selector("[data-chat-selected-icon]") {
+                    let _ = icon_el.set_attribute(
+                        "style",
+                        &format!("background:{}; color:{}; border:1px solid rgba(255,255,255,0.12); box-shadow:0 4px 12px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.10);", bg, fg),
+                    );
+                    let _ = icon_el.set_attribute("data-icon", &icon);
+                    icon_el.set_inner_html(&crate::chat_topic_icon_svg(&icon));
+                }
+                if let Ok(Some(label_el)) = click_doc.query_selector("[data-chat-selected-label]") {
+                    label_el.set_text_content(Some(&label));
+                }
+                if let Ok(Some(desc_el)) = click_doc.query_selector("[data-chat-selected-desc]") {
+                    desc_el.set_text_content(Some(&desc));
+                }
+                if let Ok(Some(panel)) =
+                    click_doc.query_selector("[data-chat-topic-selector-panel]")
+                {
+                    let _ = panel.set_attribute("hidden", "");
+                }
+                if let Ok(Some(wrap)) = click_doc.query_selector("[data-chat-topic-form-wrap]") {
+                    let _ = wrap.remove_attribute("hidden");
+                }
+                if let Ok(Some(subject)) = click_doc.query_selector("[data-chat-subject]") {
+                    if let Some(html) = subject.dyn_ref::<web_sys::HtmlElement>() {
+                        let _ = html.focus();
+                    }
+                }
+                update_chat_submit_state(&click_doc);
+                return;
+            }
+            if target.closest("[data-chat-back]").ok().flatten().is_some() {
+                event.prevent_default();
+                if let Ok(Some(panel)) =
+                    click_doc.query_selector("[data-chat-topic-selector-panel]")
+                {
+                    let _ = panel.remove_attribute("hidden");
+                }
+                if let Ok(Some(wrap)) = click_doc.query_selector("[data-chat-topic-form-wrap]") {
+                    let _ = wrap.set_attribute("hidden", "");
+                }
+                if let Ok(Some(input)) = click_doc.query_selector("[data-chat-topic-input]") {
+                    if let Some(html) = input.dyn_ref::<HtmlInputElement>() {
+                        html.set_value("");
+                    } else {
+                        let _ = input.set_attribute("value", "");
+                    }
+                }
+                for sel in ["[data-chat-subject]", "[data-chat-message]"] {
+                    if let Ok(Some(el)) = click_doc.query_selector(sel) {
+                        if let Some(html) = el.dyn_ref::<HtmlInputElement>() {
+                            html.set_value("");
+                        } else if let Some(html) = el.dyn_ref::<HtmlTextAreaElement>() {
+                            html.set_value("");
+                        }
+                    }
+                }
+                if let Ok(Some(file_input)) = click_doc.query_selector("[data-chat-file-input]") {
+                    if let Some(html) = file_input.dyn_ref::<HtmlInputElement>() {
+                        html.set_value("");
+                    }
+                }
+                if let Ok(Some(list)) = click_doc.query_selector("[data-chat-file-list]") {
+                    list.set_inner_html("");
+                    let _ = list.set_attribute("hidden", "");
+                }
+                if let Ok(Some(err)) = click_doc.query_selector("[data-chat-file-error]") {
+                    let _ = err.set_attribute("hidden", "");
+                    err.set_text_content(None);
+                }
+                if let Ok(Some(status)) = click_doc.query_selector("[data-chat-form-status]") {
+                    let _ = status.set_attribute("hidden", "");
+                }
+                update_chat_submit_state(&click_doc);
+                return;
+            }
+            if let Ok(Some(zone)) = target.closest("[data-chat-dropzone]") {
+                if target
+                    .closest("[data-chat-file-remove]")
+                    .ok()
+                    .flatten()
+                    .is_some()
+                {
+                    return;
+                }
+                if target.has_attribute("data-chat-file-input") {
+                    return;
+                }
+                if let Ok(Some(file_input)) = click_doc.query_selector("[data-chat-file-input]") {
+                    if let Some(html) = file_input.dyn_ref::<web_sys::HtmlElement>() {
+                        let _ = html.click();
+                    }
+                }
+                let _ = zone;
+            }
+            if target
+                .closest("[data-chat-file-remove]")
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                event.prevent_default();
+                if let Ok(Some(file_input)) = click_doc.query_selector("[data-chat-file-input]") {
+                    if let Some(html) = file_input.dyn_ref::<HtmlInputElement>() {
+                        html.set_value("");
+                        let _ = Reflect::delete_property(
+                            html.as_ref(),
+                            &JsValue::from_str("__droppedFile"),
+                        );
+                    }
+                }
+                if let Ok(Some(list)) = click_doc.query_selector("[data-chat-file-list]") {
+                    list.set_inner_html("");
+                    let _ = list.set_attribute("hidden", "");
+                }
+                if let Ok(Some(err)) = click_doc.query_selector("[data-chat-file-error]") {
+                    let _ = err.set_attribute("hidden", "");
+                }
+                update_chat_submit_state(&click_doc);
+            }
+        });
+        document
+            .add_event_listener_with_callback("click", click_closure.as_ref().unchecked_ref())?;
+        click_closure.forget();
+
+        let input_doc = document.clone();
+        let input_closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if target
+                .closest("[data-chat-subject]")
+                .ok()
+                .flatten()
+                .is_some()
+                || target
+                    .closest("[data-chat-message]")
+                    .ok()
+                    .flatten()
+                    .is_some()
+            {
+                update_chat_submit_state(&input_doc);
+            }
+            if target.get_attribute("data-chat-search").is_some()
+                || target.get_attribute("data-chat-filter-status").is_some()
+                || target.get_attribute("data-chat-filter-topic").is_some()
+            {
+                filter_chat_conversations(&input_doc);
+            }
+        });
+        document
+            .add_event_listener_with_callback("input", input_closure.as_ref().unchecked_ref())?;
+        input_closure.forget();
+
+        let change_doc = document.clone();
+        let change_closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if target.get_attribute("data-chat-file-input").is_some() {
+                if let Some(input) = target.dyn_ref::<HtmlInputElement>() {
+                    let _ = Reflect::delete_property(
+                        input.as_ref(),
+                        &JsValue::from_str("__droppedFile"),
+                    );
+                    if let Some(files) = input.files() {
+                        if files.length() > 0 {
+                            if let Some(file) = files.get(0) {
+                                handle_chat_file(&change_doc, &file);
+                            }
+                        }
+                    }
+                }
+                update_chat_submit_state(&change_doc);
+            }
+            if target.get_attribute("data-chat-filter-status").is_some()
+                || target.get_attribute("data-chat-filter-topic").is_some()
+            {
+                filter_chat_conversations(&change_doc);
+            }
+        });
+        document
+            .add_event_listener_with_callback("change", change_closure.as_ref().unchecked_ref())?;
+        change_closure.forget();
+
+        let dragover_doc = document.clone();
+        let dragover_closure = Closure::<dyn FnMut(DragEvent)>::new(move |event: DragEvent| {
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if target
+                .closest("[data-chat-dropzone]")
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                event.prevent_default();
+                if let Ok(Some(zone)) = dragover_doc.query_selector("[data-chat-dropzone]") {
+                    let _ = zone.class_list().add_1("drag-over");
+                }
+            }
+        });
+        document.add_event_listener_with_callback(
+            "dragover",
+            dragover_closure.as_ref().unchecked_ref(),
+        )?;
+        dragover_closure.forget();
+
+        let dragleave_doc = document.clone();
+        let dragleave_closure = Closure::<dyn FnMut(DragEvent)>::new(move |event: DragEvent| {
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if target
+                .closest("[data-chat-dropzone]")
+                .ok()
+                .flatten()
+                .is_some()
+            {
+                if let Ok(Some(zone)) = dragleave_doc.query_selector("[data-chat-dropzone]") {
+                    let _ = zone.class_list().remove_1("drag-over");
+                }
+            }
+            let _ = target;
+        });
+        document.add_event_listener_with_callback(
+            "dragleave",
+            dragleave_closure.as_ref().unchecked_ref(),
+        )?;
+        dragleave_closure.forget();
+
+        let drop_doc = document.clone();
+        let drop_closure = Closure::<dyn FnMut(DragEvent)>::new(move |event: DragEvent| {
+            event.prevent_default();
+            let Some(target) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if target
+                .closest("[data-chat-dropzone]")
+                .ok()
+                .flatten()
+                .is_none()
+            {
+                return;
+            }
+            if let Ok(Some(zone)) = drop_doc.query_selector("[data-chat-dropzone]") {
+                let _ = zone.class_list().remove_1("drag-over");
+            }
+            if let Some(dt) = event.data_transfer() {
+                if let Some(files) = dt.files() {
+                    if files.length() > 0 {
+                        if let Some(file) = files.get(0) {
+                            // also set the file input's files via DataTransfer workaround is non-trivial; just handle directly
+                            handle_chat_file(&drop_doc, &file);
+                            // store file into input via DataTransfer is not easily done; we keep it in memory by creating a new FileList via hack: set input value and keep file in closure would be ideal but we reuse input files check on submit via a temporary global. For now, we create a DataTransfer to set files
+                            if let Ok(Some(input)) =
+                                drop_doc.query_selector("[data-chat-file-input]")
+                            {
+                                if let Some(html) = input.dyn_ref::<HtmlInputElement>() {
+                                    // cannot programmatically set files due to security; we instead store file in a custom property on the input
+                                    let _ =
+                                        html.set_attribute("data-dropped-file-name", &file.name());
+                                    // keep the file object in a property via js_sys::Reflect
+                                    let _ = Reflect::set(
+                                        html.as_ref(),
+                                        &JsValue::from_str("__droppedFile"),
+                                        &file,
+                                    );
+                                }
+                            }
+                            update_chat_submit_state(&drop_doc);
+                        }
+                    }
+                }
+            }
+        });
+        document.add_event_listener_with_callback("drop", drop_closure.as_ref().unchecked_ref())?;
+        drop_closure.forget();
+
+        let submit_doc = document.clone();
+        let submit_closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
+            let Some(form) = event.target().and_then(|t| t.dyn_into::<Element>().ok()) else {
+                return;
+            };
+            if form.get_attribute("data-chat-create-form").is_none() {
+                return;
+            }
+            event.prevent_default();
+            let doc = submit_doc.clone();
+            let topic = doc
+                .query_selector("[data-chat-topic-input]")
+                .ok()
+                .flatten()
+                .map(|el| {
+                    el.dyn_ref::<HtmlInputElement>()
+                        .map(|i| i.value())
+                        .unwrap_or_else(|| el.get_attribute("value").unwrap_or_default())
+                })
+                .unwrap_or_default();
+            let subject = doc
+                .query_selector("[data-chat-subject]")
+                .ok()
+                .flatten()
+                .and_then(|el| {
+                    el.dyn_ref::<HtmlInputElement>()
+                        .map(|i| i.value())
+                        .or_else(|| el.dyn_ref::<HtmlTextAreaElement>().map(|t| t.value()))
+                })
+                .unwrap_or_default();
+            let message = doc
+                .query_selector("[data-chat-message]")
+                .ok()
+                .flatten()
+                .and_then(|el| {
+                    el.dyn_ref::<HtmlTextAreaElement>()
+                        .map(|t| t.value())
+                        .or_else(|| el.dyn_ref::<HtmlInputElement>().map(|i| i.value()))
+                })
+                .unwrap_or_default();
+            if topic.trim().is_empty() || subject.trim().is_empty() || message.trim().is_empty() {
+                if let Ok(Some(status)) = doc.query_selector("[data-chat-form-status]") {
+                    status.set_text_content(Some("Please fill in topic, subject and message."));
+                    let _ = status.remove_attribute("hidden");
+                }
+                return;
+            }
+            if let Ok(Some(btn)) = doc.query_selector("[data-chat-submit]") {
+                let _ = btn.set_attribute("disabled", "");
+                if let Some(b) = btn.dyn_ref::<HtmlButtonElement>() {
+                    b.set_disabled(true);
+                }
+            }
+            if let Ok(Some(status)) = doc.query_selector("[data-chat-form-status]") {
+                status.set_text_content(Some("Starting conversation…"));
+                let _ = status.remove_attribute("hidden");
+            }
+            let doc_clone = doc.clone();
+            let form_clone = form.clone();
+            spawn_local(async move {
+                let doc2 = doc_clone;
+                let res = chat_create_with_file(form_clone, topic, subject, message).await;
+                if let Err(err) = res {
+                    if let Ok(Some(status)) = doc2.query_selector("[data-chat-form-status]") {
+                        status.set_text_content(Some(
+                            &err.as_string()
+                                .unwrap_or_else(|| "Failed to start conversation.".into()),
+                        ));
+                        let _ = status.remove_attribute("hidden");
+                    }
+                    if let Ok(Some(btn)) = doc2.query_selector("[data-chat-submit]") {
+                        let _ = btn.remove_attribute("disabled");
+                        if let Some(b) = btn.dyn_ref::<HtmlButtonElement>() {
+                            b.set_disabled(false);
+                        }
+                    }
+                }
+            });
+        });
+        document
+            .add_event_listener_with_callback("submit", submit_closure.as_ref().unchecked_ref())?;
+        submit_closure.forget();
+
+        update_chat_submit_state(document);
+        filter_chat_conversations(document);
+        Ok(())
+    }
+
     async fn load_notification_count(node: Element) {
         let endpoint = node
             .get_attribute("data-notification-count-endpoint")
             .unwrap_or_else(|| "/api/v1/notifications/unread-count".into());
-        if let Ok(value) = fetch_json(&endpoint, "GET", None).await {
-            if let Some(count) = value.get("count").and_then(Value::as_u64) {
-                let display = if count > 99 {
-                    "99+".to_string()
-                } else {
-                    count.to_string()
-                };
-                node.set_text_content(Some(&display));
-                let _ = node.remove_attribute("hidden");
+        // The badge lives inside the notification link target. Keep the target's
+        // accessible label and visual state in sync with the badge count.
+        let target: Option<Element> = node
+            .closest(r#"[data-epsx-notification-badge-target="true"]"#)
+            .ok()
+            .flatten()
+            .or_else(|| node.parent_element());
+        let set_unavailable = |badge: &Element, target: Option<&Element>| {
+            badge.set_text_content(Some(""));
+            let _ = badge.set_attribute("hidden", "");
+            let _ = badge.set_attribute("aria-hidden", "true");
+            let _ = badge.set_attribute("data-state", "unavailable");
+            if let Some(target) = target {
+                let _ = target.set_attribute("aria-label", "Notifications");
+                // Reset bell to muted when no unread
+                if let Ok(Some(icon)) = target.query_selector(".epsx-action-icon") {
+                    let _ = icon.remove_attribute("style");
+                }
             }
+        };
+        let show_count = |badge: &Element, target: Option<&Element>, count: u64| {
+            if count == 0 {
+                set_unavailable(badge, target);
+                // Keep data-state as available but hidden to match production's
+                // zero-count available state (badge hidden, target labelled).
+                let _ = badge.set_attribute("data-state", "available");
+                return;
+            }
+            let display = if count > 99 {
+                "99+".to_string()
+            } else {
+                count.to_string()
+            };
+            badge.set_text_content(Some(&display));
+            let _ = badge.remove_attribute("hidden");
+            let _ = badge.set_attribute("aria-hidden", "false");
+            let _ = badge.set_attribute("data-state", "available");
+            if let Some(target) = target {
+                let _ =
+                    target.set_attribute("aria-label", &format!("Notifications, {count} unread"));
+                // Match production: orange bell when there are unread
+                if let Ok(Some(icon)) = target.query_selector(".epsx-action-icon") {
+                    let _ = icon.set_attribute("style", "color:#f97316");
+                }
+            }
+        };
+        match fetch_json(&endpoint, "GET", None).await {
+            Ok(value) => {
+                if let Some(count) = value.get("count").and_then(Value::as_u64) {
+                    show_count(&node, target.as_ref(), count);
+                } else {
+                    set_unavailable(&node, target.as_ref());
+                }
+            }
+            Err(_) => set_unavailable(&node, target.as_ref()),
         }
     }
 
@@ -3539,6 +4372,54 @@ mod tests {
             "Sign-in failed: invalid_upstream_token (HTTP 502)"
         );
         assert_eq!(auth_http_error(503, None), "Sign-in failed (HTTP 503)");
+    }
+
+    #[test]
+    fn auth_http_errors_surface_friendly_text_for_known_outages() {
+        assert_eq!(
+            auth_http_error(502, Some("auth_upstream_unavailable")),
+            "Sign-in service is temporarily unavailable. Please try again in a moment."
+        );
+        assert_eq!(
+            auth_http_error(502, Some("auth_upstream_unavailable")),
+            "Sign-in service is temporarily unavailable. Please try again in a moment."
+        );
+        assert_eq!(
+            auth_http_error(502, Some(" challenge_rejected ")),
+            "Wallet challenge was rejected. Please reconnect and try again."
+        );
+        assert_eq!(
+            auth_http_error(400, Some("authentication_rejected")),
+            "Wallet signature was rejected. Please reconnect and try again."
+        );
+        assert_eq!(
+            auth_http_error(401, Some("missing_refresh_token")),
+            "Your session expired. Please reconnect your wallet."
+        );
+        assert_eq!(auth_http_error(502, Some("")), "Sign-in failed (HTTP 502)");
+    }
+
+    #[test]
+    fn transient_upstream_error_only_matches_closed_pair() {
+        assert!(super::is_transient_upstream_error_pub(
+            "Sign-in service is temporarily unavailable. Please try again in a moment."
+        ));
+        assert!(super::is_transient_upstream_error_pub(
+            "  auth_upstream_unavailable (HTTP 502)  "
+        ));
+        assert!(super::is_transient_upstream_error_pub(
+            "auth_upstream_unavailable (HTTP 530)"
+        ));
+        assert!(super::is_transient_upstream_error_pub(
+            "Sign-in failed: auth_upstream_unavailable (HTTP 503)"
+        ));
+        assert!(!super::is_transient_upstream_error_pub(
+            "Sign-in failed: challenge_rejected (HTTP 400)"
+        ));
+        assert!(!super::is_transient_upstream_error_pub(
+            "Sign-in failed (HTTP 503)"
+        ));
+        assert!(!super::is_transient_upstream_error_pub(""));
     }
 
     #[test]

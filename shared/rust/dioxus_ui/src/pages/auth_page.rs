@@ -63,7 +63,10 @@ pub fn AuthPage() -> Element {
 }
 
 #[component]
-pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
+pub fn RenderAuth(
+    session_state: AuthPageSessionState,
+    #[props(default = None)] return_url: Option<String>,
+) -> Element {
     // The component is purely declarative — every interactive state
     // (loading / error / success) is driven by the generated Rust/WASM
     // runtime. The SSR document carries the initial idle state.
@@ -225,6 +228,7 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
                                 disabled: session_state != AuthPageSessionState::SignedOut,
                                 data_connect_wallet: Some(true),
                                 data_provider: Some("metamask".to_string()),
+                                data_return_url: return_url.clone(),
                             }
                         }
                         div { class: "auth-card-divider auth-card-divider-thin", aria_hidden: "true" }
@@ -340,11 +344,12 @@ pub fn RenderAuth(session_state: AuthPageSessionState) -> Element {
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let meta = PageMeta::marketing("Sign in");
     let session_state = AuthPageSessionState::from_context(ctx);
+    let return_url = ctx.params.get("return_url").cloned();
     (
         meta,
         rsx! {
             AuthLayout { ctx: ctx.clone(),
-                RenderAuth { session_state }
+                RenderAuth { session_state, return_url }
             }
         },
     )

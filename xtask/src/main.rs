@@ -206,8 +206,8 @@ cargo xtask commands:
                          Rust-native migration scenario and evidence commands
   env validate          validate the merged root environment against .env.example
   setup-local           deploy the local Foundry contracts and tokens
-  dev --all|--frontend|--admin|--backend
-                         run the Rust/Dioxus development surface
+  dev --all|--frontend|--frontend-watch|--frontend-dx|--admin|--admin-watch|--admin-dx|--backend
+                         run the Rust/Dioxus development surface (with cargo-watch or dx serve)
   build --profile development|production
   browser-runtime build  compile Rust/WASM and emit untracked wasm-bindgen browser assets
   test --all            run the Rust workspace test suite

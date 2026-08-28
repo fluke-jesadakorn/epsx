@@ -514,6 +514,13 @@ pub async fn siwe_login(
         }
     };
     if !response.status().is_success() {
+        if response.status().is_server_error() {
+            tracing::warn!(
+                "SIWE verification upstream returned server error: {}",
+                response.status()
+            );
+            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
+        }
         return safe_error(response.status(), "authentication_rejected");
     }
     let upstream: VerifyResponse = match response.json().await {
@@ -604,6 +611,13 @@ pub async fn auth_challenge(
         }
     };
     if !response.status().is_success() {
+        if response.status().is_server_error() {
+            tracing::warn!(
+                "Challenge upstream returned server error: {}",
+                response.status()
+            );
+            return safe_error(StatusCode::BAD_GATEWAY, "auth_upstream_unavailable");
+        }
         return safe_error(response.status(), "challenge_rejected");
     }
     match response.json::<ChallengeResponse>().await {

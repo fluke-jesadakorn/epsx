@@ -116,9 +116,9 @@ fn apply_security_headers_to(
         // XHR/fetch (connect-src), not script-src, so the previous
         // allowlist left a CSP console error every page load.
         let csp = if admin {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'self';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'self';"
         } else {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'none';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'none';"
         };
         if let Ok(v) = HeaderValue::from_str(csp) {
             headers.insert("content-security-policy", v);

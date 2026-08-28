@@ -2,9 +2,13 @@
 //!
 //! Rankings and news are independent live-data outcomes. A failure in either
 //! dependency never suppresses a valid response from the other.
+//!
+//! Home is fully public — single hero variance (`HeroSection`) for all
+//! users. Do not branch on `ctx.wallet` or `ctx.user` for hero selection.
+//! Image 1 (`SignedOutHero` / Explore Market Analytics) is deprecated for `/`.
 
 use crate::components::stock_data_card::StockDataCard;
-use crate::home::{HeroSection, SignedOutHero};
+use crate::home::HeroSection;
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
@@ -53,11 +57,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                 div {
                     class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
                     div { class: "relative z-[1] home-prod-content",
-                        if ctx.wallet.address.is_some() || ctx.user.is_some() {
-                            HeroSection {}
-                        } else {
-                            SignedOutHero {}
-                        }
+                        HeroSection {}
                         AnalyticsPreview { outcome: analytics_outcome }
                         PlansPreview {}
                         NewsPreview { outcome: news_outcome }
@@ -549,16 +549,18 @@ mod tests {
         for marker in [
             "home-prod-page",
             "home-prod-hero",
+            "home-prod-hero-stats",
             "home-prod-top-performers",
             "home-prod-pricing",
             "home-prod-news",
             "Performance Analytics Platform",
             "Track Your",
             "Performance Growth",
-            "Metrics ✨",
+            "Metrics",
+            "Start Exploration",
+            "Share Platform",
             "Latest News",
             "href=\"/analytics\"",
-            "href=\"/plans\"",
             "href=\"/news\"",
         ] {
             assert!(
@@ -607,7 +609,8 @@ mod tests {
         assert!(html.contains("RANK #101"));
         assert!(html.contains("RANK #102"));
         assert!(html.contains("$250.25"));
-        assert!(html.contains("+18.50%"));
+        assert!(html.contains("Next Action"));
+        assert!(!html.contains("+18.50%"));
         assert!(!html.contains("data-watchlist-toggle"));
         assert!(!html.contains("data-watchlist-signed-out"));
         let first = html.find("LIVE100").unwrap();
@@ -823,5 +826,96 @@ mod tests {
             html.contains("type=\"button\""),
             "home share CTA must render a native button: {html}"
         );
+    }
+
+    #[test]
+    fn home_hero_is_public_single_variance_for_wallet_and_user() {
+        use crate::auth::wallet_button::ConnectedWalletState;
+        use crate::auth::User;
+
+        let anon_html = render_to_string(&empty_ctx());
+
+        let mut wallet_ctx = empty_ctx();
+        wallet_ctx.wallet = ConnectedWalletState {
+            address: Some("0x1234567890abcdef1234567890abcdef12345678".to_string()),
+            connector_id: Some("metaMask".to_string()),
+            chain_id: Some(56),
+            is_authenticated: false,
+            ..Default::default()
+        };
+        let wallet_html = render_to_string(&wallet_ctx);
+
+        let mut user_ctx = empty_ctx();
+        user_ctx.user = Some(User {
+            id: "0xabc".to_string(),
+            address: "0xabc".to_string(),
+            chain_id: "56".to_string(),
+            roles: vec![],
+            email: None,
+            tier: None,
+            permissions: vec![],
+            last_login_at: None,
+            auth_method: crate::auth::user::AuthMethod::Siwe,
+            display_name: None,
+        });
+        user_ctx.wallet = ConnectedWalletState {
+            address: Some("0xabc".to_string()),
+            connector_id: Some("metaMask".to_string()),
+            chain_id: Some(56),
+            is_authenticated: true,
+            ..Default::default()
+        };
+        let user_html = render_to_string(&user_ctx);
+
+        for (label, html) in [
+            ("anon", anon_html.as_str()),
+            ("wallet", wallet_html.as_str()),
+            ("user", user_html.as_str()),
+        ] {
+            assert!(
+                html.contains("Performance Analytics Platform"),
+                "{label} must render HeroSection badge: {html}"
+            );
+            assert!(
+                html.contains("Track Your"),
+                "{label} missing Track Your: {html}"
+            );
+            assert!(
+                html.contains("Performance Growth"),
+                "{label} missing Performance Growth: {html}"
+            );
+            assert!(html.contains("Metrics"), "{label} missing Metrics: {html}");
+            assert!(
+                html.contains("Start Exploration"),
+                "{label} missing Start Exploration CTA: {html}"
+            );
+            assert!(
+                html.contains("Share Platform"),
+                "{label} missing Share Platform CTA: {html}"
+            );
+            assert!(
+                html.contains("home-prod-hero-stats"),
+                "{label} must contain HeroSection stats grid: {html}"
+            );
+            assert!(html.contains("24/7"), "{label} missing 24/7 stat: {html}");
+            assert!(html.contains("100+"), "{label} missing 100+ stat: {html}");
+            // SignedOutHero must not render on `/`
+            assert!(
+                !html.contains("data-home-hero-state=\"signed-out\""),
+                "{label} must not contain signed-out hero state: {html}"
+            );
+            assert!(
+                !html.contains("Explore Market Analytics") && !html.contains("With Verified Data"),
+                "{label} must not contain SignedOutHero headline: {html}"
+            );
+        }
+
+        // All three variances must be structurally identical for hero (public Image 2)
+        assert!(anon_html.contains("Performance Analytics Platform"));
+        assert!(wallet_html.contains("Performance Analytics Platform"));
+        assert!(user_html.contains("Performance Analytics Platform"));
+        assert!(anon_html.contains("home-prod-hero-stats"));
+        assert!(wallet_html.contains("home-prod-hero-stats"));
+        assert!(user_html.contains("home-prod-hero-stats"));
     }
 }

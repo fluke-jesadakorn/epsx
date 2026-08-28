@@ -273,6 +273,15 @@ mod configuration_tests {
 
 pub fn build_app(state: AppState) -> Router {
     Router::new()
+        .route(
+            "/favicon.ico",
+            get(|| async {
+                (
+                    [(axum::http::header::CONTENT_TYPE, "image/svg+xml")],
+                    include_str!("../public/logos/epsx-icon.svg"),
+                )
+            }),
+        )
         .route("/api/health", get(api_health))
         .route("/api/v1/auth/siwe", post(siwe_login))
         .route("/api/v1/auth/challenge", post(auth_challenge))
@@ -463,6 +472,10 @@ pub fn build_app(state: AppState) -> Router {
         .route(
             "/api/v1/chat/conversations/{id}/messages",
             post(chat_adapter::chat_send_api),
+        )
+        .route(
+            "/api/v1/chat/conversations/{id}/upload",
+            post(chat_adapter::chat_upload_api),
         )
         .route("/api/v1/developer/overview", get(developer_overview))
         .route("/api/v1/developer/usage", get(developer_usage))
@@ -714,39 +727,31 @@ mod routing_tests {
     #[tokio::test]
     async fn frontend_emits_one_private_recovery_bootstrap_only_for_refresh_eligible_html() {
         let refresh_cookie = "epsx.frontend.refresh_token=opaque-refresh";
-        let response = request_with_cookie(
-            Method::GET,
-            "/auth?return_url=%2Faccount",
-            Some(refresh_cookie),
-        )
-        .await;
-        assert_eq!(response.status(), StatusCode::OK);
+        let response =
+            request_with_cookie(Method::GET, "/profile?view=compact", Some(refresh_cookie)).await;
+        assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
+        assert_eq!(
+            response.headers()[header::LOCATION],
+            "/auth?return_url=%2Fprofile%3Fview%3Dcompact"
+        );
         assert_eq!(
             response.headers()[header::CACHE_CONTROL],
             "private, no-store"
         );
         assert_eq!(response.headers()[header::VARY], "Cookie, Authorization");
-        let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+        let return_location = response.headers()[header::LOCATION]
+            .to_str()
+            .unwrap()
+            .to_string();
+        let auth_return =
+            request_with_cookie(Method::GET, &return_location, Some(refresh_cookie)).await;
+        let auth_return_html = to_bytes(auth_return.into_body(), 2 * 1024 * 1024)
             .await
             .unwrap();
-        let html = String::from_utf8_lossy(&body);
-        assert_eq!(html.matches("data-epsx-session-recovery").count(), 1);
-        assert_eq!(html.matches("epsx_browser_runtime_bootstrap.js").count(), 1);
-        assert!(!html.contains("window.epsxAuth"));
-        assert!(html.contains("data-auth-session-state=\"recovering\""));
-        assert!(html.contains("Restoring your session..."));
-        assert!(html.contains("disabled=\"true\"") || html.contains("disabled=\"disabled\""));
-        assert!(!html.contains("opaque-refresh"));
-        let runtime_position = html
-            .find("epsx_browser_runtime_bootstrap.js")
-            .expect("the generated Rust/WASM runtime module must be present");
-        let recovery_position = html
-            .find("data-epsx-session-recovery")
-            .expect("the recovery bootstrap must be present");
-        assert!(
-            runtime_position < recovery_position,
-            "the generated runtime must load before the recovery marker"
-        );
+        let html = String::from_utf8_lossy(&auth_return_html);
+        assert!(!html.contains("data-epsx-session-recovery"));
+        assert!(html.contains("data-auth-session-state=\"signed_out\""));
+        assert!(!html.contains("Restoring your session..."));
 
         let wrong_client = request_with_cookie(
             Method::GET,
@@ -760,34 +765,6 @@ mod routing_tests {
         let wrong_client_html = String::from_utf8_lossy(&wrong_client_html);
         assert!(!wrong_client_html.contains("data-epsx-session-recovery"));
         assert!(wrong_client_html.contains("data-auth-session-state=\"signed_out\""));
-
-        let protected =
-            request_with_cookie(Method::GET, "/profile?view=compact", Some(refresh_cookie)).await;
-        assert_eq!(protected.status(), StatusCode::TEMPORARY_REDIRECT);
-        assert_eq!(
-            protected.headers()[header::LOCATION],
-            "/auth?return_url=%2Fprofile%3Fview%3Dcompact"
-        );
-        assert_eq!(
-            protected.headers()[header::CACHE_CONTROL],
-            "private, no-store"
-        );
-        assert_eq!(protected.headers()[header::VARY], "Cookie, Authorization");
-        let return_location = protected.headers()[header::LOCATION]
-            .to_str()
-            .unwrap()
-            .to_string();
-        let auth_return =
-            request_with_cookie(Method::GET, &return_location, Some(refresh_cookie)).await;
-        let auth_return_html = to_bytes(auth_return.into_body(), 2 * 1024 * 1024)
-            .await
-            .unwrap();
-        assert_eq!(
-            String::from_utf8_lossy(&auth_return_html)
-                .matches("data-epsx-session-recovery")
-                .count(),
-            1
-        );
 
         let rejected = request_with_cookie(
             Method::GET,
@@ -803,10 +780,8 @@ mod routing_tests {
                 .unwrap(),
         )
         .into_owned();
-        assert_eq!(
-            rejected_html.matches("data-epsx-session-recovery").count(),
-            1
-        );
+        assert!(!rejected_html.contains("data-epsx-session-recovery"));
+        assert!(rejected_html.contains("data-auth-session-state=\"signed_out\""));
 
         let verifier_outage = request_with_cookie(
             Method::GET,

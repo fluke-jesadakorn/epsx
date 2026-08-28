@@ -2,7 +2,7 @@
 
 use axum::{
     body::Body,
-    extract::{Path, Request, State},
+    extract::{Multipart, Path, Request, State},
     http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Redirect, Response},
     Json,
@@ -13,8 +13,8 @@ use futures::StreamExt;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 
 use epsx_dioxus_ui::pages::chat::{
-    decode_chat_detail, decode_chat_inbox, ChatConversation, ChatDetailData, ChatInboxData,
-    ChatMessage, ChatTopic,
+    decode_chat_detail, decode_chat_inbox, ChatAttachment, ChatConversation, ChatDetailData,
+    ChatInboxData, ChatMessage, ChatTopic,
 };
 
 use crate::AppState;
@@ -322,6 +322,37 @@ fn project_message(message: UpstreamMessage) -> Option<ChatMessage> {
     {
         return None;
     }
+    let attachment = message
+        .metadata
+        .get("attachments")
+        .and_then(|value| value.as_array())
+        .and_then(|array| array.first())
+        .and_then(|value| {
+            let filename = value.get("filename")?.as_str()?.trim().to_string();
+            let url = value.get("url")?.as_str()?.trim().to_string();
+            let file_type = value
+                .get("file_type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("application/octet-stream")
+                .to_string();
+            let size = value.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+            if filename.is_empty()
+                || filename.chars().count() > 255
+                || filename.chars().any(char::is_control)
+                || url.is_empty()
+                || url.len() > 2048
+                || file_type.len() > 128
+                || size > 10 * 1024 * 1024
+            {
+                return None;
+            }
+            Some(ChatAttachment {
+                filename,
+                url,
+                file_type,
+                size,
+            })
+        });
     Some(ChatMessage {
         id: message.id,
         conversation_id: message.conversation_id,
@@ -329,6 +360,7 @@ fn project_message(message: UpstreamMessage) -> Option<ChatMessage> {
         content: message.content,
         is_read: message.is_read,
         created_at: message.created_at,
+        attachment,
     })
 }
 
@@ -594,6 +626,84 @@ pub(crate) async fn chat_send_api(
     };
     match send_upstream(&state, &token, id, &body).await {
         Ok(message) => chat_success(message),
+        Err(error) => load_error_response(error),
+    }
+}
+
+pub(crate) async fn chat_upload_api(
+    State(state): State<AppState>,
+    Path(id): Path<uuid::Uuid>,
+    headers: axum::http::HeaderMap,
+    mut multipart: Multipart,
+) -> Response {
+    if !same_origin(&headers) {
+        return chat_error(StatusCode::FORBIDDEN, "chat_mutation_origin_rejected");
+    }
+    let (token, _user) = match verified_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    let field = match multipart.next_field().await {
+        Ok(Some(field)) => field,
+        Ok(None) => return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request"),
+        Err(_) => return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request"),
+    };
+    let filename = field
+        .file_name()
+        .map(str::to_string)
+        .unwrap_or_else(|| "file".to_string());
+    let content_type = field.content_type().map(|v| v.to_string());
+    let bytes = match field.bytes().await {
+        Ok(bytes) => bytes,
+        Err(_) => return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request"),
+    };
+    if bytes.is_empty() || bytes.len() > 5 * 1024 * 1024 {
+        return chat_error(StatusCode::PAYLOAD_TOO_LARGE, "chat_request_too_large");
+    }
+    let lower = filename.to_ascii_lowercase();
+    let ext = lower.rsplit('.').next().unwrap_or_default();
+    if !matches!(ext, "jpg" | "jpeg" | "png" | "gif" | "webp" | "pdf") {
+        return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request");
+    }
+    let mime = content_type.unwrap_or_else(|| match ext {
+        "jpg" | "jpeg" => "image/jpeg".to_string(),
+        "png" => "image/png".to_string(),
+        "gif" => "image/gif".to_string(),
+        "webp" => "image/webp".to_string(),
+        "pdf" => "application/pdf".to_string(),
+        _ => "application/octet-stream".to_string(),
+    });
+    let part = match reqwest::multipart::Part::bytes(bytes.to_vec())
+        .file_name(filename.clone())
+        .mime_str(&mime)
+    {
+        Ok(part) => part,
+        Err(_) => {
+            return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request");
+        }
+    };
+    let form = reqwest::multipart::Form::new().part("file", part);
+    let url = format!(
+        "{}/api/chat/conversations/{}/upload",
+        state.wallet.base_url().trim_end_matches('/'),
+        id
+    );
+    let response = match state
+        .wallet
+        .auth_client()
+        .post(&url)
+        .bearer_auth(token)
+        .multipart(form)
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(_) => {
+            return chat_error(StatusCode::SERVICE_UNAVAILABLE, "chat_upstream_unavailable");
+        }
+    };
+    match decode_response::<serde_json::Value>(response).await {
+        Ok(value) => chat_success(value),
         Err(error) => load_error_response(error),
     }
 }

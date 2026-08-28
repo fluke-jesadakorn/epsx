@@ -1,5 +1,6 @@
 //! Backend-backed support conversation history.
 
+use chrono::DateTime;
 use dioxus::prelude::*;
 
 use crate::auth::AuthGate;
@@ -83,26 +84,34 @@ fn HistorySurface(ctx: PageContext) -> Element {
                             p { class: "chat-history-empty-hint", "Start a new conversation or adjust the filters." }
                         }
                     } else {
-                        div { class: "chat-history-list",
-                            for (index, conversation) in filtered.iter().enumerate() {
-                                a {
-                                    class: if index + 1 == filtered.len() { "chat-history-card chat-history-card-last" } else if conversation.unread_user > 0 { "chat-history-card chat-history-card-unread" } else { "chat-history-card" },
-                                    href: format!("/chat/{}", conversation.id),
-                                    div { class: "chat-history-card-main",
-                                        h2 { class: "chat-history-card-subject", "{conversation.subject}" }
-                                        div { class: "chat-history-card-meta",
-                                            if let Some(topic) = topic_for(&inbox.topics, &conversation.topic_id) {
-                                                span { class: "chat-history-card-topic", "{topic.label}" }
-                                            }
-                                            StatusBadge { status: conversation.status.clone() }
-                                            span { class: "chat-history-card-time", "{short_date(&conversation.last_message_at)}" }
-                                        }
+                        div { class: "chat-history-list chat-history-grouped",
+                            for (group_label, group_items) in group_history(&filtered).iter() {
+                                div { class: "chat-history-group",
+                                    div { class: "chat-history-group-header",
+                                        span { class: "chat-history-group-title", "{group_label}" }
+                                        span { class: "chat-history-group-count", "{group_items.len()}" }
                                     }
-                                    div { class: "chat-history-card-aside",
-                                        if conversation.unread_user > 0 {
-                                            span { class: "chat-history-card-unread-badge", "{conversation.unread_user.min(99)}" }
+                                    for (index, conversation) in group_items.iter().enumerate() {
+                                        a {
+                                            class: if index + 1 == group_items.len() { "chat-history-card chat-history-card-last" } else if conversation.unread_user > 0 { "chat-history-card chat-history-card-unread" } else { "chat-history-card" },
+                                            href: format!("/chat/{}", conversation.id),
+                                            div { class: "chat-history-card-main",
+                                                h2 { class: "chat-history-card-subject", "{conversation.subject}" }
+                                                div { class: "chat-history-card-meta",
+                                                    if let Some(topic) = topic_for(&inbox.topics, &conversation.topic_id) {
+                                                        span { class: "chat-history-card-topic", "{topic.label}" }
+                                                    }
+                                                    StatusBadge { status: conversation.status.clone() }
+                                                    span { class: "chat-history-card-time", "{short_date(&conversation.last_message_at)}" }
+                                                }
+                                            }
+                                            div { class: "chat-history-card-aside",
+                                                if conversation.unread_user > 0 {
+                                                    span { class: "chat-history-card-unread-badge", "{conversation.unread_user.min(99)}" }
+                                                }
+                                                Icon { name: "chevron-right".to_string(), size: Some(16) }
+                                            }
                                         }
-                                        Icon { name: "chevron-right".to_string(), size: Some(16) }
                                     }
                                 }
                             }
@@ -149,6 +158,45 @@ fn history_filters(query: &str) -> (Option<String>, Option<String>) {
 
 fn topic_for<'a>(topics: &'a [ChatTopic], id: &str) -> Option<&'a ChatTopic> {
     topics.iter().find(|topic| topic.id == id)
+}
+
+fn history_group_label(date_str: &str) -> String {
+    if let Ok(dt) = DateTime::parse_from_rfc3339(date_str) {
+        let now = chrono::Utc::now();
+        let days = (now.timestamp() - dt.timestamp()) / 86400;
+        if days <= 0 {
+            return "Today".to_string();
+        } else if days == 1 {
+            return "Yesterday".to_string();
+        } else if days <= 7 {
+            return "This week".to_string();
+        } else if days <= 30 {
+            return "This month".to_string();
+        }
+    }
+    "Earlier".to_string()
+}
+
+fn group_history(
+    conversations: &[super::chat::ChatConversation],
+) -> Vec<(String, Vec<super::chat::ChatConversation>)> {
+    let mut groups: std::collections::BTreeMap<String, Vec<super::chat::ChatConversation>> =
+        std::collections::BTreeMap::new();
+    let order = ["Today", "Yesterday", "This week", "This month", "Earlier"];
+    for conv in conversations {
+        let label = history_group_label(&conv.last_message_at);
+        groups.entry(label).or_default().push(conv.clone());
+    }
+    let mut out = Vec::new();
+    for label in order.iter() {
+        if let Some(list) = groups.remove(*label) {
+            out.push((label.to_string(), list));
+        }
+    }
+    for (k, v) in groups {
+        out.push((k, v));
+    }
+    out
 }
 
 #[component]

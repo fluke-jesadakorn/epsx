@@ -4303,6 +4303,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dioxus",
+ "dioxus-fullstack",
  "dioxus-server",
  "dioxus-ssr",
  "dioxus-web",
@@ -4589,12 +4590,12 @@ dependencies = [
 name = "epsx-dioxus-ui"
 version = "0.1.0"
 dependencies = [
- "axum 0.8.9",
  "chrono",
  "dioxus",
  "dioxus-router",
  "dioxus-ssr",
  "epsx-templates",
+ "http 1.4.2",
  "pulldown-cmark",
  "serde",
  "serde_json",
@@ -4625,6 +4626,8 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "dioxus",
+ "dioxus-fullstack",
+ "dioxus-server",
  "dioxus-ssr",
  "dioxus-web",
  "epsx-bff",

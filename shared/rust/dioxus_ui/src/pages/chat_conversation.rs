@@ -33,7 +33,8 @@ fn ConversationSurface(ctx: PageContext) -> Element {
     let flash = mutation_flash(&ctx.query);
     match detail_load(&ctx) {
         ChatDetailLoad::Ready(detail) => rsx! {
-            div { class: "container page-content chat-conversation",
+            div { class: "chat-page chat-page-full chat-conversation-full",
+                style: "position:fixed;top:3.5rem;left:0;right:0;bottom:0;overflow:hidden;height:calc(100dvh - 3.5rem);display:flex;flex-direction:column;",
                 ConversationPanel {
                     detail: *detail,
                     topic_label: "Support".to_string(),

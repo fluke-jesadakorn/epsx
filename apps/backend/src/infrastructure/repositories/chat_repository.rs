@@ -20,7 +20,7 @@ impl ChatRepository {
 
     pub async fn list_topics(pool: &TlsPool) -> Result<Vec<ChatTopicDb>, String> {
         sqlx::query_as(
-            "SELECT id, name, slug, description, icon, color, is_active, sort_order, created_at, updated_at \
+            "SELECT id, name, label, description, icon, sort_order, is_active, created_at \
              FROM chat_topics WHERE is_active = TRUE ORDER BY sort_order ASC",
         )
         .fetch_all(pool)
@@ -48,8 +48,7 @@ impl ChatRepository {
                 topic_id, wallet_address, subject, status
             ) VALUES ($1, $2, $3, 'open')
             RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
-                      last_message_at, unread_user, unread_agent, created_at, updated_at,
-                      closed_at, resolution
+                      last_message_at, unread_user, unread_agent, metadata, created_at, updated_at
             "#,
         )
         .bind(topic_id)
@@ -93,8 +92,7 @@ impl ChatRepository {
     ) -> Result<Vec<ChatConversationDb>, String> {
         sqlx::query_as(
             "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
-                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
-                    closed_at, resolution \
+                    last_message_at, unread_user, unread_agent, metadata, created_at, updated_at \
              FROM chat_conversations \
              WHERE wallet_address = $1 \
              ORDER BY last_message_at DESC NULLS LAST",
@@ -113,8 +111,7 @@ impl ChatRepository {
     ) -> Result<Vec<ChatConversationDb>, String> {
         let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
             "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
-                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
-                    closed_at, resolution \
+                    last_message_at, unread_user, unread_agent, metadata, created_at, updated_at \
              FROM chat_conversations WHERE TRUE",
         );
         if let Some(status) = status_filter {
@@ -140,8 +137,7 @@ impl ChatRepository {
     ) -> Result<Option<ChatConversationDb>, String> {
         sqlx::query_as(
             "SELECT id, topic_id, wallet_address, subject, status, assigned_agent, \
-                    last_message_at, unread_user, unread_agent, created_at, updated_at, \
-                    closed_at, resolution \
+                    last_message_at, unread_user, unread_agent, metadata, created_at, updated_at \
              FROM chat_conversations WHERE id = $1",
         )
         .bind(conv_id)
@@ -161,8 +157,7 @@ impl ChatRepository {
             SET status = $1, updated_at = NOW()
             WHERE id = $2
             RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
-                      last_message_at, unread_user, unread_agent, created_at, updated_at,
-                      closed_at, resolution
+                      last_message_at, unread_user, unread_agent, metadata, created_at, updated_at
             "#,
         )
         .bind(status)
@@ -190,8 +185,7 @@ impl ChatRepository {
             SET assigned_agent = $1, status = $2, updated_at = NOW()
             WHERE id = $3
             RETURNING id, topic_id, wallet_address, subject, status, assigned_agent,
-                      last_message_at, unread_user, unread_agent, created_at, updated_at,
-                      closed_at, resolution
+                      last_message_at, unread_user, unread_agent, metadata, created_at, updated_at
             "#,
         )
         .bind(agent)
@@ -213,7 +207,7 @@ impl ChatRepository {
     ) -> Result<Vec<ChatMessageDb>, String> {
         sqlx::query_as(
             "SELECT id, conversation_id, sender_type, sender_address, content, metadata, \
-                    is_read, read_at, created_at \
+                    is_read, created_at \
              FROM chat_messages \
              WHERE conversation_id = $1 \
              ORDER BY created_at ASC",
@@ -253,7 +247,7 @@ impl ChatRepository {
                 conversation_id, sender_type, sender_address, content, metadata
             ) VALUES ($1, $2, $3, $4, $5)
             RETURNING id, conversation_id, sender_type, sender_address, content, metadata,
-                      is_read, read_at, created_at
+                      is_read, created_at
             "#,
         )
         .bind(conv_id)
@@ -300,7 +294,7 @@ impl ChatRepository {
 
     pub async fn mark_read_by_user(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
         sqlx::query(
-            "UPDATE chat_messages SET is_read = TRUE, read_at = NOW() \
+            "UPDATE chat_messages SET is_read = TRUE \
              WHERE conversation_id = $1 AND sender_type <> 'user' AND is_read = FALSE",
         )
         .bind(conv_id)
@@ -319,7 +313,7 @@ impl ChatRepository {
 
     pub async fn mark_read_by_agent(pool: &TlsPool, conv_id: Uuid) -> Result<(), String> {
         sqlx::query(
-            "UPDATE chat_messages SET is_read = TRUE, read_at = NOW() \
+            "UPDATE chat_messages SET is_read = TRUE \
              WHERE conversation_id = $1 AND sender_type = 'user' AND is_read = FALSE",
         )
         .bind(conv_id)
@@ -400,7 +394,7 @@ impl ChatRepository {
 
     pub async fn get_topic(pool: &TlsPool, topic_id: Uuid) -> Result<Option<ChatTopicDb>, String> {
         sqlx::query_as(
-            "SELECT id, name, slug, description, icon, color, is_active, sort_order, created_at, updated_at \
+            "SELECT id, name, label, description, icon, sort_order, is_active, created_at \
              FROM chat_topics WHERE id = $1",
         )
         .bind(topic_id)

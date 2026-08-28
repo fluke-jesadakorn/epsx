@@ -922,6 +922,15 @@ mod configuration_tests {
 
 fn build_app(state: AppState) -> Router {
     Router::new()
+        .route(
+            "/favicon.ico",
+            get(|| async {
+                (
+                    [(axum::http::header::CONTENT_TYPE, "image/svg+xml")],
+                    include_str!("../public/logos/epsx-icon.svg"),
+                )
+            }),
+        )
         // Health
         .route("/api/health", get(api_health))
         // Auth

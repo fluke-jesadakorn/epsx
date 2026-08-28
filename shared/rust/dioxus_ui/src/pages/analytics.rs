@@ -996,14 +996,20 @@ fn AnalyticsUnavailableGrid() -> Element {
                         p { class: "mt-2 text-2xl font-black text-muted-foreground", "Unavailable" }
                         p { class: "mt-1 text-xs text-muted-foreground", "Company data unavailable" }
                     }
-                    div { class: "mt-6 rounded-xl border border-border/20 bg-muted/20 p-4 text-left",
-                        p { class: "text-xs uppercase tracking-wider text-muted-foreground", "Growth" }
-                        p { class: "mt-2 font-semibold text-muted-foreground", "Unavailable" }
-                        div { class: "mt-3 h-1.5 rounded-full bg-muted/40" }
-                    }
-                    div { class: "mt-3 rounded-xl border border-border/20 bg-muted/20 p-4 text-left",
-                        p { class: "text-xs uppercase tracking-wider text-muted-foreground", "Next Action" }
-                        div { class: "mt-3 h-1.5 rounded-full bg-muted/40" }
+                    div { class: "mt-6 relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white p-4 ring-1 ring-blue-200/50 dark:from-blue-500/[0.08] dark:via-indigo-500/[0.05] dark:to-white/[0.02] dark:ring-white/10",
+                        div { class: "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-blue-500/10 blur-2xl", "aria-hidden": "true" }
+                        div { class: "flex items-center justify-between gap-3",
+                            div { class: "flex items-center gap-2",
+                                div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 opacity-40",
+                                    span { class: "text-white", "📅" }
+                                }
+                                p { class: "text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400", "Next Action" }
+                            }
+                            p { class: "text-2xl font-black tracking-tight text-muted-foreground", "N/A" }
+                        }
+                        div { class: "mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/50",
+                            div { class: "h-full w-[42%] rounded-full bg-gradient-to-r from-blue-600 to-cyan-400 opacity-30" }
+                        }
                     }
                     button { class: "btn btn-ghost mt-4 w-full cursor-not-allowed opacity-50", r#type: "button", disabled: true, "View Details →" }
                 }
@@ -1167,9 +1173,11 @@ mod tests {
         assert!(rendered.contains("RANK #100"));
         assert!(rendered.contains("LIVE Company"));
         assert!(rendered.contains("$1,234.50"));
-        assert!(rendered.contains("+42.25%"));
-        assert!(rendered.contains("-7.50%"));
+        assert!(rendered.contains("Next Action"));
         assert!(rendered.contains("45 Days"));
+        assert!(!rendered.contains("Growth"));
+        assert!(!rendered.contains("+42.25%"));
+        assert!(!rendered.contains("-7.50%"));
         assert!(rendered.contains("Ranks 100+"));
         assert!(rendered.contains("Ranks 1-99 locked"));
         assert!(rendered.contains("grid-cols-1"));

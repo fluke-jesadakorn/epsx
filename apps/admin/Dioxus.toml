@@ -1,0 +1,9 @@
+[application]
+name = "epsx-admin"
+public_dir = "public"
+
+[web.app]
+title = "EPSX Admin - Management Portal"
+
+[web.watcher]
+watch_path = ["src", "../../shared/rust/dioxus_ui/src", "../../shared/rust/templates/src"]

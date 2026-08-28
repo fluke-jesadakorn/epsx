@@ -17,6 +17,7 @@
 //! - [`pages`] — Top-level rsx! functions for every page in the Next.js apps.
 //!   These are the public surface BFFs use.
 
+pub mod app;
 pub mod auth;
 pub mod chat;
 pub mod components;
@@ -30,11 +31,13 @@ pub mod news;
 pub mod pages;
 pub mod payment;
 pub mod primitives;
+pub mod routes;
 pub mod theme;
 
 #[cfg(test)]
 mod tests;
 
+pub use app::*;
 pub use auth::*;
 pub use chat::*;
 pub use data::*;
@@ -44,4 +47,5 @@ pub use feedback::{
 };
 pub use layout::*;
 pub use primitives::*;
+pub use routes::{AdminRoute, FrontendRoute};
 pub use theme::*;

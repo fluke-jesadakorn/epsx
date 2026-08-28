@@ -324,12 +324,28 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
             build_browser_runtime(&root)?;
             cargo_run(&root, "epsx-frontend", "bff-frontend")
         }
+        Some("--frontend-watch") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--frontend-dx") => {
+            build_browser_runtime(&root)?;
+            dx_serve_run(&root, "epsx-frontend", "bff-frontend")
+        }
         Some("--admin") => {
             build_browser_runtime(&root)?;
             cargo_run(&root, "epsx-admin", "bff-admin")
         }
+        Some("--admin-watch") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--admin-dx") => {
+            build_browser_runtime(&root)?;
+            dx_serve_run(&root, "epsx-admin", "bff-admin")
+        }
         Some("--backend") => cargo_run(&root, "epsx", "epsx"),
-        _ => Err("dev requires --all, --frontend, --admin, or --backend".into()),
+        _ => Err("dev requires --all, --frontend, --frontend-watch, --frontend-dx, --admin, --admin-watch, --admin-dx, or --backend".into()),
     }
 }
 
@@ -554,7 +570,7 @@ fn runtime_bootstrap(crate_name: &str) -> String {
     if crate_name == "epsx_service_worker" {
         return format!(
             "import init, {{ activate, fetch_navigation, install, notification_click, push }} from './{crate_name}.js?rev=3';\n\
-             const runtime = init(new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url));\n\
+             const runtime = init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
              self.addEventListener('install', (event) => {{\n\
                event.waitUntil(runtime.then(() => install()).then(() => self.skipWaiting()));\n\
              }});\n\
@@ -577,7 +593,7 @@ fn runtime_bootstrap(crate_name: &str) -> String {
     }
     format!(
         "import init from './{crate_name}.js?rev=3';\n\
-         await init(new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url));\n\
+         await init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
          //# sourceURL=wasm-bindgen:{crate_name}\n"
     )
 }
@@ -2516,6 +2532,7 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("API_URL", "http://127.0.0.1:8080"),
         ("BACKEND_URL", "http://127.0.0.1:8080"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        ("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8106"),
     ];
     const ADMIN: &[(&str, &str)] = &[
         ("ENV", "development"),
@@ -2615,6 +2632,59 @@ fn cargo_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
     run_status(&mut command, package)
 }
 
+fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    let app_dir = match binary {
+        "bff-frontend" => "apps/frontend",
+        "bff-admin" => "apps/admin",
+        _ => return cargo_run(root, package, binary),
+    };
+    let cargo_run_cmd = format!("cargo run -p {package} --bin {binary}");
+    let mut command = Command::new("cargo");
+    command
+        .args([
+            "watch",
+            "--why",
+            "--clear",
+            "-w",
+            app_dir,
+            "-w",
+            "shared/rust/dioxus_ui",
+            "-w",
+            "shared/rust/bff",
+            "-w",
+            "shared/rust/templates",
+            "-w",
+            "shared/rust/renderer",
+            "-w",
+            "shared/rust/client",
+            "-x",
+            &cargo_run_cmd,
+        ])
+        .current_dir(root);
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    println!("dev {binary}: watching {app_dir} + shared/rust/* — will recompile on change");
+    run_status(&mut command, &format!("cargo-watch({binary})"))
+}
+
+fn dx_serve_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    let app_dir = match binary {
+        "bff-frontend" => root.join("apps/frontend"),
+        "bff-admin" => root.join("apps/admin"),
+        _ => return cargo_run(root, package, binary),
+    };
+    let mut command = Command::new("dx");
+    command
+        .args(["serve", "--hot-reload"])
+        .current_dir(&app_dir);
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    println!("dev {binary}: running dx serve in {}", app_dir.display());
+    run_status(&mut command, &format!("dx-serve({binary})"))
+}
+
 fn run_status(command: &mut Command, label: &str) -> Result<(), String> {
     let status = command
         .stdin(Stdio::inherit())
@@ -2695,7 +2765,7 @@ mod tests {
         assert!(worker.contains("self.addEventListener('notificationclick'"));
 
         let browser = runtime_bootstrap("epsx_browser_runtime");
-        assert!(browser.contains("await init(new URL("));
+        assert!(browser.contains("await init({ module_or_path: new URL("));
         assert!(browser.contains("./epsx_browser_runtime.js?rev=3"));
         assert!(browser.contains("./epsx_browser_runtime_bg.wasm?rev=3"));
         assert!(!browser.contains("addEventListener('install'"));

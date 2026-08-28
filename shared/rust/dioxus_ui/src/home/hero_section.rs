@@ -79,12 +79,13 @@ pub fn HeroSection(
     }
 }
 
-/// Marketing hero shown before a wallet is connected.
+/// Public marketing hero — single variance for `/`.
 ///
-/// The development branch uses a quieter “Explore Market Analytics” state
-/// while the signed-in/connected state uses [`HeroSection`]'s performance
-/// headline. Keeping the two states separate also prevents the public shell
-/// from implying live metrics before the wallet/session data is available.
+/// Home is public and must render the same for anon and authed users.
+/// `HeroSection` (Track Your Performance Growth Metrics) is now the sole
+/// hero for `/` (no wallet/user branching). `SignedOutHero` (Explore Market
+/// Analytics) is retained only for legacy/marketing variants and must not be
+/// used on `/`.
 #[component]
 pub fn SignedOutHero() -> Element {
     rsx! {

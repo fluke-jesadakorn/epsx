@@ -48,8 +48,8 @@ use epsx_dioxus_ui::pages::analytics::{
     ANALYTICS_STATE_PARAM, ANALYTICS_WATCHLIST_DATA_PARAM, ANALYTICS_WATCHLIST_STATE_PARAM,
 };
 use epsx_dioxus_ui::pages::auth_page::{
-    AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_RECOVERING,
-    AUTH_PAGE_SESSION_STATE_SIGNED_OUT, AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+    AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
+    AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
 };
 use epsx_dioxus_ui::pages::chat::{
     CHAT_DETAIL_DATA_PARAM, CHAT_DETAIL_STATE_PARAM, CHAT_EMPTY, CHAT_FORBIDDEN,
@@ -314,16 +314,13 @@ async fn load_notification_page(
 fn auth_page_session_state(
     path: &str,
     access_verification: &AccessVerification,
-    refresh_cookie_present: bool,
+    _refresh_cookie_present: bool,
 ) -> Option<&'static str> {
     if path != "/auth" {
         return None;
     }
 
     Some(match access_verification {
-        AccessVerification::MissingOrRejected if refresh_cookie_present => {
-            AUTH_PAGE_SESSION_STATE_RECOVERING
-        }
         AccessVerification::VerifierUnavailable => AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
         AccessVerification::MissingOrRejected | AccessVerification::Verified { .. } => {
             AUTH_PAGE_SESSION_STATE_SIGNED_OUT
@@ -822,7 +819,8 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     let refresh_cookie_present = state.session().refresh_token(&headers).is_some();
     let recover_session = access_verification.permits_refresh_recovery()
         && refresh_cookie_present
-        && path != "/offline";
+        && path != "/offline"
+        && path != "/auth";
     let auth_page_session_state =
         auth_page_session_state(&path, &access_verification, refresh_cookie_present);
     let auth_page_verifier_unavailable =
@@ -909,6 +907,12 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         if !ptype.is_empty() && !pid.is_empty() && !pid.contains('/') {
             params.insert("type".into(), ptype);
             params.insert("id".into(), pid);
+        }
+    }
+    if path == "/auth" {
+        let return_url = safe_return_url(&query);
+        if return_url != "/" {
+            params.insert("return_url".to_string(), return_url);
         }
     }
     if path == "/account" {
@@ -2014,8 +2018,7 @@ mod tests {
         ACCOUNT_CREDIT_READY,
     };
     use epsx_dioxus_ui::pages::auth_page::{
-        AUTH_PAGE_SESSION_STATE_RECOVERING, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
-        AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
+        AUTH_PAGE_SESSION_STATE_SIGNED_OUT, AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
     };
     use epsx_dioxus_ui::pages::{PageContext, PageMeta, PageStatus};
     use std::collections::HashMap;
@@ -2233,7 +2236,7 @@ mod tests {
         );
         assert_eq!(
             auth_page_session_state("/auth", &AccessVerification::MissingOrRejected, true),
-            Some(AUTH_PAGE_SESSION_STATE_RECOVERING)
+            Some(AUTH_PAGE_SESSION_STATE_SIGNED_OUT)
         );
         assert_eq!(
             auth_page_session_state("/auth", &AccessVerification::VerifierUnavailable, true),

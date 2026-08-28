@@ -149,6 +149,9 @@ pub fn ConnectButton(
     /// transport (currently only `"metamask"` is wired).
     #[props(default = None)]
     data_provider: Option<String>,
+    /// Optional return URL forwarded to the runtime as `data-return-url`.
+    #[props(default = None)]
+    data_return_url: Option<String>,
 ) -> Element {
     let size_val = size.unwrap_or_default();
     let label_val = label.unwrap_or_else(|| match size_val {
@@ -182,6 +185,13 @@ pub fn ConnectButton(
             }
             _ => r#" data-provider="metamask""#.to_string(),
         };
+        let return_url_attr = match data_return_url.as_deref() {
+            Some(return_url) if !return_url.is_empty() => {
+                let return_url_escaped = html_attr_escape(return_url);
+                format!(r#" data-return-url="{return_url_escaped}""#)
+            }
+            _ => String::new(),
+        };
         let chevron_svg = if size_val == ConnectButtonSize::Full {
             format!(
                 r#"<span class="connect-btn-chevron">{}</span>"#,
@@ -197,7 +207,7 @@ pub fn ConnectButton(
         };
         let icon_svg = epsx_templates::lucide("wallet", &icon_size.to_string(), "");
         let html = format!(
-            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}{provider_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
+            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}{provider_attr}{return_url_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
         );
         return rsx! {
             span { class: "connect-btn-wrap inline-flex",
@@ -210,6 +220,7 @@ pub fn ConnectButton(
         Some(provider) if !provider.is_empty() => provider.to_string(),
         _ => "metamask".to_string(),
     };
+    let return_url_opt = data_return_url.filter(|url| !url.is_empty());
 
     rsx! {
         if let Some(h) = on_click {
@@ -219,6 +230,7 @@ pub fn ConnectButton(
                 disabled: disabled,
                 "aria-label": "Connect wallet",
                 "data-provider": "{provider_attr}",
+                "data-return-url": return_url_opt.as_deref(),
                 onclick: move |e| h.call(e),
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
@@ -232,6 +244,7 @@ pub fn ConnectButton(
                 href: "{href_val}",
                 "aria-label": "Connect wallet",
                 "data-provider": "{provider_attr}",
+                "data-return-url": return_url_opt.as_deref(),
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }
                 span { class: "connect-btn-label", "{label_val}" }
                 if size_val == ConnectButtonSize::Full {
@@ -341,9 +354,9 @@ impl ConnectedWalletState {
     /// connection lifetime. The BFF is expected to set it from
     /// `user.is_some()` after calling this helper — the SSR layer in
     /// `apps/frontend/src/ssr.rs` does this in one place.
-    pub fn from_cookies(headers: &axum::http::HeaderMap) -> Self {
+    pub fn from_cookies(headers: &http::HeaderMap) -> Self {
         let cookie_header = match headers
-            .get(axum::http::header::COOKIE)
+            .get(http::header::COOKIE)
             .and_then(|h| h.to_str().ok())
         {
             Some(s) => s,
@@ -776,7 +789,7 @@ pub fn connected_wallet_pill(user: User) -> Element {
 mod tests {
     use super::*;
     use crate::auth::user::AuthMethod;
-    use axum::http::{HeaderMap, HeaderName, HeaderValue};
+    use http::{HeaderMap, HeaderName, HeaderValue};
 
     /// Wave 3a Track B — the `from_cookies` parser must return
     /// `Default::default()` for an empty `HeaderMap`. This locks in

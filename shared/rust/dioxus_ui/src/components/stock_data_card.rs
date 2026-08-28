@@ -164,25 +164,8 @@ pub fn StockDataCard(
     #[props(default = None)] company_name: Option<String>,
     #[props(default = None)] watchlist: Option<StockCardWatchlist>,
 ) -> Element {
+    let _ = eps_growth;
     let theme = rank_theme(rank);
-    let positive_growth = eps_growth >= 0.0;
-    let growth_color = if positive_growth {
-        "text-green-400"
-    } else {
-        "text-red-400"
-    };
-    let growth_icon = if positive_growth {
-        "bg-green-500/20 text-green-400"
-    } else {
-        "bg-red-500/20 text-red-400"
-    };
-    let growth_bar = if positive_growth {
-        "bg-gradient-to-r from-green-500 to-emerald-400"
-    } else {
-        "bg-gradient-to-r from-red-500 to-rose-400"
-    };
-    let growth_width = ((eps_growth.abs() / 60.0) * 100.0).clamp(5.0, 100.0);
-    let growth_width_style = format!("width: {growth_width:.2}%;");
     let action_progress = progress_percentage
         .or_else(|| {
             days_until_next_action
@@ -195,7 +178,6 @@ pub fn StockDataCard(
         .map(|days| format!("{days} Days"))
         .unwrap_or_else(|| "N/A".to_string());
     let price_label = format_currency(price, &currency);
-    let growth_label = format_percentage(eps_growth);
     let details_url = format!("https://www.tradingview.com/symbols/{symbol}");
     let header_label = if rank > 5 {
         theme.label.clone()
@@ -240,41 +222,21 @@ pub fn StockDataCard(
                     p { class: "mt-0.5 text-sm font-semibold text-gray-600 dark:text-gray-300", "{price_label}" }
                 }
 
-                div { class: "mb-4 flex-grow space-y-2",
-                    div { class: "flex flex-col gap-2 rounded-xl bg-black/[0.03] p-3 transition-colors hover:bg-black/[0.05] dark:bg-white/5 dark:hover:bg-white/10",
-                        div { class: "flex items-center justify-between gap-3",
-                            div { class: "flex items-center gap-3",
-                                div { class: "rounded-md p-1.5 {growth_icon}",
-                                    Icon { name: "trending-up".to_string(), size: Some(16) }
-                                }
-                                span { class: "text-sm font-medium text-gray-600 dark:text-gray-300", "Growth" }
-                            }
-                            span { class: "text-sm font-bold {growth_color}", "{growth_label}" }
-                        }
-                        div { class: "h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700/50",
-                            div {
-                                class: "relative h-full rounded-full {growth_bar}",
-                                style: "{growth_width_style}",
-                                div { class: "absolute inset-0 bg-white/20" }
-                            }
-                        }
-                    }
-
-                    div { class: "flex flex-col gap-2 rounded-xl bg-black/[0.03] p-3 transition-colors hover:bg-black/[0.05] dark:bg-white/5 dark:hover:bg-white/10",
-                        div { class: "mb-1 flex items-center justify-between gap-3",
+                div { class: "mb-4 flex flex-grow flex-col justify-center",
+                    div { class: "relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white p-4 ring-1 ring-blue-200/50 transition-colors dark:from-blue-500/[0.08] dark:via-indigo-500/[0.05] dark:to-white/[0.02] dark:ring-white/10",
+                        div { class: "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-blue-500/10 blur-2xl", "aria-hidden": "true" }
+                        div { class: "relative flex items-center justify-between gap-3",
                             div { class: "flex items-center gap-2",
-                                div { class: "rounded-md bg-blue-500/20 p-1.5 text-blue-400",
-                                    Icon { name: "calendar".to_string(), size: Some(14) }
+                                div { class: "flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-600 to-cyan-500 shadow-md",
+                                    Icon { name: "calendar".to_string(), size: Some(18), class_name: Some("text-white".to_string()) }
                                 }
-                                span { class: "text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400",
-                                    "Next Action"
-                                }
+                                span { class: "text-xs font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400", "Next Action" }
                             }
-                            span { class: "whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white", "{action_label}" }
+                            span { class: "whitespace-nowrap text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums", "{action_label}" }
                         }
-                        div { class: "h-1.5 w-full overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700/50",
+                        div { class: "mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/50",
                             div {
-                                class: "relative h-full rounded-full bg-gradient-to-r from-blue-500 to-cyan-400",
+                                class: "relative h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400",
                                 style: "{action_width_style}",
                                 div { class: "absolute inset-0 bg-white/20" }
                             }
@@ -323,9 +285,12 @@ mod tests {
             }
         });
         assert!(html.contains("RANK #100"));
-        assert!(html.contains("-4.25%"));
         assert!(html.contains("$1,002.50"));
         assert!(html.contains("N/A"));
+        assert!(html.contains("Next Action"));
+        assert!(!html.contains("Growth"));
+        assert!(!html.contains("-4.25%"));
+        assert!(!html.contains("+12.35%"));
         assert!(!html.contains("data-watchlist-toggle"));
         assert!(!html.contains("data-watchlist-signed-out"));
     }
