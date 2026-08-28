@@ -1370,7 +1370,9 @@ dependencies = [
 
 [[package]]
 name = "aws-runtime"
-version = "1.7.4"
+version = "1.7.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c9b9de216a988dd54b754a82a7660cfe14cee4f6782ae4524470972fa0ccb39"
 dependencies = [
  "aws-credential-types",
  "aws-sigv4",
@@ -4265,7 +4267,7 @@ dependencies = [
  "rand 0.8.6",
  "redis",
  "regex",
- "reqwest 0.11.27",
+ "reqwest 0.12.28",
  "rsa",
  "rust_decimal",
  "rust_decimal_macros",

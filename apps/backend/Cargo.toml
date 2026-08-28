@@ -122,8 +122,8 @@ tokio-postgres = "0.7"
 rustls = { version = "0.23", features = ["ring"] }
 webpki-roots = "0.26"
 
-# Optional HTTP client with TLS choice
-reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
+# Optional HTTP client with TLS choice — unified to workspace 0.12 + rustls-tls-native-roots
+reqwest = { workspace = true, features = ["json"], optional = true }
 
 # Redis for notification pub/sub and event bus
 # TLS support with rustls for production use
