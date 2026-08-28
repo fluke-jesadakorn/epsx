@@ -7,6 +7,10 @@ edition.workspace = true
 name = "bff-frontend"
 path = "src/main.rs"
 
+[[bin]]
+name = "dx-frontend"
+path = "src/dx_main.rs"
+
 [dependencies]
 epsx-kernel = { path = "../../shared/rust/kernel" }
 epsx-client = { path = "../../shared/rust/client" }

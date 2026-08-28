@@ -2638,7 +2638,11 @@ fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), Strin
         "bff-admin" => "apps/admin",
         _ => return cargo_run(root, package, binary),
     };
-    let cargo_run_cmd = format!("cargo run -p {package} --bin {binary}");
+    // Phase 2A: watch full shared graph + browser-runtime wasm.
+    // `stock_data_card.rs:225` `Next Action` hero edits now trigger without manual restart.
+    let cargo_run_cmd = format!(
+        "sh -c 'cargo xtask browser-runtime build && cargo run -p {package} --bin {binary}'"
+    );
     let mut command = Command::new("cargo");
     command
         .args([
@@ -2657,6 +2661,14 @@ fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), Strin
             "shared/rust/renderer",
             "-w",
             "shared/rust/client",
+            "-w",
+            "shared/rust/browser-runtime",
+            "-w",
+            "shared/rust/service-worker",
+            "-w",
+            "shared/rust/observability",
+            "-w",
+            "shared/rust/kernel",
             "-x",
             &cargo_run_cmd,
         ])
@@ -2664,7 +2676,7 @@ fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), Strin
     for (key, value) in local_dev_environment(binary) {
         command.env(key, value);
     }
-    println!("dev {binary}: watching {app_dir} + shared/rust/* — will recompile on change");
+    println!("dev {binary}: watching {app_dir} + shared/rust/* (+wasm) — will recompile on change");
     run_status(&mut command, &format!("cargo-watch({binary})"))
 }
 

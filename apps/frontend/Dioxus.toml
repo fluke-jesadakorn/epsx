@@ -1,9 +1,18 @@
 [application]
 name = "epsx-frontend"
+out_dir = "dist"
 public_dir = "public"
+platform = "web"
 
 [web.app]
 title = "EPSX - Analytics Platform"
+base_path = "/"
 
 [web.watcher]
-watch_path = ["src", "../../shared/rust/dioxus_ui/src", "../../shared/rust/templates/src"]
+watch_path = ["src", "../../shared/rust/dioxus_ui/src", "../../shared/rust/templates/src", "../../shared/rust/bff/src"]
+watch_include_ignored = false
+
+[web.proxy]
+backend = "http://127.0.0.1:8080/api/"
+
+
