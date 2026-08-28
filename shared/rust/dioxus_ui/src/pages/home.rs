@@ -22,14 +22,11 @@ pub const HOME_ANALYTICS_STATE_PARAM: &str = "data_home_analytics_state";
 
 #[server]
 pub async fn get_home_rankings() -> Result<AnalyticsResponse, ServerFnError> {
-    // Phase 2B pilot: Server future stub — return Err to fallback to PageContext HashMap
-    // for Axum SSR + cargo test. `dx serve` HMR for `stock_data_card.rs` already works
-    // via `cargo_watch` (12s) and `dx` (500ms) without needing live data.
-    // Full live fetch via `reqwest::get(API_URL/api/analytics/rankings)` will be
-    // enabled once `ssr.rs:fetch_page_data` is retired.
-    return Err(ServerFnError::new(
-        "pilot fallback to PageContext".to_string(),
-    ));
+    if tokio::runtime::Handle::try_current().is_err() {
+        return Err(ServerFnError::new(
+            "no runtime, fallback to PageContext".to_string(),
+        ));
+    }
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
     let url = format!(
         "{}/api/analytics/rankings?page=1&limit=3",
