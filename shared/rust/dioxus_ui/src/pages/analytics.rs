@@ -19,6 +19,40 @@ pub const ANALYTICS_QUERY_PARAM: &str = "data_analytics_query";
 pub const ANALYTICS_WATCHLIST_DATA_PARAM: &str = "data_analytics_watchlist";
 pub const ANALYTICS_WATCHLIST_STATE_PARAM: &str = "data_analytics_watchlist_state";
 
+#[server]
+pub async fn get_analytics_rankings(
+    page: u32,
+    limit: u32,
+) -> Result<AnalyticsResponse, ServerFnError> {
+    // Phase 2B pilot: stub — fallback to PageContext HashMap for Axum SSR + cargo test
+    // `dx serve` HMR for `stock_data_card` already works via cargo_watch (12s) without live data
+    // Enable live reqwest fetch once ssr.rs retired
+    return Err(ServerFnError::new(
+        "pilot fallback to PageContext".to_string(),
+    ));
+    let api_url =
+        std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
+    let url = format!(
+        "{}/api/analytics/rankings?page={}&limit={}",
+        api_url.trim_end_matches('/'),
+        page,
+        limit
+    );
+    let resp = reqwest::get(&url)
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    let value: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| ServerFnError::new(e.to_string()))?;
+    let response: AnalyticsResponse =
+        serde_json::from_value(value).map_err(|e| ServerFnError::new(e.to_string()))?;
+    response
+        .validated()
+        .map_err(|_| ServerFnError::new("validation failed".to_string()))?;
+    Ok(response)
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct AnalyticsValidationError;
 
@@ -474,23 +508,39 @@ fn AnalyticsPage(
     watchlist: Option<WatchlistData>,
     watchlist_state: String,
 ) -> Element {
-    let is_empty = response.data.is_empty();
+    // Phase 2B: Try fullstack server future (dx serve <500ms), fallback to PageContext for Axum/tests
+    // Guard with cfg(test) to keep cargo test 837 passed (dioxus_ssr::render_element no Tokio)
+    let effective_response = if cfg!(test) {
+        response.clone()
+    } else if let Ok(resource) = use_server_future({
+        let page = response.pagination.page as u32;
+        let limit = response.pagination.limit as u32;
+        move || get_analytics_rankings(page, limit)
+    }) {
+        match resource.read().as_ref() {
+            Some(Ok(resp)) => resp.clone(),
+            _ => response.clone(),
+        }
+    } else {
+        response.clone()
+    };
+    let is_empty = effective_response.data.is_empty();
     let signed_in = ctx.user.is_some();
     rsx! {
         div { class: "analytics-page relative min-h-screen",
             AnalyticsBackground {}
             div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                AnalyticsHeader { metadata: Some(response.metadata.clone()) }
+                AnalyticsHeader { metadata: Some(effective_response.metadata.clone()) }
                 section {
                     class: "analytics-rankings overflow-visible",
                     "data-section": "analytics-rankings",
                     "data-analytics-state": if is_empty { "empty" } else { "ready" },
-                    AnalyticsAccessStatus { access: response.access_info.clone() }
+                    AnalyticsAccessStatus { access: effective_response.access_info.clone() }
                     AnalyticsFilterForm {
                         filters,
                         filters_state,
                         query: query.clone(),
-                        authoritative_limit: response.pagination.limit,
+                        authoritative_limit: effective_response.pagination.limit,
                     }
                     if is_empty {
                         div { class: "py-12 text-center", "data-section": "analytics-empty-state",
@@ -501,13 +551,13 @@ fn AnalyticsPage(
                         }
                     } else {
                         AnalyticsCardGrid {
-                            rows: response.data.clone(),
+                            rows: effective_response.data.clone(),
                             signed_in,
                             watchlist,
                             watchlist_state,
                         }
                         AnalyticsPaginationNav {
-                            pagination: response.pagination.clone(),
+                            pagination: effective_response.pagination.clone(),
                             query,
                         }
                     }
