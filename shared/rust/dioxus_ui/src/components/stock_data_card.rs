@@ -88,7 +88,10 @@ pub fn format_currency(value: f64, currency: &str) -> String {
     }
 }
 
-fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
+#[component]
+fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
+    let initial_watched = matches!(&watchlist, StockCardWatchlist::Ready { is_watchlisted: true });
+    let mut watched = use_signal(|| initial_watched);
     let base_class = "stock-watchlist-control absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 dark:hover:bg-white/10";
     match watchlist {
         StockCardWatchlist::SignedOut => rsx! {
@@ -96,32 +99,40 @@ fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
                 class: "{base_class} text-gray-400 hover:text-pink-400",
                 href: ANALYTICS_SIGN_IN_PATH,
                 "data-watchlist-signed-out": "true",
-                "data-symbol": symbol,
+                "data-symbol": "{symbol}",
                 "aria-label": "Sign in to add {symbol} to watchlist",
                 span { "aria-hidden": "true", "♡" }
             }
         },
-        StockCardWatchlist::Ready { is_watchlisted } => {
-            let label = if *is_watchlisted {
+        StockCardWatchlist::Ready { is_watchlisted: _ } => {
+            let label = if watched() {
                 format!("Remove {symbol} from watchlist")
             } else {
                 format!("Add {symbol} to watchlist")
             };
-            let color = if *is_watchlisted {
+            let color = if watched() {
                 "text-pink-500"
             } else {
                 "text-gray-400 hover:text-pink-400"
             };
-            let glyph = if *is_watchlisted { "♥" } else { "♡" };
-            let watched = if *is_watchlisted { "true" } else { "false" };
+            let glyph = if watched() { "♥" } else { "♡" };
+            let watched_str = if watched() { "true" } else { "false" };
             rsx! {
                 button {
                     class: "{base_class} {color}",
                     r#type: "button",
+                    // Native Dioxus onclick for dx serve HMR (<500ms) — replaces browser-runtime dispatch
+                    // Keep data-* for Axum SSR fallback (bff-frontend) + cargo test
+                    onclick: move |_| {
+                        watched.set(!watched());
+                        // TODO(Phase 2C full): call #[server] toggle_watchlist(symbol.clone()).await
+                        // For now optimistic UI only; server sync via browser-runtime fallback still works
+                    },
                     "data-watchlist-toggle": "true",
-                    "data-symbol": symbol,
-                    "data-watchlisted": watched,
+                    "data-symbol": "{symbol}",
+                    "data-watchlisted": "{watched_str}",
                     "aria-label": "{label}",
+                    "aria-pressed": "{watched_str}",
                     "aria-busy": "false",
                     span { "data-watchlist-glyph": "true", "aria-hidden": "true", "{glyph}" }
                 }
@@ -138,7 +149,7 @@ fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
                 r#type: "button",
                 disabled: true,
                 "data-watchlist-unavailable": "true",
-                "data-symbol": symbol,
+                "data-symbol": "{symbol}",
                 "aria-label": "Watchlist unavailable for {symbol}",
                 span { "aria-hidden": "true", "♡" }
             }
@@ -150,6 +161,10 @@ fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
             }
         },
     }
+}
+
+fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
+    rsx! { WatchlistControl { symbol: symbol.to_string(), watchlist: watchlist.clone() } }
 }
 
 #[component]
