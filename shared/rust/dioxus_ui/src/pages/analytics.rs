@@ -24,12 +24,11 @@ pub async fn get_analytics_rankings(
     page: u32,
     limit: u32,
 ) -> Result<AnalyticsResponse, ServerFnError> {
-    // Phase 2B pilot: stub — fallback to PageContext HashMap for Axum SSR + cargo test
-    // `dx serve` HMR for `stock_data_card` already works via cargo_watch (12s) without live data
-    // Enable live reqwest fetch once ssr.rs retired
-    return Err(ServerFnError::new(
-        "pilot fallback to PageContext".to_string(),
-    ));
+    if tokio::runtime::Handle::try_current().is_err() {
+        return Err(ServerFnError::new(
+            "no runtime, fallback to PageContext".to_string(),
+        ));
+    }
     let api_url =
         std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
     let url = format!(

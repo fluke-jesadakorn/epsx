@@ -22,11 +22,11 @@ pub const HOME_ANALYTICS_STATE_PARAM: &str = "data_home_analytics_state";
 
 #[server]
 pub async fn get_home_rankings() -> Result<AnalyticsResponse, ServerFnError> {
-    // Phase 2B pilot stub — fallback to PageContext for Axum SSR + cargo test
-    // `dx serve` HMR for stock_data_card hero already works via cargo_watch without live data
-    return Err(ServerFnError::new(
-        "pilot fallback to PageContext".to_string(),
-    ));
+    if tokio::runtime::Handle::try_current().is_err() {
+        return Err(ServerFnError::new(
+            "no runtime, fallback to PageContext".to_string(),
+        ));
+    }
     let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
     let url = format!(
         "{}/api/analytics/rankings?page=1&limit=3",
@@ -116,7 +116,24 @@ fn home_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) 
 
 #[component]
 fn AnalyticsPreview(outcome: HomeAnalyticsOutcome) -> Element {
-    let state = match &outcome {
+    let effective_outcome = if cfg!(test) {
+        outcome.clone()
+    } else if let Ok(resource) = use_server_future(|| get_home_rankings()) {
+        match resource.read().as_ref() {
+            Some(Ok(resp)) => {
+                if resp.data.is_empty() {
+                    HomeAnalyticsOutcome::Empty
+                } else {
+                    HomeAnalyticsOutcome::Ready(resp.clone())
+                }
+            }
+            Some(Err(_)) => outcome.clone(),
+            None => outcome.clone(),
+        }
+    } else {
+        outcome.clone()
+    };
+    let state = match &effective_outcome {
         HomeAnalyticsOutcome::Ready(_) => "ready",
         HomeAnalyticsOutcome::Empty => "empty",
         HomeAnalyticsOutcome::Unavailable => "unavailable",
@@ -141,7 +158,7 @@ fn AnalyticsPreview(outcome: HomeAnalyticsOutcome) -> Element {
                         }
                         div { class: "home-prod-tp-divider pancake-gradient mx-auto h-1 w-24 rounded-full" }
                     }
-                    match outcome {
+                    match effective_outcome {
                         HomeAnalyticsOutcome::Ready(response) => rsx! {
                             div {
                                 class: "home-ranking-grid grid grid-cols-1 gap-6 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3",
