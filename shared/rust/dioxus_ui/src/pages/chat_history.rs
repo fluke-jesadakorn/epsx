@@ -145,10 +145,10 @@ fn history_filters(query: &str) -> (Option<String>, Option<String>) {
                     status = Some(value.into_owned());
                 }
             }
-            "topic" if topic.is_none() && value != "all" => {
-                if uuid::Uuid::parse_str(&value).is_ok() {
-                    topic = Some(value.into_owned());
-                }
+            "topic"
+                if topic.is_none() && value != "all" && uuid::Uuid::parse_str(&value).is_ok() =>
+            {
+                topic = Some(value.into_owned());
             }
             _ => {}
         }

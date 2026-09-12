@@ -11,7 +11,7 @@ use jsonwebtoken::{decode, decode_header, encode, Algorithm, Header, Validation}
 use serde::{Deserialize, Serialize};
 use sqlx::{PgPool, Postgres, Transaction};
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::info;
 use utoipa::ToSchema;
 use uuid::Uuid;
 

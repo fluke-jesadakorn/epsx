@@ -7,7 +7,9 @@ complete hydration assets and forward migrations. It does not deploy or migrate.
 Output must be a new directory; `manifest.json` records file checksums. Never put
 secrets or production database dumps in a release.
 
-CI uses this same native package command with pinned Dioxus/wasm-bindgen CLIs.
+CI uses this same native package command with Rust 1.91.1 (matching
+`rust-toolchain.toml` and the verified macOS release) and pinned
+Dioxus/wasm-bindgen CLIs. Compiler upgrades require a new full validation run.
 `audit no-node --strict` checks the reviewed browser adapters by exact source/hash;
 the older marker inventory and archived Kubernetes overlays are not native
 release gates. Formatting, strict workspace Clippy, workspace tests, frozen

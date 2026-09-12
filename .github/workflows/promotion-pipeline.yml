@@ -24,7 +24,7 @@ jobs:
         with:
           submodules: recursive
           fetch-depth: 0
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
           targets: wasm32-unknown-unknown
       - uses: foundry-rs/foundry-toolchain@v1
