@@ -119,7 +119,7 @@ LC_ALL=C/LANG=C repair. PostgreSQL, Redis and MinIO are running in the system
 domain. Candidate import still awaits the root command result; application
 jobs, Tunnel and production routes have not switched.
 
-The final premerge workspace run passed 2,300 tests with zero failures and 40
+The final premerge workspace run passed 2,300 tests with zero failures and 42
 explicitly ignored external-fixture tests across 103 result groups. This includes
 the canonical credit commands and lint cleanup. Selected restored-data and Anvil
 tests were exercised separately; ignored tests do not automatically satisfy
@@ -181,3 +181,10 @@ After the remaining gates, take a fresh snapshot with old writers stopped,
 install the system apps/Tunnel, verify boot before login, and observe 24 hours
 of healthy production before removing the three EPSX Vercel projects and Blob.
 Preserve the shared Neon resource.
+
+The local development merge at `94378ba88929fc102c6517e31d384eacdfa7565c`
+passed the same 2,300 tests (42 explicitly ignored) across 103 result groups.
+GitHub development is protected and requires a PR; PR #42 carries this release
+through its required checks. Vercel preview deployments are disabled for the
+EPSX frontend/admin projects; both existing production targets were verified
+unchanged. Project deletion remains after the agreed observation window.
