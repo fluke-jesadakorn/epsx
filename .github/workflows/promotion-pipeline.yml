@@ -15,7 +15,8 @@ permissions:
 
 jobs:
   rust-release-gate:
-    name: Rust/Dioxus/Foundry release gate
+    # Keep this status name aligned with the protected development branch.
+    name: Promotion Pipeline
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
