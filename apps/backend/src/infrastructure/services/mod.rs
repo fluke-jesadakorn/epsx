@@ -12,3 +12,5 @@ pub use blockchain_monitor::BlockchainMonitor;
 pub use plan_expiration_service::PlanExpirationService;
 pub use seed_admin_plans::seed_system_admin_plans;
 pub use seed_news::seed_production_news;
+
+pub mod plan_projection;

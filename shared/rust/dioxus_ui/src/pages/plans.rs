@@ -25,6 +25,8 @@ pub struct PublicPlan {
     pub promotion_active: bool,
     pub promotion_status: String,
     pub promotion_discount: f64,
+    #[serde(default)]
+    pub promotion_savings: String,
     pub promotion_ends_at: Option<String>,
     pub currency: String,
     pub billing_cycle: String,
@@ -99,20 +101,19 @@ fn PlansPage(ctx: PageContext) -> Element {
     }
 }
 
-fn display_price(plan: &PublicPlan) -> String {
-    let value = if plan.promotion_active {
-        plan.effective_price
+pub fn display_price(plan: &PublicPlan) -> String {
+    if plan.currency == plan.settlement_currency {
+        format!("{} {}", plan.currency, plan.checkout_price)
     } else {
-        plan.current_price.parse::<f64>().unwrap_or_default()
-    };
-    format!("{} {value:.2}", plan.currency)
+        format!("{} {:.2}", plan.currency, plan.effective_price)
+    }
 }
 
-fn billing_label(value: &str) -> String {
+pub fn billing_label(value: &str) -> String {
     value.replace('_', " ")
 }
 
-fn ranking_access_label(plan: &PublicPlan) -> String {
+pub fn ranking_access_label(plan: &PublicPlan) -> String {
     let first_rank = plan.ranking_offset.max(0).saturating_add(1);
     match plan.rankings_limit {
         -1 => format!("Stock rankings from rank {first_rank} · unlimited inventory"),
@@ -124,64 +125,106 @@ fn ranking_access_label(plan: &PublicPlan) -> String {
 }
 
 #[component]
+pub fn PlanCard(plan: PublicPlan, #[props(default)] frontend: bool) -> Element {
+    rsx! {
+        article {
+            class: "plan-card relative flex min-h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800/90 fe-surface",
+            "data-plan-id": plan.id.clone(),
+            "data-plan-group": plan.plan_group.clone(),
+            div { class: "mb-4 flex items-start justify-between gap-3",
+                div {
+                    p { class: "text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-300", "{plan.plan_group}" }
+                    h2 { class: "mt-1 text-2xl font-bold text-slate-900 dark:text-white fe-tone-text", "{plan.name}" }
+                }
+                if plan.promotion_active {
+                    span { class: if frontend { "fe-plan-discount" } else { "plan-discount-badge shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 ring-1 ring-emerald-600/10 dark:bg-emerald-700 dark:text-white dark:ring-emerald-500/30" },
+                        "{plan.promotion_discount:.0}% off"
+                    }
+                }
+            }
+            div { class: "mb-5",
+                {
+                    let is_custom = plan.plan_group == "custom";
+                    if is_custom {
+                        rsx! {
+                            p { class: "text-3xl font-black text-purple-700 dark:text-purple-300 fe-tone-accent", "Contact us" }
+                            p { class: "mt-1 text-sm capitalize text-slate-500 dark:text-slate-400 fe-tone-muted", "Custom plan" }
+                        }
+                    } else {
+                        rsx! {
+                            p { class: "text-3xl font-black text-slate-900 dark:text-white fe-tone-text", "{display_price(&plan)}" }
+                            if plan.promotion_active {
+                                p { class: "mt-1 text-sm text-slate-500 line-through dark:text-slate-400 fe-tone-muted", "{plan.currency} {plan.current_price}" }
+                                if !plan.promotion_savings.is_empty() {
+                                    p { class: "fe-sale-saving", "Save {plan.currency} {plan.promotion_savings}" }
+                                }
+                                p { class: "fe-sale-caption", "Sale price · one-time payment" }
+                                if let Some(ends) = plan.promotion_ends_at.as_deref().filter(|s| !s.is_empty()) {
+                                    p { class: "fe-sale-caption", "Offer ends ", time { datetime: ends, "{ends}" } }
+                                }
+                            }
+                            p { class: "mt-1 text-sm capitalize text-slate-500 dark:text-slate-400 fe-tone-muted", "{billing_label(&plan.billing_cycle)}" }
+                        }
+                    }
+                }
+            }
+            ul { class: "mb-6 flex-1 space-y-3",
+                for feature in plan.features.iter() {
+                    li { class: "flex items-start gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200",
+                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("mt-1 shrink-0 text-emerald-600".to_string()) }
+                        span { "{feature}" }
+                    }
+                }
+            }
+            p {
+                class: if frontend { "fe-plan-access" } else { "plan-ranking-pill mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 ring-1 ring-blue-200/60 dark:bg-blue-700 dark:text-white dark:ring-blue-500/30" },
+                {if frontend { ranking_access_label(&plan).replacen("Stock rankings", "Company rankings", 1) } else { ranking_access_label(&plan) }}
+            }
+            {
+                let is_custom = plan.plan_group == "custom";
+                if is_custom {
+                    rsx! {
+                        crate::fullstack::shell::ShellLink {
+                            class: "inline-flex w-full items-center justify-center rounded-xl bg-gradient-to-r from-purple-600 to-fuchsia-500 px-4 py-3 font-semibold text-white transition hover:from-purple-600 hover:to-fuchsia-600 fe-fill-neutral fe-tone-text fe-action-primary",
+                            href: "/contact",
+                            Icon { name: "message-square".to_string(), size: Some(16) }
+                            "Get in Touch"
+                        }
+                    }
+                } else {
+                    rsx! {
+                        crate::fullstack::shell::ShellLink {
+                            class: "inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700 fe-tone-text fe-action-primary",
+                            href: format!("/payment/plan/{}", plan.id),
+                            "Review plan"
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[component]
 fn PlansReadyContent(plans: Vec<PublicPlan>) -> Element {
     rsx! {
         div {
-            class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
+            class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900 fe-base-page fe-fill-neutral",
             "data-plans-state": "ready",
             div { class: "relative z-10 mx-auto max-w-7xl px-4 py-12",
                 header { class: "mx-auto mb-12 max-w-3xl text-center",
-                    h1 { class: "bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6",
-                        "Choose Your EPSX Plan"
+                    h1 { class: "bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6 fe-fill-neutral fe-type-title",
+                        "Plans"
                     }
-                    p { class: "text-xl leading-relaxed text-gray-600 dark:text-gray-300",
+                    p { class: "text-xl leading-relaxed text-gray-600 dark:text-gray-300 fe-tone-muted",
                         "Compare the current public plans and features provided by EPSX."
                     }
                 }
                 section {
-                    class: "grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3",
+                    class: "grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3",
                     aria_label: "Available EPSX plans",
                     for plan in plans {
-                        article {
-                            class: "relative flex min-h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-800/90",
-                            "data-plan-id": plan.id.clone(),
-                            "data-plan-group": plan.plan_group.clone(),
-                            div { class: "mb-4 flex items-start justify-between gap-3",
-                                div {
-                                    p { class: "text-xs font-semibold uppercase tracking-wider text-blue-600 dark:text-blue-300", "{plan.plan_group}" }
-                                    h2 { class: "mt-1 text-2xl font-bold text-slate-950 dark:text-white", "{plan.name}" }
-                                }
-                                if plan.promotion_active {
-                                    span { class: "shrink-0 rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800 dark:bg-emerald-900/50 dark:text-emerald-200",
-                                        "{plan.promotion_discount:.0}% off"
-                                    }
-                                }
-                            }
-                            div { class: "mb-5",
-                                p { class: "text-3xl font-black text-slate-950 dark:text-white", "{display_price(&plan)}" }
-                                if plan.promotion_active {
-                                    p { class: "mt-1 text-sm text-slate-500 line-through dark:text-slate-400", "{plan.currency} {plan.current_price}" }
-                                }
-                                p { class: "mt-1 text-sm capitalize text-slate-500 dark:text-slate-400", "{billing_label(&plan.billing_cycle)}" }
-                            }
-                            ul { class: "mb-6 flex-1 space-y-3",
-                                for feature in plan.features.iter() {
-                                    li { class: "flex items-start gap-2 text-sm leading-6 text-slate-700 dark:text-slate-200",
-                                        Icon { name: "check".to_string(), size: Some(16), class_name: Some("mt-1 shrink-0 text-emerald-600".to_string()) }
-                                        span { "{feature}" }
-                                    }
-                                }
-                            }
-                            p {
-                                class: "mb-4 rounded-lg bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-800 dark:bg-blue-950/60 dark:text-blue-200",
-                                "{ranking_access_label(&plan)}"
-                            }
-                            a {
-                                class: "inline-flex w-full items-center justify-center rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white transition hover:bg-blue-700",
-                                href: format!("/payment/plan/{}", plan.id),
-                                "Get Started"
-                            }
-                        }
+                        PlanCard { plan: plan.clone(), frontend: true }
                     }
                 }
                 PlansFaq {}
@@ -195,7 +238,7 @@ fn PlansEmptyContent() -> Element {
     rsx! { PlansProblemContent {
         state: "empty",
         title: "No public plans are available",
-        message: "The backend returned an authoritative empty plan catalog.",
+        message: "No public plans are available right now.",
     } }
 }
 
@@ -203,21 +246,21 @@ fn PlansEmptyContent() -> Element {
 fn PlansMalformedContent() -> Element {
     rsx! { PlansProblemContent {
         state: "malformed",
-        title: "Plan data could not be verified",
-        message: "The plan service returned an unexpected response, so no pricing claims are shown.",
+        title: "Plans are temporarily unavailable",
+        message: "We couldn’t load the current plans. Please try again.",
     } }
 }
 
 #[component]
 fn PlansProblemContent(state: &'static str, title: &'static str, message: &'static str) -> Element {
     rsx! {
-        div { class: "plans-prod-page min-h-screen bg-slate-50 px-4 py-12 dark:bg-slate-900", "data-plans-state": state,
+        div { class: "plans-prod-page min-h-screen bg-slate-50 px-4 py-12 dark:bg-slate-900 fe-base-page fe-fill-neutral", "data-plans-state": state,
             div { class: "mx-auto max-w-4xl",
-                h1 { class: "mb-8 text-center text-4xl font-bold text-slate-950 dark:text-white", "Choose Your EPSX Plan" }
-                section { class: "rounded-xl border border-slate-300 bg-white p-6 text-center shadow dark:border-slate-700 dark:bg-slate-800", role: "status",
-                    h2 { class: "text-xl font-semibold text-slate-950 dark:text-white", "{title}" }
-                    p { class: "mt-2 text-slate-600 dark:text-slate-300", "{message}" }
-                    a { class: "mt-5 inline-flex rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white", href: "/plans", "Try again" }
+                h1 { class: "mb-8 text-center text-4xl font-bold text-slate-900 dark:text-white fe-tone-text fe-type-title", "Plans" }
+                section { class: "rounded-xl border border-slate-300 bg-white p-6 text-center shadow dark:border-slate-700 dark:bg-slate-800 fe-surface", role: "status",
+                    h2 { class: "text-xl font-semibold text-slate-900 dark:text-white fe-tone-text", "{title}" }
+                    p { class: "mt-2 text-slate-600 dark:text-slate-300 fe-tone-muted", "{message}" }
+                    crate::fullstack::shell::ShellLink { class: "mt-5 inline-flex rounded-lg bg-blue-600 px-5 py-2 font-semibold text-white fe-tone-text fe-action-primary", href: "/plans", "Try again" }
                 }
                 PlansFaq {}
             }
@@ -229,7 +272,7 @@ fn PlansProblemContent(state: &'static str, title: &'static str, message: &'stat
 fn PlansUnavailableContent() -> Element {
     rsx! {
         div {
-                class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900",
+                class: "plans-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-900 dark:to-indigo-900 fe-base-page fe-fill-neutral",
                 "data-plans-state": "unavailable",
                 // The local SSR stylesheet does not emit Tailwind's standard
                 // `dark:from-*` gradient utilities. Keep the source light
@@ -237,47 +280,17 @@ fn PlansUnavailableContent() -> Element {
                 style { "
                     .plans-prod-page {{ background: linear-gradient(to right bottom, #f8fafc 0%, #eff6ff 50%, #eef2ff 100%); }}
                     html.dark .plans-prod-page {{ background: linear-gradient(to right bottom, #111827 0%, #111827 50%, #312e81 100%); }}
-                    .plans-catalog-alternatives {{
-                        display: flex;
-                        align-items: center;
-                        justify-content: center;
-                        gap: 2.5rem;
-                        margin-top: 3rem;
-                        padding-top: 2rem;
-                        border-top: 1px solid rgba(148, 163, 184, 0.24);
-                    }}
-                    .plans-catalog-alternatives a {{
-                        display: inline-flex;
-                        align-items: center;
-                        gap: 0.5rem;
-                        color: #334155;
-                        font-size: 1rem;
-                        font-weight: 600;
-                        text-decoration: none;
-                        transition: color 0.15s ease, transform 0.15s ease;
-                    }}
-                    .plans-catalog-alternatives a:hover {{
-                        color: #0f172a;
-                        transform: translateY(-1px);
-                    }}
-                    .plans-catalog-alternatives i {{ color: #475569; flex-shrink: 0; }}
-                    html.dark .plans-catalog-alternatives a {{ color: #e2e8f0; }}
-                    html.dark .plans-catalog-alternatives a:hover {{ color: #ffffff; }}
-                    html.dark .plans-catalog-alternatives i {{ color: #f8fafc; }}
-                    @media (max-width: 639px) {{
-                        .plans-catalog-alternatives {{ flex-direction: column; gap: 1.25rem; }}
-                    }}
                 " }
 
                 div { class: "plans-prod-container relative z-10 mx-auto max-w-7xl px-4 py-12",
                     header {
                         class: "plans-prod-hero mx-auto mb-16 text-center",
                         style: "margin-bottom: 64px;",
-                        h1 { class: "plans-prod-title bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6",
-                            "Choose Your EPSX Plan"
+                        h1 { class: "plans-prod-title bg-gradient-to-r from-emerald-600 via-blue-600 to-purple-600 bg-clip-text text-4xl font-bold text-transparent md:text-6xl mb-6 fe-fill-neutral fe-type-title",
+                            "Plans"
                         }
-                        p { class: "plans-prod-subtitle mx-auto max-w-3xl text-xl leading-relaxed text-gray-600 dark:text-gray-300",
-                            "Unlock powerful analytics features, API access, and premium tools to supercharge your analytics experience"
+                        p { class: "plans-prod-subtitle mx-auto max-w-3xl text-xl leading-relaxed text-gray-600 dark:text-gray-300 fe-tone-muted",
+                            "Compare available plans and review the price and access included in each."
                         }
                     }
 
@@ -293,7 +306,7 @@ fn PlansUnavailableContent() -> Element {
                         // two-pixel top breathing room needed after the hero.
                         class: "plans-unavailable-catalog px-4 pt-2",
                         section {
-                            class: "plans-unavailable mx-auto max-w-4xl rounded-xl border-2 border-slate-300 bg-white/60 shadow-lg shadow-blue-950/10 backdrop-blur-xl dark:border-slate-300/90 dark:bg-slate-900/10",
+                            class: "plans-unavailable mx-auto max-w-4xl rounded-xl border-2 border-slate-300 bg-white/60 shadow-lg shadow-blue-950/10 backdrop-blur-xl dark:border-slate-300/90 dark:bg-slate-900/10 fe-fill-neutral",
                             role: "alert",
                             aria_labelledby: "plans-unavailable-title",
                             "data-section": "plans-unavailable",
@@ -303,7 +316,7 @@ fn PlansUnavailableContent() -> Element {
                                 }
                                 h2 {
                                     id: "plans-unavailable-title",
-                                    class: "text-base font-medium text-gray-900 dark:text-white sm:text-lg",
+                                    class: "text-base font-medium text-gray-900 dark:text-white sm:text-lg fe-tone-text",
                                     "Failed to load plans. Please try again later."
                                 }
                             }
@@ -313,51 +326,7 @@ fn PlansUnavailableContent() -> Element {
                         }
                     }
 
-                    section {
-                        class: "plans-faq mx-auto mt-20 max-w-3xl",
-                        style: "margin-top: 80px;",
-                        aria_labelledby: "plans-faq-title",
-                        h2 { id: "plans-faq-title", class: "mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white",
-                            "Frequently Asked Questions"
-                        }
-                        div { class: "space-y-6",
-                            FaqItem {
-                                title: "Can I change my plan later?",
-                                body: "Plan-change availability and timing depend on the terms confirmed by the backend for your account.",
-                            }
-                            FaqItem {
-                                title: "What happens to my API keys when I change plans?",
-                                body: "API access is enforced by backend permissions. Review the developer portal after any confirmed plan change.",
-                            }
-                            FaqItem {
-                                title: "Do you offer custom enterprise plans?",
-                                body: "Absolutely! We can create custom plans with specific features, higher limits, and dedicated support.",
-                                link_label: Some("Contact us"),
-                                link_href: Some(CONTACT_PATH),
-                            }
-                            FaqItem {
-                                title: "Is there a free trial?",
-                                body: "A trial or promotion is available only when it appears in the current backend-provided plan catalog.",
-                            }
-                        }
-                        nav {
-                            // The source plans composition keeps these safe
-                            // recovery links visible below the FAQ cards.
-                            // They remain useful even while the catalog is
-                            // unavailable, and preserve the route's visual
-                            // footer at tablet and mobile widths.
-                            class: "plans-catalog-alternatives",
-                            "aria-label": "Plan catalog alternatives",
-                            a { href: CONTACT_PATH,
-                                Icon { name: "mail".to_string(), size: Some(16) }
-                                "Contact support"
-                            }
-                            a { href: "/",
-                                Icon { name: "home".to_string(), size: Some(16) }
-                                "Return home"
-                            }
-                        }
-                    }
+                    PlansFaq {}
                 }
         }
     }
@@ -367,19 +336,19 @@ fn PlansUnavailableContent() -> Element {
 fn PlansFaq() -> Element {
     rsx! {
         section {
-            class: "plans-faq mx-auto mt-20 max-w-3xl",
+            class: "plans-faq",
             aria_labelledby: "plans-faq-title",
-            h2 { id: "plans-faq-title", class: "mb-12 text-center text-3xl font-bold text-gray-900 dark:text-white",
+            h2 { id: "plans-faq-title", class: "plans-faq-heading fe-tone-text",
                 "Frequently Asked Questions"
             }
-            div { class: "space-y-6",
+            div { class: "plans-faq-list",
                 FaqItem {
                     title: "Can I change my plan later?",
-                    body: "Plan-change availability and timing depend on the terms confirmed by the backend for your account.",
+                    body: "Review your plan terms for availability and timing of changes.",
                 }
                 FaqItem {
                     title: "What happens to my API keys when I change plans?",
-                    body: "API access is enforced by backend permissions. Review the developer portal after any confirmed plan change.",
+                    body: "Your plan determines API access. Review the developer portal after changing plans.",
                 }
                 FaqItem {
                     title: "Do you offer custom enterprise plans?",
@@ -389,17 +358,17 @@ fn PlansFaq() -> Element {
                 }
                 FaqItem {
                     title: "Is there a free trial?",
-                    body: "A trial or promotion is available only when it appears in the current backend-provided plan catalog.",
+                    body: "Available trials and promotions are shown alongside each plan.",
                 }
             }
             nav {
                 class: "plans-catalog-alternatives",
                 "aria-label": "Plan catalog alternatives",
-                a { href: CONTACT_PATH,
+                crate::fullstack::shell::ShellLink { href: CONTACT_PATH,
                     Icon { name: "mail".to_string(), size: Some(16) }
                     "Contact support"
                 }
-                a { href: "/",
+                crate::fullstack::shell::ShellLink { href: "/",
                     Icon { name: "home".to_string(), size: Some(16) }
                     "Return home"
                 }
@@ -416,19 +385,31 @@ fn FaqItem(
     #[props(default)] link_href: Option<&'static str>,
 ) -> Element {
     rsx! {
-        article { class: "rounded-2xl bg-white p-6 shadow-lg dark:bg-slate-800/90 sm:p-8",
-            h3 { class: "text-lg font-semibold text-gray-900 dark:text-white", "{title}" }
-            p { class: "mt-3 text-base leading-relaxed text-gray-600 dark:text-gray-300",
+        article { class: "plans-faq-item",
+            h3 { class: "text-lg font-semibold text-gray-900 dark:text-white fe-tone-text", "{title}" }
+            p { class: "mt-3 text-base leading-relaxed text-gray-600 dark:text-gray-300 fe-tone-muted",
                     "{body}"
                 if let (Some(label), Some(href)) = (link_label, link_href) {
                     " "
-                    a { class: "text-emerald-700 hover:underline dark:text-emerald-400", href, "{label}" }
+                    crate::fullstack::shell::ShellLink { class: "text-emerald-700 hover:underline dark:text-emerald-400 fe-tone-positive", href, "{label}" }
                     " to discuss your needs."
                                 }
                             }
         }
     }
 }
+
+#[cfg(feature = "server")]
+pub type PlansProviderCallback = std::sync::Arc<
+    dyn Fn() -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<PublicPlansLoadOutcome, crate::fullstack::LoadError>,
+                    > + Send,
+            >,
+        > + Send
+        + Sync,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -460,6 +441,7 @@ mod tests {
             promotion_active: true,
             promotion_status: "active".to_string(),
             promotion_discount: 25.0,
+            promotion_savings: "5.00".into(),
             promotion_ends_at: None,
             currency: "USD".to_string(),
             billing_cycle: "monthly".to_string(),
@@ -492,7 +474,7 @@ mod tests {
             "80% OFF",
             "90% OFF",
             "Ends in NaNm",
-            "Get Started",
+            "Review plan",
             "Buy Now",
             "Subscribe",
             "Extend Plan",
@@ -519,7 +501,7 @@ mod tests {
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("aria-labelledby=\"plans-unavailable-title\""));
         assert!(html.contains("Plan options cannot be verified right now"));
-        assert!(html.contains("Choose Your EPSX Plan"));
+        assert!(html.contains("Plans"));
         assert!(html.contains("Frequently Asked Questions"));
         assert!(html.contains("Can I change my plan later?"));
         assert!(html.contains("Contact us</a> to discuss your needs."));
@@ -585,12 +567,14 @@ mod tests {
         assert!(html.contains("USD 15.00"));
         assert!(html.contains("USD 20.00"));
         assert!(html.contains("25% off"));
+        assert!(html.contains("Save USD 5.00"));
+        assert!(html.contains("Sale price · one-time payment"));
         assert!(html.contains("Live analytics"));
         assert!(!html.contains("epsx:analytics:read"));
         assert!(!html.contains("Subscribe"));
-        assert!(html.contains("Get Started"));
+        assert!(html.contains("Review plan"));
         assert!(html.contains("/payment/plan/61a62cbe-3371-41db-bd90-321c53a71e06"));
-        assert!(html.contains("Stock rankings from rank 1 · unlimited inventory"));
+        assert!(html.contains("Company rankings from rank 1 · unlimited inventory"));
     }
 
     #[test]
@@ -630,5 +614,41 @@ mod tests {
         assert!(!html.contains("Retry catalog"));
         assert!(html.contains("Contact support"));
         assert!(!html.contains("javascript:"));
+    }
+}
+
+#[cfg(feature = "server")]
+#[derive(Clone)]
+pub struct PlansProvider(pub PlansProviderCallback);
+
+#[server(prefix = "/_server/frontend", endpoint = "plans")]
+pub async fn read_public_plans(
+) -> Result<Result<PublicPlansLoadOutcome, crate::fullstack::LoadError>, ServerFnError> {
+    use dioxus_server::axum::Extension;
+    let Extension(provider) =
+        dioxus_fullstack::FullstackContext::extract::<Extension<PlansProvider>, _>()
+            .await
+            .map_err(|_| ServerFnError::new("Plans provider unavailable"))?;
+    Ok((provider.0)().await)
+}
+
+#[component]
+pub fn HydratedPlans() -> Element {
+    let mut result = use_server_future(move || async move { read_public_plans().await })?;
+    let outcome = result.read().clone();
+    rsx! {
+        document::Title { "Plans — EPSX" }
+        document::Meta { name: "description", content: "Compare the current public plans and features provided by EPSX." }
+        section { "data-dioxus-plans": "true",
+            match outcome {
+                Some(Ok(Ok(PublicPlansLoadOutcome::Ready { plans }))) => rsx! { PlansReadyContent { plans } },
+                Some(Ok(Ok(PublicPlansLoadOutcome::Empty))) => rsx! { PlansEmptyContent {} },
+                None => rsx! { p { role: "status", "Loading plans…" } },
+                _ => rsx! { div { role: "status", class: "fe-purchase-note",
+                    p { "Plans are temporarily unavailable." }
+                    button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+                } },
+            }
+        }
     }
 }

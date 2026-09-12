@@ -26,7 +26,6 @@ use crate::{
     auth::OpenIDTokenError,
     domain::developer_portal::{DeveloperEntitlementService, EffectiveApiRateLimits},
     infrastructure::adapters::repositories::developer_portal::ApiKeyRepository,
-    infrastructure::cache::redis_cache::get_perm_invalidated,
     web::auth::AppState,
 };
 
@@ -140,9 +139,16 @@ pub async fn bearer_middleware(
         ));
     }
 
-    // Try JWT first (fast, no DB), then fall back to API key validation
+    // Verify JWT and live wallet access, then fall back to API key validation
     let user_context = match validate_bearer_token(&token, &app_state).await {
         Ok(context) => context,
+        Err(OpenIDTokenError::DatabaseError(_)) => {
+            return Err(create_auth_error(
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authentication temporarily unavailable",
+                "live_access_unavailable",
+            ));
+        }
         Err(_) => {
             // JWT failed — try API key fallback (SHA-256 hash + DB lookup)
             match validate_api_key(&token, &app_state).await {
@@ -301,30 +307,12 @@ pub async fn validate_bearer_token(
         auth_time: claims.auth_time,
     };
 
-    // Check if permissions were invalidated after this token was issued.
-    // If so, fetch live permissions from DB to reflect the change immediately.
-    // Fail closed if the live permission reload fails; stale admin permissions must not survive revocation.
-    if let Some(invalidated_at) =
-        get_perm_invalidated(app_state.cache.as_ref(), &user_context.wallet_address)
-    {
-        if invalidated_at > user_context.iat {
-            let fresh_perms = token_service
-                .expand_plans(&user_context.wallet_address)
-                .await
-                .map_err(|e| {
-                    OpenIDTokenError::DatabaseError(format!(
-                        "Permission reload failed after invalidation: {}",
-                        e
-                    ))
-                })?;
-            debug!(
-                "Live permissions loaded for {} ({} perms) due to invalidation flag",
-                user_context.wallet_address,
-                fresh_perms.len()
-            );
-            user_context.permissions = fresh_perms;
-        }
-    }
+    // JWT scopes are a snapshot. Re-read canonical grants and wallet status so
+    // disabling a wallet, removing a plan or expiring a grant takes effect even
+    // after a Redis restart or loss of an invalidation flag.
+    user_context.permissions = token_service
+        .expand_plans(&user_context.wallet_address)
+        .await?;
 
     debug!(
         "JWT token validated for user: {} (permissions: {})",
@@ -333,6 +321,26 @@ pub async fn validate_bearer_token(
     );
 
     Ok(user_context)
+}
+
+/// Forward-compatible with a legacy database before merchant migrations. Once a
+/// wallet has a purchase grant, refund/reorg/manual-override checks always stay live.
+#[cfg(test)]
+pub(crate) async fn has_purchase_grants(
+    pool: &sqlx::PgPool,
+    wallet: &str,
+) -> Result<bool, sqlx::Error> {
+    let available: bool =
+        sqlx::query_scalar("SELECT to_regclass('pay_purchase_grants') IS NOT NULL")
+            .fetch_one(pool)
+            .await?;
+    if !available {
+        return Ok(false);
+    }
+    sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pay_purchase_grants WHERE wallet_address=$1)")
+        .bind(wallet.to_ascii_lowercase())
+        .fetch_one(pool)
+        .await
 }
 
 /// Create standardized authentication error response
@@ -372,9 +380,9 @@ async fn validate_api_key(
         }
         Err(_) => {
             return Err(create_auth_error(
-                StatusCode::UNAUTHORIZED,
-                "Invalid token",
-                "authentication_failed",
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authentication temporarily unavailable",
+                "live_access_unavailable",
             ));
         }
     };
@@ -404,15 +412,35 @@ async fn validate_api_key(
 
     // Re-evaluate delegated scopes against the owner's live normalized grants
     // on every request. Downgrade, expiry, or removal takes effect at once.
+    let owner_active: bool = sqlx::query_scalar(
+        "SELECT EXISTS(SELECT 1 FROM wallet_users WHERE wallet_address=$1 AND is_active=TRUE)",
+    )
+    .bind(api_key.wallet_address.to_ascii_lowercase())
+    .fetch_one(app_state.db_pool.as_ref())
+    .await
+    .map_err(|_| {
+        create_auth_error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "Authentication temporarily unavailable",
+            "live_access_unavailable",
+        )
+    })?;
+    if !owner_active {
+        return Err(create_auth_error(
+            StatusCode::UNAUTHORIZED,
+            "Account inactive",
+            "wallet_inactive",
+        ));
+    }
     let entitlement_service = DeveloperEntitlementService::new((*app_state.db_pool).clone());
     let (permissions, entitlement) = entitlement_service
         .effective_key_scopes(&api_key.wallet_address, &api_key.selected_permissions)
         .await
         .map_err(|_| {
             create_auth_error(
-                StatusCode::UNAUTHORIZED,
-                "Invalid token",
-                "authentication_failed",
+                StatusCode::SERVICE_UNAVAILABLE,
+                "Authentication temporarily unavailable",
+                "live_access_unavailable",
             )
         })?;
     if permissions.is_empty() || !entitlement.has_active_api_entitlement {
@@ -461,6 +489,12 @@ pub async fn optional_bearer_middleware(
     mut request: Request,
     next: Next,
 ) -> Response {
+    // This namespace is exclusively a reverse proxy. Pay authenticates its own
+    // merchant keys, scoped guest capabilities and SIWE audiences. Interpreting
+    // its keys as EPSX developer keys here would reject valid merchant requests.
+    if delegates_to_pay(request.uri().path()) {
+        return next.run(request).await;
+    }
     if request.extensions().get::<OpenIDUserContext>().is_some() {
         return next.run(request).await;
     }
@@ -491,6 +525,14 @@ pub async fn optional_bearer_middleware(
                 );
                 request.extensions_mut().insert(ctx);
             }
+            Err(OpenIDTokenError::DatabaseError(_)) => {
+                return create_auth_error(
+                    StatusCode::SERVICE_UNAVAILABLE,
+                    "Authentication temporarily unavailable",
+                    "live_access_unavailable",
+                )
+                .into_response();
+            }
             Err(_) => {
                 // A presented credential must never silently degrade to
                 // anonymous access when validation fails.
@@ -509,6 +551,33 @@ pub async fn optional_bearer_middleware(
     }
 
     next.run(request).await
+}
+
+fn delegates_to_pay(path: &str) -> bool {
+    path == "/api/v1/pay" || path.starts_with("/api/v1/pay/")
+}
+
+#[cfg(test)]
+mod pay_boundary_tests {
+    #[test]
+    fn only_the_pay_proxy_namespace_delegates_authentication() {
+        for path in [
+            "/api/v1/pay",
+            "/api/v1/pay/intents",
+            "/api/v1/pay/checkout-sessions/cs_test",
+        ] {
+            assert!(super::delegates_to_pay(path));
+        }
+        for path in [
+            "/api/v1/payment",
+            "/api/v1/pay-admin",
+            "/api/v1/pay%2fintents",
+            "/api/payments/pay-checkout",
+            "/api/admin/payments",
+        ] {
+            assert!(!super::delegates_to_pay(path));
+        }
+    }
 }
 
 /// Helper to extract user context from request
@@ -787,5 +856,122 @@ mod tests {
                 StatusCode::UNAUTHORIZED
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod live_wallet_tests {
+    use super::*;
+    #[tokio::test]
+    #[ignore = "requires migrated isolated EPSX_MERCHANT_CORE database"]
+    async fn jwt_uses_live_grants_and_wallet_status_without_cache_flags() {
+        use crate::auth::{key_manager::KeyManager, token_service::OpenIDTokenService};
+        use crate::infrastructure::{cache::MemoryCache, container::DomainContainer};
+        use std::sync::Arc;
+        let url = std::env::var("EPSX_MERCHANT_CORE").unwrap();
+        let pool = Arc::new(sqlx::PgPool::connect(&url).await.unwrap());
+        let name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(name.starts_with("epsx_merchant_check_"));
+        let wallet = format!("0x{:040x}", Uuid::new_v4().as_u128());
+        let permission = format!("epsx:rehearsal:{}", Uuid::new_v4().simple());
+        sqlx::query("INSERT INTO wallet_users(wallet_address,is_active) VALUES($1,true)")
+            .bind(&wallet)
+            .execute(pool.as_ref())
+            .await
+            .unwrap();
+        let id: Uuid = sqlx::query_scalar("INSERT INTO permissions(permission_string,platform,resource,action,permission_type) VALUES($1,'epsx','rehearsal','read','manual') RETURNING id").bind(&permission).fetch_one(pool.as_ref()).await.unwrap();
+        sqlx::query("INSERT INTO wallet_direct_permissions(wallet_address,permission_id,is_active) VALUES($1,$2,true)").bind(&wallet).bind(id).execute(pool.as_ref()).await.unwrap();
+        let service = Arc::new(OpenIDTokenService::new(
+            (*pool).clone(),
+            "https://issuer.rehearsal".into(),
+            vec!["epsx-admin".into()],
+            Arc::new(KeyManager::new().unwrap()),
+            Arc::new(
+                epsx_identity_shared::RefreshTokenKeyring::new(
+                    "rehearsal",
+                    [("rehearsal".into(), vec![9; 32])],
+                )
+                .unwrap(),
+            ),
+        ));
+        let token = service
+            .issue_tokens_for_user(
+                &wallet,
+                &[permission.clone(), "admin:*:*".into()],
+                "epsx-admin",
+            )
+            .await
+            .unwrap()
+            .access_token;
+        let mut container = DomainContainer::new(pool.clone());
+        container.token_service = Some(service);
+        container.permission_plan_repository = Some(Arc::new(crate::infrastructure::adapters::repositories::permission_plan_repository_adapter::PlanRepositoryAdapter::new(pool.clone())));
+        let state = AppState::new(
+            pool.clone(),
+            Arc::new(MemoryCache::new()),
+            Arc::new(container),
+            None,
+            None,
+            None,
+        );
+        let first = validate_bearer_token(&token, &state).await.unwrap();
+        assert_eq!(first.permissions, vec![permission]);
+        sqlx::query("UPDATE wallet_direct_permissions SET expires_at=NOW()-INTERVAL '1 second' WHERE wallet_address=$1").bind(&wallet).execute(pool.as_ref()).await.unwrap();
+        assert!(validate_bearer_token(&token, &state)
+            .await
+            .unwrap()
+            .permissions
+            .is_empty());
+        sqlx::query("UPDATE wallet_users SET is_active=false WHERE wallet_address=$1")
+            .bind(&wallet)
+            .execute(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(validate_bearer_token(&token, &state).await.is_err());
+        let (_, api_key) = ApiKeyRepository::new(pool.clone()).create_for_owner(
+            crate::infrastructure::adapters::repositories::developer_portal::OwnerApiKeyCreateRequest {
+                client_name:"Isolated disabled-owner check".into(), client_description:None,
+                wallet_address:wallet.clone(), scopes:vec![], rate_limit_per_minute:1,
+                rate_limit_per_day:1, expires_at:None,
+            }, &Uuid::new_v4().to_string(), &"a".repeat(64)
+        ).await.unwrap();
+        let (status, error) = validate_api_key(api_key.as_deref().unwrap(), &state)
+            .await
+            .unwrap_err();
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+        assert_eq!(error.error.reason, "wallet_inactive");
+
+        sqlx::query("UPDATE wallet_users SET is_active=true WHERE wallet_address=$1")
+            .bind(&wallet)
+            .execute(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(validate_bearer_token(&token, &state)
+            .await
+            .unwrap()
+            .permissions
+            .is_empty());
+        // A verified session survives a database outage: report retryable 503,
+        // never a misleading 401 that would make a BFF clear its cookies.
+        pool.close().await;
+        use axum::{body::Body, middleware::from_fn_with_state, routing::get, Router};
+        use tower::ServiceExt;
+        let router = Router::new()
+            .route("/", get(|| async { StatusCode::OK }))
+            .layer(from_fn_with_state(state, bearer_middleware));
+        let response = router
+            .oneshot(
+                axum::http::Request::builder()
+                    .uri("/")
+                    .header("authorization", format!("Bearer {token}"))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
     }
 }

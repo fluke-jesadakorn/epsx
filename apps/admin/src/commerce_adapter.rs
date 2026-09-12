@@ -5,6 +5,7 @@
 //! identifiers before network I/O, and projects only the fields accepted by
 //! the corresponding Dioxus page.
 
+#[cfg(test)]
 use chrono::DateTime;
 use epsx_dioxus_ui::pages::admin_pages::{
     payments::{
@@ -25,7 +26,9 @@ use epsx_dioxus_ui::pages::admin_pages::{
     },
 };
 use serde::de::DeserializeOwned;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+#[cfg(test)]
+use serde::Serialize;
 use serde_json::Value;
 
 use crate::upstream::UpstreamFailure;
@@ -51,6 +54,7 @@ pub(crate) enum AdminCommerceLoad<T> {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg(test)]
 pub(crate) enum AdminCommerceMutationLoad<T> {
     Ready(T),
     Forbidden,
@@ -61,11 +65,13 @@ pub(crate) enum AdminCommerceMutationLoad<T> {
 }
 
 #[derive(Clone, Debug, Serialize)]
+#[cfg(test)]
 pub(crate) struct WalletStatusCommand {
     pub expected_version: i64,
     pub reason: String,
 }
 
+#[cfg(test)]
 pub(crate) fn wallet_status_mutation_path(address: &str, enable: bool) -> Option<String> {
     canonical_wallet(address).map(|address| {
         format!(
@@ -234,6 +240,7 @@ struct BackendWalletList {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct BackendWalletMutation {
     wallet: BackendWallet,
     evidence: BackendWalletMutationEvidence,
@@ -242,6 +249,7 @@ struct BackendWalletMutation {
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[cfg(test)]
 struct BackendWalletMutationEvidence {
     operation_id: String,
     version: i64,
@@ -853,6 +861,11 @@ pub(crate) fn decode_admin_envelope<T: DeserializeOwned>(body: &[u8]) -> Result<
 /// Send the wallet service's raw, evidence-bearing status mutation. Wallet
 /// service admin routes intentionally return their own strict DTO rather than
 /// the monolith admin envelope used by legacy mutations.
+#[cfg(test)]
+#[expect(
+    dead_code,
+    reason = "Retired route retained only as a migration fixture"
+)]
 pub(crate) async fn send_wallet_status_mutation(
     client: &epsx_client::ServiceClient,
     path: &str,

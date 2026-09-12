@@ -117,7 +117,7 @@ pub fn transform_unified_to_card_format(unified_item: &UnifiedRankingItem) -> Sy
 
     let days_until_next_earnings = next_quarter.as_ref().map(|nq| nq.days_until_announcement);
     let progress_percentage =
-        days_until_next_earnings.map(|days| ((90 - days.min(90)) as f64 / 90.0 * 100.0).max(0.0));
+        days_until_next_earnings.map(|days| (90 - days.clamp(0, 90)) as f64 / 90.0 * 100.0);
 
     // Extract top-level fields from quarterly_performance[0] for frontend
     let current_eps = quarterly_performance.first().map(|q| q.eps);

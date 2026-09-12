@@ -79,6 +79,7 @@ pub struct GrantCreditsRequest {
     pub amount: BigDecimal,
     pub reason: Option<String>,
     pub expires_at: Option<DateTime<Utc>>,
+    #[serde(default)]
     pub granted_by: String,
 }
 
@@ -88,6 +89,7 @@ pub struct RevokeCreditsRequest {
     pub wallet_address: String,
     pub amount: BigDecimal,
     pub reason: Option<String>,
+    #[serde(default)]
     pub granted_by: String,
 }
 

@@ -19,23 +19,23 @@ const MAX_TABLE_ROWS: usize = 500;
 const MAX_CODE_BLOCK_BYTES: usize = 64 * 1_024;
 const MAX_LINK_TITLE_CHARS: usize = 256;
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-struct NewsArticle {
-    id: Option<String>,
-    slug: String,
-    title: String,
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct NewsArticle {
+    pub id: Option<String>,
+    pub slug: String,
+    pub title: String,
     #[serde(default)]
-    summary: Option<String>,
-    body: String,
-    cover_image_url: Option<String>,
-    author: Option<String>,
-    published_at: Option<String>,
-    tags: Vec<String>,
+    pub summary: Option<String>,
+    pub body: String,
+    pub cover_image_url: Option<String>,
+    pub author: Option<String>,
+    pub published_at: Option<String>,
+    pub tags: Vec<String>,
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(tag = "state", rename_all = "snake_case")]
-enum NewsDetailOutcome {
+pub enum NewsDetailOutcome {
     Ready { article: NewsArticle },
     NotFound,
     Error { code: String },
@@ -321,6 +321,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn NewsArticleView(article: NewsArticle) -> Element {
+    let navigation = try_use_context::<super::news::hydrated::NewsNavigation>();
     let content = parse_safe_markdown(&article.body);
     let read_time = format!("{} min", read_minutes(content.visible_text()));
     rsx! {
@@ -328,12 +329,12 @@ fn NewsArticleView(article: NewsArticle) -> Element {
             section { class: "relative w-full overflow-hidden isolate news-detail-hero",
                 if let Some(cover) = &article.cover_image_url {
                     img { class: "absolute inset-0 w-full h-full object-cover", src: cover, alt: "" }
-                    div { class: "absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20" }
+                    div { class: "absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/20 fe-fill-neutral" }
                 } else {
-                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8" }
+                    div { class: "absolute inset-0 bg-gradient-to-br from-cyan-500/8 via-background to-purple-500/8 fe-fill-neutral" }
                 }
                 div { class: "relative z-10 max-w-4xl mx-auto px-4 sm:px-6 pt-8 pb-12 flex flex-col min-h-[240px] sm:min-h-[300px]",
-                    a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back", href: "/news",
+                    a { class: "inline-flex items-center gap-2 text-sm mb-auto transition-colors news-detail-back", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         " Back to News"
                     }
@@ -341,12 +342,12 @@ fn NewsArticleView(article: NewsArticle) -> Element {
                         if !article.tags.is_empty() {
                             div { class: "flex flex-wrap gap-2 mb-5",
                                 for tag in article.tags.iter() {
-                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25", "{tag}" }
+                                    span { class: "px-3 py-1 rounded-full text-[11px] font-bold tracking-[0.15em] uppercase bg-cyan-500/15 text-cyan-500 border border-cyan-500/25 fe-tone-accent", "{tag}" }
                                 }
                             }
                         }
-                        h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5", "{article.title}" }
-                        div { class: "flex flex-wrap items-center gap-5 text-sm text-muted-foreground",
+                        h1 { class: "text-3xl sm:text-4xl lg:text-[2.75rem] font-extrabold leading-[1.1] tracking-tight mb-5 fe-type-title", "{article.title}" }
+                        div { class: "flex flex-wrap items-center gap-5 text-sm text-muted-foreground fe-tone-muted",
                             if let Some(date) = &article.published_at {
                                 span { class: "flex items-center gap-1.5", Icon { name: "calendar".to_string(), size: Some(14) } " {date}" }
                             }
@@ -358,11 +359,11 @@ fn NewsArticleView(article: NewsArticle) -> Element {
                     }
                 }
             }
-            div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500" }
+            div { class: "h-[3px] news-detail-accent bg-gradient-to-r from-cyan-500 via-purple-500 to-cyan-500 fe-fill-neutral" }
             div { class: "max-w-3xl mx-auto px-4 sm:px-6 pt-12 pb-20 news-detail-content",
                 SafeMarkdownView { content }
                 div { class: "mt-16 pt-8 border-t border-border/20 news-detail-footer",
-                    a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link", href: "/news",
+                    a { class: "inline-flex items-center gap-3 px-5 py-3 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground bg-card/50 hover:bg-card border border-border/20 hover:border-border/40 transition-all group news-detail-back-link fe-surface fe-tone-muted", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         " Back to all articles"
                     }
@@ -540,13 +541,14 @@ fn SafeMarkdownNodes(nodes: Vec<SafeMarkdownNode>) -> Element {
 
 #[component]
 fn NewsNotFound() -> Element {
+    let navigation = try_use_context::<super::news::hydrated::NewsNavigation>();
     rsx! {
-        div { class: "news-detail-not-found container page-content flex min-h-[60vh] items-center justify-center",
-            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", aria_labelledby: "news-not-found-title",
-                div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "newspaper".to_string(), size: Some(40) } }
+        div { class: "news-detail-not-found container page-content flex min-h-[60vh] items-center justify-center fe-page-layout",
+            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center fe-surface", aria_labelledby: "news-not-found-title",
+                div { class: "mx-auto mb-4 text-cyan-500 fe-tone-accent", Icon { name: "newspaper".to_string(), size: Some(40) } }
                 h1 { id: "news-not-found-title", class: "text-2xl font-bold", "Article not found" }
-                p { class: "mt-3 text-sm text-muted-foreground", "This article is not available as published content." }
-                a { class: "btn btn-primary mt-6", href: "/news", "Browse all news" }
+                p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "This article is not available as published content." }
+                a { class: "btn btn-primary mt-6", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Browse all news" }
             }
         }
     }
@@ -554,15 +556,16 @@ fn NewsNotFound() -> Element {
 
 #[component]
 fn NewsDetailError(retry_href: String) -> Element {
+    let navigation = try_use_context::<super::news::hydrated::NewsNavigation>();
     rsx! {
-        div { class: "news-detail-error container page-content flex min-h-[60vh] items-center justify-center",
-            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center", role: "alert",
-                div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "triangle-alert".to_string(), size: Some(40) } }
-                h1 { class: "text-2xl font-bold", "Article temporarily unavailable" }
-                p { class: "mt-3 text-sm text-muted-foreground", "We could not load this published article. No default article is being shown." }
+        div { class: "news-detail-error container page-content flex min-h-[60vh] items-center justify-center fe-page-layout",
+            section { class: "card card-glass max-w-xl p-8 sm:p-12 text-center fe-surface", role: "alert",
+                div { class: "mx-auto mb-4 text-cyan-500 fe-tone-accent", Icon { name: "triangle-alert".to_string(), size: Some(40) } }
+                h1 { class: "text-2xl font-bold fe-type-title", "Article temporarily unavailable" }
+                p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "We could not load this published article. No default article is being shown." }
                 div { class: "mt-6 flex flex-wrap justify-center gap-3",
                     a { class: "btn btn-primary", href: retry_href, "Try again" }
-                    a { class: "btn btn-outline", href: "/news", "Back to news" }
+                    a { class: "btn btn-outline", href: "/news", onclick: move |event| super::news::hydrated::follow(event, navigation, "/news".into()), "Back to news" }
                 }
             }
         }
@@ -976,6 +979,20 @@ impl From<Alignment> for SafeTableAlignment {
         }
     }
 }
+
+#[cfg(feature = "server")]
+pub type NewsDetailProviderCallback = std::sync::Arc<
+    dyn Fn(
+            String,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<
+                        Output = Result<NewsDetailOutcome, crate::fullstack::LoadError>,
+                    > + Send,
+            >,
+        > + Send
+        + Sync,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -1411,5 +1428,83 @@ mod tests {
             serde_json::json!({"state": "ready", "article": malformed_date}),
         ));
         assert!(dioxus_ssr::render_element(malformed_date).contains("temporarily unavailable"));
+    }
+}
+
+#[cfg(feature = "server")]
+#[derive(Clone)]
+pub struct NewsDetailProvider(pub NewsDetailProviderCallback);
+
+#[server(prefix = "/_server/frontend", endpoint = "news-detail")]
+pub async fn read_news_detail(
+    slug: String,
+) -> Result<Result<NewsDetailOutcome, crate::fullstack::LoadError>, ServerFnError> {
+    if !safe_slug(&slug) {
+        return Ok(Ok(NewsDetailOutcome::NotFound));
+    }
+    use dioxus_server::axum::Extension;
+    let Extension(provider) =
+        dioxus_fullstack::FullstackContext::extract::<Extension<NewsDetailProvider>, _>()
+            .await
+            .map_err(|_| ServerFnError::new("News provider unavailable"))?;
+    let outcome = match (provider.0)(slug.clone()).await {
+        Ok(outcome) => outcome,
+        Err(error) => return Ok(Err(error)),
+    };
+    if let NewsDetailOutcome::Ready { ref article } = outcome {
+        if !valid_article(article, &slug) {
+            return Ok(Err(crate::fullstack::LoadError::Malformed));
+        }
+    }
+    Ok(Ok(outcome))
+}
+
+#[component]
+pub fn HydratedNewsDetail(slug: ReadSignal<String>) -> Element {
+    let mut result = use_server_future(move || async move { read_news_detail(slug()).await })?;
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    use_context_provider(|| super::news::hydrated::NewsNavigation(navigate));
+    let outcome = result.read().clone();
+    let (status, title, description) = match &outcome {
+        Some(Ok(Ok(NewsDetailOutcome::Ready { article }))) => (
+            200,
+            format!("{} — EPSX News", article.title),
+            article
+                .summary
+                .clone()
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| article.title.clone()),
+        ),
+        Some(Ok(Ok(NewsDetailOutcome::NotFound))) => (
+            404,
+            "Article Not Found — EPSX".into(),
+            "The requested published news article was not found.".into(),
+        ),
+        _ => (
+            502,
+            "News unavailable — EPSX".into(),
+            "The requested news article could not be loaded.".into(),
+        ),
+    };
+    super::news::hydrated::response_status(status);
+    rsx! {
+        document::Title { "{title}" }
+        document::Meta { name: "description", content: description }
+        section { "data-dioxus-news-detail": "true",
+            match outcome {
+                Some(Ok(Ok(NewsDetailOutcome::Ready { article }))) => rsx! {
+                    NewsArticleView { article }
+                },
+                Some(Ok(Ok(NewsDetailOutcome::NotFound))) => rsx! { NewsNotFound {} },
+                None => rsx! { p { role: "status", "Loading article…" } },
+                _ => rsx! { div { role: "status", class: "fe-purchase-note",
+                    p { "Could not load this article." }
+                    button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+                } },
+            }
+        }
     }
 }

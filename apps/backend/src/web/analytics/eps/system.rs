@@ -56,8 +56,3 @@ pub(super) fn calculate_system_mode(quarterly_performance: &[QuarterlyPerformanc
         }
     }
 }
-
-/// Simple fallback config for TradingView operations
-pub(super) fn get_simple_fallback_config() -> crate::config::Config {
-    crate::config::get_fallback_config()
-}

@@ -30,6 +30,7 @@ pub mod payment_link_handlers;
 // to `pay.epsx.io`. Backwards-compat for legacy clients that
 // hit the monolith instead of going direct to pay-svc. Remove
 // when the frontend is fully on the new BFF.
+pub mod merchant_checkout;
 pub mod pay_proxy;
 
 // Re-export handler functions for router integration

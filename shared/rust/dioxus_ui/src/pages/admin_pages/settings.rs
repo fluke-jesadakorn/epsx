@@ -188,7 +188,6 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 #[component]
 fn RenderSettings(ctx: PageContext) -> Element {
     let load = settings_load(&ctx);
-    let actions_enabled = matches!(&load, SettingsLoad::Ready(_));
     let mutation = ctx.params.get(ADMIN_SETTINGS_MUTATION_PARAM).cloned();
     let tab = ctx
         .params
@@ -196,9 +195,34 @@ fn RenderSettings(ctx: PageContext) -> Element {
         .filter(|value| valid_settings_category(value))
         .cloned()
         .unwrap_or_else(|| "general".to_string());
+    rsx! { SettingsBody { load, mutation, tab, user: ctx.user } }
+}
+
+#[component]
+pub fn HydratedSettingsBody(
+    data: crate::fullstack::admin_settings::SettingsData,
+    tab: String,
+    mutation: Option<String>,
+) -> Element {
+    let load = if data.snapshot.categories.is_empty() {
+        SettingsLoad::Empty
+    } else {
+        SettingsLoad::Ready(data.snapshot)
+    };
+    rsx! { SettingsBody { load, mutation, tab, user: Some(data.user) } }
+}
+
+#[component]
+fn SettingsBody(
+    load: SettingsLoad,
+    mutation: Option<String>,
+    tab: String,
+    user: Option<crate::auth::User>,
+) -> Element {
+    let actions_enabled = matches!(&load, SettingsLoad::Ready(_));
     rsx! {
         AuthGate {
-            user: ctx.user.clone(),
+            user,
             feature: Some("the private admin settings workspace".to_string()),
             return_url: Some("/settings".to_string()),
             PageLayout {
@@ -223,13 +247,17 @@ fn RenderSettings(ctx: PageContext) -> Element {
 
 #[component]
 fn SettingsControlBar(tab: String, actions_enabled: bool) -> Element {
+    let hydrated =
+        try_consume_context::<crate::fullstack::admin_settings::HydratedSettings>().is_some();
     rsx! {
         div { class: "flex items-center justify-end gap-4 p-4 rounded-xl bg-card border border-border/20 shadow-xl",
             div { class: "flex items-center gap-4",
                 if actions_enabled {
-                    form { method: "post", action: "/settings/reset",
+                    form { method: "post", action: "/settings/reset", onsubmit: crate::fullstack::admin_settings::submit_form,
                         input { r#type: "hidden", name: "return_tab", value: tab }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.settings.reset.{}", Uuid::new_v4()) }
+                        if hydrated { crate::fullstack::admin_settings::SettingsIdentity { prefix: "admin.settings.r" } } else {
+                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.settings.r.{}", Uuid::new_v4()) }
+                        }
                         button {
                             class: "flex items-center gap-3 px-4 py-2 rounded-xl bg-muted/30 hover:bg-muted/50 border border-border/40 text-[10px] font-black uppercase tracking-widest transition-all",
                             r#type: "submit",
@@ -419,13 +447,13 @@ fn SettingsReadyPanel(snapshot: AdminSettingsSnapshot, tab: String) -> Element {
                     p { class: "ml-2 text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Luminosity Mode" }
                     div { class: "grid grid-cols-1 gap-4 sm:grid-cols-3",
                         for (value, label) in [("light", "☀️ Daylight"), ("dark", "🌙 Eclipse"), ("system", "🔄 Neural")] {
-                            form { method: "post", action: SETTINGS_PATH,
+                            form { method: "post", action: SETTINGS_PATH, onsubmit: crate::fullstack::admin_settings::submit_form,
                                 SettingsFormIdentity { category: "appearance".to_string(), key_name: "theme".to_string(), tab: tab.clone() }
+                                input { r#type: "hidden", name: "value_text", value }
                                 button {
                                     class: if theme.as_deref() == Some(value) { "w-full rounded-2xl border border-primary bg-primary/10 p-6 text-center text-sm font-black uppercase tracking-widest shadow-lg" } else { "w-full rounded-2xl border border-border/40 bg-muted/30 p-6 text-center text-sm font-black uppercase tracking-widest hover:bg-muted/50" },
                                     r#type: "submit",
-                                    name: "value_text",
-                                    value,
+
                                     aria_pressed: (theme.as_deref() == Some(value)).to_string(),
                                     "{label}"
                                 }
@@ -433,7 +461,7 @@ fn SettingsReadyPanel(snapshot: AdminSettingsSnapshot, tab: String) -> Element {
                         }
                     }
                     if let Some(color) = color {
-                        form { class: "rounded-xl border border-border/40 bg-muted/30 p-4", method: "post", action: SETTINGS_PATH,
+                        form { class: "rounded-xl border border-border/40 bg-muted/30 p-4", method: "post", action: SETTINGS_PATH, onsubmit: crate::fullstack::admin_settings::submit_form,
                             SettingsFormIdentity { category: "appearance".to_string(), key_name: "primaryColor".to_string(), tab }
                             label { class: "text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "Interface Accent Chroma" }
                             div { class: "mt-4 flex flex-col items-start gap-4 sm:flex-row sm:items-center",
@@ -509,11 +537,15 @@ fn SettingsPanel(
 
 #[component]
 fn SettingsFormIdentity(category: String, key_name: String, tab: String) -> Element {
+    let hydrated =
+        try_consume_context::<crate::fullstack::admin_settings::HydratedSettings>().is_some();
     rsx! {
         input { r#type: "hidden", name: "category", value: category }
         input { r#type: "hidden", name: "key", value: key_name }
         input { r#type: "hidden", name: "return_tab", value: tab }
+        if hydrated { crate::fullstack::admin_settings::SettingsIdentity { prefix: "admin.settings" } } else {
         input { r#type: "hidden", name: "idempotency_key", value: format!("admin.settings.{}", Uuid::new_v4()) }
+        }
     }
 }
 
@@ -527,7 +559,7 @@ fn SettingsTextControl(
     tab: String,
 ) -> Element {
     rsx! {
-        form { class: "space-y-4", method: "post", action: SETTINGS_PATH,
+        form { class: "space-y-4", method: "post", action: SETTINGS_PATH, onsubmit: crate::fullstack::admin_settings::submit_form,
             SettingsFormIdentity { category, key_name, tab }
             label { class: "ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "{label}" }
             div { class: "flex flex-col gap-3 sm:flex-row",
@@ -549,7 +581,7 @@ fn SettingsNumberControl(
     tab: String,
 ) -> Element {
     rsx! {
-        form { class: "space-y-4", method: "post", action: SETTINGS_PATH,
+        form { class: "space-y-4", method: "post", action: SETTINGS_PATH, onsubmit: crate::fullstack::admin_settings::submit_form,
             SettingsFormIdentity { category, key_name, tab }
             label { class: "ml-2 block text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground", "{label}" }
             div { class: "flex max-w-xl flex-col gap-3 sm:flex-row",
@@ -571,7 +603,7 @@ fn SettingsBoolControl(
     if let Some(value) = value {
         let next_value = (!value).to_string();
         return rsx! {
-            form { class: "flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/30 p-4", method: "post", action: SETTINGS_PATH,
+            form { class: "flex items-center justify-between gap-4 rounded-xl border border-border/40 bg-muted/30 p-4", method: "post", action: SETTINGS_PATH, onsubmit: crate::fullstack::admin_settings::submit_form,
                 SettingsFormIdentity { category, key_name, tab }
                 div { class: "flex items-center gap-4",
                     span { class: "inline-flex h-12 w-12 items-center justify-center rounded-xl bg-purple-500/15 text-purple-400", aria_hidden: "true",
@@ -582,11 +614,11 @@ fn SettingsBoolControl(
                         p { class: "text-[10px] font-bold uppercase text-muted-foreground opacity-60", if value { "Active broadcast channel" } else { "Channel disabled" } }
                     }
                 }
+                input { r#type: "hidden", name: "value_bool", value: next_value }
                 button {
                     class: if value { "relative h-10 w-20 shrink-0 rounded-full bg-[#7645d9]" } else { "relative h-10 w-20 shrink-0 rounded-full bg-muted border border-border/40" },
                     r#type: "submit",
-                    name: "value_bool",
-                    value: next_value,
+
                     aria_label: format!("Toggle {label}"),
                     aria_pressed: value.to_string(),
                     span { class: if value { "absolute left-[46px] top-1.5 h-7 w-7 rounded-full bg-white" } else { "absolute left-1.5 top-1.5 h-7 w-7 rounded-full bg-white" } }
@@ -779,6 +811,16 @@ mod tests {
     fn html(ctx: &PageContext) -> String {
         let (_, element) = render(ctx);
         dioxus_ssr::render_element(element)
+    }
+
+    #[test]
+    fn toggle_value_is_successful_control_without_submitter() {
+        let html = dioxus_ssr::render_element(rsx! { SettingsBoolControl {
+            category: "general".to_string(), key_name: "maintenanceMode".to_string(),
+            label: "Maintenance".to_string(), value: Some(false), tab: "general".to_string(),
+        } });
+        assert!(html.contains("type=\"hidden\" name=\"value_bool\" value=\"true\""));
+        assert_eq!(html.matches("name=\"value_bool\"").count(), 1);
     }
 
     #[test]

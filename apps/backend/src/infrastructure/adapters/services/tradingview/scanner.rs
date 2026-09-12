@@ -83,7 +83,9 @@ impl TradingViewScanner {
                 "earnings_per_share_forecast_next_fh", "earnings_per_share_forecast_next_fy",
                 "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
                 "earnings_release_date", "earnings_release_next_date", "earnings_release_trading_date_fy",
-                "earnings_per_share_diluted_qoq_growth_fq"
+                "earnings_per_share_diluted_qoq_growth_fq",
+                "earnings_release_trading_date_fq", "earnings_release_next_trading_date_fq",
+                "earnings_release_next_trading_date_fy"
             ],
             "filter": [
                 {
@@ -243,7 +245,9 @@ impl TradingViewScanner {
                 "earnings_per_share_forecast_next_fh", "earnings_per_share_forecast_next_fy",
                 "sector.tr", "market", "sector", "AnalystRating", "AnalystRating.tr", "exchange",
                 "earnings_release_date", "earnings_release_next_date", "earnings_release_trading_date_fy",
-                "earnings_per_share_diluted_qoq_growth_fq"
+                "earnings_per_share_diluted_qoq_growth_fq",
+                "earnings_release_trading_date_fq", "earnings_release_next_trading_date_fq",
+                "earnings_release_next_trading_date_fy"
             ],
             "filter": filters,
             "ignore_unknown_fields": false,
@@ -252,7 +256,13 @@ impl TradingViewScanner {
             "sort": { "sortBy": sort_field, "sortOrder": sort_order },
             "symbols": {},
             "markets": markets,
-            "filter2": self.build_stock_type_filters()
+            "filter2": {
+                "operator": "and",
+                "operands": [
+                    {"operation": self.build_stock_type_filters()},
+                    {"operation": super::report_dates::ranking_date_filter()}
+                ]
+            }
         })
     }
 
@@ -528,6 +538,7 @@ impl TradingViewScanner {
     fn convert_to_stock_screening_result(&self, stock: TradingViewStock) -> StockScreeningResult {
         // Extract symbol early for logging using shared utility
         let symbol_str = extract_symbol(&stock.s);
+        let report_dates = super::report_dates::extract_report_dates(&stock.d, chrono::Utc::now());
 
         // Extract earnings release dates
         let last = get_number(&stock.d, TV_FIELD_EARNINGS_RELEASE_DATE);
@@ -733,47 +744,8 @@ impl TradingViewScanner {
                 }
             },
 
-            // Extract real TradingView earnings announcement dates
-            // Date logic: check if earnings_release_date (32) is in the future
-            last_earnings_date: {
-                let last = get_number(&stock.d, 32);
-                // We'll keep last_earnings_date as the raw value from TradingView for reference
-                if last > 1_000_000_000.0 {
-                    Some(last)
-                } else {
-                    None
-                }
-            },
-            next_earnings_date: {
-                let earnings_release_date = get_number(&stock.d, 32);
-                let earnings_release_next_date = get_number(&stock.d, 33);
-                let earnings_report_date_fy = get_number(&stock.d, 34); // New field: earnings_release_trading_date_fy
-
-                let current_timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as f64;
-
-                // Collect all valid date candidates
-                let mut candidates = vec![];
-                if earnings_release_date > 1_000_000_000.0 {
-                    candidates.push(earnings_release_date);
-                }
-                if earnings_release_next_date > 1_000_000_000.0 {
-                    candidates.push(earnings_release_next_date);
-                }
-                if earnings_report_date_fy > 1_000_000_000.0 {
-                    candidates.push(earnings_report_date_fy);
-                }
-
-                // Pick the nearest date that is in the future (or today)
-                // We use a small buffer (e.g. 1 day ago is still "next" if we haven't updated) or strictly future.
-                // Strictly > current_timestamp is safest.
-                candidates
-                    .into_iter()
-                    .filter(|&ts| ts > current_timestamp)
-                    .min_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal))
-            },
+            last_earnings_date: report_dates.last.map(|timestamp| timestamp as f64),
+            next_earnings_date: report_dates.next.map(|timestamp| timestamp as f64),
         }
     }
 
@@ -938,41 +910,43 @@ mod tests {
     }
 
     #[test]
-    fn test_nvda_earnings_date_selection() {
+    fn report_columns_keep_existing_offsets_and_recover_dates() {
         ensure_dummy_db_url();
-        use crate::infrastructure::adapters::tradingview_types::StockDataField;
-        use chrono::Utc;
-
         let config = Config::from_env().unwrap();
-        let tv_config = TradingViewConfig::from(&config);
-        let scanner = TradingViewScanner::new(tv_config);
-
-        // Use dynamic dates relative to now so the test doesn't break over time
-        let now = Utc::now().timestamp() as f64;
-        let near_future = now + 30.0 * 86400.0; // +30 days (nearest future)
-        let far_future = now + 180.0 * 86400.0; // +180 days
-        let past = now - 30.0 * 86400.0; // -30 days (in the past)
-
-        let mut d = vec![StockDataField::Null; 35];
-        d[0] = StockDataField::String("NVDA".to_string());
-        d[32] = StockDataField::Number(far_future);
-        d[33] = StockDataField::Number(past);
-        d[34] = StockDataField::Number(near_future); // The correct nearest future date
-
+        let scanner = TradingViewScanner::new(TradingViewConfig::from(&config));
+        for request in [
+            scanner.build_screener_request(),
+            scanner.build_screener_request_with_params(0, 10, None, None, None),
+        ] {
+            let columns = request["columns"].as_array().unwrap();
+            assert_eq!(columns[32], "earnings_release_date");
+            assert_eq!(columns[33], "earnings_release_next_date");
+            assert_eq!(columns[35], "earnings_per_share_diluted_qoq_growth_fq");
+            assert_eq!(columns[36], "earnings_release_trading_date_fq");
+            assert_eq!(columns[37], "earnings_release_next_trading_date_fq");
+            assert_eq!(columns[38], "earnings_release_next_trading_date_fy");
+        }
+        let mut d = vec![super::super::types::StockDataField::Null; 39];
+        d[36] = super::super::types::StockDataField::Integer(1785283200);
+        d[37] = super::super::types::StockDataField::Integer(1793145600);
         let stock = TradingViewStock {
-            s: "NASDAQ:NVDA".to_string(),
+            s: "NASDAQ:FNWB".into(),
             d,
         };
-
-        let result = scanner.convert_to_stock_screening_result(stock);
-
-        // Should pick the nearest future date (index 34)
-        assert!(result.next_earnings_date.is_some());
-        let selected = result.next_earnings_date.unwrap();
-        assert_eq!(
-            selected, near_future,
-            "Should select nearest future date (index 34)"
+        let result = scanner.convert_to_stock_screening_result(stock.clone());
+        assert_eq!(result.last_earnings_date, Some(1785283200.0));
+        assert_eq!(result.next_earnings_date, Some(1793145600.0));
+        let legacy = super::super::mapper::TradingViewMapper::map_to_frontend_eps_data(stock);
+        assert_eq!(legacy.last_earnings_date.as_deref(), Some("2026-07-29"));
+        assert_eq!(legacy.next_earnings_date.as_deref(), Some("2026-10-28"));
+        let ranking =
+            crate::web::analytics::eps::rankings::convert_screening_result_to_eps_ranking(result);
+        let unified = crate::web::analytics::eps::transform::transform_ranking_to_unified_format(
+            ranking, 104,
         );
+        assert_eq!(unified.last_earnings_date, Some(1785283200));
+        assert_eq!(unified.next_earnings_date, Some(1793145600));
+        assert_eq!(unified.ranking_position, 104);
     }
 
     #[test]
@@ -997,5 +971,47 @@ mod tests {
             request["sort"]["sortBy"],
             "earnings_per_share_diluted_qoq_growth_fq"
         );
+    }
+
+    #[test]
+    fn ranking_date_eligibility_preserves_filters_and_provider_pagination() {
+        ensure_dummy_db_url();
+        let config = Config::from_env().unwrap();
+        let scanner = TradingViewScanner::new(TradingViewConfig::from(&config));
+        let request = scanner.build_screener_request_with_params(
+            109,
+            10,
+            Some("america".into()),
+            Some("Technology".into()),
+            Some("eps_growth".into()),
+        );
+        assert_eq!(request["range"], json!([109, 119]));
+        assert_eq!(request["markets"], json!(["america"]));
+        assert_eq!(request["filter"][3]["right"], "Technology");
+        assert_eq!(request["sort"]["sortOrder"], "desc");
+        assert_eq!(request["filter2"]["operator"], "and");
+        let conditions = &request["filter2"]["operands"];
+        assert_eq!(
+            conditions[0]["operation"],
+            scanner.build_stock_type_filters()
+        );
+        let dates = &conditions[1]["operation"];
+        assert_eq!(dates["operator"], "or");
+        let date_conditions = dates["operands"].as_array().unwrap();
+        assert_eq!(date_conditions.len(), 6);
+        for (condition, index) in date_conditions.iter().zip([32, 33, 34, 36, 37, 38]) {
+            let comparisons = &condition["operation"]["operands"];
+            assert_eq!(
+                comparisons[0]["expression"]["left"],
+                request["columns"][index]
+            );
+            assert_eq!(comparisons[0]["expression"]["operation"], "greater");
+            assert_eq!(comparisons[0]["expression"]["right"], 0);
+            assert_eq!(comparisons[1]["expression"]["operation"], "less");
+            assert_eq!(comparisons[1]["expression"]["right"], 253_402_300_800_i64);
+        }
+        // Looking up an already-saved symbol must still work without report dates.
+        let symbols = scanner.build_symbols_request(vec!["CPR".into()]);
+        assert!(!symbols["filter2"].to_string().contains("earnings_release"));
     }
 }

@@ -44,7 +44,9 @@ pub fn AccessDenied(
     /// Href for the "Request Access" CTA. Defaults to `/contact`.
     #[props(default = None)]
     contact_href: Option<String>,
+    #[props(default = None)] on_navigate: Option<EventHandler<String>>,
 ) -> Element {
+    let navigation = on_navigate.map(crate::fullstack::analytics::AnalyticsNavigation);
     let reason_val =
         reason.unwrap_or_else(|| "You do not have permission to access this page".to_string());
     let show_back_val = show_back.unwrap_or(true);
@@ -75,12 +77,12 @@ pub fn AccessDenied(
                     // (button with left arrow + label) instead of
                     // "Back" (text-only button). Matches prod's
                     // access-denied design (epsx.io/access-denied).
-                    a { class: "btn btn-outline", href: "{back_href}",
+                    a { class: "btn btn-outline", href: "{back_href}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &back_href),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         span { "Go Home" }
                     }
                 }
-                a { class: "btn btn-primary", href: "{contact_href_val}", "Request Access" }
+                a { class: "btn btn-primary", href: "{contact_href_val}", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &contact_href_val), "Request Access" }
             }
         }
     }

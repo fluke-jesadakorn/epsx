@@ -343,6 +343,51 @@ fn valid_account_timestamp(value: &str) -> bool {
     valid_account_text(value, 64) && DateTime::parse_from_rfc3339(value).is_ok()
 }
 
+/// Shortens a validated RFC3339 timestamp to its `YYYY-MM-DD` calendar date
+/// for display. The full value stays in `<time datetime=...>`; this only
+/// affects the visible text so cards don't show raw timestamps.
+fn short_display_date(value: &str) -> &str {
+    if value.len() >= 10 && valid_account_timestamp(value) {
+        &value[..10]
+    } else {
+        value
+    }
+}
+
+/// Humanizes a backend `source_type` (`plan`, `subscription`, ...) for
+/// display without changing the underlying data.
+fn humanize_source_type(value: &str) -> String {
+    match value {
+        "plan" => "Plan".to_string(),
+        "subscription" => "Subscription".to_string(),
+        "promotion" => "Promotion".to_string(),
+        "grant" => "Grant".to_string(),
+        "trial" => "Trial".to_string(),
+        other => {
+            let mut chars = other.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        }
+    }
+}
+
+fn pluralize(count: usize, singular: &str, plural: &str) -> String {
+    if count == 1 {
+        format!("1 {singular}")
+    } else {
+        format!("{count} {plural}")
+    }
+}
+
+fn plan_payment_summary(visible: usize, total: usize) -> String {
+    format!(
+        "Showing {visible} of {}",
+        pluralize(total, "payment", "payments")
+    )
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 enum AccountProfileLoad {
     Ready(AccountProfileProjection),
@@ -382,18 +427,35 @@ fn RenderAccount(ctx: PageContext) -> Element {
     let notification_preferences_load = notification_preferences_load(&ctx);
     let notification_preferences_form_state = notification_preferences_form_state(&ctx);
 
+    rsx! { MainLayout { ctx,
+        AccountBody { session_user, profile_load, access_load, credit_balance, plan_payments_load, payment_history_address, payment_history_load, notification_preferences_load, notification_preferences_form_state }
+    } }
+}
+
+#[component]
+fn AccountBody(
+    session_user: Option<User>,
+    profile_load: AccountProfileLoad,
+    access_load: AccountAccessLoad,
+    credit_balance: CreditBalanceLoad,
+    plan_payments_load: AccountPlanPaymentsLoad,
+    payment_history_address: Option<String>,
+    payment_history_load: PaymentHistoryLoad,
+    notification_preferences_load: NotificationPreferencesLoad,
+    notification_preferences_form_state: NotificationPreferencesFormState,
+) -> Element {
     rsx! {
-        MainLayout { ctx: ctx.clone(),
-            div { class: "account-prod-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6",
+
+            div { class: "account-prod-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6 fe-base-page",
                 div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
-                    div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl" }
-                    div { class: "absolute right-32 top-40 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-lg" }
-                    div { class: "absolute bottom-32 left-1/3 h-28 w-28 rounded-full bg-gradient-to-r from-orange-400/15 to-yellow-500/15 blur-xl" }
+                    div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl fe-decoration fe-fill-neutral" }
+                    div { class: "absolute right-32 top-40 h-24 w-24 rounded-full bg-gradient-to-r from-pink-400/20 to-purple-500/20 blur-lg fe-decoration fe-fill-neutral" }
+                    div { class: "absolute bottom-32 left-1/3 h-28 w-28 rounded-full bg-gradient-to-r from-orange-400/15 to-yellow-500/15 blur-xl fe-decoration fe-fill-neutral" }
                 }
                 // Match the source account frame: the page owns the 1.5rem
                 // outer inset, while the content frame contributes another
                 // 1.5rem and starts 1.5rem below the sticky header.
-                div { class: "page-content account-settings-page relative z-10 px-6 pt-6",
+                div { class: "page-content account-settings-page relative z-10 px-6 pt-6 fe-page-layout",
                     "data-section": "account-page",
                     // 1. Hero
                     AccountSettingsHero {}
@@ -402,11 +464,11 @@ fn RenderAccount(ctx: PageContext) -> Element {
                         AccountStatsRow { user: session_user.clone(), profile_load, credit_balance }
                     }
                     // 3. 3 quick-action cards
-                    div { class: "mt-12",
+                    div { class: "mt-8",
                         AccountQuickActions {}
                     }
                     // 4. Access & Plans
-                    div { class: "mt-12",
+                    div { class: "mt-8",
                         AccessAndPlansSection { load: access_load }
                     }
                     // 5. Plan payments confirmed by the subscription backend.
@@ -433,28 +495,25 @@ fn RenderAccount(ctx: PageContext) -> Element {
                     }
                 }
             }
-        }
     }
 }
 
 // ----- 1. Hero ----------------------------------------------------------------
 
-/// "Account Settings" gradient title + tagline. Mirrors the OLD
-/// prod: h1 with a 4-stop yellow→orange→pink→purple gradient via
-/// `bg-clip-text text-transparent` + a small "👤" emoji before.
+/// Account settings heading, with presentation scoped by the frontend shell.
 #[component]
 fn AccountSettingsHero() -> Element {
     rsx! {
-        div { class: "account-settings-hero text-center mb-6 sm:mb-12",
+        div { class: "account-settings-hero text-left mb-6",
             "data-section": "account-settings-hero",
-            h1 { class: "text-3xl sm:text-5xl font-bold flex items-center justify-center gap-2 sm:gap-3",
-                span { class: "text-foreground", "👤" }
-                span { class: "bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent",
+            h1 { class: "text-3xl sm:text-5xl font-bold flex items-center gap-2 sm:gap-3 fe-type-title",
+
+                span { class: "bg-gradient-to-r from-yellow-600 via-orange-600 via-pink-600 to-purple-600 bg-clip-text text-transparent fe-fill-neutral",
                     "Account Settings"
                 }
             }
-            p { class: "mt-3 sm:mt-4 text-sm sm:text-lg text-slate-300 max-w-2xl mx-auto font-medium",
-                "Manage your account access, payments, and preferences with ease"
+            p { class: "mt-3 sm:mt-4 text-sm sm:text-lg text-slate-300 max-w-2xl font-medium fe-tone-muted",
+                "Manage your access, billing, and notification preferences."
             }
         }
     }
@@ -495,22 +554,22 @@ fn AccountStatsRow(
             aria_label: "Account summary",
             // Current wallet: only the owner carried by the verified session.
             div {
-                class: "account-stat-wallet card card-glass p-3 sm:p-6 shadow-xl border-2 border-blue-300/50",
+                class: "account-stat-wallet card card-glass p-5 sm:p-6 shadow-xl border-2 border-blue-300/50 fe-surface",
                 "data-account-stat-state": if wallet.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
-                    span { "👛" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-blue-200 bg-blue-50/50 text-blue-600",
+                    Icon { name: "wallet".to_string(), size: Some(20) }
+                    span { class: "fe-account-status text-xs font-semibold px-2 py-0.5 rounded border border-blue-200 bg-blue-50/50 text-blue-600",
                         if wallet.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
                     }
                 }
                 div { class: "space-y-1",
-                    div { class: "text-sm font-medium text-slate-400", "Current Address" }
+                    div { class: "text-sm font-medium text-slate-400 fe-tone-muted", "Current Address" }
                     if let Some(ref wallet) = wallet {
-                        div { class: "text-sm font-mono font-bold text-foreground truncate",
+                        div { class: "text-sm font-mono font-bold text-foreground truncate fe-tone-text", title: wallet.clone(),
                             "{wallet}"
                         }
                     } else if signed_in {
-                        div { class: "text-sm font-semibold text-muted-foreground", "Not available" }
+                        div { class: "text-sm font-semibold text-muted-foreground fe-tone-muted", "Not available" }
                     } else {
                         a { class: "text-sm font-semibold text-blue-500 hover:underline", href: ACCOUNT_SIGN_IN_PATH,
                             "Sign in to view"
@@ -520,40 +579,40 @@ fn AccountStatsRow(
             }
             // Membership date is sourced from the owner profile endpoint.
             div {
-                class: "account-stat-member card card-glass p-3 sm:p-6 shadow-xl border-2 border-green-300/50",
+                class: "account-stat-member card card-glass p-5 sm:p-6 shadow-xl border-2 border-green-300/50 fe-surface",
                 "data-account-stat-state": if member_since.is_some() { "verified" } else if matches!(profile_load, AccountProfileLoad::Malformed) { "malformed" } else { "unavailable" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
-                    span { "📅" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-green-200 bg-green-50/50 text-green-600",
+                    Icon { name: "calendar".to_string(), size: Some(20) }
+                    span { class: "fe-account-status text-xs font-semibold px-2 py-0.5 rounded border border-green-200 bg-green-50/50 text-green-600 fe-tone-positive",
                         if member_since.is_some() { "Verified" } else { "Unavailable" }
                     }
                 }
                 div { class: "space-y-1",
-                    div { class: "text-sm font-medium text-slate-400", "Member Since" }
+                    div { class: "text-sm font-medium text-slate-400 fe-tone-muted", "Member Since" }
                     if let Some(ref member_since) = member_since {
-                        time { class: "text-lg font-bold text-foreground", datetime: member_since.clone(), "{member_since}" }
+                        time { class: "text-lg font-bold text-foreground fe-tone-text", datetime: member_since.clone(), "{member_since}" }
                     } else {
-                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                        div { class: "text-lg font-bold text-muted-foreground fe-tone-muted", "Not available" }
                     }
                 }
             }
             // Credit authority is the payments database owner endpoint.
             a {
-                class: "account-stat-balance card card-glass p-3 sm:p-6 shadow-xl border-2 border-orange-300/50 block",
+                class: "account-stat-balance card card-glass p-5 sm:p-6 shadow-xl border-2 border-orange-300/50 block fe-surface",
                 "data-account-stat-state": if available_credits.is_some() { "verified" } else if matches!(credit_balance, CreditBalanceLoad::Malformed) { "malformed" } else { "unavailable" },
                 href: "/account/credits",
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
-                    span { "💰" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-orange-200 bg-orange-50/50 text-orange-600",
+                    Icon { name: "credit-card".to_string(), size: Some(20) }
+                    span { class: "fe-account-status text-xs font-semibold px-2 py-0.5 rounded border border-orange-200 bg-orange-50/50 text-orange-600 fe-tone-warning",
                         if available_credits.is_some() { "Verified" } else { "Unavailable" }
                     }
                 }
                 div { class: "space-y-1",
-                    div { class: "text-sm font-medium text-slate-400", "Available Balance" }
+                    div { class: "text-sm font-medium text-slate-400 fe-tone-muted", "Available Balance" }
                     if let Some(ref available_credits) = available_credits {
-                        div { class: "text-lg font-bold text-foreground", "{available_credits} credits" }
+                        div { class: "text-lg font-bold text-foreground fe-tone-text", "{available_credits} credits" }
                     } else {
-                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                        div { class: "text-lg font-bold text-muted-foreground fe-tone-muted", "Not available" }
                     }
                     // Keep the truthful navigation affordance available to
                     // assistive technology without adding a fourth visible
@@ -563,22 +622,22 @@ fn AccountStatsRow(
             }
             // Authentication method: shown only when the session identifies it.
             div {
-                class: "account-stat-method card card-glass p-3 sm:p-6 shadow-xl border-2 border-purple-300/50",
+                class: "account-stat-method card card-glass p-5 sm:p-6 shadow-xl border-2 border-purple-300/50 fe-surface",
                 "data-account-stat-state": if auth_method.is_some() { "verified" } else if signed_in { "unavailable" } else { "signed-out" },
                 div { class: "flex items-center justify-between mb-2 sm:mb-4 text-xl sm:text-3xl",
-                    span { "🛡️" }
-                    span { class: "text-xs font-semibold px-2 py-0.5 rounded border border-purple-200 bg-purple-50/50 text-purple-600",
+                    Icon { name: "shield".to_string(), size: Some(20) }
+                    span { class: "fe-account-status text-xs font-semibold px-2 py-0.5 rounded border border-purple-200 bg-purple-50/50 text-purple-600 fe-tone-accent",
                         if auth_method.is_some() { "Session" } else if signed_in { "Unavailable" } else { "Signed out" }
                     }
                 }
                 div { class: "space-y-1",
-                    div { class: "text-sm font-medium text-slate-400", "Sign-in Method" }
+                    div { class: "text-sm font-medium text-slate-400 fe-tone-muted", "Sign-in Method" }
                     if let Some(auth_method) = auth_method {
-                        div { class: "text-lg font-bold text-foreground", "{auth_method}" }
+                        div { class: "text-lg font-bold text-foreground fe-tone-text", "{auth_method}" }
                     } else if signed_in {
-                        div { class: "text-lg font-bold text-muted-foreground", "Not available" }
+                        div { class: "text-lg font-bold text-muted-foreground fe-tone-muted", "Not available" }
                     } else {
-                        div { class: "text-lg font-bold text-muted-foreground", "Sign in to view" }
+                        div { class: "text-lg font-bold text-muted-foreground fe-tone-muted", "Sign in to view" }
                     }
                 }
             }
@@ -608,59 +667,59 @@ fn AccountQuickActions() -> Element {
     rsx! {
         div { class: "account-quick-actions grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6",
             // Support Center
-            a { class: "block group", href: "/contact",
-                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 hover:scale-105 transition-all duration-300",
-                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 blur-sm opacity-60" }
+            crate::fullstack::shell::ShellLink { class: "block group", href: "/contact",
+                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-blue-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-blue-400 to-cyan-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
-                        span { class: "text-xl", "🛟" }
-                        span { class: "bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent",
+                        Icon { name: "message-circle".to_string(), size: Some(20) }
+                        span { class: "bg-gradient-to-r from-blue-400 to-cyan-500 bg-clip-text text-transparent fe-fill-neutral",
                             "Support Center"
                         }
                     }
-                    p { class: "mt-2 text-sm text-slate-300", "Need help? Connect with our team" }
+                    p { class: "mt-2 text-sm text-slate-300 fe-tone-muted", "Contact our support team." }
                     div { class: "mt-4 flex items-center justify-between",
-                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-blue-400 to-cyan-500",
+                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-blue-400 to-cyan-500 fe-fill-neutral fe-tone-text",
                             "Contact"
                         }
-                        span { class: "text-slate-400", "→" }
+                        span { class: "text-slate-400 fe-tone-muted", "→" }
                     }
                 }
             }
             // Privacy Control
-            a { class: "block group", href: "/privacy",
-                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-green-300/50 hover:scale-105 transition-all duration-300",
-                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 blur-sm opacity-60" }
+            crate::fullstack::shell::ShellLink { class: "block group", href: "/privacy",
+                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-green-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-green-400 to-emerald-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
-                        span { class: "text-xl", "🔒" }
-                        span { class: "bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent",
-                            "Privacy Control"
+                        Icon { name: "shield".to_string(), size: Some(20) }
+                        span { class: "bg-gradient-to-r from-green-400 to-emerald-500 bg-clip-text text-transparent fe-fill-neutral",
+                            "Privacy"
                         }
                     }
-                    p { class: "mt-2 text-sm text-slate-300", "Review how account data is handled" }
+                    p { class: "mt-2 text-sm text-slate-300 fe-tone-muted", "Review how account data is handled" }
                     div { class: "mt-4 flex items-center justify-between",
-                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-green-400 to-emerald-500",
-                            "Settings"
+                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-green-400 to-emerald-500 fe-fill-neutral fe-tone-text",
+                            "Read policy"
                         }
-                        span { class: "text-slate-400", "→" }
+                        span { class: "text-slate-400 fe-tone-muted", "→" }
                     }
                 }
             }
             // Recent Activity
-            a { class: "block group", href: "/notifications",
-                div { class: "card card-glass p-3 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 hover:scale-105 transition-all duration-300",
-                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 blur-sm opacity-60" }
+            crate::fullstack::shell::ShellLink { class: "block group", href: "/notifications",
+                div { class: "card card-glass p-5 sm:p-6 relative overflow-hidden border-2 border-orange-300/50 transition-all duration-300 hover:-translate-y-1 fe-surface",
+                    div { class: "absolute top-4 right-4 w-4 h-4 rounded-full bg-gradient-to-r from-orange-400 to-pink-500 blur-sm opacity-60 fe-decoration fe-fill-neutral" }
                     h3 { class: "text-lg sm:text-xl font-bold flex items-center gap-2",
-                        span { class: "text-xl", "🔔" }
-                        span { class: "bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent",
-                            "Recent Activity"
+                        Icon { name: "bell".to_string(), size: Some(20) }
+                        span { class: "bg-gradient-to-r from-orange-400 to-pink-500 bg-clip-text text-transparent fe-fill-neutral",
+                            "Notifications"
                         }
                     }
-                    p { class: "mt-2 text-sm text-slate-300", "Check your latest logs and alerts" }
+                    p { class: "mt-2 text-sm text-slate-300 fe-tone-muted", "Read your account notifications." }
                     div { class: "mt-4 flex items-center justify-between",
-                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-orange-400 to-pink-500",
-                            "View Logs"
+                        span { class: "px-3 py-1 rounded-full text-xs font-semibold text-white bg-gradient-to-r from-orange-400 to-pink-500 fe-fill-neutral fe-tone-text",
+                            "View notifications"
                         }
-                        span { class: "text-slate-400", "→" }
+                        span { class: "text-slate-400 fe-tone-muted", "→" }
                     }
                 }
             }
@@ -679,59 +738,65 @@ fn AccessAndPlansSection(load: AccountAccessLoad) -> Element {
         AccountAccessLoad::Malformed => "malformed",
     };
     rsx! {
-        div { class: "account-access-plans card card-glass p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50",
+        div { class: "account-access-plans card card-glass p-4 sm:p-8 lg:p-10 shadow-2xl border-2 border-indigo-200/50 fe-surface",
             "data-section": "account-access-plans",
             "data-access-state": access_state,
             div { class: "flex items-center gap-3 mb-4 sm:mb-8",
                 div { class: "p-3 bg-indigo-100 dark:bg-indigo-900/30 rounded-2xl",
                     Icon { name: "shield".to_string(), size: Some(24), class_name: Some("text-indigo-600 dark:text-indigo-400".to_string()) }
                 }
-                h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Access & Plans" }
-                a { class: "btn btn-primary ml-auto", href: "/plans", "Manage plans" }
+                h2 { class: "text-2xl sm:text-3xl font-bold text-foreground fe-tone-text", "Access & Plans" }
+                crate::fullstack::shell::ShellLink { class: "btn btn-primary ml-auto", href: "/plans", "Manage plans" }
             }
             match load {
                 AccountAccessLoad::Ready(access) => rsx! {
                     div { class: "rounded-2xl border border-indigo-300/30 bg-indigo-500/5 p-4 sm:p-6",
-                        p { class: "text-xs font-semibold uppercase tracking-widest text-indigo-500", "Current access" }
-                        h3 { class: "mt-2 text-2xl font-bold text-foreground", "{access.current_tier}" }
-                        p { class: "mt-2 text-sm text-muted-foreground",
-                            "{access.groups.len()} active access source(s) · {access.direct_permissions.len()} direct permission(s)"
+                        p { class: "text-xs font-semibold uppercase tracking-widest text-indigo-500 fe-tone-accent", "Current access" }
+                        h3 { class: "mt-2 text-2xl font-bold text-foreground fe-tone-text", "{access.current_tier}" }
+                        p { class: "mt-2 text-sm text-muted-foreground fe-tone-muted",
+                            "{pluralize(access.groups.len(), \"active access source\", \"active access sources\")} · {pluralize(access.direct_permissions.len(), \"direct permission\", \"direct permissions\")}"
                         }
                     }
-                    div { class: "mt-5 grid gap-4 lg:grid-cols-2", aria_label: "Active plans and access groups",
-                        for group in access.groups {
-                            article { class: "rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5",
-                                div { class: "flex flex-wrap items-start justify-between gap-3",
-                                    div {
-                                        h3 { class: "font-semibold text-foreground", "{group.name}" }
-                                        p { class: "mt-1 text-xs uppercase tracking-wide text-muted-foreground", "{group.source_type}" }
-                                    }
-                                    if let Some(expires_at) = group.expires_at {
-                                        time { class: "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-500", datetime: expires_at.clone(),
-                                            "Expires {expires_at}"
+                    if access.groups.is_empty() {
+                        p { class: "mt-5 rounded-2xl border border-border bg-secondary/30 p-4 text-sm text-muted-foreground fe-tone-muted",
+                            "No active plans or access groups. Choose a plan to get started."
+                        }
+                    } else {
+                        div { class: "mt-5 grid gap-4 lg:grid-cols-2", aria_label: "Active plans and access groups",
+                            for group in access.groups {
+                                article { class: "rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5",
+                                    div { class: "flex flex-wrap items-start justify-between gap-3",
+                                        div {
+                                            h3 { class: "font-semibold text-foreground fe-tone-text", "{group.name}" }
+                                            p { class: "mt-1 text-xs uppercase tracking-wide text-muted-foreground fe-tone-muted", "{humanize_source_type(&group.source_type)}" }
                                         }
-                                    } else {
-                                        span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-500", "No expiry" }
+                                        if let Some(expires_at) = group.expires_at {
+                                            time { class: "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs text-amber-500 fe-tone-warning", datetime: expires_at.clone(),
+                                                "Expires {short_display_date(&expires_at)}"
+                                            }
+                                        } else {
+                                            span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-500 fe-tone-positive", "No expiry" }
+                                        }
                                     }
-                                }
                                 if group.permissions.is_empty() {
-                                    p { class: "mt-4 text-sm text-muted-foreground", "No explicit permissions in this access source." }
+                                    p { class: "mt-4 text-sm text-muted-foreground fe-tone-muted", "No explicit permissions in this access source." }
                                 } else {
                                     ul { class: "mt-4 flex flex-wrap gap-2", aria_label: "Granted permissions",
                                         for permission in group.permissions {
-                                            li { class: "rounded-full border border-border bg-background/50 px-2.5 py-1 font-mono text-xs text-muted-foreground", "{permission}" }
+                                            li { class: "rounded-full border border-border bg-background/50 px-2.5 py-1 font-mono text-xs text-muted-foreground fe-tone-muted", "{permission}" }
                                         }
                                     }
                                 }
                             }
                         }
                     }
+                    }
                 },
                 AccountAccessLoad::Unavailable => rsx! {
                     AccountAccessProblem { state: "unavailable", detail: "Access and plan details are temporarily unavailable. No access level is being inferred." }
                 },
                 AccountAccessLoad::Malformed => rsx! {
-                    AccountAccessProblem { state: "malformed", detail: "Access details could not be verified safely. No plan or permission data was shown." }
+                    AccountAccessProblem { state: "malformed", detail: "We couldn’t load your access details. Please try again." }
                 },
             }
         }
@@ -744,7 +809,7 @@ fn AccountAccessProblem(state: &'static str, detail: &'static str) -> Element {
         div { class: "p-3 sm:p-6 rounded-2xl border border-red-200 bg-red-50/30 dark:bg-red-900/10", "data-access-problem": state, role: "alert",
             div { class: "flex items-center gap-3",
                 Icon { name: "alert-triangle".to_string(), size: Some(20), class_name: Some("text-red-500".to_string()) }
-                p { class: "text-sm text-red-600 dark:text-red-400", "{detail}" }
+                p { class: "text-sm text-red-600 dark:text-red-400 fe-tone-danger", "{detail}" }
             }
         }
     }
@@ -762,7 +827,7 @@ fn PlanPaymentsSection(load: AccountPlanPaymentsLoad) -> Element {
     };
     rsx! {
         section {
-            class: "account-plan-payments card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-emerald-200/50",
+            class: "account-plan-payments card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-emerald-200/50 fe-surface",
             "data-section": "account-plan-payments",
             "data-plan-payments-state": state,
             div { class: "flex flex-wrap items-center gap-3 mb-6",
@@ -770,14 +835,14 @@ fn PlanPaymentsSection(load: AccountPlanPaymentsLoad) -> Element {
                     Icon { name: "receipt".to_string(), size: Some(24), class_name: Some("text-emerald-600 dark:text-emerald-400".to_string()) }
                 }
                 div {
-                    h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Plan Payments" }
-                    p { class: "mt-1 text-sm text-muted-foreground", "Confirmed checkout and subscription transactions" }
+                    h2 { class: "text-2xl sm:text-3xl font-bold text-foreground fe-tone-text", "Plan Payments" }
+                    p { class: "mt-1 text-sm text-muted-foreground fe-tone-muted", "Confirmed checkout and subscription transactions" }
                 }
-                a { class: "btn btn-outline ml-auto", href: "/plans", "View plans" }
+                crate::fullstack::shell::ShellLink { class: "btn btn-outline ml-auto", href: "/account/payments", "View all payments" }
             }
             match load {
                 AccountPlanPaymentsLoad::Ready(history) => rsx! {
-                    p { class: "mb-4 text-sm text-muted-foreground", "Showing {history.payments.len()} of {history.total} payment(s)" }
+                    p { class: "mb-4 text-sm text-muted-foreground fe-tone-muted", "{plan_payment_summary(history.payments.len(), history.total)}" }
                     ol { class: "space-y-3", aria_label: "Plan payment history",
                         for payment in history.payments {
                             PlanPaymentRow { payment }
@@ -788,10 +853,10 @@ fn PlanPaymentsSection(load: AccountPlanPaymentsLoad) -> Element {
                     PlanPaymentsMessage { state: "empty", title: "No plan payments yet", detail: "Completed plan checkouts owned by this wallet will appear here." }
                 },
                 AccountPlanPaymentsLoad::Unavailable => rsx! {
-                    PlanPaymentsMessage { state: "unavailable", title: "Plan payments are temporarily unavailable", detail: "The subscription payment history could not be reached. No empty history was assumed." }
+                    PlanPaymentsMessage { state: "unavailable", title: "Plan payments are temporarily unavailable", detail: "We couldn’t load your plan payments. Please try again." }
                 },
                 AccountPlanPaymentsLoad::Malformed => rsx! {
-                    PlanPaymentsMessage { state: "malformed", title: "Plan payments could not be displayed safely", detail: "The backend returned an unexpected payment response. No transactions were shown." }
+                    PlanPaymentsMessage { state: "malformed", title: "Plan payments are unavailable", detail: "We couldn’t load your payment history. Please try again." }
                 },
             }
         }
@@ -813,18 +878,18 @@ fn PlanPaymentRow(payment: AccountPlanPaymentProjection) -> Element {
             article { class: "rounded-2xl border border-border bg-secondary/30 p-4 sm:p-5",
                 div { class: "flex flex-wrap items-start justify-between gap-3",
                     div {
-                        h3 { class: "font-semibold text-foreground", "{plan_name}" }
-                        p { class: "mt-1 font-mono text-xs text-muted-foreground break-all", "{payment.payment_reference}" }
+                        h3 { class: "font-semibold text-foreground fe-tone-text", "{plan_name}" }
+                        p { class: "mt-1 font-mono text-xs text-muted-foreground break-all fe-tone-muted", "{payment.payment_reference}" }
                     }
-                    span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-500", "{payment.status}" }
+                    span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 text-xs font-semibold text-emerald-500 fe-tone-positive", "{payment.status}" }
                 }
                 div { class: "mt-4 flex flex-wrap items-end justify-between gap-3",
                     div {
-                        p { class: "text-lg font-bold text-foreground", "{payment.amount} {payment.currency}" }
-                        time { class: "mt-1 block text-xs text-muted-foreground", datetime: payment_time.clone(), "{payment_time}" }
+                        p { class: "text-lg font-bold text-foreground fe-tone-text", "{payment.amount} {payment.currency}" }
+                        time { class: "mt-1 block text-xs text-muted-foreground fe-tone-muted", datetime: payment_time.clone(), "{short_display_date(&payment_time)}" }
                     }
                     if let Some(tx_hash) = payment.tx_hash {
-                        span { class: "max-w-full truncate font-mono text-xs text-muted-foreground", title: tx_hash.clone(), "{tx_hash}" }
+                        span { class: "max-w-full truncate font-mono text-xs text-muted-foreground fe-tone-muted", title: tx_hash.clone(), "{tx_hash}" }
                     }
                 }
             }
@@ -842,9 +907,9 @@ fn PlanPaymentsMessage(state: &'static str, title: &'static str, detail: &'stati
     rsx! {
         div { class: "p-8 text-center", "data-plan-payments-message": state, role,
             Icon { name: "receipt".to_string(), size: Some(40), class_name: Some("text-muted-foreground".to_string()) }
-            h3 { class: "mt-3 font-semibold text-foreground", "{title}" }
-            p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
-            a { class: "btn btn-outline mt-5", href: ACCOUNT_PATH, "Refresh" }
+            h3 { class: "mt-3 font-semibold text-foreground fe-tone-text", "{title}" }
+            p { class: "mt-1 text-sm text-muted-foreground fe-tone-muted", "{detail}" }
+            hydrated::AccountLink { class: "btn btn-outline mt-5", href: ACCOUNT_PATH, "Refresh" }
         }
     }
 }
@@ -862,7 +927,7 @@ fn PaymentHistorySection(address: Option<String>, load: PaymentHistoryLoad) -> E
         PaymentHistoryTab {
             address,
             load,
-            class: Some("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50".to_string()),
+            class: Some("account-payment-history card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-blue-200/50 fe-surface".to_string()),
         }
     }
 }
@@ -989,22 +1054,22 @@ fn account_plan_payments_load(ctx: &PageContext) -> AccountPlanPaymentsLoad {
 
 // ----- 6. Notification Preferences ---------------------------------------------
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-struct NotificationQuietHours {
-    start: String,
-    end: String,
+pub struct NotificationQuietHours {
+    pub start: String,
+    pub end: String,
     #[serde(default)]
-    enabled: Option<bool>,
+    pub enabled: Option<bool>,
 }
 
-#[derive(Clone, Debug, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
 #[serde(deny_unknown_fields)]
-struct NotificationPreferencesPayload {
-    channels: BTreeMap<String, bool>,
-    quiet_hours: Option<NotificationQuietHours>,
-    timezone: Option<String>,
-    updated_at: Option<DateTime<Utc>>,
+pub struct NotificationPreferencesPayload {
+    pub channels: BTreeMap<String, bool>,
+    pub quiet_hours: Option<NotificationQuietHours>,
+    pub timezone: Option<String>,
+    pub updated_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1050,7 +1115,7 @@ fn valid_preference_clock(value: &str) -> bool {
     hour < 24 && minute < 60
 }
 
-fn valid_notification_preferences(payload: &NotificationPreferencesPayload) -> bool {
+pub fn valid_notification_preferences(payload: &NotificationPreferencesPayload) -> bool {
     payload
         .channels
         .keys()
@@ -1118,21 +1183,21 @@ fn NotificationPreferencesSection(
         NotificationPreferencesLoad::Unavailable | NotificationPreferencesLoad::Malformed
     );
     rsx! {
-        div { class: "account-notification-prefs card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50",
+        div { class: "account-notification-prefs card card-glass p-6 sm:p-8 lg:p-10 shadow-2xl border-2 border-purple-200/50 fe-surface",
             "data-section": "account-notification-prefs",
             div { class: "flex items-center gap-3 mb-8",
                 div { class: "p-3 bg-purple-100 dark:bg-purple-900/30 rounded-2xl",
                     Icon { name: "bell".to_string(), size: Some(24), class_name: Some("text-purple-600 dark:text-purple-400".to_string()) }
                 }
-                h2 { class: "text-2xl sm:text-3xl font-bold text-foreground", "Notification Preferences" }
+                h2 { class: "text-2xl sm:text-3xl font-bold text-foreground fe-tone-text", "Notification Preferences" }
             }
             div { class: "grid lg:grid-cols-12 gap-8",
                 div { class: "lg:col-span-4 space-y-4",
-                    p { class: "text-slate-300 text-base leading-relaxed",
+                    p { class: "text-slate-300 text-base leading-relaxed fe-tone-muted",
                         match ready {
-                            Some(_) => "Saved notification choices are shown below. Submit the bounded form to update wallet-owned delivery settings.",
+                            Some(_) => "Choose which notifications you receive and when they arrive.",
                             None if signed_in => "Saved notification choices could not be loaded from the notification service.",
-                            None => "Sign in before viewing wallet-owned notification preferences.",
+                            None => "Sign in to manage your notification preferences.",
                         }
                     }
                     div { class: "flex flex-col gap-3 pt-2",
@@ -1155,7 +1220,7 @@ fn NotificationPreferencesSection(
                                 class_name: Some("mt-0.5 text-purple-400".to_string()),
                             }
                             div { class: "min-w-0 flex-1",
-                                h3 { class: "font-semibold text-foreground",
+                                h3 { class: "font-semibold text-foreground fe-tone-text",
                                     match ready {
                                         Some(_) => "Notification preferences loaded",
                                         None if signed_in && alert => "Notification preferences are unavailable",
@@ -1163,14 +1228,14 @@ fn NotificationPreferencesSection(
                                         None => "Sign in to view notification preferences",
                                     }
                                 }
-                                p { class: "mt-1 text-sm leading-6 text-muted-foreground",
+                                p { class: "mt-1 text-sm leading-6 text-muted-foreground fe-tone-muted",
                                     match form_state {
                                         NotificationPreferencesFormState::Saved if ready.is_some() => "Preferences saved. The values below were reloaded from the notification service.".to_string(),
                                         NotificationPreferencesFormState::Saved => "Preferences were submitted, but the notification service values could not be reloaded.".to_string(),
-                                        NotificationPreferencesFormState::Error => "Preferences could not be saved. Review the bounded fields and try again.".to_string(),
+                                        NotificationPreferencesFormState::Error => "Preferences could not be saved. Check your changes and try again.".to_string(),
                                         NotificationPreferencesFormState::None => match ready {
                                         Some(payload) => match payload.updated_at {
-                                            Some(updated_at) => "Last saved at ".to_string() + &updated_at.to_rfc3339(),
+                                            Some(updated_at) => "Last saved ".to_string() + &updated_at.format("%Y-%m-%d %H:%M UTC").to_string(),
                                             None => "Saved values are shown; the service did not provide a save timestamp.".to_string(),
                                         },
                                         None if signed_in => "No saved values were loaded, and no changes can be made until the service is available.".to_string(),
@@ -1180,12 +1245,12 @@ fn NotificationPreferencesSection(
                                 }
                                 if let Some(payload) = ready {
                                     if let Some(timezone) = payload.timezone.as_deref() {
-                                        p { class: "mt-1 text-xs text-muted-foreground", "Timezone: {timezone}" }
+                                        p { class: "mt-1 text-xs text-muted-foreground fe-tone-muted", "Timezone: {timezone}" }
                                     }
                                 }
                                 div { class: "mt-4 flex flex-wrap gap-3",
                                     if signed_in && ready.is_none() {
-                                        a { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
+                                        hydrated::AccountLink { class: "btn btn-sm btn-outline", href: ACCOUNT_PATH, "Retry" }
                                     } else if !signed_in {
                                         a { class: "btn btn-sm btn-primary", href: ACCOUNT_SIGN_IN_PATH, "Sign in" }
                                     }
@@ -1209,16 +1274,19 @@ fn NotificationPreferencesSection(
 /// push-status contract and an explicit browser permission gesture succeed.
 #[component]
 fn NotificationPushSection(signed_in: bool) -> Element {
+    if signed_in && try_use_context::<hydrated::PreferencesEditor>().is_some() {
+        return rsx! { push::BrowserPush {} };
+    }
     let state = if signed_in { "checking" } else { "signed-out" };
     rsx! {
         div {
-            class: "mt-5 rounded-2xl border border-border bg-card p-5",
+            class: "mt-5 rounded-2xl border border-border bg-card p-5 fe-surface",
             "data-section": "account-browser-push",
             "data-epsx-notification-push": "true",
             "data-push-state": state,
-            h3 { class: "font-semibold text-foreground", "Browser notifications" }
+            h3 { class: "font-semibold text-foreground fe-tone-text", "Browser notifications" }
             p {
-                class: "mt-1 text-sm leading-6 text-muted-foreground",
+                class: "mt-1 text-sm leading-6 text-muted-foreground fe-tone-muted",
                 "data-push-status": "true",
                 aria_live: "polite",
                 if signed_in {
@@ -1228,7 +1296,7 @@ fn NotificationPushSection(signed_in: bool) -> Element {
                 }
             }
             p {
-                class: "mt-1 text-xs leading-5 text-muted-foreground",
+                class: "mt-1 text-xs leading-5 text-muted-foreground fe-tone-muted",
                 "Browser permission and subscription status are shown here; this does not confirm provider delivery."
             }
             div { class: "mt-4 flex flex-wrap gap-3",
@@ -1261,6 +1329,7 @@ fn NotificationPushSection(signed_in: bool) -> Element {
 
 #[component]
 fn NotificationPreferencesForm(payload: NotificationPreferencesPayload) -> Element {
+    let editor = try_use_context::<hydrated::PreferencesEditor>();
     let email_enabled = payload.channels.get("email").copied().unwrap_or(false);
     let in_app_enabled = payload.channels.get("in_app").copied().unwrap_or(false);
     let push_enabled = payload.channels.get("push").copied().unwrap_or(false);
@@ -1271,9 +1340,10 @@ fn NotificationPreferencesForm(payload: NotificationPreferencesPayload) -> Eleme
     let timezone = payload.timezone.as_deref().unwrap_or("UTC");
     rsx! {
         form {
-            class: "mt-4 grid gap-5 rounded-2xl border border-border bg-card p-5",
+            class: "mt-4 grid gap-5 rounded-2xl border border-border bg-card p-5 fe-surface",
             method: "post",
             action: "/account/notification-preferences",
+            onsubmit: move |event| { if let Some(editor) = editor { editor.submit.call(event); } },
             "data-preferences-form": "true",
             aria_label: "Notification preference settings",
             div { class: "grid gap-4 sm:grid-cols-3",
@@ -1282,29 +1352,35 @@ fn NotificationPreferencesForm(payload: NotificationPreferencesPayload) -> Eleme
                 PreferenceSelect { name: "push", label: "Push Alerts", enabled: push_enabled }
             }
             div { class: "grid gap-4 sm:grid-cols-2",
-                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text",
                     span { "Quiet hours" }
-                    select { name: "quiet_enabled", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground",
+                    select { name: "quiet_enabled", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground fe-tone-text",
                         option { value: "true", selected: quiet_enabled, "Enabled" }
                         option { value: "false", selected: !quiet_enabled, "Disabled" }
                     }
                 }
-                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text",
                     span { "Timezone" }
-                    input { name: "timezone", value: timezone, maxlength: "64", autocomplete: "off", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
+                    input { name: "timezone", value: timezone, maxlength: "64", autocomplete: "off", list: "account-timezone-list", placeholder: "UTC", class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground fe-tone-text" }
+                    datalist { id: "account-timezone-list",
+                        for zone in ["UTC", "Asia/Bangkok", "Asia/Singapore", "Asia/Tokyo", "Asia/Dubai", "Europe/London", "Europe/Paris", "America/New_York", "America/Chicago", "America/Los_Angeles", "Australia/Sydney"] {
+                            option { value: zone }
+                        }
+                    }
                 }
-                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text",
                     span { "Quiet start" }
-                    input { type: "time", name: "quiet_start", value: quiet_start, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
+                    input { type: "time", name: "quiet_start", value: quiet_start, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground fe-tone-text" }
                 }
-                label { class: "grid gap-2 text-sm font-medium text-foreground",
+                label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text",
                     span { "Quiet end" }
-                    input { type: "time", name: "quiet_end", value: quiet_end, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground" }
+                    input { type: "time", name: "quiet_end", value: quiet_end, required: true, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground fe-tone-text" }
                 }
             }
+            p { class: "text-xs text-muted-foreground fe-tone-muted", "Quiet start and end apply only while quiet hours are enabled." }
             div { class: "flex items-center justify-between gap-4 pt-1",
-                p { class: "text-xs text-muted-foreground", "Changes apply to future owner-bound notification delivery." }
-                button { type: "submit", class: "btn btn-sm btn-primary", "Save preferences" }
+                p { class: "text-xs text-muted-foreground fe-tone-muted", "Your changes apply to future notifications." }
+                button { type: "submit", disabled: editor.is_some_and(|editor| (editor.pending)()), class: "btn btn-sm btn-primary", "Save preferences" }
             }
         }
     }
@@ -1313,9 +1389,9 @@ fn NotificationPreferencesForm(payload: NotificationPreferencesPayload) -> Eleme
 #[component]
 fn PreferenceSelect(name: &'static str, label: &'static str, enabled: bool) -> Element {
     rsx! {
-        label { class: "grid gap-2 text-sm font-medium text-foreground",
+        label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text",
             span { "{label}" }
-            select { name, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground",
+            select { name, class: "rounded-xl border border-border bg-background px-3 py-2 text-foreground fe-tone-text",
                 option { value: "true", selected: enabled, "Enabled" }
                 option { value: "false", selected: !enabled, "Disabled" }
             }
@@ -1330,7 +1406,7 @@ fn PreferenceSelect(name: &'static str, label: &'static str, enabled: bool) -> E
 #[component]
 fn PrivacyBannerSection() -> Element {
     rsx! {
-        div { class: "account-privacy-banner flex flex-col sm:flex-row items-center justify-between gap-6 p-8 rounded-3xl bg-indigo-600 text-white shadow-xl relative overflow-hidden",
+        div { class: "account-privacy-banner flex flex-col sm:flex-row items-center justify-between gap-6 p-8 rounded-3xl bg-indigo-600 text-white shadow-xl relative overflow-hidden fe-tone-text",
             "data-section": "account-privacy-banner",
             div { class: "relative z-10 space-y-2 text-center sm:text-left",
                 h3 { class: "text-xl font-bold flex items-center gap-2 justify-center sm:justify-start",
@@ -1341,14 +1417,14 @@ fn PrivacyBannerSection() -> Element {
                     "Review the privacy policy to understand how EPSX handles account data."
                 }
             }
-            a { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl",
+            a { class: "relative z-10 bg-white text-indigo-600 hover:bg-white/90 font-bold px-8 py-3 rounded-xl fe-fill-neutral",
                 href: "/privacy",
                 "Read Policy"
             }
             // Decorative blur orbs (matches the OLD's decorative
             // background visuals).
-            div { class: "absolute top-0 right-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-white/10 blur-3xl" }
-            div { class: "absolute bottom-0 left-0 -ml-16 -mb-16 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl" }
+            div { class: "absolute top-0 right-0 -mr-16 -mt-16 h-48 w-48 rounded-full bg-white/10 blur-3xl fe-decoration fe-fill-neutral" }
+            div { class: "absolute bottom-0 left-0 -ml-16 -mb-16 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl fe-decoration" }
         }
     }
 }
@@ -1368,6 +1444,19 @@ fn PrivacyBannerSection() -> Element {
 
 #[cfg(test)]
 mod tests {
+    fn has_link(html: &str, href: &str, label: &str, rel: Option<&str>) -> bool {
+        html.split("<a ")
+            .filter_map(|tail| tail.split_once("</a>"))
+            .any(|(anchor, _)| {
+                let Some((attributes, text)) = anchor.split_once('>') else {
+                    return false;
+                };
+                attributes.contains(&format!("href=\"{href}\""))
+                    && text == label
+                    && rel.is_none_or(|value| attributes.contains(&format!("rel=\"{value}\"")))
+            })
+    }
+
     use super::*;
     use crate::auth::user::AuthMethod;
     use crate::auth::user::User;
@@ -1785,7 +1874,7 @@ mod tests {
         assert!(html.contains("data-preferences-state=\"unavailable\""));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("No saved values were loaded"));
-        assert!(html.contains("href=\"/account\">Retry</a>"));
+        assert!(has_link(&html, "/account", "Retry", None));
         assert!(html.contains("data-epsx-notification-push=\"true\""));
         assert!(html.contains("data-push-state=\"checking\""));
         assert!(html.contains("Enable browser notifications"));
@@ -1815,7 +1904,12 @@ mod tests {
         assert!(html.contains("data-preferences-state=\"signed-out\""));
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("Sign in to view notification preferences"));
-        assert!(html.contains("href=\"/auth?return_url=%2Faccount\">Sign in</a>"));
+        assert!(has_link(
+            &html,
+            "/auth?return_url=%2Faccount",
+            "Sign in",
+            None
+        ));
         assert!(html.contains("data-push-state=\"signed-out\""));
         assert!(html.contains("Sign in to check browser notification availability."));
         assert!(!html.contains("preference-read-only-row"));
@@ -1987,3 +2081,7 @@ mod tests {
         assert_eq!(payment_history_load(&empty), PaymentHistoryLoad::Malformed);
     }
 }
+
+pub mod hydrated;
+
+pub mod push;

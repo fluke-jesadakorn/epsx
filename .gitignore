@@ -67,6 +67,8 @@ secrets/
 
 # Caches
 .cache/
+node_modules/
+.playwright-mcp/
 
 # Local Overrides
 *.local
@@ -95,3 +97,9 @@ tools/e2e-admin/baselines/
 tools/e2e-admin/diff-admin/
 tools/e2e-admin/logs/
 tools/e2e-admin/report.md
+
+# Wrangler / Cloudflare local simulators (workerd/miniflare)
+.wrangler/
+.wrangler/state/
+wrangler/.wrangler/
+**/.wrangler/

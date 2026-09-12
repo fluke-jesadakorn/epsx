@@ -23,23 +23,32 @@ use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
 const TERMS_INLINE_CSS: &str = r#"
-.terms-page-prod { background-color: #08060B !important; color: #ffffff !important; }
-.terms-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
-.terms-page-prod .legal-section-title { color: #c084fc !important; }
-.terms-page-prod .legal-section-text,
-.terms-page-prod .legal-section-list { color: #d1d5db !important; }
-.terms-page-prod .legal-section-list { list-style: disc !important; }
-.terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }
+body:not(.epsx-frontend) .terms-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+body:not(.epsx-frontend) .terms-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-title { color: #c084fc !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-text,
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list { color: #d1d5db !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list { list-style: disc !important; }
+body:not(.epsx-frontend) .terms-page-prod .legal-section-list li { margin-bottom: 0.25rem; }
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Terms and Conditions");
+    let mut meta = PageMeta::marketing("Terms and Conditions");
+    meta.description = "EPSX terms and conditions.".into();
     (
         meta,
-        rsx! {
-            MainLayout { ctx: ctx.clone(),
+        rsx! { MainLayout { ctx: ctx.clone(), HydratedTerms {} } },
+    )
+}
+
+#[component]
+pub fn HydratedTerms() -> Element {
+    rsx! {
+        document::Title { "Terms and Conditions — EPSX" }
+        document::Meta { name: "description", content: "EPSX terms and conditions." }
+
                 style { "{TERMS_INLINE_CSS}" }
-                div { class: "terms-page-prod min-h-screen bg-[#08060B] text-white",
+                div { class: "terms-page-prod min-h-screen bg-[#08060B] text-white fe-base-page fe-tone-text",
                     div { class: "max-w-4xl mx-auto p-6",
                         TermsHero {}
                         div { class: "terms-prod-card border p-8 shadow-xl",
@@ -47,19 +56,17 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         }
                     }
                 }
-            }
-        },
-    )
+    }
 }
 
 #[component]
 fn TermsHero() -> Element {
     rsx! {
         div { class: "text-center mb-12",
-            h1 { class: "text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent",
+            h1 { class: "text-4xl font-bold mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent fe-fill-neutral fe-type-title",
                 "Terms and Conditions"
             }
-            p { class: "text-gray-400",
+            p { class: "text-gray-400 fe-tone-muted",
                 "Last updated: 7/26/2026"
             }
         }
@@ -75,12 +82,12 @@ fn TermsToc() -> Element {
     rsx! {
         nav { class: "legal-toc terms-toc hidden", "aria-label": "Table of contents",
             span { class: "legal-toc-label", "On this page:" }
-            a { class: "legal-toc-link", href: "#introduction", "1. Introduction" }
-            a { class: "legal-toc-link", href: "#authentication-security", "2. Authentication & Account Security" }
-            a { class: "legal-toc-link", href: "#data-collection", "3. Data Collection & Usage" }
-            a { class: "legal-toc-link", href: "#user-responsibilities", "4. User Responsibilities" }
-            a { class: "legal-toc-link", href: "#service-changes", "5. Service Changes & Termination" }
-            a { class: "legal-toc-link", href: "#authentication-standards", "6. Authentication Standards" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#introduction", "1. Introduction" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#authentication-security", "2. Authentication & Account Security" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#data-collection", "3. Data Collection & Usage" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#user-responsibilities", "4. User Responsibilities" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#service-changes", "5. Service Changes & Termination" }
+            crate::fullstack::shell::ShellLink { class: "legal-toc-link", href: "#authentication-standards", "6. Authentication Standards" }
         }
     }
 }
@@ -152,7 +159,7 @@ fn TermsSections() -> Element {
                 h2 { class: "legal-section-title", id: "authentication-standards-title", "6. Authentication Standards" }
                 p { class: "legal-section-text",
                     "Our authentication system follows the Sign-In with Ethereum (EIP-4361) standard. Signed messages are verified by the backend before it issues scoped application session tokens. "
-                    a { class: "text-purple-400 hover:underline", href: "/contact", "Contact us" }
+                    crate::fullstack::shell::ShellLink { class: "text-purple-400 hover:underline fe-tone-accent", href: "/contact", "Contact us" }
                     " if you have questions about these terms."
                 }
             }

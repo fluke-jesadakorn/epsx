@@ -15,7 +15,13 @@ pub const GENERATED_WORKER_SCOPE: &str = "/";
 pub fn service_workers_enabled(hostname: &str) -> bool {
     !matches!(
         hostname.trim().to_ascii_lowercase().as_str(),
-        "localhost" | "127.0.0.1" | "::1" | "[::1]"
+        "localhost"
+            | "127.0.0.1"
+            | "::1"
+            | "[::1]"
+            | "dev.epsx.io"
+            | "dev-admin.epsx.io"
+            | "dev-pay.epsx.io"
     )
 }
 
@@ -156,6 +162,108 @@ pub fn normalize_watchlist_symbol(value: &str) -> Option<String> {
     Some(symbol)
 }
 
+/// Membership is acknowledged only by a complete canonical symbols list.
+/// A malformed response never removes a saved indicator in the new card UI.
+pub fn confirmed_watchlist_membership(value: &serde_json::Value, symbol: &str) -> Option<bool> {
+    let symbol = normalize_watchlist_symbol(symbol)?;
+    let symbols = value.pointer("/data/symbols")?.as_array()?;
+    let canonical = symbols
+        .iter()
+        .map(|value| normalize_watchlist_symbol(value.as_str()?))
+        .collect::<Option<Vec<_>>>()?;
+    Some(canonical.contains(&symbol))
+}
+
+/// Reordering is confirmed only when the owner response acknowledges that order.
+pub fn confirmed_watchlist_layout(
+    value: &serde_json::Value,
+    requested: &serde_json::Value,
+) -> bool {
+    use serde_json::{json, Value};
+    let Some(data) = value
+        .get("data")
+        .filter(|_| value.get("success") == Some(&Value::Bool(true)))
+    else {
+        return false;
+    };
+    let Some(groups) = data.get("groups").and_then(Value::as_array) else {
+        return false;
+    };
+    let Some(ungrouped) = data.get("ungrouped").and_then(Value::as_array) else {
+        return false;
+    };
+    let mut unique = std::collections::HashSet::new();
+    let mut canonical = Vec::new();
+    for (position, group) in groups.iter().enumerate() {
+        let Some(id) = group.get("id").and_then(Value::as_str) else {
+            return false;
+        };
+        let Some(symbols) = group.get("symbols").and_then(Value::as_array) else {
+            return false;
+        };
+        if group.get("position").and_then(Value::as_u64) != Some(position as u64) {
+            return false;
+        }
+        let mut local = std::collections::HashSet::new();
+        for symbol in symbols {
+            let Some(raw) = symbol.as_str() else {
+                return false;
+            };
+            if normalize_watchlist_symbol(raw).as_deref() != Some(raw) || !local.insert(raw) {
+                return false;
+            }
+            unique.insert(raw);
+        }
+        canonical.push(json!({"id":id,"symbols":symbols}));
+    }
+    for symbol in ungrouped {
+        let Some(raw) = symbol.as_str() else {
+            return false;
+        };
+        if normalize_watchlist_symbol(raw).as_deref() != Some(raw) || !unique.insert(raw) {
+            return false;
+        }
+    }
+    data.get("watched").and_then(Value::as_u64) == Some(unique.len() as u64)
+        && *requested == json!({"groups":canonical,"ungrouped":ungrouped})
+}
+
+#[cfg(test)]
+mod layout_confirmation_tests {
+    use super::confirmed_watchlist_layout;
+    use serde_json::json;
+
+    #[test]
+    fn only_acknowledged_order_is_saved() {
+        let request =
+            json!({"groups":[{"id":"research","symbols":["MSFT","AAPL"]}],"ungrouped":["BRK.B"]});
+        let response = json!({"success":true,"data":{"groups":[{"id":"research","position":0,"symbols":["MSFT","AAPL"]}],"ungrouped":["BRK.B"],"watched":3}});
+        assert!(confirmed_watchlist_layout(&response, &request));
+        let mut unchanged = response.clone();
+        unchanged["data"]["groups"][0]["symbols"] = json!(["AAPL", "MSFT"]);
+        assert!(!confirmed_watchlist_layout(&unchanged, &request));
+        let mut malformed = response.clone();
+        malformed["data"]["watched"] = json!(4);
+        assert!(!confirmed_watchlist_layout(&malformed, &request));
+        for value in [
+            json!({}),
+            json!({"success":true}),
+            json!({"success":false,"data":response["data"]}),
+        ] {
+            assert!(!confirmed_watchlist_layout(&value, &request));
+        }
+    }
+
+    #[test]
+    fn shared_memberships_are_valid_but_ungrouped_overlap_is_not() {
+        let request = json!({"groups":[{"id":"a","symbols":["MSFT"]},{"id":"b","symbols":["MSFT"]}],"ungrouped":[]});
+        let mut response = json!({"success":true,"data":{"groups":[{"id":"a","position":0,"symbols":["MSFT"]},{"id":"b","position":1,"symbols":["MSFT"]}],"ungrouped":[],"watched":1}});
+        assert!(confirmed_watchlist_layout(&response, &request));
+        response["data"]["ungrouped"] = json!(["MSFT"]);
+        assert!(!confirmed_watchlist_layout(&response, &request));
+    }
+}
+
 pub fn watchlist_mutation(value: &str, currently_watched: bool) -> Option<(&'static str, String)> {
     let symbol = normalize_watchlist_symbol(value)?;
     if currently_watched {
@@ -214,6 +322,9 @@ pub fn erc20_transfer_calldata(
 
 #[cfg(target_arch = "wasm32")]
 mod browser {
+    mod company_cards;
+    mod merchant_pay;
+    mod saved_cards;
     use super::{
         auth_http_error, erc20_transfer_calldata, normalize_watchlist_symbol, safe_return_path,
         same_wallet_address, select_wallet_account, service_workers_enabled,
@@ -226,9 +337,9 @@ mod browser {
     use wasm_bindgen::{closure::Closure, prelude::*, JsCast};
     use wasm_bindgen_futures::{spawn_local, JsFuture};
     use web_sys::{
-        DataTransfer, Document, DragEvent, Element, Event, File, FormData, HtmlButtonElement,
-        HtmlElement, HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, KeyboardEvent,
-        PointerEvent, Request, RequestInit, Response, Window,
+        Document, DragEvent, Element, Event, File, HtmlButtonElement, HtmlElement,
+        HtmlInputElement, HtmlSelectElement, HtmlTextAreaElement, KeyboardEvent, PointerEvent,
+        Request, RequestInit, Response, Window,
     };
 
     const GENERATED_WORKER: &str = "/runtime/epsx_service_worker_bootstrap.v3.js?rev=3";
@@ -283,7 +394,12 @@ mod browser {
         let document = window.document().ok_or("document unavailable")?;
         apply_theme(&window, &document);
         bind_clicks(&document)?;
+        bind_row_menu_dismiss(&document)?;
         bind_keys(&document)?;
+        init_frontend_navigation(&window, &document)?;
+        company_cards::init(&document)?;
+        saved_cards::init(&document)?;
+        bind_analytics_select_changes(&document)?;
         bind_watchlist_changes(&document)?;
         bind_watchlist_drag(&document)?;
         bind_watchlist_pointer_drag(&document)?;
@@ -291,6 +407,43 @@ mod browser {
         let _ = bind_chat(&document);
         register_worker(&window);
         start_route_tasks(&window, &document);
+        Ok(())
+    }
+
+    fn close_row_menus(document: &Document, target: Option<&Element>) {
+        let Ok(menus) = document.query_selector_all(
+            "details.fe-row-menu[open], details[data-watchlist-add-groups-menu][open]",
+        ) else {
+            return;
+        };
+        for index in 0..menus.length() {
+            let Some(menu) = menus
+                .item(index)
+                .and_then(|node| node.dyn_into::<Element>().ok())
+            else {
+                continue;
+            };
+            if target.is_some_and(|target| menu.contains(Some(target))) {
+                continue;
+            }
+            let _ = menu.remove_attribute("open");
+        }
+    }
+
+    fn bind_row_menu_dismiss(document: &Document) -> Result<(), JsValue> {
+        let click_document = document.clone();
+        let closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
+            let target = event
+                .target()
+                .and_then(|target| target.dyn_into::<Element>().ok());
+            close_row_menus(&click_document, target.as_ref());
+        });
+        document.add_event_listener_with_callback_and_bool(
+            "click",
+            closure.as_ref().unchecked_ref(),
+            true,
+        )?;
+        closure.forget();
         Ok(())
     }
 
@@ -321,6 +474,10 @@ mod browser {
                 close_nav_groups(&click_document, None);
                 return;
             };
+            if saved_cards::owns(&element) && saved_cards::busy() {
+                event.prevent_default();
+                return;
+            }
             let action = element
                 .get_attribute("data-epsx-action")
                 .or_else(|| {
@@ -472,8 +629,13 @@ mod browser {
     fn bind_keys(document: &Document) -> Result<(), JsValue> {
         let key_document = document.clone();
         let closure = Closure::<dyn FnMut(KeyboardEvent)>::new(move |event: KeyboardEvent| {
+            if company_cards::key(&key_document, &event) {
+                return;
+            }
+            frontend_navigation_key(&key_document, &event);
             if event.key() == "Escape" {
                 cancel_watchlist_drag();
+                close_row_menus(&key_document, None);
                 close_dropdowns(&key_document, None);
                 close_nav_groups(&key_document, None);
             }
@@ -485,6 +647,25 @@ mod browser {
 
     fn dispatch_action(element: Element, action: &str) {
         match action {
+            "fe-company-open" => company_cards::open(&element),
+            "fe-company-close" => company_cards::close(&element),
+            "fe-report-toggle" => {
+                if let Some(row) = element
+                    .get_attribute("aria-controls")
+                    .and_then(|id| web_sys::window()?.document()?.get_element_by_id(&id))
+                {
+                    let opening = row.has_attribute("hidden");
+                    if opening {
+                        let _ = row.remove_attribute("hidden");
+                    } else {
+                        let _ = row.set_attribute("hidden", "");
+                    }
+                    let _ = element
+                        .set_attribute("aria-expanded", if opening { "true" } else { "false" });
+                }
+            }
+            "fe-nav-toggle" => frontend_navigation_toggle(),
+            "fe-nav-close" => frontend_navigation_close(true),
             "theme-toggle" => toggle_theme(),
             "toggle-nav" => toggle_nav(&element),
             "toggle-dropdown" => toggle_dropdown(&element),
@@ -495,6 +676,9 @@ mod browser {
             "copy" => copy_value(&element),
             "share" => share_value(&element),
             "connect-wallet" => spawn_local(connect_wallet(element)),
+            action if action.starts_with("merchant-") => {
+                spawn_local(merchant_pay::action(element, action.to_string()))
+            }
             "logout" => {
                 let target = element
                     .get_attribute("data-epsx-logout-target")
@@ -504,6 +688,10 @@ mod browser {
             "session-recover" => spawn_local(recover_session()),
             "notification-mutation" => spawn_local(notification_mutation(element)),
             "create-checkout" => spawn_local(create_checkout(element)),
+            "native-pay-link"
+            | "native-pay-redeem"
+            | "native-pay-operation"
+            | "native-pay-pause" => spawn_local(native_pay_action(element, action.to_string())),
             "submit-plan-payment" => spawn_local(submit_plan_payment(element)),
             "manual-open" => open_manual_dialog(&element),
             "manual-close" => close_manual_dialog(),
@@ -541,6 +729,244 @@ mod browser {
         Some((window, document))
     }
 
+    fn frontend_mobile(window: &Window) -> bool {
+        window
+            .match_media("(max-width: 1023px)")
+            .ok()
+            .flatten()
+            .is_some_and(|query| query.matches())
+    }
+
+    fn init_frontend_navigation(window: &Window, document: &Document) -> Result<(), JsValue> {
+        if document.get_element_by_id("fe-sidebar").is_none() {
+            return Ok(());
+        }
+        frontend_navigation_resize();
+        let resize = Closure::<dyn FnMut(Event)>::new(move |_| frontend_navigation_resize());
+        window.add_event_listener_with_callback("resize", resize.as_ref().unchecked_ref())?;
+        resize.forget();
+        Ok(())
+    }
+
+    fn frontend_navigation_resize() {
+        let Some((window, document)) = window_document() else {
+            return;
+        };
+        let Some(body) = document.body() else {
+            return;
+        };
+        let Some(sidebar) = document.get_element_by_id("fe-sidebar") else {
+            return;
+        };
+        let mobile = frontend_mobile(&window);
+        if !mobile {
+            frontend_navigation_close(false);
+        }
+        let collapsed = !mobile
+            && window
+                .local_storage()
+                .ok()
+                .flatten()
+                .and_then(|storage| {
+                    storage
+                        .get_item("epsx-frontend-nav-collapsed")
+                        .ok()
+                        .flatten()
+                })
+                .as_deref()
+                == Some("true");
+        let _ = body
+            .class_list()
+            .toggle_with_force("fe-nav-collapsed", collapsed);
+        frontend_navigation_expanded(&document, mobile, collapsed);
+        frontend_navigation_reveal_current(&document);
+        if let Some(focused) = document.active_element() {
+            let in_navigation = focused
+                .closest("#fe-sidebar, #fe-nav-trigger")
+                .ok()
+                .flatten()
+                .is_some();
+            let rect = focused.get_bounding_client_rect();
+            if in_navigation && (rect.width() == 0.0 || rect.height() == 0.0) {
+                let id = if mobile {
+                    "fe-nav-trigger"
+                } else {
+                    "fe-nav-desktop-trigger"
+                };
+                if let Some(trigger) = document.get_element_by_id(id) {
+                    if let Some(node) = trigger.dyn_ref::<HtmlElement>() {
+                        let _ = node.focus();
+                    }
+                }
+            }
+        }
+        if !mobile {
+            let _ = sidebar.remove_attribute("role");
+            let _ = sidebar.remove_attribute("aria-modal");
+        }
+    }
+
+    fn frontend_navigation_reveal_current(document: &Document) {
+        let Ok(Some(scroll)) = document.query_selector(".fe-sidebar-scroll") else {
+            return;
+        };
+        let Ok(Some(current)) = scroll.query_selector("[aria-current=page]") else {
+            return;
+        };
+        let viewport = scroll.get_bounding_client_rect();
+        if viewport.height() == 0.0 {
+            return;
+        }
+        let item = current.get_bounding_client_rect();
+        let offset = if item.top() < viewport.top() {
+            item.top() - viewport.top()
+        } else if item.bottom() > viewport.bottom() {
+            item.bottom() - viewport.bottom()
+        } else {
+            0.0
+        };
+        scroll.set_scroll_top(scroll.scroll_top() + offset.ceil() as i32);
+    }
+
+    fn frontend_navigation_expanded(document: &Document, mobile: bool, collapsed: bool) {
+        let open = document
+            .body()
+            .is_some_and(|body| body.class_list().contains("fe-nav-open"));
+        for (id, expanded) in [
+            ("fe-nav-trigger", mobile && open),
+            ("fe-nav-desktop-trigger", !mobile && !collapsed),
+        ] {
+            if let Some(trigger) = document.get_element_by_id(id) {
+                let _ =
+                    trigger.set_attribute("aria-expanded", if expanded { "true" } else { "false" });
+            }
+        }
+    }
+
+    fn frontend_navigation_toggle() {
+        let Some((window, document)) = window_document() else {
+            return;
+        };
+        let Some(body) = document.body() else {
+            return;
+        };
+        let Some(sidebar) = document.get_element_by_id("fe-sidebar") else {
+            return;
+        };
+        if !frontend_mobile(&window) {
+            let collapsed = !body.class_list().contains("fe-nav-collapsed");
+            let _ = body
+                .class_list()
+                .toggle_with_force("fe-nav-collapsed", collapsed);
+            if let Ok(Some(storage)) = window.local_storage() {
+                let _ = storage.set_item(
+                    "epsx-frontend-nav-collapsed",
+                    if collapsed { "true" } else { "false" },
+                );
+            }
+            frontend_navigation_expanded(&document, false, collapsed);
+            frontend_navigation_reveal_current(&document);
+        } else if body.class_list().contains("fe-nav-open") {
+            frontend_navigation_close(true);
+        } else {
+            let _ = body.class_list().add_1("fe-nav-open");
+            let _ = sidebar.set_attribute("role", "dialog");
+            let _ = sidebar.set_attribute("aria-modal", "true");
+            frontend_navigation_reveal_current(&document);
+            if let Ok(Some(node)) = document.query_selector(".fe-main") {
+                let _ = node.set_attribute("inert", "");
+            }
+            if let Some(trigger) = document.get_element_by_id("fe-nav-trigger") {
+                let _ = trigger.set_attribute("aria-expanded", "true");
+            }
+            if let Ok(Some(close)) = sidebar.query_selector(".fe-drawer-close") {
+                if let Some(node) = close.dyn_ref::<HtmlElement>() {
+                    let _ = node.focus();
+                }
+            }
+        }
+    }
+
+    fn frontend_navigation_close(restore_focus: bool) {
+        let Some((_, document)) = window_document() else {
+            return;
+        };
+        let Some(body) = document.body() else {
+            return;
+        };
+        let was_open = body.class_list().contains("fe-nav-open");
+        let _ = body.class_list().remove_1("fe-nav-open");
+        if let Ok(Some(node)) = document.query_selector(".fe-main") {
+            let _ = node.remove_attribute("inert");
+        }
+        if let Some(sidebar) = document.get_element_by_id("fe-sidebar") {
+            let _ = sidebar.remove_attribute("role");
+            let _ = sidebar.remove_attribute("aria-modal");
+            if was_open {
+                if let Ok(Some(menu)) = sidebar.query_selector(".fe-account-menu[open]") {
+                    let _ = menu.remove_attribute("open");
+                }
+            }
+        }
+        if let Some(trigger) = document.get_element_by_id("fe-nav-trigger") {
+            if was_open {
+                let _ = trigger.set_attribute("aria-expanded", "false");
+            }
+            if was_open && restore_focus {
+                if let Some(node) = trigger.dyn_ref::<HtmlElement>() {
+                    let _ = node.focus();
+                }
+            }
+        }
+    }
+
+    fn frontend_navigation_key(document: &Document, event: &KeyboardEvent) {
+        let open = document
+            .body()
+            .is_some_and(|body| body.class_list().contains("fe-nav-open"));
+        if event.key() == "Escape" {
+            if let Ok(Some(menu)) = document.query_selector(".fe-account-menu[open]") {
+                let _ = menu.remove_attribute("open");
+                if let Ok(Some(summary)) = menu.query_selector("summary") {
+                    if let Some(node) = summary.dyn_ref::<HtmlElement>() {
+                        let _ = node.focus();
+                    }
+                }
+            } else {
+                frontend_navigation_close(true);
+            }
+        }
+        if !open || event.key() != "Tab" {
+            return;
+        }
+        let Ok(nodes) = document.query_selector_all(
+            "#fe-sidebar a[href], #fe-sidebar button:not([disabled]), #fe-sidebar summary",
+        ) else {
+            return;
+        };
+        // Hidden desktop controls and links inside a closed wallet menu cannot
+        // be the endpoints of the mobile dialog's keyboard focus loop.
+        let visible: Vec<HtmlElement> = (0..nodes.length())
+            .filter_map(|index| nodes.item(index))
+            .filter_map(|node| node.dyn_into::<HtmlElement>().ok())
+            .filter(|node| {
+                let rect = node.get_bounding_client_rect();
+                rect.width() > 0.0 && rect.height() > 0.0
+            })
+            .collect();
+        let first = visible.first();
+        let last = visible.last();
+        if let (Some(first), Some(last), Some(active)) = (first, last, document.active_element()) {
+            if event.shift_key() && active == *first.as_ref() {
+                event.prevent_default();
+                let _ = last.focus();
+            } else if !event.shift_key() && active == *last.as_ref() {
+                event.prevent_default();
+                let _ = first.focus();
+            }
+        }
+    }
+
     fn apply_theme(window: &Window, document: &Document) {
         let stored = window
             .local_storage()
@@ -554,7 +980,14 @@ mod browser {
                 .match_media("(prefers-color-scheme: dark)")
                 .ok()
                 .flatten()
-                .is_none_or(|query| query.matches()),
+                .map_or_else(
+                    || {
+                        !document
+                            .document_element()
+                            .is_some_and(|root| root.has_attribute("data-epsx-frontend"))
+                    },
+                    |query| query.matches(),
+                ),
         };
         if let Some(root) = document.document_element() {
             let _ = root.class_list().toggle_with_force("dark", dark);
@@ -951,15 +1384,28 @@ mod browser {
     }
 
     fn copy_value(element: &Element) {
-        let Some((window, _)) = window_document() else {
+        let Some((window, document)) = window_document() else {
             return;
         };
         let Some(value) = element.get_attribute("data-copy") else {
             return;
         };
         let clipboard = window.navigator().clipboard();
+        let status = element
+            .get_attribute("data-copy-status")
+            .and_then(|id| document.get_element_by_id(&id));
+        let success = element
+            .get_attribute("data-copy-success")
+            .unwrap_or_else(|| "Address copied".into());
         spawn_local(async move {
-            let _ = JsFuture::from(clipboard.write_text(&value)).await;
+            let copied = JsFuture::from(clipboard.write_text(&value)).await.is_ok();
+            if let Some(status) = status {
+                status.set_text_content(Some(if copied {
+                    &success
+                } else {
+                    "Could not copy. Select the address above to copy it."
+                }));
+            }
         });
     }
 
@@ -1702,6 +2148,24 @@ mod browser {
     }
 
     async fn logout(target: String) {
+        if WALLET_AUTH_IN_PROGRESS.with(|value| value.replace(true)) {
+            return;
+        }
+        // Revocation emits accountsChanged. Keep that event from racing logout
+        // and navigating away before the wallet has finished disconnecting.
+        if let Ok(provider) = injected_wallet_provider("metamask") {
+            let params = Array::new();
+            if let Ok(permission) = js_sys::JSON::parse(r#"{"eth_accounts": {}}"#) {
+                params.push(&permission);
+                if let Err(error) =
+                    wallet_request(&provider, "wallet_revokePermissions", params).await
+                {
+                    // Older wallets may not support revocation. Session logout
+                    // must still work when the extension rejects this request.
+                    web_sys::console::warn_2(&"Wallet permission revocation failed".into(), &error);
+                }
+            }
+        }
         let document = window_document().map(|(_, document)| document);
         if let Some(document) = document.as_ref() {
             // Disconnect is explicit user intent. Do not preserve a browser-
@@ -1719,6 +2183,7 @@ mod browser {
                 true,
             ),
         }
+        WALLET_AUTH_IN_PROGRESS.with(|value| value.set(false));
     }
 
     async fn recover_session() {
@@ -1762,6 +2227,107 @@ mod browser {
         }
     }
 
+    fn bind_analytics_select_changes(document: &Document) -> Result<(), JsValue> {
+        let closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
+            let Some(select) = event
+                .target()
+                .and_then(|target| target.dyn_into::<HtmlSelectElement>().ok())
+            else {
+                return;
+            };
+            let autosubmit = ["data-analytics-country-autosubmit", "data-analytics-limit"]
+                .iter()
+                .any(|attribute| select.get_attribute(attribute).as_deref() == Some("true"));
+            if !autosubmit || select.disabled() {
+                return;
+            }
+            if let Some(form) = select.form() {
+                if select.has_attribute("data-analytics-limit") {
+                    spawn_local(async move {
+                        update_analytics_limit(select, form).await;
+                    });
+                } else {
+                    let _ = form.request_submit();
+                }
+            }
+        });
+        document.add_event_listener_with_callback("change", closure.as_ref().unchecked_ref())?;
+        closure.forget();
+        Ok(())
+    }
+
+    // Fetch backend-rendered rankings so plan limits and filtering remain authoritative.
+    async fn update_analytics_limit(select: HtmlSelectElement, form: web_sys::HtmlFormElement) {
+        let Some((window, document)) = window_document() else {
+            return;
+        };
+        let Ok(Some(current)) = select.closest("[data-section='analytics-rankings']") else {
+            return;
+        };
+        if current.get_attribute("aria-busy").as_deref() == Some("true") {
+            return;
+        }
+        let previous = select
+            .query_selector("option[selected]")
+            .ok()
+            .flatten()
+            .and_then(|option| option.get_attribute("value"));
+        let result: Result<(), JsValue> = async {
+            let params = web_sys::UrlSearchParams::new()?;
+            let data = web_sys::FormData::new_with_form(&form)?;
+            if let Some(entries) = js_sys::try_iter(&data)? {
+                for entry in entries {
+                    let pair = js_sys::Array::from(&entry?);
+                    if let (Some(key), Some(value)) = (pair.get(0).as_string(), pair.get(1).as_string()) {
+                        params.append(&key, &value);
+                    }
+                }
+            }
+            let url = format!("/analytics?{}", params.to_string().as_string().unwrap_or_default());
+            current.set_attribute("aria-busy", "true")?;
+            select.set_disabled(true);
+            let status = match document.get_element_by_id("analytics-limit-status") {
+                Some(status) => status,
+                None => {
+                    let status = document.create_element("span")?;
+                    status.set_id("analytics-limit-status");
+                    status.set_attribute("role", "status")?;
+                    form.append_child(&status)?;
+                    status
+                }
+            };
+            status.set_text_content(Some("Updating…"));
+            let options = RequestInit::new();
+            options.set_credentials(web_sys::RequestCredentials::SameOrigin);
+            let request = Request::new_with_str_and_init(&url, &options)?;
+            request.headers().set("accept", "text/html")?;
+            let response = JsFuture::from(window.fetch_with_request(&request)).await?.dyn_into::<Response>()?;
+            if !response.ok() || response.redirected() { return Err("Rankings unavailable".into()); }
+            let html = JsFuture::from(response.text()?).await?.as_string().ok_or("Invalid rankings response")?;
+            let parsed = web_sys::DomParser::new()?.parse_from_string(&html, web_sys::SupportedType::TextHtml)?;
+            let next = parsed.query_selector("[data-section='analytics-rankings'][data-analytics-state='ready'], [data-section='analytics-rankings'][data-analytics-state='empty']")?
+                .ok_or("Rankings unavailable")?;
+            if !current.is_connected() { return Ok(()); }
+            current.parent_node().ok_or("Rankings detached")?.replace_child(&next, &current)?;
+            window.history()?.replace_state_with_url(&JsValue::NULL, "", Some(&url))?;
+            company_cards::init(&document)?;
+            if let Some(control) = document.get_element_by_id("analytics-limit").and_then(|node| node.dyn_into::<HtmlElement>().ok()) {
+                let _ = control.focus();
+            }
+            Ok(())
+        }.await;
+        let _ = current.remove_attribute("aria-busy");
+        select.set_disabled(false);
+        if result.is_err() {
+            if let Some(previous) = previous {
+                select.set_value(&previous);
+            }
+            if let Some(status) = document.get_element_by_id("analytics-limit-status") {
+                status.set_text_content(Some("Could not update results. Please try again."));
+            }
+        }
+    }
+
     fn bind_watchlist_changes(document: &Document) -> Result<(), JsValue> {
         let closure = Closure::<dyn FnMut(Event)>::new(move |event: Event| {
             let Some(target) = event
@@ -1773,6 +2339,10 @@ mod browser {
             let Ok(Some(select)) = target.closest("[data-watchlist-move-to-group]") else {
                 return;
             };
+            if saved_cards::owns(&select) && saved_cards::busy() {
+                saved_cards::refresh();
+                return;
+            }
             let Some(value) = select
                 .dyn_ref::<HtmlSelectElement>()
                 .map(HtmlSelectElement::value)
@@ -1975,9 +2545,43 @@ mod browser {
     }
 
     async fn persist_watchlist_layout(trigger: Element, body: Value, rollback: Option<Value>) {
-        set_watchlist_busy(&trigger, true);
+        let in_place = saved_cards::owns(&trigger) && rollback.is_some();
+        if in_place {
+            saved_cards::set_busy(true);
+        } else {
+            set_watchlist_busy(&trigger, true);
+        }
         organizer_feedback(&trigger, "Saving…", false);
-        match fetch_json("/api/users/watchlist/layout", "PUT", Some(body)).await {
+        let response = fetch_json("/api/users/watchlist/layout", "PUT", Some(body.clone())).await;
+        if in_place {
+            let focused = window_document().and_then(|(_, doc)| doc.active_element());
+            let before = saved_cards::positions();
+            let confirmed = response
+                .as_ref()
+                .is_ok_and(|value| super::confirmed_watchlist_layout(value, &body));
+            if confirmed {
+                restore_watchlist_layout(&body);
+            } else if let Some(snapshot) = rollback.as_ref() {
+                restore_watchlist_layout(snapshot);
+            }
+            saved_cards::refresh();
+            saved_cards::animate_reflow(before);
+            saved_cards::set_busy(false);
+            if let Some(focused) = focused {
+                saved_cards::focus(&focused);
+            }
+            organizer_feedback(
+                &trigger,
+                if confirmed {
+                    "Order saved."
+                } else {
+                    "This change could not be saved. The previous layout was restored."
+                },
+                !confirmed,
+            );
+            return;
+        }
+        match response {
             Ok(value) if layout_is_canonical(&value) => reload(),
             _ => {
                 if let Some(snapshot) = rollback.as_ref() {
@@ -2490,6 +3094,10 @@ mod browser {
             else {
                 return;
             };
+            if saved_cards::owns(&target) {
+                event.prevent_default();
+                return;
+            }
             if let Ok(Some(card)) = target.closest("[data-watchlist-item]") {
                 if let Some(data) = event.data_transfer() {
                     let _ = data.set_data("text/plain", "watchlist-item");
@@ -2562,6 +3170,9 @@ mod browser {
             else {
                 return;
             };
+            if saved_cards::owns(&target) {
+                return;
+            }
             if let Ok(Some(handle)) = target.closest("[data-watchlist-item-handle]") {
                 if let Ok(Some(card)) = handle.closest("[data-watchlist-item]") {
                     event.prevent_default();
@@ -2642,9 +3253,58 @@ mod browser {
     }
 
     fn set_watchlist_busy(element: &Element, busy: bool) {
+        if element.closest(".epsx-frontend").ok().flatten().is_some()
+            && element.has_attribute("data-watchlist-toggle")
+        {
+            if let Some(root) =
+                window_document().and_then(|(_, document)| document.document_element())
+            {
+                for control in elements(&root, "[data-watchlist-toggle]") {
+                    if control.get_attribute("data-symbol") == element.get_attribute("data-symbol")
+                    {
+                        let _ =
+                            control.set_attribute("aria-busy", if busy { "true" } else { "false" });
+                        if let Some(button) = control.dyn_ref::<HtmlButtonElement>() {
+                            if control.get_attribute("data-watchlist-in-place").as_deref()
+                                == Some("true")
+                            {
+                                // Keep keyboard focus during the request. The busy guard
+                                // rejects repeat actions; aria-disabled exposes its state.
+                                let _ = control.set_attribute(
+                                    "aria-disabled",
+                                    if busy { "true" } else { "false" },
+                                );
+                            } else {
+                                button.set_disabled(busy);
+                            }
+                        }
+                        if let Ok(Some(label)) = control.query_selector("[data-watchlist-label]") {
+                            let saved = control.get_attribute("data-watchlisted").as_deref()
+                                == Some("true");
+                            label.set_text_content(Some(if busy {
+                                if saved
+                                    && control.get_attribute("data-watchlist-in-place").as_deref()
+                                        != Some("true")
+                                {
+                                    "Removing…"
+                                } else {
+                                    "Saving…"
+                                }
+                            } else if saved {
+                                "Saved"
+                            } else {
+                                "Save"
+                            }));
+                        }
+                    }
+                }
+            }
+        }
         let _ = element.set_attribute("aria-busy", if busy { "true" } else { "false" });
         if let Some(button) = element.dyn_ref::<HtmlButtonElement>() {
-            button.set_disabled(busy);
+            if element.get_attribute("data-watchlist-in-place").as_deref() != Some("true") {
+                button.set_disabled(busy);
+            }
         }
         if let Some(select) = element.dyn_ref::<HtmlSelectElement>() {
             select.set_disabled(busy);
@@ -2652,6 +3312,17 @@ mod browser {
     }
 
     fn set_watchlist_feedback(element: &Element, message: &str, error: bool) {
+        let frontend_message;
+        let message = if element.closest(".epsx-frontend").ok().flatten().is_some() {
+            frontend_message = message
+                .replace("your watchlist", "your saved companies")
+                .replace("Your watchlist", "Your saved companies")
+                .replace("stock symbol", "company symbol");
+            frontend_message.as_str()
+        } else {
+            message
+        };
+        company_cards::feedback(element, message, error);
         let local_status = element
             .closest("[data-stock-card]")
             .ok()
@@ -2674,6 +3345,10 @@ mod browser {
     }
 
     async fn update_watchlist(element: Element) {
+        if element.get_attribute("aria-busy").as_deref() == Some("true") {
+            return;
+        }
+        let in_place = element.get_attribute("data-watchlist-in-place").as_deref() == Some("true");
         let watch_form = element.closest("[data-watchlist-form]").ok().flatten();
         let raw_symbol = element.get_attribute("data-symbol").or_else(|| {
             watch_form
@@ -2698,9 +3373,11 @@ mod browser {
             let confirmed = web_sys::window()
                 .and_then(|window| {
                     window
-                        .confirm_with_message(&format!(
-                            "Unwatch {symbol}? It will be removed from all {membership_count} groups."
-                        ))
+                        .confirm_with_message(&if element.closest(".epsx-frontend").ok().flatten().is_some() {
+                            format!("Remove {symbol} from all {membership_count} groups?")
+                        } else {
+                            format!("Unwatch {symbol}? It will be removed from all {membership_count} groups.")
+                        })
                         .ok()
                 })
                 .unwrap_or(false);
@@ -2721,11 +3398,18 @@ mod browser {
             .into()
         });
         let _ = element.set_attribute("data-watchlist-idle-label", &idle_label);
-        element.set_text_content(Some(if currently_watched {
-            "Removing…"
-        } else {
-            "Saving…"
-        }));
+        if element
+            .query_selector("[data-watchlist-label]")
+            .ok()
+            .flatten()
+            .is_none()
+        {
+            element.set_text_content(Some(if currently_watched {
+                "Removing…"
+            } else {
+                "Saving…"
+            }));
+        }
         set_watchlist_feedback(
             &element,
             if currently_watched {
@@ -2751,6 +3435,9 @@ mod browser {
             .await
             .ok()
             .and_then(|value| {
+                if in_place {
+                    return super::confirmed_watchlist_membership(&value, &symbol);
+                }
                 value
                     .pointer("/data/symbols")
                     .and_then(Value::as_array)
@@ -2775,11 +3462,22 @@ mod browser {
                 },
                 false,
             );
-            reload();
+            if in_place {
+                company_cards::confirmed(&element, !currently_watched);
+            } else {
+                reload();
+            }
         } else {
             set_watchlist_busy(&element, false);
-            if let Some(label) = element.get_attribute("data-watchlist-idle-label") {
-                element.set_text_content(Some(&label));
+            if element
+                .query_selector("[data-watchlist-label]")
+                .ok()
+                .flatten()
+                .is_none()
+            {
+                if let Some(label) = element.get_attribute("data-watchlist-idle-label") {
+                    element.set_text_content(Some(&label));
+                }
             }
             set_watchlist_feedback(
                 &element,
@@ -2787,6 +3485,247 @@ mod browser {
                 true,
             );
         }
+    }
+
+    fn native_pay_text(id: &str, text: &str) {
+        if let Some((_, document)) = window_document() {
+            if let Some(node) = document.get_element_by_id(id) {
+                node.set_text_content(Some(text));
+            }
+        }
+    }
+    fn native_pay_input(id: &str) -> String {
+        window_document()
+            .and_then(|(_, d)| d.get_element_by_id(id))
+            .and_then(|e| js_sys::Reflect::get(&e, &JsValue::from_str("value")).ok())
+            .and_then(|v| v.as_string())
+            .unwrap_or_default()
+    }
+    fn native_pay_key(button: &Element) -> String {
+        use std::hash::{Hash, Hasher};
+        let context = format!(
+            "{}|{}|{}|{}|{}|{}|{}|{}",
+            web_sys::window()
+                .and_then(|w| w.location().pathname().ok())
+                .unwrap_or_default(),
+            button.get_attribute("data-epsx-action").unwrap_or_default(),
+            button.get_attribute("data-pay-kind").unwrap_or_default(),
+            button.get_attribute("data-pay-paused").unwrap_or_default(),
+            native_pay_input("native-pay-amount-input"),
+            native_pay_input("native-pay-token"),
+            native_pay_input("native-pay-uses"),
+            native_pay_input("native-pay-description")
+        );
+        let mut hash = std::collections::hash_map::DefaultHasher::new();
+        context.hash(&mut hash);
+        let storage_key = format!("epsx.pay.request.{:x}", hash.finish());
+        let _ = button.set_attribute("data-pay-request-storage", &storage_key);
+        let storage = web_sys::window().and_then(|w| w.session_storage().ok().flatten());
+        if let Some(key) = storage
+            .as_ref()
+            .and_then(|s| s.get_item(&storage_key).ok().flatten())
+        {
+            return key;
+        }
+        let key = format!(
+            "pay-{}-{}",
+            js_sys::Date::now(),
+            js_sys::Math::random().to_string().replace('.', "")
+        );
+        if let Some(storage) = storage {
+            let _ = storage.set_item(&storage_key, &key);
+        }
+        key
+    }
+    fn native_pay_complete_request(button: &Element) {
+        if let Some(key) = button.get_attribute("data-pay-request-storage") {
+            if let Some(storage) =
+                web_sys::window().and_then(|w| w.session_storage().ok().flatten())
+            {
+                let _ = storage.remove_item(&key);
+            }
+        }
+    }
+    fn native_pay_display(units: &str, decimals: usize) -> String {
+        if decimals == 0 {
+            return units.into();
+        }
+        let padded = format!("{:0>width$}", units, width = decimals + 1);
+        let split = padded.len() - decimals;
+        let fraction = padded[split..].trim_end_matches('0');
+        if fraction.is_empty() {
+            padded[..split].into()
+        } else {
+            format!("{}.{}", &padded[..split], fraction)
+        }
+    }
+    async fn native_pay_poll(node: Element) {
+        let id = node.get_attribute("data-pay-intent").unwrap_or_default();
+        let admin = node.get_attribute("data-pay-admin").as_deref() == Some("true");
+        let read_base = if admin {
+            "/api/v1/admin/pay/escrows"
+        } else {
+            "/api/v1/pay/intents"
+        };
+        let slug = node.get_attribute("data-pay-slug").unwrap_or_default();
+        if !slug.is_empty() {
+            match fetch_json(&format!("/api/v1/pay/links/{slug}"), "GET", None).await {
+                Ok(v) => {
+                    let l = &v["link"];
+                    native_pay_text(
+                        "native-pay-link-details",
+                        &format!(
+                            "{} · recipient {}",
+                            l["description"].as_str().unwrap_or("Payment request"),
+                            l["payee"].as_str().unwrap_or("")
+                        ),
+                    );
+                }
+                Err(_) => native_pay_text(
+                    "native-pay-link-details",
+                    "This payment link is unavailable.",
+                ),
+            }
+        }
+        loop {
+            if !id.is_empty() {
+                match fetch_json(&format!("{read_base}/{id}"), "GET", None).await {
+                    Ok(v) => {
+                        native_pay_text("native-pay-recipient", v["payee"].as_str().unwrap_or(""));
+                        native_pay_text(
+                            "native-pay-amount",
+                            &format!(
+                                "{} {}",
+                                native_pay_display(
+                                    v["amount"].as_str().unwrap_or("0"),
+                                    v["token_decimals"].as_u64().unwrap_or(0) as usize
+                                ),
+                                v["token_symbol"].as_str().unwrap_or("")
+                            ),
+                        );
+                        native_pay_text(
+                            "native-pay-deal-status",
+                            v["status"].as_str().unwrap_or("verification_required"),
+                        );
+                        for button in elements(&node, "[data-pay-kind]") {
+                            let kind = button.get_attribute("data-pay-kind").unwrap_or_default();
+                            let allowed =
+                                v["available_actions"].as_array().is_some_and(|actions| {
+                                    actions.iter().any(|a| a.as_str() == Some(&kind))
+                                });
+                            if allowed {
+                                let _ = button.remove_attribute("hidden");
+                            } else {
+                                let _ = button.set_attribute("hidden", "");
+                            }
+                        }
+                    }
+                    Err(_) => native_pay_text(
+                        "native-pay-deal-status",
+                        "Sign in to view this payment, or refresh your session.",
+                    ),
+                }
+            }
+            if let Ok(v) = fetch_json(read_base, "GET", None).await {
+                if let Some((_, document)) = window_document() {
+                    if let Some(container) = document.get_element_by_id("native-pay-history") {
+                        container.set_text_content(None);
+                        if let Some(items) = v["items"].as_array() {
+                            for item in items {
+                                let Some(id) = item["id"].as_str() else {
+                                    continue;
+                                };
+                                if let Ok(link) = document.create_element("a") {
+                                    link.set_text_content(Some(&format!(
+                                        "{} — {}",
+                                        item["description"].as_str().unwrap_or("Payment"),
+                                        item["status"].as_str().unwrap_or("pending")
+                                    )));
+                                    let _ = link.set_attribute(
+                                        "href",
+                                        &if admin {
+                                            format!("/pay/escrows/{id}")
+                                        } else {
+                                            format!("/checkout/{id}")
+                                        },
+                                    );
+                                    let _ = link.set_attribute("class", "block underline py-2");
+                                    let _ = container.append_child(&link);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            delay(5000).await;
+        }
+    }
+    async fn native_pay_send(provider: &JsValue, transaction: &Value) -> Result<String, JsValue> {
+        let params = Array::new();
+        // EIP-1193 expects a plain object; serde Value maps otherwise become JS Map.
+        params.push(&js_sys::JSON::parse(&transaction.to_string())?);
+        wallet_request(provider, "eth_sendTransaction", params)
+            .await?
+            .as_string()
+            .ok_or_else(|| JsValue::from_str("Wallet did not return a transaction hash"))
+    }
+    async fn native_pay_action(button: Element, action: String) {
+        set_wallet_busy(&button, true);
+        native_pay_text("native-pay-status", "Preparing payment…");
+        let result=async{
+            let key=native_pay_key(&button);
+            if action=="native-pay-link"{
+                let token=native_pay_input("native-pay-token");let config=fetch_json("/api/v1/pay/config","GET",None).await?;
+                let decimals=config["tokens"][&token]["decimals"].as_u64().ok_or_else(||JsValue::from_str("Currency is unavailable"))? as usize;
+                let amount=native_pay_input("native-pay-amount-input");let mut parts=amount.trim().split('.');let whole=parts.next().unwrap_or("");let fraction=parts.next().unwrap_or("");
+                if decimals>36||parts.next().is_some()||whole.is_empty()||!whole.bytes().all(|b|b.is_ascii_digit())||!fraction.bytes().all(|b|b.is_ascii_digit())||fraction.len()>decimals{return Err(JsValue::from_str("Enter a valid amount"))}
+                let units=format!("{whole}{fraction}{}","0".repeat(decimals-fraction.len())).trim_start_matches('0').to_string();
+                let max=native_pay_input("native-pay-uses").parse::<u32>().map_err(|_|JsValue::from_str("Enter a valid checkout count"))?;
+                let body=json!({"amount":units,"token":token,"description":native_pay_input("native-pay-description"),"max_uses":max,"expires_in":86400});
+                let response=fetch_json_with_headers("/api/v1/pay/links","POST",Some(body),&[("idempotency-key",&key)]).await?;
+                let url=response["url"].as_str().ok_or_else(||JsValue::from_str("Missing payment link"))?;
+                native_pay_text("native-pay-created-link",url);if let Some((_,d))=window_document(){if let Some(a)=d.get_element_by_id("native-pay-created-link"){let _=a.set_attribute("href",url);}}
+                native_pay_text("native-pay-status","Payment link created.");native_pay_complete_request(&button);return Ok(())
+            }
+            if action=="native-pay-redeem"{
+                let slug=button.get_attribute("data-pay-slug").unwrap_or_default();let response=fetch_json_with_headers(&format!("/api/v1/pay/links/{slug}/redeem"),"POST",Some(json!({})),&[("idempotency-key",&key)]).await?;
+                let id=response["intent"]["id"].as_str().ok_or_else(||JsValue::from_str("Missing checkout"))?;
+                if let Some((w,_))=window_document(){w.location().set_href(&format!("/checkout/{id}"))?}return Ok(())
+            }
+            let kind=button.get_attribute("data-pay-kind").unwrap_or_default();let id=button.get_attribute("data-pay-intent").unwrap_or_default();
+            let controls=action=="native-pay-pause";
+            let admin=controls||kind.starts_with("resolve-");
+            let path=if controls{"/api/v1/admin/pay/contract/pause".to_string()}else if admin{format!("/api/v1/admin/pay/escrows/{id}/resolve")}else if kind=="deposit"{format!("/api/v1/pay/intents/{id}/deposit")}else{format!("/api/v1/pay/escrows/{id}/{kind}")};
+            let body=if controls{json!({"paused":button.get_attribute("data-pay-paused").as_deref()==Some("true")})}else if admin{json!({"to_payee":kind=="resolve-release"})}else{json!({})};
+            let op_base=if controls{"/api/v1/admin/pay/contract/operations"}else if admin{"/api/v1/admin/pay/operations"}else{"/api/v1/pay/operations"};
+            let response=fetch_json_with_headers(&path,"POST",Some(body),&[("idempotency-key",&key)]).await?;
+            let transaction=&response["transaction"];let expected=transaction["from"].as_str().ok_or_else(||JsValue::from_str("Missing payer"))?;
+            let provider=injected_wallet_provider("metamask")?;
+            ensure_provider_account(&provider,expected).await?;
+            let chain_hex=transaction["chainId"].as_str().ok_or_else(||JsValue::from_str("Missing chain"))?;let chain_id=u64::from_str_radix(chain_hex.trim_start_matches("0x"),16).map_err(|_|JsValue::from_str("Invalid chain"))?;
+            ensure_payment_chain(&provider,chain_id,chain_hex).await?;
+            if response["approval_transaction"].is_object(){
+                native_pay_text("native-pay-status","Approve the token amount in your wallet.");let hash=native_pay_send(&provider,&response["approval_transaction"]).await?;
+                loop{let params=Array::new();params.push(&JsValue::from_str(&hash));let result=wallet_request(&provider,"eth_getTransactionReceipt",params).await?;if !result.is_null()&&!result.is_undefined(){let receipt:Value=serde_wasm_bindgen::from_value(result).map_err(|e|JsValue::from_str(&e.to_string()))?;if receipt["status"]!="0x1"{return Err(JsValue::from_str("Token approval failed"))}break}delay(2000).await;}
+            }
+            ensure_provider_account(&provider,expected).await?;ensure_payment_chain(&provider,chain_id,chain_hex).await?;
+            native_pay_text("native-pay-status","Confirm the transaction in your wallet.");let hash=native_pay_send(&provider,transaction).await?;
+            native_pay_text("native-pay-tx",&hash);native_pay_text("native-pay-status","Transaction submitted. Waiting for chain confirmations…");
+            let operation=response["operation"]["id"].as_str().ok_or_else(||JsValue::from_str("Missing operation"))?;
+            let _=fetch_json(&format!("{op_base}/{operation}/confirm"),"POST",Some(json!({"tx_hash":hash}))).await?;
+            // Never render success from the wallet hash or this acknowledgement.
+            loop{let op=fetch_json(&format!("{op_base}/{operation}"),"GET",None).await?;match op["status"].as_str(){Some("confirmed")=>{native_pay_text("native-pay-status","Transaction verified on chain.");break},Some("failed")=>return Err(JsValue::from_str("Transaction was not confirmed as the requested operation")),_=>delay(3000).await}}
+            native_pay_complete_request(&button);Ok::<(),JsValue>(())
+        }.await;
+        if let Err(error) = result {
+            native_pay_text(
+                "native-pay-status",
+                &error.as_string().unwrap_or_else(|| {
+                    "Unable to complete the request. Check your session and wallet.".into()
+                }),
+            )
+        }
+        set_wallet_busy(&button, false);
     }
 
     async fn create_checkout(element: Element) {
@@ -2884,10 +3823,18 @@ mod browser {
             &JsValue::from_str(chain_hex),
         )?;
         switch_params.push(&switch_target);
-        if wallet_request(provider, "wallet_switchEthereumChain", switch_params)
-            .await
-            .is_err()
+        if let Err(error) =
+            wallet_request(provider, "wallet_switchEthereumChain", switch_params).await
         {
+            // Only an unknown chain warrants an add-network request. A rejected
+            // switch must not immediately trigger another wallet prompt.
+            if Reflect::get(&error, &JsValue::from_str("code"))
+                .ok()
+                .and_then(|v| v.as_f64())
+                != Some(4902.0)
+            {
+                return Err(error);
+            }
             let (chain_name, rpc_url, symbol) = chain_metadata(chain_id)
                 .ok_or_else(|| JsValue::from_str("Unsupported payment network"))?;
             let add_params = Array::new();
@@ -2969,12 +3916,27 @@ mod browser {
     }
 
     async fn submit_plan_payment(button: Element) {
+        let hosted = button.get_attribute("data-hosted-pay").as_deref() == Some("true");
         plan_payment_busy(&button, true);
-        set_plan_payment_status("Connecting to MetaMask…", false, "connecting");
+        set_plan_payment_status(
+            if hosted {
+                "Opening EPSX Pay…"
+            } else {
+                "Connecting to MetaMask…"
+            },
+            false,
+            "connecting",
+        );
         let result = async {
             let plan_id = button
                 .get_attribute("data-plan-id")
                 .ok_or_else(|| JsValue::from_str("Plan ID is unavailable"))?;
+            if hosted {
+                let token = button
+                    .get_attribute("data-currency")
+                    .ok_or_else(|| JsValue::from_str("Token is unavailable"))?;
+                return merchant_pay::epsx_checkout(&button, &plan_id, &token).await;
+            }
             let amount = button
                 .get_attribute("data-amount")
                 .ok_or_else(|| JsValue::from_str("Payment amount is unavailable"))?;
@@ -3077,9 +4039,17 @@ mod browser {
         .await;
 
         match result {
+            Ok(()) if hosted => {
+                // Pay owns the next wallet interaction. Opening its checkout
+                // is not proof of payment and must not trigger the legacy redirect.
+            }
             Ok(()) => {
                 set_plan_payment_status(
-                    "Payment confirmed. Your plan and expanded stock-ranking access are active.",
+                    if button.closest(".epsx-frontend").ok().flatten().is_some() {
+                        "Payment confirmed. Your plan access is active."
+                    } else {
+                        "Payment confirmed. Your plan and expanded stock-ranking access are active."
+                    },
                     false,
                     "confirmed",
                 );
@@ -3113,6 +4083,12 @@ mod browser {
         }
         if let Ok(Some(node)) = document.query_selector("[data-notification-count]") {
             spawn_local(load_notification_count(node));
+        }
+        if let Ok(Some(node)) = document.query_selector("[data-native-pay-page]") {
+            spawn_local(native_pay_poll(node));
+        }
+        if let Ok(Some(node)) = document.query_selector("[data-merchant-pay-page]") {
+            spawn_local(merchant_pay::start(node));
         }
         if let Ok(Some(node)) = document.query_selector("[data-payment-status-endpoint]") {
             spawn_local(poll_payment(node));
@@ -3523,7 +4499,7 @@ mod browser {
                 }
                 if let Ok(Some(file_input)) = click_doc.query_selector("[data-chat-file-input]") {
                     if let Some(html) = file_input.dyn_ref::<web_sys::HtmlElement>() {
-                        let _ = html.click();
+                        html.click();
                     }
                 }
                 let _ = zone;
@@ -4354,6 +5330,28 @@ mod browser {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn card_membership_requires_canonical_confirmation() {
+        use super::confirmed_watchlist_membership as membership;
+        use serde_json::json;
+        assert_eq!(
+            membership(&json!({"data":{"symbols":["nvda", "BRK.B"]}}), "NVDA"),
+            Some(true)
+        );
+        assert_eq!(
+            membership(&json!({"data":{"symbols":[]}}), "NVDA"),
+            Some(false)
+        );
+        for value in [
+            json!({"success":true}),
+            json!({"data":{"symbols":["NVDA", null]}}),
+            json!({"data":{"symbols":["../bad"]}}),
+            json!({"data":{"symbols":"NVDA"}}),
+        ] {
+            assert_eq!(membership(&value, "NVDA"), None);
+        }
+    }
+
     use super::*;
 
     #[test]
@@ -4451,7 +5449,16 @@ mod tests {
 
     #[test]
     fn service_workers_stay_off_loopback_development_origins() {
-        for hostname in ["localhost", "LOCALHOST", "127.0.0.1", "::1", "[::1]"] {
+        for hostname in [
+            "localhost",
+            "LOCALHOST",
+            "127.0.0.1",
+            "::1",
+            "[::1]",
+            "dev.epsx.io",
+            "dev-admin.epsx.io",
+            "dev-pay.epsx.io",
+        ] {
             assert!(!service_workers_enabled(hostname));
         }
         assert!(service_workers_enabled("epsx.io"));

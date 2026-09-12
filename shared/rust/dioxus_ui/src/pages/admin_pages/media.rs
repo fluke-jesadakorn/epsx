@@ -123,7 +123,7 @@ fn valid_optional_timestamp(value: Option<&str>) -> bool {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum MediaBucket {
+pub(crate) enum MediaBucket {
     News,
     Public,
 }
@@ -137,7 +137,7 @@ impl MediaBucket {
         }
     }
 
-    const fn slug(self) -> &'static str {
+    pub(crate) const fn slug(self) -> &'static str {
         match self {
             Self::News => "news",
             Self::Public => "public",
@@ -157,7 +157,7 @@ impl MediaBucket {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum MediaLoad {
+pub(crate) enum MediaLoad {
     Ready(AdminMediaList),
     Empty,
     Forbidden,
@@ -201,7 +201,7 @@ fn media_load(ctx: &PageContext, bucket_valid: bool) -> MediaLoad {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum MediaMutationLoad {
+pub(crate) enum MediaMutationLoad {
     Committed(AdminMediaMutationProjection),
     Conflict(String),
     Forbidden,
@@ -262,6 +262,15 @@ fn RenderMedia(ctx: PageContext) -> Element {
     let parsed_bucket = MediaBucket::from_ctx(&ctx);
     let bucket = parsed_bucket.unwrap_or(MediaBucket::News);
     let load = media_load(&ctx, parsed_bucket.is_some());
+    rsx! { MediaBody { bucket, load, mutation: media_mutation_load(&ctx) } }
+}
+
+#[component]
+pub(crate) fn MediaBody(
+    bucket: MediaBucket,
+    load: MediaLoad,
+    mutation: Option<MediaMutationLoad>,
+) -> Element {
     let file_count = match &load {
         MediaLoad::Ready(projection) => Some(projection.items.len()),
         MediaLoad::Empty => Some(0),
@@ -277,7 +286,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
             max_width: Some(PageMaxWidth::SevenXl),
             MediaBrowserHeader {}
             MediaToolbar { selected: bucket, file_count }
-            if let Some(mutation) = media_mutation_load(&ctx) {
+            if let Some(mutation) = mutation {
                 MediaMutationNotice { mutation }
             }
             match load {
@@ -337,6 +346,7 @@ fn RenderMedia(ctx: PageContext) -> Element {
 
 #[component]
 fn MediaBrowserHeader() -> Element {
+    let identity = use_server_cached(|| format!("admin.media.upload.{}", uuid::Uuid::new_v4()));
     rsx! {
         header { class: "flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between",
             div { class: "flex items-center gap-3",
@@ -352,6 +362,7 @@ fn MediaBrowserHeader() -> Element {
                 form {
                     method: "post",
                     action: "/media/upload",
+                    onsubmit: crate::fullstack::admin_media::submit,
                     enctype: "multipart/form-data",
                     class: "z-20 mt-2 grid w-full gap-3 rounded-2xl border border-border/30 bg-card p-4 shadow-2xl sm:absolute sm:right-0 sm:w-80",
                     label { class: "space-y-2 text-sm font-medium text-foreground",
@@ -360,11 +371,12 @@ fn MediaBrowserHeader() -> Element {
                             class: "file-input file-input-bordered w-full",
                             r#type: "file",
                             name: "file",
+                            onchange: crate::fullstack::admin_media::choose_file,
                             accept: "image/jpeg,image/png,image/gif,image/webp,application/pdf",
                             required: true,
                         }
                     }
-                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.upload.{}", uuid::Uuid::new_v4()) }
+                    input { r#type: "hidden", name: "idempotency_key", value: identity }
                     p { class: "text-xs leading-5 text-muted-foreground", "Uploads are written to Public by the current backend contract." }
                     button { class: "btn btn-primary btn-sm", r#type: "submit", "Upload file" }
                 }
@@ -436,6 +448,7 @@ fn MediaToolbar(selected: MediaBucket, file_count: Option<usize>) -> Element {
                 a {
                     class: if selected == MediaBucket::News { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
                     href: MediaBucket::News.href(),
+                    onclick: move |event| crate::fullstack::admin_media::navigate(event, MediaBucket::News.href()),
                     aria_current: (selected == MediaBucket::News).then_some("page"),
                     "News"
                 }
@@ -450,6 +463,7 @@ fn MediaToolbar(selected: MediaBucket, file_count: Option<usize>) -> Element {
                 a {
                     class: if selected == MediaBucket::Public { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
                     href: MediaBucket::Public.href(),
+                    onclick: move |event| crate::fullstack::admin_media::navigate(event, MediaBucket::Public.href()),
                     aria_current: (selected == MediaBucket::Public).then_some("page"),
                     "Public"
                 }
@@ -516,6 +530,7 @@ fn MediaReady(projection: AdminMediaList, bucket: MediaBucket) -> Element {
 
 #[component]
 fn MediaCard(item: AdminMediaObject, bucket: MediaBucket) -> Element {
+    let identity = use_server_cached(|| format!("admin.media.delete.{}", uuid::Uuid::new_v4()));
     let size = readable_bytes(item.size);
     let key = item.key.clone();
     let name = item
@@ -546,9 +561,10 @@ fn MediaCard(item: AdminMediaObject, bucket: MediaBucket) -> Element {
                         Icon { name: "copy".to_string(), size: Some(14) }
                     }
                     form { method: "post", action: MEDIA_PATH,
+                        onsubmit: crate::fullstack::admin_media::submit,
                         input { r#type: "hidden", name: "bucket", value: bucket.slug() }
                         input { r#type: "hidden", name: "key", value: key.clone() }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.media.delete.{}", uuid::Uuid::new_v4()) }
+                        input { r#type: "hidden", name: "idempotency_key", value: identity }
                         button {
                             class: "rounded-lg bg-red-600/70 p-1.5 text-white hover:bg-red-600/90",
                             r#type: "submit",
@@ -641,7 +657,7 @@ fn MediaProblem(state: &'static str, title: String, detail: String, retry_href: 
                         p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     }
                 }
-                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href, "Try again" }
+                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin_media::navigate(event, retry_href.clone()), "Try again" }
             }
         }
     }

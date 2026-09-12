@@ -248,6 +248,7 @@ impl SimpleContainer {
                 "epsx-frontend".to_string(),
                 "epsx-admin".to_string(),
                 "epsx-api".to_string(),
+                "epsx-pay".to_string(),
             ], // audiences
             Arc::new(key_manager),
             Arc::new(refresh_token_keyring),
@@ -267,32 +268,14 @@ impl SimpleContainer {
             Arc::new(crate::infrastructure::event_bus::simple_event_bus::SimpleEventBus::new());
 
         // Create CQRS infrastructure (Event Sourcing)
-        // Use analytics_pool for event store if available, otherwise fallback to primary (legacy)
-        let event_store_pool = analytics_pool
-            .as_ref()
-            .cloned()
-            .unwrap_or(Arc::clone(&db_pool));
+        // The core migration family owns event_store, outbox_events and snapshots.
+        // Keep events and aggregate changes on the same database transaction.
+        let event_store_pool = Arc::clone(&db_pool);
         let event_store: Arc<dyn EventStore> =
             Arc::new(PostgresEventStore::new(event_store_pool.clone()));
 
-        // Outbox also needs to know which DB it's using? Usually Outbox is on the same DB as the aggregate changes...
-        // BUT here we have split DBs.
-        // If an aggregate (e.g. User) in Primary DB emits an event, the outbox MUST be in Primary DB?
-        // OR we use dual-write/saga.
-        // Current impl of TransactionalOutbox takes `db_pool` and `event_store`.
-        // If event_store is in Analytics DB, ensuring atomicity is hard.
-        // For now, let's assume Outbox table is on Primary DB (where Aggregates are).
-        // Wait, I removed Outbox from Primary schema!
-        // So Outbox MUST be in Analytics DB or wherever EventStore is.
-        // Ideally, domain logic should write to Outbox in same transaction as Aggregate update.
-        // If Aggregate is in Primary and Outbox in Analytics, we cannot do atomic transaction.
-        // This is a known issue with split DBs.
-        // For this refactor, let's point Outbox to Analytics DB (event_store_pool).
-        // This means we sacrifice atomicity unless we use 2PC (which we don't).
-        // Or maybe Outbox table was intended to be in Primary?
-        // I removed `outbox_events` from Primary.
         let transactional_outbox = Arc::new(TransactionalOutbox::new(
-            event_store_pool.clone(), // Use same pool as EventStore (Analytics)
+            event_store_pool.clone(),
             Arc::clone(&event_store),
         ));
 

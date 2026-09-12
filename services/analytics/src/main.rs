@@ -8,9 +8,9 @@ use std::{net::SocketAddr, sync::Arc};
 #[derive(Parser)]
 #[command(name = "epsx-analytics", about = "EPSX Analytics Service")]
 struct Args {
-    #[arg(long, default_value = "8107")]
+    #[arg(long, env = "PORT", default_value = "8107")]
     port: u16,
-    #[arg(long, default_value = "0.0.0.0")]
+    #[arg(long, env = "HOST", default_value = "127.0.0.1")]
     host: String,
     #[arg(
         long,

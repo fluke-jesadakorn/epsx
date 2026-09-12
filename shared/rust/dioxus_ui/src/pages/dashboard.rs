@@ -25,22 +25,21 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 
 #[component]
 fn RenderDashboard(ctx: PageContext) -> Element {
-    // `ctx.params["data_dashboard"]` is deliberately not read. Until an
-    // owner-scoped backend response is selected and validated, compatibility
-    // payloads cannot establish metrics, activity, access, or entitlements.
-    let user = ctx.user.clone();
+    rsx! { MainLayout { ctx: ctx.clone(), DashboardBody { user: ctx.user } } }
+}
 
+#[component]
+fn DashboardBody(user: Option<User>) -> Element {
     rsx! {
-        MainLayout { ctx,
             div {
-                class: "dashboard-prod-page min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800",
-                div { class: "container mx-auto px-4 py-8",
+                class: "dashboard-prod-page min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 fe-base-page fe-fill-neutral",
+                div { class: "container mx-auto px-4 py-8 fe-page-layout",
                     header { class: "dashboard-prod-header mb-8",
-                        h1 { class: "dashboard-prod-title text-3xl font-bold text-slate-900 dark:text-slate-100",
-                            "Personal Dashboard"
+                        h1 { class: "dashboard-prod-title text-3xl font-bold text-slate-900 dark:text-slate-100 fe-tone-text fe-type-title",
+                            "Overview"
                         }
-                        p { class: "dashboard-prod-subtitle mt-2 text-slate-600 dark:text-slate-400",
-                            "Your personalized market analytics and portfolio overview"
+                        p { class: "dashboard-prod-subtitle mt-2 text-slate-600 dark:text-slate-400 fe-tone-muted",
+                            "Pick up where you left off."
                         }
                     }
 
@@ -51,6 +50,28 @@ fn RenderDashboard(ctx: PageContext) -> Element {
                     }
                 }
             }
+    }
+}
+
+#[component]
+pub fn HydratedDashboard() -> Element {
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    use_context_provider(|| crate::fullstack::analytics::AnalyticsNavigation(navigate));
+    let mut result = use_server_future(|| async { super::profile::read_profile().await })?;
+    let data = result.read().clone();
+    rsx! {
+        document::Title { "Overview — EPSX" }
+        document::Meta { name: "description", content: "Return to your workspace and review your verified sign-in identity." }
+        match data {
+            Some(Ok(Ok(user))) => rsx! { DashboardBody { user: Some(user) } },
+            Some(Ok(Err(crate::fullstack::LoadError::Unauthenticated))) => rsx! { DashboardBody { user: None } },
+            _ => rsx! { section { class: "fe-page", role: "status",
+                p { "Could not load your verified session. Please try again." }
+                button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+            } },
         }
     }
 }
@@ -66,10 +87,10 @@ fn SignedOutDashboard() -> Element {
             class: "dashboard-prod-fallback mx-auto max-w-3xl p-8 text-center",
             "data-dashboard-state": "signed-out",
             aria_labelledby: "dashboard-sign-in-title",
-            p { class: "text-base leading-relaxed text-slate-400 sm:text-xl",
+            p { class: "text-base leading-relaxed text-slate-400 sm:text-xl fe-tone-muted",
                 "Please sign in to access your dashboard..."
             }
-            div { class: "sr-only",
+            div { class: "mt-4",
                 h2 { id: "dashboard-sign-in-title", "Sign in required" }
                 p { "Sign in to review the dashboard state associated with your verified session. No account data is shown while signed out." }
                 a { href: DASHBOARD_SIGN_IN_PATH, "Sign in" }
@@ -80,189 +101,25 @@ fn SignedOutDashboard() -> Element {
 
 #[component]
 fn AuthenticatedDashboard(user: User) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     rsx! {
-        div { class: "dashboard-client relative overflow-hidden rounded-3xl",
-            div {
-                class: "dashboard-client-bg pointer-events-none absolute inset-0 bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
-                "aria-hidden": "true"
-            }
-            div {
-                class: "dashboard-client-orb-orange pointer-events-none absolute -left-40 -top-40 h-96 w-96 rounded-full bg-gradient-to-br from-orange-400/15 to-yellow-400/15 blur-3xl",
-                "aria-hidden": "true"
-            }
-            div {
-                class: "dashboard-client-orb-blue pointer-events-none absolute -right-32 top-20 h-80 w-80 rounded-full bg-gradient-to-br from-blue-400/12 to-cyan-400/12 blur-3xl",
-                "aria-hidden": "true"
-            }
-            div {
-                class: "dashboard-client-orb-purple pointer-events-none absolute bottom-20 left-20 h-72 w-72 rounded-full bg-gradient-to-br from-purple-400/10 to-pink-400/10 blur-3xl",
-                "aria-hidden": "true"
-            }
-
-            div { class: "dashboard-client-content relative z-10 mx-auto max-w-7xl space-y-8 px-4 py-8 sm:px-6 lg:px-8",
-                header { class: "dashboard-client-header mb-4 text-center sm:mb-12",
-                    div { class: "dashboard-client-header-icon mb-6 inline-flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-orange-500 to-yellow-500 shadow-2xl",
-                        Icon { name: "trending-up".to_string(), size: Some(40), class_name: Some("text-white".to_string()) }
-                    }
-                    h2 {
-                        class: "dashboard-client-title mb-4 bg-gradient-to-r from-orange-600 via-yellow-600 to-orange-600 bg-clip-text text-4xl font-bold text-transparent sm:text-5xl",
-                        "🚀 Dashboard"
-                    }
-                    p { class: "text-base text-gray-600 dark:text-gray-300 sm:text-xl",
-                        "Welcome back, "
-                        if let Some(email) = user.email.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
-                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "{email}" }
-                        } else if let Some(name) = user.display_name.as_deref().map(str::trim).filter(|value| !value.is_empty()) {
-                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "{name}" }
-                        } else {
-                            span { class: "font-semibold text-orange-600 dark:text-orange-400", "verified user" }
+        div { class: "dashboard-client",
+            nav { class: "fe-overview-links", aria_label: "Your workspace",
+                for (href,title,description) in [
+                    ("/analytics","Explore","Browse reported company data and quarterly details."),
+                    ("/portfolio","Saved companies","Return to the companies you follow."),
+                    ("/account","Account","Manage your profile, preferences and access."),
+                ] {
+                    a { href, onclick: move |event| {
+                        if crate::fullstack::shell::migrated_link(href) {
+                            crate::fullstack::analytics::follow_link(event, navigation, href);
                         }
-                        "! ✨"
-                    }
-                    div { class: "mt-4 inline-flex items-center gap-2 rounded-full border border-amber-300/50 bg-amber-500/10 px-4 py-2 text-sm font-semibold text-amber-700 dark:border-amber-400/30 dark:text-amber-300",
-                        Icon { name: "shield".to_string(), size: Some(16) }
-                        "Group: unavailable"
-                    }
-                }
-
-                DashboardActionGrid {}
-
-                div { class: "mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2",
-                    SessionIdentityCard { user }
-                    DashboardUnavailableCard {}
-                }
-
-                DashboardPermissionsCard {}
-            }
-        }
-    }
-}
-
-#[component]
-fn DashboardActionGrid() -> Element {
-    rsx! {
-        section { class: "grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3", aria_labelledby: "dashboard-actions-title",
-            h2 { id: "dashboard-actions-title", class: "sr-only", "Dashboard actions" }
-            DashboardActionCard {
-                href: "/profile",
-                icon: "user",
-                title: "👤 Profile",
-                description: "Manage your personal information",
-                action: "View Profile",
-                accent: "orange",
-            }
-            DashboardActionCard {
-                href: "/settings",
-                icon: "settings",
-                title: "⚙️ Settings",
-                description: "Configure your preferences",
-                action: "Open Settings",
-                accent: "blue",
-            }
-            DashboardActionCard {
-                href: "/analytics",
-                icon: "chart-line",
-                title: "📊 Analytics",
-                description: "View your data and insights",
-                action: "View Analytics",
-                accent: "green",
-            }
-            DashboardActionCard {
-                href: "/plans",
-                icon: "lock",
-                title: "🔒 Premium Content",
-                description: "Access exclusive premium features",
-                action: "Access Premium",
-                accent: "purple",
-            }
-            DashboardActionCard {
-                href: "/access-denied?return_url=%2Fdashboard",
-                icon: "shield",
-                title: "🛡️ Moderator Panel",
-                description: "Moderate content and users",
-                action: "Open Moderator Panel",
-                accent: "red",
-            }
-        }
-    }
-}
-
-#[component]
-fn DashboardActionCard(
-    href: &'static str,
-    icon: &'static str,
-    title: &'static str,
-    description: &'static str,
-    action: &'static str,
-    accent: &'static str,
-) -> Element {
-    let (border_class, title_class, icon_class) = match accent {
-        "blue" => (
-            "border-blue-200/50 dark:border-blue-400/20",
-            "text-blue-600 dark:text-blue-400",
-            "from-blue-500 to-purple-500",
-        ),
-        "green" => (
-            "border-green-200/50 dark:border-green-400/20",
-            "text-green-600 dark:text-green-400",
-            "from-green-500 to-emerald-500",
-        ),
-        "purple" => (
-            "border-purple-200/50 dark:border-purple-400/20",
-            "text-purple-600 dark:text-purple-400",
-            "from-purple-500 to-pink-500",
-        ),
-        "red" => (
-            "border-red-200/50 dark:border-red-400/20",
-            "text-red-600 dark:text-red-400",
-            "from-red-500 to-rose-500",
-        ),
-        _ => (
-            "border-orange-200/50 dark:border-orange-400/20",
-            "text-orange-600 dark:text-orange-400",
-            "from-orange-500 to-yellow-500",
-        ),
-    };
-
-    rsx! {
-        article { class: "relative overflow-hidden rounded-2xl border bg-white/80 p-6 shadow-2xl backdrop-blur-xl transition-all duration-300 hover:scale-105 dark:bg-slate-800/80 {border_class}",
-            div { class: "pointer-events-none absolute right-0 top-0 h-32 w-32 rounded-full bg-gradient-to-br {icon_class} opacity-10 blur-2xl", aria_hidden: "true" }
-            div { class: "pointer-events-none absolute bottom-0 left-0 h-24 w-24 rounded-full bg-gradient-to-br from-blue-400/10 to-cyan-400/10 blur-xl", aria_hidden: "true" }
-            div { class: "relative z-10",
-                header { class: "mb-5",
-                    h3 { class: "flex items-center text-lg font-semibold {title_class}",
-                        div { class: "mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br {icon_class} text-white",
-                            Icon { name: icon.to_string(), size: Some(18) }
-                        }
-                        "{title}"
-                    }
-                    p { class: "mt-2 text-sm text-gray-600 dark:text-gray-300", "{description}" }
-                }
-                a { href: href, class: "btn btn-primary inline-flex w-full items-center justify-center gap-2",
-                    Icon { name: icon.to_string(), size: Some(16) }
-                    "{action}"
+                    }, strong { "{title}" } span { "{description}" } }
                 }
             }
-        }
-    }
-}
-
-#[component]
-fn DashboardPermissionsCard() -> Element {
-    rsx! {
-        section { class: "mt-8 rounded-2xl border border-indigo-200/50 bg-white/80 p-6 shadow-2xl backdrop-blur-xl dark:border-indigo-400/20 dark:bg-slate-800/80", aria_labelledby: "dashboard-permissions-title",
-            header { class: "mb-5",
-                h2 { id: "dashboard-permissions-title", class: "flex items-center text-lg font-semibold text-indigo-600 dark:text-indigo-400",
-                    div { class: "mr-3 flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-white",
-                        Icon { name: "shield".to_string(), size: Some(18) }
-                    }
-                    "🔐 Your Permissions"
-                }
-                p { class: "mt-2 text-sm text-gray-600 dark:text-gray-300", "Current permissions for your account" }
-            }
-            div { class: "flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between",
-                p { class: "text-sm leading-6 text-muted-foreground", "Permission details are not projected by this dashboard until the backend authorization response is available." }
-                span { class: "inline-flex w-fit rounded-full border border-indigo-300/50 bg-indigo-500/10 px-4 py-2 text-sm font-semibold text-indigo-700 dark:border-indigo-400/30 dark:text-indigo-300", "Not projected" }
+            div { class: "mt-8 grid grid-cols-1 gap-6 lg:grid-cols-2",
+                SessionIdentityCard { user }
+                DashboardUnavailableCard {}
             }
         }
     }
@@ -279,19 +136,19 @@ fn SessionIdentityCard(user: User) -> Element {
 
     rsx! {
         section {
-            class: "dashboard-session-identity rounded-2xl border border-orange-200/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80",
+            class: "dashboard-session-identity rounded-2xl border border-orange-200/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80 fe-surface",
             "data-dashboard-identity": "verified-session",
             aria_labelledby: "dashboard-session-title",
             div { class: "mb-5 flex items-start gap-3",
-                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500 text-white",
+                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-orange-500 to-yellow-500 text-white fe-fill-neutral fe-tone-text",
                     Icon { name: "user".to_string(), size: Some(20) }
                 }
                 div {
-                    h3 { id: "dashboard-session-title", class: "text-lg font-semibold text-foreground",
+                    h3 { id: "dashboard-session-title", class: "text-lg font-semibold text-foreground fe-tone-text",
                         "Verified session identity"
                     }
-                    p { class: "mt-1 text-sm text-muted-foreground",
-                        "These values come from the locally verified access token."
+                    p { class: "mt-1 text-sm text-muted-foreground fe-tone-muted",
+                        "Your signed-in account details."
                     }
                 }
             }
@@ -312,7 +169,7 @@ fn SessionIdentityCard(user: User) -> Element {
                     }
                 }
             } else {
-                p { class: "rounded-lg bg-slate-100 p-4 text-sm text-muted-foreground dark:bg-slate-800",
+                p { class: "rounded-lg bg-slate-100 p-4 text-sm text-muted-foreground dark:bg-slate-800 fe-fill-neutral fe-tone-muted",
                     "No displayable identity claims were included in this verified session."
                 }
             }
@@ -330,7 +187,7 @@ fn SessionClaim(label: String, value: String, monospace: bool) -> Element {
 
     rsx! {
         div { class: "border-b border-slate-200 pb-3 last:border-b-0 last:pb-0 dark:border-slate-700",
-            dt { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground", "{label}" }
+            dt { class: "text-xs font-semibold uppercase tracking-wide text-muted-foreground fe-tone-muted", "{label}" }
             dd { class: value_class, "{value}" }
         }
     }
@@ -340,26 +197,26 @@ fn SessionClaim(label: String, value: String, monospace: bool) -> Element {
 fn DashboardUnavailableCard() -> Element {
     rsx! {
         section {
-            class: "dashboard-data-unavailable rounded-2xl border border-amber-300/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80",
+            class: "dashboard-data-unavailable rounded-2xl border border-amber-300/60 bg-white/85 p-6 shadow-xl backdrop-blur-xl dark:bg-slate-900/80 fe-surface",
             "data-dashboard-state": "unavailable",
             aria_labelledby: "dashboard-unavailable-title",
             role: "status",
             div { class: "mb-5 flex items-start gap-3",
-                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600",
+                div { class: "flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 fe-tone-warning",
                     Icon { name: "database".to_string(), size: Some(20) }
                 }
                 div {
-                    p { class: "text-xs font-semibold uppercase tracking-widest text-amber-600",
-                        "Dashboard unavailable"
+                    p { class: "text-xs font-semibold uppercase tracking-widest text-amber-600 fe-tone-warning",
+                        "Summary unavailable"
                     }
-                    h3 { id: "dashboard-unavailable-title", class: "mt-1 text-lg font-semibold text-foreground",
+                    h3 { id: "dashboard-unavailable-title", class: "mt-1 text-lg font-semibold text-foreground fe-tone-text",
                         "Account summaries cannot be verified"
                     }
                 }
             }
 
-            p { class: "text-sm leading-6 text-muted-foreground",
-                "There is no owner-scoped dashboard response that this frontend can validate. Metrics, recent activity, portfolio summaries, plan access, roles, permissions, and entitlements are not inferred."
+            p { class: "text-sm leading-6 text-muted-foreground fe-tone-muted",
+                "Your account summary is not available yet. You can still explore data and manage your account."
             }
 
             nav { class: "mt-6 flex flex-wrap gap-3", aria_label: "Dashboard alternatives",
@@ -426,7 +283,7 @@ mod tests {
     fn signed_out_route_preserves_truthful_native_sign_in_state() {
         let html = render_to_string(&empty_ctx());
 
-        assert!(html.contains("Personal Dashboard"));
+        assert!(html.contains("Overview"));
         assert!(html.contains("data-dashboard-state=\"signed-out\""));
         assert!(html.contains("Sign in required"));
         assert!(html.contains("href=\"/auth?return_url=%2Fdashboard\""));
@@ -517,19 +374,13 @@ mod tests {
         let html = render_to_string(&authed_ctx());
 
         for expected in [
-            "👤 Profile",
-            "⚙️ Settings",
-            "📊 Analytics",
-            "🔒 Premium Content",
-            "🛡️ Moderator Panel",
-            "🔐 Your Permissions",
-            "Group: unavailable",
-            "Permission details are not projected",
-            "href=\"/profile\"",
-            "href=\"/settings\"",
+            "Explore",
+            "Saved companies",
+            "Account",
+            "fe-overview-links",
             "href=\"/analytics\"",
-            "href=\"/plans\"",
-            "href=\"/access-denied?return_url=%2Fdashboard\"",
+            "href=\"/portfolio\"",
+            "href=\"/account\"",
         ] {
             assert!(
                 html.contains(expected),

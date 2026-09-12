@@ -1,0 +1,23 @@
+{
+  "name": "epsx",
+  "private": true,
+  "version": "0.1.0",
+  "description": "EPSX — Rust/Dioxus + Cloudflare Workers (wrangler local)",
+  "type": "module",
+  "packageManager": "bun@1.2.17",
+  "scripts": {
+    "dev:cloudflare": "cargo xtask cloudflare dev --local",
+    "build:cloudflare": "cargo xtask cloudflare build",
+    "wrangler:dev:frontend": "bunx wrangler dev --local --persist-to=.wrangler/state --config apps/frontend/wrangler.jsonc",
+    "wrangler:dev:admin": "bunx wrangler dev --local --persist-to=.wrangler/state --config apps/admin/wrangler.jsonc",
+    "wrangler:dev:pay": "bunx wrangler dev --local --persist-to=.wrangler/state --config apps/pay/wrangler.jsonc",
+    "wrangler:dev:backend": "bunx wrangler dev --local --persist-to=.wrangler/state --config apps/backend/wrangler.jsonc"
+  },
+  "devDependencies": {
+    "wrangler": "^4.127.1"
+  },
+  "workspaces": [
+    "apps/frontend",
+    "apps/admin"
+  ]
+}

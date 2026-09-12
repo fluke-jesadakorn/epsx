@@ -28,20 +28,27 @@ const SUPPORT_EMAIL: &str = "info@epsx.io";
 const CONTACT_COPY_STATUS_ID: &str = "contact-copy-email-status";
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Contact");
+    let mut meta = PageMeta::marketing("Contact");
+    meta.description = "Contact EPSX for account, data access, and payment support.".into();
     (
         meta,
-        rsx! {
-            MainLayout { ctx: ctx.clone(),
+        rsx! { MainLayout { ctx: ctx.clone(), HydratedContact {} } },
+    )
+}
+
+#[component]
+pub fn HydratedContact() -> Element {
+    rsx! {
+        document::Title { "Contact — EPSX" }
+        document::Meta { name: "description", content: "Contact EPSX for account, data access, and payment support." }
+
                 ContactBackground {}
                 div { class: "contact-page",
                     ContactHero {}
                     ContactEmailCard {}
                     ContactInfoCards {}
                 }
-            }
-        },
-    )
+    }
 }
 
 /// PancakeSwap-style gradient background with 3 floating orbs.
@@ -73,9 +80,9 @@ fn ContactBackground() -> Element {
 fn ContactHero() -> Element {
     rsx! {
         section { class: "contact-hero",
-            div { class: "container",
+            div { class: "container fe-page-layout",
                 div { class: "contact-hero-inner",
-                    h1 { class: "contact-hero-title", "Contact Us" }
+                    h1 { class: "contact-hero-title fe-type-title", "Contact Us" }
                     p { class: "contact-hero-subtitle",
                         "Have a question or need support? We'd love to hear from you."
                     }
@@ -90,13 +97,13 @@ fn ContactHero() -> Element {
 fn ContactEmailCard() -> Element {
     rsx! {
         section { class: "contact-email-section",
-            div { class: "container",
+            div { class: "container fe-page-layout",
                 div { class: "contact-email-card",
                     div { class: "contact-email-icon",
                         Icon { name: "mail".to_string(), size: Some(32), class_name: Some("text-white".to_string()) }
                     }
                     h2 { class: "contact-email-title", "Send us an email" }
-                    p { class: "contact-email-subtitle text-muted-foreground",
+                    p { class: "contact-email-subtitle text-muted-foreground fe-tone-muted",
                         "Click below to open your email app"
                     }
                     MailtoBtn {}
@@ -132,18 +139,31 @@ fn MailtoBtn() -> Element {
 /// technology the same explicit association without hydration.
 #[component]
 fn CopyEmailBtn() -> Element {
-    let html = epsx_templates::email_copy_button_html(SUPPORT_EMAIL);
+    let mut status = use_signal(String::new);
+    let mut pending = use_signal(|| false);
     rsx! {
-        span { class: "contact-copy-btn-wrap inline-block",
-            dangerous_inner_html: "{html}"
+        button {
+            r#type: "button", class: "btn btn-outline", disabled: pending(),
+            id: "contact-copy-email-button", aria_label: "Copy email address",
+            aria_describedby: CONTACT_COPY_STATUS_ID,
+            onclick: move |_| {
+                if *pending.peek() { return; }
+                pending.set(true);
+                spawn(async move {
+                    let copied = document::eval("try { await navigator.clipboard.writeText('info@epsx.io'); dioxus.send(true); } catch (_) { dioxus.send(false); }").recv::<bool>().await.unwrap_or(false);
+                    status.set(if copied { "Email copied." } else { "Could not copy. Select and copy info@epsx.io manually." }.into());
+                    pending.set(false);
+                });
+            },
+            Icon { name: "copy".to_string(), size: Some(16) }
+            span { "Copy" }
         }
         span {
             id: CONTACT_COPY_STATUS_ID,
-            class: "contact-copy-status text-sm text-muted-foreground",
-            role: "status",
-            "aria-live": "polite",
-            "aria-atomic": "true",
+            class: "contact-copy-status text-sm text-muted-foreground fe-tone-muted",
+            role: "status", aria_live: "polite", aria_atomic: "true",
             "data-copy-status": "true",
+            "{status}"
         }
     }
 }
@@ -170,14 +190,14 @@ fn ContactInfoCards() -> Element {
         },
         ContactInfoCard {
             icon: "clock",
-            title: "Response Time",
-            desc: "We typically respond within 24 hours on business days.",
+            title: "Helpful details",
+            desc: "Include the page you were using and a description of the issue.",
             tone: ContactCardTone::Blue,
         },
     ];
     rsx! {
         section { class: "contact-info-section",
-            div { class: "container",
+            div { class: "container fe-page-layout",
                 div { class: "contact-info-grid",
                     for c in cards.iter() {
                         ContactInfoCardView { card: c.clone() }
@@ -231,7 +251,7 @@ fn ContactInfoCardView(card: ContactInfoCard) -> Element {
                     }
                     div {
                         h3 { class: "contact-info-title", "{card.title}" }
-                        p { class: "contact-info-desc text-muted-foreground text-sm", "{card.desc}" }
+                        p { class: "contact-info-desc text-muted-foreground text-sm fe-tone-muted", "{card.desc}" }
                     }
                 }
             }
@@ -294,7 +314,7 @@ mod tests {
     fn contact_info_has_three_cards() {
         // Render the cards section and grep for the 3 card titles.
         let html = render_to_string(&empty_ctx());
-        for title in &["General Inquiries", "Technical Support", "Response Time"] {
+        for title in &["General Inquiries", "Technical Support", "Helpful details"] {
             assert!(
                 html.contains(title),
                 "contact page should mention `{title}`. Got: {}",
@@ -311,10 +331,10 @@ mod tests {
         assert!(html.contains("aria-label=\"Copy email address\""));
         assert!(html.contains("id=\"contact-copy-email-button\""));
         assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
-        assert!(html.contains("data-copy-status-target=\"contact-copy-email-status\""));
-        assert!(html.contains("data-copy=\"info@epsx.io\""));
+        assert!(!html.contains("data-copy-status-target="));
+        assert!(!html.contains("data-copy="));
         assert!(html.contains("type=\"button\""));
-        assert!(html.contains("data-epsx-action=\"copy\""));
+        assert!(!html.contains("data-epsx-action="));
         assert!(!html.contains("onclick=\""));
         assert!(html.contains("<span>Copy</span>"));
 
@@ -353,7 +373,7 @@ mod tests {
         );
         assert!(html.contains("aria-label=\"Copy email address\""));
         assert!(html.contains("aria-describedby=\"contact-copy-email-status\""));
-        assert!(html.contains("data-copy-status-target=\"contact-copy-email-status\""));
+        assert!(!html.contains("data-copy-status-target="));
         assert!(html.contains("role=\"status\""));
         assert!(html.contains("aria-live=\"polite\""));
         assert!(html.contains("aria-atomic=\"true\""));

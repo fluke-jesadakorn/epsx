@@ -7,6 +7,7 @@ pub mod entities;
 pub mod events;
 pub mod promotion;
 pub mod repository_ports;
+pub mod token_pricing;
 pub mod value_objects;
 
 // Re-export key types

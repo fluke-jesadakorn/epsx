@@ -1,0 +1,14 @@
+{
+  "package": "@walletconnect/ethereum-provider",
+  "version": "2.24.0",
+  "bundler": "esbuild 0.25.12",
+  "source": "https://registry.npmjs.org/@walletconnect/ethereum-provider/-/ethereum-provider-2.24.0.tgz",
+  "files": {
+    "bridge.mjs": "7fb12fa21d4b0752a23a094d7fe6693f2a1ca8ebf1102b498637858f452a88d5",
+    "walletconnect-2.24.0.js": "9a960acaac7234498d5b9e8be0749f159d8442eccc01bdc3561d88ddfe7553a0",
+    "walletconnect-2.24.0.js.LEGAL.txt": "fc5ac1ac6f7054fc55a3aacf716a673b6f8fa28055bdf0367dcd982c8f029c57",
+    "dependencies.lock.json": "a2a6c2a3586e542e3b8fc99e9d08928c174fe1a5772ac030125924aa67f6dd1d",
+    "LICENSE.walletconnect": "1cb6f8cfe21f54ab1105105717eaa2ba08343037a2a9c41dfd5ab09e3ce270fc"
+  },
+  "sdkIntegrity": "sha384-WJL/oT032WVDzcou5g5cVr6uzhvpZc9fnKsXTo7EEaQqGU+C0AzaSOdEZagt7ZVT"
+}

@@ -35,6 +35,8 @@ pub struct ChallengeRequest {
     /// Ethereum wallet address
     #[schema(example = "0x1234567890123456789012345678901234567890")]
     pub wallet_address: String,
+    #[serde(default)]
+    pub client_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Serialize, ToSchema)]
@@ -196,7 +198,10 @@ pub async fn generate_challenge_handler(
     };
 
     match web3_auth_service
-        .generate_challenge(&request.wallet_address)
+        .generate_challenge_for_client(
+            &request.wallet_address,
+            request.client_id.as_deref().unwrap_or("epsx-frontend"),
+        )
         .await
     {
         Ok(challenge) => {
@@ -531,7 +536,10 @@ pub async fn refresh_token_handler(
         }
     };
 
-    if !matches!(request.client_id.as_str(), "epsx-frontend" | "epsx-admin") {
+    if !matches!(
+        request.client_id.as_str(),
+        "epsx-frontend" | "epsx-admin" | "epsx-pay"
+    ) {
         warn!("Unsupported client supplied to token refresh");
         return refresh_status_response(StatusCode::BAD_REQUEST, REFRESH_OUTCOME_NOT_ROTATED);
     }

@@ -8,7 +8,7 @@
 
 use chrono::{DateTime, SecondsFormat, Utc};
 use dioxus::prelude::*;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use crate::auth::AuthGate;
 use crate::layout::main_layout::MainLayout;
@@ -31,7 +31,7 @@ const NOTIFICATIONS_MAX_PAGE: u32 = 50_001;
 const NOTIFICATIONS_WINDOW_ROWS: u64 =
     (NOTIFICATIONS_MAX_PAGE as u64 - 1) * NOTIFICATIONS_PAGE_SIZE + NOTIFICATIONS_PAGE_SIZE;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 enum NotificationStatusFilter {
     #[default]
     All,
@@ -66,7 +66,7 @@ impl NotificationStatusFilter {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 enum NotificationTypeFilter {
     #[default]
     All,
@@ -133,7 +133,7 @@ impl NotificationTypeFilter {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 enum NotificationPriorityFilter {
     #[default]
     All,
@@ -247,7 +247,7 @@ struct ServiceNotificationList {
 /// Presentation-only shape. Ownership and access decisions remain in the
 /// notification service and gateway; this type only maps already-authorized
 /// rows to escaped Dioxus text nodes.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Notification {
     pub id: String,
     pub title: String,
@@ -316,8 +316,8 @@ fn notification_timestamp_title(created_at: &DateTime<Utc>) -> String {
     created_at.format("%Y-%m-%d %H:%M:%S UTC").to_string()
 }
 
-#[derive(Clone, Debug, PartialEq)]
-struct NotificationPage {
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct NotificationPage {
     items: Vec<Notification>,
     total: u64,
     page: u32,
@@ -366,7 +366,7 @@ impl NotificationPage {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 enum NotificationLoad {
     Loaded(NotificationPage),
     UpstreamError(Option<u32>),
@@ -524,7 +524,7 @@ fn RenderNotifications(ctx: PageContext) -> Element {
                 feature: Some("your notifications".to_string()),
                 return_url: Some(ctx.path.clone()),
                 wallet_connected: ctx.wallet.address.is_some(),
-                div { class: "container page-content notifications-page",
+                div { class: "container page-content notifications-page fe-page-layout",
                     PageHeader {
                         title: "Notifications".to_string(),
                         description: Some(description),
@@ -596,13 +596,13 @@ fn NotificationUnavailable(
 ) -> Element {
     let (title, detail) = if malformed {
         (
-            "Notifications could not be displayed safely",
-            "The notification service returned an unexpected response. No notification data was shown.",
+            "We couldn’t load your notifications",
+            "We couldn’t load your notifications. Please try again.",
         )
     } else {
         (
             "Notifications are temporarily unavailable",
-            "The notification service could not be reached. Your notification history was not replaced with sample data.",
+            "We couldn’t load your notifications. Please try again.",
         )
     };
     let retry_href = retry_page
@@ -619,52 +619,8 @@ fn NotificationUnavailable(
         .unwrap_or_else(|| "/notifications".to_string());
     rsx! {
         Fragment {
-            // Preserve the source notification-center geometry even when the
-            // owner-scoped response is unavailable. These controls are
-            // deliberately disabled: they communicate the available shape
-            // without claiming that filtering or counts are live.
-            section { class: "notifications-filter-preview card card-glass p-4 sm:p-5",
-                div { class: "mb-3 flex items-center gap-2",
-                    Icon { name: "filter".to_string(), size: Some(20), class_name: Some("text-orange-500".to_string()) }
-                    h2 { class: "text-sm font-semibold text-slate-300", "Filters" }
-                }
-                div { class: "grid grid-cols-1 gap-4 md:grid-cols-3",
-                    div {
-                        label { class: "mb-2 block text-xs font-medium text-slate-400", "Status" }
-                        div { class: "flex gap-2",
-                            for (label, active) in [("All", true), ("Unread", false), ("Read", false)] {
-                                button {
-                                    r#type: "button",
-                                    disabled: true,
-                                    aria_disabled: "true",
-                                    class: if active {
-                                        "rounded-lg bg-orange-500/70 px-3 py-1.5 text-xs font-medium text-white/80"
-                                    } else {
-                                        "rounded-lg bg-slate-700/70 px-3 py-1.5 text-xs font-medium text-slate-300/70"
-                                    },
-                                    "{label}"
-                                }
-                            }
-                        }
-                    }
-                    div {
-                        label { class: "mb-2 block text-xs font-medium text-slate-400", "Type" }
-                        div { class: "notifications-filter-option", aria_disabled: "true",
-                            "All Types"
-                            Icon { name: "chevron-down".to_string(), size: Some(16) }
-                        }
-                    }
-                    div {
-                        label { class: "mb-2 block text-xs font-medium text-slate-400", "Priority" }
-                        div { class: "notifications-filter-option", aria_disabled: "true",
-                            "All Priorities"
-                            Icon { name: "chevron-down".to_string(), size: Some(16) }
-                        }
-                    }
-                }
-            }
             section {
-                class: "card card-glass notifications-unavailable",
+                class: "card card-glass notifications-unavailable fe-surface",
                 role: "alert",
                 aria_labelledby: "notifications-unavailable-title",
                 aria_describedby: "notifications-unavailable-detail",
@@ -681,7 +637,7 @@ fn NotificationUnavailable(
                         "{detail}"
                     }
                     div { class: "mt-4",
-                        a { class: "btn btn-sm btn-outline", href: "{retry_href}", "Try again" }
+                        hydrated::NotificationLink { class: "btn btn-sm btn-outline", href: "{retry_href}", "Try again" }
                     }
                 }
             }
@@ -693,7 +649,7 @@ fn NotificationUnavailable(
 fn NotificationInvalidQuery() -> Element {
     rsx! {
         section {
-            class: "card card-glass notifications-invalid-query",
+            class: "card card-glass notifications-invalid-query fe-surface",
             role: "alert",
             aria_labelledby: "notifications-invalid-query-title",
             aria_describedby: "notifications-invalid-query-detail",
@@ -707,9 +663,9 @@ fn NotificationInvalidQuery() -> Element {
                 p {
                     id: "notifications-invalid-query-detail",
                     class: "notifications-empty-hint",
-                    "Use the notification page controls to open a bounded owner-history page."
+                    "Use the page controls to browse your notification history."
                 }
-                a { class: "btn btn-sm btn-outline", href: "/notifications", "Open first page" }
+                hydrated::NotificationLink { class: "btn btn-sm btn-outline", href: "/notifications", "Open first page" }
             }
         }
     }
@@ -717,6 +673,8 @@ fn NotificationInvalidQuery() -> Element {
 
 #[component]
 fn NotificationPageSection(page: NotificationPage) -> Element {
+    let control = try_use_context::<hydrated::NotificationsControls>();
+    let mut filters_open = use_signal(|| false);
     let summary = page.loaded_summary();
     let unread_count = page
         .items
@@ -724,7 +682,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
         .filter(|notification| !notification.read)
         .count();
     let unread_label = format!("{unread_count} unread on this page");
-    let rendered_at = Utc::now();
+    let rendered_at = dioxus_fullstack::use_server_cached(Utc::now);
     let window_state = if page.has_bounded_window() {
         "bounded"
     } else {
@@ -769,11 +727,11 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                     "{summary}"
                 }
                 p {
-                    class: "notifications-live-status text-xs text-muted-foreground",
+                    class: "notifications-live-status text-xs text-muted-foreground fe-tone-muted",
                     "data-notifications-live-status": "true",
                     role: "status",
                     aria_live: "polite",
-                    "Live notification updates are connecting…"
+                    if let Some(control) = control { "{(control.live)()}" } else { "Live notification updates are connecting…" }
                 }
                 if !page.items.is_empty() {
                     p { class: "notifications-unread-count", style: "margin: 0;", "{unread_label}" }
@@ -782,7 +740,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                     p {
                         class: "notifications-window-note",
                         role: "note",
-                        "The service reports {page.total} notifications across {page.total_pages} pages. Navigation is bounded to the first {NOTIFICATIONS_WINDOW_ROWS} records (page {NOTIFICATIONS_MAX_PAGE})."
+                        "There are {page.total} notifications across {page.total_pages} pages. You can browse the first {NOTIFICATIONS_WINDOW_ROWS} notifications (through page {NOTIFICATIONS_MAX_PAGE})."
                     }
                 }
             }
@@ -790,6 +748,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
             if !page.items.is_empty() {
                 NotificationMutationToolbar { has_unread: unread_count > 0 }
             }
+            div { class: "fe-notification-filterbar",
             NotificationStatusFilters {
                 selected: page.status,
                 notification_type: page.notification_type,
@@ -797,6 +756,9 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                 start_date: page.start_date.clone(),
                 end_date: page.end_date.clone(),
             }
+                details { class: "fe-notification-more", open: filters_open(),
+                    summary { onclick: move |event| { event.prevent_default(); filters_open.toggle(); }, "Type & priority" }
+                    div { class: "fe-notification-filter-panel",
             NotificationTypeFilters {
                 selected: page.notification_type,
                 status: page.status,
@@ -810,10 +772,12 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                 notification_type: page.notification_type,
                 start_date: page.start_date.clone(),
                 end_date: page.end_date.clone(),
+            }                    }
+                }
             }
 
             if page.is_authoritative_first_page_empty() {
-                div { class: "card card-glass notifications-list-card",
+                div { class: "card card-glass notifications-list-card fe-surface",
                     div { class: "card-body notifications-empty",
                         Icon { name: "bell-off".to_string(), size: Some(32) }
                         h2 {
@@ -825,7 +789,7 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                     }
                 }
             } else if page.is_out_of_range() {
-                div { class: "card card-glass notifications-list-card",
+                div { class: "card card-glass notifications-list-card fe-surface",
                     div { class: "card-body notifications-empty",
                         Icon { name: "list-restart".to_string(), size: Some(32) }
                         h2 {
@@ -840,13 +804,13 @@ fn NotificationPageSection(page: NotificationPage) -> Element {
                                 "The requested page has no owner notifications. Return to the last available page."
                             }
                         }
-                        a { class: "btn btn-sm btn-outline", href: "{recovery_href}",
+                        hydrated::NotificationLink { class: "btn btn-sm btn-outline", href: "{recovery_href}",
                             if page.total == 0 { "Open first page" } else { "Open last available page" }
                         }
                     }
                 }
             } else {
-                div { class: "card card-glass notifications-list-card",
+                div { class: "card card-glass notifications-list-card fe-surface",
                 ul {
                     class: "card-body p-0",
                     role: "list",
@@ -923,15 +887,15 @@ fn NotificationPagination(
             class: "notifications-pagination mt-6 flex items-center justify-center gap-3",
             aria_label: "Notification pages",
             if let Some(href) = previous_href {
-                a { class: "btn btn-sm btn-outline", rel: "prev", href, "Previous" }
+                hydrated::NotificationLink { class: "btn btn-sm btn-outline", rel: "prev", href, "Previous" }
             } else {
                 span { class: "btn btn-sm btn-outline", aria_disabled: "true", "Previous" }
             }
-            span { class: "notifications-page-position text-sm text-muted-foreground", aria_current: "page",
+            span { class: "notifications-page-position text-sm text-muted-foreground fe-tone-muted", aria_current: "page",
                 "{summary}"
             }
             if let Some(href) = next_href {
-                a { class: "btn btn-sm btn-outline", rel: "next", href, "Next" }
+                hydrated::NotificationLink { class: "btn btn-sm btn-outline", rel: "next", href, "Next" }
             } else {
                 span { class: "btn btn-sm btn-outline", aria_disabled: "true", "Next" }
             }
@@ -952,13 +916,13 @@ fn NotificationStatusFilters(
             class: "notifications-status-filters mt-4 flex flex-wrap items-center gap-2",
             aria_label: "Notification status filters",
             "data-notification-status-filters": "true",
-            span { class: "text-xs text-muted-foreground", "Filter:" }
+            span { class: "text-xs text-muted-foreground fe-tone-muted", "Filter:" }
             for filter in [
                 NotificationStatusFilter::All,
                 NotificationStatusFilter::Unread,
                 NotificationStatusFilter::Read,
             ] {
-                a {
+                hydrated::NotificationLink {
                     class: if filter == selected { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                     href: "{notification_page_href(1, filter, notification_type, priority, start_date.as_deref(), end_date.as_deref())}",
                     aria_current: if filter == selected { "page" } else { "false" },
@@ -982,7 +946,7 @@ fn NotificationTypeFilters(
             class: "notifications-type-filters mt-2 flex flex-wrap items-center gap-2",
             aria_label: "Notification type filters",
             "data-notification-type-filters": "true",
-            span { class: "text-xs text-muted-foreground", "Type:" }
+            span { class: "text-xs text-muted-foreground fe-tone-muted", "Type:" }
             for filter in [
                 NotificationTypeFilter::All,
                 NotificationTypeFilter::System,
@@ -996,7 +960,7 @@ fn NotificationTypeFilters(
                 NotificationTypeFilter::Advertisement,
                 NotificationTypeFilter::Chat,
             ] {
-                a {
+                hydrated::NotificationLink {
                     class: if filter == selected { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                     href: "{notification_page_href(1, status, filter, priority, start_date.as_deref(), end_date.as_deref())}",
                     aria_current: if filter == selected { "page" } else { "false" },
@@ -1020,7 +984,7 @@ fn NotificationPriorityFilters(
             class: "notifications-priority-filters mt-2 flex flex-wrap items-center gap-2",
             aria_label: "Notification priority filters",
             "data-notification-priority-filters": "true",
-            span { class: "text-xs text-muted-foreground", "Priority:" }
+            span { class: "text-xs text-muted-foreground fe-tone-muted", "Priority:" }
             for filter in [
                 NotificationPriorityFilter::All,
                 NotificationPriorityFilter::Low,
@@ -1029,7 +993,7 @@ fn NotificationPriorityFilters(
                 NotificationPriorityFilter::Critical,
                 NotificationPriorityFilter::Urgent,
             ] {
-                a {
+                hydrated::NotificationLink {
                     class: if filter == selected { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
                     href: "{notification_page_href(1, status, notification_type, filter, start_date.as_deref(), end_date.as_deref())}",
                     aria_current: if filter == selected { "page" } else { "false" },
@@ -1042,6 +1006,7 @@ fn NotificationPriorityFilters(
 
 #[component]
 fn NotificationMutationToolbar(has_unread: bool) -> Element {
+    let control = try_use_context::<hydrated::NotificationsControls>();
     rsx! {
         div {
             class: "notifications-mutation-toolbar mt-4 flex flex-wrap items-center gap-2",
@@ -1053,6 +1018,8 @@ fn NotificationMutationToolbar(has_unread: bool) -> Element {
                     r#type: "button",
                     class: "btn btn-sm btn-outline",
                     "data-notification-mutation": "mark-all",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = None; move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::MarkAll, id: id.clone() }); } } },
                     "Mark all as read"
                 }
             }
@@ -1060,10 +1027,12 @@ fn NotificationMutationToolbar(has_unread: bool) -> Element {
                 r#type: "button",
                 class: "btn btn-sm btn-outline",
                 "data-notification-mutation": "clear-all",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = None; move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::ClearAll, id: id.clone() }); } } },
                 "Remove all notifications"
             }
             span {
-                class: "notifications-mutation-status text-xs text-muted-foreground",
+                class: "notifications-mutation-status text-xs text-muted-foreground fe-tone-muted",
                 role: "status",
                 aria_live: "polite",
                 "data-notification-mutation-status": "true",
@@ -1123,6 +1092,7 @@ fn notification_priority_class(priority: &str) -> &'static str {
 
 #[component]
 fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> Element {
+    let control = try_use_context::<hydrated::NotificationsControls>();
     let decoration = notification_type_decoration(notification.kind.as_deref());
     let rendered_priority = notification
         .priority
@@ -1199,6 +1169,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                             r#type: "button",
                             class: "btn btn-sm btn-outline",
                             "data-notification-mutation": "unread",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = Some(notification.id.clone()); move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::Unread, id: id.clone() }); } } },
                             "data-notification-id": "{notification.id}",
                             "Mark unread"
                         }
@@ -1207,6 +1179,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                             r#type: "button",
                             class: "btn btn-sm btn-outline",
                             "data-notification-mutation": "read",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = Some(notification.id.clone()); move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::Read, id: id.clone() }); } } },
                             "data-notification-id": "{notification.id}",
                             "Mark read"
                         }
@@ -1215,6 +1189,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                         r#type: "button",
                         class: "btn btn-sm btn-outline",
                         "data-notification-mutation": "acknowledge",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = Some(notification.id.clone()); move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::Acknowledge, id: id.clone() }); } } },
                         "data-notification-id": "{notification.id}",
                         "Acknowledge"
                     }
@@ -1222,6 +1198,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                         r#type: "button",
                         class: "btn btn-sm btn-outline",
                         "data-notification-mutation": "dismiss",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = Some(notification.id.clone()); move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::Dismiss, id: id.clone() }); } } },
                         "data-notification-id": "{notification.id}",
                         "Dismiss"
                     }
@@ -1229,6 +1207,8 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
                         r#type: "button",
                         class: "btn btn-sm btn-outline",
                         "data-notification-mutation": "delete",
+                            disabled: control.is_some_and(|control| (control.pending)()),
+                            onclick: { let id = Some(notification.id.clone()); move |_| { if let Some(control) = control { control.mutate.call(hydrated::NotificationMutation { kind: hydrated::MutationKind::Delete, id: id.clone() }); } } },
                         "data-notification-id": "{notification.id}",
                         "Remove"
                     }
@@ -1240,6 +1220,19 @@ fn NotificationRow(notification: Notification, rendered_at: DateTime<Utc>) -> El
 
 #[cfg(test)]
 mod tests {
+    fn has_link(html: &str, href: &str, label: &str, rel: Option<&str>) -> bool {
+        html.split("<a ")
+            .filter_map(|tail| tail.split_once("</a>"))
+            .any(|(anchor, _)| {
+                let Some((attributes, text)) = anchor.split_once('>') else {
+                    return false;
+                };
+                attributes.contains(&format!("href=\"{href}\""))
+                    && text == label
+                    && rel.is_none_or(|value| attributes.contains(&format!("rel=\"{value}\"")))
+            })
+    }
+
     use super::*;
     use crate::auth::user::{AuthMethod, User};
 
@@ -1870,12 +1863,12 @@ mod tests {
             (
                 false,
                 "Notifications are temporarily unavailable",
-                "The notification service could not be reached. Your notification history was not replaced with sample data.",
+                "We couldn’t load your notifications. Please try again.",
             ),
             (
                 true,
-                "Notifications could not be displayed safely",
-                "The notification service returned an unexpected response. No notification data was shown.",
+                "We couldn’t load your notifications",
+                "We couldn’t load your notifications. Please try again.",
             ),
         ] {
             let html = dioxus_ssr::render_element(rsx! {
@@ -1883,7 +1876,7 @@ mod tests {
             });
 
             assert!(html.contains(
-                "<section class=\"card card-glass notifications-unavailable\" role=\"alert\""
+                "<section class=\"card card-glass notifications-unavailable fe-surface\" role=\"alert\""
             ));
             assert!(html.contains("aria-labelledby=\"notifications-unavailable-title\""));
             assert!(html.contains("aria-describedby=\"notifications-unavailable-detail\""));
@@ -1893,9 +1886,7 @@ mod tests {
             assert!(html.contains(&format!(
                 "<p id=\"notifications-unavailable-detail\" class=\"notifications-empty-hint\">{detail}</p>"
             )));
-            assert!(html.contains(
-                "<a class=\"btn btn-sm btn-outline\" href=\"/notifications?page=2\">Try again</a>"
-            ));
+            assert!(has_link(&html, "/notifications?page=2", "Try again", None));
         }
     }
 
@@ -1919,8 +1910,11 @@ mod tests {
         assert!(first.contains(
             "<span class=\"btn btn-sm btn-outline\" aria-disabled=\"true\">Previous</span>"
         ));
-        assert!(first.contains(
-            "<a class=\"btn btn-sm btn-outline\" rel=\"next\" href=\"/notifications?page=2\">Next</a>"
+        assert!(has_link(
+            &first,
+            "/notifications?page=2",
+            "Next",
+            Some("next")
         ));
         assert!(first.contains("Page 1 of 3 · 20 loaded. Showing notifications 1–20 of 53."));
         assert!(!first.contains("tabindex"));
@@ -1938,11 +1932,17 @@ mod tests {
                 end_date: None,
             }
         });
-        assert!(middle.contains(
-            "<a class=\"btn btn-sm btn-outline\" rel=\"prev\" href=\"/notifications\">Previous</a>"
+        assert!(has_link(
+            &middle,
+            "/notifications",
+            "Previous",
+            Some("prev")
         ));
-        assert!(middle.contains(
-            "<a class=\"btn btn-sm btn-outline\" rel=\"next\" href=\"/notifications?page=3\">Next</a>"
+        assert!(has_link(
+            &middle,
+            "/notifications?page=3",
+            "Next",
+            Some("next")
         ));
         assert!(middle.contains("Page 2 of 3 · 20 loaded. Showing notifications 21–40 of 53."));
 
@@ -1959,8 +1959,11 @@ mod tests {
                 end_date: None,
             }
         });
-        assert!(last.contains(
-            "<a class=\"btn btn-sm btn-outline\" rel=\"prev\" href=\"/notifications?page=2\">Previous</a>"
+        assert!(has_link(
+            &last,
+            "/notifications?page=2",
+            "Previous",
+            Some("prev")
         ));
         assert!(last
             .contains("<span class=\"btn btn-sm btn-outline\" aria-disabled=\"true\">Next</span>"));
@@ -2007,8 +2010,12 @@ mod tests {
         let out_of_range_html = render_html(&out_of_range);
         assert!(out_of_range_html.contains("Page 3 of 2 · 0 loaded"));
         assert!(out_of_range_html.contains("This notification page is out of range"));
-        assert!(out_of_range_html
-            .contains("href=\"/notifications?page=2\">Open last available page</a>"));
+        assert!(has_link(
+            &out_of_range_html,
+            "/notifications?page=2",
+            "Open last available page",
+            None
+        ));
         assert!(!out_of_range_html.contains("No notifications yet"));
 
         let mut empty_out_of_range = context(
@@ -2023,7 +2030,12 @@ mod tests {
             .params
             .insert(NOTIFICATIONS_PAGE_PARAM.to_string(), "2".to_string());
         let empty_out_of_range_html = render_html(&empty_out_of_range);
-        assert!(empty_out_of_range_html.contains("href=\"/notifications\">Open first page</a>"));
+        assert!(has_link(
+            &empty_out_of_range_html,
+            "/notifications",
+            "Open first page",
+            None
+        ));
 
         let mut invalid = context(
             Some(user_with(&[])),
@@ -2035,7 +2047,12 @@ mod tests {
             .insert(NOTIFICATIONS_PAGE_PARAM.to_string(), "50002".to_string());
         let invalid_html = render_html(&invalid);
         assert!(invalid_html.contains("Notification page link is invalid"));
-        assert!(invalid_html.contains("href=\"/notifications\">Open first page</a>"));
+        assert!(has_link(
+            &invalid_html,
+            "/notifications",
+            "Open first page",
+            None
+        ));
         assert!(!invalid_html.contains("Subject fallback"));
         assert!(!invalid_html.contains("50002"));
     }
@@ -2053,10 +2070,7 @@ mod tests {
                 injected_page.to_string(),
             );
             let html = render_html(&ctx);
-            assert!(
-                html.contains("could not be displayed safely"),
-                "{injected_page}"
-            );
+            assert!(html.contains("load your notifications"), "{injected_page}");
             assert!(!html.contains("Subject fallback"), "{injected_page}");
         }
 
@@ -2065,7 +2079,7 @@ mod tests {
             Some("ok"),
             Some(serde_json::json!({"items": [], "total": 1})),
         );
-        assert!(render_html(&contradictory).contains("could not be displayed safely"));
+        assert!(render_html(&contradictory).contains("load your notifications"));
 
         let notification = exact_notifications()
             .into_iter()
@@ -2087,10 +2101,9 @@ mod tests {
             }
         });
         assert!(bounded.contains("data-notifications-window=\"bounded\""));
-        assert!(bounded.contains("The service reports 1000021 notifications across 50002 pages."));
-        assert!(
-            bounded.contains("Navigation is bounded to the first 1000020 records (page 50001).")
-        );
+        assert!(bounded.contains("There are 1000021 notifications across 50002 pages."));
+        assert!(bounded
+            .contains("You can browse the first 1000020 notifications (through page 50001)."));
         assert!(!bounded.contains("href=\"/notifications?page=50002\""));
         assert!(bounded.contains("aria-disabled=\"true\">Next</span>"));
     }
@@ -2164,7 +2177,7 @@ mod tests {
             let html = render_html(&ctx);
 
             assert!(
-                html.contains("could not be displayed safely"),
+                html.contains("load your notifications"),
                 "missing {field} must fail closed"
             );
             assert!(!html.contains("Unread body"));
@@ -2180,7 +2193,7 @@ mod tests {
             Some("ok"),
             Some(invalid_created_at),
         ));
-        assert!(created_at_html.contains("could not be displayed safely"));
+        assert!(created_at_html.contains("load your notifications"));
         assert!(!created_at_html.contains("Unread body"));
 
         let mut invalid_read_at = exact_target_payload();
@@ -2190,7 +2203,7 @@ mod tests {
             Some("ok"),
             Some(invalid_read_at),
         ));
-        assert!(read_at_html.contains("could not be displayed safely"));
+        assert!(read_at_html.contains("load your notifications"));
         assert!(!read_at_html.contains("Unread body"));
     }
 
@@ -2202,12 +2215,12 @@ mod tests {
             Some(serde_json::json!({"items": "not-an-array", "total": 0})),
         );
         let malformed_html = render_html(&malformed);
-        assert!(malformed_html.contains("could not be displayed safely"));
+        assert!(malformed_html.contains("load your notifications"));
 
         let upstream = context(Some(user_with(&[])), Some("error"), None);
         let upstream_html = render_html(&upstream);
         assert!(upstream_html.contains("temporarily unavailable"));
-        assert!(upstream_html.contains("not replaced with sample data"));
+        assert!(upstream_html.contains("We couldn’t load your notifications"));
 
         for html in [&malformed_html, &upstream_html] {
             assert!(!html.contains("Payment received"));
@@ -2329,3 +2342,5 @@ mod tests {
         assert!(html.contains("end_date=2026-01-31T23"));
     }
 }
+
+pub mod hydrated;

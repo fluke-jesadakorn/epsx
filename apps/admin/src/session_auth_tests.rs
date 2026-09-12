@@ -636,9 +636,10 @@ async fn dashboard_root_loads_only_for_verified_admin_root_aliases() {
         }),
     );
     let base_url = spawn_mock(router).await;
-    let app = build_app(state(&base_url));
+    let app = crate::fullstack::application(state(&base_url));
 
-    for path in ["/", "/index"] {
+    // Query strings do not change the matched Dioxus route or its verified session.
+    for path in ["/", "/index", "/?", "/?unexpected=1"] {
         let response = app
             .clone()
             .oneshot(
@@ -652,9 +653,9 @@ async fn dashboard_root_loads_only_for_verified_admin_root_aliases() {
             .unwrap();
         assert_eq!(response.status(), StatusCode::OK);
     }
-    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 4);
 
-    for path in ["/?", "/?unexpected=1", "/admin/admin", "/admin/admin/index"] {
+    for path in ["/admin/admin", "/admin/admin/index"] {
         let response = app
             .clone()
             .oneshot(
@@ -666,19 +667,16 @@ async fn dashboard_root_loads_only_for_verified_admin_root_aliases() {
             )
             .await
             .unwrap();
-        assert!(matches!(
-            response.status(),
-            StatusCode::OK | StatusCode::NOT_FOUND
-        ));
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
-    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 4);
 
     let signed_out = app
         .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
         .await
         .unwrap();
     assert_eq!(signed_out.status(), StatusCode::OK);
-    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 2);
+    assert_eq!(dashboard_hits.load(Ordering::SeqCst), 4);
 }
 
 #[tokio::test]
@@ -705,7 +703,7 @@ async fn wrong_or_multiple_audiences_cannot_reach_the_dashboard_upstream() {
             }),
         );
         let base_url = spawn_mock(router).await;
-        let response = build_app(state(&base_url))
+        let response = crate::fullstack::application(state(&base_url))
             .oneshot(
                 Request::builder()
                     .uri("/")
@@ -816,9 +814,9 @@ async fn every_canonical_auth_route_and_login_alias_is_public() {
 }
 
 #[tokio::test]
-async fn auth_page_is_public_and_redirects_to_the_fixed_admin_root() {
+async fn auth_page_is_public_and_rejects_external_return_url() {
     let base_url = unused_base_url().await;
-    let response = build_app(state(&base_url))
+    let response = crate::fullstack::application(state(&base_url))
         .oneshot(
             Request::builder()
                 .uri("/auth?return_url=https%3A%2F%2Fevil.example")
@@ -827,8 +825,141 @@ async fn auth_page_is_public_and_redirects_to_the_fixed_admin_root() {
         )
         .await
         .unwrap();
-    assert_eq!(response.status(), StatusCode::TEMPORARY_REDIRECT);
-    assert_eq!(response.headers()[header::LOCATION], "/");
-    let body = to_bytes(response.into_body(), 16 * 1024).await.unwrap();
-    assert!(body.is_empty());
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(!response.headers().contains_key(header::LOCATION));
+    let body = to_bytes(response.into_body(), 2 * 1024 * 1024)
+        .await
+        .unwrap();
+    let html = String::from_utf8(body.to_vec()).unwrap();
+    assert!(html.contains("Connect"));
+    assert!(!html.contains("href=\"https://evil.example"));
+}
+
+#[tokio::test]
+async fn core_wallet_provider_reads_production_shape_even_when_commerce_is_empty() {
+    use epsx_dioxus_ui::fullstack::core_wallets::Data;
+    let key = TestKey::generate();
+    let token = key.access_token(
+        ADMIN_CLIENT_ID,
+        &["admin:users:read", "admin:permissions:read"],
+    );
+    let wallets: Vec<Value> = (1..=8).map(|i|json!({"wallet_address":format!("0x{i:040x}"),"is_active":true,"created_at":"2026-09-01T00:00:00Z","last_auth_at":null})).collect();
+    let wallet_rows = wallets.clone();
+    let plans: Vec<Value> = (1..=12).map(|i|json!({"id":uuid::Uuid::from_u128(i).to_string(),"name":format!("Imported plan {i}")})).collect();
+    let authority = jwks_route(Jwks { keys:vec![key.jwk.clone()] })
+        .route("/api/admin/wallets", get(move |headers: HeaderMap| {
+            let rows = wallet_rows.clone();
+            async move {
+                assert!(headers.contains_key(header::AUTHORIZATION));
+                Json(json!({"success":true,"data":{"wallets":rows,"total":8,"pagination":{"page":1,"limit":10,"has_prev":false,"has_next":false}}}))
+            }
+        }))
+        .route("/api/admin/wallets/{wallet}", get(move || {
+            let wallet = wallets[0].clone();
+            async move { Json(json!({"success":true,"data":{"wallet_address":wallet["wallet_address"],"is_active":true,"created_at":wallet["created_at"],"last_auth_at":null,"permissions":[]}})) }
+        }))
+        .route("/api/permissions/assignments", get(||async { Json(json!({"success":true,"data":[]})) }))
+        .route("/api/permissions/plans", get(move || { let plans=plans.clone(); async move { Json(json!({"success":true,"data":plans})) } }));
+    let base = spawn_mock(authority).await;
+    let mut state = state(&base);
+    let empty_commerce =
+        spawn_mock(Router::new().fallback(|| async { Json(json!({"items":[],"total":0})) })).await;
+    state.wallet = Arc::new(epsx_client::ServiceClient::new(epsx_client::ClientConfig {
+        base_url: empty_commerce.clone(),
+        timeout: Duration::from_secs(1),
+    }));
+    state.subscription = state.wallet.clone();
+    let provider = crate::core_wallets_fullstack::provider(state);
+    let headers = cookie_headers(&format!("{LOCAL_ACCESS_COOKIE}={token}"));
+    match (provider.read)(None, "".into(), headers.clone())
+        .await
+        .unwrap()
+    {
+        Data::List(list) => {
+            assert_eq!(list.total, 8);
+            assert_eq!(list.wallets.len(), 8);
+        }
+        _ => panic!("expected canonical wallet list"),
+    }
+    match (provider.read)(Some(format!("0x{:040x}", 1)), "".into(), headers)
+        .await
+        .unwrap()
+    {
+        Data::Detail {
+            plans, assignments, ..
+        } => {
+            assert_eq!(plans.unwrap().len(), 12);
+            assert!(assignments.unwrap().is_empty());
+        }
+        _ => panic!("expected canonical wallet detail"),
+    }
+}
+
+#[tokio::test]
+async fn canonical_credits_preserve_decimals_and_forward_only_verified_commands() {
+    use epsx_dioxus_ui::fullstack::{core_credits::Command, LoadError};
+    let key = TestKey::generate();
+    let token = key.access_token(ADMIN_CLIENT_ID, &["admin:credits:manage"]);
+    let writes = Arc::new(AtomicUsize::new(0));
+    let count = writes.clone();
+    let authority = jwks_route(Jwks { keys:vec![key.jwk.clone()] })
+        .route("/api/payments/admin/credits/stats",get(||async {Json(json!({
+            "total_credits_outstanding":"12.50","total_credits_granted_today":"1.25",
+            "total_credits_used_today":"0.00","active_users_with_credits":3,
+            "total_transactions_today":1,"average_balance":"4.1666666666666667"
+        }))}))
+        .route("/api/payments/admin/credits/{wallet}",get(||async {Json(json!({"success":true,"data":{
+            "balance":{"wallet_address":TEST_WALLET,"balance":"12.50","pending_balance":"2.00","available_balance":"10.50","lifetime_earned":"12.50","lifetime_spent":"0.00","last_transaction_at":null},
+            "transactions":[{"id":"11111111-1111-1111-1111-111111111111","wallet_address":TEST_WALLET,"amount":"1.25","balance_after":"12.50","tx_type":"grant","reference_id":null,"reference_type":"admin_action","reason":"Restored ledger","granted_by":TEST_WALLET,"expires_at":null,"created_at":"2026-09-13T00:00:00Z"}]
+        }}))}))
+        .route("/api/payments/admin/credits/grant",post(move |headers:HeaderMap,Json(body):Json<Value>| {
+            let count=count.clone(); async move {
+                assert!(headers.contains_key(header::AUTHORIZATION));
+                assert_eq!(headers["idempotency-key"],"credit-retry-1");
+                assert_eq!(body["amount"],"1.25");
+                assert_eq!(body["wallet_address"],TEST_WALLET);
+                assert!(body.get("granted_by").is_none());
+                count.fetch_add(1,Ordering::SeqCst);
+                Json(json!({"success":true,"data":{"new_balance":"13.75"}}))
+            }
+        }));
+    let base = spawn_mock(authority).await;
+    let mut state = state(&base);
+    state.wallet = Arc::new(epsx_client::ServiceClient::new(epsx_client::ClientConfig {
+        base_url: "http://127.0.0.1:1".into(),
+        timeout: Duration::from_secs(1),
+    }));
+    let provider = crate::core_credits_fullstack::provider(state);
+    let mut headers = cookie_headers(&format!("{LOCAL_ACCESS_COOKIE}={token}"));
+    let data = (provider.read)(Some(TEST_WALLET.into()), headers.clone())
+        .await
+        .unwrap();
+    assert_eq!(data.stats.total_credits_outstanding, "12.50");
+    assert_eq!(data.stats.active_users_with_credits, 3);
+    let detail = data.detail.unwrap();
+    assert_eq!(detail.balance.available_balance, "10.50");
+    assert_eq!(detail.history.transactions[0].amount, "1.25");
+    let command = Command {
+        wallet: TEST_WALLET.into(),
+        amount: "1.25".into(),
+        reason: "Test".into(),
+        grant: true,
+        idempotency_key: "credit-retry-1".into(),
+    };
+    assert_eq!(
+        (provider.command)(command.clone(), headers.clone()).await,
+        Err(LoadError::Forbidden)
+    );
+    assert_eq!(writes.load(Ordering::SeqCst), 0);
+    headers.insert(header::HOST, HeaderValue::from_static("admin.test"));
+    headers.insert(
+        header::ORIGIN,
+        HeaderValue::from_static("https://admin.test"),
+    );
+    assert_eq!((provider.command)(command, headers).await, Ok(()));
+    assert_eq!(writes.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        (provider.read)(None, HeaderMap::new()).await,
+        Err(LoadError::Unauthenticated)
+    );
 }

@@ -143,7 +143,7 @@ pub async fn load_plan_checkout(
     state: &AppState,
     plan_id: &str,
 ) -> Result<PlanCheckoutData, CheckoutLoadError> {
-    let plan = crate::api::load_public_plan_by_id(state.content.as_ref(), plan_id)
+    let mut plan = crate::api::load_public_plan_by_id(state.content.as_ref(), plan_id)
         .await
         .map_err(|error| match error {
             PublicPlanLoadError::NotFound => CheckoutLoadError::NotFound,
@@ -153,9 +153,76 @@ pub async fn load_plan_checkout(
     if !plan.is_active || plan.checkout_price.parse::<f64>().is_err() {
         return Err(CheckoutLoadError::Malformed);
     }
+    if std::env::var("EPSX_PAY_CHECKOUT_ENABLED").as_deref() == Ok("true") {
+        let token = std::env::var("EPSX_PAY_CHECKOUT_TOKEN").unwrap_or_else(|_| "USDT".into());
+        if !["USDT", "USDC", "BNB"].contains(&token.as_str()) {
+            return Err(CheckoutLoadError::Unavailable);
+        }
+        let quote: serde_json::Value = state
+            .payment
+            .get(&format!("/api/payments/pay-quote/{plan_id}?token={token}"))
+            .await
+            .map_err(|_| CheckoutLoadError::Unavailable)?;
+        let pricing = &quote["pricing"];
+        plan.current_price = pricing["original_price"]
+            .as_str()
+            .ok_or(CheckoutLoadError::Malformed)?
+            .into();
+        plan.promotion_savings = pricing["savings"]
+            .as_str()
+            .ok_or(CheckoutLoadError::Malformed)?
+            .into();
+        plan.promotion_active = pricing["promotion_active"]
+            .as_bool()
+            .ok_or(CheckoutLoadError::Malformed)?;
+        plan.promotion_status = pricing["promotion_status"]
+            .as_str()
+            .ok_or(CheckoutLoadError::Malformed)?
+            .into();
+        plan.promotion_discount = pricing["promotion_discount"]
+            .as_f64()
+            .ok_or(CheckoutLoadError::Malformed)?;
+        plan.promotion_ends_at = pricing["promotion_ends_at"].as_str().map(str::to_owned);
+        plan.checkout_price = quote["price"]
+            .as_str()
+            .ok_or(CheckoutLoadError::Malformed)?
+            .into();
+        plan.settlement_currency = quote["token"]
+            .as_str()
+            .ok_or(CheckoutLoadError::Malformed)?
+            .into();
+        return Ok(PlanCheckoutData {
+            hosted_pay: true,
+            plan,
+            chain_id: quote["chain_id"]
+                .as_u64()
+                .ok_or(CheckoutLoadError::Malformed)?,
+            network: if quote["chain_id"] == 31337 {
+                "Anvil local · 31337".into()
+            } else {
+                format!(
+                    "Chain {} · {}",
+                    quote["chain_id"],
+                    quote["environment"].as_str().unwrap_or("test")
+                )
+            },
+            token_address: quote["token_address"]
+                .as_str()
+                .ok_or(CheckoutLoadError::Malformed)?
+                .into(),
+            receiver_address: quote["recipient"]
+                .as_str()
+                .ok_or(CheckoutLoadError::Malformed)?
+                .into(),
+            token_decimals: quote["token_decimals"]
+                .as_u64()
+                .ok_or(CheckoutLoadError::Malformed)? as u8,
+        });
+    }
     let config = payment_network_config(&plan.settlement_currency)
         .map_err(|()| CheckoutLoadError::Unavailable)?;
     Ok(PlanCheckoutData {
+        hosted_pay: false,
         plan,
         chain_id: config.chain_id,
         network: config.network.to_string(),
@@ -326,6 +393,81 @@ pub async fn submit_plan_payment(
         _ => return safe_error(StatusCode::BAD_GATEWAY, "malformed_payment_response"),
     };
     let mut response = Json(payload).into_response();
+    mark_no_store(&mut response);
+    response
+}
+
+#[derive(Deserialize)]
+pub struct MerchantCheckoutBody {
+    plan_id: String,
+    token: String,
+}
+pub async fn merchant_checkout(
+    State(state): State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<MerchantCheckoutBody>,
+) -> Response {
+    if !same_origin(&headers) {
+        return safe_error(StatusCode::FORBIDDEN, "cross_origin_request");
+    }
+    if std::env::var("EPSX_PAY_CHECKOUT_ENABLED").as_deref() != Ok("true") {
+        return safe_error(StatusCode::SERVICE_UNAVAILABLE, "hosted_checkout_disabled");
+    }
+    let Some(key) = headers
+        .get("idempotency-key")
+        .and_then(|v| v.to_str().ok())
+        .filter(|s| !s.is_empty() && s.len() <= 128)
+    else {
+        return safe_error(StatusCode::BAD_REQUEST, "idempotency_key_required");
+    };
+    if uuid::Uuid::parse_str(&body.plan_id).is_err()
+        || !["USDT", "USDC", "BNB"].contains(&body.token.as_str())
+    {
+        return safe_error(StatusCode::BAD_REQUEST, "invalid_checkout");
+    }
+    let context = match authenticated_context(&state, &headers).await {
+        Ok(v) => v,
+        Err(r) => return r,
+    };
+    let base = std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".into());
+    let Some(token) = context.auth_token else {
+        return safe_error(StatusCode::UNAUTHORIZED, "invalid_access_token");
+    };
+    let response = state
+        .payment
+        .auth_client()
+        .post(format!(
+            "{}/api/payments/pay-checkout",
+            base.trim_end_matches('/')
+        ))
+        .bearer_auth(token)
+        .header("idempotency-key", key)
+        .json(&serde_json::json!({"plan_id":body.plan_id,"token":body.token}))
+        .send()
+        .await;
+    let Ok(response) = response else {
+        return safe_error(StatusCode::BAD_GATEWAY, "checkout_unavailable");
+    };
+    let status = response.status();
+    let Ok(value) = response.json::<serde_json::Value>().await else {
+        return safe_error(StatusCode::BAD_GATEWAY, "malformed_checkout");
+    };
+    if status.is_success() {
+        let origin = std::env::var("PAY_FRONTEND_URL")
+            .ok()
+            .and_then(|s| reqwest::Url::parse(&s).ok())
+            .map(|u| u.origin());
+        let url = value["pay_url"]
+            .as_str()
+            .and_then(|s| reqwest::Url::parse(s).ok());
+        if url
+            .as_ref()
+            .is_none_or(|u| Some(u.origin()) != origin || !u.path().starts_with("/checkout/cs_"))
+        {
+            return safe_error(StatusCode::BAD_GATEWAY, "invalid_checkout_origin");
+        }
+    }
+    let mut response = (status, Json(value)).into_response();
     mark_no_store(&mut response);
     response
 }

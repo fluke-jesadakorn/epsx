@@ -1,0 +1,26 @@
+{
+  "headless_browser": "Chrome, separate test profile",
+  "authentication": "Real SIWE signed with dedicated test wallet via CLI; no interactive MetaMask claim",
+  "viewports": [
+    1440,
+    390
+  ],
+  "horizontal_overflow": false,
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "flows": [
+    "create package",
+    "edit package",
+    "disable package",
+    "create payment link",
+    "link to QR checkout",
+    "switch QR/wallet without new receiver",
+    "reload same checkout",
+    "generic payment receipt without EPSX access link"
+  ],
+  "manual_metamask": "pending: Mac locked; user asked to unlock",
+  "walletconnect": "pending valid project ID",
+  "release": "20260909-merchant-v5"
+}

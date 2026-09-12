@@ -52,7 +52,7 @@ const PLAN_DB_READ_ONLY_SESSION_SQL: &str = "SET default_transaction_read_only =
 struct Args {
     #[arg(long, env = "PORT", default_value = "8106")]
     port: u16,
-    #[arg(long, env = "HOST", default_value = "0.0.0.0")]
+    #[arg(long, env = "HOST", default_value = "127.0.0.1")]
     host: String,
     #[arg(
         long,

@@ -108,8 +108,31 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             })
             .collect();
 
-        // 5. Get wallet plans (placeholder - can be implemented later)
-        let plans: Vec<WalletPlanDto> = Vec::new();
+        // Preserve active and historical assignments in the canonical detail.
+        #[derive(sqlx::FromRow)]
+        struct PlanRow {
+            plan_id: String,
+            plan_name: String,
+            plan_type: String,
+            assigned_at: chrono::DateTime<chrono::Utc>,
+            expires_at: Option<chrono::DateTime<chrono::Utc>>,
+            is_active: bool,
+        }
+        let rows: Vec<PlanRow> = sqlx::query_as(
+            "SELECT a.plan_id::text, p.name AS plan_name, p.plan_type, a.assigned_at, a.expires_at, a.is_active FROM wallet_plan_assignments a JOIN plans p ON p.id=a.plan_id WHERE a.wallet_address=$1 ORDER BY a.assigned_at, a.id"
+        ).bind(&query.wallet_address).fetch_all(self.db_pool.as_ref()).await
+            .map_err(|e| ApplicationError::infrastructure(format!("Failed to fetch wallet plans: {e}")))?;
+        let plans = rows
+            .into_iter()
+            .map(|p| WalletPlanDto {
+                plan_id: p.plan_id,
+                plan_name: p.plan_name,
+                plan_type: p.plan_type,
+                assigned_at: p.assigned_at,
+                expires_at: p.expires_at,
+                is_active: p.is_active,
+            })
+            .collect::<Vec<_>>();
 
         // 6. Calculate activity summary with actual login tracking
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
@@ -167,5 +190,81 @@ impl QueryHandler<GetWalletDetailQuery> for GetWalletDetailQueryHandler {
             success: true,
             wallet: wallet_detail,
         })
+    }
+}
+
+#[cfg(test)]
+mod import_tests {
+    use super::*;
+    use crate::application::wallet_management::queries::admin_handlers::GetWalletListQueryHandler;
+    use crate::application::wallet_management::queries::admin_models::GetWalletListQuery;
+    #[tokio::test]
+    #[ignore = "requires restored isolated EPSX_IMPORT_REHEARSAL_CORE database"]
+    async fn restored_wallet_rows_and_grants_survive_native_projection() {
+        let url = std::env::var("EPSX_IMPORT_REHEARSAL_CORE").unwrap();
+        let pool = Arc::new(sqlx::PgPool::connect(&url).await.unwrap());
+        let name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(name.starts_with("epsx_restore_"));
+        let expected: Vec<String> =
+            sqlx::query_scalar("SELECT wallet_address FROM wallet_users ORDER BY wallet_address")
+                .fetch_all(pool.as_ref())
+                .await
+                .unwrap();
+        assert!(
+            !expected.is_empty(),
+            "test requires populated imported identities"
+        );
+        let list = GetWalletListQueryHandler::new(pool.clone())
+            .handle(GetWalletListQuery {
+                page: Some(1),
+                limit: Some(1000),
+                search: None,
+                status: None,
+                date_from: None,
+                date_to: None,
+                sort_by: None,
+                sort_order: None,
+                exclude_plan_id: None,
+            })
+            .await
+            .unwrap();
+        assert_eq!(list.pagination.total as usize, expected.len());
+        let mut actual: Vec<_> = list
+            .wallets
+            .iter()
+            .map(|w| w.wallet_address.clone())
+            .collect();
+        actual.sort();
+        assert_eq!(actual, expected);
+        for wallet in expected {
+            let detail = GetWalletDetailQueryHandler::new(pool.clone())
+                .handle(GetWalletDetailQuery {
+                    wallet_address: wallet.clone(),
+                })
+                .await
+                .unwrap()
+                .wallet;
+            let plans: i64 = sqlx::query_scalar(
+                "SELECT count(*) FROM wallet_plan_assignments WHERE wallet_address=$1",
+            )
+            .bind(&wallet)
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+            assert_eq!(detail.plans.len(), plans as usize);
+            let direct: i64 = sqlx::query_scalar("SELECT count(*) FROM wallet_direct_permissions w JOIN permissions p ON p.id=w.permission_id WHERE wallet_address=$1 AND p.is_active").bind(&wallet).fetch_one(pool.as_ref()).await.unwrap();
+            assert_eq!(
+                detail
+                    .permissions
+                    .iter()
+                    .filter(|p| p.source == "direct")
+                    .count(),
+                direct as usize
+            );
+            assert_eq!(detail.wallet_address, wallet);
+        }
     }
 }

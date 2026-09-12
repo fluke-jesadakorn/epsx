@@ -16,9 +16,9 @@ mod admin;
 #[derive(Parser)]
 #[command(name = "epsx-subscription", about = "EPSX Subscription Service")]
 struct Args {
-    #[arg(long, default_value = "8104")]
+    #[arg(long, env = "PORT", default_value = "8104")]
     port: u16,
-    #[arg(long, default_value = "0.0.0.0")]
+    #[arg(long, env = "HOST", default_value = "127.0.0.1")]
     host: String,
     #[arg(
         long,

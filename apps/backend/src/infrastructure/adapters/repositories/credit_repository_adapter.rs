@@ -15,6 +15,8 @@ use std::str::FromStr;
 use tracing::{debug, error, info};
 use uuid::Uuid;
 
+pub mod admin;
+
 use crate::domain::payment::repository_ports::{
     CreditBalanceRow, CreditRepositoryPort, CreditStats,
     CreditTransactionFilters as PortCreditTransactionFilters, CreditTransactionRow,
@@ -106,7 +108,7 @@ impl CreditRepositoryAdapter {
         sqlx::query(
             "INSERT INTO wallet_credits \
              (wallet_address, balance, pending_balance, lifetime_earned, lifetime_spent) \
-             VALUES ($1, $2, $3, $4, $5)",
+             VALUES ($1, $2, $3, $4, $5) ON CONFLICT (wallet_address) DO NOTHING",
         )
         .bind(&new_credit.wallet_address)
         .bind(&new_credit.balance)
@@ -169,6 +171,9 @@ impl CreditRepositoryAdapter {
             if let Some(ref to_date) = f.to_date {
                 qb.push(" AND created_at <= ").push_bind(*to_date);
             }
+        }
+        qb.push(" ORDER BY created_at DESC, id DESC");
+        if let Some(f) = filters.as_ref() {
             if let Some(limit) = f.limit {
                 qb.push(" LIMIT ").push_bind(limit);
             }
@@ -176,8 +181,6 @@ impl CreditRepositoryAdapter {
                 qb.push(" OFFSET ").push_bind(offset);
             }
         }
-
-        qb.push(" ORDER BY created_at DESC");
 
         let results: Vec<CreditTransactionDb> = qb
             .build_query_as::<CreditTransactionDb>()
@@ -229,6 +232,9 @@ impl CreditRepositoryAdapter {
             if let Some(ref to_date) = f.to_date {
                 qb.push(" AND created_at <= ").push_bind(*to_date);
             }
+        }
+        qb.push(" ORDER BY created_at DESC, id DESC");
+        if let Some(f) = filters.as_ref() {
             if let Some(limit) = f.limit {
                 qb.push(" LIMIT ").push_bind(limit);
             }
@@ -236,8 +242,6 @@ impl CreditRepositoryAdapter {
                 qb.push(" OFFSET ").push_bind(offset);
             }
         }
-
-        qb.push(" ORDER BY created_at DESC");
 
         let results: Vec<CreditTransactionDb> = qb
             .build_query_as::<CreditTransactionDb>()
@@ -438,6 +442,105 @@ impl CreditRepositoryAdapter {
             wallet_address
         );
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod native_rehearsal_tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires migrated isolated EPSX_CREDIT_TEST_DATABASE"]
+    async fn restored_credit_ledger_reads_and_pagination_use_real_rows() {
+        let pool = Arc::new(
+            sqlx::PgPool::connect(&std::env::var("EPSX_CREDIT_TEST_DATABASE").unwrap())
+                .await
+                .unwrap(),
+        );
+        let name: String = sqlx::query_scalar("SELECT current_database()")
+            .fetch_one(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(name.starts_with("epsx_credit_check_"));
+        let repo = CreditRepositoryAdapter::new(pool.clone());
+        let wallets: Vec<String> = sqlx::query_scalar("SELECT wallet_address FROM wallet_credits")
+            .fetch_all(pool.as_ref())
+            .await
+            .unwrap();
+        assert!(!wallets.is_empty(), "production credit rows required");
+        for wallet in &wallets {
+            let read = repo.get_balance(wallet).await.unwrap().unwrap();
+            let expected: BigDecimal =
+                sqlx::query_scalar("SELECT balance FROM wallet_credits WHERE wallet_address=$1")
+                    .bind(wallet)
+                    .fetch_one(pool.as_ref())
+                    .await
+                    .unwrap();
+            assert_eq!(read.balance, expected);
+        }
+        let wallet = format!("0x00000000{}", Uuid::new_v4().simple());
+        let (a, b) = tokio::join!(
+            repo.get_or_create_balance(&wallet),
+            repo.get_or_create_balance(&wallet)
+        );
+        assert_eq!(a.unwrap().balance, b.unwrap().balance);
+        let first = repo
+            .add_transaction(
+                &wallet,
+                BigDecimal::from_str("1.25").unwrap(),
+                "grant",
+                None,
+                Some("admin_action"),
+                Some("Isolated rehearsal"),
+                Some(&wallet),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        let second = repo
+            .add_transaction(
+                &wallet,
+                BigDecimal::from_str("2.50").unwrap(),
+                "grant",
+                None,
+                Some("admin_action"),
+                Some("Isolated rehearsal"),
+                Some(&wallet),
+                None,
+                None,
+            )
+            .await
+            .unwrap();
+        sqlx::query("UPDATE credit_transactions SET created_at=NOW()-INTERVAL '1 day' WHERE id=$1")
+            .bind(first)
+            .execute(pool.as_ref())
+            .await
+            .unwrap();
+        let filter = |offset| {
+            Some(CreditTransactionFilters {
+                wallet_address: Some(wallet.clone()),
+                tx_type: Some("grant".into()),
+                from_date: None,
+                to_date: None,
+                limit: Some(1),
+                offset: Some(offset),
+            })
+        };
+        assert_eq!(
+            repo.get_transactions(&wallet, filter(0)).await.unwrap()[0].id,
+            second
+        );
+        assert_eq!(
+            repo.get_all_transactions(filter(1)).await.unwrap()[0].id,
+            first
+        );
+        assert_eq!(
+            repo.get_balance(&wallet).await.unwrap().unwrap().balance,
+            BigDecimal::from_str("3.75").unwrap()
+        );
+        repo.get_stats().await.unwrap();
+        pool.close().await;
     }
 }
 

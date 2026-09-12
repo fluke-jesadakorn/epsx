@@ -1,79 +1,51 @@
-//! Schema table macros vendored for `epsx-identity-shared`.
+//! Schema row types — sqlx canonical (Diesel removed).
 //!
-//! The auth code uses three tables from the primary schema:
-//! `wallet_users`, `web3_auth_nonces`, `openid_refresh_tokens`.
-//!
-//! BIG-BANG: This file is retained ONLY for `token_service.rs` and
-//! `unified_permission_service.rs` which still use diesel. The
-//! sqlx-migrated files (`challenge_service.rs`, `auth_service.rs`,
-//! `verification_service.rs`) no longer import from this module.
-//!
-//! Remove this file once `token_service.rs` and
-//! `unified_permission_service.rs` are sqlx-migrated.
+//! Previously held `diesel::table!` macros. Now plain `sqlx::FromRow` structs
+//! for the three tables used in `token_service` and `unified_permission_service`.
+//! Kept for import compatibility; new code should query via raw sqlx.
+
+use chrono::{DateTime, Utc};
+use serde_json::Value as JsonValue;
+use uuid::Uuid;
 
 pub mod primary {
-    diesel::table! {
-        use diesel::sql_types::*;
+    use super::*;
 
-        /// Representation of the `openid_refresh_tokens` table.
-        openid_refresh_tokens (token_id) {
-            #[max_length = 36]
-            token_id -> Varchar,
-            #[max_length = 42]
-            wallet_address -> Varchar,
-            #[max_length = 32]
-            client_id -> Nullable<Varchar>,
-            family_id -> Nullable<Uuid>,
-            token_digest -> Nullable<Bytea>,
-            #[max_length = 32]
-            digest_key_id -> Nullable<Varchar>,
-            digest_version -> Nullable<Int2>,
-            storage_version -> Nullable<Int2>,
-            expires_at -> Timestamptz,
-            created_at -> Timestamptz,
-            is_revoked -> Bool,
-            consumed_at -> Nullable<Timestamptz>,
-            revoked_at -> Nullable<Timestamptz>,
-            replay_detected_at -> Nullable<Timestamptz>,
-        }
+    #[derive(Debug, Clone, sqlx::FromRow)]
+    pub struct OpenIdRefreshTokenRow {
+        pub token_id: String,
+        pub wallet_address: String,
+        pub client_id: Option<String>,
+        pub family_id: Option<Uuid>,
+        pub token_digest: Option<Vec<u8>>,
+        pub digest_key_id: Option<String>,
+        pub digest_version: Option<i16>,
+        pub storage_version: Option<i16>,
+        pub expires_at: DateTime<Utc>,
+        pub created_at: DateTime<Utc>,
+        pub is_revoked: bool,
+        pub consumed_at: Option<DateTime<Utc>>,
+        pub revoked_at: Option<DateTime<Utc>>,
+        pub replay_detected_at: Option<DateTime<Utc>>,
     }
 
-    diesel::table! {
-        use diesel::sql_types::*;
-
-        /// Representation of the `wallet_users` table.
-        wallet_users (wallet_address) {
-            #[max_length = 42]
-            wallet_address -> Varchar,
-            is_active -> Bool,
-            tier_level -> Varchar,
-            wallet_metadata -> Nullable<Jsonb>,
-            last_auth_at -> Nullable<Timestamptz>,
-            updated_at -> Timestamptz,
-            created_at -> Timestamptz,
-        }
+    #[derive(Debug, Clone, sqlx::FromRow)]
+    pub struct WalletUserRow {
+        pub wallet_address: String,
+        pub is_active: bool,
+        pub tier_level: String,
+        pub wallet_metadata: Option<JsonValue>,
+        pub last_auth_at: Option<DateTime<Utc>>,
+        pub updated_at: DateTime<Utc>,
+        pub created_at: DateTime<Utc>,
     }
 
-    diesel::table! {
-        use diesel::sql_types::*;
-
-        /// Representation of the `web3_auth_nonces` table.
-        web3_auth_nonces (nonce) {
-            #[max_length = 42]
-            wallet_address -> Varchar,
-            #[max_length = 64]
-            nonce -> Varchar,
-            message -> Text,
-            expires_at -> Timestamptz,
-            created_at -> Timestamptz,
-        }
+    #[derive(Debug, Clone, sqlx::FromRow)]
+    pub struct Web3AuthNonceRow {
+        pub wallet_address: String,
+        pub nonce: String,
+        pub message: String,
+        pub expires_at: DateTime<Utc>,
+        pub created_at: DateTime<Utc>,
     }
-
-    diesel::joinable!(openid_refresh_tokens -> wallet_users (wallet_address));
-
-    diesel::allow_tables_to_appear_in_same_query!(
-        openid_refresh_tokens,
-        wallet_users,
-        web3_auth_nonces,
-    );
 }

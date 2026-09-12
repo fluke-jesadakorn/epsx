@@ -188,6 +188,28 @@ fn valid_timestamp(value: &str) -> bool {
     valid_required(value, MAX_TIMESTAMP_LEN) && DateTime::parse_from_rfc3339(value).is_ok()
 }
 
+/// Shortens a validated RFC3339 timestamp to its `YYYY-MM-DD` calendar date
+/// for display. The full value stays in `<time datetime=...>`.
+fn short_display_date(value: &str) -> &str {
+    if value.len() >= 10
+        && !value.chars().any(char::is_control)
+        && chrono::DateTime::parse_from_rfc3339(value).is_ok()
+    {
+        &value[..10]
+    } else {
+        value
+    }
+}
+
+/// The counterparty of a row: whoever is on the other side of the owner.
+fn counterparty<'a>(payer: &'a str, payee: &'a str, owner: &str) -> &'a str {
+    if payer.eq_ignore_ascii_case(owner) {
+        payee
+    } else {
+        payer
+    }
+}
+
 fn direction(payer: &str, owner: &str) -> &'static str {
     if payer.eq_ignore_ascii_case(owner) {
         "Paid"
@@ -235,7 +257,7 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                     }
                 }
                 if matches!(props.load, PaymentHistoryLoad::Ready(_)) {
-                    a { class: "payment-history-tab-refresh btn btn-outline ml-auto", href: "/account", "Refresh" }
+                    crate::pages::account::hydrated::AccountLink { class: "payment-history-tab-refresh btn btn-outline ml-auto", href: "/account", "Refresh" }
                 }
             }
 
@@ -271,9 +293,10 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                                                     span { "{intent.amount}" }
                                                     span { class: "ml-2 font-mono text-xs text-muted-foreground", "{intent.token_address}" }
                                                 }
+                                                p { class: "mt-1 max-w-full truncate font-mono text-xs text-muted-foreground", title: counterparty(&intent.payer, &intent.payee, &history.address).to_string(), "With {counterparty(&intent.payer, &intent.payee, &history.address)}" }
                                                 div { class: "mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground",
                                                     span { "Chain {intent.chain_id}" }
-                                                    time { datetime: intent.created_at.clone(), "{intent.created_at}" }
+                                                    time { datetime: intent.created_at.clone(), "{short_display_date(&intent.created_at)}" }
                                                 }
                                             }
                                         }
@@ -300,9 +323,10 @@ pub fn PaymentHistoryTab(props: PaymentHistoryTabProps) -> Element {
                                                     span { "{escrow.amount}" }
                                                     span { class: "ml-2 font-mono text-xs text-muted-foreground", "{escrow.token_address}" }
                                                 }
+                                                p { class: "mt-1 max-w-full truncate font-mono text-xs text-muted-foreground", title: counterparty(&escrow.payer, &escrow.payee, &history.address).to_string(), "With {counterparty(&escrow.payer, &escrow.payee, &history.address)}" }
                                                 div { class: "mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground",
                                                     span { "Chain {escrow.chain_id}" }
-                                                    time { datetime: escrow.created_at.clone(), "{escrow.created_at}" }
+                                                    time { datetime: escrow.created_at.clone(), "{short_display_date(&escrow.created_at)}" }
                                                 }
                                             }
                                         }
@@ -374,7 +398,7 @@ fn HistoryMessage(
             Icon { name: "credit-card".to_string(), size: Some(40), class_name: Some("text-muted-foreground".to_string()) }
             h3 { class: "mt-3 font-semibold text-foreground", "{title}" }
             p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
-            a { class: "btn btn-outline mt-5", href: action_href, "{action_label}" }
+            crate::pages::account::hydrated::AccountLink { class: "btn btn-outline mt-5", href: action_href, "{action_label}" }
         }
     }
 }

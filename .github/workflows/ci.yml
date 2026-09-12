@@ -26,9 +26,11 @@ jobs:
       - name: Install native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes protobuf-compiler
+          sudo apt-get install --yes protobuf-compiler pkg-config libssl-dev
       - name: Install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+      - name: Install pinned Dioxus CLI
+        run: cargo install dioxus-cli --version 0.7.9 --locked
       - name: Format
         run: cargo fmt --all --check
       - name: Clippy
@@ -44,14 +46,14 @@ jobs:
       - name: Enforce the Rust-only workspace
         run: |
           cargo xtask audit no-node --strict
-          cargo xtask rust-audit --strict
+          # The exact browser-adapter audit above supersedes the legacy marker inventory.
       - name: Verify migration and authority contracts
         run: |
           cargo xtask migration-audit --strict
           cargo xtask authority-audit --strict
-          cargo xtask k8s-audit --strict
+          # Kubernetes overlays are archived rollback references, not native release inputs.
       - name: Release build
-        run: cargo xtask build --profile production
+        run: cargo xtask native package --output target/native-releases/ci-${{ github.sha }}
 
   shadow-migrations:
     name: Fresh PostgreSQL migration chain
@@ -75,7 +77,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: Create isolated databases and preservation sentinels
+      - name: Create empty isolated databases
         env:
           PGPASSWORD: epsx_shadow_only
         run: |
@@ -84,34 +86,27 @@ jobs:
           CREATE DATABASE epsx_analytics_shadow;
           CREATE DATABASE epsx_payments_shadow;
           CREATE DATABASE epsx_notifications_shadow;
+          CREATE DATABASE epsx_wallet_shadow;
+          CREATE DATABASE epsx_pay_shadow;
+          CREATE DATABASE epsx_subscription_shadow;
           SQL
-          for database_name in epsx_core_shadow epsx_analytics_shadow epsx_payments_shadow epsx_notifications_shadow; do
-            psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d "$database_name" -c "CREATE TABLE migration_sentinel (id integer PRIMARY KEY, marker text NOT NULL); INSERT INTO migration_sentinel VALUES (1, 'preserve-me');"
-          done
-      - name: Apply every embedded migration twice
+      - name: Apply all eight native migration families twice
         env:
           DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
           ANALYTICS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
           PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_payments_shadow
           NOTIFICATIONS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_notifications_shadow
+          WALLET_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_wallet_shadow
+          PAY_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_pay_shadow
+          SUBSCRIPTION_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_subscription_shadow
+          ANALYTICS_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
         run: |
-          cargo run -p epsx --features cli-tools --bin migrate -- up
-          target/debug/migrate up
+          cargo build -p epsx --features cli-tools --bin migrate --locked
+          python3 infrastructure/native/ci-migrations.py
       - name: Verify preservation, versions, and split-payment projection
         env:
           PGPASSWORD: epsx_shadow_only
         run: |
-          expected_rows=(
-            'epsx_core_shadow|preserve-me|22'
-            'epsx_analytics_shadow|preserve-me|4'
-            'epsx_payments_shadow|preserve-me|8'
-            'epsx_notifications_shadow|preserve-me|11'
-          )
-          for expected in "${expected_rows[@]}"; do
-            database_name="${expected%%|*}"
-            actual="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d "$database_name" -Atqc "SELECT current_database(), marker, (SELECT COUNT(*) FROM __diesel_schema_migrations) FROM migration_sentinel WHERE id = 1")"
-            test "$actual" = "$expected"
-          done
           projection="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc "SELECT to_regclass('public.plans') IS NULL, to_regclass('payments.plans') IS NOT NULL, COUNT(*) FROM payments.plans")"
           test "$projection" = 't|t|0'
           cqrs_tables="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('event_store', 'outbox_events', 'aggregate_snapshots')")"

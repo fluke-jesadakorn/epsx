@@ -148,6 +148,13 @@ pub const REFRESH_TOKEN_CLEANUP_INTERVAL: Duration = ONE_HOUR;
 /// Time window for finding prices near announcement (1 day before/after)
 pub const PRICE_SEARCH_WINDOW: i64 = DAY;
 
+/// Public rankings start at rank 100, so the provider skips ranks 1–99.
+/// Public browsing has its own range, independent of subscription inventory.
+pub const PUBLIC_RANKING_OFFSET: i32 = 99;
+
+/// Public rankings have no total inventory cap; pagination still bounds each request.
+pub const PUBLIC_RANKINGS_LIMIT: i32 = -1;
+
 // ============================================================================
 // FREE PLAN CONSTANTS
 // ============================================================================

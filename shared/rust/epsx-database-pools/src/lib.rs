@@ -19,20 +19,15 @@ pub mod sqlx_pool;
 pub type TlsPool = sqlx::PgPool;
 
 /// Re-export the sqlx pool creation helpers as the canonical pool API.
+use async_trait::async_trait;
+
 pub use sqlx_pool::{create_all_pools, create_pool, health_check, SqlxPoolConfig};
 
 // ---------------------------------------------------------------------------
-// DEPRECATED shims (retained for one release).
+// DEPRECATED shims (retained for one release) — deadpool/diesel removed.
 // ---------------------------------------------------------------------------
-// These types were used by the Diesel/deadpool pool manager. The diesel
-// implementation has been removed; new code must use `sqlx::PgPool`
-// (i.e. `TlsPool` here) directly. The deadpool-specific shims below
-// provide a compatibility surface so the rest of the workspace can
-// still resolve imports during the migration window. Drop after the
-// next minor release.
-
-use async_trait::async_trait;
-use deadpool::managed::{Manager, RecycleError, RecycleResult};
+// `TlsConnectionManager` is now a stub; new code must use `sqlx::PgPool`
+// (`TlsPool`) directly. The `Manager` trait impl was removed with `deadpool`.
 
 /// Deprecated: use `sqlx::PgPool` (alias `TlsPool`) instead.
 #[deprecated(note = "Diesel migration complete — use sqlx::PgPool (TlsPool) directly")]
@@ -48,21 +43,6 @@ impl TlsConnectionManager {
     #[allow(dead_code)]
     pub fn new(database_url: String) -> Self {
         Self { database_url }
-    }
-}
-
-#[allow(deprecated)]
-#[async_trait]
-impl Manager for TlsConnectionManager {
-    type Type = ();
-    type Error = String;
-
-    async fn create(&self) -> Result<Self::Type, Self::Error> {
-        Err("diesel removed — use sqlx::PgPool".to_string())
-    }
-
-    async fn recycle(&self, _conn: &mut Self::Type) -> RecycleResult<Self::Error> {
-        Err(RecycleError::Backend("diesel removed".to_string()))
     }
 }
 

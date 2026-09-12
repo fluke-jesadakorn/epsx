@@ -24,6 +24,71 @@ fn siwe_origin_for_domain(domain: &str) -> String {
 }
 
 impl UnifiedWeb3AuthService {
+    pub(super) fn domain_for_client(&self, client: &str) -> Result<String, Web3AuthError> {
+        match client {
+            "epsx-frontend" => Ok(self.domain.clone()),
+            "epsx-pay" | "epsx-admin" => {
+                let key = if client == "epsx-pay" {
+                    "PAY_FRONTEND_URL"
+                } else {
+                    "ADMIN_FRONTEND_URL"
+                };
+                let origin = match std::env::var(key) {
+                    Ok(origin) => origin,
+                    Err(_) if client == "epsx-admin" => return Ok(self.domain.clone()),
+                    Err(_) => return Err(Web3AuthError::InvalidDomain(format!("{key} required"))),
+                };
+                let url = url::Url::parse(&origin)
+                    .map_err(|_| Web3AuthError::InvalidDomain("invalid Pay URL".into()))?;
+                if url.host_str().is_none()
+                    || !url.username().is_empty()
+                    || url.password().is_some()
+                    || url.query().is_some()
+                    || url.fragment().is_some()
+                    || url.path() != "/"
+                {
+                    return Err(Web3AuthError::InvalidDomain("invalid Pay origin".into()));
+                }
+                let domain = match url.port() {
+                    Some(port) => format!("{}:{port}", url.host_str().unwrap()),
+                    None => url.host_str().unwrap().to_string(),
+                };
+                if siwe_origin_for_domain(&domain) != origin.trim_end_matches('/') {
+                    return Err(Web3AuthError::InvalidDomain(
+                        "Pay origin requires HTTPS outside loopback".into(),
+                    ));
+                }
+                Ok(domain)
+            }
+            _ => Err(Web3AuthError::InvalidDomain("unknown client".into())),
+        }
+    }
+    pub async fn generate_challenge_for_client(
+        &self,
+        wallet: &str,
+        client: &str,
+    ) -> Result<Web3Challenge, Web3AuthError> {
+        let mut scoped = self.clone();
+        scoped.domain = self.domain_for_client(client)?;
+        let mut challenge = scoped.generate_challenge(wallet).await?;
+        if client == "epsx-pay" {
+            let mut message = siwe::Message::from_str(&challenge.message)
+                .map_err(|e| Web3AuthError::InvalidDomain(e.to_string()))?;
+            message.request_id = Some(client.into());
+            challenge.message = message.to_string();
+            sqlx::query(
+                "UPDATE web3_auth_nonces SET message=$3 WHERE wallet_address=$1 AND nonce=$2",
+            )
+            .bind(&challenge.wallet_address)
+            .bind(&challenge.nonce)
+            .bind(&challenge.message)
+            .execute(self.db_pool)
+            .await
+            .map_err(|e| Web3AuthError::DatabaseError(e.to_string()))?;
+        }
+        Ok(challenge)
+    }
+
     /// Generate Web3 authentication challenge (SIWE)
     pub async fn generate_challenge(
         &self,

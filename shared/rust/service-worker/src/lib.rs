@@ -1,7 +1,7 @@
 //! Rust/WASM public-shell recovery worker.
 //!
-//! The worker caches only the explicitly public `/offline` response and never
-//! stores API traffic, authenticated documents, request bodies, or credentials.
+//! The worker caches the explicitly public `/offline` response and its fixed
+//! display styles, never API traffic, authenticated documents, request bodies, or credentials.
 
 pub const GENERATED_MODULE: &str = "epsx_service_worker_bootstrap.v3.js";
 
@@ -15,7 +15,11 @@ mod worker {
         NotificationEvent, PushEvent, Request, Response, ServiceWorkerGlobalScope, WindowClient,
     };
 
-    const CACHE: &str = "epsx-public-recovery-v1";
+    const CACHE: &str = "epsx-public-recovery-v3";
+    const STYLES: [&str; 2] = [
+        "/public/dist/tailwind.css",
+        "/public/enterprise.css?v=dioxus-2",
+    ];
     const OFFLINE_PATH: &str = "/offline";
 
     /// Complete the public offline-shell installation after the generated
@@ -27,19 +31,95 @@ mod worker {
             let cache = wasm_bindgen_futures::JsFuture::from(worker.caches()?.open(CACHE))
                 .await?
                 .dyn_into::<web_sys::Cache>()?;
-            let request = Request::new_with_str(OFFLINE_PATH)?;
+            let request = recovery_request(OFFLINE_PATH)?;
             let response =
                 wasm_bindgen_futures::JsFuture::from(worker.fetch_with_request(&request))
                     .await?
                     .dyn_into::<Response>()?;
-            if response.ok()
-                && response.headers().get("x-epsx-public-cache")?.as_deref()
-                    == Some("offline-shell-v1")
+            if !response.ok()
+                || response.headers().get("x-epsx-public-cache")?.as_deref()
+                    != Some("offline-shell-v1")
             {
+                return Err(JsValue::from_str("public offline shell unavailable"));
+            }
+            let html = wasm_bindgen_futures::JsFuture::from(response.clone()?.text()?)
+                .await?
+                .as_string()
+                .ok_or_else(|| JsValue::from_str("invalid offline HTML"))?;
+            if !html.contains(STYLES[1]) {
+                return Err(JsValue::from_str(
+                    "offline shell stylesheet version is stale",
+                ));
+            }
+            let mut styles = Vec::new();
+            for path in STYLES {
+                let request = recovery_request(path)?;
+                let response =
+                    wasm_bindgen_futures::JsFuture::from(worker.fetch_with_request(&request))
+                        .await?
+                        .dyn_into::<Response>()?;
+                if !response.ok()
+                    || !response
+                        .headers()
+                        .get("content-type")?
+                        .is_some_and(|value| value.starts_with("text/css"))
+                {
+                    return Err(JsValue::from_str("public recovery stylesheet unavailable"));
+                }
+                styles.push((request, response));
+            }
+            // Install succeeds only with a matching document and complete stylesheet set.
+            // Rejection leaves the previous worker active and its cache intact.
+            for (request, response) in styles {
                 wasm_bindgen_futures::JsFuture::from(cache.put_with_request(&request, &response))
                     .await?;
             }
+            wasm_bindgen_futures::JsFuture::from(cache.put_with_request(&request, &response))
+                .await?;
             Ok(JsValue::UNDEFINED)
+        })
+    }
+
+    fn recovery_request(path: &str) -> Result<Request, JsValue> {
+        let options = web_sys::RequestInit::new();
+        options.set_cache(web_sys::RequestCache::Reload);
+        options.set_credentials(web_sys::RequestCredentials::Omit);
+        Request::new_with_str_and_init(path, &options)
+    }
+
+    /// Only fixed, public recovery display styles are eligible for asset caching.
+    #[wasm_bindgen]
+    pub fn fetch_public_style(request: Request) -> Promise {
+        future_to_promise(async move {
+            let worker = global().dyn_into::<ServiceWorkerGlobalScope>()?;
+            let url = web_sys::Url::new(&request.url())?;
+            let path = format!("{}{}", url.pathname(), url.search());
+            let location = Reflect::get(worker.as_ref(), &JsValue::from_str("location"))?;
+            let origin = Reflect::get(&location, &JsValue::from_str("origin"))?
+                .as_string()
+                .unwrap_or_default();
+            if request.method() != "GET"
+                || !STYLES.contains(&path.as_str())
+                || url.origin() != origin
+            {
+                return Err(JsValue::from_str("not a public recovery style"));
+            }
+            match wasm_bindgen_futures::JsFuture::from(worker.fetch_with_request(&request)).await {
+                Ok(response) => Ok(response),
+                Err(_) => {
+                    let cache = wasm_bindgen_futures::JsFuture::from(worker.caches()?.open(CACHE))
+                        .await?
+                        .dyn_into::<web_sys::Cache>()?;
+                    let response =
+                        wasm_bindgen_futures::JsFuture::from(cache.match_with_request(&request))
+                            .await?;
+                    if response.is_undefined() {
+                        Err(JsValue::from_str("recovery style unavailable"))
+                    } else {
+                        Ok(response)
+                    }
+                }
+            }
         })
     }
 
@@ -47,6 +127,16 @@ mod worker {
     pub fn activate() -> Promise {
         future_to_promise(async move {
             let worker = global().dyn_into::<ServiceWorkerGlobalScope>()?;
+            let caches = worker.caches()?;
+            let names = wasm_bindgen_futures::JsFuture::from(caches.keys()).await?;
+            for name in Array::from(&names)
+                .iter()
+                .filter_map(|value| value.as_string())
+            {
+                if name.starts_with("epsx-public-recovery-") && name != CACHE {
+                    wasm_bindgen_futures::JsFuture::from(caches.delete(&name)).await?;
+                }
+            }
             wasm_bindgen_futures::JsFuture::from(worker.clients().claim()).await?;
             Ok(JsValue::UNDEFINED)
         })
@@ -64,6 +154,19 @@ mod worker {
             match wasm_bindgen_futures::JsFuture::from(worker.fetch_with_request(&request)).await {
                 Ok(response) => Ok(response),
                 Err(_) => {
+                    // Cached Dioxus SSR must hydrate at its own route. Serving
+                    // the /offline tree at /analytics would mount a different
+                    // Router component tree when a cached WASM bundle starts.
+                    let original = web_sys::Url::new(&request.url())?;
+                    if original.pathname() != OFFLINE_PATH {
+                        let return_path = format!("{}{}", original.pathname(), original.search());
+                        let encoded = js_sys::encode_uri_component(&return_path)
+                            .as_string()
+                            .unwrap_or_default();
+                        let destination =
+                            format!("{}{OFFLINE_PATH}?return_url={encoded}", original.origin());
+                        return Response::redirect(&destination).map(JsValue::from);
+                    }
                     let cache = wasm_bindgen_futures::JsFuture::from(worker.caches()?.open(CACHE))
                         .await?
                         .dyn_into::<web_sys::Cache>()?;

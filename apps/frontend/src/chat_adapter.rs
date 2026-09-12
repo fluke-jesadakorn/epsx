@@ -657,6 +657,34 @@ pub(crate) async fn chat_upload_api(
         Ok(bytes) => bytes,
         Err(_) => return chat_error(StatusCode::BAD_REQUEST, "invalid_chat_request"),
     };
+    upload_content_verified(state, token, id, filename, content_type, bytes.to_vec()).await
+}
+
+pub(crate) async fn chat_upload_content(
+    state: AppState,
+    headers: axum::http::HeaderMap,
+    id: uuid::Uuid,
+    filename: String,
+    bytes: Vec<u8>,
+) -> Response {
+    if !same_origin(&headers) {
+        return chat_error(StatusCode::FORBIDDEN, "chat_mutation_origin_rejected");
+    }
+    let (token, _) = match verified_identity(&state, &headers).await {
+        Ok(identity) => identity,
+        Err(response) => return response,
+    };
+    upload_content_verified(state, token, id, filename, None, bytes).await
+}
+
+async fn upload_content_verified(
+    state: AppState,
+    token: String,
+    id: uuid::Uuid,
+    filename: String,
+    content_type: Option<String>,
+    bytes: Vec<u8>,
+) -> Response {
     if bytes.is_empty() || bytes.len() > 5 * 1024 * 1024 {
         return chat_error(StatusCode::PAYLOAD_TOO_LARGE, "chat_request_too_large");
     }

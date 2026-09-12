@@ -214,9 +214,9 @@ fn valid_rfc3339_timestamp(value: &str) -> bool {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct NewsFilters {
-    page: i64,
-    status: String,
+pub(crate) struct NewsFilters {
+    pub(crate) page: i64,
+    pub(crate) status: String,
 }
 
 impl NewsFilters {
@@ -253,7 +253,7 @@ fn news_href(status: &str, page: i64) -> String {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum NewsLoad {
+pub(crate) enum NewsLoad {
     Ready(AdminNewsList),
     Empty,
     Forbidden,
@@ -456,15 +456,6 @@ fn render_editor_route(
 fn RenderNewsList(ctx: PageContext) -> Element {
     let filters = NewsFilters::from_ctx(&ctx);
     let load = news_load(&ctx, &filters);
-    let total_count = match &load {
-        NewsLoad::Ready(projection) => Some(projection.total),
-        NewsLoad::Empty => Some(0),
-        NewsLoad::Forbidden
-        | NewsLoad::Unauthenticated
-        | NewsLoad::Unauthorized
-        | NewsLoad::Unavailable
-        | NewsLoad::Malformed => None,
-    };
     let mutation = ctx
         .params
         .get(ADMIN_NEWS_MUTATION_STATE_PARAM)
@@ -478,6 +469,24 @@ fn RenderNewsList(ctx: PageContext) -> Element {
             ADMIN_NEWS_MUTATION_MALFORMED => Some(ADMIN_NEWS_MUTATION_MALFORMED),
             _ => None,
         });
+
+    rsx! { NewsListBody { filters, load, mutation } }
+}
+#[component]
+pub(crate) fn NewsListBody(
+    filters: NewsFilters,
+    load: NewsLoad,
+    mutation: Option<&'static str>,
+) -> Element {
+    let total_count = match &load {
+        NewsLoad::Ready(projection) => Some(projection.total),
+        NewsLoad::Empty => Some(0),
+        NewsLoad::Forbidden
+        | NewsLoad::Unauthenticated
+        | NewsLoad::Unauthorized
+        | NewsLoad::Unavailable
+        | NewsLoad::Malformed => None,
+    };
 
     rsx! {
         PageLayout {
@@ -560,7 +569,7 @@ fn NewsListHeader() -> Element {
             }
             a {
                 class: "flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 sm:w-auto",
-                href: "/news/create",
+                href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
             }
@@ -576,7 +585,7 @@ fn NewsStatusNavigation(active: String, total_count: Option<i64>) -> Element {
                 for (status, label) in [("all", "All"), ("draft", "Draft"), ("published", "Published")] {
                     a {
                         class: if active == status { "rounded-lg bg-[#7645d9] px-3 py-1.5 text-sm font-medium capitalize text-white shadow-lg shadow-[#7645d9]/20" } else { "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-sm font-medium capitalize text-muted-foreground transition-colors hover:border-border/40 hover:text-foreground" },
-                        href: news_href(status, 1),
+                        href: (news_href(status, 1)).clone(), onclick: { let target = (news_href(status, 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                         aria_current: if active == status { Some("page") } else { None },
                         "{label}"
                     }
@@ -610,7 +619,7 @@ fn NewsReady(projection: AdminNewsList, filters: NewsFilters) -> Element {
                 div { class: "rounded-2xl border border-border/20 bg-card p-10 text-center shadow-xl", role: "status",
                     h3 { class: "font-semibold text-foreground", "No articles on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
-                    a { class: "btn btn-sm btn-outline mt-5", href: filters.href(1), "Return to first page" }
+                    a { class: "btn btn-sm btn-outline mt-5", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to first page" }
                 }
             } else {
                 div { class: "space-y-3",
@@ -622,13 +631,13 @@ fn NewsReady(projection: AdminNewsList, filters: NewsFilters) -> Element {
             if total_pages > 1 {
                 nav { class: "flex items-center justify-center gap-2 pt-3", aria_label: "News pagination",
                     if has_previous {
-                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: filters.href(projection.page - 1), rel: "prev", "Previous" }
+                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page - 1)).clone(), onclick: { let target = (filters.href(projection.page - 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "prev", "Previous" }
                     } else {
                         span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Previous" }
                     }
                     span { class: "text-sm text-muted-foreground", "{projection.page} / {total_pages}" }
                     if has_next {
-                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: filters.href(projection.page + 1), rel: "next", "Next" }
+                        a { class: "rounded-lg border border-border/20 px-3 py-1.5 text-sm transition-colors hover:bg-muted/50", href: (filters.href(projection.page + 1)).clone(), onclick: { let target = (filters.href(projection.page + 1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, rel: "next", "Next" }
                     } else {
                         span { class: "pointer-events-none rounded-lg border border-border/20 px-3 py-1.5 text-sm opacity-40", aria_disabled: "true", "Next" }
                     }
@@ -721,7 +730,7 @@ fn NewsSummaryActions(article: AdminNewsArticleSummary) -> Element {
             }
             a {
                 class: "rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground",
-                href: format!("/news/{}/edit", article.id),
+                href: (format!("/news/{}/edit", article.id)).clone(), onclick: { let target = (format!("/news/{}/edit", article.id)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 aria_label: "Edit article",
                 title: "Edit",
                 Icon { name: "edit".to_string(), size: Some(16) }
@@ -733,12 +742,12 @@ fn NewsSummaryActions(article: AdminNewsArticleSummary) -> Element {
                     title: "Delete",
                     Icon { name: "trash-2".to_string(), size: Some(16) }
                 }
-                form { method: "post", action: NEWS_PATH, class: "absolute right-0 z-20 mt-2 w-64 space-y-3 rounded-xl border border-red-500/20 bg-card p-4 shadow-2xl",
+                form { onsubmit: crate::fullstack::admin_news::submit, method: "post", action: NEWS_PATH, class: "absolute right-0 z-20 mt-2 w-64 space-y-3 rounded-xl border border-red-500/20 bg-card p-4 shadow-2xl",
                     p { class: "text-sm font-semibold text-foreground", "Delete article?" }
                     p { class: "text-xs leading-5 text-muted-foreground", "This permanently deletes the backend record." }
                     input { r#type: "hidden", name: "id", value: article.id }
                     input { r#type: "hidden", name: "if_match", value: article.updated_at }
-                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.delete.{}", Uuid::new_v4()) }
+                    crate::fullstack::admin_news::NewsIdentity { prefix: "admin.news.delete" }
                     button { r#type: "submit", class: "btn btn-sm btn-outline w-full border-red-500/30 text-red-400", "data-admin-news-delete": "bff", "Delete article" }
                 }
             }
@@ -757,11 +766,11 @@ fn NewsEmpty(filters: NewsFilters) -> Element {
                 h2 { class: "font-semibold text-foreground", "No articles yet" }
                 p { class: "mt-1 text-sm text-muted-foreground", "Create your first article to get started." }
             }
-            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", href: "/news/create",
+            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
             }
-            a { class: "text-xs text-muted-foreground hover:text-foreground", href: filters.href(1), "Refresh articles" }
+            a { class: "text-xs text-muted-foreground hover:text-foreground", href: (filters.href(1)).clone(), onclick: { let target = (filters.href(1)).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Refresh articles" }
         }
     }
 }
@@ -777,7 +786,7 @@ fn NewsUnavailableInventory() -> Element {
                 h2 { class: "font-semibold text-foreground", "No verified articles" }
                 p { class: "mt-1 text-sm text-muted-foreground", "The article list will appear here after an authoritative response." }
             }
-            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white opacity-60", href: "/news/create", tabindex: "-1",
+            a { class: "flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#7645d9] to-[#5a33b8] px-4 py-2 text-sm font-semibold text-white opacity-60", href: "/news/create", onclick: { let target = ("/news/create").to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, tabindex: "-1",
                 Icon { name: "plus".to_string(), size: Some(16) }
                 "Create Article"
             }
@@ -797,14 +806,14 @@ fn NewsProblem(state: &'static str, title: String, detail: String, retry_href: S
                         p { class: "mt-1 max-w-3xl text-sm leading-6 text-muted-foreground", "{detail}" }
                     }
                 }
-                a { class: "btn btn-sm btn-outline shrink-0", href: retry_href, "Try again" }
+                a { class: "btn btn-sm btn-outline shrink-0", href: (retry_href).clone(), onclick: { let target = (retry_href).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Try again" }
             }
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq)]
-enum NewsRoute {
+pub(crate) enum NewsRoute {
     Create,
     Edit,
 }
@@ -826,11 +835,11 @@ impl NewsRoute {
 }
 
 #[component]
-fn NewsEditor(
+pub(crate) fn NewsEditor(
     route: NewsRoute,
     projection: Option<AdminNewsEditorProjection>,
     route_reference: Option<String>,
-    image_url: Option<String>,
+    image_url: ReadSignal<Option<String>>,
 ) -> Element {
     let is_create = route == NewsRoute::Create;
     let action = if is_create {
@@ -869,8 +878,8 @@ fn NewsEditor(
         .map(|item| item.tags.join(", "))
         .unwrap_or_default();
     let version = projection.as_ref().map(|item| item.updated_at.clone());
-    let idempotency_key = Uuid::new_v4().to_string();
-    let cover_image_url = image_url
+    let idempotency_key = use_server_cached(|| Uuid::new_v4().to_string());
+    let cover_image_url = image_url()
         .or_else(|| {
             projection
                 .as_ref()
@@ -878,6 +887,23 @@ fn NewsEditor(
         })
         .unwrap_or_default();
     let save_label = if is_create { "Create" } else { "Update" };
+    let mut title_state = use_signal(|| title.clone());
+    let mut slug_state = use_signal(|| slug.clone());
+    let mut summary_state = use_signal(|| summary.clone());
+    let content_state = use_signal(|| content.clone());
+    let status_state = use_signal(|| status.clone());
+    let mut tags_state = use_signal(|| tags.clone());
+    let mut cover_state = use_signal(|| cover_image_url.clone());
+    use_context_provider(|| NewsDraft {
+        content: content_state,
+        status: status_state,
+        cover: cover_state,
+    });
+    use_effect(move || {
+        if let Some(url) = image_url() {
+            cover_state.set(url);
+        }
+    });
 
     rsx! {
         section {
@@ -888,20 +914,20 @@ fn NewsEditor(
             if let Some(reference) = route_reference {
                 p { class: "sr-only", "Verified article: {reference}" }
             }
-            form { method: "post", action: action.clone(), class: "space-y-6",
+            form { onsubmit: crate::fullstack::admin_news::submit, method: "post", action: action.clone(), class: "space-y-6",
                 NewsEditorToolbar { status: status.clone(), save_label }
                 div { class: "space-y-6 rounded-2xl border border-border/20 bg-card p-4 shadow-xl sm:p-8",
                     NewsCoverField { cover_image_url, is_create }
                     div { class: "h-px bg-border/20" }
                     label { class: "block",
                         span { class: "sr-only", "Title" }
-                        input { class: "w-full border-b border-border/20 bg-transparent pb-2 text-2xl font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-3xl", name: "title", value: title.clone(), maxlength: MAX_TITLE_CHARS, required: true, placeholder: "Article title..." }
+                        input { class: "w-full border-b border-border/20 bg-transparent pb-2 text-2xl font-bold text-foreground placeholder:text-muted-foreground/40 focus:outline-none sm:text-3xl", name: "title", value: title_state(), oninput: move |event|title_state.set(event.value()), maxlength: MAX_TITLE_CHARS, required: true, placeholder: "Article title..." }
                     }
                     if !is_create {
                         label { class: "flex items-center gap-1 font-mono text-sm text-muted-foreground",
                             span { class: "opacity-50", "epsx.io/news/" }
                             span { class: "sr-only", "Slug" }
-                            input { class: "min-w-0 flex-1 border-b border-dashed border-[#1fc7d4]/40 bg-transparent text-[#1fc7d4] focus:outline-none", name: "slug", value: slug.clone(), maxlength: MAX_SLUG_CHARS, required: true }
+                            input { class: "min-w-0 flex-1 border-b border-dashed border-[#1fc7d4]/40 bg-transparent text-[#1fc7d4] focus:outline-none", name: "slug", value: slug_state(), oninput: move |event|slug_state.set(event.value()), maxlength: MAX_SLUG_CHARS, required: true }
                         }
                     } else {
                         p { class: "font-mono text-sm text-muted-foreground",
@@ -912,10 +938,10 @@ fn NewsEditor(
                     div { class: "h-px bg-border/20" }
                     label { class: "block",
                         span { class: "sr-only", "Summary" }
-                        textarea { class: "w-full resize-none border-b border-border/10 bg-transparent pb-2 text-base text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none", name: "summary", rows: 2, maxlength: MAX_SUMMARY_CHARS, placeholder: "Short description…", "{summary}" }
+                        crate::fullstack::admin_textarea::TextArea { class: "w-full resize-none border-b border-border/10 bg-transparent pb-2 text-base text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none", name: "summary", rows: 2, maxlength: MAX_SUMMARY_CHARS as u32, placeholder: "Short description…", value: summary_state(), oninput: move |event: FormEvent|summary_state.set(event.value()) }
                     }
                     label { class: "block text-sm font-medium text-foreground", "Tags",
-                        input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags, maxlength: 2048, placeholder: "announcement, platform" }
+                        input { class: "input input-bordered mt-2 w-full", name: "tags", value: tags_state(), oninput: move |event|tags_state.set(event.value()), maxlength: 2048, placeholder: "announcement, platform" }
                     }
                     div { class: "h-px bg-border/20" }
                     NewsMarkdownField { content: content.clone() }
@@ -926,7 +952,7 @@ fn NewsEditor(
                     div { class: "flex flex-wrap items-center justify-between gap-3 border-t border-border/20 pt-5",
                         p { class: "text-xs text-muted-foreground", "Saved through the versioned content BFF contract." }
                         div { class: "flex gap-3",
-                            a { class: "btn btn-outline", href: NEWS_PATH, "Cancel" }
+                            a { class: "btn btn-outline", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Cancel" }
                             button { r#type: "submit", class: "btn btn-primary", "data-admin-news-submit": "bff", "{save_label}" }
                         }
                     }
@@ -936,23 +962,23 @@ fn NewsEditor(
                 if let Some(version) = version {
                     div { class: "mt-5 flex flex-wrap gap-3 border-t border-border/30 pt-5",
                         for operation in ["publish", "unpublish", "pin", "unpin"] {
-                            form { method: "post", action: action.clone(), class: "inline-flex",
+                            form { onsubmit: crate::fullstack::admin_news::submit, method: "post", action: action.clone(), class: "inline-flex",
                                 input { r#type: "hidden", name: "operation", value: operation }
                                 input { r#type: "hidden", name: "title", value: title.clone() }
                                 input { r#type: "hidden", name: "slug", value: slug.clone() }
                                 input { r#type: "hidden", name: "content", value: content.clone() }
                                 input { r#type: "hidden", name: "if_match", value: version.clone() }
-                                input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.{operation}.{}", Uuid::new_v4()) }
+                                crate::fullstack::admin_news::NewsIdentity { prefix: format!("admin.news.{operation}") }
                                 button { r#type: "submit", class: "btn btn-sm btn-outline", "data-admin-news-transition": operation, "{operation}" }
                             }
                         }
                     }
                 }
-                form { method: "post", action: "/news/upload-image", enctype: "multipart/form-data", class: "mt-5 space-y-3 border-t border-border/30 pt-5",
+                form { onsubmit: crate::fullstack::admin_news::submit, method: "post", action: "/news/upload-image", enctype: "multipart/form-data", class: "mt-5 space-y-3 border-t border-border/30 pt-5",
                     input { r#type: "hidden", name: "article_id", value: projection.as_ref().map(|item| item.id.clone()).unwrap_or_default() }
-                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.news.image.{}", Uuid::new_v4()) }
+                    crate::fullstack::admin_news::NewsIdentity { prefix: "admin.news.image" }
                     label { class: "block text-sm font-medium text-foreground", "Upload cover image",
-                        input { class: "file-input file-input-bordered mt-2 w-full", r#type: "file", name: "file", required: true, accept: "image/*" }
+                        input { class: "file-input file-input-bordered mt-2 w-full", r#type: "file", name: "file", onchange: crate::fullstack::admin_news::choose_file, required: true, accept: "image/*" }
                     }
                     button { r#type: "submit", class: "btn btn-sm btn-outline", "Upload image" }
                 }
@@ -963,15 +989,17 @@ fn NewsEditor(
 
 #[component]
 fn NewsEditorToolbar(status: String, save_label: &'static str) -> Element {
+    let draft = try_consume_context::<NewsDraft>();
+    let status = draft.map(|d| (d.status)()).unwrap_or(status);
     rsx! {
         header { class: "sticky top-0 z-10 flex flex-col gap-3 border-b border-border/10 bg-background/80 py-3 backdrop-blur-md sm:flex-row sm:items-center sm:justify-between",
-            a { class: "flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground", href: NEWS_PATH,
+            a { class: "flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) },
                 Icon { name: "arrow-left".to_string(), size: Some(16) }
                 "Back to News"
             }
             div { class: "flex items-center gap-3",
                 label { class: "sr-only", r#for: "news-editor-status", "Article status" }
-                select { id: "news-editor-status", class: "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-xs font-medium text-foreground", name: "status",
+                select { id: "news-editor-status", class: "rounded-lg border border-border/20 bg-card px-3 py-1.5 text-xs font-medium text-foreground", name: "status", onchange: move |event|{if let Some(mut d)=draft{d.status.set(event.value());}},
                     option { value: "draft", selected: status == "draft", "Draft" }
                     option { value: "published", selected: status == "published", "Published" }
                 }
@@ -986,10 +1014,12 @@ fn NewsEditorToolbar(status: String, save_label: &'static str) -> Element {
 
 #[component]
 fn NewsCoverField(cover_image_url: String, is_create: bool) -> Element {
+    let draft = try_consume_context::<NewsDraft>();
+    let cover_image_url = draft.map(|d| (d.cover)()).unwrap_or(cover_image_url);
     rsx! {
         div { class: "grid gap-3 sm:grid-cols-3 sm:items-end",
             label { class: "block text-sm font-medium text-foreground sm:col-span-2", "Cover image URL",
-                input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", maxlength: 2048, value: cover_image_url, placeholder: "https://…" }
+                input { class: "input input-bordered mt-2 w-full", name: "cover_image_url", oninput: move |event|{if let Some(mut d)=draft{d.cover.set(event.value());}}, maxlength: 2048, value: cover_image_url, placeholder: "https://…" }
             }
             button {
                 class: "btn btn-sm btn-outline cursor-not-allowed opacity-50",
@@ -1005,6 +1035,8 @@ fn NewsCoverField(cover_image_url: String, is_create: bool) -> Element {
 
 #[component]
 fn NewsMarkdownField(content: String) -> Element {
+    let draft = try_consume_context::<NewsDraft>();
+    let content = draft.map(|d| (d.content)()).unwrap_or(content);
     rsx! {
         div { class: "overflow-hidden rounded-xl border border-border/30",
             div { class: "flex flex-wrap items-center gap-1 border-b border-border/30 bg-muted/20 px-3 py-2",
@@ -1022,7 +1054,7 @@ fn NewsMarkdownField(content: String) -> Element {
             }
             label { class: "block",
                 span { class: "sr-only", "Content" }
-                textarea { class: "w-full resize-none bg-background px-4 py-3 font-mono text-sm text-foreground focus:outline-none", style: "min-height: 500px;", name: "content", maxlength: MAX_CONTENT_BYTES, required: true, placeholder: "Write markdown content…", "{content}" }
+                crate::fullstack::admin_textarea::TextArea { class: "w-full min-h-[500px] resize-none bg-background px-4 py-3 font-mono text-sm text-foreground focus:outline-none", name: "content", maxlength: MAX_CONTENT_BYTES as u32, required: true, placeholder: "Write markdown content…", value: content, oninput: move |event:FormEvent|{if let Some(mut d)=draft{d.content.set(event.value());}} }
             }
         }
     }
@@ -1038,7 +1070,7 @@ fn NewsMutationNotice(state: &'static str, detail: String) -> Element {
             h2 { class: "text-lg font-semibold text-foreground", "Content mutation: {state}" }
             p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
             if matches!(state, ADMIN_NEWS_MUTATION_CONFLICT | ADMIN_NEWS_MUTATION_UNAVAILABLE | ADMIN_NEWS_MUTATION_MALFORMED) {
-                a { class: "btn btn-sm btn-outline mt-4", href: NEWS_PATH, "Return to news inventory" }
+                a { class: "btn btn-sm btn-outline mt-4", href: NEWS_PATH, onclick: { let target = (NEWS_PATH).to_string(); move |event| crate::fullstack::admin_news::follow(event, target.clone()) }, "Return to news inventory" }
             }
         }
     }
@@ -1148,8 +1180,30 @@ mod tests {
         }
     }
 
+    #[component]
+    fn TestPage(ctx: PageContext, kind: u8) -> Element {
+        match kind {
+            1 => render_create(&ctx).1,
+            2 => render_edit(&ctx).1,
+            _ => render(&ctx).1,
+        }
+    }
+
+    fn render_owned(ctx: &PageContext, kind: u8) -> String {
+        // Construct ReadSignal props inside the runtime, avoiding the thread-local fallback owner.
+        let mut dom = VirtualDom::new_with_props(
+            TestPage,
+            TestPageProps {
+                ctx: ctx.clone(),
+                kind,
+            },
+        );
+        dom.rebuild_in_place();
+        dioxus_ssr::render(&dom)
+    }
+
     fn html(ctx: &PageContext) -> String {
-        dioxus_ssr::render_element(render(ctx).1)
+        render_owned(ctx, 0)
     }
 
     #[test]
@@ -1169,10 +1223,7 @@ mod tests {
         edit.params
             .insert("id".to_string(), "private-reference".to_string());
 
-        for rendered in [
-            html(&list),
-            dioxus_ssr::render_element(render_edit(&edit).1),
-        ] {
+        for rendered in [html(&list), render_owned(&edit, 2)] {
             assert!(rendered.contains("Sign in required"));
             assert!(!rendered.contains("data-admin-news-state"));
             assert!(!rendered.contains("PRIVATE_ARTICLE_PAYLOAD"));
@@ -1331,7 +1382,7 @@ mod tests {
             ADMIN_NEWS_EDITOR_STATE_PARAM.to_string(),
             ADMIN_NEWS_EDITOR_FORM.to_string(),
         );
-        let create = dioxus_ssr::render_element(render_create(&create_ctx).1);
+        let create = render_owned(&create_ctx, 1);
 
         let editor = editor();
         let mut edit_ctx = PageContext {
@@ -1348,7 +1399,7 @@ mod tests {
             ADMIN_NEWS_EDITOR_DATA_PARAM.to_string(),
             serde_json::to_string(&editor).unwrap(),
         );
-        let edit = dioxus_ssr::render_element(render_edit(&edit_ctx).1);
+        let edit = render_owned(&edit_ctx, 2);
 
         assert!(create.contains("data-admin-news-route=\"create\""));
         assert!(create.contains("data-admin-news-editor-state=\"form\""));
@@ -1368,9 +1419,16 @@ mod tests {
 
         let mut edit_ctx = ctx(ADMIN_NEWS_UNAVAILABLE, None);
         edit_ctx.params.insert("id".to_string(), hostile);
-        let rendered = dioxus_ssr::render_element(render_edit(&edit_ctx).1);
+        let rendered = render_owned(&edit_ctx, 2);
         assert!(!rendered.contains("<script>alert(1)</script>"));
         assert!(!rendered.contains("script"));
         assert!(rendered.contains("data-admin-news-mutation-state=\"unavailable\""));
     }
+}
+
+#[derive(Clone, Copy)]
+struct NewsDraft {
+    content: Signal<String>,
+    status: Signal<String>,
+    cover: Signal<String>,
 }

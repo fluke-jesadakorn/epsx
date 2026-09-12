@@ -6,7 +6,7 @@
 //! Mirrors the TS source 1:1:
 //! - `NavItem` / `NavGroup` structs (icon is a lucide *name* string — same
 //!   `epsx_templates::lucide` registry the rest of the UI uses).
-//! - `NAV_GROUPS` constant (Market / Developer / Company).
+//! - `NAV_GROUPS` constant (Market / Company — Developer lives in wallet menu).
 //! - `FOOTER_LINKS` constant (Terms / Privacy / Contact).
 //! - `is_group_active` / `is_item_active` helpers.
 //!
@@ -61,27 +61,6 @@ pub static NAV_GROUPS: LazyLock<Vec<NavGroup>> = LazyLock::new(|| {
                     key: "portfolio".to_string(),
                     icon: Some("trending-up".to_string()),
                     desc: Some("Portfolio availability".to_string()),
-                },
-            ],
-        },
-        NavGroup {
-            label: "Developer".to_string(),
-            key: "developer".to_string(),
-            icon: Some("code".to_string()),
-            items: vec![
-                NavItem {
-                    label: "API Keys".to_string(),
-                    href: "/developer".to_string(),
-                    key: "api-keys".to_string(),
-                    icon: Some("code".to_string()),
-                    desc: Some("API access status".to_string()),
-                },
-                NavItem {
-                    label: "Documentation".to_string(),
-                    href: "/developer/docs".to_string(),
-                    key: "docs".to_string(),
-                    icon: Some("book".to_string()),
-                    desc: Some("Pinned API reference".to_string()),
                 },
             ],
         },
@@ -239,13 +218,6 @@ mod tests {
                     vec![("Rankings", "/analytics"), ("Portfolio", "/portfolio")]
                 ),
                 (
-                    "Developer",
-                    vec![
-                        ("API Keys", "/developer"),
-                        ("Documentation", "/developer/docs"),
-                    ]
-                ),
-                (
                     "Company",
                     vec![
                         ("About", "/about"),
@@ -266,8 +238,8 @@ mod tests {
         };
         assert_eq!(description("rankings"), Some("Rankings availability"));
         assert_eq!(description("portfolio"), Some("Portfolio availability"));
-        assert_eq!(description("api-keys"), Some("API access status"));
-        assert_eq!(description("docs"), Some("Pinned API reference"));
+        assert_eq!(description("api-keys"), None);
+        assert_eq!(description("docs"), None);
         assert_eq!(description("about"), None);
         assert_eq!(description("news"), Some("News availability"));
         assert_eq!(description("contact"), None);

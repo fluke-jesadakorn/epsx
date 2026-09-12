@@ -149,6 +149,44 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 fn RenderDashboard(ctx: PageContext) -> Element {
     let load = dashboard_load(&ctx);
     let overview_load = dashboard_overview_load(&ctx);
+    rsx! { DashboardBody { load, overview_load, user: ctx.user } }
+}
+
+#[component]
+pub fn HydratedDashboardBody(data: crate::fullstack::admin::DashboardData) -> Element {
+    use crate::fullstack::LoadError;
+    let load = match data.user_status {
+        Ok(value) => DashboardLoad::Ready(value),
+        Err(LoadError::Unauthenticated) => DashboardLoad::Unauthenticated,
+        Err(LoadError::Forbidden) => DashboardLoad::Forbidden,
+        Err(LoadError::Malformed | LoadError::InvalidQuery) => DashboardLoad::Malformed,
+        Err(_) => DashboardLoad::Unavailable,
+    };
+    let overview_load = match data.overview {
+        Ok(snapshot) => {
+            if snapshot.user_stats.is_some()
+                || snapshot.permission_analytics.is_some()
+                || snapshot.plan_stats.is_some()
+                || snapshot.developer_portal.is_some()
+            {
+                DashboardOverviewLoad::Ready(snapshot)
+            } else {
+                DashboardOverviewLoad::Empty(snapshot)
+            }
+        }
+        Err(LoadError::Forbidden) => DashboardOverviewLoad::Forbidden,
+        Err(LoadError::Malformed | LoadError::InvalidQuery) => DashboardOverviewLoad::Malformed,
+        Err(_) => DashboardOverviewLoad::Unavailable,
+    };
+    rsx! { DashboardBody { load, overview_load, user: Some(data.user) } }
+}
+
+#[component]
+fn DashboardBody(
+    load: DashboardLoad,
+    overview_load: DashboardOverviewLoad,
+    user: Option<crate::auth::User>,
+) -> Element {
     let snapshot_observed_at = match &overview_load {
         DashboardOverviewLoad::Ready(snapshot) | DashboardOverviewLoad::Empty(snapshot) => {
             snapshot.observed_at.clone()
@@ -167,7 +205,7 @@ fn RenderDashboard(ctx: PageContext) -> Element {
 
     rsx! {
         AuthGate {
-            user: ctx.user.clone(),
+            user,
             feature: Some("the private admin command center".to_string()),
             return_url: Some("/".to_string()),
             PageLayout {

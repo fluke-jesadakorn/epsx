@@ -11,7 +11,7 @@ impl RedisPool {
         let client = Client::open(redis_url)?;
         let manager = client.get_connection_manager().await?;
 
-        tracing::info!("Redis pool created: url={}", redis_url);
+        tracing::info!("Redis pool created");
 
         Ok(Self { client, manager })
     }

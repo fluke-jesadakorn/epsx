@@ -153,7 +153,7 @@ syntect = "5.2"
 tera = "1.20"
 
 # Dioxus 0.7 (stable)
-dioxus = { version = "0.7", features = ["fullstack", "ssr", "router", "web"] }
+dioxus = { version = "0.7", features = ["fullstack", "router"] }
 dioxus-ssr = "0.7"
 dioxus-fullstack = "0.7"
 dioxus-server = "0.7"
@@ -191,5 +191,4 @@ strip = true
 lto = "thin"
 codegen-units = 1
 overflow-checks = false
-
 

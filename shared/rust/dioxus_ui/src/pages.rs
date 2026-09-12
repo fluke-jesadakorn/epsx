@@ -167,7 +167,9 @@ impl PageMeta {
     pub fn marketing(title: &str) -> Self {
         Self {
             title: format!("{} — EPSX", title),
-            description: "EPSX — Web3 commerce platform: visual page builder, on-chain payments, programmable subscriptions.".to_string(),
+            description:
+                "EPSX — Explore reported company data and organize the companies you follow."
+                    .to_string(),
             keywords: None,
             status: PageStatus::Ok,
             body_class: Some("page-bg".to_string()),

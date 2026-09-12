@@ -256,6 +256,16 @@ impl UnifiedRouteBuilder {
             .merge(well_known_routes)
             // API documentation (public, no auth)
             .merge(docs_routes)
+            .route(
+                "/api/webhooks/epsx-pay",
+                post(crate::web::payments::merchant_checkout::webhook)
+                    .with_state(self.create_app_state()),
+            )
+            .route(
+                "/api/payments/pay-quote/{id}",
+                get(crate::web::payments::merchant_checkout::quote)
+                    .with_state(self.create_app_state()),
+            )
             // Authentication routes (Web3-first auth)
             .nest("/api/auth", auth_routes)
             // wave49(slice-4): pay-proxy (NEW mount at /api/v1/pay/*).
@@ -333,10 +343,12 @@ impl UnifiedRouteBuilder {
         let health_state = crate::web::health::HealthState {
             pool: self.container.db_pool(),
             cache: self.get_or_default_cache(),
+            redis: self.container.get_redis_pool(),
         };
 
         Router::new()
             .route("/health", get(crate::web::health::health_check_handler))
+            .route("/ready", get(crate::web::health::readiness_handler))
             .with_state(health_state)
     }
 
@@ -966,6 +978,18 @@ impl UnifiedRouteBuilder {
 
         // Core payment validation routes (authenticated users)
         let core_routes = Router::new()
+            .route(
+                "/pay-checkout",
+                post(crate::web::payments::merchant_checkout::create),
+            )
+            .route(
+                "/pay-orders",
+                get(crate::web::payments::merchant_checkout::list_orders),
+            )
+            .route(
+                "/pay-orders/{id}",
+                get(crate::web::payments::merchant_checkout::get),
+            )
             .route("/validate", post(validate_payment_handler))
             .route("/activate", post(activate_subscription_handler))
             .route("/submit", post(submit_transaction_handler)) // NEW: Submit tx for backend monitoring

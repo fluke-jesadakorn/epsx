@@ -242,7 +242,13 @@ impl UnifiedWeb3AuthService {
                 Web3AuthError::InvalidSignature(format!("Invalid signature format: {}", e))
             })?;
 
-        let expected_domain = self.domain.parse().map_err(|e| {
+        if (client_id == "epsx-pay") != (message.request_id.as_deref() == Some("epsx-pay")) {
+            return Err(Web3AuthError::InvalidSignature(
+                "challenge audience mismatch".into(),
+            ));
+        }
+        let domain = self.domain_for_client(client_id)?;
+        let expected_domain = domain.parse().map_err(|e| {
             Web3AuthError::InvalidDomain(format!("Invalid domain {}: {}", self.domain, e))
         })?;
 

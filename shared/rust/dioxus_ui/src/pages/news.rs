@@ -9,29 +9,30 @@ use super::{PageContext, PageMeta};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
+use hydrated::{follow, NewsNavigation};
 
 const NEWS_PAGE_SIZE: u32 = 12;
 const NEWS_CATEGORIES: [&str; 4] = ["all", "updates", "engineering", "product"];
 const NEWS_AUTHOR_MAX_CHARS: usize = 160;
 const NEWS_READ_TIME_MAX_CHARS: usize = 32;
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
-pub(super) struct NewsPost {
-    id: Option<String>,
-    pub(super) slug: String,
-    pub(super) title: String,
-    pub(super) summary: String,
-    pub(super) cover_image_url: Option<String>,
-    pub(super) author: Option<String>,
-    pub(super) published_at: Option<String>,
-    pub(super) read_time: Option<String>,
-    pub(super) tags: Vec<String>,
-    pub(super) featured: bool,
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
+pub struct NewsPost {
+    pub id: Option<String>,
+    pub slug: String,
+    pub title: String,
+    pub summary: String,
+    pub cover_image_url: Option<String>,
+    pub author: Option<String>,
+    pub published_at: Option<String>,
+    pub read_time: Option<String>,
+    pub tags: Vec<String>,
+    pub featured: bool,
 }
 
-#[derive(Clone, Debug, serde::Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, serde::Deserialize, serde::Serialize, PartialEq, Eq)]
 #[serde(tag = "state", rename_all = "snake_case")]
-pub(super) enum NewsListOutcome {
+pub enum NewsListOutcome {
     Ready {
         articles: Vec<NewsPost>,
         total: u64,
@@ -228,28 +229,28 @@ fn NewsPageBody(outcome: NewsListOutcome, retry_href: String) -> Element {
     };
 
     rsx! {
-        div { class: "relative min-h-screen bg-gray-50 dark:bg-slate-950",
+        div { class: "relative min-h-screen bg-gray-50 dark:bg-slate-950 fe-base-page fe-fill-neutral",
             div { class: "fixed inset-0 z-0 pointer-events-none overflow-hidden",
-                div { class: "absolute inset-0 bg-gradient-to-b from-white dark:from-slate-950 via-gray-50 dark:via-slate-900 to-white dark:to-slate-950" }
-                div { class: "absolute -top-40 -right-32 h-[500px] w-[500px] rounded-full bg-purple-600/8 dark:bg-purple-600/15 blur-3xl" }
-                div { class: "absolute top-1/3 -left-32 h-[400px] w-[400px] rounded-full bg-cyan-500/5 dark:bg-cyan-500/10 blur-3xl" }
-                div { class: "absolute bottom-20 right-1/4 h-[300px] w-[300px] rounded-full bg-purple-600/5 dark:bg-purple-600/10 blur-3xl" }
+                div { class: "absolute inset-0 bg-gradient-to-b from-white dark:from-slate-950 via-gray-50 dark:via-slate-900 to-white dark:to-slate-950 fe-fill-neutral" }
+                div { class: "absolute -top-40 -right-32 h-[500px] w-[500px] rounded-full bg-purple-600/8 dark:bg-purple-600/15 blur-3xl fe-decoration" }
+                div { class: "absolute top-1/3 -left-32 h-[400px] w-[400px] rounded-full bg-cyan-500/5 dark:bg-cyan-500/10 blur-3xl fe-decoration" }
+                div { class: "absolute bottom-20 right-1/4 h-[300px] w-[300px] rounded-full bg-purple-600/5 dark:bg-purple-600/10 blur-3xl fe-decoration" }
             }
             div { class: "relative z-10 mx-auto max-w-7xl px-4 py-12 sm:py-16",
-                div { class: "page-content news-page w-full",
+                div { class: "page-content news-page w-full fe-page-layout",
                     header { class: "mb-12 text-center news-header",
-                        div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5",
+                        div { class: "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-cyan-500/20 bg-cyan-500/5 text-cyan-500 text-xs font-semibold mb-5 fe-tone-accent",
                             Icon { name: "newspaper".to_string(), size: Some(14) }
                             " EPSX Platform"
                         }
-                        h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4",
+                        h1 { class: "text-4xl sm:text-5xl font-extrabold mb-4 fe-type-title",
                             "News & " span { class: "gradient-text-cool", "Updates" }
                         }
-                        p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed",
+                        p { class: "text-muted-foreground max-w-xl mx-auto leading-relaxed fe-tone-muted",
                             "Stay informed with the latest platform updates, feature releases, and market insights from the EPSX team."
                         }
                         if let Some(total) = total {
-                            p { class: "mt-3 text-sm text-muted-foreground/60",
+                            p { class: "mt-3 text-sm text-muted-foreground/60 fe-tone-muted",
                                 {
                                     let noun = if total == 1 { "article" } else { "articles" };
                                     format!("{total} {noun}")
@@ -304,13 +305,24 @@ fn NewsPageBody(outcome: NewsListOutcome, retry_href: String) -> Element {
 
 #[component]
 fn NewsFilters(initial_query: String, initial_category: String) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
     let category = initial_category;
     rsx! {
         form {
             id: "news-filters-form",
-            class: "card card-glass news-filters",
+            class: "card card-glass news-filters fe-surface",
             method: "get",
             action: "/news",
+            onsubmit: move |event| {
+                if let Some(navigation) = navigation {
+                    event.prevent_default();
+                    let mut query = url::form_urlencoded::Serializer::new(String::new());
+                    for (key, value) in event.values() {
+                        if let dioxus::html::FormValue::Text(value) = value { query.append_pair(&key, &value); }
+                    }
+                    navigation.0.call(format!("/news?{}", query.finish()));
+                }
+            },
             role: "search",
             div { class: "card-body flex flex-col md:flex-row gap-4 items-stretch md:items-end",
                 div { class: "field flex-1",
@@ -380,7 +392,7 @@ fn NewsList(
                     }
                 }
             }
-            p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count", aria_live: "polite",
+            p { class: "mt-6 text-xs text-muted-foreground text-center news-list-count fe-tone-muted", aria_live: "polite",
                 {
                     let noun = if total == 1 { "article" } else { "articles" };
                     format!("{total} {noun}")
@@ -393,29 +405,31 @@ fn NewsList(
 
 #[component]
 fn NewsFeaturedCard(post: NewsPost) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
+    let target = format!("/news/{}", post.slug);
     rsx! {
-        a { class: "group block news-featured-card", href: "/news/{post.slug}",
-            article { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50",
+        a { class: "group block news-featured-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
+            article { class: "relative rounded-3xl overflow-hidden h-[360px] sm:h-[480px] bg-gradient-to-br from-purple-500/20 via-cyan-500/10 to-slate-900/50 fe-fill-neutral",
                 if let Some(cover) = &post.cover_image_url {
                     img { class: "absolute inset-0 w-full h-full object-cover", src: cover, alt: "", loading: "eager" }
                 } else {
                     div { class: "absolute top-8 right-8 opacity-10", Icon { name: "newspaper".to_string(), size: Some(96) } }
                 }
-                div { class: "absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" }
+                div { class: "absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent fe-fill-neutral" }
                 div { class: "absolute bottom-0 left-0 right-0 p-6 sm:p-10",
                     div { class: "flex flex-wrap gap-2 mb-4",
-                        span { class: "px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-500 border border-cyan-500/30", "Featured" }
+                        span { class: "px-3 py-1 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-500 border border-cyan-500/30 fe-tone-accent", "Featured" }
                         for tag in post.tags.iter().take(2) {
-                            span { class: "px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/80", "{tag}" }
+                            span { class: "px-3 py-1 rounded-full text-xs font-medium bg-white/10 text-white/80 fe-fill-neutral fe-tone-text", "{tag}" }
                         }
                     }
-                    h2 { class: "text-2xl sm:text-3xl font-extrabold text-white mb-3 group-hover:text-cyan-500 transition-colors line-clamp-2", "{post.title}" }
+                    h2 { class: "text-2xl sm:text-3xl font-extrabold text-white mb-3 group-hover:text-cyan-500 transition-colors line-clamp-2 fe-tone-text fe-type-section", "{post.title}" }
                     if !post.summary.is_empty() {
-                        p { class: "text-white/70 text-sm sm:text-base line-clamp-2 max-w-3xl", "{post.summary}" }
+                        p { class: "text-white/70 text-sm sm:text-base line-clamp-2 max-w-3xl fe-tone-text", "{post.summary}" }
                     }
                     div { class: "mt-5 flex items-center gap-4",
-                        if let Some(date) = &post.published_at { span { class: "text-xs text-white/60", "{date}" } }
-                        span { class: "flex items-center gap-1.5 text-xs font-semibold text-cyan-500", "Read article " Icon { name: "arrow-right".to_string(), size: Some(14) } }
+                        if let Some(date) = &post.published_at { span { class: "text-xs text-white/60 fe-tone-text", "{date}" } }
+                        span { class: "flex items-center gap-1.5 text-xs font-semibold text-cyan-500 fe-tone-accent", "Read article " Icon { name: "arrow-right".to_string(), size: Some(14) } }
                     }
                 }
             }
@@ -425,10 +439,12 @@ fn NewsFeaturedCard(post: NewsPost) -> Element {
 
 #[component]
 fn ArticleCard(post: NewsPost) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
+    let target = format!("/news/{}", post.slug);
     rsx! {
-        a { class: "group block h-full news-article-card", href: "/news/{post.slug}",
-            article { class: "rounded-2xl bg-card border border-border/20 overflow-hidden hover:border-cyan-500/40 transition-all h-full flex flex-col",
-                div { class: "relative w-full h-48 overflow-hidden bg-gradient-to-br from-purple-500/15 via-cyan-500/5 to-transparent flex items-center justify-center",
+        a { class: "group block h-full news-article-card", href: "/news/{post.slug}", onclick: move |event| follow(event, navigation, target.clone()),
+            article { class: "rounded-2xl bg-card border border-border/20 overflow-hidden hover:border-cyan-500/40 transition-all h-full flex flex-col fe-surface",
+                div { class: "relative w-full h-48 overflow-hidden bg-gradient-to-br from-purple-500/15 via-cyan-500/5 to-transparent flex items-center justify-center fe-fill-neutral",
                     if let Some(cover) = &post.cover_image_url {
                         img { class: "w-full h-full object-cover", src: cover, alt: "", loading: "lazy" }
                     } else {
@@ -439,17 +455,17 @@ fn ArticleCard(post: NewsPost) -> Element {
                     if !post.tags.is_empty() {
                         div { class: "flex flex-wrap gap-1.5 mb-3",
                             for tag in post.tags.iter().take(2) {
-                                span { class: "px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-500", "{tag}" }
+                                span { class: "px-2 py-0.5 rounded-full text-xs font-medium bg-cyan-500/10 text-cyan-500 fe-tone-accent", "{tag}" }
                             }
                         }
                     }
                     h2 { class: "font-bold group-hover:text-cyan-500 transition-colors line-clamp-2 mb-2 leading-snug", "{post.title}" }
                     if !post.summary.is_empty() {
-                        p { class: "text-sm text-muted-foreground line-clamp-3 flex-1 leading-relaxed", "{post.summary}" }
+                        p { class: "text-sm text-muted-foreground line-clamp-3 flex-1 leading-relaxed fe-tone-muted", "{post.summary}" }
                     }
                     div { class: "mt-4 pt-4 border-t border-border/10 flex items-center justify-between",
-                        if let Some(date) = &post.published_at { span { class: "text-xs text-muted-foreground", "{date}" } }
-                        span { class: "text-xs text-cyan-500 font-semibold flex items-center gap-1", "Read " Icon { name: "arrow-right".to_string(), size: Some(12) } }
+                        if let Some(date) = &post.published_at { span { class: "text-xs text-muted-foreground fe-tone-muted", "{date}" } }
+                        span { class: "text-xs text-cyan-500 font-semibold flex items-center gap-1 fe-tone-accent", "Read " Icon { name: "arrow-right".to_string(), size: Some(12) } }
                     }
                 }
             }
@@ -466,6 +482,7 @@ fn NewsEmptyState(
     query: String,
     category: String,
 ) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
     let title = if filtered || total > 0 {
         "No matching articles"
     } else {
@@ -482,15 +499,15 @@ fn NewsEmptyState(
         (total > 0 && page > total_pages).then(|| page_href(total_pages, &query, &category));
     rsx! {
         section { class: "flex flex-col items-center justify-center py-24 gap-5 news-empty-state", aria_live: "polite",
-            div { class: "p-6 rounded-full bg-gradient-to-br from-purple-500/10 via-cyan-500/5 to-transparent border border-border/20",
+            div { class: "p-6 rounded-full bg-gradient-to-br from-purple-500/10 via-cyan-500/5 to-transparent border border-border/20 fe-fill-neutral",
                 Icon { name: "newspaper".to_string(), size: Some(40) }
             }
             div { class: "text-center",
                 h2 { class: "font-semibold text-lg", "{title}" }
-                p { class: "text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed", "{message}" }
+                p { class: "text-sm text-muted-foreground mt-1.5 max-w-xs leading-relaxed fe-tone-muted", "{message}" }
             }
             if let Some(href) = recovery_href {
-                a { class: "btn btn-outline", href, "Previous page" }
+                a { class: "btn btn-outline", href: href.clone(), onclick: move |event| follow(event, navigation, href.clone()), "Previous page" }
             }
         }
     }
@@ -498,14 +515,15 @@ fn NewsEmptyState(
 
 #[component]
 fn NewsErrorState(code: String, retry_href: String) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
     let invalid_query = code == "invalid_news_query";
     rsx! {
-        section { class: "news-error-state card card-glass mt-8 p-8 sm:p-12 text-center", role: "alert",
-            div { class: "mx-auto mb-4 text-cyan-500", Icon { name: "triangle-alert".to_string(), size: Some(36) } }
+        section { class: "news-error-state card card-glass mt-8 p-8 sm:p-12 text-center fe-surface", role: "alert",
+            div { class: "mx-auto mb-4 text-cyan-500 fe-tone-accent", Icon { name: "triangle-alert".to_string(), size: Some(36) } }
             h2 { class: "text-xl font-bold",
                 if invalid_query { "These news filters are invalid" } else { "News is temporarily unavailable" }
             }
-            p { class: "mt-2 text-sm text-muted-foreground max-w-md mx-auto",
+            p { class: "mt-2 text-sm text-muted-foreground max-w-md mx-auto fe-tone-muted",
                 if invalid_query {
                     "Reset the filters and try again."
                 } else {
@@ -515,7 +533,7 @@ fn NewsErrorState(code: String, retry_href: String) -> Element {
             div { class: "mt-6 flex flex-wrap justify-center gap-3",
                 a { class: "btn btn-primary", href: retry_href, "Try again" }
                 if invalid_query {
-                    a { class: "btn btn-outline", href: "/news", "Reset filters" }
+                    a { class: "btn btn-outline", href: "/news", onclick: move |event| follow(event, navigation, "/news".into()), "Reset filters" }
                 }
             }
         }
@@ -555,14 +573,17 @@ fn page_href(page: u32, query: &str, category: &str) -> String {
 
 #[component]
 fn NewsPagination(page: u32, total_pages: u32, query: String, category: String) -> Element {
+    let navigation = try_use_context::<NewsNavigation>();
+    let previous = page_href(page.saturating_sub(1), &query, &category);
+    let next = page_href(page.saturating_add(1), &query, &category);
     if total_pages <= 1 {
         return rsx! { Fragment {} };
     }
     rsx! {
         nav { class: "flex items-center justify-center gap-3 mt-12 news-pagination", aria_label: "News pages",
             if page > 1 {
-                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev",
-                    href: page_href(page - 1, &query, &category),
+                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-prev fe-surface",
+                    href: page_href(page - 1, &query, &category), onclick: move |event| follow(event, navigation, previous.clone()),
                     Icon { name: "arrow-left".to_string(), size: Some(14) }
                     " Previous"
                 }
@@ -572,12 +593,12 @@ fn NewsPagination(page: u32, total_pages: u32, query: String, category: String) 
                     " Previous"
                 }
             }
-            span { class: "px-4 py-2 rounded-xl text-sm text-muted-foreground bg-muted/20 border border-border/10", aria_current: "page",
+            span { class: "px-4 py-2 rounded-xl text-sm text-muted-foreground bg-muted/20 border border-border/10 fe-tone-muted", aria_current: "page",
                 "{page} of {total_pages}"
             }
             if page < total_pages {
-                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next",
-                    href: page_href(page + 1, &query, &category),
+                a { class: "flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-border/20 bg-card hover:bg-muted/50 transition-colors news-pagination-next fe-surface",
+                    href: page_href(page + 1, &query, &category), onclick: move |event| follow(event, navigation, next.clone()),
                     "Next "
                     Icon { name: "arrow-right".to_string(), size: Some(14) }
                 }
@@ -891,3 +912,5 @@ mod tests {
         assert!(pagination.contains("aria-label=\"News pages\""));
     }
 }
+
+pub mod hydrated;

@@ -29,9 +29,13 @@ web-sys = { workspace = true, features = [
   "PushEvent",
   "PushMessageData",
   "Request",
+  "RequestInit",
+  "RequestCache",
+  "RequestCredentials",
   "RequestMode",
   "Response",
   "ServiceWorkerGlobalScope",
   "ServiceWorkerRegistration",
   "WindowClient",
+  "Url",
 ] }

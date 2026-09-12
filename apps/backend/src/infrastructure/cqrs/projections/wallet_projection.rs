@@ -61,7 +61,7 @@ impl Projection for WalletReadModelProjection {
         let row: Option<(i64, Option<String>, i64, i64, bool)> = sqlx::query_as(
             "SELECT last_processed_sequence, last_processed_event_id::text, \
                     events_processed_count, (last_processed_sequence)::bigint, is_healthy \
-             FROM projection_checkpoints WHERE projection_name = $1",
+             FROM read_model.projection_checkpoints WHERE projection_name = $1",
         )
         .bind(self.projection_name())
         .fetch_optional(pool)
@@ -86,7 +86,7 @@ impl Projection for WalletReadModelProjection {
         checkpoint: &ProjectionCheckpoint,
     ) -> AppResult<()> {
         sqlx::query(
-            "INSERT INTO projection_checkpoints \
+            "INSERT INTO read_model.projection_checkpoints \
              (projection_name, last_processed_event_id, last_processed_sequence, events_processed_count, is_healthy, processed_at) \
              VALUES ($1, $2, $3, $4, $5, NOW()) \
              ON CONFLICT (projection_name) DO UPDATE SET \

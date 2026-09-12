@@ -24,6 +24,21 @@ pub fn browser_runtime_router<S>(runtime_dir: &str) -> Router<S>
 where
     S: Clone + Send + Sync + 'static,
 {
+    runtime_router(runtime_dir, true)
+}
+
+/// Fullstack apps expose only the recovery worker, never the retired DOM runtime.
+pub fn service_worker_router<S>(runtime_dir: &str) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
+    runtime_router(runtime_dir, false)
+}
+
+fn runtime_router<S>(runtime_dir: &str, legacy_ui: bool) -> Router<S>
+where
+    S: Clone + Send + Sync + 'static,
+{
     let worker = ServiceBuilder::new()
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("service-worker-allowed"),
@@ -31,7 +46,7 @@ where
         ))
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("cache-control"),
-            HeaderValue::from_static("no-cache"),
+            HeaderValue::from_static("no-store, max-age=0"),
         ))
         .service(ServeFile::new(Path::new(runtime_dir).join(WORKER_MODULE)));
     let legacy_worker = ServiceBuilder::new()
@@ -41,7 +56,7 @@ where
         ))
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("cache-control"),
-            HeaderValue::from_static("no-cache"),
+            HeaderValue::from_static("no-store, max-age=0"),
         ))
         .service(ServeFile::new(
             Path::new(runtime_dir).join(LEGACY_WORKER_MODULE),
@@ -49,13 +64,28 @@ where
     let runtime = ServiceBuilder::new()
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("cache-control"),
-            HeaderValue::from_static("no-cache"),
+            HeaderValue::from_static("no-store, max-age=0"),
         ))
         .service(ServeDir::new(runtime_dir));
-    Router::new()
+    let mut router = Router::new()
         .route_service(&format!("/runtime/{WORKER_MODULE}"), worker)
-        .route_service(&format!("/runtime/{LEGACY_WORKER_MODULE}"), legacy_worker)
-        .nest_service("/runtime", runtime)
+        .route_service(&format!("/runtime/{LEGACY_WORKER_MODULE}"), legacy_worker);
+    if legacy_ui {
+        router = router.nest_service("/runtime", runtime);
+    } else {
+        for file in ["epsx_service_worker.js", "epsx_service_worker_bg.wasm"] {
+            router = router.route_service(
+                &format!("/runtime/{file}"),
+                ServiceBuilder::new()
+                    .layer(SetResponseHeaderLayer::overriding(
+                        HeaderName::from_static("cache-control"),
+                        HeaderValue::from_static("no-store, max-age=0"),
+                    ))
+                    .service(ServeFile::new(Path::new(runtime_dir).join(file))),
+            );
+        }
+    }
+    router
 }
 
 #[cfg(test)]
@@ -67,6 +97,45 @@ mod tests {
         Router,
     };
     use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn fullstack_assets_do_not_expose_legacy_dom_runtime() {
+        let directory =
+            std::env::temp_dir().join(format!("epsx-worker-only-{}", std::process::id()));
+        std::fs::create_dir_all(&directory).unwrap();
+        for file in [
+            WORKER_MODULE,
+            LEGACY_WORKER_MODULE,
+            "epsx_service_worker.js",
+            "epsx_service_worker_bg.wasm",
+            "epsx_browser_runtime.js",
+        ] {
+            std::fs::write(directory.join(file), b"fixture").unwrap();
+        }
+        let app: Router = super::service_worker_router(directory.to_str().unwrap());
+        for (file, status) in [
+            (WORKER_MODULE, StatusCode::OK),
+            ("epsx_service_worker.js", StatusCode::OK),
+            ("epsx_service_worker_bg.wasm", StatusCode::OK),
+            ("epsx_browser_runtime.js", StatusCode::NOT_FOUND),
+        ] {
+            let response = app
+                .clone()
+                .oneshot(
+                    Request::builder()
+                        .uri(format!("/runtime/{file}"))
+                        .body(Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap();
+            assert_eq!(response.status(), status);
+            if status == StatusCode::OK {
+                assert_eq!(response.headers()["cache-control"], "no-store, max-age=0");
+            }
+        }
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
     #[tokio::test]
     async fn only_worker_bootstrap_can_claim_the_root_scope() {
@@ -90,7 +159,7 @@ mod tests {
             .unwrap();
         assert_eq!(worker.status(), StatusCode::OK);
         assert_eq!(worker.headers()["service-worker-allowed"], "/");
-        assert_eq!(worker.headers()["cache-control"], "no-cache");
+        assert_eq!(worker.headers()["cache-control"], "no-store, max-age=0");
 
         let legacy_worker = app
             .clone()
@@ -104,7 +173,10 @@ mod tests {
             .unwrap();
         assert_eq!(legacy_worker.status(), StatusCode::OK);
         assert_eq!(legacy_worker.headers()["service-worker-allowed"], "/");
-        assert_eq!(legacy_worker.headers()["cache-control"], "no-cache");
+        assert_eq!(
+            legacy_worker.headers()["cache-control"],
+            "no-store, max-age=0"
+        );
 
         let runtime = app
             .oneshot(
@@ -117,7 +189,7 @@ mod tests {
             .unwrap();
         assert_eq!(runtime.status(), StatusCode::OK);
         assert!(!runtime.headers().contains_key("service-worker-allowed"));
-        assert_eq!(runtime.headers()["cache-control"], "no-cache");
+        assert_eq!(runtime.headers()["cache-control"], "no-store, max-age=0");
 
         std::fs::remove_dir_all(directory).unwrap();
     }

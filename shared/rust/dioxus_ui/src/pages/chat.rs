@@ -13,6 +13,7 @@ use crate::chat::{Message, MessageBubble};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
+pub mod hydrated;
 use super::{PageContext, PageMeta};
 
 pub const CHAT_INBOX_DATA_PARAM: &str = "data_chat_inbox";
@@ -303,7 +304,7 @@ fn ChatInboxSurface(ctx: PageContext) -> Element {
         } },
         ChatInboxLoad::Malformed => rsx! { ChatProblem {
             title: "Chat data could not be verified".to_string(),
-            detail: "The support response did not match the expected contract. No conversation data is shown.".to_string()
+            detail: "We couldn’t load your conversations. Please try again.".to_string()
         } },
         ChatInboxLoad::Unavailable => rsx! { ChatProblem {
             title: "Support chat is temporarily unavailable".to_string(),
@@ -321,6 +322,19 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
         ChatDetailLoad::Ready(detail) => Some(*detail),
         ChatDetailLoad::Forbidden | ChatDetailLoad::Unavailable | ChatDetailLoad::Malformed => None,
     };
+    rsx! { ChatReady { inbox, active, show_new, history: false } }
+}
+#[component]
+fn ChatReady(
+    inbox: ChatInboxData,
+    active: Option<ChatDetailData>,
+    show_new: bool,
+    history: bool,
+) -> Element {
+    let show_new = show_new || inbox.conversations.is_empty();
+    let mut search = use_signal(String::new);
+    let mut status = use_signal(|| "all".to_string());
+    let mut topic = use_signal(|| "all".to_string());
     let active_id = active
         .as_ref()
         .map(|detail| detail.conversation.id.as_str());
@@ -331,14 +345,14 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
             .find(|topic| topic.id == detail.conversation.topic_id)
             .map(|topic| topic.label.clone())
     });
-    let flash = mutation_flash(&ctx.query);
+    let flash = None::<String>;
 
     rsx! {
         div {
-            class: "chat-page chat-page-full",
-            style: "position:fixed;top:3.5rem;left:0;right:0;bottom:0;overflow:hidden; height:calc(100dvh - 3.5rem); display:flex; flex-direction:column;",
+            class: "chat-page chat-page-full fe-support",
             "data-chat-state": if inbox.conversations.is_empty() { CHAT_EMPTY } else { CHAT_READY },
-            div { class: if show_new { "chat-inbox-row chat-new-active chat-full" } else { "chat-inbox-row chat-full" }, style: "flex:1; min-height:0; height:100%; border-radius:0; border:0;",
+            h1 { class: "sr-only", "Support" }
+            div { class: if show_new { "chat-inbox-row chat-new-active chat-full" } else { "chat-inbox-row chat-full" },
                 aside { class: "chat-inbox",
                     div { class: "chat-inbox-header",
                         div { class: "chat-inbox-brand",
@@ -347,8 +361,8 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
                                 span { class: "chat-inbox-online-dot", aria_hidden: "true" }
                             }
                             div { class: "chat-inbox-titles",
-                                h1 { class: "chat-inbox-title", "Support Center" }
-                                p { class: "chat-inbox-subtitle", "Usually replies in minutes" }
+                                h2 { class: "chat-inbox-title fe-type-title", "Support Center" }
+                                p { class: "chat-inbox-subtitle", "Your conversations with EPSX" }
                             }
                             if !inbox.conversations.is_empty() {
                                 span { class: "chat-inbox-count", "{inbox.conversations.len()}" }
@@ -363,18 +377,18 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
                             placeholder: "Search conversations...",
                             aria_label: "Search conversations",
                             autocomplete: "off",
-                            "data-chat-search": "true"
+                            "data-chat-search": "true", value: search(), oninput: move |event|search.set(event.value())
                         }
                     }
                     div { class: "chat-inbox-filters",
-                        select { class: "chat-inbox-filter", aria_label: "Filter by status", "data-chat-filter-status": "true",
+                        select { class: "chat-inbox-filter", aria_label: "Filter by status", "data-chat-filter-status": "true", value: status(), onchange: move |event|status.set(event.value()),
                             option { value: "all", "All Status" }
                             option { value: "open", "Open" }
                             option { value: "in_progress", "In Progress" }
                             option { value: "resolved", "Resolved" }
                             option { value: "closed", "Closed" }
                         }
-                        select { class: "chat-inbox-filter", aria_label: "Filter by topic", "data-chat-filter-topic": "true",
+                        select { class: "chat-inbox-filter", aria_label: "Filter by topic", "data-chat-filter-topic": "true", value: topic(), onchange: move |event|topic.set(event.value()),
                             option { value: "all", "All Topics" }
                             for topic in inbox.topics.iter() {
                                 option { value: "{topic.id}", "{topic.label}" }
@@ -391,19 +405,19 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
                                 p { class: "chat-inbox-empty-hint", "Start a new one below" }
                             }
                         } else {
-                            for conversation in inbox.conversations.iter().take(6) {
+                            for conversation in inbox.conversations.iter().filter(|conversation| (status()=="all" || status()==conversation.status) && (topic()=="all" || topic()==conversation.topic_id) && conversation.subject.to_lowercase().contains(&search().to_lowercase())).take(if history { 200 } else { 6 }) {
                                 ConversationCard {
                                     conversation: conversation.clone(),
                                     topic: inbox.topics.iter().find(|topic| topic.id == conversation.topic_id).cloned(),
                                     selected: active_id == Some(conversation.id.as_str())
                                 }
                             }
-                            if inbox.conversations.len() > 6 {
+                            if !history && inbox.conversations.len() > 6 {
                                 div { class: "chat-inbox-history-sep",
                                     span { "History" }
-                                    a { href: "/chat/history", class: "chat-inbox-history-link", "View all ({inbox.conversations.len()})" }
+                                    crate::fullstack::shell::ShellLink { href: "/chat/history", class: "chat-inbox-history-link", "View all ({inbox.conversations.len()})" }
                                 }
-                                for conversation in inbox.conversations.iter().skip(6).take(8) {
+                                for conversation in inbox.conversations.iter().filter(|conversation| (status()=="all" || status()==conversation.status) && (topic()=="all" || topic()==conversation.topic_id) && conversation.subject.to_lowercase().contains(&search().to_lowercase())).skip(6).take(8) {
                                     ConversationCard {
                                         conversation: conversation.clone(),
                                         topic: inbox.topics.iter().find(|topic| topic.id == conversation.topic_id).cloned(),
@@ -411,35 +425,22 @@ fn ChatInboxReady(ctx: PageContext, inbox: ChatInboxData) -> Element {
                                     }
                                 }
                             }
-                            // Demo history when real data is short — shows rich grouping
-                            if inbox.conversations.len() <= 6 {
-                                div { class: "chat-inbox-history-sep",
-                                    span { "Recent activity" }
-                                    span { class: "chat-inbox-history-badge", "Demo" }
-                                }
-                                for demo in demo_history(inbox.topics.first()).iter().take(4) {
-                                    ConversationCard {
-                                        conversation: demo.clone(),
-                                        topic: inbox.topics.first().cloned(),
-                                        selected: false
-                                    }
-                                }
-                            }
+
                         }
                     }
                     // Sticky history footer for quick access
                     if !inbox.conversations.is_empty() {
                         div { class: "chat-inbox-history-bar",
-                            a { href: "/chat/history", class: "chat-inbox-history-cta",
+                            crate::fullstack::shell::ShellLink { href: "/chat/history", class: "chat-inbox-history-cta",
                                 Icon { name: "history".to_string(), size: Some(14) }
                                 "Chat History"
                                 span { class: "chat-inbox-history-count", "{inbox.conversations.len()}" }
                             }
-                            span { class: "chat-inbox-history-hint", "Grouped by date · Responsive" }
+                            span { class: "chat-inbox-history-hint", "Your conversation history" }
                         }
                     }
                     div { class: "chat-inbox-newbar",
-                        a { class: "chat-inbox-new", href: "/chat?new=1",
+                        crate::fullstack::shell::ShellLink { class: "chat-inbox-new", href: "/chat?new=1",
                             Icon { name: "plus".to_string(), size: Some(14) }
                             "New Conversation"
                         }
@@ -481,8 +482,11 @@ fn ConversationCard(
     } else {
         "chat-inbox-card"
     };
+    let navigation =
+        try_use_context::<crate::fullstack::shell::AuthRevision>().map(|_| use_navigator());
+    let target = format!("/chat/{}", conversation.id);
     rsx! {
-        a {
+        a { onclick: move |event| { if let Some(navigation)=navigation {event.prevent_default();navigation.push(target.clone());} },
             class,
             href: format!("/chat/{}", conversation.id),
             "data-conversation-card": "true",
@@ -510,6 +514,9 @@ fn ConversationCard(
 
 #[component]
 fn NewConversationPanel(topics: Vec<ChatTopic>, flash: Option<String>) -> Element {
+    if try_use_context::<hydrated::ChatControls>().is_some() {
+        return rsx! { hydrated::NewConversation { topics } };
+    }
     rsx! {
         section { class: "chat-panel chat-panel-new", "data-chat-surface": "new-conversation", "data-chat-new-root": "true",
             a { class: "chat-panel-back chat-mobile-back", href: "/chat",
@@ -687,6 +694,16 @@ pub(crate) fn ConversationPanel(
     standalone: bool,
     flash: Option<String>,
 ) -> Element {
+    let controls = try_use_context::<hydrated::ChatControls>();
+    let conversation_id = detail.conversation.id.parse::<uuid::Uuid>().ok();
+    let mut draft = use_signal(String::new);
+    use_effect(move || {
+        if let Some(controls) = controls {
+            if (controls.sent)() > 0 {
+                draft.set(String::new());
+            }
+        }
+    });
     let root_class = if standalone {
         "chat-conv chat-conv-full"
     } else {
@@ -701,7 +718,7 @@ pub(crate) fn ConversationPanel(
                 div { class: "chat-header-accent" }
                 div { class: "chat-header-row",
                     if standalone {
-                        a { class: "chat-conv-back", href: "/chat", aria_label: "Back to inbox",
+                        crate::fullstack::shell::ShellLink { class: "chat-conv-back", href: "/chat", label: "Back to inbox",
                             Icon { name: "arrow-left".to_string(), size: Some(18) }
                         }
                     }
@@ -709,14 +726,18 @@ pub(crate) fn ConversationPanel(
                         Icon { name: "headset".to_string(), size: Some(18) }
                     }
                     div { class: "chat-header-titles",
-                        h1 { class: "chat-header-subject", "{detail.conversation.subject}" }
+                        if standalone {
+                            h1 { class: "chat-header-subject", "{detail.conversation.subject}" }
+                        } else {
+                            h2 { class: "chat-header-subject", "{detail.conversation.subject}" }
+                        }
                         div { class: "chat-conv-header-meta",
                             span { class: "chat-conv-header-topic", "{topic_label}" }
                             StatusBadge { status: detail.conversation.status.clone() }
                         }
                     }
                     if can_resolve {
-                        form { method: "post", action: action.clone(),
+                        form { method: "post", action: action.clone(), onsubmit: move |event| { if let (Some(controls),Some(id))=(controls,conversation_id) {event.prevent_default();controls.mutate.call(hydrated::ChatCommand::Resolve{id});} },
                             input { r#type: "hidden", name: "operation", value: "resolve" }
                             button { class: "chat-header-resolve", r#type: "submit",
                                 Icon { name: "check-circle".to_string(), size: Some(13) }
@@ -745,11 +766,11 @@ pub(crate) fn ConversationPanel(
             }
             div { class: "chat-input",
                 if can_send {
-                    form { method: "post", action,
+                    form { method: "post", action, onsubmit: move |event| { if let (Some(controls),Some(id))=(controls,conversation_id) { event.prevent_default();let values=event.values();let content=values.iter().find(|(name,_)|name=="content").and_then(|(_,value)|match value{dioxus::html::FormValue::Text(value)=>Some(value.clone()),_=>None}).unwrap_or_default();controls.mutate.call(hydrated::ChatCommand::Send{id,content}); } },
                         input { r#type: "hidden", name: "operation", value: "send" }
                         div { class: "chat-input-row",
                             textarea {
-                                class: "chat-input-textarea",
+                                class: "chat-input-textarea", value: draft(), oninput: move |event|draft.set(event.value()), disabled: controls.map(|value|(value.pending)()).unwrap_or(false),
                                 name: "content",
                                 rows: "1",
                                 maxlength: "16384",
@@ -757,7 +778,7 @@ pub(crate) fn ConversationPanel(
                                 placeholder: "Type a message...",
                                 aria_label: "Message",
                             }
-                            button { class: "chat-input-send", r#type: "submit", aria_label: "Send message",
+                            button { class: "chat-input-send", r#type: "submit", disabled: controls.map(|value|(value.pending)()).unwrap_or(false), aria_label: "Send message",
                                 Icon { name: "send".to_string(), size: Some(16) }
                             }
                         }
@@ -797,7 +818,7 @@ pub(crate) fn StatusBadge(status: String) -> Element {
 fn ChatFlash(message: String) -> Element {
     rsx! {
         div {
-            class: "mx-4 mt-3 rounded-xl border border-[#1fc7d4]/25 bg-[#1fc7d4]/8 px-4 py-2 text-xs text-foreground",
+            class: "mx-4 mt-3 rounded-xl border border-[#1fc7d4]/25 bg-[#1fc7d4]/8 px-4 py-2 text-xs text-foreground fe-tone-text",
             role: "status",
             "data-chat-mutation-state": "complete",
             "{message}"
@@ -808,12 +829,12 @@ fn ChatFlash(message: String) -> Element {
 #[component]
 fn ChatProblem(title: String, detail: String) -> Element {
     rsx! {
-        div { class: "container page-content chat-page",
+        div { class: "container page-content chat-page fe-page-layout",
             section { class: "chat-panel chat-panel-empty", role: "alert", "data-chat-state": CHAT_UNAVAILABLE,
                 div { class: "chat-panel-empty-icon",
                     Icon { name: "message-circle".to_string(), size: Some(32) }
                 }
-                h1 { class: "chat-panel-empty-title", "{title}" }
+                h1 { class: "chat-panel-empty-title fe-type-title", "{title}" }
                 p { class: "chat-panel-empty-hint", "{detail}" }
                 a { class: "btn btn-outline mt-4", href: "/chat", "Try again" }
             }
@@ -909,169 +930,24 @@ fn topic_card_colors(name: &str) -> (&'static str, &'static str) {
     }
 }
 
-fn demo_history(topic: Option<&ChatTopic>) -> Vec<ChatConversation> {
-    let tid = topic
-        .map(|t| t.id.clone())
-        .unwrap_or_else(|| "11111111-1111-1111-1111-111111111111".to_string());
-    let now = chrono::Utc::now();
-    let mk = |id: &str, subject: &str, status: &str, days_ago: i64, unread: i32| ChatConversation {
-        id: id.to_string(),
-        topic_id: tid.clone(),
-        subject: subject.to_string(),
-        status: status.to_string(),
-        assigned_agent: Some("EPSX Support".to_string()),
-        last_message_at: (now - chrono::Duration::days(days_ago)).to_rfc3339(),
-        unread_user: unread,
-        created_at: (now - chrono::Duration::days(days_ago + 1)).to_rfc3339(),
-        updated_at: (now - chrono::Duration::days(days_ago)).to_rfc3339(),
-    };
-    vec![
-        mk(
-            "a0000000-0000-4000-a000-000000000001",
-            "Resolved: Wallet connection help",
-            "resolved",
-            1,
-            0,
-        ),
-        mk(
-            "a0000000-0000-4000-a000-000000000002",
-            "In progress: Billing inquiry - refund",
-            "in_progress",
-            2,
-            1,
-        ),
-        mk(
-            "a0000000-0000-4000-a000-000000000003",
-            "Closed: Feature request - dark mode",
-            "closed",
-            5,
-            0,
-        ),
-        mk(
-            "a0000000-0000-4000-a000-000000000004",
-            "Open: Analytics data mismatch",
-            "open",
-            8,
-            2,
-        ),
-    ]
-}
-
-/// Signed-out `/chat` — premium hero with glassmorphism & gradient orbs.
+/// Support entry point for a visitor without a verified session.
 #[component]
 fn RenderPublicChat() -> Element {
     rsx! {
-        div { class: "relative chat-public-page",
-            style: "max-width: 42rem; width: 100%; margin-left: auto; margin-right: auto; padding: 2.5rem 1rem 3rem; box-sizing: border-box; position: relative;",
-            // ambient glow orbs behind hero
-            div { style: "position:absolute; inset:0; pointer-events:none; overflow:hidden; border-radius: 2rem; opacity: 0.5;",
-                div { style: "position:absolute; width: 520px; height: 320px; left:-80px; top:-80px; background: radial-gradient(ellipse at center, rgba(124,58,237,0.18) 0%, transparent 70%); filter: blur(18px);" }
-                div { style: "position:absolute; width: 400px; height: 400px; right:-60px; bottom: 10%; background: radial-gradient(ellipse at center, rgba(6,182,214,0.14) 0%, transparent 70%); filter: blur(22px);" }
+        div { class: "fe-page fe-support-public",
+            crate::enterprise::PageHeader {
+                title: "Support".to_string(),
+                description: "Get help with your EPSX account and company data.".to_string()
             }
-            // hero header
-            div { class: "relative mb-8 flex items-center gap-4",
-                div { class: "relative flex h-[52px] w-[52px] items-center justify-center rounded-2xl bg-gradient-to-br from-[#7c3aed] via-[#7645d9] to-[#06b6d4] shadow-xl shadow-violet-500/20",
-                    style: "box-shadow: 0 10px 30px rgba(124,58,237,0.35), 0 2px 10px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.14);",
-                    Icon { name: "headset".to_string(), size: Some(26), class_name: Some("text-white".to_string()) }
-                    span { style: "position:absolute; bottom:-4px; right:-4px; width:14px; height:14px; border-radius:9999px; background:#22c55e; border: 2.5px solid #0f172a; box-shadow: 0 0 0 3px rgba(34,197,94,0.18);", aria_hidden: "true" }
-                }
-                div { class: "flex-1 min-w-0",
-                    div { class: "flex items-center gap-2",
-                        h1 { class: "text-[1.35rem] font-extrabold tracking-tight leading-none", style: "letter-spacing:-0.025em;", "Support Center" }
-                        span { class: "inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold tracking-widest text-emerald-400 ring-1 ring-emerald-500/20",
-                            span { style: "width:5px; height:5px; border-radius:50%; background:#22c55e; box-shadow: 0 0 6px rgba(34,197,94,0.6); display:inline-block;" }
-                            "LIVE"
-                        }
-                    }
-                    p { class: "mt-1 text-[13px] font-medium text-muted-foreground", "Get help from our team · Usually replies in minutes" }
+            div { class: "fe-data-surface",
+                crate::enterprise::DataState {
+                    title: "Your conversations, in one place".to_string(),
+                    message: "Sign in with your wallet to start a conversation or return to your support history.".to_string(),
+                    href: "/auth?return_url=%2Fchat".to_string(), action: "Sign in to chat".to_string()
                 }
             }
-            // premium CTA card
-            div { class: "relative mb-6 overflow-hidden rounded-[1.25rem] border backdrop-blur-xl",
-                style: "background: linear-gradient(135deg, rgba(124,58,237,0.10) 0%, rgba(124,58,237,0.04) 45%, rgba(236,72,153,0.08) 100%); border-color: rgba(124,58,237,0.18); box-shadow: 0 12px 40px rgba(124,58,237,0.12), 0 2px 10px rgba(0,0,0,0.08), inset 0 1px 0 rgba(255,255,255,0.08);",
-                // subtle top highlight + inner glow
-                div { style: "position:absolute; inset:0; background: linear-gradient(180deg, rgba(255,255,255,0.07) 0%, transparent 55%); pointer-events:none;" }
-                div { style: "position:absolute; inset:0; background: radial-gradient(500px 200px at 30% 0%, rgba(124,58,237,0.12), transparent 60%); pointer-events:none;" }
-                div { class: "relative flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:justify-between",
-                    div { class: "flex items-start gap-4 flex-1 min-w-0",
-                        div { class: "flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-500 shadow-lg",
-                            style: "box-shadow: 0 8px 20px rgba(124,58,237,0.30), inset 0 1px 0 rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.14);",
-                            Icon { name: "lock".to_string(), size: Some(22), class_name: Some("text-white".to_string()) }
-                        }
-                        div { class: "min-w-0",
-                            p { class: "text-[15px] font-bold text-white leading-tight", "Sign in to access Support Chat" }
-                            p { class: "mt-1 text-[13px] leading-relaxed text-violet-200/75", "Connect your wallet to start a conversation with our team — secure, private, and owner-scoped." }
-                            div { class: "mt-3 flex flex-wrap gap-2",
-                                span { class: "inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-violet-200/80 ring-1 ring-white/10 backdrop-blur",
-                                    Icon { name: "chart-column".to_string(), size: Some(12) }
-                                    "Top 100 rankings"
-                                }
-                                span { class: "inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-violet-200/80 ring-1 ring-white/10",
-                                    Icon { name: "trending-up".to_string(), size: Some(12) }
-                                    "Real-time EPS"
-                                }
-                                span { class: "inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-semibold text-violet-200/80 ring-1 ring-white/10",
-                                    Icon { name: "zap".to_string(), size: Some(12) }
-                                    "AI insights"
-                                }
-                            }
-                        }
-                    }
-                    a { class: "group inline-flex shrink-0 items-center gap-2.5 rounded-xl bg-gradient-to-r from-violet-600 via-violet-600 to-fuchsia-500 px-6 py-3.5 text-[13px] font-bold text-white shadow-lg shadow-violet-500/25 ring-1 ring-white/15 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-violet-500/30 hover:brightness-[1.05] focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-400",
-                        style: "box-shadow: 0 8px 24px rgba(124,58,237,0.30), 0 2px 8px rgba(0,0,0,0.10), inset 0 1px 0 rgba(255,255,255,0.14);",
-                        href: "/auth?return_url=%2Fchat",
-                        Icon { name: "log-in".to_string(), size: Some(16) }
-                        "Sign In to Chat"
-                        Icon { name: "arrow-right".to_string(), size: Some(14), class_name: Some("opacity-60 group-hover:translate-x-0.5 transition-transform".to_string()) }
-                    }
-                }
-            }
-            // feature grid
-            div { class: "grid grid-cols-1 gap-3 sm:grid-cols-3 mb-6",
-                div { class: "group relative overflow-hidden rounded-2xl border bg-white/[0.03] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.05] hover:border-violet-500/20 hover:-translate-y-0.5",
-                    style: "border-color: rgba(255,255,255,0.07); box-shadow: 0 4px 16px rgba(0,0,0,0.06);",
-                    div { class: "flex h-9 w-9 items-center justify-center rounded-xl bg-blue-500/10 ring-1 ring-blue-500/15 mb-3",
-                        Icon { name: "message-circle".to_string(), size: Some(18), class_name: Some("text-blue-400".to_string()) }
-                    }
-                    p { class: "text-sm font-bold leading-tight", "Private & Secure" }
-                    p { class: "mt-1 text-xs leading-relaxed text-muted-foreground", "Owner-scoped conversations tied to your wallet." }
-                }
-                div { class: "group relative overflow-hidden rounded-2xl border bg-white/[0.03] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.05] hover:border-violet-500/20 hover:-translate-y-0.5",
-                    style: "border-color: rgba(255,255,255,0.07);",
-                    div { class: "flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/15 mb-3",
-                        Icon { name: "zap".to_string(), size: Some(18), class_name: Some("text-emerald-400".to_string()) }
-                    }
-                    p { class: "text-sm font-bold leading-tight", "Fast Responses" }
-                    p { class: "mt-1 text-xs leading-relaxed text-muted-foreground", "Usually replies within minutes during hours." }
-                }
-                div { class: "group relative overflow-hidden rounded-2xl border bg-white/[0.03] p-4 backdrop-blur-sm transition-all duration-200 hover:bg-white/[0.05] hover:border-violet-500/20 hover:-translate-y-0.5",
-                    style: "border-color: rgba(255,255,255,0.07);",
-                    div { class: "flex h-9 w-9 items-center justify-center rounded-xl bg-fuchsia-500/10 ring-1 ring-fuchsia-500/15 mb-3",
-                        Icon { name: "help-circle".to_string(), size: Some(18), class_name: Some("text-fuchsia-400".to_string()) }
-                    }
-                    p { class: "text-sm font-bold leading-tight", "Expert Support" }
-                    p { class: "mt-1 text-xs leading-relaxed text-muted-foreground", "Direct access to EPSX engineers & ops." }
-                }
-            }
-            // trust footer
-            div { class: "flex flex-col items-center justify-between gap-3 rounded-2xl border bg-white/[0.02] px-4 py-3 sm:flex-row",
-                style: "border-color: rgba(255,255,255,0.06);",
-                div { class: "flex items-center gap-3",
-                    div { class: "flex -space-x-2",
-                        div { class: "h-7 w-7 rounded-full bg-gradient-to-br from-violet-500 to-indigo-500 ring-2 ring-background flex items-center justify-center text-[10px] font-bold text-white", "A" }
-                        div { class: "h-7 w-7 rounded-full bg-gradient-to-br from-cyan-500 to-blue-500 ring-2 ring-background flex items-center justify-center text-[10px] font-bold text-white", "M" }
-                        div { class: "h-7 w-7 rounded-full bg-gradient-to-br from-fuchsia-500 to-pink-500 ring-2 ring-background flex items-center justify-center text-[10px] font-bold text-white", "S" }
-                    }
-                    div { class: "text-xs",
-                        p { class: "font-semibold leading-none", "Trusted by 10k+ traders" }
-                        p { class: "text-muted-foreground leading-none mt-0.5", "Avg. rating 4.9/5 · 2m avg reply" }
-                    }
-                }
-                div { class: "flex items-center gap-2 text-xs text-muted-foreground",
-                    Icon { name: "check-circle".to_string(), size: Some(14), class_name: Some("text-emerald-500".to_string()) }
-                    "End-to-end encrypted"
-                }
-            }
+            p { class: "fe-support-alternative", "Need another way to reach us? "
+                a { href: "/contact", "Contact EPSX" } }
         }
     }
 }
@@ -1116,7 +992,10 @@ mod tests {
             ..Default::default()
         });
         let html = dioxus_ssr::render_element(element);
-        assert!(html.contains("Sign in to access Support Chat"));
+        assert!(html.contains("Your conversations, in one place"));
+        assert!(!html.contains("10k+"));
+        assert!(!html.contains("LIVE"));
+        assert!(!html.contains("AI insights"));
         assert!(html.contains("href=\"/auth?return_url=%2Fchat\""));
         assert!(!html.contains("data_chat_inbox"));
     }

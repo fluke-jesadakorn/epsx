@@ -97,10 +97,10 @@ fn RenderProfile(ctx: PageContext) -> Element {
                 feature: Some("your profile".to_string()),
                 return_url: Some(ctx.path.clone()),
                 wallet_connected: ctx.wallet.address.is_some(),
-                div { class: "container page-content max-w-6xl",
+                div { class: "container page-content max-w-6xl fe-page-layout",
                     PageHeader {
-                        title: "Profile & Settings".to_string(),
-                        description: Some("Review your authenticated wallet and backend-issued permissions.".to_string()),
+                        title: "Profile".to_string(),
+                        description: Some("Review your profile and account access.".to_string()),
                         icon: Some("user".to_string())
                     }
                     if let Some(user) = ctx.user.clone() {
@@ -131,6 +131,7 @@ fn ProfileBody(user: User, selected_tab: ProfileTab) -> Element {
 
 #[component]
 fn ProfileTabNav(selected_tab: ProfileTab) -> Element {
+    let navigation = try_use_context::<ProfileNavigation>();
     rsx! {
         nav {
             class: "tabs profile-tab-nav mb-4",
@@ -141,9 +142,17 @@ fn ProfileTabNav(selected_tab: ProfileTab) -> Element {
                     let key = tab.key();
                     let class = if active { "btn btn-primary" } else { "btn btn-outline" };
                     rsx! {
-                        a {
+                        crate::fullstack::shell::ShellLink {
                             class,
                             href: "/profile?tab={key}",
+                            onclick: move |event: MouseEvent| {
+                                if event.modifiers().is_empty() {
+                                    if let Some(navigation) = navigation {
+                                        event.prevent_default();
+                                        navigation.0.call(format!("/profile?tab={key}"));
+                                    }
+                                }
+                            },
                             id: "profile-tab-{key}",
                             "aria-current": if active { "page" } else { "false" },
                             Icon { name: tab.icon().to_string(), size: Some(16) }
@@ -162,9 +171,9 @@ fn WalletProfile(user: User) -> Element {
     let auth_method = auth_method_label(&user.auth_method);
 
     rsx! {
-        aside { class: "card card-glass wallet-profile-sidebar",
+        aside { class: "card card-glass wallet-profile-sidebar fe-surface",
             div { class: "card-body text-center",
-                div { class: "mx-auto mb-4 h-20 w-20 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center",
+                div { class: "mx-auto mb-4 h-20 w-20 rounded-full bg-gradient-to-br from-orange-400 to-pink-500 flex items-center justify-center fe-fill-neutral",
                     Icon { name: "wallet".to_string(), size: Some(40) }
                 }
                 h3 { class: "text-lg font-bold", "Authenticated wallet" }
@@ -173,15 +182,15 @@ fn WalletProfile(user: User) -> Element {
                 }
                 dl { class: "mt-4 pt-4 border-t border-border text-left space-y-3 text-sm",
                     div {
-                        dt { class: "text-muted-foreground", "Address" }
+                        dt { class: "text-muted-foreground fe-tone-muted", "Address" }
                         dd { class: "font-mono text-xs break-all", "{user.address}" }
                     }
                     div { class: "flex justify-between gap-4",
-                        dt { class: "text-muted-foreground", "Authentication method" }
+                        dt { class: "text-muted-foreground fe-tone-muted", "Authentication method" }
                         dd { class: "font-medium", "{auth_method}" }
                     }
                     div { class: "flex justify-between gap-4",
-                        dt { class: "text-muted-foreground", "Backend permissions" }
+                        dt { class: "text-muted-foreground fe-tone-muted", "Session permissions" }
                         dd { class: "font-medium", "{permission_count}" }
                     }
                 }
@@ -215,14 +224,14 @@ fn Web3SessionPanel(user: User) -> Element {
 
     rsx! {
         div { class: "space-y-6 web3-integration-panel",
-            div { class: "card card-glass",
+            div { class: "card card-glass fe-surface",
                 div { class: "card-header",
                     h3 { class: "card-title flex items-center gap-2",
                         Icon { name: "wallet".to_string(), size: Some(20) }
                         "Authenticated Wallet Session"
                     }
-                    p { class: "text-sm text-muted-foreground",
-                        "These values come from the locally verified access token."
+                    p { class: "text-sm text-muted-foreground fe-tone-muted",
+                        "Details associated with your current sign-in session."
                     }
                 }
                 div { class: "card-body space-y-5",
@@ -234,13 +243,14 @@ fn Web3SessionPanel(user: User) -> Element {
             UnavailableNotice {
                 icon: "info".to_string(),
                 title: "Wallet connection details unavailable".to_string(),
-                body: "Connector, provider, network, and chain details are not included in the verified session claims shown here.".to_string()
+                body: "Wallet provider and network details are unavailable for this session.".to_string()
             }
             UnavailableNotice {
                 icon: "key".to_string(),
-                title: "API key management unavailable".to_string(),
-                body: "API key creation and management are not available in this read-only migration.".to_string()
+                title: "Developer tools".to_string(),
+                body: "Manage API keys, usage, and documentation in Developer.".to_string()
             }
+            crate::fullstack::shell::ShellLink { class: "fe-button", href: "/developer", "Open Developer" }
         }
     }
 }
@@ -251,7 +261,7 @@ fn AccountPanel(user: User) -> Element {
 
     rsx! {
         div { class: "space-y-6",
-            div { class: "card card-glass",
+            div { class: "card card-glass fe-surface",
                 div { class: "card-header",
                     h3 { class: "card-title flex items-center gap-2",
                         Icon { name: "settings".to_string(), size: Some(20) }
@@ -286,7 +296,7 @@ fn EmailPanel() -> Element {
             UnavailableNotice {
                 icon: "settings".to_string(),
                 title: "Email preferences unavailable".to_string(),
-                body: "Notification and marketing preferences cannot be viewed or changed in this migration yet.".to_string()
+                body: "Review the notification preferences available for your account in Account Settings.".to_string()
             }
         }
     }
@@ -298,7 +308,7 @@ fn DataPanel(user: User) -> Element {
 
     rsx! {
         div { class: "space-y-6",
-            div { class: "card card-glass",
+            div { class: "card card-glass fe-surface",
                 div { class: "card-header",
                     h3 { class: "card-title flex items-center gap-2",
                         Icon { name: "database".to_string(), size: Some(20) }
@@ -307,7 +317,7 @@ fn DataPanel(user: User) -> Element {
                 }
                 div { class: "card-body grid grid-cols-1 md:grid-cols-2 gap-4",
                     ClaimRow { label: "Wallet address".to_string(), value: user.address.clone(), monospace: true }
-                    ClaimRow { label: "Backend permission count".to_string(), value: permission_count.to_string(), monospace: false }
+                    ClaimRow { label: "Session permission count".to_string(), value: permission_count.to_string(), monospace: false }
                 }
             }
             UnavailableNotice {
@@ -318,7 +328,7 @@ fn DataPanel(user: User) -> Element {
             UnavailableNotice {
                 icon: "alert-triangle".to_string(),
                 title: "Account deletion unavailable".to_string(),
-                body: "Account deletion is not exposed without a backend-owned confirmation and deletion workflow.".to_string()
+                body: "Account deletion is not currently available here. Contact support for help.".to_string()
             }
         }
     }
@@ -334,7 +344,7 @@ fn ClaimRow(label: String, value: String, monospace: bool) -> Element {
 
     rsx! {
         div { class: "profile-claim rounded-lg bg-muted p-3",
-            div { class: "text-sm font-medium text-muted-foreground", "{label}" }
+            div { class: "text-sm font-medium text-muted-foreground fe-tone-muted", "{label}" }
             div { class: value_class, "{value}" }
         }
     }
@@ -346,10 +356,10 @@ fn PermissionList(permissions: Vec<String>) -> Element {
 
     rsx! {
         div { class: "profile-permissions",
-            h4 { class: "text-sm font-medium", "Backend-issued permissions ({permission_count})" }
+            h4 { class: "text-sm font-medium", "Session permissions ({permission_count})" }
             if permissions.is_empty() {
-                p { class: "mt-2 text-sm text-muted-foreground",
-                    "No backend permissions were issued for this session."
+                p { class: "mt-2 text-sm text-muted-foreground fe-tone-muted",
+                    "No access details are available for this session."
                 }
             } else {
                 ul { class: "mt-2 flex flex-wrap gap-2",
@@ -366,14 +376,14 @@ fn PermissionList(permissions: Vec<String>) -> Element {
 fn UnavailableNotice(icon: String, title: String, body: String) -> Element {
     rsx! {
         div {
-            class: "card card-glass profile-unavailable-notice",
+            class: "card card-glass profile-unavailable-notice fe-surface",
             role: "note",
             div { class: "card-body",
                 h3 { class: "text-base font-bold flex items-center gap-2",
                     Icon { name: icon, size: Some(18) }
                     "{title}"
                 }
-                p { class: "mt-2 text-sm text-muted-foreground", "{body}" }
+                p { class: "mt-2 text-sm text-muted-foreground fe-tone-muted", "{body}" }
             }
         }
     }
@@ -389,6 +399,16 @@ fn auth_method_label(method: &AuthMethod) -> &'static str {
         AuthMethod::Unknown => "Unknown",
     }
 }
+
+#[cfg(feature = "server")]
+pub type ProfileProviderCallback = std::sync::Arc<
+    dyn Fn(
+            http::HeaderMap,
+        ) -> std::pin::Pin<
+            Box<dyn std::future::Future<Output = Result<User, crate::fullstack::LoadError>> + Send>,
+        > + Send
+        + Sync,
+>;
 
 #[cfg(test)]
 mod tests {
@@ -478,7 +498,7 @@ mod tests {
         user.permissions = vec!["rankings:read".to_string()];
         let html = render_page("tab=account", Some(user));
 
-        assert!(html.contains("Profile &#38; Settings"));
+        assert!(html.contains(">Profile</h1>"));
         assert!(html.contains("session-subject-42"));
         assert!(html.contains("rankings:read"));
         assert!(!html.contains("Permission required"));
@@ -526,7 +546,7 @@ mod tests {
             .collect::<String>();
 
         for unavailable in [
-            "API key management unavailable",
+            "Developer tools",
             "Email management unavailable",
             "Email preferences unavailable",
             "Data export unavailable",
@@ -555,6 +575,52 @@ mod tests {
                 !html.contains(fixture_or_control),
                 "rendered fixture or unsupported control: {fixture_or_control}"
             );
+        }
+    }
+}
+
+#[cfg(feature = "server")]
+#[derive(Clone)]
+pub struct ProfileProvider(pub ProfileProviderCallback);
+#[server(prefix = "/_server/frontend", endpoint = "profile")]
+pub async fn read_profile() -> Result<Result<User, crate::fullstack::LoadError>, ServerFnError> {
+    use dioxus_server::axum::Extension;
+    let Extension(provider) =
+        dioxus_fullstack::FullstackContext::extract::<Extension<ProfileProvider>, _>()
+            .await
+            .map_err(|_| ServerFnError::new("Profile provider unavailable"))?;
+    let headers = dioxus_fullstack::FullstackContext::extract::<http::HeaderMap, _>()
+        .await
+        .map_err(|_| ServerFnError::new("Request context unavailable"))?;
+    Ok((provider.0)(headers).await)
+}
+#[derive(Clone, Copy)]
+struct ProfileNavigation(EventHandler<String>);
+#[component]
+pub fn HydratedProfile(query: ReadSignal<String>) -> Element {
+    let mut result = use_server_future(move || async move { read_profile().await })?;
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    use_context_provider(|| ProfileNavigation(navigate));
+    let snapshot = result.read().clone();
+    rsx! {
+        document::Title { "Profile — EPSX" }
+        document::Meta { name: "description", content: "Review your profile and account access." }
+        div { class: "container page-content max-w-6xl fe-page-layout", "data-dioxus-profile": "true",
+            PageHeader { title: "Profile".to_string(), description: Some("Review your profile and account access.".to_string()), icon: Some("user".to_string()) }
+            match snapshot {
+                Some(Ok(Ok(user))) => rsx! { ProfileBody { user, selected_tab: selected_profile_tab(&query()) } },
+                Some(Ok(Err(crate::fullstack::LoadError::Unauthenticated))) => rsx! {
+                    p { role: "status", "Please sign in to review your profile." }
+                    crate::fullstack::shell::ShellLink { href: "/auth?return_url=%2Fprofile", class: "fe-button", "Sign in" }
+                },
+                None => rsx! { p { role: "status", "Loading profile…" } },
+                _ => rsx! { p { role: "status", "Profile is temporarily unavailable." }
+                    button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+                },
+            }
         }
     }
 }

@@ -289,10 +289,45 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 }
 
 #[component]
+pub fn HydratedDeveloperBody(
+    data: crate::fullstack::admin_developer::DeveloperData,
+    tab: String,
+    create: bool,
+    result: Option<crate::fullstack::admin_developer::DeveloperReply>,
+) -> Element {
+    use crate::fullstack::admin_developer::DeveloperOutcome;
+    if create {
+        return rsx! {PageLayout{max_width:Some(PageMaxWidth::FourXl),
+         if let Some(projection)=result.as_ref().and_then(|r|r.created.clone()){DeveloperCreateSecretOnce{projection}}
+         else {if let Some(reply)=result {if reply.outcome!=DeveloperOutcome::Success{DeveloperMutationNotice{state:reply.outcome.state()}}}DeveloperCreateForm{}}
+        }};
+    }
+    let tab = match tab.as_str() {
+        "keys" => DeveloperTab::Keys,
+        "docs" => DeveloperTab::Docs,
+        "usage" => DeveloperTab::Usage,
+        _ => DeveloperTab::Overview,
+    };
+    let load = if data.projection.api_keys.is_empty() {
+        DeveloperPortalLoad::Empty(data.projection)
+    } else {
+        DeveloperPortalLoad::Ready(data.projection)
+    };
+    rsx! {DeveloperPortalBody{load,tab,mutation:result.map(|r|r.outcome.state())}}
+}
+#[component]
 fn RenderDeveloperPortal(ctx: PageContext) -> Element {
     let load = developer_portal_load(&ctx);
     let mutation = developer_mutation_state(&ctx);
     let tab = DeveloperTab::from_context(&ctx);
+    rsx! {DeveloperPortalBody{load,mutation,tab}}
+}
+#[component]
+fn DeveloperPortalBody(
+    load: DeveloperPortalLoad,
+    mutation: Option<&'static str>,
+    tab: DeveloperTab,
+) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
@@ -390,7 +425,7 @@ fn DeveloperOverview(projection: AdminDeveloperPortalProjection) -> Element {
                         h2 { id: "developer-recent-keys-title", class: "text-lg font-medium text-foreground", "Recent API Keys" }
                         p { class: "mt-1 text-sm text-muted-foreground", "Redacted backend-authoritative inventory" }
                     }
-                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_CREATE_PATH,
+                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_CREATE_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_CREATE_PATH.into()),
                         Icon { name: "plus".to_string(), size: Some(14) }
                         " Create API Key"
                     }
@@ -404,7 +439,7 @@ fn DeveloperOverview(projection: AdminDeveloperPortalProjection) -> Element {
                         }
                     }
                 }
-                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#1fc7d4]", href: "/developer-portal?tab=keys", "View all API keys" }
+                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#1fc7d4]", href: "/developer-portal?tab=keys", onclick:move|event|crate::fullstack::admin_developer::follow(event,"/developer-portal?tab=keys".into()), "View all API keys" }
             }
             section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_labelledby: "developer-module-usage-title",
                 div { class: "h-[3px] bg-gradient-to-r from-[#7645d9] to-[#ed4b9e]" }
@@ -421,7 +456,7 @@ fn DeveloperOverview(projection: AdminDeveloperPortalProjection) -> Element {
                         }
                     }
                 }
-                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#7645d9]", href: "/developer-portal?tab=usage", "View usage analytics" }
+                a { class: "block border-t border-border/20 p-4 text-center text-sm font-medium text-[#7645d9]", href: "/developer-portal?tab=usage", onclick:move|event|crate::fullstack::admin_developer::follow(event,"/developer-portal?tab=usage".into()), "View usage analytics" }
             }
         }
     }
@@ -457,7 +492,7 @@ fn DeveloperKeys(projection: AdminDeveloperPortalProjection) -> Element {
                     h2 { class: "text-2xl font-black tracking-tight text-foreground", "API Keys" }
                     p { class: "mt-1 text-sm text-muted-foreground", "Manage credentials and lifecycle controls" }
                 }
-                a { class: "btn btn-primary", href: DEVELOPER_CREATE_PATH,
+                a { class: "btn btn-primary", href: DEVELOPER_CREATE_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_CREATE_PATH.into()),
                     Icon { name: "plus".to_string(), size: Some(16) }
                     " Create API Key"
                 }
@@ -467,7 +502,7 @@ fn DeveloperKeys(projection: AdminDeveloperPortalProjection) -> Element {
                 select { class: "input min-w-40", disabled: true, title: "Server-side status filtering is not exposed by the current endpoint",
                     option { "All Statuses ({projection.total_api_keys})" }
                 }
-                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, "Refresh" }
+                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_PORTAL_PATH.into()), "Refresh" }
             }
             section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl", aria_labelledby: "developer-api-key-inventory-title",
                 div { class: "h-[3px] bg-gradient-to-r from-[#1fc7d4] via-[#7645d9] to-[#ed4b9e]" }
@@ -625,19 +660,19 @@ fn DeveloperApiKeyRow(api_key: AdminDeveloperApiKeySummary) -> Element {
             }
             if api_key.status == "active" {
                 div { class: "flex flex-wrap gap-3 md:col-span-12",
-                    form { method: "post", action: DEVELOPER_PORTAL_PATH, class: "flex flex-wrap items-end gap-2",
+                    form { method: "post", action: DEVELOPER_PORTAL_PATH, onsubmit:crate::fullstack::admin_developer::submit, class: "flex flex-wrap items-end gap-2",
                         input { r#type: "hidden", name: "operation", value: "revoke" }
                         input { r#type: "hidden", name: "api_key_id", value: api_key.id.clone() }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.revoke.{}", Uuid::new_v4()) }
+                        if try_consume_context::<crate::fullstack::admin_developer::DeveloperEvents>().is_some(){crate::fullstack::admin_settings::SettingsIdentity{prefix:"admin.developer.revoke"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.revoke.{}", Uuid::new_v4()) }}
                         label { class: "text-xs text-muted-foreground", "Revocation reason",
                             input { class: "input input-bordered input-sm ml-2", name: "reason", maxlength: 500, required: true }
                         }
                         button { r#type: "submit", class: "btn btn-sm btn-outline", "Revoke key" }
                     }
-                    form { method: "post", action: DEVELOPER_PORTAL_PATH, class: "flex flex-wrap items-end gap-2",
+                    form { method: "post", action: DEVELOPER_PORTAL_PATH, onsubmit:crate::fullstack::admin_developer::submit, class: "flex flex-wrap items-end gap-2",
                         input { r#type: "hidden", name: "operation", value: "expiration" }
                         input { r#type: "hidden", name: "api_key_id", value: api_key.id }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.expiration.{}", Uuid::new_v4()) }
+                        if try_consume_context::<crate::fullstack::admin_developer::DeveloperEvents>().is_some(){crate::fullstack::admin_settings::SettingsIdentity{prefix:"admin.developer.expiration"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.developer.expiration.{}", Uuid::new_v4()) }}
                         label { class: "text-xs text-muted-foreground", "Expiration (RFC3339, blank clears)",
                             input { class: "input input-bordered input-sm ml-2", name: "expires_at", maxlength: 64, value: expires_at }
                         }
@@ -725,7 +760,7 @@ fn DeveloperPortalProblem(
                     }
                 }
                 div { class: "flex flex-shrink-0 gap-2",
-                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_PORTAL_PATH, "Try again" }
+                    a { class: "btn btn-sm btn-primary", href: DEVELOPER_PORTAL_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_PORTAL_PATH.into()), "Try again" }
                     a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                 }
             }
@@ -769,7 +804,7 @@ fn DeveloperKeysUnavailable() -> Element {
             div { class: "flex flex-wrap gap-3 rounded-2xl border border-border/20 bg-card p-4",
                 input { class: "input min-w-56 flex-1", placeholder: "Search API keys", disabled: true }
                 select { class: "input min-w-40", disabled: true, option { "All Statuses" } }
-                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, "Refresh" }
+                a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_PORTAL_PATH.into()), "Refresh" }
             }
             DeveloperUnavailablePanel { title: "API-key inventory", detail: "No verified credential rows are being shown.", icon: "key" }
         }
@@ -930,7 +965,7 @@ fn DeveloperCreateForm() -> Element {
                     p { class: "text-sm text-muted-foreground", "Generate a new API key for a third-party integration" }
                 }
             }
-            form { method: "post", action: DEVELOPER_CREATE_PATH,
+            form { method: "post", action: DEVELOPER_CREATE_PATH, onsubmit:crate::fullstack::admin_developer::submit,
                 class: "space-y-6",
                 div { class: "grid grid-cols-1 gap-6 md:grid-cols-2",
                     label { class: "block text-sm font-medium text-foreground", "Client Name ", span { class: "text-red-500", "*" }
@@ -959,9 +994,9 @@ fn DeveloperCreateForm() -> Element {
                         }
                     }
                 }
-                input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }
+                if try_consume_context::<crate::fullstack::admin_developer::DeveloperEvents>().is_some(){crate::fullstack::admin_settings::SettingsIdentity{prefix:"admin.developer.create"}}else{input { r#type: "hidden", name: "idempotency_key", value: idempotency_key }}
                 div { class: "flex flex-wrap gap-3 border-t border-border/20 pt-6",
-                    a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH,
+                    a { class: "btn btn-outline", href: DEVELOPER_PORTAL_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_PORTAL_PATH.into()),
                         Icon { name: "arrow-left".to_string(), size: Some(16) }
                         "Cancel"
                     }
@@ -998,7 +1033,7 @@ fn DeveloperCreateSecretOnce(projection: AdminDeveloperSecretOnceProjection) -> 
                     dd { class: "mt-1 break-all rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 font-mono text-amber-200", "data-secret-once": "true", "{projection.secret}" }
                 }
             }
-            a { class: "btn btn-outline mt-6", href: DEVELOPER_PORTAL_PATH, "Return to developer portal" }
+            a { class: "btn btn-outline mt-6", href: DEVELOPER_PORTAL_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_PORTAL_PATH.into()), "Return to developer portal" }
         }
     }
 }
@@ -1012,7 +1047,7 @@ fn DeveloperCreateProblem(state: &'static str, detail: String) -> Element {
             "data-admin-developer-create-state": state,
             h1 { class: "text-xl font-semibold text-foreground", "API-key creation: {state}" }
             p { class: "mt-2 text-sm leading-6 text-muted-foreground", "{detail}" }
-            a { class: "btn btn-outline mt-5", href: DEVELOPER_CREATE_PATH, "Try again" }
+            a { class: "btn btn-outline mt-5", href: DEVELOPER_CREATE_PATH, onclick:move|event|crate::fullstack::admin_developer::follow(event,DEVELOPER_CREATE_PATH.into()), "Try again" }
         }
     }
 }

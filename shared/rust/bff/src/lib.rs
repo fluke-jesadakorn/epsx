@@ -13,3 +13,6 @@ pub mod refresh_outcome;
 pub mod session;
 pub mod static_assets;
 pub mod typed_session;
+
+#[cfg(feature = "fullstack")]
+pub mod fullstack;

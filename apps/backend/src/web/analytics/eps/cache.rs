@@ -97,7 +97,7 @@ pub async fn get_unified_analytics_rankings_cached(
         });
     let is_authenticated = wallet_address.is_some();
 
-    // Anonymous rankings deliberately use the free-tier input without calling
+    // Anonymous rankings deliberately use the public range without calling
     // plan authority. Once a verified wallet exists, however, only a successful
     // authority decision may select its rank range. Treating an authority
     // outage as free access would turn an operational failure into a false plan
@@ -246,8 +246,8 @@ async fn resolve_market_ranking_access(
 ) -> Result<MarketRankingAccess, AppError> {
     let Some(wallet) = wallet_address else {
         return Ok(MarketRankingAccess {
-            rank_offset: epsx_contracts::constants::FREE_PLAN_RANKING_OFFSET,
-            rankings_limit: epsx_contracts::constants::FREE_PLAN_RANKINGS_LIMIT,
+            rank_offset: epsx_contracts::constants::PUBLIC_RANKING_OFFSET,
+            rankings_limit: epsx_contracts::constants::PUBLIC_RANKINGS_LIMIT,
         });
     };
 
@@ -622,14 +622,18 @@ mod tests {
     }
 
     #[test]
-    fn a2_5_anonymous_limit_is_capped_by_free_entitlement() {
-        let prepared =
-            prepare_market_rankings_request(&a2_5_params(Some(1), Some(100), None), 100, 5, false)
-                .expect("anonymous request should be valid");
+    fn public_inventory_is_unlimited_but_each_request_is_bounded() {
+        let prepared = prepare_market_rankings_request(
+            &a2_5_params(Some(1), Some(100), None),
+            epsx_contracts::constants::PUBLIC_RANKING_OFFSET,
+            epsx_contracts::constants::PUBLIC_RANKINGS_LIMIT,
+            false,
+        )
+        .expect("anonymous request should be valid");
 
         assert_eq!(prepared.page, 1);
-        assert_eq!(prepared.request.limit, 5);
-        assert_eq!(prepared.request.skip, 100);
+        assert_eq!(prepared.request.limit, 10);
+        assert_eq!(prepared.request.skip, 99);
     }
 
     #[test]
@@ -669,7 +673,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn a2_6_anonymous_bypasses_authority_and_keeps_free_input() {
+    async fn public_rankings_start_at_100_without_a_subscription_cap() {
         let authority = Arc::new(A2_6Authority {
             calls: AtomicUsize::new(0),
             limit_calls: AtomicUsize::new(0),
@@ -703,17 +707,21 @@ mod tests {
         assert_eq!(
             requests.as_slice(),
             &[MarketRankingsRequest {
-                skip: 100,
-                limit: 5,
+                skip: 99,
+                limit: 10,
                 country: Some("america".to_string()),
                 sector: Some("Technology".to_string()),
                 sort_by: Some("eps_growth".to_string()),
             }]
         );
         let access = response.access_info.expect("anonymous access info");
-        assert_eq!(access.min_accessible_rank, 101);
-        assert_eq!(access.locked_ranks_count, 100);
-        assert_eq!(access.max_accessible_rank, Some(105));
+        assert_eq!(access.min_accessible_rank, 100);
+        assert_eq!(access.locked_ranks_count, 99);
+        assert_eq!(access.max_accessible_rank, None);
+        assert_eq!(response.pagination.limit, 10);
+        assert_eq!(response.pagination.total, 51);
+        assert_eq!(response.pagination.total_pages, 6);
+        assert!(response.pagination.has_next);
     }
 
     #[tokio::test]
@@ -758,6 +766,56 @@ mod tests {
         assert_eq!(access.min_accessible_rank, 6);
         assert_eq!(access.locked_ranks_count, 5);
         assert_eq!(access.max_accessible_rank, None);
+    }
+
+    #[tokio::test]
+    async fn public_pagination_continues_beyond_the_old_five_company_inventory() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Err(AppError::database_error(
+                "public requests do not need a plan",
+            )),
+            limit_result: Err(AppError::database_error(
+                "public requests do not need a plan",
+            )),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 1_000,
+        });
+        for (page, expected_skip, has_next) in [(2, 109, true), (20, 289, true), (91, 999, false)] {
+            let Json(response) = call_a2_6_handler(
+                a2_5_params(Some(page), Some(10), None),
+                authority.clone(),
+                provider.clone(),
+                None,
+            )
+            .await
+            .expect("public pagination should not hit a subscription inventory cap");
+            let request = provider.requests.lock().unwrap().last().unwrap().clone();
+            assert_eq!(request.skip, expected_skip);
+            assert_eq!(request.limit, 10);
+            assert_eq!(request.country.as_deref(), Some("america"));
+            assert_eq!(request.sector.as_deref(), Some("Technology"));
+            assert_eq!(response.pagination.total, 901);
+            assert_eq!(response.pagination.total_pages, 91);
+            assert_eq!(response.pagination.has_next, has_next);
+            assert!(response.pagination.has_prev);
+            let cards = map_market_rankings_to_cards(
+                vec![StockScreeningResult::new(
+                    "PUBLIC".into(),
+                    "Public company".into(),
+                    1.0,
+                )],
+                request.skip,
+            );
+            assert_eq!(cards[0].rank, expected_skip + 1);
+        }
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
     }
 
     #[tokio::test]

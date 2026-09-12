@@ -21,6 +21,8 @@ pub struct PublicPlanResponse {
     pub promotion_active: bool,
     pub promotion_status: String,
     pub promotion_discount: f64,
+    #[serde(default)]
+    pub promotion_savings: String,
     pub promotion_ends_at: Option<String>,
     pub currency: String,
     pub billing_cycle: String,
@@ -37,6 +39,46 @@ pub struct PublicPlanResponse {
     pub settlement_currency: String,
     /// Access duration owned by the plan catalog. `None` is lifetime access.
     pub duration_days: Option<i64>,
+}
+
+fn hosted_checkout() -> bool {
+    std::env::var("EPSX_PAY_CHECKOUT_ENABLED").as_deref() == Ok("true")
+}
+
+// Hosted sales use the same exact calculation as quotes and order creation.
+fn apply_hosted_price(plan: &mut PublicPlanResponse, metadata: &serde_json::Value) -> bool {
+    if !hosted_checkout() {
+        return true;
+    }
+    let token = std::env::var("EPSX_PAY_CHECKOUT_TOKEN").unwrap_or_else(|_| "USDT".into());
+    apply_token_price(plan, metadata, &token)
+}
+fn apply_token_price(
+    plan: &mut PublicPlanResponse,
+    metadata: &serde_json::Value,
+    token: &str,
+) -> bool {
+    let Ok(pricing) = crate::domain::subscription_management::token_pricing::calculate(
+        metadata,
+        token,
+        chrono::Utc::now(),
+    ) else {
+        return false;
+    };
+    if crate::web::payments::merchant_checkout::units(&pricing.price, 18).is_err() {
+        return false;
+    }
+    plan.current_price = pricing.original_price;
+    plan.checkout_price = pricing.price;
+    plan.effective_price = plan.checkout_price.parse().unwrap_or_default();
+    plan.promotion_active = pricing.promotion_active;
+    plan.promotion_status = pricing.promotion_status;
+    plan.promotion_discount = pricing.promotion_discount;
+    plan.promotion_savings = pricing.savings;
+    plan.promotion_ends_at = pricing.promotion_ends_at;
+    plan.currency = token.into();
+    plan.settlement_currency = token.into();
+    true
 }
 
 fn ranking_access(plan_metadata: &serde_json::Value) -> (i32, i32) {
@@ -116,7 +158,7 @@ pub async fn get_public_plans(
     let group_str = group_filter.as_deref().unwrap_or("any");
     let cache_key = format!("cache:public_plans:cat_{}:grp_{}", category_str, group_str);
 
-    if let Some(redis_pool) = &app_state.redis_pool {
+    if let Some(redis_pool) = app_state.redis_pool.as_ref().filter(|_| !hosted_checkout()) {
         let mut conn = redis_pool.get_connection();
         use redis::AsyncCommands;
         let cache_res: redis::RedisResult<Option<String>> = conn.get(&cache_key).await;
@@ -154,7 +196,7 @@ pub async fn get_public_plans(
     let plans: Vec<PublicPlanResponse> = db_plans
         .into_iter()
         .filter(|plan| plan.is_public && plan.is_active.unwrap_or(true))
-        .map(|plan| {
+        .filter_map(|plan| {
             use crate::domain::subscription_management::Promotion;
 
             let (ranking_offset, rankings_limit) = ranking_access(&plan.plan_metadata);
@@ -266,7 +308,8 @@ pub async fn get_public_plans(
                 promotion_active,
             );
 
-            PublicPlanResponse {
+            let metadata = plan.plan_metadata.clone();
+            let mut projection = PublicPlanResponse {
                 id: plan.id.to_string(),
                 name: plan.name,
                 plan_type,
@@ -275,6 +318,7 @@ pub async fn get_public_plans(
                 promotion_active,
                 promotion_status: format!("{:?}", promotion_status).to_lowercase(),
                 promotion_discount,
+                promotion_savings: format!("{:.2}", (base_price - effective_price).max(0.0)),
                 promotion_ends_at,
                 currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
                 billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
@@ -288,7 +332,8 @@ pub async fn get_public_plans(
                 checkout_price,
                 settlement_currency,
                 duration_days,
-            }
+            };
+            apply_hosted_price(&mut projection, &metadata).then_some(projection)
         })
         .filter(|p| {
             // Filter by group if requested
@@ -322,7 +367,7 @@ pub async fn get_public_plans(
     final_plans.sort_by_key(|p| p.tier_level);
 
     // Save to cache
-    if let Some(redis_pool) = &app_state.redis_pool {
+    if let Some(redis_pool) = app_state.redis_pool.as_ref().filter(|_| !hosted_checkout()) {
         let mut conn = redis_pool.get_connection();
         use redis::AsyncCommands;
         if let Ok(json_str) = serde_json::to_string(&final_plans) {
@@ -368,7 +413,7 @@ pub async fn get_public_plan_by_id(
 
     let cache_key = format!("cache:public_plan:{}", plan_uuid);
 
-    if let Some(redis_pool) = &app_state.redis_pool {
+    if let Some(redis_pool) = app_state.redis_pool.as_ref().filter(|_| !hosted_checkout()) {
         let mut conn = redis_pool.get_connection();
         use redis::AsyncCommands;
         let cache_res: redis::RedisResult<Option<String>> = conn.get(&cache_key).await;
@@ -496,7 +541,8 @@ pub async fn get_public_plan_by_id(
         promotion_active,
     );
 
-    let plan_data = PublicPlanResponse {
+    let metadata = plan.plan_metadata.clone();
+    let mut plan_data = PublicPlanResponse {
         id: plan.id.to_string(),
         name: plan.name,
         plan_type,
@@ -505,6 +551,7 @@ pub async fn get_public_plan_by_id(
         promotion_active,
         promotion_status: format!("{:?}", promotion_status).to_lowercase(),
         promotion_discount,
+        promotion_savings: format!("{:.2}", (base_price - effective_price).max(0.0)),
         promotion_ends_at,
         currency: plan.currency.unwrap_or_else(|| "USD".to_string()),
         billing_cycle: plan.billing_cycle.unwrap_or_else(|| "monthly".to_string()),
@@ -520,7 +567,17 @@ pub async fn get_public_plan_by_id(
         duration_days,
     };
 
-    if let Some(redis_pool) = &app_state.redis_pool {
+    if !apply_hosted_price(&mut plan_data, &metadata) {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ApiResponse::error(
+                "TOKEN_PRICE_UNAVAILABLE",
+                "Token price is not configured",
+            )),
+        );
+    }
+
+    if let Some(redis_pool) = app_state.redis_pool.as_ref().filter(|_| !hosted_checkout()) {
         let mut conn = redis_pool.get_connection();
         use redis::AsyncCommands;
         if let Ok(json_str) = serde_json::to_string(&plan_data) {
@@ -628,4 +685,64 @@ fn generate_features_from_permissions(permissions: &[String]) -> Vec<String> {
     }
 
     features
+}
+
+#[cfg(test)]
+mod hosted_price_tests {
+    use super::*;
+    fn sale() -> PublicPlanResponse {
+        PublicPlanResponse {
+            id: "plan".into(),
+            name: "Monthly".into(),
+            plan_type: "subscription".into(),
+            current_price: "99.00".into(),
+            effective_price: 9.9,
+            promotion_active: true,
+            promotion_status: "active".into(),
+            promotion_discount: 90.0,
+            promotion_savings: "89.10".into(),
+            promotion_ends_at: None,
+            currency: "USD".into(),
+            billing_cycle: "monthly".into(),
+            features: vec![],
+            permissions: vec![],
+            is_active: true,
+            tier_level: 1,
+            plan_group: "personal".into(),
+            ranking_offset: 1,
+            rankings_limit: 25,
+            checkout_price: "9.90".into(),
+            settlement_currency: "USDT".into(),
+            duration_days: Some(30),
+        }
+    }
+    #[test]
+    fn catalog_sale_is_applied_once_to_base_token_price() {
+        for token in ["USDT", "USDC"] {
+            let mut plan = sale();
+            assert!(apply_token_price(
+                &mut plan,
+                &serde_json::json!({"pay_prices":{token:"99.00"},"pay_use_catalog_promotion":true,"promotion":{"enabled":true,"type":"percentage","value":90}}),
+                token
+            ));
+            assert_eq!(plan.current_price, "99.00");
+            assert_eq!(plan.checkout_price, "9.90");
+            assert_eq!(plan.effective_price, 9.9);
+            assert!(plan.promotion_active);
+            assert_eq!(plan.currency, token);
+        }
+    }
+    #[test]
+    fn independent_token_price_does_not_inherit_usd_promotion() {
+        let mut plan = sale();
+        assert!(apply_token_price(
+            &mut plan,
+            &serde_json::json!({"pay_prices":{"USDT":"7.00"}}),
+            "USDT"
+        ));
+        assert_eq!(plan.current_price, "7.00");
+        assert_eq!(plan.checkout_price, "7.00");
+        assert!(!plan.promotion_active);
+        assert_eq!(plan.promotion_discount, 0.0);
+    }
 }

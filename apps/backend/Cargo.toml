@@ -110,15 +110,14 @@ tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], 
 # Optional authentication and security
 jsonwebtoken = { version = "9.2", optional = true }
 sha2 = { version = "0.10", optional = true }
+hmac.workspace = true
 rsa = "0.9"
 
 # Web3 and Ethereum dependencies
 ethers = "2.0"
 siwe = "0.6"
 
-# TLS support for database
-tokio-postgres-rustls = "0.12"
-tokio-postgres = "0.7"
+# TLS via rustls (sqlx + reqwest handle TLS via rustls; tokio-postgres removed for Cloudflare compatibility)
 rustls = { version = "0.23", features = ["ring"] }
 webpki-roots = "0.26"
 

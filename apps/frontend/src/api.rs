@@ -288,7 +288,7 @@ fn validate_public_plan_collection(
             || !current_price.is_finite()
             || current_price < 0.0
             || !checkout_price.is_finite()
-            || checkout_price <= 0.0
+            || checkout_price < 0.0
             || plan.checkout_price.len() > 32
             || !plan
                 .checkout_price

@@ -572,10 +572,37 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
         _ => None,
     };
 
+    PaymentsBody(
+        active_tab,
+        filters,
+        mutation,
+        payment_load(&ctx),
+        payment_links_load(&ctx),
+        payment_user_access_load(&ctx),
+        AdminPaymentUserAccessQuery::from_raw(&ctx.query).unwrap_or(AdminPaymentUserAccessQuery {
+            page: 1,
+            limit: 20,
+            status: None,
+            search: None,
+        }),
+    )
+}
+#[allow(non_snake_case)]
+fn PaymentsBody(
+    active_tab: &'static str,
+    filters: PaymentFilters,
+    mutation: Option<String>,
+    payments: PaymentLoad,
+    links: PaymentLinksLoad,
+    access: PaymentUserAccessLoad,
+    access_query: AdminPaymentUserAccessQuery,
+) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
-            PageHeader {
+            a { href: "/payments/epsx", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments/epsx".to_string()), class: "btn btn-outline mb-4", "EPSX Plan purchases" }
+                a { href: "/plans", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/plans".to_string()), class: "btn btn-outline mb-4", "EPSX Plan catalog" }
+                PageHeader {
                 title: "Payments Hub".to_string(),
                 subtitle: Some("Manage payments, user access, and payment links".to_string()),
                 icon: Some("credit-card".to_string()),
@@ -591,22 +618,74 @@ fn RenderPaymentsHub(ctx: PageContext) -> Element {
                 }
             }
             if active_tab == "payments" {
-                PaymentsTab { load: payment_load(&ctx), filters }
+                PaymentsTab { load: payments, filters }
             } else if active_tab == "user-access" {
                 PaymentUserAccessTab {
-                    load: payment_user_access_load(&ctx),
-                    query: AdminPaymentUserAccessQuery::from_raw(&ctx.query).unwrap_or(AdminPaymentUserAccessQuery {
-                        page: 1,
-                        limit: 20,
-                        status: None,
-                        search: None,
-                    }),
+                    load: access,
+                    query: access_query,
                 }
             } else {
-                PaymentLinksTab { load: payment_links_load(&ctx) }
+                PaymentLinksTab { load: links }
             }
         }
     }
+}
+
+#[component]
+pub fn HydratedPaymentsBody(
+    data: crate::fullstack::admin_payments::PaymentsData,
+    query: crate::fullstack::admin_payments::PaymentsQuery,
+    mutation: Option<String>,
+) -> Element {
+    use crate::fullstack::admin_payments::{PaymentContents, PaymentTab};
+    let filters = PaymentFilters {
+        payer: (!query.payer.is_empty()).then_some(query.payer.clone()),
+        status: (!query.status.is_empty()).then_some(query.status.clone()),
+        limit: query.limit as usize,
+        offset: query.offset as usize,
+    };
+    let access_query = AdminPaymentUserAccessQuery {
+        page: query.page as i64,
+        limit: query.limit as i64,
+        status: (!query.status.is_empty()).then_some(query.status),
+        search: (!query.search.is_empty()).then_some(query.search),
+    };
+    let active_tab = match query.tab {
+        PaymentTab::Payments => "payments",
+        PaymentTab::Links => "payment-links",
+        PaymentTab::Access => "user-access",
+    };
+    let mut payments = PaymentLoad::Empty;
+    let mut links = PaymentLinksLoad::Empty;
+    let mut access = PaymentUserAccessLoad::Empty;
+    match data.contents {
+        PaymentContents::Payments(v) => {
+            payments = if v.total == 0 && v.items.is_empty() {
+                PaymentLoad::Empty
+            } else {
+                PaymentLoad::Ready(v)
+            }
+        }
+        PaymentContents::Links(v) => {
+            links = v
+                .map(PaymentLinksLoad::Ready)
+                .unwrap_or(PaymentLinksLoad::Empty)
+        }
+        PaymentContents::Access(v) => {
+            access = v
+                .map(PaymentUserAccessLoad::Ready)
+                .unwrap_or(PaymentUserAccessLoad::Empty)
+        }
+    };
+    PaymentsBody(
+        active_tab,
+        filters,
+        mutation,
+        payments,
+        links,
+        access,
+        access_query,
+    )
 }
 
 #[component]
@@ -664,7 +743,7 @@ fn PaymentsTab(load: PaymentLoad, filters: PaymentFilters) -> Element {
 fn PaymentsActionBar(refresh_url: String) -> Element {
     rsx! {
         div { class: "flex flex-wrap items-center gap-3", aria_label: "Payment actions",
-            a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url,
+            a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
                 Icon { name: "refresh-cw".to_string(), size: Some(15) }
                 " Refresh"
             }
@@ -714,7 +793,7 @@ fn PaymentUserAccessTab(
     rsx! {
         div { class: "space-y-6 sm:space-y-8",
             div { class: "flex items-center gap-3",
-                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url,
+                a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,refresh_url.clone()),
                     Icon { name: "refresh-cw".to_string(), size: Some(14) }
                     " Refresh"
                 }
@@ -804,13 +883,13 @@ fn PaymentUserAccessReady(
                 }
                 nav { class: "mt-6 flex items-center justify-between", aria_label: "User access pagination",
                     if let Some(href) = previous {
-                        a { class: "btn btn-sm btn-outline", href, "Previous" }
+                        a { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Previous" }
                     } else {
                         span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Previous" }
                     }
                     span { class: "text-sm text-muted-foreground", "Page {projection.page}" }
                     if let Some(href) = next {
-                        a { class: "btn btn-sm btn-outline", href, "Next" }
+                        a { class: "btn btn-sm btn-outline", href:href.clone(),onclick:move |event| crate::fullstack::admin_payments::follow(event,href.clone()), "Next" }
                     } else {
                         span { class: "btn btn-sm btn-outline pointer-events-none opacity-40", "Next" }
                     }
@@ -838,7 +917,7 @@ fn PaymentUserAccessRow(item: AdminPaymentUserAccessItem) -> Element {
             td { class: "px-4 py-4 text-sm text-secondary", "{days}" }
             td { class: "px-4 py-4 text-sm text-muted-foreground", "{expires}" }
             td { class: "px-4 py-4",
-                a { class: "btn btn-sm btn-outline", href: detail_url, "View" }
+                a { class: "btn btn-sm btn-outline", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View" }
             }
         }
     }
@@ -871,7 +950,7 @@ fn PaymentUserAccessCard(item: AdminPaymentUserAccessItem) -> Element {
                 }
             }
             p { class: "mt-3 text-xs text-muted-foreground", "Expires: {expires}" }
-            a { class: "btn btn-sm btn-outline mt-3", href: detail_url, "View wallet" }
+            a { class: "btn btn-sm btn-outline mt-3", href: detail_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,detail_url.clone()), "View wallet" }
         }
     }
 }
@@ -995,7 +1074,7 @@ fn PaymentLinksActions(available: bool) -> Element {
                     " New Link"
                 }
             }
-            a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links",
+            a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()),
                 Icon { name: "refresh-cw".to_string(), size: Some(15) }
                 " Refresh"
             }
@@ -1119,11 +1198,11 @@ fn PaymentLinkRow(link: AdminPaymentLinkProjection) -> Element {
             td { class: "px-4 py-4 align-top", StatusBadge { status: link.status.clone() } }
             td { class: "px-4 py-4 align-top",
                 if link.status == "active" {
-                    form { method: "post", action: "/payments", class: "flex flex-wrap gap-2",
+                    form { method: "post", action: "/payments", onsubmit: crate::fullstack::admin_payments::submit, class: "flex flex-wrap gap-2",
                         input { r#type: "hidden", name: "operation", value: "payment_link_disable" }
                         input { r#type: "hidden", name: "link_id", value: link.id.clone() }
                         input { r#type: "hidden", name: "expected_version", value: link.version.to_string() }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.disable.{}", uuid::Uuid::new_v4()) }
+                        input { r#type: "hidden", name: "idempotency_key", value: payment_identity("admin.payment-links.disable") }
                         button { r#type: "submit", class: "btn btn-sm btn-outline", "Disable link" }
                     }
                 } else {
@@ -1157,11 +1236,11 @@ fn PaymentLinkCard(link: AdminPaymentLinkProjection) -> Element {
                 dd { "{expiry}" }
             }
             if link.status == "active" {
-                form { method: "post", action: "/payments", class: "mt-4",
+                form { method: "post", action: "/payments", onsubmit: crate::fullstack::admin_payments::submit, class: "mt-4",
                     input { r#type: "hidden", name: "operation", value: "payment_link_disable" }
                     input { r#type: "hidden", name: "link_id", value: link.id }
                     input { r#type: "hidden", name: "expected_version", value: link.version.to_string() }
-                    input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.disable.{}", uuid::Uuid::new_v4()) }
+                    input { r#type: "hidden", name: "idempotency_key", value: payment_identity("admin.payment-links.disable") }
                     button { r#type: "submit", class: "btn btn-sm btn-outline", "Disable link" }
                 }
             }
@@ -1169,12 +1248,19 @@ fn PaymentLinkCard(link: AdminPaymentLinkProjection) -> Element {
     }
 }
 
+fn payment_identity(prefix: &str) -> String {
+    if try_consume_context::<crate::fullstack::admin_payments::PaymentEvents>().is_some() {
+        "dioxus-submit".into()
+    } else {
+        format!("{prefix}.{}", uuid::Uuid::new_v4())
+    }
+}
 #[component]
 fn PaymentLinkCreateForm() -> Element {
     rsx! {
-        form { id: "create-payment-link", method: "post", action: "/payments", class: "grid gap-3 rounded-xl border border-border/20 bg-card p-4 shadow-xl md:grid-cols-4 md:items-end",
+        form { id: "create-payment-link", method: "post", action: "/payments", onsubmit: crate::fullstack::admin_payments::submit, class: "grid gap-3 rounded-xl border border-border/20 bg-card p-4 shadow-xl md:grid-cols-4 md:items-end",
             input { r#type: "hidden", name: "operation", value: "payment_link_create" }
-            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-links.create.{}", uuid::Uuid::new_v4()) }
+            input { r#type: "hidden", name: "idempotency_key", value: payment_identity("admin.payment-links.create") }
             label { class: "space-y-2 text-sm font-medium",
                 span { "Intent ID" }
                 input { class: "input w-full font-mono", name: "intent_id", maxlength: 128, required: true, placeholder: "Existing intent ID" }
@@ -1206,8 +1292,8 @@ fn PaymentLinksProblem(state: &'static str, title: String, detail: String) -> El
                         p { class: "mt-1 text-sm text-muted-foreground", "{detail}" }
                     }
                     nav { class: "flex shrink-0 flex-wrap gap-2", aria_label: "Payment-link recovery",
-                        a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", "Retry payment links" }
-                        a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
+                        a { class: "btn btn-sm btn-outline", href: "/payments?tab=payment-links", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/payments?tab=payment-links".to_string()), "Retry payment links" }
+                        a { class: "btn btn-sm btn-ghost", href: "/", onclick: move |event| crate::fullstack::admin_payments::follow(event, "/".to_string()), "Admin home" }
                     }
                 }
             }
@@ -1234,7 +1320,7 @@ fn PaymentFilterForm(filters: PaymentFilters) -> Element {
     let payer = filters.payer.clone().unwrap_or_default();
     let status = filters.status.clone().unwrap_or_default();
     rsx! {
-        form { class: "payments-filter-panel rounded-xl border border-border/20 bg-card p-4", method: "GET", action: "/payments",
+        form { class: "payments-filter-panel rounded-xl border border-border/20 bg-card p-4", method: "GET", action: "/payments", onsubmit: crate::fullstack::admin_payments::filter,
             input { r#type: "hidden", name: "tab", value: "payments" }
             input { r#type: "hidden", name: "offset", value: "0" }
             div { class: "grid grid-cols-1 gap-4 md:grid-cols-4 md:items-end",
@@ -1284,7 +1370,7 @@ fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -
                 div { class: "border-t border-border/30 p-8 text-center", role: "status",
                     h3 { class: "font-semibold", "No payment intents on this page" }
                     p { class: "mt-2 text-sm text-muted-foreground", "The filtered inventory still contains records. Return to the first page or use Previous." }
-                    a { class: "btn btn-sm btn-outline mt-4", href: filters.page_url(0), "Return to first page" }
+                    a { class: "btn btn-sm btn-outline mt-4", href: filters.page_url(0), onclick: {let url=filters.page_url(0); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, "Return to first page" }
                 }
             } else {
                 div { class: "hidden overflow-x-auto md:block",
@@ -1316,12 +1402,12 @@ fn PaymentIntentList(payload: AdminPaymentIntentList, filters: PaymentFilters) -
             }
             nav { class: "flex items-center justify-between border-t border-border/30 p-4", aria_label: "Payment intent pagination",
                 if has_previous {
-                    a { class: "btn btn-sm btn-outline", href: filters.page_url(previous_offset), rel: "prev", "Previous" }
+                    a { class: "btn btn-sm btn-outline", href: filters.page_url(previous_offset), onclick: {let url=filters.page_url(previous_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "prev", "Previous" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Previous" }
                 }
                 if has_next {
-                    a { class: "btn btn-sm btn-outline", href: filters.page_url(next_offset), rel: "next", "Next" }
+                    a { class: "btn btn-sm btn-outline", href: filters.page_url(next_offset), onclick: {let url=filters.page_url(next_offset); move |event| crate::fullstack::admin_payments::follow(event,url.clone())}, rel: "next", "Next" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "Next" }
                 }
@@ -1354,11 +1440,11 @@ fn PaymentIntentRow(intent: AdminPaymentIntent) -> Element {
             td { class: "px-4 py-4 align-top",
                 if intent.status == "pending" {
                     if let Some(version) = payment_intent_expected_version(&intent.updated_at) {
-                        form { method: "post", action: "/payments", class: "flex flex-wrap gap-2",
+                        form { method: "post", action: "/payments", onsubmit: crate::fullstack::admin_payments::submit, class: "flex flex-wrap gap-2",
                             input { r#type: "hidden", name: "operation", value: "payment_intent_cancel" }
                             input { r#type: "hidden", name: "intent_id", value: intent.id.clone() }
                             input { r#type: "hidden", name: "expected_version", value: version.to_string() }
-                            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-intents.cancel.{}", uuid::Uuid::new_v4()) }
+                            input { r#type: "hidden", name: "idempotency_key", value: payment_identity("admin.payment-intents.cancel") }
                             button { r#type: "submit", class: "btn btn-sm btn-outline", "Cancel intent" }
                         }
                     } else {
@@ -1396,11 +1482,11 @@ fn PaymentIntentCard(intent: AdminPaymentIntent) -> Element {
             }
             if intent.status == "pending" {
                 if let Some(version) = payment_intent_expected_version(&intent.updated_at) {
-                    form { method: "post", action: "/payments", class: "mt-4",
+                    form { method: "post", action: "/payments", onsubmit: crate::fullstack::admin_payments::submit, class: "mt-4",
                         input { r#type: "hidden", name: "operation", value: "payment_intent_cancel" }
                         input { r#type: "hidden", name: "intent_id", value: intent.id }
                         input { r#type: "hidden", name: "expected_version", value: version.to_string() }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.payment-intents.cancel.{}", uuid::Uuid::new_v4()) }
+                        input { r#type: "hidden", name: "idempotency_key", value: payment_identity("admin.payment-intents.cancel") }
                         button { r#type: "submit", class: "btn btn-sm btn-outline", "Cancel intent" }
                     }
                 }
@@ -1422,7 +1508,7 @@ fn LoadProblem(title: String, detail: String, retry_url: String) -> Element {
         section { class: "rounded-2xl border border-amber-500/30 bg-amber-500/5 p-8", role: "alert",
             h2 { class: "text-lg font-semibold", "{title}" }
             p { class: "mt-2 text-sm text-muted-foreground", "{detail}" }
-            a { class: "btn btn-sm btn-outline mt-5", href: retry_url, "Try again" }
+            a { class: "btn btn-sm btn-outline mt-5", href: retry_url.clone(), onclick: move |event| crate::fullstack::admin_payments::follow(event,retry_url.clone()), "Try again" }
         }
     }
 }

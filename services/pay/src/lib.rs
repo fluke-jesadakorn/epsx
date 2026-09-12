@@ -38,18 +38,34 @@ pub fn build_auth_verifier(
         .user_agent("epsx-pay/1")
         .build()?;
     let config =
-        JwksVerifierConfig::new(issuer, jwks_url, Duration::from_secs(5 * 60), production)?;
+        JwksVerifierConfig::new(issuer, jwks_url, Duration::from_secs(5 * 60), production)?
+            .with_additional_audience("epsx-pay")?;
     Ok(Arc::new(JwksVerifier::new(config, client)))
 }
 
 #[derive(Clone)]
 struct AuthState {
+    native: bool,
     verifier: Arc<dyn AccessTokenVerifier>,
 }
 
 pub fn protect_router(router: Router, verifier: Arc<dyn AccessTokenVerifier>) -> Router {
     router.layer(middleware::from_fn_with_state(
-        AuthState { verifier },
+        AuthState {
+            verifier,
+            native: false,
+        },
+        authorize_request,
+    ))
+}
+
+/// Only use with the v1 router: legacy SQL-only money handlers remain blocked.
+pub fn protect_native_router(router: Router, verifier: Arc<dyn AccessTokenVerifier>) -> Router {
+    router.layer(middleware::from_fn_with_state(
+        AuthState {
+            verifier,
+            native: true,
+        },
         authorize_request,
     ))
 }
@@ -236,7 +252,57 @@ async fn authorize_request(
     next: Next,
 ) -> Response {
     strip_spoofable_identity_headers(request.headers_mut());
-    match classify(request.method(), request.uri().path()) {
+    let path = request.uri().path();
+    let native_policy = if state.native
+        && ((path == "/api/v1/pay/config" && request.method() == Method::GET)
+            || (path == "/api/v1/pay/webhooks/on-chain" && request.method() == Method::POST))
+    {
+        Some(AccessPolicy::Public)
+    } else if state.native
+        && path.starts_with("/api/v1/pay/")
+        && !path.contains('%')
+        && safe_segments(path.trim_start_matches("/api/v1/pay/")).is_some()
+    {
+        let segments = path
+            .trim_start_matches("/api/v1/pay/")
+            .split('/')
+            .collect::<Vec<_>>();
+        match (request.method(), segments.as_slice()) {
+            (&Method::GET, ["operations", _])
+            | (&Method::POST, ["operations", _, "confirm"])
+            | (&Method::POST, ["intents", _, "deposit"]) => Some(AccessPolicy::OwnerRead),
+            (&Method::POST, ["escrows", _, "resolve"]) => {
+                Some(AccessPolicy::AdminPermission(PAYMENTS_MANAGE_PERMISSION))
+            }
+            _ => None,
+        }
+    } else if state.native && path.starts_with("/api/v1/admin/pay/") && !path.contains('%') {
+        match (
+            request.method(),
+            path.trim_start_matches("/api/v1/admin/pay/")
+                .split('/')
+                .collect::<Vec<_>>()
+                .as_slice(),
+        ) {
+            (&Method::POST, ["contract", "pause"])
+            | (&Method::GET, ["contract", "operations", _])
+            | (&Method::POST, ["contract", "operations", _, "confirm"]) => {
+                Some(AccessPolicy::AdminPermission(PAYMENTS_MANAGE_PERMISSION))
+            }
+            (&Method::GET, ["escrows"]) | (&Method::GET, ["escrows", _]) => {
+                Some(AccessPolicy::AdminPermission(PAYMENTS_VIEW_PERMISSION))
+            }
+            (&Method::POST, ["escrows", _, "resolve"])
+            | (&Method::GET, ["operations", _])
+            | (&Method::POST, ["operations", _, "confirm"]) => {
+                Some(AccessPolicy::AdminPermission(PAYMENTS_MANAGE_PERMISSION))
+            }
+            _ => None,
+        }
+    } else {
+        None
+    };
+    match native_policy.unwrap_or_else(|| classify(request.method(), request.uri().path())) {
         AccessPolicy::Public => {
             request.headers_mut().remove(header::AUTHORIZATION);
         }
@@ -257,7 +323,10 @@ async fn authorize_request(
                     Ok(principal) => principal,
                     Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
                 };
-            if principal.audience != FRONTEND_AUDIENCE && principal.audience != ADMIN_AUDIENCE {
+            if principal.audience != FRONTEND_AUDIENCE
+                && principal.audience != ADMIN_AUDIENCE
+                && principal.audience != "epsx-pay"
+            {
                 return auth_error(StatusCode::FORBIDDEN);
             }
             request.extensions_mut().insert(principal);
@@ -292,10 +361,20 @@ async fn authorize_request(
             return StatusCode::NOT_FOUND.into_response();
         }
         AccessPolicy::UnsafeFinancialMutation => {
-            // Owner-facing financial mutations remain deliberately hidden until
-            // their full typed, audited, finality-aware contract is available.
-            // Do not authenticate or expose a downstream side effect here.
-            return StatusCode::NOT_FOUND.into_response();
+            if !state.native {
+                return StatusCode::NOT_FOUND.into_response();
+            }
+            let principal =
+                match authenticate_headers(state.verifier.as_ref(), request.headers()).await {
+                    Ok(p) => p,
+                    Err(_) => return auth_error(StatusCode::UNAUTHORIZED),
+                };
+            if ![FRONTEND_AUDIENCE, ADMIN_AUDIENCE, "epsx-pay"]
+                .contains(&principal.audience.as_str())
+            {
+                return auth_error(StatusCode::FORBIDDEN);
+            }
+            request.extensions_mut().insert(principal);
         }
         AccessPolicy::InternalIdentityUnavailable | AccessPolicy::Blocked => {
             return StatusCode::NOT_FOUND.into_response()
@@ -702,7 +781,7 @@ mod tests {
     }
 
     #[test]
-    fn production_identity_urls_reject_plaintext_and_local_hosts() {
+    fn production_issuer_stays_https_with_explicit_numeric_loopback_jwks() {
         assert!(build_auth_verifier(
             "https://identity.epsx.io",
             "https://identity.epsx.io/.well-known/jwks.json",
@@ -720,6 +799,13 @@ mod tests {
             "http://127.0.0.1:8080/.well-known/jwks.json",
             true
         )
-        .is_err());
+        .is_ok());
+        for jwks in [
+            "http://localhost:8080/.well-known/jwks.json",
+            "http://192.168.1.1/.well-known/jwks.json",
+            "http://identity.epsx.io/.well-known/jwks.json",
+        ] {
+            assert!(build_auth_verifier("https://identity.epsx.io", jwks, true).is_err());
+        }
     }
 }

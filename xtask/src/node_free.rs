@@ -34,6 +34,14 @@ const INLINE_RUNTIME_MARKERS: &[&str] = &[
 const W3C_ELEMENT_KEY: &str = "element-6066-11e4-a52e-4f735466cecf";
 const PRODUCTION_ACCESS_COOKIE: &str = "__Host-epsx.access_token";
 
+const ALLOWED_ROOT_MANIFESTS: &[&str] = &["package.json", "bun.lock", "bun.lockb"];
+const ALLOWED_CSS_MANIFESTS: &[&str] = &[
+    "apps/frontend/package.json",
+    "apps/frontend/package-lock.json",
+    "apps/admin/package.json",
+    "apps/admin/package-lock.json",
+];
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum E2eRuntimeProfile {
     Local,
@@ -160,6 +168,49 @@ struct StateProvisioner<'a> {
     capabilities: FixtureCapabilities,
 }
 
+// Reviewed exact adapter blocks include dynamic script construction. New evals
+// in the same file are still rejected; update this manifest only after review.
+#[derive(Deserialize)]
+struct BrowserAdapter {
+    path: String,
+    purpose: String,
+    source: String,
+}
+
+fn browser_adapters() -> Vec<BrowserAdapter> {
+    serde_json::from_str(include_str!("browser_adapters.json"))
+        .expect("reviewed browser adapter manifest must be valid")
+}
+
+fn inline_runtime_source(path: &Path, source: &str) -> String {
+    let mut source = source.to_string();
+    for adapter in browser_adapters() {
+        if path == Path::new(&adapter.path) {
+            debug_assert!(!adapter.purpose.is_empty());
+            source = source.replace(&adapter.source, "REVIEWED_BROWSER_ADAPTER");
+        }
+    }
+    source
+}
+
+fn is_browser_adapter_asset(path: &Path, bytes: &[u8]) -> bool {
+    // Browser APIs only: wallet transport, disconnect, and the chain-31337
+    // deployment console. Exact hashes require review when any source changes.
+    let expected = match path.to_str().unwrap_or("") {
+        "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js" => {
+            "fe66cbdc8da7447b1c286064828565b77c6826e26b3209f3ddd828555a1a6b18"
+        }
+        "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js" => {
+            "925b85698c5e7d851a7812ae9c97c6926b15641a85ace4bc5df0399600bb9d35"
+        }
+        "infrastructure/native/local-deploy.js" => {
+            "3363765b1095a9bfb84a7c4aa57e3592740e788fc9c41137df7d41f26ef31497"
+        }
+        _ => return false,
+    };
+    format!("{:x}", Sha256::digest(bytes)) == expected
+}
+
 pub fn audit(flags: &[String]) -> Result<(), String> {
     let Some(kind) = flags.first() else {
         return Err("audit requires a target; supported target: no-node".into());
@@ -176,7 +227,8 @@ pub fn audit(flags: &[String]) -> Result<(), String> {
     }
     let strict = flags.iter().any(|flag| flag == "--strict");
     let root = repo_root()?;
-    let files = tracked_files(&root)?;
+    verify_walletconnect_vendor(&root).map_err(|e| e.to_string())?;
+    let files = audit_files(&root)?;
     let mut scripts = Vec::new();
     let mut manifests = Vec::new();
     let mut active_refs = Vec::new();
@@ -185,16 +237,25 @@ pub fn audit(flags: &[String]) -> Result<(), String> {
     for relative in &files {
         let name = relative.file_name().and_then(OsStr::to_str).unwrap_or("");
         let extension = relative.extension().and_then(OsStr::to_str).unwrap_or("");
-        if JS_EXTENSIONS.contains(&extension) {
+        if JS_EXTENSIONS.contains(&extension)
+            && !is_browser_adapter_asset(
+                relative,
+                &fs::read(root.join(relative)).unwrap_or_default(),
+            )
+            && !matches!(
+                relative.to_str(),
+                Some("apps/pay/vendor/bridge.mjs" | "apps/pay/vendor/walletconnect-2.24.0.js")
+            )
+        {
             scripts.push(relative.clone());
         }
-        if NODE_MANIFESTS.contains(&name)
+        let is_node_manifest = NODE_MANIFESTS.contains(&name)
             || name.starts_with("tsconfig")
             || name.starts_with("eslint.config")
             || name.starts_with("jest.config")
             || name.starts_with("playwright.config")
-            || name.starts_with("postcss.config")
-        {
+            || name.starts_with("postcss.config");
+        if is_node_manifest && !is_allowed_manifest(relative) {
             manifests.push(relative.clone());
         }
         let absolute = root.join(relative);
@@ -208,7 +269,7 @@ pub fn audit(flags: &[String]) -> Result<(), String> {
             && relative != Path::new("xtask/src/node_free.rs")
             && INLINE_RUNTIME_MARKERS
                 .iter()
-                .any(|marker| contents.contains(marker))
+                .any(|marker| inline_runtime_source(relative, &contents).contains(marker))
         {
             inline_runtimes.push(relative.clone());
         }
@@ -236,6 +297,24 @@ pub fn audit(flags: &[String]) -> Result<(), String> {
             || !inline_runtimes.is_empty())
     {
         return Err("strict no-node audit failed".into());
+    }
+    Ok(())
+}
+
+fn verify_walletconnect_vendor(root: &Path) -> Result<(), Box<dyn std::error::Error>> {
+    let dir = root.join("apps/pay/vendor");
+    let manifest: Value = serde_json::from_slice(&fs::read(dir.join("manifest.json"))?)?;
+    for name in [
+        "bridge.mjs",
+        "walletconnect-2.24.0.js",
+        "walletconnect-2.24.0.js.LEGAL.txt",
+        "dependencies.lock.json",
+        "LICENSE.walletconnect",
+    ] {
+        let digest = format!("{:x}", Sha256::digest(fs::read(dir.join(name))?));
+        if manifest["files"][name].as_str() != Some(&digest) {
+            return Err(format!("WalletConnect vendor checksum mismatch: {name}").into());
+        }
     }
     Ok(())
 }
@@ -320,7 +399,12 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
     let root = repo_root()?;
     match flags.first().map(String::as_str) {
         Some("--all") => dev_all(&root),
+        Some("--all-hmr") => dev_all_hmr(&root),
         Some("--frontend") => {
+            build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-frontend", "bff-frontend")
+        }
+        Some("--frontend-once") => {
             build_browser_runtime(&root)?;
             cargo_run(&root, "epsx-frontend", "bff-frontend")
         }
@@ -334,6 +418,10 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
         }
         Some("--admin") => {
             build_browser_runtime(&root)?;
+            cargo_watch_run(&root, "epsx-admin", "bff-admin")
+        }
+        Some("--admin-once") => {
+            build_browser_runtime(&root)?;
             cargo_run(&root, "epsx-admin", "bff-admin")
         }
         Some("--admin-watch") => {
@@ -344,8 +432,12 @@ pub fn dev(flags: &[String]) -> Result<(), String> {
             build_browser_runtime(&root)?;
             dx_serve_run(&root, "epsx-admin", "bff-admin")
         }
+        Some("--pay") => {
+            build_browser_runtime(&root)?;
+            cargo_run(&root, "epsx-pay-bff", "bff-pay")
+        }
         Some("--backend") => cargo_run(&root, "epsx", "epsx"),
-        _ => Err("dev requires --all, --frontend, --frontend-watch, --frontend-dx, --admin, --admin-watch, --admin-dx, or --backend".into()),
+        _ => Err("dev requires --all, --all-hmr, --frontend, --frontend-once, --frontend-watch, --frontend-dx, --admin, --admin-once, --admin-watch, --admin-dx, or --backend".into()),
     }
 }
 
@@ -363,17 +455,45 @@ fn dev_all(root: &Path) -> Result<(), String> {
         ("epsx-analytics", "analytics"),
         ("epsx-frontend", "bff-frontend"),
         ("epsx-admin", "bff-admin"),
+        ("epsx-pay-bff", "bff-pay"),
     ];
 
-    apply_local_service_migrations(root)?;
-    build_browser_runtime(root)?;
+    build_service_worker(root)?;
+    for (package, binary) in SERVICES {
+        fullstack_build(root, package, binary, false)?;
+    }
+    let mut build = Command::new("cargo");
+    build.current_dir(root).args(["build", "--locked"]);
+    for (package, binary) in SERVICES {
+        build.args(["-p", package, "--bin", binary]);
+    }
+    run_status(&mut build, "native development binaries")?;
+    let target = std::env::var_os("CARGO_TARGET_DIR")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| root.join("target"));
     let mut children = Vec::with_capacity(SERVICES.len());
     for (package, binary) in SERVICES {
-        children.push(spawn_cargo_run(root, package, binary)?);
+        let mut command = Command::new(target.join("debug").join(binary));
+        command
+            .current_dir(root)
+            .stdin(Stdio::inherit())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit());
+        for (key, value) in local_dev_environment(binary) {
+            command.env(key, value);
+        }
+        fullstack_environment(&mut command, root, binary);
+        match command.spawn() {
+            Ok(child) => children.push((*package, child)),
+            Err(error) => {
+                stop_dev_children(&mut children, None);
+                return Err(format!("could not start {package}: {error}"));
+            }
+        }
     }
 
     println!(
-        "dev --all: backend=:8080 admin=:3001 frontend=:3000 wallet=:8102 pay=:8103 subscription=:8104 notification=:8106 analytics=:8107"
+        "dev --all: backend=:8080 admin=:3001 frontend=:3000 pay-bff=:3002 wallet=:8102 pay=:8103 subscription=:8104 notification=:8106 analytics=:8107"
     );
     loop {
         for index in 0..children.len() {
@@ -392,47 +512,113 @@ fn dev_all(root: &Path) -> Result<(), String> {
     }
 }
 
-fn apply_local_service_migrations(root: &Path) -> Result<(), String> {
-    for (binary, relative_dir) in [
-        ("wallet", "services/wallet/migrations"),
-        ("pay-service", "services/pay/migrations"),
-        ("subscription", "services/subscription/migrations"),
-        ("analytics", "services/analytics/migrations"),
-    ] {
-        let database_url = local_dev_environment(binary)
-            .iter()
-            .find_map(|(key, value)| (*key == "DATABASE_URL").then_some(*value))
-            .ok_or_else(|| format!("{binary} local DATABASE_URL is not configured"))?;
-        let directory = root.join(relative_dir);
-        let mut migrations = fs::read_dir(&directory)
-            .map_err(|error| {
-                format!(
-                    "could not read local migrations at {}: {error}",
-                    directory.display()
-                )
-            })?
-            .filter_map(Result::ok)
-            .map(|entry| entry.path())
-            .filter(|path| path.extension() == Some(OsStr::new("sql")))
-            .collect::<Vec<_>>();
-        migrations.sort();
-        if migrations.is_empty() {
-            return Err(format!(
-                "no local migrations found for {binary} at {}",
-                directory.display()
-            ));
-        }
-        for migration in migrations {
-            run_status(
-                Command::new("psql")
-                    .args(["-v", "ON_ERROR_STOP=1", database_url, "-f"])
-                    .arg(&migration)
-                    .current_dir(root),
-                &format!("{binary} migration {}", migration.display()),
-            )?;
-        }
+fn dev_all_hmr(root: &Path) -> Result<(), String> {
+    const BACKEND_SERVICES: &[(&str, &str)] = &[
+        ("epsx", "epsx"),
+        ("epsx-wallet", "wallet"),
+        ("epsx-pay-svc", "pay-service"),
+        ("epsx-subscription", "subscription"),
+        ("epsx-notification", "notification"),
+        ("epsx-analytics", "analytics"),
+    ];
+    build_browser_runtime(root)?;
+    let mut children = Vec::with_capacity(12);
+    for (package, binary) in BACKEND_SERVICES {
+        children.push(spawn_cargo_run(root, package, binary)?);
     }
-    Ok(())
+    children.push(spawn_dx_serve(root, "epsx-frontend", "bff-frontend")?);
+    children.push(spawn_dx_serve(root, "epsx-admin", "bff-admin")?);
+    children.push(spawn_dx_serve(root, "epsx-pay-bff", "bff-pay")?);
+    children.push(spawn_wasm_watch(root)?);
+    println!(
+        "dev --all-hmr: gateway=:8080 frontend=:3000 (dx HMR <500ms) admin=:3001 (dx HMR) wallet=:8102 pay=:8103 sub=:8104 notif=:8106 analytics=:8107 + recovery worker watch"
+    );
+    loop {
+        for index in 0..children.len() {
+            let Some(status) = children[index]
+                .1
+                .try_wait()
+                .map_err(|error| format!("could not inspect {}: {error}", children[index].0))?
+            else {
+                continue;
+            };
+            let label = children[index].0;
+            stop_dev_children(&mut children, Some(index));
+            return Err(format!("{label} exited unexpectedly with {status}"));
+        }
+        thread::sleep(Duration::from_millis(250));
+    }
+}
+
+fn spawn_dx_serve(
+    root: &Path,
+    package: &'static str,
+    binary: &'static str,
+) -> Result<(&'static str, Child), String> {
+    let app_dir = match binary {
+        "bff-frontend" => root.join("apps/frontend"),
+        "bff-admin" => root.join("apps/admin"),
+        "bff-pay" => root.join("apps/pay"),
+        _ => return spawn_cargo_run(root, package, binary),
+    };
+    let label = match binary {
+        "bff-frontend" => "dx-frontend",
+        "bff-admin" => "dx-admin",
+        _ => package,
+    };
+    let mut command = Command::new("dx");
+    command
+        .args([
+            "serve",
+            "--hot-reload",
+            "true",
+            "--port",
+            fullstack_port(binary),
+            "--fullstack",
+            "true",
+            "--web",
+            "--package",
+            package,
+            "--bin",
+            fullstack_binary(binary).expect("UI binary"),
+            "--no-default-features",
+        ])
+        .current_dir(&app_dir)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    for (key, value) in local_dev_environment(binary) {
+        command.env(key, value);
+    }
+    command.env(
+        "EPSX_BROWSER_RUNTIME_DIR",
+        root.join("target/epsx-service-worker"),
+    );
+    command
+        .spawn()
+        .map(|child| (label, child))
+        .map_err(|error| format!("could not start {label}: {error}"))
+}
+
+fn spawn_wasm_watch(root: &Path) -> Result<(&'static str, Child), String> {
+    let mut command = Command::new("cargo");
+    command
+        .args([
+            "watch",
+            "--why",
+            "-w",
+            "shared/rust/service-worker",
+            "-x",
+            "cargo xtask browser-runtime build",
+        ])
+        .current_dir(root)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit());
+    command
+        .spawn()
+        .map(|child| ("wasm-watch", child))
+        .map_err(|error| format!("could not start wasm-watch: {error}"))
 }
 
 fn spawn_cargo_run(
@@ -450,6 +636,7 @@ fn spawn_cargo_run(
     for (key, value) in local_dev_environment(binary) {
         command.env(key, value);
     }
+    fullstack_environment(&mut command, root, binary);
     command
         .spawn()
         .map(|child| (package, child))
@@ -475,7 +662,14 @@ pub fn build(flags: &[String]) -> Result<(), String> {
         return Err("build requires --profile development|production".into());
     }
     let root = repo_root()?;
-    build_browser_runtime(&root)?;
+    build_service_worker(&root)?;
+    for (package, binary) in [
+        ("epsx-frontend", "bff-frontend"),
+        ("epsx-admin", "bff-admin"),
+        ("epsx-pay-bff", "bff-pay"),
+    ] {
+        fullstack_build(&root, package, binary, profile == "production")?;
+    }
     let mut command = Command::new("cargo");
     command.args(["build", "--workspace", "--locked"]);
     if profile == "production" {
@@ -492,7 +686,12 @@ pub fn browser_runtime(flags: &[String]) -> Result<(), String> {
     build_browser_runtime(&repo_root()?)
 }
 
-fn build_browser_runtime(root: &Path) -> Result<(), String> {
+/// Compatibility command name; UI events now belong exclusively to Dioxus.
+pub(crate) fn build_browser_runtime(root: &Path) -> Result<(), String> {
+    build_service_worker(root)
+}
+
+pub(crate) fn build_service_worker(root: &Path) -> Result<(), String> {
     run_status(
         Command::new("cargo")
             .args([
@@ -502,21 +701,18 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
                 "--target",
                 "wasm32-unknown-unknown",
                 "-p",
-                "epsx-browser-runtime",
-                "-p",
                 "epsx-service-worker",
             ])
             .current_dir(root),
-        "Rust browser runtime",
+        "Recovery service worker",
     )?;
-
-    let output = root.join("target/epsx-browser-runtime");
+    let output = root.join("target/epsx-service-worker");
     fs::create_dir_all(&output)
         .map_err(|error| format!("could not create {}: {error}", output.display()))?;
-    for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
-        let input = root.join(format!(
-            "target/wasm32-unknown-unknown/release/{crate_name}.wasm"
-        ));
+    {
+        let crate_name = "epsx_service_worker";
+        let input = cargo_target_directory(root)?
+            .join(format!("wasm32-unknown-unknown/release/{crate_name}.wasm"));
         run_status(
             Command::new("wasm-bindgen")
                 .args(["--target", "web", "--no-typescript", "--out-dir"])
@@ -530,14 +726,26 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
     // bridge captures `install` synchronously because service workers reject
     // module graphs with top-level await; the event then owns the asynchronous
     // Rust/WASM initialization and install work.
-    for crate_name in ["epsx_browser_runtime", "epsx_service_worker"] {
+    {
+        let crate_name = "epsx_service_worker";
         let bootstrap_name = if crate_name == "epsx_service_worker" {
             format!("{crate_name}_bootstrap.v3.js")
         } else {
             format!("{crate_name}_bootstrap.js")
         };
         let bootstrap = output.join(bootstrap_name);
-        fs::write(&bootstrap, runtime_bootstrap(crate_name))
+        // A JS/Wasm pair must never be assembled from different releases by a
+        // browser or CDN cache. Both imports share a content-derived revision.
+        let mut digest = Sha256::new();
+        for extension in [".js", "_bg.wasm"] {
+            digest.update(
+                fs::read(output.join(format!("{crate_name}{extension}")))
+                    .map_err(|e| e.to_string())?,
+            );
+        }
+        let revision = format!("{:x}", digest.finalize());
+        let loader = runtime_bootstrap(crate_name).replace("?rev=3", &format!("?rev={revision}"));
+        fs::write(&bootstrap, loader)
             .map_err(|error| format!("could not write {}: {error}", bootstrap.display()))?;
         if crate_name == "epsx_service_worker" {
             let legacy = output.join(format!("{crate_name}_bootstrap.js"));
@@ -546,7 +754,7 @@ fn build_browser_runtime(root: &Path) -> Result<(), String> {
         }
     }
     println!(
-        "browser-runtime: PASS — generated untracked assets in {}",
+        "service-worker: PASS — generated untracked assets in {}",
         output.display()
     );
     Ok(())
@@ -569,17 +777,20 @@ fn legacy_service_worker_bootstrap() -> &'static str {
 fn runtime_bootstrap(crate_name: &str) -> String {
     if crate_name == "epsx_service_worker" {
         return format!(
-            "import init, {{ activate, fetch_navigation, install, notification_click, push }} from './{crate_name}.js?rev=3';\n\
-             const runtime = init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
+            "import init, {{ activate, fetch_navigation, fetch_public_style, install, notification_click, push }} from './{crate_name}.js?rev=3';\n\
+             const isDev = ['dev.epsx.io', 'dev-admin.epsx.io', 'dev-pay.epsx.io'].includes(self.location.hostname);\n\
+             const runtime = isDev ? Promise.resolve() : init({{ module_or_path: new URL('./{crate_name}_bg.wasm?rev=3', import.meta.url) }});\n\
              self.addEventListener('install', (event) => {{\n\
-               event.waitUntil(runtime.then(() => install()).then(() => self.skipWaiting()));\n\
+               event.waitUntil(isDev ? self.skipWaiting() : runtime.then(() => install()).then(() => self.skipWaiting()));\n\
              }});\n\
              self.addEventListener('activate', (event) => {{\n\
-               event.waitUntil(runtime.then(() => activate()));\n\
+               event.waitUntil(isDev ? self.registration.unregister().then(() => self.clients.matchAll({{type:'window',includeUncontrolled:true}})).then(clients => Promise.all(clients.map(client => client.navigate(client.url)))) : runtime.then(() => activate()));\n\
              }});\n\
              self.addEventListener('fetch', (event) => {{\n\
-               if (event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
+               if (!isDev && event.request.method === 'GET' && event.request.mode === 'navigate') {{\n\
                  event.respondWith(runtime.then(() => fetch_navigation(event.request)));\n\
+               }} else if (!isDev && event.request.method === 'GET' && new URL(event.request.url).origin === self.location.origin && ['/public/dist/tailwind.css','/public/enterprise.css?v=dioxus-2'].includes(new URL(event.request.url).pathname + new URL(event.request.url).search)) {{\n\
+                 event.respondWith(runtime.then(() => fetch_public_style(event.request)));\n\
                }}\n\
              }});\n\
              self.addEventListener('push', (event) => {{\n\
@@ -2403,25 +2614,65 @@ fn repo_root() -> Result<PathBuf, String> {
         .map_err(|_| "repository path is not UTF-8".into())
 }
 
-fn tracked_files(root: &Path) -> Result<Vec<PathBuf>, String> {
-    let output = Command::new("git")
-        .args(["ls-files", "-z"])
-        .current_dir(root)
-        .output()
-        .map_err(|error| format!("could not list tracked files: {error}"))?;
-    if !output.status.success() {
-        return Err("git ls-files failed".into());
+fn audit_files(root: &Path) -> Result<Vec<PathBuf>, String> {
+    let mut files = BTreeSet::new();
+    // Keep tracked dependencies visible as violations. Only untracked local
+    // dependency installs are excluded, including repositories missing ignores.
+    for tracked in [true, false] {
+        let mut command = Command::new("git");
+        command.args(["ls-files", "-z"]);
+        if tracked {
+            command.arg("--cached");
+        } else {
+            command.args(["--others", "--exclude-standard"]);
+        }
+        let output = command
+            .current_dir(root)
+            .output()
+            .map_err(|error| format!("could not list audit files: {error}"))?;
+        if !output.status.success() {
+            return Err("git ls-files failed".into());
+        }
+        for bytes in output
+            .stdout
+            .split(|byte| *byte == 0)
+            .filter(|p| !p.is_empty())
+        {
+            let path = PathBuf::from(
+                String::from_utf8(bytes.to_vec())
+                    .map_err(|_| "audit path is not UTF-8".to_string())?,
+            );
+            if !tracked
+                && path
+                    .components()
+                    .any(|part| part.as_os_str() == "node_modules")
+            {
+                continue;
+            }
+            if root.join(&path).is_file() {
+                files.insert(path);
+            }
+        }
     }
-    output
-        .stdout
-        .split(|byte| *byte == 0)
-        .filter(|path| !path.is_empty())
-        .map(|path| {
-            String::from_utf8(path.to_vec())
-                .map(PathBuf::from)
-                .map_err(|_| "tracked path is not UTF-8".into())
-        })
-        .collect()
+    Ok(files.into_iter().collect())
+}
+
+fn is_allowed_manifest(path: &Path) -> bool {
+    let s = path.to_string_lossy();
+    if ALLOWED_CSS_MANIFESTS.contains(&s.as_ref()) {
+        return true;
+    }
+    if ALLOWED_ROOT_MANIFESTS.contains(&path.file_name().and_then(|n| n.to_str()).unwrap_or("")) {
+        return path
+            .parent()
+            .map(|p| p == Path::new("") || p == Path::new("."))
+            .unwrap_or(true)
+            || s == "package.json"
+            || s == "bun.lock"
+            || s == "bun.lockb"
+            || s == "package-lock.json";
+    }
+    false
 }
 
 fn is_active_automation_path(path: &Path) -> bool {
@@ -2521,8 +2772,31 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("PORT", "8080"),
         ("BACKEND_URL", "http://127.0.0.1:8080"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
         ("FRONTEND_URL", "http://localhost:3000"),
         ("NEXT_PUBLIC_APP_URL", "http://localhost:3000"),
+        ("PAY_URL", "http://127.0.0.1:8103"),
+        (
+            "DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_dev",
+        ),
+        (
+            "ANALYTICS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_analytics_dev",
+        ),
+        (
+            "PAYMENTS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_payments_dev",
+        ),
+        (
+            "NOTIFICATIONS_DATABASE_URL",
+            "postgres://epsx_user:password@127.0.0.1:5432/epsx_notifications_dev",
+        ),
     ];
     const FRONTEND: &[(&str, &str)] = &[
         ("ENV", "development"),
@@ -2532,7 +2806,28 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("API_URL", "http://127.0.0.1:8080"),
         ("BACKEND_URL", "http://127.0.0.1:8080"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
         ("NOTIFICATION_SERVICE_URL", "http://127.0.0.1:8106"),
+    ];
+    const PAY_BFF: &[(&str, &str)] = &[
+        ("ENV", "development"),
+        ("EPSX_ENV", "development"),
+        ("HOST", "127.0.0.1"),
+        ("PORT", "3002"),
+        ("API_URL", "http://127.0.0.1:8080"),
+        ("PAYMENT_SERVICE_URL", "http://127.0.0.1:8103"),
+        ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
     ];
     const ADMIN: &[(&str, &str)] = &[
         ("ENV", "development"),
@@ -2542,6 +2837,12 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("API_URL", "http://127.0.0.1:8080"),
         ("BACKEND_URL", "http://127.0.0.1:8080"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
         ("WALLET_SERVICE_URL", "http://127.0.0.1:8102"),
         ("PAYMENT_SERVICE_URL", "http://127.0.0.1:8103"),
         ("SUBSCRIPTION_SERVICE_URL", "http://127.0.0.1:8104"),
@@ -2555,8 +2856,14 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("PORT", "8102"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
         (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
             "DATABASE_URL",
-            "postgres://epsx:epsx@127.0.0.1:5432/epsx_wallet",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_wallet_dev",
         ),
     ];
     const PAYMENT: &[(&str, &str)] = &[
@@ -2565,6 +2872,12 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("HOST", "127.0.0.1"),
         ("PORT", "8103"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
         (
             "DATABASE_URL",
             "postgres://epsx:epsx@127.0.0.1:5432/epsx_payments_dev",
@@ -2577,8 +2890,14 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("PORT", "8104"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
         (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
             "DATABASE_URL",
-            "postgres://epsx:epsx@127.0.0.1:5432/epsx_subscription",
+            "postgres://epsx:epsx@127.0.0.1:5432/epsx_subscription_dev",
         ),
     ];
     const NOTIFICATION: &[(&str, &str)] = &[
@@ -2587,6 +2906,12 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("HOST", "127.0.0.1"),
         ("PORT", "8106"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
+        (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
         (
             "DATABASE_URL",
             "postgres://epsx_user:password@127.0.0.1:5432/epsx_notifications_dev",
@@ -2603,6 +2928,12 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         ("PORT", "8107"),
         ("OIDC_ISSUER", "http://127.0.0.1:8080"),
         (
+            "OIDC_JWKS_URL",
+            "http://127.0.0.1:8080/.well-known/jwks.json",
+        ),
+        ("ADMIN_FRONTEND_URL", "http://localhost:3001"),
+        ("PAY_FRONTEND_URL", "http://localhost:3002"),
+        (
             "DATABASE_URL",
             "postgres://epsx_user:password@127.0.0.1:5432/epsx_analytics_dev",
         ),
@@ -2612,6 +2943,7 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
         "epsx" => BACKEND,
         "bff-frontend" => FRONTEND,
         "bff-admin" => ADMIN,
+        "bff-pay" => PAY_BFF,
         "wallet" => WALLET,
         "pay-service" => PAYMENT,
         "subscription" => SUBSCRIPTION,
@@ -2621,7 +2953,76 @@ fn local_dev_environment(binary: &str) -> &'static [(&'static str, &'static str)
     }
 }
 
+fn cargo_target_directory(root: &Path) -> Result<PathBuf, String> {
+    let output = Command::new("cargo")
+        .current_dir(root)
+        .args(["metadata", "--no-deps", "--format-version", "1"])
+        .output()
+        .map_err(|error| error.to_string())?;
+    if !output.status.success() {
+        return Err("cargo metadata failed".into());
+    }
+    let metadata: serde_json::Value =
+        serde_json::from_slice(&output.stdout).map_err(|error| error.to_string())?;
+    metadata["target_directory"]
+        .as_str()
+        .map(PathBuf::from)
+        .ok_or_else(|| "missing Cargo target directory".into())
+}
+fn fullstack_port(binary: &str) -> &'static str {
+    local_dev_environment(binary)
+        .iter()
+        .find_map(|(key, value)| (*key == "PORT").then_some(*value))
+        .expect("UI port configured")
+}
+fn fullstack_binary(binary: &str) -> Option<&'static str> {
+    match binary {
+        "bff-frontend" => Some("dx-frontend"),
+        "bff-admin" => Some("dx-admin"),
+        "bff-pay" => Some("epsx-pay"),
+        _ => None,
+    }
+}
+fn fullstack_build(root: &Path, package: &str, binary: &str, release: bool) -> Result<(), String> {
+    let Some(ui) = fullstack_binary(binary) else {
+        return Ok(());
+    };
+    let mut command = Command::new("dx");
+    command.current_dir(root).args([
+        "build",
+        "--fullstack",
+        "true",
+        "--web",
+        "--package",
+        package,
+        "--bin",
+        ui,
+        "--no-default-features",
+        "--locked",
+        "--force-sequential",
+        "true",
+    ]);
+    if release {
+        command.arg("--release");
+    }
+    run_status(&mut command, &format!("{package} SSR and hydration assets"))
+}
+fn fullstack_environment(command: &mut Command, root: &Path, binary: &str) {
+    if let Some(ui) = fullstack_binary(binary) {
+        let target = cargo_target_directory(root)
+            .expect("Cargo target directory available after successful build");
+        command.env(
+            "DIOXUS_PUBLIC_PATH",
+            target.join("dx").join(ui).join("debug/web/public"),
+        );
+        command.env(
+            "EPSX_BROWSER_RUNTIME_DIR",
+            root.join("target/epsx-service-worker"),
+        );
+    }
+}
 fn cargo_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
+    fullstack_build(root, package, binary, false)?;
     let mut command = Command::new("cargo");
     command
         .args(["run", "-p", package, "--bin", binary])
@@ -2629,70 +3030,46 @@ fn cargo_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
     for (key, value) in local_dev_environment(binary) {
         command.env(key, value);
     }
+    fullstack_environment(&mut command, root, binary);
     run_status(&mut command, package)
 }
 
 fn cargo_watch_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
-    let app_dir = match binary {
-        "bff-frontend" => "apps/frontend",
-        "bff-admin" => "apps/admin",
-        _ => return cargo_run(root, package, binary),
-    };
-    // Phase 2A: watch full shared graph + browser-runtime wasm.
-    // `stock_data_card.rs:225` `Next Action` hero edits now trigger without manual restart.
-    let cargo_run_cmd = format!(
-        "sh -c 'cargo xtask browser-runtime build && cargo run -p {package} --bin {binary}'"
-    );
-    let mut command = Command::new("cargo");
-    command
-        .args([
-            "watch",
-            "--why",
-            "--clear",
-            "-w",
-            app_dir,
-            "-w",
-            "shared/rust/dioxus_ui",
-            "-w",
-            "shared/rust/bff",
-            "-w",
-            "shared/rust/templates",
-            "-w",
-            "shared/rust/renderer",
-            "-w",
-            "shared/rust/client",
-            "-w",
-            "shared/rust/browser-runtime",
-            "-w",
-            "shared/rust/service-worker",
-            "-w",
-            "shared/rust/observability",
-            "-w",
-            "shared/rust/kernel",
-            "-x",
-            &cargo_run_cmd,
-        ])
-        .current_dir(root);
-    for (key, value) in local_dev_environment(binary) {
-        command.env(key, value);
-    }
-    println!("dev {binary}: watching {app_dir} + shared/rust/* (+wasm) — will recompile on change");
-    run_status(&mut command, &format!("cargo-watch({binary})"))
+    dx_serve_run(root, package, binary)
 }
 
 fn dx_serve_run(root: &Path, package: &str, binary: &str) -> Result<(), String> {
     let app_dir = match binary {
         "bff-frontend" => root.join("apps/frontend"),
         "bff-admin" => root.join("apps/admin"),
+        "bff-pay" => root.join("apps/pay"),
         _ => return cargo_run(root, package, binary),
     };
     let mut command = Command::new("dx");
     command
-        .args(["serve", "--hot-reload"])
+        .args([
+            "serve",
+            "--hot-reload",
+            "true",
+            "--port",
+            fullstack_port(binary),
+            "--fullstack",
+            "true",
+            "--web",
+            "--package",
+            package,
+            "--bin",
+            fullstack_binary(binary).expect("UI binary"),
+            "--no-default-features",
+        ])
         .current_dir(&app_dir);
     for (key, value) in local_dev_environment(binary) {
         command.env(key, value);
     }
+    command.env(
+        "EPSX_BROWSER_RUNTIME_DIR",
+        root.join("target/epsx-service-worker"),
+    );
     println!("dev {binary}: running dx serve in {}", app_dir.display());
     run_status(&mut command, &format!("dx-serve({binary})"))
 }
@@ -2747,7 +3124,102 @@ mod tests {
         E2eRuntimeProfile, Scenario, ScenarioGroup,
     };
     use serde_json::json;
-    use std::path::Path;
+    use std::{
+        fs,
+        path::{Path, PathBuf},
+        process::Command,
+    };
+
+    #[test]
+    fn fullstack_proxy_ports_match_auth_origins() {
+        for (binary, port) in [
+            ("bff-frontend", "3000"),
+            ("bff-admin", "3001"),
+            ("bff-pay", "3002"),
+        ] {
+            assert_eq!(super::fullstack_port(binary), port);
+        }
+    }
+
+    #[test]
+    fn browser_adapter_exceptions_do_not_allow_another_eval() {
+        let path = std::path::Path::new("shared/rust/dioxus_ui/src/pages/contact.rs");
+        let allowed = r#"document::eval("try { await navigator.clipboard.writeText('info@epsx.io'); dioxus.send(true); } catch (_) { dioxus.send(false); }")"#;
+        assert!(!super::inline_runtime_source(path, allowed).contains("document::eval"));
+        assert!(super::inline_runtime_source(
+            path,
+            &format!("{allowed}; document::eval(unsafe_script)")
+        )
+        .contains("document::eval"));
+        assert!(
+            super::inline_runtime_source(std::path::Path::new("other.rs"), allowed)
+                .contains("document::eval")
+        );
+    }
+
+    #[test]
+    fn reviewed_adapters_reject_modified_or_additional_scripts() {
+        for adapter in super::browser_adapters() {
+            let path = Path::new(&adapter.path);
+            assert!(!super::inline_runtime_source(path, &adapter.source).contains("document::eval"));
+            let changed =
+                adapter
+                    .source
+                    .replacen("document::eval", "document::eval /* changed */", 1);
+            assert!(super::inline_runtime_source(path, &changed).contains("document::eval"));
+            let extra = format!("{}; document::eval(unreviewed)", adapter.source);
+            assert!(super::inline_runtime_source(path, &extra).contains("document::eval"));
+        }
+        for name in [
+            "shared/rust/dioxus_ui/src/fullstack/pay/wallet_adapter.js",
+            "shared/rust/dioxus_ui/src/fullstack/wallet_disconnect.js",
+            "infrastructure/native/local-deploy.js",
+        ] {
+            let path = Path::new(name);
+            let bytes = std::fs::read(super::repo_root().unwrap().join(path)).unwrap();
+            assert!(super::is_browser_adapter_asset(path, &bytes));
+            let mut changed = bytes;
+            changed.extend_from_slice(b"\ndocument.body.innerHTML = '';");
+            assert!(!super::is_browser_adapter_asset(path, &changed));
+        }
+    }
+
+    #[test]
+    fn audit_inventory_includes_untracked_source_but_not_dependency_installs() {
+        let root = std::env::temp_dir().join(format!(
+            "epsx-audit-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        fs::create_dir_all(root.join("node_modules/local")).unwrap();
+        fs::create_dir_all(root.join("src")).unwrap();
+        assert!(Command::new("git")
+            .args(["init", "-q"])
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+        fs::write(root.join("node_modules/local/untracked.js"), "bad()").unwrap();
+        fs::write(root.join("node_modules/local/tracked.js"), "bad()").unwrap();
+        fs::write(root.join("src/new.rs"), "document::eval(bad)").unwrap();
+        fs::write(root.join(".gitignore"), "ignored.js\n").unwrap();
+        fs::write(root.join("ignored.js"), "bad()").unwrap();
+        assert!(Command::new("git")
+            .args(["add", "node_modules/local/tracked.js"])
+            .current_dir(&root)
+            .status()
+            .unwrap()
+            .success());
+        let files = super::audit_files(&root).unwrap();
+        assert!(files.contains(&PathBuf::from("src/new.rs")));
+        assert!(files.contains(&PathBuf::from("node_modules/local/tracked.js")));
+        assert!(!files.contains(&PathBuf::from("node_modules/local/untracked.js")));
+        assert!(!files.contains(&PathBuf::from("ignored.js")));
+        fs::remove_dir_all(root).unwrap();
+    }
 
     #[test]
     fn evidence_paths_are_strictly_relative() {

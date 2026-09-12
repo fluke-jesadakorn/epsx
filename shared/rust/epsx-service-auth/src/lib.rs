@@ -155,11 +155,19 @@ impl JwksVerifierConfig {
         {
             return Err(VerifyError::Configuration("JWKS URL"));
         }
+        // The issuer remains the public HTTPS identity. A native service may
+        // fetch its keys over numeric loopback without routing through Tunnel.
+        let loopback_jwks = jwks_url_value.scheme() == "http"
+            && jwks_url_value.host_str().is_some_and(|host| {
+                host.trim_matches(['[', ']'])
+                    .parse::<IpAddr>()
+                    .is_ok_and(|address| address.is_loopback())
+            });
         if require_https
             && (issuer_url.scheme() != "https"
-                || jwks_url_value.scheme() != "https"
                 || url_host_is_local(&issuer_url)
-                || url_host_is_local(&jwks_url_value))
+                || (!loopback_jwks
+                    && (jwks_url_value.scheme() != "https" || url_host_is_local(&jwks_url_value))))
         {
             return Err(VerifyError::Configuration("production HTTPS"));
         }
@@ -200,6 +208,7 @@ fn url_host_is_local(url: &reqwest::Url) -> bool {
         host.eq_ignore_ascii_case("localhost")
             || host.to_ascii_lowercase().ends_with(".localhost")
             || host
+                .trim_matches(['[', ']'])
                 .parse::<IpAddr>()
                 .is_ok_and(|address| address.is_loopback())
     })
@@ -531,6 +540,42 @@ fn validate_jwks(jwks: Jwks) -> Result<HashMap<String, DecodingKey>, VerifyError
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn native_jwks_transport_keeps_public_issuer_and_numeric_loopback_boundary() {
+        use super::*;
+        let config = |issuer: &str, jwks: &str| {
+            JwksVerifierConfig::new(issuer, jwks, Duration::from_secs(300), true)
+        };
+        assert!(config(
+            "https://api.epsx.io",
+            "http://127.0.0.1:9180/.well-known/jwks.json"
+        )
+        .is_ok());
+        assert!(config(
+            "https://api.epsx.io",
+            "http://[::1]:9180/.well-known/jwks.json"
+        )
+        .is_ok());
+        for jwks in [
+            "http://localhost:9180/jwks",
+            "http://192.168.1.2/jwks",
+            "http://api.epsx.io/jwks",
+            "http://user:password@127.0.0.1/jwks",
+        ] {
+            assert!(config("https://api.epsx.io", jwks).is_err(), "{jwks}");
+        }
+        for issuer in [
+            "http://api.epsx.io",
+            "https://localhost",
+            "https://127.0.0.1",
+            "https://[::1]",
+        ] {
+            assert!(
+                config(issuer, "http://127.0.0.1:9180/jwks").is_err(),
+                "{issuer}"
+            );
+        }
+    }
     use super::*;
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
     use jsonwebtoken::{encode, EncodingKey, Header};

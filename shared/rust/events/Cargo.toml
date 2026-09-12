@@ -8,8 +8,10 @@ epsx-kernel = { path = "../kernel" }
 serde.workspace = true
 serde_json.workspace = true
 redis.workspace = true
-tokio.workspace = true
 chrono.workspace = true
 uuid.workspace = true
 tracing.workspace = true
 thiserror.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tokio.workspace = true

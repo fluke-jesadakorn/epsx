@@ -27,6 +27,7 @@ const REFRESH_STORAGE_VERSION: i16 = 2;
 enum RefreshClient {
     Frontend,
     Admin,
+    Pay,
 }
 
 #[allow(dead_code)]
@@ -68,6 +69,7 @@ impl RefreshClient {
         match value {
             "epsx-frontend" => Ok(Self::Frontend),
             "epsx-admin" => Ok(Self::Admin),
+            "epsx-pay" => Ok(Self::Pay),
             other => Err(OpenIDTokenError::InvalidClient(other.to_string())),
         }
     }
@@ -76,6 +78,7 @@ impl RefreshClient {
         match self {
             Self::Frontend => "epsx-frontend",
             Self::Admin => "epsx-admin",
+            Self::Pay => "epsx-pay",
         }
     }
 
@@ -1211,6 +1214,15 @@ mod tests {
 
     fn test_audiences() -> Vec<String> {
         vec!["epsx-frontend".to_string(), "epsx-admin".to_string()]
+    }
+
+    #[test]
+    fn pay_refresh_client_cannot_rotate_frontend_or_admin_tokens() {
+        let pay = RefreshClient::parse("epsx-pay").unwrap();
+        assert!(pay.matches_stored(Some("epsx-pay")));
+        assert!(!pay.matches_stored(Some("epsx-admin")));
+        assert!(!pay.matches_stored(Some("epsx-frontend")));
+        assert!(!RefreshClient::Admin.matches_stored(Some("epsx-pay")));
     }
 
     #[test]

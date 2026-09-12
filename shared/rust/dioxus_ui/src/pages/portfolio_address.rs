@@ -17,7 +17,7 @@ use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Portfolio");
+    let meta = PageMeta::app("Saved companies");
     (meta, rsx! { RenderPortfolioAddress { ctx: ctx.clone() } })
 }
 
@@ -34,15 +34,15 @@ fn RenderPortfolioAddress(ctx: PageContext) -> Element {
     rsx! {
         MainLayout { ctx: ctx.clone(),
             // No `<AuthGate>` — the route redirects for everyone.
-            div { class: "container page-content portfolio-address-page",
+            div { class: "container page-content portfolio-address-page fe-page-layout",
                 "data-section": "portfolio-address-redirect",
-                h1 { class: "text-2xl font-bold text-foreground", "Portfolio" }
-                p { class: "mt-2 text-slate-400",
+                h1 { class: "text-2xl font-bold text-foreground fe-tone-text fe-type-title", "Saved companies" }
+                p { class: "mt-2 text-slate-400 fe-tone-muted",
                     if address.is_empty() {
                         "Redirecting to your portfolio..."
                     } else {
                         "Redirecting to portfolio for "
-                        span { class: "font-mono text-foreground", "{address}" }
+                        span { class: "font-mono text-foreground fe-tone-text", "{address}" }
                         "..."
                     }
                 }

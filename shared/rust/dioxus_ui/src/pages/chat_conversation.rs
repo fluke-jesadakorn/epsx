@@ -33,8 +33,7 @@ fn ConversationSurface(ctx: PageContext) -> Element {
     let flash = mutation_flash(&ctx.query);
     match detail_load(&ctx) {
         ChatDetailLoad::Ready(detail) => rsx! {
-            div { class: "chat-page chat-page-full chat-conversation-full",
-                style: "position:fixed;top:3.5rem;left:0;right:0;bottom:0;overflow:hidden;height:calc(100dvh - 3.5rem);display:flex;flex-direction:column;",
+            div { class: "chat-page chat-page-full chat-conversation-full fe-support",
                 ConversationPanel {
                     detail: *detail,
                     topic_label: "Support".to_string(),
@@ -49,7 +48,7 @@ fn ConversationSurface(ctx: PageContext) -> Element {
         } },
         ChatDetailLoad::Malformed => rsx! { ConversationProblem {
             title: "Conversation data could not be verified".to_string(),
-            detail: "The support response did not match the expected contract, so no messages are shown.".to_string()
+            detail: "We couldn’t load this conversation. Please try again.".to_string()
         } },
         ChatDetailLoad::Unavailable => rsx! { ConversationProblem {
             title: "Conversation temporarily unavailable".to_string(),

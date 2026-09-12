@@ -8,41 +8,47 @@ name = "bff-frontend"
 path = "src/main.rs"
 
 [[bin]]
+name = "epsx-frontend"
+path = "src/dx_main.rs"
+
+[[bin]]
 name = "dx-frontend"
 path = "src/dx_main.rs"
 
 [dependencies]
 epsx-kernel = { path = "../../shared/rust/kernel" }
-epsx-client = { path = "../../shared/rust/client" }
-epsx-observability = { path = "../../shared/rust/observability" }
 epsx-templates = { path = "../../shared/rust/templates" }
 epsx-renderer = { path = "../../shared/rust/renderer" }
 epsx-dioxus-ui = { path = "../../shared/rust/dioxus_ui" }
-epsx-bff = { path = "../../shared/rust/bff" }
 dioxus = { workspace = true }
-dioxus-ssr = { workspace = true }
-dioxus-web = { workspace = true }
-dioxus-fullstack = { workspace = true }
-dioxus-server = { workspace = true }
-axum.workspace = true
-tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 http = { workspace = true }
-reqwest = { workspace = true, features = ["multipart"] }
 futures.workspace = true
 hex.workspace = true
 url.workspace = true
-tower = { workspace = true }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+epsx-client = { path = "../../shared/rust/client" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-bff = { path = "../../shared/rust/bff", features = ["fullstack"] }
+dioxus-ssr = { workspace = true }
+dioxus-fullstack = { workspace = true }
+dioxus-server = { workspace = true }
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
 tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
+reqwest = { workspace = true, features = ["multipart"] }
 
 [features]
 default = ["ssr"]
 ssr = []
-web = []
+web = ["dioxus/web", "epsx-dioxus-ui/web"]
+server = ["dioxus/server", "epsx-dioxus-ui/server"]
 
 [dev-dependencies]
 base64.workspace = true

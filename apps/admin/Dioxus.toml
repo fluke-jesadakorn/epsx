@@ -1,9 +1,15 @@
 [application]
 name = "epsx-admin"
+out_dir = "dist"
 public_dir = "public"
+platform = "web"
+tailwind_input = "src/styles/index.css"
+tailwind_output = "public/dist/tailwind.css"
 
 [web.app]
 title = "EPSX Admin - Management Portal"
+base_path = "/"
 
 [web.watcher]
-watch_path = ["src", "../../shared/rust/dioxus_ui/src", "../../shared/rust/templates/src"]
+watch_path = ["src", "public", "../../shared/rust/dioxus_ui/src", "../../shared/rust/templates/src", "../../shared/rust/templates/assets", "../../shared/rust/bff/src", "../../shared/rust/client/src", "../../shared/rust/observability/src", "../../shared/rust/kernel/src"]
+watch_include_ignored = false

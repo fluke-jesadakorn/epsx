@@ -1,0 +1,26 @@
+{
+  "transaction_hash": "0x4fb86cff109c098008f980ee167109e8f0d52d7d63d23f0a2bed660a5496ba5c",
+  "block_hash": "0x64c9e3b97eb8ada3afbacf4775a7943b78b161024135cf1fe28cce89d5218119",
+  "receipt_preserved": true,
+  "chain_id": 31337,
+  "orders_unchanged": true,
+  "grants_unchanged": true,
+  "checkpoints_healthy": true,
+  "checkpoint_rows": [
+    {
+      "chain_id": 31337,
+      "contract_address": "0x9434ab445a0cd8ba2124e594584c38476890f6ad",
+      "next_block": 1675,
+      "last_block_hash": "0x4cffcf09c6a7bfeac95755ceeecba94d746189784bcd180f9edf3b488101de4c",
+      "healthy": true
+    },
+    {
+      "chain_id": 31337,
+      "contract_address": "0xe0e214b3371f02d22e98c23b895cebc19cb73fb9",
+      "next_block": 1675,
+      "last_block_hash": "0x4cffcf09c6a7bfeac95755ceeecba94d746189784bcd180f9edf3b488101de4c",
+      "healthy": true
+    }
+  ],
+  "release": "20260909-checkout-v7"
+}

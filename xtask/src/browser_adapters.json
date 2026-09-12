@@ -1,0 +1,92 @@
+[
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "clipboard adapter",
+    "source": "let script = format!(\"try {{ await navigator.clipboard.writeText('{}'); dioxus.send(true); }} catch (_) {{ dioxus.send(false); }}\", address);\n                            let success = document::eval(&script)"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(if is_dark { \"try { localStorage.setItem('epsx-theme','dark'); } catch (_) {}\" } else { \"try { localStorage.setItem('epsx-theme','light'); } catch (_) {}\" })"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(if is_dark {\n                \"try { localStorage.setItem('epsx-theme','dark'); } catch (_) {}\"\n            } else {\n                \"try { localStorage.setItem('epsx-theme','light'); } catch (_) {}\"\n            })"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(\"let theme = 'dark', collapsed = false; try { theme = localStorage.getItem('epsx-theme') || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); collapsed = localStorage.getItem('epsx-frontend-nav-collapsed') === 'true'; } catch (_) {} dioxus.send([theme === 'dark', collapsed]);\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(\"if (isSecureContext && 'serviceWorker' in navigator) { const blocked = ['localhost','127.0.0.1','::1','[::1]','dev.epsx.io','dev-admin.epsx.io','dev-pay.epsx.io'].includes(location.hostname); if (!blocked) { navigator.serviceWorker.register('/runtime/epsx_service_worker_bootstrap.v3.js?rev=3', {type:'module',scope:'/'}).catch(() => {}); } }\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "let script = format!(\"try {{ localStorage.setItem('epsx-frontend-nav-collapsed','{}'); }} catch (_) {{}}\", value); let _ = document::eval(&script)"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/frontend_auth.rs",
+    "purpose": "wallet provider and browser capability bridge",
+    "source": "document::eval(include_str!(\"pay/wallet_adapter.js\"))"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/admin.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(\"let theme=true; try {theme=localStorage.getItem('epsx-theme')!=='light';} catch (_) {} dioxus.send(theme);\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/admin.rs",
+    "purpose": "display preferences and service-worker registration",
+    "source": "document::eval(if value {\"try {localStorage.setItem('epsx-theme','dark')} catch (_) {}\"}else{\"try {localStorage.setItem('epsx-theme','light')} catch (_) {}\"})"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/offline.rs",
+    "purpose": "offline user retry",
+    "source": "let script = format!(\n            \"window.location.assign({});\",\n            serde_json::to_string(&target).unwrap()\n        );\n        let _ = document::eval(&script)"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/contact.rs",
+    "purpose": "clipboard adapter",
+    "source": "document::eval(\"try { await navigator.clipboard.writeText('info@epsx.io'); dioxus.send(true); } catch (_) { dioxus.send(false); }\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/developer/hydrated.rs",
+    "purpose": "clipboard adapter",
+    "source": "let script = format!(\"try {{ await navigator.clipboard.writeText({}); dioxus.send(true); }} catch (_) {{ dioxus.send(false); }}\", serde_json::to_string(&value).unwrap_or_default());\n                let success = document::eval(&script)"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/account/push.rs",
+    "purpose": "push subscription and worker adapter",
+    "source": "let script = format!(\n        r#\"\ntry {{\n    if (!isSecureContext || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('Browser notifications are not supported here.');\n    const local = ['localhost','127.0.0.1','::1','[::1]','dev.epsx.io','dev-admin.epsx.io','dev-pay.epsx.io'].includes(location.hostname) || location.hostname.endsWith('.localhost');\n    if (local) throw new Error('Browser push is disabled on local development origins.');\n    const enable = {enable}, key = {key};\n    if (enable && await Notification.requestPermission() !== 'granted') throw new Error('Notification permission was not granted. Check browser settings before retrying.');\n    let registration = await navigator.serviceWorker.getRegistration('/');\n    if (!registration && enable) registration = await navigator.serviceWorker.register('/runtime/epsx_service_worker_bootstrap.v3.js?rev=3', {{ type:'module', scope:'/' }});\n    if (!registration) throw new Error('No subscription exists in this browser.');\n    registration = await Promise.race([navigator.serviceWorker.ready, new Promise((_, reject) => setTimeout(() => reject(new Error('The notification worker is not ready. Try again.')), 8000))]);\n    let subscription = await registration.pushManager.getSubscription();\n    if (!subscription && enable) {{\n        if (!key || !/^[A-Za-z0-9_-]+$/.test(key)) throw new Error('Invalid push configuration.');\n        const padded = key.replace(/-/g,'+').replace(/_/g,'/') + '='.repeat((4-key.length%4)%4);\n        const bytes = Uint8Array.from(atob(padded), character => character.charCodeAt(0));\n        subscription = await registration.pushManager.subscribe({{ userVisibleOnly:true, applicationServerKey:bytes }});\n    }}\n    if (!subscription) throw new Error('No subscription exists in this browser.');\n    const value = subscription.toJSON();\n    dioxus.send({{ subscription:{{ endpoint:value.endpoint, p256dh:value.keys.p256dh, auth:value.keys.auth, user_agent:navigator.userAgent }}, error:null }});\n}} catch (error) {{ dioxus.send({{subscription:null,error:error.message || 'Browser notification setup failed.'}}); }}\n\"#\n    );\n    let result: BrowserResult = document::eval(&script)"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/account/push.rs",
+    "purpose": "push subscription and worker adapter",
+    "source": "document::eval(\"try { const registration = await navigator.serviceWorker.getRegistration('/'); const sub = await registration?.pushManager.getSubscription(); dioxus.send(!sub || await sub.unsubscribe()); } catch (_) { dioxus.send(false); }\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/account/push.rs",
+    "purpose": "push subscription and worker adapter",
+    "source": "document::eval(\"dioxus.send(isSecureContext && 'Notification' in window && 'serviceWorker' in navigator && 'PushManager' in window && !['localhost','127.0.0.1','::1','[::1]','dev.epsx.io','dev-admin.epsx.io','dev-pay.epsx.io'].includes(location.hostname) && !location.hostname.endsWith('.localhost'));\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/pages/notifications/hydrated.rs",
+    "purpose": "notification stream adapter",
+    "source": "document::eval(\"const source = new EventSource('/api/v1/notifications/stream'); source.onopen = () => dioxus.send('connected'); source.onmessage = () => dioxus.send('changed'); source.addEventListener('notification', () => dioxus.send('changed')); source.onerror = () => dioxus.send('retrying'); try { await dioxus.recv(); } finally { source.close(); }\")"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/pay/wallet.rs",
+    "purpose": "wallet provider and browser capability bridge",
+    "source": "document::eval(include_str!(\"wallet_adapter.js\"))"
+  },
+  {
+    "path": "shared/rust/dioxus_ui/src/fullstack/shell.rs",
+    "purpose": "browser wallet permission revocation after server logout",
+    "source": "document::eval(include_str!(\"wallet_disconnect.js\"))"
+  }
+]

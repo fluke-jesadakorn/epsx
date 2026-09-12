@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use uuid::Uuid;
 
+pub mod hydrated;
+mod reference;
+
 use super::{PageContext, PageMeta};
 
 pub const DEVELOPER_DATA_PARAM: &str = "data_developer";
@@ -146,6 +149,18 @@ pub struct DeveloperOperation {
     pub api_key_callable: bool,
     pub mutation: bool,
     pub idempotent: bool,
+    pub parameters: Vec<DeveloperParameter>,
+    pub responses: Vec<(String, String)>,
+    pub request_body: Option<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DeveloperParameter {
+    pub name: String,
+    pub location: String,
+    pub required: bool,
+    pub description: String,
+    pub schema: String,
 }
 
 fn valid_timestamp(value: &str) -> bool {
@@ -268,6 +283,51 @@ pub fn decode_openapi(value: serde_json::Value) -> Option<Vec<DeveloperOperation
                 api_key_callable: operation.get("x-epsx-api-key-callable")?.as_bool()?,
                 mutation: operation.get("x-epsx-mutation")?.as_bool()?,
                 idempotent: operation.get("x-epsx-idempotent")?.as_bool()?,
+                parameters: item
+                    .get("parameters")
+                    .into_iter()
+                    .chain(operation.get("parameters"))
+                    .filter_map(serde_json::Value::as_array)
+                    .flatten()
+                    .filter_map(|parameter| {
+                        Some(DeveloperParameter {
+                            name: parameter.get("name")?.as_str()?.into(),
+                            location: parameter.get("in")?.as_str()?.into(),
+                            required: parameter
+                                .get("required")
+                                .and_then(serde_json::Value::as_bool)
+                                .unwrap_or(false),
+                            description: parameter
+                                .get("description")
+                                .and_then(serde_json::Value::as_str)
+                                .unwrap_or("")
+                                .into(),
+                            schema: parameter
+                                .get("schema")
+                                .map(serde_json::Value::to_string)
+                                .unwrap_or_default(),
+                        })
+                    })
+                    .collect(),
+                responses: operation
+                    .get("responses")
+                    .and_then(serde_json::Value::as_object)
+                    .into_iter()
+                    .flatten()
+                    .map(|(code, response)| {
+                        (
+                            code.clone(),
+                            response
+                                .get("description")
+                                .and_then(serde_json::Value::as_str)
+                                .unwrap_or("")
+                                .into(),
+                        )
+                    })
+                    .collect(),
+                request_body: operation
+                    .get("requestBody")
+                    .and_then(|body| serde_json::to_string_pretty(body).ok()),
             });
         }
     }
@@ -307,11 +367,11 @@ fn overview_load(
 fn ProblemState(kind: &'static str, title: &'static str, detail: &'static str) -> Element {
     rsx! {
         section {
-            class: "rounded-2xl border border-border/30 bg-card p-8 text-center shadow-xl",
+            class: "rounded-2xl border border-border/30 bg-card p-8 text-center shadow-xl fe-surface",
             "data-developer-state": kind,
             role: "status",
-            h2 { class: "text-xl font-semibold text-foreground", "{title}" }
-            p { class: "mt-3 text-sm text-muted-foreground", "{detail}" }
+            h2 { class: "text-xl font-semibold text-foreground fe-tone-text", "{title}" }
+            p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "{detail}" }
         }
     }
 }
@@ -331,16 +391,23 @@ fn format_number(value: i64) -> String {
 #[component]
 fn Metric(label: &'static str, value: String, detail: String) -> Element {
     rsx! {
-        article { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-lg",
-            p { class: "text-xs font-semibold uppercase tracking-wider text-muted-foreground", "{label}" }
-            p { class: "mt-2 text-2xl font-bold text-foreground", "{value}" }
-            p { class: "mt-1 text-xs text-muted-foreground", "{detail}" }
+        article { class: "rounded-2xl border border-border/20 bg-card p-5 shadow-lg fe-surface",
+            p { class: "text-xs font-semibold uppercase tracking-wider text-muted-foreground fe-tone-muted", "{label}" }
+            p { class: "mt-2 text-2xl font-bold text-foreground fe-tone-text", "{value}" }
+            p { class: "mt-1 text-xs text-muted-foreground fe-tone-muted", "{detail}" }
         }
     }
 }
 
 #[component]
 fn OverviewReady(data: DeveloperOverview) -> Element {
+    let controls = try_use_context::<hydrated::DeveloperControls>();
+    let identity = dioxus_fullstack::use_server_cached(Uuid::new_v4);
+    let create_identity = controls
+        .map(|value| (value.create_identity)())
+        .unwrap_or_else(|| format!("developer.create.{identity}"));
+    let pending = controls.map(|value| (value.pending)()).unwrap_or(false);
+    let secret = controls.and_then(|value| (value.secret)());
     let entitlement = data.entitlement.clone();
     let plan_names = if entitlement.plans.is_empty() {
         "No active API plan".to_string()
@@ -357,23 +424,23 @@ fn OverviewReady(data: DeveloperOverview) -> Element {
             div { class: "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
                 Metric { label: "API access", value: if entitlement.has_active_api_entitlement { "Active".to_string() } else { "Inactive".to_string() }, detail: plan_names }
                 Metric { label: "Rate limit", value: format!("{}/min", entitlement.rate_limits.per_minute), detail: format!("{} requests/day", format_number(i64::from(entitlement.rate_limits.per_day))) }
-                Metric { label: "30-day usage", value: format_number(data.usage.total_requests), detail: format!("{:.1}% success", data.usage.success_rate) }
+                Metric { label: "Requests", value: format_number(data.usage.total_requests), detail: format!("Last {} days · {:.1}% success", data.usage.days, data.usage.success_rate) }
                 Metric { label: "API keys", value: data.total_api_keys.to_string(), detail: "Owner-scoped, secrets redacted".to_string() }
             }
 
             if entitlement.can_write && entitlement.has_active_api_entitlement {
-                section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
-                    h2 { class: "text-lg font-semibold text-foreground", "Create API key" }
-                    p { class: "mt-1 text-sm text-muted-foreground", "Choose only the scopes this integration needs. The secret appears once." }
-                    form { class: "mt-5 grid gap-4", "data-developer-create-form": "true", action: "/developer/keys/create", method: "post",
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("developer.create.{}", Uuid::new_v4()) }
-                        label { class: "grid gap-1 text-sm text-foreground", "Name",
+                section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface",
+                    h2 { class: "text-lg font-semibold text-foreground fe-tone-text", "Create API key" }
+                    p { class: "mt-1 text-sm text-muted-foreground fe-tone-muted", "Choose only the scopes this integration needs. The secret appears once." }
+                    form { class: "mt-5 grid gap-4", "data-developer-create-form": "true", action: "/developer/keys/create", method: "post", onsubmit: move |event| { if let Some(controls) = controls { controls.create.call(event); } },
+                        input { r#type: "hidden", name: "idempotency_key", value: create_identity }
+                        label { class: "grid gap-1 text-sm text-foreground fe-tone-text", "Name",
                             input { class: "input", name: "name", maxlength: "255", required: true, autocomplete: "off" }
                         }
-                        label { class: "grid gap-1 text-sm text-foreground", "Description",
+                        label { class: "grid gap-1 text-sm text-foreground fe-tone-text", "Description",
                             textarea { class: "input min-h-24", name: "description", maxlength: "2000" }
                         }
-                        fieldset { class: "grid gap-2", legend { class: "text-sm font-medium text-foreground", "Scopes" }
+                        fieldset { class: "grid gap-2", legend { class: "text-sm font-medium text-foreground fe-tone-text", "Scopes" }
                             for scope in entitlement.assignable_scopes.iter() {
                                 label { class: "flex items-center gap-2 rounded-xl border border-border/20 p-3 text-sm",
                                     input { r#type: "checkbox", name: "scopes", value: "{scope}" }
@@ -381,49 +448,54 @@ fn OverviewReady(data: DeveloperOverview) -> Element {
                                 }
                             }
                         }
-                        label { class: "grid gap-1 text-sm text-foreground", "Expires at (optional)",
+                        label { class: "grid gap-1 text-sm text-foreground fe-tone-text", "Expires at (optional)",
                             input { class: "input font-mono", r#type: "text", name: "expires_at", placeholder: "2030-01-01T00:00:00Z", inputmode: "text" }
                         }
-                        button { class: "btn btn-primary justify-self-start", r#type: "submit", "data-developer-create": "true", "Create key" }
+                        button { class: "btn btn-primary justify-self-start", r#type: "submit", "data-developer-create": "true", disabled: pending, "Create key" }
                     }
-                    div { id: "developer-secret-once", class: "mt-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4", hidden: true, "data-developer-secret-panel": "true", role: "status",
-                        p { class: "text-sm font-semibold text-foreground", "Save this secret now. It will not be shown again." }
-                        code { id: "developer-secret-value", class: "mt-2 block break-all font-mono text-sm" }
-                        button { id: "developer-secret-copy", class: "btn btn-outline mt-3", r#type: "button", "data-epsx-action": "copy", "Copy secret" }
+                    div { id: "developer-secret-once", class: "mt-5 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4", hidden: secret.is_none(), "data-developer-secret-panel": "true", role: "status",
+                        p { class: "text-sm font-semibold text-foreground fe-tone-text", "Save this secret now. It will not be shown again." }
+                        code { id: "developer-secret-value", class: "mt-2 block break-all font-mono text-sm", "{secret.as_deref().unwrap_or_default()}" }
+                        button { id: "developer-secret-copy", class: "btn btn-outline mt-3", r#type: "button", "data-epsx-action": "copy", onclick: move |_| { if let Some(controls) = controls { controls.copy.call(()); } }, "Copy secret" }
                     }
                 }
             }
 
-            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
+            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface",
                 div { class: "flex flex-wrap items-center justify-between gap-3",
-                    h2 { class: "text-lg font-semibold text-foreground", "Your API keys" }
-                    a { class: "btn btn-outline", href: "/developer/usage", "View usage" }
+                    h2 { class: "text-lg font-semibold text-foreground fe-tone-text", "Your API keys" }
+                    crate::fullstack::shell::ShellLink { class: "btn btn-outline", href: "/developer/usage", "View usage" }
                 }
                 if data.api_keys.is_empty() {
-                    p { class: "py-12 text-center text-muted-foreground", "No API keys yet." }
+                    p { class: "py-12 text-center text-muted-foreground fe-tone-muted", "No API keys yet." }
                 } else {
                     div { class: "mt-5 grid gap-3",
-                        for key in data.api_keys.iter() {
+                        for key in data.api_keys.iter().cloned() {
                             article { class: "rounded-xl border border-border/20 p-4", "data-api-key-id": "{key.id}",
                                 div { class: "flex flex-wrap items-start justify-between gap-3",
                                     div {
-                                        h3 { class: "font-semibold text-foreground", "{key.name}" }
-                                        code { class: "mt-1 block text-sm text-muted-foreground", "{key.key_prefix}" }
+                                        h3 { class: "font-semibold text-foreground fe-tone-text", "{key.name}" }
+                                        code { class: "mt-1 block text-sm text-muted-foreground fe-tone-muted", "{key.key_prefix}" }
                                     }
                                     span { class: "rounded-full border px-2 py-1 text-xs", "{key.status}" }
                                 }
-                                if let Some(description) = &key.description { p { class: "mt-3 text-sm text-muted-foreground", "{description}" } }
+                                if let Some(description) = &key.description { p { class: "mt-3 text-sm text-muted-foreground fe-tone-muted", "{description}" } }
+                                dl { class: "fe-key-dates",
+                                    div { dt { "Created" } dd { "{key.created_at}" } }
+                                    div { dt { "Expires" } dd { "{key.expires_at.as_deref().unwrap_or(\"No expiration\")}" } }
+                                    div { dt { "Last used" } dd { "{key.last_used_at.as_deref().unwrap_or(\"Not used yet\")}" } }
+                                }
                                 div { class: "mt-3 flex flex-wrap gap-2",
                                     for scope in key.scopes.iter() { code { class: "rounded bg-background px-2 py-1 text-xs", "{scope}" } }
                                 }
-                                div { class: "mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground",
+                                div { class: "mt-4 flex flex-wrap items-center justify-between gap-3 text-xs text-muted-foreground fe-tone-muted",
                                     span { "{format_number(key.total_requests)} requests" }
                                     if key.status == "active" && entitlement.can_write {
-                                        form { "data-developer-revoke-form": "true", action: format!("/developer/keys/{}/revoke", key.id), method: "post",
-                                            input { r#type: "hidden", name: "idempotency_key", value: format!("developer.revoke.{}", Uuid::new_v4()) }
+                                        form { "data-developer-revoke-form": "true", action: format!("/developer/keys/{}/revoke", key.id), method: "post", onsubmit: move |event| { if let Some(controls) = controls { controls.revoke.call((key.id,event)); } },
+                                            input { r#type: "hidden", name: "idempotency_key", value: format!("developer.revoke.{identity}.{}", key.id) }
                                             input { r#type: "hidden", name: "reason", value: "Revoked from Developer Portal" }
                                             label { class: "mr-2 inline-flex items-center gap-1", input { r#type: "checkbox", name: "confirm_revoke", value: "yes", required: true } "Confirm" }
-                                            button { class: "btn btn-outline text-red-400", r#type: "submit", "data-developer-revoke": "true", "data-key-id": "{key.id}", "Revoke" }
+                                            button { class: "btn btn-outline text-red-400 fe-tone-danger", r#type: "submit", "data-developer-revoke": "true", disabled: pending, "data-key-id": "{key.id}", "Revoke" }
                                         }
                                     }
                                 }
@@ -439,13 +511,13 @@ fn OverviewReady(data: DeveloperOverview) -> Element {
 #[component]
 fn OverviewBody(ctx: PageContext) -> Element {
     rsx! { MainLayout { ctx: ctx.clone(), AuthGate { user: ctx.user.clone(), feature: Some("the developer portal".to_string()), return_url: Some(ctx.path.clone()), wallet_connected: ctx.wallet.address.is_some(),
-        div { class: "container page-content space-y-6",
-            PageHeader { title: "Developer portal".to_string(), description: Some("Manage scoped API credentials backed by your live plan entitlement.".to_string()), icon: Some("code".to_string()) }
+        div { class: "container page-content space-y-6 fe-page-layout",
+            PageHeader { title: "Developer portal".to_string(), description: Some("Manage API keys and review the access included in your plan.".to_string()), icon: Some("code".to_string()) }
             match overview_load(&ctx, DEVELOPER_DATA_PARAM, DEVELOPER_STATE_PARAM) {
                 Load::Ready(data) | Load::Empty(data) => rsx! { OverviewReady { data } },
-                Load::Forbidden => rsx! { ProblemState { kind: LOAD_FORBIDDEN, title: "API access required", detail: "Your current plan does not include epsx:api:read." } },
-                Load::Unavailable => rsx! { ProblemState { kind: LOAD_UNAVAILABLE, title: "Developer portal unavailable", detail: "The authoritative backend contract could not be reached." } },
-                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Developer data rejected", detail: "The backend response did not match the developer contract." } },
+                Load::Forbidden => rsx! { ProblemState { kind: LOAD_FORBIDDEN, title: "API access required", detail: "API access is not available for this account. Review your plan for details." } },
+                Load::Unavailable => rsx! { ProblemState { kind: LOAD_UNAVAILABLE, title: "Developer portal unavailable", detail: "We couldn’t load your developer account. Please try again." } },
+                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Developer data unavailable", detail: "We couldn’t load your developer data. Please try again." } },
             }
         }
     } } }
@@ -465,7 +537,7 @@ fn UsageReady(data: DeveloperOverview) -> Element {
         div { class: "space-y-6", "data-developer-usage-state": "ready",
             nav { class: "flex gap-2", "aria-label": "Usage range",
                 for days in [7, 30, 90] {
-                    a { class: if data.usage.days == days { "btn btn-primary" } else { "btn btn-outline" }, href: format!("/developer/usage?days={days}"), "{days} days" }
+                    crate::fullstack::shell::ShellLink { class: if data.usage.days == days { "btn btn-primary" } else { "btn btn-outline" }, href: format!("/developer/usage?days={days}"), "{days} days" }
                 }
             }
             div { class: "grid gap-4 sm:grid-cols-2 xl:grid-cols-4",
@@ -474,27 +546,48 @@ fn UsageReady(data: DeveloperOverview) -> Element {
                 Metric { label: "Errors", value: format_number(data.usage.error_requests), detail: format!("{:.1}% error rate", data.usage.error_rate) }
                 Metric { label: "Average latency", value: format!("{:.0} ms", data.usage.average_response_time_ms), detail: "Completed API-key requests".to_string() }
             }
-            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
-                h2 { class: "text-lg font-semibold text-foreground", "Daily requests" }
+            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface",
+                h2 { class: "text-lg font-semibold text-foreground fe-tone-text", "Daily requests" }
                 if data.usage.total_requests == 0 {
-                    p { class: "py-12 text-center text-muted-foreground", "No API-key requests in this period." }
+                    p { class: "py-12 text-center text-muted-foreground fe-tone-muted", "No API-key requests in this period." }
                 } else {
                     div { class: "mt-5 flex h-56 items-end gap-1 overflow-x-auto", role: "img", "aria-label": "Daily API request chart",
                         for point in data.usage.daily.iter() {
                             div { class: "group flex min-w-2 flex-1 flex-col items-center justify-end", title: format!("{}: {} requests", point.date, point.total_requests),
-                                div { class: "w-full rounded-t bg-purple-500", style: format!("height: {}%", (point.total_requests * 100 / maximum).max(2)) }
+                                div { class: "w-full rounded-t bg-purple-500", style: format!("height: {:.1}px", point.total_requests as f64 / maximum as f64 * 200.0) }
                             }
                         }
                     }
                 }
             }
-            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl",
-                h2 { class: "p-6 text-lg font-semibold text-foreground", "Top endpoints" }
-                if data.usage.top_endpoints.is_empty() { p { class: "px-6 pb-8 text-muted-foreground", "No endpoint activity in this period." } }
+            section { class: "overflow-hidden rounded-2xl border border-border/20 bg-card shadow-xl fe-surface",
+                h2 { class: "p-6 text-lg font-semibold text-foreground fe-tone-text", "Top endpoints" }
+                if data.usage.top_endpoints.is_empty() { p { class: "px-6 pb-8 text-muted-foreground fe-tone-muted", "No endpoint activity in this period." } }
                 else { div { class: "overflow-x-auto", table { class: "w-full text-sm",
-                    thead { tr { class: "border-t border-b border-border/20 text-left text-muted-foreground", th { class: "p-3", "Method" } th { class: "p-3", "Endpoint" } th { class: "p-3", "Requests" } th { class: "p-3", "Errors" } th { class: "p-3", "Avg latency" } } }
+                    thead { tr { class: "border-t border-b border-border/20 text-left text-muted-foreground fe-tone-muted", th { class: "p-3", "Method" } th { class: "p-3", "Endpoint" } th { class: "p-3", "Requests" } th { class: "p-3", "Errors" } th { class: "p-3", "Avg latency" } } }
                     tbody { for endpoint in data.usage.top_endpoints.iter() { tr { class: "border-b border-border/10", td { class: "p-3 font-mono", "{endpoint.method}" } td { class: "p-3 font-mono", "{endpoint.endpoint}" } td { class: "p-3", "{format_number(endpoint.request_count)}" } td { class: "p-3", "{format_number(endpoint.error_count)}" } td { class: "p-3", "{endpoint.average_response_time_ms:.0} ms" } } } }
                 } } }
+            }
+            section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface", "data-developer-key-usage": "true",
+                h2 { class: "text-lg font-semibold text-foreground fe-tone-text", "Usage by API key" }
+                p { class: "fe-help", "Lifetime requests for each listed key. The date range above applies to the usage chart and endpoint activity." }
+                if data.api_keys.is_empty() {
+                    p { "No API keys yet." }
+                } else {
+                    div { class: "overflow-x-auto", table { class: "w-full text-sm",
+                        thead { tr { th { "Key" } th { "Status" } th { "Lifetime requests" } th { "Last used" } } }
+                        tbody { for key in data.api_keys.iter().cloned() {
+                            tr { td { "{key.name}" code { class: "block", "{key.key_prefix}" } }
+                                td { "{key.status}" } td { "{format_number(key.total_requests)}" }
+                                td { "{key.last_used_at.as_deref().unwrap_or(\"Not used yet\")}" }
+                            }
+                        } }
+                    } }
+                    if data.total_api_keys > data.api_keys.len() as i64 {
+                        p { class: "fe-help", "Showing {data.api_keys.len()} of {data.total_api_keys} keys returned in this overview." }
+                    }
+                }
+                crate::fullstack::shell::ShellLink { class: "fe-text-link", href: "/developer", "Manage API keys" }
             }
         }
     }
@@ -503,13 +596,13 @@ fn UsageReady(data: DeveloperOverview) -> Element {
 #[component]
 fn UsageBody(ctx: PageContext) -> Element {
     rsx! { MainLayout { ctx: ctx.clone(), AuthGate { user: ctx.user.clone(), feature: Some("API usage".to_string()), return_url: Some(ctx.path.clone()), wallet_connected: ctx.wallet.address.is_some(),
-        div { class: "container page-content space-y-6",
+        div { class: "container page-content space-y-6 fe-page-layout",
             PageHeader { title: "API usage".to_string(), description: Some("Request volume, reliability, and endpoint activity from real API-key logs.".to_string()), icon: Some("chart-line".to_string()) }
             match overview_load(&ctx, DEVELOPER_USAGE_DATA_PARAM, DEVELOPER_USAGE_STATE_PARAM) {
                 Load::Ready(data) | Load::Empty(data) => rsx! { UsageReady { data } },
                 Load::Forbidden => rsx! { ProblemState { kind: LOAD_FORBIDDEN, title: "API access required", detail: "Your current plan does not include usage reporting." } },
                 Load::Unavailable => rsx! { ProblemState { kind: LOAD_UNAVAILABLE, title: "Usage unavailable", detail: "Usage analytics could not be reached." } },
-                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Usage data rejected", detail: "The analytics response did not match the usage contract." } },
+                Load::Malformed => rsx! { ProblemState { kind: LOAD_MALFORMED, title: "Usage data unavailable", detail: "We couldn’t load your API usage. Please try again." } },
             }
         }
     } } }
@@ -527,41 +620,45 @@ fn DocsBody(ctx: PageContext) -> Element {
         .and_then(|raw| serde_json::from_str(raw).ok())
         .and_then(decode_openapi);
     rsx! { MainLayout { ctx: ctx.clone(),
-        div { class: "container page-content space-y-6",
-            PageHeader { title: "API documentation".to_string(), description: Some("Generated from the backend operation registry.".to_string()), icon: Some("book-open".to_string()) }
+        div { class: "container page-content space-y-6 fe-page-layout",
+            PageHeader { title: "API documentation".to_string(), description: Some("Browse API operations, parameters, and responses.".to_string()), icon: Some("book-open".to_string()) }
             if state == Some(LOAD_READY) && operations.is_some() {
+                reference::Introduction { operations: operations.clone().unwrap_or_default(),
+                    spec: ctx.params.get(DEVELOPER_OPENAPI_DATA_PARAM).cloned().unwrap_or_default()
+                }
                 div { class: "space-y-6", "data-developer-docs-state": "ready",
-                    section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl",
-                        label { class: "grid gap-2 text-sm font-medium text-foreground", "API key for Try It",
+                    section { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface",
+                        label { class: "grid gap-2 text-sm font-medium text-foreground fe-tone-text", "API key for Try It",
                             input { id: "developer-try-api-key", class: "input font-mono", r#type: "password", autocomplete: "off", spellcheck: "false", placeholder: "epsx_…", "data-developer-api-key-memory": "true" }
                         }
-                        p { class: "mt-2 text-xs text-muted-foreground", "Kept only in this tab's memory and cleared on reload or close." }
+                        p { class: "mt-2 text-xs text-muted-foreground fe-tone-muted", "Kept only in this tab's memory and cleared on reload or close." }
                     }
                     for operation in operations.unwrap_or_default() {
-                        article { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl", id: format!("operation-{}", operation.operation_id),
+                        article { class: "rounded-2xl border border-border/20 bg-card p-6 shadow-xl fe-surface", id: format!("operation-{}", operation.operation_id),
                             div { class: "flex flex-wrap items-center gap-3",
-                                span { class: "rounded-lg bg-purple-500/15 px-2 py-1 text-xs font-bold text-purple-700 dark:text-purple-300", "{operation.method}" }
-                                code { class: "font-mono text-sm text-foreground", "{operation.path}" }
+                                span { class: "rounded-lg bg-purple-500/15 px-2 py-1 text-xs font-bold text-purple-700 dark:text-purple-300 fe-tone-accent", "{operation.method}" }
+                                code { class: "font-mono text-sm text-foreground fe-tone-text", "{operation.path}" }
                             }
-                            h2 { class: "mt-3 text-lg font-semibold text-foreground", "{operation.summary}" }
+                            h2 { class: "mt-3 text-lg font-semibold text-foreground fe-tone-text", "{operation.summary}" }
                             div { class: "mt-3 flex flex-wrap gap-2", for scope in operation.required_scopes.iter() { code { class: "rounded bg-background px-2 py-1 text-xs", "{scope}" } } }
+                            reference::OperationDetails { operation: operation.clone() }
                             if operation.api_key_callable {
                                 div { class: "mt-5 grid gap-3",
-                                    label { class: "grid gap-1 text-xs text-muted-foreground", "Query string (optional)", input { class: "input font-mono", "data-try-query": "true", placeholder: "country=US&limit=20" } }
-                                    if operation.mutation { label { class: "grid gap-1 text-xs text-muted-foreground", "JSON body", textarea { class: "input min-h-28 font-mono", "data-try-body": "true", value: "{{}}" } } }
+                                    label { class: "grid gap-1 text-xs text-muted-foreground fe-tone-muted", "Query string (optional)", input { class: "input font-mono", "data-try-query": "true", placeholder: "country=US&limit=20" } }
+                                    if operation.mutation { label { class: "grid gap-1 text-xs text-muted-foreground fe-tone-muted", "JSON body", textarea { class: "input min-h-28 font-mono", "data-try-body": "true", value: "{{}}" } } }
                                     button { class: "btn btn-primary justify-self-start", r#type: "button", "data-developer-try": "true", "data-operation-id": "{operation.operation_id}", "data-operation-mutation": if operation.mutation { "true" } else { "false" }, "Try It" }
-                                    pre { class: "max-h-96 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-200", "data-try-response": "true", hidden: true }
+                                    pre { class: "max-h-96 overflow-auto rounded-xl bg-slate-950 p-4 text-xs text-slate-200 fe-fill-neutral", "data-try-response": "true", hidden: true }
                                 }
                             } else {
-                                p { class: "mt-4 text-sm text-muted-foreground", "Browser-session operation; Try It is disabled for API keys." }
+                                p { class: "mt-4 text-sm text-muted-foreground fe-tone-muted", "Browser-session operation; Try It is disabled for API keys." }
                             }
                         }
                     }
                 }
             } else if state == Some(LOAD_MALFORMED) {
-                ProblemState { kind: LOAD_MALFORMED, title: "API specification rejected", detail: "The OpenAPI document did not match the operation registry contract. Try It is disabled." }
+                ProblemState { kind: LOAD_MALFORMED, title: "API specification unavailable", detail: "We couldn’t load the API documentation. Please try again before testing a request." }
             } else {
-                ProblemState { kind: LOAD_UNAVAILABLE, title: "API specification unavailable", detail: "The backend OpenAPI document could not be loaded. Try It is disabled." }
+                ProblemState { kind: LOAD_UNAVAILABLE, title: "API specification unavailable", detail: "We couldn’t load the API documentation. Please try again. You can test requests once the documentation is available." }
             }
         }
     } }
@@ -602,10 +699,25 @@ mod tests {
                 "x-epsx-required-scopes": ["epsx:analytics:view"],
                 "x-epsx-api-key-callable": true,
                 "x-epsx-mutation": false,
-                "x-epsx-idempotent": false
+                "x-epsx-idempotent": false,
+                "parameters": [{"name": "country", "in": "query", "required": false,
+                    "description": "Country filter", "schema": {"type": "string"}}],
+                "responses": {"429": {"description": "Rate limit exceeded"}}
             }}}
         });
-        assert_eq!(decode_openapi(valid).unwrap().len(), 1);
+        let operations = decode_openapi(valid).unwrap();
+        assert_eq!(operations.len(), 1);
+        assert_eq!(operations[0].parameters[0].name, "country");
+        assert_eq!(operations[0].parameters[0].location, "query");
+        assert_eq!(
+            operations[0].responses,
+            [("429".into(), "Rate limit exceeded".into())]
+        );
+        let html = dioxus_ssr::render_element(
+            rsx! { reference::OperationDetails { operation: operations[0].clone() } },
+        );
+        assert!(html.contains("Country filter"));
+        assert!(html.contains("Rate limit exceeded"));
         let unsafe_spec = serde_json::json!({
             "openapi": "3.1.0",
             "paths": {"https://evil.test/": {"get": {}}}

@@ -1,11 +1,22 @@
+> Native production path (September 2026): Rust release binaries on the Mac Mini,
+> PostgreSQL + Redis + MinIO, exposed through a named Cloudflare Tunnel. Follow
+> `infrastructure/native/README.md` for build/package, explicit migrations,
+> launchd, backups and rollback. Workers/D1 migration and container orchestration
+> are not release prerequisites. Existing Kubernetes/Workers instructions below
+> are historical rollback references. Never deploy or change production routes
+> without a separate explicit deployment instruction.
+
 # AGENTS.md
 
 This file provides guidance to Codex (Codex.ai/code) when working with code in this repository.
 
 ## Common Commands
 
-### Development
-- `cargo xtask dev --all` - All Rust/Dioxus services
+### Development (native preferred)
+- UI development defaults to `python3 infrastructure/native/dev-control.py hmr ui` (or `hmr bff-frontend|bff-admin|bff-pay`). This reuses the dev LaunchAgents and Cargo workspace cache, starts DX sequentially, and leaves backend/internal services running. Use `status ui` before starting and `restore-hmr ui` to restore the prior UI processes. See `infrastructure/native/README.md`.
+- After code changes, ensure the affected development server is running with the latest build and verify an HTTP response before handing back. Reuse an existing watcher; do not launch duplicate servers. This does not authorize production deployment.
+- `cargo xtask cloudflare dev --local` - Historical Workers experiment; not the native runtime
+- `cargo xtask dev --all` - Backend, Frontend/Admin/Pay BFF and five internal native services; no automatic migrations
 - `cargo xtask dev --frontend` / `--admin` / `--backend` - Individual apps
 - `cargo xtask anvil-proxy` - Local Anvil chain and Rust RPC proxy (:8545)
 - `cargo xtask setup-local` - Deploy contracts and tokens to the local chain
@@ -30,10 +41,10 @@ This file provides guidance to Codex (Codex.ai/code) when working with code in t
 - `cargo build` from `apps/backend/`
 - `cargo test` from `apps/backend/`
 - Binary: `apps/backend/src/bin/migrate.rs` for DB migrations
-- Multiple Diesel configs: `diesel.toml`, `diesel_analytics.toml`, `diesel_notifications.toml`, `diesel_payments.toml`
+- Multiple sqlx migrations: `migrations/core`, `migrations/analytics`, `migrations/notifications`, `migrations/payments` (legacy `diesel.toml` deleted; use `sqlx migrate run`, `cargo xtask cloudflare dev --local` for local Cloudflare sim)
 - **Migration safety**: Never drop/delete existing data unless the structural change requires it. Prefer `ALTER TABLE ADD/RENAME` over `DROP`+recreate. Use `IF EXISTS`/`IF NOT EXISTS` guards.
 
-### Deployment (Colima K8s + Cloudflare Tunnel)
+### Deployment (native binaries + Cloudflare Tunnel; historical commands below)
 **CRITICAL: Never deploy to production unless explicitly instructed by the user. Making code changes locally is always safe; deploying to prod requires explicit user confirmation each time.**
 
 Production runs locally via **Colima Kubernetes** (profile `epsx`) with Cloudflare Tunnel exposing services via NodePorts and `socat` bridges.

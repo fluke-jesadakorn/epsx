@@ -475,7 +475,9 @@ pub fn compute_fee(amount: &str) -> String {
     use std::str::FromStr;
     if let Ok(amt) = alloy::primitives::U256::from_str(amount) {
         // 0.3% fee
-        let fee = amt / alloy::primitives::U256::from(333u64);
+        let denominator = alloy::primitives::U256::from(10000u64);
+        let numerator = alloy::primitives::U256::from(30u64);
+        let fee = (amt / denominator) * numerator + ((amt % denominator) * numerator) / denominator;
         fee.to_string()
     } else {
         "0".to_string()

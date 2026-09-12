@@ -56,7 +56,7 @@ impl ServerlessCacheFactory {
         let pool_size = Self::get_serverless_pool_size();
         let config = Self::get_serverless_cache_config();
 
-        info!("Connecting to Redis for serverless cache: {}", redis_url);
+        info!("Connecting to Redis cache");
         info!("   Pool size: {}", pool_size);
         info!("   Default TTL: {}s", config.default_ttl);
 

@@ -780,50 +780,89 @@ impl TransactionMonitorService {
             plan_name, plan_uuid, wallet_address
         );
 
-        // 4. Check for existing assignment
-        #[derive(sqlx::FromRow)]
-        struct ExistingAssignment {
-            id: Uuid,
-            expires_at: Option<chrono::DateTime<Utc>>,
-            is_active: bool,
-        }
+        let assignment_expires_at: Option<chrono::DateTime<Utc>>;
+        let mut ledger_tx = primary_pool.begin().await.map_err(|e| e.to_string())?;
+        sqlx::query("SELECT pg_advisory_xact_lock(hashtextextended($1,0))")
+            .bind(format!("plan-ledger:{wallet_address}:{plan_uuid}"))
+            .execute(&mut *ledger_tx)
+            .await
+            .map_err(|e| e.to_string())?;
+        let has_ledger: bool =
+            sqlx::query_scalar("SELECT to_regclass('public.pay_assignment_baselines') IS NOT NULL")
+                .fetch_one(&mut *ledger_tx)
+                .await
+                .map_err(|e| e.to_string())?;
+        let ledger_exists: bool = if has_ledger {
+            sqlx::query_scalar("SELECT EXISTS(SELECT 1 FROM pay_assignment_baselines WHERE wallet_address=$1 AND plan_id=$2)")
+            .bind(&wallet_address).bind(plan_uuid).fetch_one(&mut *ledger_tx).await
+            .map_err(|e| format!("Failed to inspect payment ledger: {e}"))?
+        } else {
+            false
+        };
+        if ledger_exists {
+            let now = Utc::now();
+            let days = plan_expiry_for_assignment(
+                now,
+                &plan_metadata,
+                billing_cycle.as_deref().unwrap_or_default(),
+                None,
+            )
+            .map(|expiry| (expiry - now).num_days());
+            assignment_expires_at = crate::web::payments::merchant_checkout::apply_grant(
+                &mut ledger_tx,
+                &wallet_address,
+                plan_uuid,
+                &format!("legacy:{payment_reference}"),
+                now,
+                days,
+                true,
+                "legacy",
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        } else {
+            // 4. Check for existing assignment
+            #[derive(sqlx::FromRow)]
+            struct ExistingAssignment {
+                id: Uuid,
+                expires_at: Option<chrono::DateTime<Utc>>,
+                is_active: bool,
+            }
 
-        let existing: Option<ExistingAssignment> = sqlx::query_as::<_, ExistingAssignment>(
+            let existing: Option<ExistingAssignment> = sqlx::query_as::<_, ExistingAssignment>(
             "SELECT id, expires_at, is_active FROM wallet_plan_assignments WHERE LOWER(wallet_address) = LOWER($1) AND plan_id = $2 ORDER BY is_active DESC, expires_at DESC LIMIT 1"
         )
         .bind(&wallet_address)
         .bind(plan_uuid)
-        .fetch_optional(primary_pool)
+        .fetch_optional(&mut *ledger_tx)
         .await
         .map_err(|e| format!("Failed to inspect existing plan assignment: {e}"))?;
 
-        let assignment_expires_at: Option<chrono::DateTime<Utc>>;
+            if let Some(existing) = existing {
+                let new_expiry = plan_expiry_for_assignment(
+                    Utc::now(),
+                    &plan_metadata,
+                    billing_cycle.as_deref().unwrap_or_default(),
+                    existing.is_active.then_some(existing.expires_at).flatten(),
+                );
+                assignment_expires_at = new_expiry;
 
-        if let Some(existing) = existing {
-            let new_expiry = plan_expiry_for_assignment(
-                Utc::now(),
-                &plan_metadata,
-                billing_cycle.as_deref().unwrap_or_default(),
-                existing.is_active.then_some(existing.expires_at).flatten(),
-            );
-            assignment_expires_at = new_expiry;
+                info!(
+                    "{} plan {} for wallet {}. Old: {:?}, New: {:?}",
+                    if existing.is_active {
+                        "Extending"
+                    } else {
+                        "Reactivating"
+                    },
+                    plan_uuid,
+                    wallet_address,
+                    existing.expires_at,
+                    new_expiry
+                );
 
-            info!(
-                "{} plan {} for wallet {}. Old: {:?}, New: {:?}",
-                if existing.is_active {
-                    "Extending"
-                } else {
-                    "Reactivating"
-                },
-                plan_uuid,
-                wallet_address,
-                existing.expires_at,
-                new_expiry
-            );
-
-            // Deactivate other subscription plans
-            sqlx::query(
-                r#"
+                // Deactivate other subscription plans
+                sqlx::query(
+                    r#"
                 UPDATE wallet_plan_assignments
                 SET is_active = false, updated_at = NOW()
                 WHERE LOWER(wallet_address) = LOWER($1)
@@ -831,50 +870,50 @@ impl TransactionMonitorService {
                   AND plan_id != $2
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
                 "#,
-            )
-            .bind(&wallet_address)
-            .bind(plan_uuid)
-            .execute(primary_pool)
-            .await
-            .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
+                )
+                .bind(&wallet_address)
+                .bind(plan_uuid)
+                .execute(&mut *ledger_tx)
+                .await
+                .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
-            sqlx::query(
-                r#"
+                sqlx::query(
+                    r#"
                 UPDATE wallet_plan_assignments
                 SET expires_at = $1, payment_reference = $2, updated_at = NOW(), is_active = true
                 WHERE id = $3
                 "#,
-            )
-            .bind(assignment_expires_at)
-            .bind(&payment_reference)
-            .bind(existing.id)
-            .execute(primary_pool)
-            .await
-            .map_err(|e| format!("Failed to extend plan: {}", e))?;
-        } else {
-            let expires_at = plan_expiry_for_assignment(
-                Utc::now(),
-                &plan_metadata,
-                billing_cycle.as_deref().unwrap_or_default(),
-                None,
-            );
-            assignment_expires_at = expires_at;
-            // Deactivate other subscription plans
-            sqlx::query(
-                r#"
+                )
+                .bind(assignment_expires_at)
+                .bind(&payment_reference)
+                .bind(existing.id)
+                .execute(&mut *ledger_tx)
+                .await
+                .map_err(|e| format!("Failed to extend plan: {}", e))?;
+            } else {
+                let expires_at = plan_expiry_for_assignment(
+                    Utc::now(),
+                    &plan_metadata,
+                    billing_cycle.as_deref().unwrap_or_default(),
+                    None,
+                );
+                assignment_expires_at = expires_at;
+                // Deactivate other subscription plans
+                sqlx::query(
+                    r#"
                 UPDATE wallet_plan_assignments
                 SET is_active = false, updated_at = NOW()
                 WHERE LOWER(wallet_address) = LOWER($1)
                   AND is_active = true
                   AND plan_id IN (SELECT id FROM plans WHERE plan_type = 'subscription')
                 "#,
-            )
-            .bind(&wallet_address)
-            .execute(primary_pool)
-            .await
-            .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
+                )
+                .bind(&wallet_address)
+                .execute(&mut *ledger_tx)
+                .await
+                .map_err(|e| format!("Failed to deactivate previous plan: {e}"))?;
 
-            sqlx::query(
+                sqlx::query(
                 r#"
                 INSERT INTO wallet_plan_assignments (
                     wallet_address, plan_id, assigned_at, expires_at, is_active,
@@ -888,10 +927,13 @@ impl TransactionMonitorService {
             .bind(plan_uuid)
             .bind(assignment_expires_at)
             .bind(&payment_reference)
-            .execute(primary_pool)
+            .execute(&mut *ledger_tx)
             .await
             .map_err(|e| format!("Failed to assign plan: {}", e))?;
+            }
         }
+
+        ledger_tx.commit().await.map_err(|e| e.to_string())?;
 
         // 1. Update payment status to confirmed (RC-3: after plan assignment succeeds)
         sqlx::query(

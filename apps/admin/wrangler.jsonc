@@ -1,0 +1,51 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "epsx-admin",
+  "compatibility_date": "2024-09-23",
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
+  "main": "src/worker.js",
+  "assets": {
+    "directory": "dist",
+    "not_found_handling": "single-page-application"
+  },
+  "observability": {
+    "enabled": true
+  },
+  "vars": {
+    "ENV": "local",
+    "FRONTEND_URL": "http://localhost:8789",
+    "BACKEND_URL": "http://localhost:8788",
+    "R2_PUBLIC_URL": "http://localhost:8789/assets"
+  },
+  "r2_buckets": [
+    {
+      "binding": "ASSETS",
+      "bucket_name": "epsx-admin-assets-local",
+      "preview_bucket_name": "epsx-admin-assets-local"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "local-session-kv",
+      "preview_id": "local-session-kv"
+    },
+    {
+      "binding": "FLAGS",
+      "id": "local-flags-kv",
+      "preview_id": "local-flags-kv"
+    }
+  ],
+  "hyperdrive": [
+    {
+      "binding": "HYPERDRIVE_CORE",
+      "id": "local-hyperdrive-core",
+      "localConnectionString": "postgresql://epsx_user:epsx@localhost:5432/epsx_prod?sslmode=disable"
+    }
+  ],
+  "dev": {
+    "port": 8789
+  }
+}

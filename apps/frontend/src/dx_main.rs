@@ -1,30 +1,15 @@
-//! Dioxus fullstack entry for `dx serve --hot-reload`.
-//!
-//! Big-Bang Phase 2: This binary is the HMR dev surface (<500ms).
-//! Production stays on `bff-frontend` (Axum + dioxus_ssr) until Phase 2
-//! server_fn migration completes. Both share `epsx-dioxus-ui` + `templates`.
-
-use dioxus::prelude::*;
-use epsx_dioxus_ui::app::FrontendApp;
-
-#[component]
-fn App() -> Element {
-    rsx! { FrontendApp {} }
-}
-
+//! Fullstack development entry uses the same BFF services and middleware.
+#[cfg(feature = "server")]
 fn main() {
-    // `FrontendApp` with `initial_context: None` falls back to `PageContext::default()`
-    // via `try_consume_context` in `routes.rs:get_ctx`. Hot reload patches `rsx!` without
-    // `cargo run` restart — edit `stock_data_card.rs:225` `Next Action` hero and see <500ms.
-    dioxus::launch(App);
+    dioxus_server::serve(|| async {
+        epsx_bff::fullstack::verify_public_assets()?;
+        let state = epsx_frontend::state_from_env().map_err(std::io::Error::other)?;
+        Ok(epsx_frontend::fullstack::application(state)
+            .layer(axum::middleware::from_fn(epsx_bff::fullstack::dev_no_cache)))
+    });
 }
 
-// Example server function for pilot migration (home analytics).
-// This will replace `ssr.rs:fetch_page_data` `load_home_analytics` HashMap insert.
-//
-//  #[server(GetHomeRankings)]
-//  pub async fn get_home_rankings() -> Result<epsx_dioxus_ui::pages::analytics::AnalyticsResponse, ServerFnError> {
-//      // Server-only: ServiceClient::new(ClientConfig { base_url: std::env::var("API_URL")? })
-//      // Fallback to `PageContext` HashMap until migrated page-by-page.
-//      Ok(epsx_dioxus_ui::pages::analytics::AnalyticsResponse::default())
-//  }
+#[cfg(not(feature = "server"))]
+fn main() {
+    dioxus::launch(epsx_dioxus_ui::app::FrontendRoot);
+}

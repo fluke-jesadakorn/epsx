@@ -1,0 +1,195 @@
+{
+  "date": "2026-09-08",
+  "network": "isolated Anvil chain 31337",
+  "production_deployed": false,
+  "package": "target/native-releases/20260908-merchant-validation-v7",
+  "package_manifest_sha256": "abb1f94aaf307f883c064a8d8a208086a1651ff826d5f941ee8835f18cbff9c0",
+  "workspace_tests": {
+    "passed": 2189,
+    "failed": 0,
+    "ignored": 34,
+    "suites": 96
+  },
+  "live-http-evidence": {
+    "merchant_id": "mer_6f6b58b8b6db451eaa8bb3a0f92e2189",
+    "payment_id": "pi_e374ae9b86054a7a8261e329c2e98d92",
+    "chain_id": 31337,
+    "status": "succeeded",
+    "amount": "10000000000000000",
+    "fee_amount": "50000000000000",
+    "verified_block": 128,
+    "tx_hash": "0xdfe36a3d26e4250c56451223776570751604aa07a4cfc469240185c89844f473",
+    "siwe": "verified",
+    "refresh": "rotated",
+    "guest_without_capability": 404,
+    "guest_payment": "no SIWE",
+    "release": "merchant-v1"
+  },
+  "epsx-fulfillment-evidence": {
+    "order_id": "c719974a-159e-4933-b926-81e86b138f01",
+    "payment_id": "pi_63cc06ce1d3544ab85ff1e0737479986",
+    "amount": "100000000000000000000",
+    "token": "USDT",
+    "paid_tx": "0x5cf3edaaf1d8cae74829f8cb17dcf845f21499d5bae4ffd7ec0d32c8d31d9e3f",
+    "refund_tx": "0x6fa628737e3e552fdcc80fc5184562dfacddfd677f7f2ee998c7d1df35b027ad",
+    "paid_event": "evt_45917ceaac4747a7b7f0a3a4904eb3b2",
+    "refund_event": "evt_27d9ea1ff0b640ea859f50d1c5f48db4",
+    "fulfillment": "one grant, revoked on refund",
+    "other_plan_assignments": "unchanged",
+    "webhook_transport": "signed local fixture using real Pay events and authenticated API retrieval",
+    "browser": "not tested (Mac locked)"
+  },
+  "cache-loss-evidence": {
+    "stale_jwt_has_paid_scope": true,
+    "effective_permission_after_refund_and_redis_restart": false,
+    "purchase": "3ab97eec-bb62-49ce-8d8a-2b126d333802",
+    "payment": "pi_b38a4f6814724f4e894fabf81398b948"
+  },
+  "migration-evidence": {
+    "core": "fresh, pending and repeat passed",
+    "pay": "fresh, pending and repeat passed",
+    "conflict": "modified fixture refused; source and applied migrations unchanged"
+  },
+  "recovery-before": {
+    "tables": {
+      "DATABASE_URL:pay_assignment_baselines": {
+        "count": 1,
+        "sha256": "2f544f9acdf5f00fbc289bad9c719213da6bf20e5065586929bc886f3207d2d0"
+      },
+      "DATABASE_URL:pay_fulfillment_inbox": {
+        "count": 4,
+        "sha256": "d4c65b03d4d0a6af51ad233941fffafbd930c401bc3aa98033578cd5b2963740"
+      },
+      "DATABASE_URL:pay_purchase_grants": {
+        "count": 2,
+        "sha256": "22e943f91a1ff0969079070df31f14de4383bb098b4590bc57bc9f6987272f4e"
+      },
+      "DATABASE_URL:pay_purchase_orders": {
+        "count": 2,
+        "sha256": "9db37d44eff0db924efbe25cedaa553821218506d5c417f6209a23460aca6908"
+      },
+      "DATABASE_URL:wallet_plan_assignments": {
+        "count": 2,
+        "sha256": "a9acdb45f38268e95d4560cc8f17ded5e1d9aacc9edb837e707d39bced283c70"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_chain_events": {
+        "count": 5,
+        "sha256": "d961c7c6a31504695bfa0fa89f63f87a002e2693e13a2c87c5a13868470472e4"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_checkpoints": {
+        "count": 2,
+        "sha256": "00ab00f286a350eabd99c3148ce2b517bc58353b5471a5d3e4ca1177a7a36785"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_contract_controls": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_deliveries": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_delivery_attempts": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_endpoints": {
+        "count": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_events": {
+        "count": 5,
+        "sha256": "3074a8a5c2930aec27c4d21fec23739b8c3d6f132e3b04eff8ed1543022708fd"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_intents": {
+        "count": 3,
+        "sha256": "e3b3cb2927258f0ce5aa28576738caa443b0dea47f680317656c1d81997d56b1"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_keys": {
+        "count": 1,
+        "sha256": "0ba06cb4f6fee37272fb61bac34ad8b3412163e89b8e5d736aa9366d9f8f564b"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_links": {
+        "count": 1,
+        "sha256": "f6193e44942dd9215cef24a79f7a527b5bf5da1a3a7eaa45ac45c64a621aed87"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_operations": {
+        "count": 5,
+        "sha256": "28c7a3d37e326b971fc497be107b888a9d76ae54e13c0b86c675a5f654644d77"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_rate_limits": {
+        "count": 11,
+        "sha256": "6ae92228b4033a838dbd6b7064b01fdf2b4d77eaf85f5ef18c1a579c4f94409b"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchant_requests": {
+        "count": 9,
+        "sha256": "c99c2dbca47e6c1d85ad08b52fb31b6dd6ed36fa0d1f9e61e714da44e8482275"
+      },
+      "PAY_SERVICE_DATABASE_URL:pay_merchants": {
+        "count": 1,
+        "sha256": "47bc9eb5653cb958bfba104de636c3e2a2987c706a525910be53e90f2bf1c113"
+      }
+    },
+    "object": {
+      "object": "native-rehearsal/probe.txt",
+      "bytes": 33,
+      "sha256": "abcafed3d1f8283715729a96c6800186714fa612753b5d112bc11476c0d3362d"
+    },
+    "migration_repeat": "unchanged"
+  },
+  "restored-smoke-evidence": {
+    "epsx": 200,
+    "wallet": 200,
+    "pay-service": 200,
+    "subscription": 200,
+    "notification": 200,
+    "analytics": 200,
+    "bff-frontend": 200,
+    "bff-admin": 200,
+    "bff-pay": 200,
+    "frontend_restored_session": "refresh rotated; authenticated",
+    "pay_restored_session": "refresh rotated; authenticated",
+    "pi_e374ae9b86054a7a8261e329c2e98d92": "succeeded",
+    "pi_63cc06ce1d3544ab85ff1e0737479986": "refunded",
+    "pi_b38a4f6814724f4e894fabf81398b948": "refunded",
+    "http://localhost:39800/": 200,
+    "http://localhost:39800/analytics": 200,
+    "http://localhost:39801/pay/merchant-escrows": 200,
+    "http://localhost:39852/": 200,
+    "http://localhost:39852/docs": 200,
+    "http://localhost:39852/checkout/cs_2a8e9b78174048a285cfd8628b220609": 200,
+    "served_assets": 7,
+    "minio": {
+      "object": "native-rehearsal/probe.txt",
+      "bytes": 33,
+      "sha256": "abcafed3d1f8283715729a96c6800186714fa612753b5d112bc11476c0d3362d"
+    }
+  },
+  "rollback-evidence": {
+    "scope": "Pay service v7 -> v6 (read/reconcile existing records) -> v7; gateway, authorization and Admin remain v7",
+    "created_after_restore": [
+      "pi_1185f057c83f4a5f85a09530726d88a5",
+      "pi_5a9da5a9eedd415e9a7cd21154473781"
+    ],
+    "direct_fee": "50000000000000",
+    "escrow_release_fee": "100000000000000",
+    "admin_siwe": "real Anvil signature via Admin BFF",
+    "paused_dispute_resolution": "confirmed",
+    "escrow_success_events": 1,
+    "database_rollback": "none",
+    "whole_system_rollback": "not qualified against pre-merchant releases",
+    "older_candidate": "v6 has a known polling lock-order defect; rehearsal only, not approved for production traffic"
+  },
+  "logout-evidence": {
+    "siwe": "signed via Anvil",
+    "refresh": "passed",
+    "logout": "cookies cleared; refresh rejected",
+    "http_only": true
+  },
+  "limitations": [
+    "Browser blocked by locked Mac",
+    "BSC testnet and production deployment not authorized",
+    "Packaged EPSX webhook used signed local transport fixture",
+    "Rollback exercised Pay component only; prior v6 has known polling defect",
+    "Restore used isolated test data; off-machine/production rehearsal outstanding"
+  ]
+}

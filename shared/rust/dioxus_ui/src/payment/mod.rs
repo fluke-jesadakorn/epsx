@@ -36,3 +36,7 @@ mod tests {
         // from `crate::payment::*`. Compile-time check.
     }
 }
+
+pub mod orders;
+
+pub mod purchases;

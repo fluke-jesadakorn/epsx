@@ -4,8 +4,6 @@ version.workspace = true
 edition.workspace = true
 
 [dependencies]
-axum.workspace = true
-tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
@@ -14,8 +12,6 @@ async-trait.workspace = true
 jsonwebtoken.workspace = true
 reqwest = { workspace = true, features = ["rustls-tls-native-roots"] }
 http.workspace = true
-tower = { workspace = true, features = ["util"] }
-tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
 epsx-auth = { path = "../auth" }
 epsx-crypto = { path = "../crypto" }
 epsx-client = { path = "../client" }
@@ -26,3 +22,13 @@ epsx-dioxus-ui = { path = "../dioxus_ui" }
 base64.workspace = true
 rsa.workspace = true
 rand = "0.8"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dioxus-server = { workspace = true, optional = true }
+tokio.workspace = true
+axum.workspace = true
+tower = { workspace = true, features = ["util"] }
+tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
+
+[features]
+fullstack = ["dep:dioxus-server", "epsx-dioxus-ui/server"]

@@ -7,37 +7,48 @@ edition.workspace = true
 name = "bff-admin"
 path = "src/main.rs"
 
+[[bin]]
+name = "epsx-admin"
+path = "src/dx_main.rs"
+
+[[bin]]
+name = "dx-admin"
+path = "src/dx_main.rs"
+
 [dependencies]
 epsx-kernel = { path = "../../shared/rust/kernel" }
-epsx-client = { path = "../../shared/rust/client" }
-epsx-auth = { path = "../../shared/rust/auth" }
-epsx-crypto = { path = "../../shared/rust/crypto" }
-epsx-observability = { path = "../../shared/rust/observability" }
 epsx-templates = { path = "../../shared/rust/templates" }
 epsx-dioxus-ui = { path = "../../shared/rust/dioxus_ui" }
-epsx-bff = { path = "../../shared/rust/bff" }
 dioxus = { workspace = true }
-dioxus-ssr = { workspace = true }
-dioxus-server = { workspace = true }
-dioxus-web = { workspace = true }
-dioxus-fullstack = { workspace = true }
-axum.workspace = true
-tokio.workspace = true
 tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 uuid.workspace = true
 chrono.workspace = true
 http = { workspace = true }
-reqwest.workspace = true
-tower = { workspace = true }
-tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
 url.workspace = true
 base64.workspace = true
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+epsx-client = { path = "../../shared/rust/client" }
+epsx-auth = { path = "../../shared/rust/auth" }
+epsx-crypto = { path = "../../shared/rust/crypto" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-bff = { path = "../../shared/rust/bff", features = ["fullstack"] }
+dioxus-ssr = { workspace = true }
+dioxus-server = { workspace = true }
+dioxus-fullstack = { workspace = true }
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http = { workspace = true, features = ["set-header", "fs", "cors"] }
+reqwest.workspace = true
+
 [features]
 default = ["ssr"]
-ssr = []
+ssr = ["server"]
+server = ["dioxus/server", "epsx-dioxus-ui/server"]
+web = ["dioxus/web", "epsx-dioxus-ui/web"]
 
 [dev-dependencies]
 jsonwebtoken.workspace = true

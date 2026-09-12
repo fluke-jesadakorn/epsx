@@ -33,13 +33,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     info!("Database pool created and connection verified");
 
-    let _db_pool: &'static TlsPool = Box::leak(Box::new(pool));
-
-    // Seed system admin plans (idempotent)
-    epsx::infrastructure::services::seed_system_admin_plans(_db_pool).await;
-
-    // Seed production news (idempotent)
-    epsx::infrastructure::services::seed_production_news(_db_pool).await;
+    // DomainContainer owns the application pools. Startup must not seed or
+    // overwrite imported plans, grants or editorial content.
+    pool.close().await;
 
     // Create cache (optional)
     let redis_timeout = std::time::Duration::from_secs(5);
@@ -95,6 +91,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         .await,
     );
     info!("Domain container initialized with Web3 services and Redis notifications");
+
+    if config.is_production() || std::env::var("EPSX_PLAN_PROJECTION_SYNC").as_deref() == Ok("true")
+    {
+        let core = epsx::infrastructure::database::get_diesel_pool().await?;
+        let payments = epsx::infrastructure::database::get_payments_pool().await?;
+        epsx::infrastructure::services::plan_projection::start(core.clone(), payments).await?;
+    }
 
     // Start Transaction Monitor Service (Background task for verifying payments)
     epsx::infrastructure::blockchain::spawn_transaction_monitor();

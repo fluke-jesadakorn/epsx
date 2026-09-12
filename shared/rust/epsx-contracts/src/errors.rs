@@ -12,6 +12,7 @@ use std::collections::HashMap;
 // Enhanced unified error handling system with context and correlation
 
 use serde::{Deserialize, Serialize};
+use sqlx;
 use std::fmt::{Debug, Display, Formatter};
 use thiserror::Error;
 use uuid::Uuid;
@@ -299,24 +300,13 @@ impl From<ValueObjectError> for AppError {
     }
 }
 
-// Diesel error conversions for core::errors::AppError
-impl From<diesel::result::Error> for AppError {
-    fn from(err: diesel::result::Error) -> Self {
+// sqlx error conversions (Diesel removed — sqlx canonical)
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
         match err {
-            diesel::result::Error::NotFound => AppError::not_found("Record not found"),
-            diesel::result::Error::DatabaseError(_, info) => {
-                AppError::database_error(info.message().to_string())
-            }
+            sqlx::Error::RowNotFound => AppError::not_found("Record not found"),
             _ => AppError::database_error(format!("Database error: {}", err)),
         }
-    }
-}
-
-// Deadpool error conversion for connection pool errors
-// Using the re-exported types from diesel_async
-impl From<diesel_async::pooled_connection::PoolError> for AppError {
-    fn from(err: diesel_async::pooled_connection::PoolError) -> Self {
-        AppError::database_error(format!("Connection pool error: {}", err))
     }
 }
 

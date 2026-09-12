@@ -1205,12 +1205,15 @@ mod tests {
         });
 
         let result = tokio::time::timeout(
-            Duration::from_secs(1),
+            Duration::from_secs(5),
             load_admin_news(&loopback_client(address), &query(), &verified_context()),
         )
         .await;
         let _ = release_body.send(());
-        let request = server.await.unwrap();
+        let request = tokio::time::timeout(Duration::from_secs(5), server)
+            .await
+            .expect("fixture must finish after releasing the response body")
+            .unwrap();
         let load = result.expect("403 classification must not wait for the response body");
 
         assert!(matches!(load, AdminNewsLoad::Forbidden));

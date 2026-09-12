@@ -144,6 +144,17 @@ pub fn create_admin_routes() -> Router<AppState> {
         .layer(from_fn_with_state("admin:security:read", perm_guard));
 
     // Plan management — read
+    let merchant_orders_read = Router::new()
+        .route(
+            "/pay-orders",
+            get(crate::web::payments::merchant_checkout::admin_orders),
+        )
+        .route(
+            "/pay-orders/{id}",
+            get(crate::web::payments::merchant_checkout::admin_order),
+        )
+        .layer(from_fn_with_state("admin:payments:read", perm_guard));
+
     let plans_read = Router::new()
     .route("/plans", get(list_plans_handler))
     .route("/plans/{plan_id}", get(get_plan_handler))
@@ -540,6 +551,7 @@ pub fn create_admin_routes() -> Router<AppState> {
         .merge(dashboard_user_status)
         .merge(security)
         .merge(plans_read)
+        .merge(merchant_orders_read)
         .merge(plans_write)
         .merge(promotions)
         .merge(performance)

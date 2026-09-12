@@ -1,54 +1,7 @@
-//! epsx-pay-svc — Axum backend service for pay.epsx.io.
-//!
-//! wave49(slice-3): Modularized from the original 534-LoC
-//! `main.rs`. The router setup is now thin; all handlers
-//! live in `crate::handlers::*`.
-//!
-//! Module layout:
-//! - `crate::db`     — read-only schema boundary + alloy provider builder
-//! - `crate::types`  — request/response structs (PayIntent,
-//!   EscrowRecord, PayLink, …)
-//! - `crate::handlers::intents`      — pay_intents CRUD
-//! - `crate::handlers::escrows`      — escrow lifecycle
-//! - `crate::handlers::pay_links`    — shareable URLs (slice-3)
-//! - `crate::handlers::pay_history`  — per-address history (slice-3)
-//! - `crate::handlers::pay_admin`    — admin ops (slice-3)
-//! - `crate::handlers::pay_webhooks` — on-chain events (slice-3)
-//!
-//! Endpoints summary (all under `/api/v1/pay/*` except admin
-//! which lives under `/api/v1/admin/pay/*` for symmetry with
-//! the monolith's existing admin router):
-//!
-//! The direct service boundary is enforced by `epsx_pay_svc::protect_router`.
-//! Only health and usable payment-link lookup are anonymous. Owner reads use
-//! a verified JWT wallet; the admin read uses the canonical view
-//! permission. Every financial mutation remains unreachable under A6; admin
-//! mutation shapes validate manage credentials and then return 404.
-//!
-//! Mounted pay routes:
-//! - POST   /api/v1/pay/intents
-//! - GET    /api/v1/pay/intents
-//! - GET    /api/v1/pay/intents/{id}
-//! - POST   /api/v1/pay/intents/{id}/confirm
-//! - POST   /api/v1/pay/intents/{id}/cancel
-//! - GET    /api/v1/pay/escrows
-//! - GET    /api/v1/pay/escrows/{id}
-//! - POST   /api/v1/pay/escrows/{id}/release
-//! - POST   /api/v1/pay/escrows/{id}/refund
-//! - POST   /api/v1/pay/escrows/{id}/dispute
-//! - POST   /api/v1/pay/escrows/{id}/resolve
-//! - POST   /api/v1/pay/escrows/{id}/confirm-deposit
-//! - POST   /api/v1/pay/links                   (slice-3)
-//! - GET    /api/v1/pay/links/{slug}            (slice-3)
-//! - POST   /api/v1/pay/links/{slug}/redeem     (slice-3)
-//! - GET    /api/v1/pay/history/{address}       (slice-3)
-//! - POST   /api/v1/pay/webhooks/on-chain       (slice-3)
-//!
-//! Admin (direct admin-audience and permission checks):
-//! - GET    /api/v1/admin/pay/intents                       (slice-3)
-//! - POST   /api/v1/admin/pay/intents/{id}/force-cancel     (slice-3)
-//! - POST   /api/v1/admin/pay/escrows/{id}/force-release    (slice-3)
-//! - POST   /api/v1/admin/pay/escrows/{id}/force-refund     (slice-3)
+//! EPSX Pay: native transaction preparation and contract-scoped reconciliation.
+//! `native_pay` writes intents/operations; `native_reconcile` alone finalizes
+//! new escrow records from confirmed chain evidence. Legacy package contracts
+//! and legacy Pay history stay separate. SQL-only force transfers stay blocked.
 
 use axum::{
     extract::State,
@@ -57,7 +10,7 @@ use axum::{
     Router,
 };
 use clap::{Parser, ValueEnum};
-use epsx_pay_svc::{build_auth_verifier, protect_router};
+use epsx_pay_svc::{build_auth_verifier, protect_native_router};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -65,6 +18,11 @@ use tracing::info;
 
 pub mod db;
 pub mod handlers;
+mod merchant;
+mod native_chain;
+mod native_pay;
+mod native_reconcile;
+mod native_webhook;
 pub mod types;
 
 pub use db::{build_provider, verify_schema_compatibility};
@@ -72,9 +30,9 @@ pub use db::{build_provider, verify_schema_compatibility};
 #[derive(Parser)]
 #[command(name = "epsx-pay-svc", about = "EPSX Pay Service")]
 struct Args {
-    #[arg(long, default_value = "8103")]
+    #[arg(long, env = "PORT", default_value = "8103")]
     port: u16,
-    #[arg(long, default_value = "0.0.0.0")]
+    #[arg(long, env = "HOST", default_value = "127.0.0.1")]
     host: String,
     // Read from DATABASE_URL env so the K8s manifest can override
     // the localhost default. Without `env = "DATABASE_URL"` the
@@ -111,6 +69,7 @@ enum Environment {
 
 #[derive(Clone)]
 pub struct AppState {
+    pub native_chain: Option<Arc<native_chain::Chain>>,
     pub db: sqlx::PgPool,
     pub chain_id: u64,
     pub provider: Arc<RwLock<Option<Arc<dyn alloy::providers::Provider + Send + Sync>>>>,
@@ -122,6 +81,13 @@ async fn health() -> StatusCode {
 }
 
 async fn ready(State(state): State<AppState>) -> StatusCode {
+    if let Some(c) = &state.native_chain {
+        let verified = sqlx::query_scalar::<_, bool>("SELECT healthy AND last_checked_at > now()-interval '60 seconds' FROM pay_v1_chain_checkpoints WHERE chain_id=$1 AND contract_address=$2").bind(c.chain_id as i64).bind(c.contract.to_string().to_ascii_lowercase()).fetch_optional(&state.db).await.ok().flatten().unwrap_or(false);
+        if !verified {
+            return StatusCode::SERVICE_UNAVAILABLE;
+        }
+    }
+
     match sqlx::query_scalar::<_, i32>("SELECT 1")
         .fetch_one(&state.db)
         .await
@@ -158,81 +124,104 @@ async fn main() {
         .expect("Pay schema must be migrated and exactly compatible before startup");
     let provider = build_provider(args.chain_id);
 
+    let native_chain = native_chain::Chain::from_env()
+        .expect("invalid Pay v1 chain configuration")
+        .map(Arc::new);
+    if native_chain.is_some() {
+        sqlx::query("SELECT d.contract_version,o.transaction_parameters,c.next_block FROM pay_v1_deals d CROSS JOIN pay_v1_operations o CROSS JOIN pay_v1_chain_checkpoints c LIMIT 0").execute(&db).await.expect("Pay v1 migrations must be explicitly applied before startup");
+    }
     let app_state = AppState {
+        native_chain,
         db: db.clone(),
         chain_id: args.chain_id,
         provider,
         escrow_contract: args.escrow_contract,
     };
 
+    native_reconcile::spawn(app_state.clone());
+    let app = application(app_state, verifier);
+
+    let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
+    info!("Pay service listening on {}", addr);
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
+    axum::serve(listener, app).await.unwrap();
+}
+
+fn application(
+    app_state: AppState,
+    verifier: Arc<dyn epsx_service_auth::AccessTokenVerifier>,
+) -> Router {
+    let merchant_db = app_state.db.clone();
     let app = Router::new()
+        .layer(axum::extract::DefaultBodyLimit::max(64 * 1024))
+        .route(
+            "/api/v1/admin/pay/contract/pause",
+            post(native_pay::prepare_pause),
+        )
+        .route(
+            "/api/v1/admin/pay/contract/operations/{id}",
+            get(native_pay::contract_operation),
+        )
+        .route(
+            "/api/v1/admin/pay/contract/operations/{id}/confirm",
+            post(native_pay::confirm_contract_operation),
+        )
         .route("/health", get(health))
         .route("/ready", get(ready))
-        // === Pay intents (5) ===
+        .route("/api/v1/pay/config", get(native_pay::config))
+        .route("/api/v1/pay/webhooks/on-chain", post(native_webhook::hint))
         .route(
             "/api/v1/pay/intents",
-            post(handlers::intents::create_pay_intent).get(handlers::intents::list_pay_intents),
+            post(native_pay::create_intent).get(native_pay::list_intents),
         )
+        .route("/api/v1/pay/intents/{id}", get(native_pay::get_intent))
         .route(
-            "/api/v1/pay/intents/{id}",
-            get(handlers::intents::get_pay_intent),
+            "/api/v1/pay/intents/{id}/deposit",
+            post(native_pay::prepare_deposit),
         )
-        .route(
-            "/api/v1/pay/intents/{id}/confirm",
-            post(handlers::intents::confirm_pay_intent),
-        )
-        .route(
-            "/api/v1/pay/intents/{id}/cancel",
-            post(handlers::intents::cancel_pay_intent),
-        )
-        // === Pay escrows (7) ===
-        .route("/api/v1/pay/escrows", get(handlers::escrows::list_escrows))
-        .route(
-            "/api/v1/pay/escrows/{id}",
-            get(handlers::escrows::get_escrow),
-        )
+        .route("/api/v1/pay/escrows", get(native_pay::list_intents))
+        .route("/api/v1/pay/escrows/{id}", get(native_pay::get_intent))
         .route(
             "/api/v1/pay/escrows/{id}/release",
-            post(handlers::escrows::release_escrow),
+            post(native_pay::release),
         )
-        .route(
-            "/api/v1/pay/escrows/{id}/refund",
-            post(handlers::escrows::refund_escrow),
-        )
+        .route("/api/v1/pay/escrows/{id}/refund", post(native_pay::refund))
         .route(
             "/api/v1/pay/escrows/{id}/dispute",
-            post(handlers::escrows::dispute_escrow),
+            post(native_pay::dispute),
         )
         .route(
             "/api/v1/pay/escrows/{id}/resolve",
-            post(handlers::escrows::resolve_dispute),
+            post(native_pay::resolve),
         )
-        .route(
-            "/api/v1/pay/escrows/{id}/confirm-deposit",
-            post(handlers::escrows::confirm_escrow_deposit),
-        )
-        // === Slice-3: pay links (3) ===
-        .route(
-            "/api/v1/pay/links",
-            post(handlers::pay_links::create_pay_link),
-        )
-        .route(
-            "/api/v1/pay/links/{slug}",
-            get(handlers::pay_links::get_pay_link),
-        )
+        .route("/api/v1/pay/links", post(native_pay::create_link))
+        .route("/api/v1/pay/links/{slug}", get(native_pay::get_link))
         .route(
             "/api/v1/pay/links/{slug}/redeem",
-            post(handlers::pay_links::redeem_pay_link),
+            post(native_pay::redeem_link),
         )
-        // === Slice-3: history (1) ===
+        .route("/api/v1/pay/operations/{id}", get(native_pay::operation))
+        .route(
+            "/api/v1/pay/operations/{id}/confirm",
+            post(native_pay::confirm_operation),
+        )
         .route(
             "/api/v1/pay/history/{address}",
             get(handlers::pay_history::get_pay_history),
         )
-        // === Slice-3: webhooks (1) ===
+        .route("/api/v1/admin/pay/escrows", get(native_pay::admin_list))
+        .route("/api/v1/admin/pay/escrows/{id}", get(native_pay::admin_get))
         .route(
-            "/api/v1/pay/webhooks/on-chain",
-            post(handlers::pay_webhooks::on_chain_webhook),
+            "/api/v1/admin/pay/escrows/{id}/resolve",
+            post(native_pay::resolve),
+        )
+        .route(
+            "/api/v1/admin/pay/operations/{id}",
+            get(native_pay::operation),
+        )
+        .route(
+            "/api/v1/admin/pay/operations/{id}/confirm",
+            post(native_pay::confirm_operation),
         )
         // === Slice-3: admin (4) ===
         .route(
@@ -265,10 +254,9 @@ async fn main() {
             post(handlers::admin_commerce::cancel_admin_pay_intent),
         )
         .with_state(app_state);
-    let app = protect_router(app, verifier);
-
-    let addr: SocketAddr = format!("{}:{}", args.host, args.port).parse().unwrap();
-    info!("Pay service listening on {}", addr);
-    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    let app = protect_native_router(app, verifier.clone());
+    merchant::wrap(app, merchant_db, verifier)
 }
+
+#[cfg(test)]
+mod native_integration;

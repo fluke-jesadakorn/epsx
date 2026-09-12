@@ -1,0 +1,49 @@
+{
+  "recorded_at": "2026-09-09T01:46:42.849654+00:00",
+  "release": "20260909-qr-v4",
+  "previous_release": "20260909-qr-v3",
+  "checkout_method": "transfer",
+  "ui": "EPSX main logo, colors, serif headings, dark/light theme; two-column QR checkout",
+  "scope": "dev only; Anvil 31337 mock funds; loopback RPC",
+  "browser": {
+    "plan_to_qr": "passed",
+    "no_wallet_connection": "passed",
+    "copy_amount": "passed",
+    "payment_auto_refresh": "passed",
+    "account_order_granted": "passed",
+    "mobile_viewport": "passed in in-app browser: 375px content width, no horizontal overflow, QR/address/copy and payment result visually verified",
+    "copy_address": "passed"
+  },
+  "tests": {
+    "targeted_rust_passed": 872,
+    "targeted_rust_ignored": 2,
+    "foundry_passed": 33,
+    "postgresql_anvil_integration": "passed including QR USDT/USDC, wrong amount, late transfer, duplicates, confirmation, collection, refund, reorg and legacy direct/escrow",
+    "clippy_workspace_all_targets_all_features": "passed",
+    "format": "passed",
+    "wasm_native_package": "passed",
+    "assets": "passed",
+    "no_node_strict": "passed",
+    "restart_anvil_and_services": "passed"
+  },
+  "proof": "qr-browser-proof.json",
+  "historical_pre_qr": "delivery-status-pre-qr.json",
+  "public_checks": [
+    {
+      "url": "https://dev.epsx.io/plans",
+      "status": 200
+    },
+    {
+      "url": "https://dev-admin.epsx.io/",
+      "status": 200
+    },
+    {
+      "url": "https://dev-api.epsx.io/health",
+      "status": 200
+    },
+    {
+      "url": "https://dev-pay.epsx.io/",
+      "status": 200
+    }
+  ]
+}

@@ -31,29 +31,38 @@ use dioxus::prelude::*;
 /// colors and shape. Without this block, the card bg is
 /// transparent (default) and the card border is invisible.
 const PRIVACY_INLINE_CSS: &str = r#"
-.privacy-page-prod { background-color: #08060B !important; color: #ffffff !important; }
-.privacy-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
-.privacy-prod-title { background-image: linear-gradient(to right, #c084fc, #f472b6) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; }
-.privacy-prod-last-updated { color: #9ca3af !important; }
-.privacy-prod-h3 { color: #c084fc !important; }
-.privacy-prod-p, .privacy-prod-list { color: #d1d5db !important; }
+body:not(.epsx-frontend) .privacy-page-prod { background-color: #08060B !important; color: #ffffff !important; }
+body:not(.epsx-frontend) .privacy-prod-card { background-color: #27262c !important; border-color: #383241 !important; border-radius: 24px !important; }
+body:not(.epsx-frontend) .privacy-prod-title { background-image: linear-gradient(to right, #c084fc, #f472b6) !important; -webkit-background-clip: text !important; background-clip: text !important; color: transparent !important; }
+body:not(.epsx-frontend) .privacy-prod-last-updated { color: #9ca3af !important; }
+body:not(.epsx-frontend) .privacy-prod-h3 { color: #c084fc !important; }
+body:not(.epsx-frontend) .privacy-prod-p, body:not(.epsx-frontend) .privacy-prod-list { color: #d1d5db !important; }
 "#;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Privacy policy");
+    let mut meta = PageMeta::marketing("Privacy policy");
+    meta.description = "EPSX privacy policy.".into();
     (
         meta,
-        rsx! {
-            MainLayout { ctx: ctx.clone(),
+        rsx! { MainLayout { ctx: ctx.clone(), HydratedPrivacy {} } },
+    )
+}
+
+#[component]
+pub fn HydratedPrivacy() -> Element {
+    rsx! {
+        document::Title { "Privacy policy — EPSX" }
+        document::Meta { name: "description", content: "EPSX privacy policy." }
+
                 // Inject inline CSS for Tailwind v2 CDN arbitrary-value
                 // classes that the CDN doesn't generate. Scoped to this
                 // page only.
                 style { "{PRIVACY_INLINE_CSS}" }
-                div { class: "privacy-page-prod min-h-screen",
+                div { class: "privacy-page-prod min-h-screen fe-base-page",
                     div { class: "max-w-4xl mx-auto p-6",
                         // Hero — gradient h1 + Last updated text
                         div { class: "text-center mb-12",
-                            h1 { class: "privacy-prod-title text-4xl font-bold mb-4",
+                            h1 { class: "privacy-prod-title text-4xl font-bold mb-4 fe-type-title",
                                 "Privacy Policy"
                             }
                             p { class: "privacy-prod-last-updated",
@@ -67,9 +76,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                         }
                     }
                 }
-            }
-        },
-    )
+    }
 }
 
 /// Seven numbered sections rendered with a correct h1 → h2 document
@@ -79,26 +86,26 @@ fn PrivacyProse() -> Element {
     rsx! {
         article { class: "privacy-prod-body space-y-6", "aria-label": "Privacy policy details",
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-information-collected",
-                h2 { id: "privacy-information-collected", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-information-collected", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "1. Information We Collect"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "When you use our services, we collect certain information about you:"
                 }
-                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
+                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2 fe-tone-muted",
                     li { "Your public wallet address and signed authentication message metadata" }
                     li { "Account preferences and settings" }
                     li { "Usage data and analytics" }
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-information-use",
-                h2 { id: "privacy-information-use", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-information-use", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "2. How We Use Your Information"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "We use the collected information for:"
                 }
-                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
+                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2 fe-tone-muted",
                     li { "Account creation and management" }
                     li { "Providing personalized services" }
                     li { "Communication about service updates" }
@@ -106,26 +113,26 @@ fn PrivacyProse() -> Element {
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-third-parties",
-                h2 { id: "privacy-third-parties", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-third-parties", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "3. Third-Party Services"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "We use wallet providers and supported blockchain networks for secure sign-in. When you authenticate:"
                 }
-                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
+                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2 fe-tone-muted",
                     li { "Your wallet signs a Sign-In with Ethereum message that proves control of the address" }
                     li { "We never request or receive your wallet private key or seed phrase" }
                     li { "Your wallet provider and blockchain network may process connection metadata under their own policies" }
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-security",
-                h2 { id: "privacy-security", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-security", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "4. Data Security"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "We take security seriously and implement industry-standard measures to protect your data:"
                 }
-                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
+                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2 fe-tone-muted",
                     li { "Nonce-protected Sign-In with Ethereum authentication" }
                     li { "Encrypted data storage and transfer" }
                     li { "Regular security audits and updates" }
@@ -133,11 +140,11 @@ fn PrivacyProse() -> Element {
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-rights",
-                h2 { id: "privacy-rights", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-rights", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "5. Your Rights"
                 }
-                p { class: "text-gray-300 privacy-prod-p", "You have the right to:" }
-                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted", "You have the right to:" }
+                ul { class: "privacy-prod-list list-disc pl-6 text-gray-300 space-y-2 fe-tone-muted",
                     li { "Access your personal data" }
                     li { "Request data correction or deletion" }
                     li { "Revoke your application session without affecting your wallet or on-chain assets" }
@@ -145,20 +152,20 @@ fn PrivacyProse() -> Element {
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-changes",
-                h2 { id: "privacy-changes", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-changes", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "6. Changes to Privacy Policy"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "We may update this privacy policy from time to time. We will notify you of any changes by posting the new policy on this page and updating the \"Last updated\" date."
                 }
             }
             section { class: "privacy-prod-section", "aria-labelledby": "privacy-contact",
-                h2 { id: "privacy-contact", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4",
+                h2 { id: "privacy-contact", class: "privacy-prod-h3 text-2xl font-bold text-purple-400 mb-4 fe-tone-accent",
                     "7. Contact Us"
                 }
-                p { class: "text-gray-300 privacy-prod-p",
+                p { class: "text-gray-300 privacy-prod-p fe-tone-muted",
                     "If you have questions about this Privacy Policy, please use our "
-                    a { class: "text-purple-400 hover:underline", href: "/contact", "contact page" }
+                    crate::fullstack::shell::ShellLink { class: "text-purple-400 hover:underline fe-tone-accent", href: "/contact", "contact page" }
                     "."
                 }
             }

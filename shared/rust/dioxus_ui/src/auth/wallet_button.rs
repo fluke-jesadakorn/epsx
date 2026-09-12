@@ -133,6 +133,9 @@ pub fn ConnectButton(
     /// Optional label override. Defaults to "Connect Wallet".
     #[props(default = None)]
     label: Option<String>,
+    /// Optional accessible label; existing callers retain the wallet label.
+    #[props(default = None)]
+    aria_label: Option<String>,
     /// Disable the button. Defaults to `false`.
     #[props(default = false)]
     disabled: bool,
@@ -154,6 +157,7 @@ pub fn ConnectButton(
     data_return_url: Option<String>,
 ) -> Element {
     let size_val = size.unwrap_or_default();
+    let accessible_label = aria_label.unwrap_or_else(|| "Connect wallet".to_string());
     let label_val = label.unwrap_or_else(|| match size_val {
         ConnectButtonSize::Compact => "Connect".to_string(),
         _ => "Connect Wallet".to_string(),
@@ -172,6 +176,7 @@ pub fn ConnectButton(
     if has_ssr_action {
         // Render the typed data attribute so the action survives SSR.
         let label_escaped = html_attr_escape(&label_val);
+        let accessible_label_escaped = html_attr_escape(&accessible_label);
         let final_class_escaped = html_attr_escape(&format!("{size_cls} {extra_cls}"));
         let data_attr = if want_data {
             r#" data-connect-wallet="true""#
@@ -207,7 +212,7 @@ pub fn ConnectButton(
         };
         let icon_svg = epsx_templates::lucide("wallet", &icon_size.to_string(), "");
         let html = format!(
-            r#"<button type="button" class="{final_class_escaped}" aria-label="Connect wallet"{disabled_attr}{data_attr}{provider_attr}{return_url_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
+            r#"<button type="button" class="{final_class_escaped}" aria-label="{accessible_label_escaped}"{disabled_attr}{data_attr}{provider_attr}{return_url_attr}><span class="connect-btn-icon">{icon_svg}</span><span class="connect-btn-label">{label_escaped}</span>{chevron_svg}</button>"#,
         );
         return rsx! {
             span { class: "connect-btn-wrap inline-flex",
@@ -228,7 +233,7 @@ pub fn ConnectButton(
                 class: "{final_class}",
                 r#type: "button",
                 disabled: disabled,
-                "aria-label": "Connect wallet",
+                "aria-label": "{accessible_label}",
                 "data-provider": "{provider_attr}",
                 "data-return-url": return_url_opt.as_deref(),
                 onclick: move |e| h.call(e),
@@ -242,7 +247,7 @@ pub fn ConnectButton(
             a {
                 class: "{final_class}",
                 href: "{href_val}",
-                "aria-label": "Connect wallet",
+                "aria-label": "{accessible_label}",
                 "data-provider": "{provider_attr}",
                 "data-return-url": return_url_opt.as_deref(),
                 span { class: "connect-btn-icon", Icon { name: "wallet".to_string(), size: Some(icon_size) } }

@@ -665,7 +665,13 @@ pub async fn create_api_key_handler(
         created_by: context.wallet_address.to_lowercase(),
     };
     let repo = ApiKeyRepository::new(state.db_pool.clone());
-    let created = match repo.create(request).await {
+    let created = match repo
+        .create(
+            request,
+            idempotency_key(&headers).expect("validated idempotency key"),
+        )
+        .await
+    {
         Ok(value) => value,
         Err(_) => {
             return error_response::<AdminApiKeyCreatedResponse>(
@@ -704,10 +710,13 @@ pub async fn create_api_key_handler(
         .is_err()
     {
         let _ = repo
-            .revoke(RevokeApiKeyRequest {
-                reason: "audit write failed".to_string(),
-                revoked_by: context.wallet_address.clone(),
-            })
+            .revoke(
+                created.api_key.id,
+                RevokeApiKeyRequest {
+                    reason: "audit write failed".to_string(),
+                    revoked_by: context.wallet_address.clone(),
+                },
+            )
             .await;
         return error_response::<AdminApiKeyCreatedResponse>(
             &request_id,
@@ -848,10 +857,13 @@ pub async fn revoke_api_key_handler(
     };
     let repo = ApiKeyRepository::new(state.db_pool.clone());
     match repo
-        .revoke(RevokeApiKeyRequest {
-            reason: body.reason.clone(),
-            revoked_by: context.wallet_address.clone(),
-        })
+        .revoke(
+            id,
+            RevokeApiKeyRequest {
+                reason: body.reason.clone(),
+                revoked_by: context.wallet_address.clone(),
+            },
+        )
         .await
     {
         Ok(_key) => {

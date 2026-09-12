@@ -76,7 +76,7 @@ fn anon_ctx(path: &str) -> PageContext {
 /// `"Profile & Settings"`; the gate panel never does (its headline
 /// is `"Sign in required"`). The `&` is HTML-encoded as `&#38;` in
 /// the SSR output, so we match on the encoded form.
-const PROFILE_HEADER: &str = "Profile &#38; Settings";
+const PROFILE_HEADER: &str = ">Profile</h1>";
 
 /// Gate panel's default headline — emitted inside the
 /// `<h2 class="auth-gate-title">` only when the gate fires.

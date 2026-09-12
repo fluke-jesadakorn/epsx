@@ -1,3 +1,5 @@
+// Retired SSR producers remain regression fixtures; active Fullstack loaders stay compiled.
+#![cfg_attr(test, allow(dead_code))]
 //! Dioxus SSR rendering for the frontend BFF.
 //!
 //! Server-side fetches happen in this layer: the page request comes in,
@@ -14,19 +16,23 @@
 //! The shared wallet bridge and page-level `AuthGate` connect links use the
 //! same `?return_url=` parameter, so the round-trip remains same-origin.
 
+#[cfg(test)]
 use axum::{
     extract::{Request, State},
     http::{header, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
-use epsx_bff::session::AccessVerification;
+#[cfg(test)]
 use epsx_dioxus_ui::auth::wallet_button::ConnectedWalletState;
+#[cfg(test)]
 use epsx_dioxus_ui::auth::User;
+#[cfg(test)]
 use epsx_dioxus_ui::components::account::{
     decode_pay_history, ACCOUNT_PAYMENT_HISTORY_DATA_PARAM, ACCOUNT_PAYMENT_HISTORY_EMPTY,
     ACCOUNT_PAYMENT_HISTORY_MALFORMED, ACCOUNT_PAYMENT_HISTORY_READY,
     ACCOUNT_PAYMENT_HISTORY_STATE_PARAM, ACCOUNT_PAYMENT_HISTORY_UNAVAILABLE,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::account::{
     decode_account_access, decode_account_plan_payments, decode_account_profile,
     ACCOUNT_ACCESS_DATA_PARAM, ACCOUNT_ACCESS_STATE_PARAM, ACCOUNT_DATA_EMPTY,
@@ -36,41 +42,55 @@ use epsx_dioxus_ui::pages::account::{
     ACCOUNT_PLAN_PAYMENTS_MAX_ITEMS, ACCOUNT_PLAN_PAYMENTS_STATE_PARAM, ACCOUNT_PROFILE_DATA_PARAM,
     ACCOUNT_PROFILE_STATE_PARAM,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::account_credits::{
     decode_credit_balance, decode_credit_history, ACCOUNT_CREDIT_BALANCE_DATA_PARAM,
     ACCOUNT_CREDIT_BALANCE_STATE_PARAM, ACCOUNT_CREDIT_EMPTY, ACCOUNT_CREDIT_HISTORY_DATA_PARAM,
     ACCOUNT_CREDIT_HISTORY_MAX_ITEMS, ACCOUNT_CREDIT_HISTORY_STATE_PARAM, ACCOUNT_CREDIT_MALFORMED,
     ACCOUNT_CREDIT_READY, ACCOUNT_CREDIT_UNAVAILABLE,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::analytics::{
-    AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, WatchlistData, ANALYTICS_DATA_PARAM,
-    ANALYTICS_FILTERS_DATA_PARAM, ANALYTICS_FILTERS_STATE_PARAM, ANALYTICS_QUERY_PARAM,
-    ANALYTICS_STATE_PARAM, ANALYTICS_WATCHLIST_DATA_PARAM, ANALYTICS_WATCHLIST_STATE_PARAM,
+    ANALYTICS_DATA_PARAM, ANALYTICS_FILTERS_DATA_PARAM, ANALYTICS_FILTERS_STATE_PARAM,
+    ANALYTICS_QUERY_PARAM, ANALYTICS_STATE_PARAM, ANALYTICS_WATCHLIST_DATA_PARAM,
+    ANALYTICS_WATCHLIST_STATE_PARAM,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::auth_page::{
     AUTH_PAGE_SESSION_STATE_PARAM, AUTH_PAGE_SESSION_STATE_SIGNED_OUT,
     AUTH_PAGE_SESSION_STATE_VERIFIER_UNAVAILABLE,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::chat::{
     CHAT_DETAIL_DATA_PARAM, CHAT_DETAIL_STATE_PARAM, CHAT_EMPTY, CHAT_FORBIDDEN,
     CHAT_INBOX_DATA_PARAM, CHAT_INBOX_STATE_PARAM, CHAT_MALFORMED, CHAT_READY, CHAT_UNAVAILABLE,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::developer::{
     DEVELOPER_DATA_PARAM, DEVELOPER_OPENAPI_DATA_PARAM, DEVELOPER_OPENAPI_STATE_PARAM,
     DEVELOPER_STATE_PARAM, DEVELOPER_USAGE_DATA_PARAM, DEVELOPER_USAGE_STATE_PARAM, LOAD_EMPTY,
     LOAD_FORBIDDEN, LOAD_MALFORMED, LOAD_READY, LOAD_UNAVAILABLE,
 };
-use epsx_dioxus_ui::pages::home::{HOME_ANALYTICS_DATA_PARAM, HOME_ANALYTICS_STATE_PARAM};
+#[cfg(test)]
+use epsx_dioxus_ui::pages::home::{
+    HOME_ANALYTICS_DATA_PARAM, HOME_ANALYTICS_STATE_PARAM, HOME_PLANS_DATA_PARAM,
+};
+#[cfg(test)]
 use epsx_dioxus_ui::pages::portfolio::{
     WatchlistLayoutData, PORTFOLIO_WATCHLIST_DATA_PARAM, PORTFOLIO_WATCHLIST_STATE_PARAM,
 };
+#[cfg(test)]
 use epsx_dioxus_ui::pages::{
     is_known_frontend_route, render_page, PageContext, PageMeta, PageStatus,
 };
+#[cfg(test)]
 use std::collections::HashMap;
 
-#[allow(unused_imports)]
-use super::auth;
+use epsx_bff::session::AccessVerification;
+use epsx_dioxus_ui::pages::analytics::{
+    AnalyticsFilters, AnalyticsQueryState, AnalyticsResponse, WatchlistData,
+};
+
 use super::AppState;
 
 /// Paths that 307-redirect to /auth when the user is unauthenticated,
@@ -83,6 +103,7 @@ use super::AppState;
 /// parity with the pinned middleware. B7 removes `/offline`: a PWA
 /// recovery surface must remain reachable without a session, especially
 /// when authentication cannot complete because the browser is disconnected.
+#[cfg(test)]
 const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/permissions",
     "/notifications",
@@ -91,14 +112,23 @@ const UNAUTH_REDIRECT_PATHS: &[&str] = &[
     "/contact",
 ];
 
+#[cfg(test)]
 const NOTIFICATIONS_DATA_PARAM: &str = "data_notifications";
+#[cfg(test)]
 const NOTIFICATIONS_STATE_PARAM: &str = "data_notifications_state";
+#[cfg(test)]
 const NOTIFICATIONS_PAGE_PARAM: &str = "data_notifications_page";
+#[cfg(test)]
 const NOTIFICATIONS_STATUS_PARAM: &str = "data_notifications_status";
+#[cfg(test)]
 const NOTIFICATIONS_TYPE_PARAM: &str = "data_notifications_type";
+#[cfg(test)]
 const NOTIFICATIONS_PRIORITY_PARAM: &str = "data_notifications_priority";
+#[cfg(test)]
 const NOTIFICATIONS_START_DATE_PARAM: &str = "data_notifications_start_date";
+#[cfg(test)]
 const NOTIFICATIONS_END_DATE_PARAM: &str = "data_notifications_end_date";
+#[cfg(test)]
 const NOTIFICATIONS_INVALID_QUERY: &str = "invalid_query";
 const NOTIFICATIONS_TYPE_VALUES: &[&str] = &[
     "system",
@@ -113,48 +143,56 @@ const NOTIFICATIONS_TYPE_VALUES: &[&str] = &[
     "chat",
 ];
 const NOTIFICATIONS_PRIORITY_VALUES: &[&str] = &["low", "normal", "high", "critical", "urgent"];
+#[cfg(test)]
 const HOME_NEWS_DATA_PARAM: &str = "data_home_news";
 const ACCOUNT_PAYMENT_HISTORY_LIMIT: usize = 10;
+#[cfg(test)]
 const ACCOUNT_NOTIFICATION_PREFERENCES_READY: &str = "ready";
+#[cfg(test)]
 const ACCOUNT_NOTIFICATION_PREFERENCES_UNAVAILABLE: &str = "unavailable";
+#[cfg(test)]
 const ACCOUNT_NOTIFICATION_PREFERENCES_MALFORMED: &str = "malformed";
 const ANALYTICS_RANKINGS_PATH: &str = "/api/analytics/rankings";
 const ANALYTICS_FILTERS_PATH: &str = "/api/analytics/filters";
 const ANALYTICS_WATCHLIST_PATH: &str = "/api/users/watchlist";
+#[cfg(test)]
 const PORTFOLIO_WATCHLIST_LAYOUT_PATH: &str = "/api/users/watchlist/layout";
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum AnalyticsLoadError {
+pub(crate) enum AnalyticsLoadError {
     Unavailable,
     Malformed,
+    Restricted,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(test)]
 enum AccountPaymentHistoryLoadError {
     Unavailable,
     Malformed,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg(test)]
 enum AccountDataLoadError {
     Unavailable,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-struct NotificationPageRequest {
-    page: u32,
-    status: Option<String>,
-    notification_type: Option<String>,
-    priority: Option<String>,
-    start_date: Option<String>,
-    end_date: Option<String>,
+pub(crate) struct NotificationPageRequest {
+    pub(crate) page: u32,
+    pub(crate) status: Option<String>,
+    pub(crate) notification_type: Option<String>,
+    pub(crate) priority: Option<String>,
+    pub(crate) start_date: Option<String>,
+    pub(crate) end_date: Option<String>,
 }
 
 impl NotificationPageRequest {
     /// Accept only a canonical positive decimal `page` and the explicit
     /// read/unread/all, type, and priority filters. Every other public query
     /// field fails closed before an owner service request can be made.
-    fn parse(raw_query: &str) -> Result<Self, ()> {
+    pub(crate) fn parse(raw_query: &str) -> Result<Self, ()> {
         if raw_query.is_empty() {
             return Ok(Self {
                 page: 1,
@@ -259,7 +297,7 @@ impl NotificationPageRequest {
         .ok_or(())
     }
 
-    fn service_query(&self) -> crate::api::NotificationListQuery {
+    pub(crate) fn service_query(&self) -> crate::api::NotificationListQuery {
         crate::api::NotificationListQuery::for_ssr_page_and_filters_and_dates(
             self.page,
             self.status.as_deref(),
@@ -272,6 +310,7 @@ impl NotificationPageRequest {
     }
 }
 
+#[cfg(test)]
 async fn load_notification_page(
     client: &epsx_client::ServiceClient,
     bearer: &str,
@@ -311,6 +350,7 @@ async fn load_notification_page(
     ))
 }
 
+#[cfg(test)]
 fn auth_page_session_state(
     path: &str,
     access_verification: &AccessVerification,
@@ -332,6 +372,7 @@ fn auth_page_session_state(
 /// failure into an empty or demo list. The Dioxus page treats `ok` as
 /// permission to parse the exact service payload and every other state as
 /// unavailable.
+#[cfg(test)]
 struct NotificationLoadSelection<'a> {
     page: u32,
     status: Option<&'a str>,
@@ -341,6 +382,7 @@ struct NotificationLoadSelection<'a> {
     end_date: Option<&'a str>,
 }
 
+#[cfg(test)]
 fn record_notification_load(
     params: &mut HashMap<String, String>,
     selection: NotificationLoadSelection<'_>,
@@ -397,6 +439,7 @@ fn record_notification_load(
     }
 }
 
+#[cfg(test)]
 fn record_invalid_notification_query(params: &mut HashMap<String, String>) {
     params.remove(NOTIFICATIONS_DATA_PARAM);
     params.remove(NOTIFICATIONS_PAGE_PARAM);
@@ -411,6 +454,7 @@ fn record_invalid_notification_query(params: &mut HashMap<String, String>) {
     );
 }
 
+#[cfg(test)]
 fn record_account_notification_preferences_load(
     params: &mut HashMap<String, String>,
     outcome: crate::api::NotificationPreferencesLoadOutcome,
@@ -440,6 +484,7 @@ fn record_account_notification_preferences_load(
     );
 }
 
+#[cfg(test)]
 fn account_notification_preferences_flash_state(
     headers: &axum::http::HeaderMap,
     query: &str,
@@ -469,6 +514,7 @@ fn account_notification_preferences_flash_state(
     (cookie_state == Some(requested)).then_some(requested)
 }
 
+#[cfg(test)]
 fn record_account_notification_preferences_form_state(
     params: &mut HashMap<String, String>,
     state: Option<&str>,
@@ -482,6 +528,7 @@ fn record_account_notification_preferences_form_state(
     }
 }
 
+#[cfg(test)]
 async fn load_home_news(
     client: &epsx_client::ServiceClient,
     path: &str,
@@ -492,6 +539,7 @@ async fn load_home_news(
     Some(crate::api::load_news_list(client, &crate::api::NewsQuery::default()).await)
 }
 
+#[cfg(test)]
 fn record_home_news_load(
     params: &mut HashMap<String, String>,
     outcome: crate::api::NewsListLoadOutcome,
@@ -502,7 +550,7 @@ fn record_home_news_load(
     );
 }
 
-async fn load_home_analytics(
+pub(crate) async fn load_home_analytics(
     client: &epsx_client::ServiceClient,
     path: &str,
 ) -> Option<Result<AnalyticsResponse, AnalyticsLoadError>> {
@@ -538,6 +586,29 @@ async fn load_home_analytics(
     Some(Ok(response))
 }
 
+#[cfg(test)]
+async fn load_home_plans(
+    client: &epsx_client::ServiceClient,
+    path: &str,
+) -> Option<epsx_dioxus_ui::pages::plans::PublicPlansLoadOutcome> {
+    if !matches!(path, "/" | "/index") {
+        return None;
+    }
+    Some(crate::api::load_public_plans(client).await)
+}
+
+#[cfg(test)]
+fn record_home_plans_load(
+    params: &mut HashMap<String, String>,
+    outcome: epsx_dioxus_ui::pages::plans::PublicPlansLoadOutcome,
+) {
+    params.insert(
+        HOME_PLANS_DATA_PARAM.to_string(),
+        serde_json::to_string(&outcome).expect("home plans outcome is serializable"),
+    );
+}
+
+#[cfg(test)]
 fn record_home_analytics_load(
     params: &mut HashMap<String, String>,
     outcome: Result<AnalyticsResponse, AnalyticsLoadError>,
@@ -562,7 +633,7 @@ fn record_home_analytics_load(
     params.insert(HOME_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
 }
 
-fn account_payment_history_path(owner: &str) -> Option<String> {
+pub(crate) fn account_payment_history_path(owner: &str) -> Option<String> {
     let reserved = owner.starts_with("force-")
         || matches!(
             owner,
@@ -604,6 +675,7 @@ fn account_payment_history_path(owner: &str) -> Option<String> {
 /// Persist only a semantically validated owner-history payload. Dependency,
 /// contract, and genuine-empty outcomes remain distinct so the account page
 /// never turns an upstream failure into an authoritative empty state.
+#[cfg(test)]
 fn record_account_payment_history_load(
     params: &mut HashMap<String, String>,
     expected_owner: &str,
@@ -640,6 +712,7 @@ fn record_account_payment_history_load(
     );
 }
 
+#[cfg(test)]
 fn record_account_profile_load(
     params: &mut HashMap<String, String>,
     expected_owner: &str,
@@ -657,6 +730,7 @@ fn record_account_profile_load(
     params.insert(ACCOUNT_PROFILE_STATE_PARAM.to_string(), state.to_string());
 }
 
+#[cfg(test)]
 fn record_account_access_load(
     params: &mut HashMap<String, String>,
     result: Result<serde_json::Value, AccountDataLoadError>,
@@ -673,6 +747,7 @@ fn record_account_access_load(
     params.insert(ACCOUNT_ACCESS_STATE_PARAM.to_string(), state.to_string());
 }
 
+#[cfg(test)]
 fn record_account_plan_payments_load(
     params: &mut HashMap<String, String>,
     result: Result<serde_json::Value, AccountDataLoadError>,
@@ -703,6 +778,7 @@ fn record_account_plan_payments_load(
     );
 }
 
+#[cfg(test)]
 fn record_account_credit_balance_load(
     params: &mut HashMap<String, String>,
     expected_owner: &str,
@@ -726,6 +802,7 @@ fn record_account_credit_balance_load(
     );
 }
 
+#[cfg(test)]
 fn record_account_credit_history_load(
     params: &mut HashMap<String, String>,
     expected_owner: &str,
@@ -759,16 +836,19 @@ fn record_account_credit_history_load(
     );
 }
 
+#[cfg(test)]
 fn news_detail_route_slug(path: &str) -> Option<&str> {
     let slug = news_detail_route_segment(path)?;
     crate::api::valid_news_slug(slug).then_some(slug)
 }
 
+#[cfg(test)]
 fn news_detail_route_segment(path: &str) -> Option<&str> {
     let slug = path.strip_prefix("/news/")?;
     (!slug.is_empty() && !slug.contains('/')).then_some(slug)
 }
 
+#[cfg(test)]
 fn page_metadata(meta: &PageMeta) -> (String, String) {
     (meta.title.clone(), meta.description.clone())
 }
@@ -780,6 +860,7 @@ fn page_metadata(meta: &PageMeta) -> (String, String) {
 /// baseline matches prod for both `/pricing` and `/pricing?ref=foo`
 /// style URLs). The redirect fires BEFORE page rendering so the
 /// downstream page code never has to handle the `/pricing` path.
+#[cfg(test)]
 fn pricing_redirect_response(query: &str) -> Response {
     let location = if query.is_empty() {
         "/plans".to_string()
@@ -797,11 +878,21 @@ fn pricing_redirect_response(query: &str) -> Response {
 /// All non-API requests land here. We render the page via Dioxus fullstack
 /// SSR and return a complete HTML document using the same design-system
 /// `<head>` the Next.js frontend emits.
+#[cfg(test)]
 pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Response {
     let (parts, _body) = request.into_parts();
     let path = parts.uri.path().to_string();
     let query = parts.uri.query().unwrap_or("").to_string();
     let headers = parts.headers.clone();
+    // The retired guide has no page. Old bookmarks still lead into the product.
+    if path == "/manual" {
+        return (
+            StatusCode::TEMPORARY_REDIRECT,
+            [("location", "/analytics")],
+            "",
+        )
+            .into_response();
+    }
     let preference_flash_state = account_notification_preferences_flash_state(&headers, &query);
 
     let offline_shell = path == "/offline";
@@ -1000,19 +1091,14 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
         navigation_wallet_address.as_deref(),
     );
 
-    // Source-compatible shell: the development root has no global footer.
-    // Page bodies remain responsible for any route-specific footer content.
-    let include_footer = false;
-
     let (metadata_title, metadata_description) = page_metadata(&meta);
-    let doc = epsx_templates::page_shell_with_body_class_and_keywords(
+    let doc = super::enterprise::document(
+        &path,
         &metadata_title,
         &metadata_description,
         meta.keywords.as_deref(),
         &nav_html,
         &body_html,
-        include_footer,
-        meta.body_class.as_deref().unwrap_or(""),
     );
 
     let recovery_runtime = if recover_session {
@@ -1057,6 +1143,7 @@ pub async fn ssr_handler(State(state): State<AppState>, request: Request) -> Res
     response
 }
 
+#[cfg(test)]
 fn private_session_redirect(location: String) -> Response {
     let mut response =
         (StatusCode::TEMPORARY_REDIRECT, [("location", location)], "").into_response();
@@ -1068,6 +1155,7 @@ fn private_session_redirect(location: String) -> Response {
 /// `/offline` is the one reviewed public exception and never receives the
 /// authenticated notification runtime, even when the request carried a valid
 /// session.
+#[cfg(test)]
 fn apply_ssr_cache_policy(
     response: &mut Response,
     is_authenticated: bool,
@@ -1092,6 +1180,9 @@ fn apply_ssr_cache_policy(
         || auth_page_verifier_unavailable
         || path == "/developer"
         || path.starts_with("/developer/")
+        || path == "/plans"
+        || path == "/"
+        || path == "/index"
     {
         response.headers_mut().insert(
             header::CACHE_CONTROL,
@@ -1107,6 +1198,7 @@ fn apply_ssr_cache_policy(
 /// Fetch page-specific data and add it to `params` as JSON-serialized
 /// values. The page reads them via `ctx.params.get("data_X")` and
 /// deserializes into a typed struct.
+#[cfg(test)]
 async fn fetch_page_data(
     state: &AppState,
     path: &str,
@@ -1128,15 +1220,19 @@ async fn fetch_page_data(
     // `/` and `/index` load public news and the fixed public ranking preview
     // independently. The ranking call intentionally has no request context or
     // credentials, so its backend-owned public offset remains deterministic.
-    let (home_news, home_analytics) = tokio::join!(
+    let (home_news, home_analytics, home_plans) = tokio::join!(
         load_home_news(state.content.as_ref(), path),
-        load_home_analytics(state.analytics.as_ref(), path)
+        load_home_analytics(state.analytics.as_ref(), path),
+        load_home_plans(state.content.as_ref(), path)
     );
     if let Some(outcome) = home_news {
         record_home_news_load(params, outcome);
     }
     if let Some(outcome) = home_analytics {
         record_home_analytics_load(params, outcome);
+    }
+    if let Some(outcome) = home_plans {
+        record_home_plans_load(params, outcome);
     }
     // /news: load the content dependency through the same strict adapter used
     // by the JSON BFF route. The outcome keeps empty distinct from unavailable
@@ -1442,6 +1538,7 @@ async fn fetch_page_data(
     }
 }
 
+#[cfg(test)]
 async fn load_chat_page_data(
     state: &AppState,
     path: &str,
@@ -1492,6 +1589,7 @@ async fn load_chat_page_data(
     }
 }
 
+#[cfg(test)]
 fn record_chat_inbox(
     params: &mut HashMap<String, String>,
     result: Result<epsx_dioxus_ui::pages::chat::ChatInboxData, crate::chat_adapter::ChatLoadError>,
@@ -1517,6 +1615,7 @@ fn record_chat_inbox(
     params.insert(CHAT_INBOX_STATE_PARAM.into(), state.into());
 }
 
+#[cfg(test)]
 fn record_chat_detail(
     params: &mut HashMap<String, String>,
     result: Result<epsx_dioxus_ui::pages::chat::ChatDetailData, crate::chat_adapter::ChatLoadError>,
@@ -1537,6 +1636,7 @@ fn record_chat_detail(
     params.insert(CHAT_DETAIL_STATE_PARAM.into(), state.into());
 }
 
+#[cfg(test)]
 fn chat_route_id(path: &str) -> Option<uuid::Uuid> {
     let value = path.strip_prefix("/chat/")?;
     if value == "history" || value.is_empty() || value.contains('/') {
@@ -1545,10 +1645,12 @@ fn chat_route_id(path: &str) -> Option<uuid::Uuid> {
     uuid::Uuid::parse_str(value).ok()
 }
 
+#[cfg(test)]
 fn chat_new_requested(query: &str) -> bool {
     url::form_urlencoded::parse(query.as_bytes()).any(|(key, value)| key == "new" && value == "1")
 }
 
+#[cfg(test)]
 fn developer_usage_days(raw_query: &str) -> Result<i32, ()> {
     if raw_query.is_empty() {
         return Ok(30);
@@ -1654,7 +1756,10 @@ async fn load_analytics_rankings(
         .await
         .map_err(|error| {
             tracing::warn!("analytics rankings dependency unavailable: {error}");
-            AnalyticsLoadError::Unavailable
+            match error {
+                epsx_client::ClientError::UpstreamStatus(403) => AnalyticsLoadError::Restricted,
+                _ => AnalyticsLoadError::Unavailable,
+            }
         })?;
     serde_json::from_value::<AnalyticsResponse>(value)
         .map_err(|error| {
@@ -1714,6 +1819,7 @@ async fn load_analytics_watchlist(
         })
 }
 
+#[cfg(test)]
 async fn load_portfolio_watchlist_layout(
     client: &epsx_client::ServiceClient,
     token: Option<&str>,
@@ -1738,6 +1844,7 @@ async fn load_portfolio_watchlist_layout(
         })
 }
 
+#[cfg(test)]
 fn record_analytics_query(params: &mut HashMap<String, String>, normalized_query: &str) {
     let query = AnalyticsQueryState::from_normalized_query(normalized_query)
         .expect("the bounded SSR query is valid analytics query state");
@@ -1747,6 +1854,7 @@ fn record_analytics_query(params: &mut HashMap<String, String>, normalized_query
     );
 }
 
+#[cfg(test)]
 fn record_analytics_load(
     params: &mut HashMap<String, String>,
     outcome: Result<AnalyticsResponse, AnalyticsLoadError>,
@@ -1767,11 +1875,13 @@ fn record_analytics_load(
             state
         }
         Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Restricted) => "restricted",
         Err(AnalyticsLoadError::Unavailable) => "unavailable",
     };
     params.insert(ANALYTICS_STATE_PARAM.to_string(), state.to_string());
 }
 
+#[cfg(test)]
 fn record_analytics_filters_load(
     params: &mut HashMap<String, String>,
     outcome: Result<AnalyticsFilters, AnalyticsLoadError>,
@@ -1787,11 +1897,13 @@ fn record_analytics_filters_load(
             "ready"
         }
         Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Restricted) => "restricted",
         Err(AnalyticsLoadError::Unavailable) => "unavailable",
     };
     params.insert(ANALYTICS_FILTERS_STATE_PARAM.to_string(), state.to_string());
 }
 
+#[cfg(test)]
 fn record_analytics_watchlist_load(
     params: &mut HashMap<String, String>,
     outcome: Result<Option<WatchlistData>, AnalyticsLoadError>,
@@ -1808,6 +1920,7 @@ fn record_analytics_watchlist_load(
         }
         Ok(None) => "signed_out",
         Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Restricted) => "restricted",
         Err(AnalyticsLoadError::Unavailable) => "unavailable",
     };
     params.insert(
@@ -1816,6 +1929,7 @@ fn record_analytics_watchlist_load(
     );
 }
 
+#[cfg(test)]
 fn record_portfolio_watchlist_load(
     params: &mut HashMap<String, String>,
     outcome: Result<Option<WatchlistLayoutData>, AnalyticsLoadError>,
@@ -1832,6 +1946,7 @@ fn record_portfolio_watchlist_load(
         }
         Ok(None) => "signed_out",
         Err(AnalyticsLoadError::Malformed) => "malformed",
+        Err(AnalyticsLoadError::Restricted) => "restricted",
         Err(AnalyticsLoadError::Unavailable) => "unavailable",
     };
     params.insert(
@@ -1840,6 +1955,7 @@ fn record_portfolio_watchlist_load(
     );
 }
 
+#[cfg(test)]
 fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
     let (key, is_list) = if path == "/news" {
         ("data_news", true)
@@ -1867,6 +1983,7 @@ fn news_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<Statu
     }
 }
 
+#[cfg(test)]
 fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Option<StatusCode> {
     if path != "/notifications" {
         return None;
@@ -1881,6 +1998,7 @@ fn notifications_ssr_status(path: &str, params: &HashMap<String, String>) -> Opt
     )
 }
 
+#[cfg(test)]
 fn normalized_request_target(path: &str, query: &str) -> String {
     if query.is_empty() {
         path.to_string()
@@ -1892,6 +2010,7 @@ fn normalized_request_target(path: &str, query: &str) -> String {
 /// Pick the identity displayed in the public navigation. An authenticated
 /// session always wins over the provider cookie so a stale/disconnected
 /// browser wallet cannot replace the backend-verified owner identity.
+#[cfg(test)]
 fn authoritative_navigation_wallet(
     user: &Option<User>,
     connected_wallet: Option<&str>,
@@ -1907,6 +2026,7 @@ fn authoritative_navigation_wallet(
         .map(str::to_owned)
 }
 
+#[cfg(test)]
 fn frontend_navigation_html(
     path: &str,
     query: &str,
@@ -1921,13 +2041,10 @@ fn frontend_navigation_html(
     // Production keeps the chain selector out of the global navigation. The
     // current network remains available inside wallet-owned flows where it is
     // actionable, rather than occupying the public header as a read-only tag.
-    epsx_templates::epsx_header_for_session_and_wallet(
-        is_authenticated,
-        &return_target,
-        wallet_address,
-    )
+    super::enterprise::navigation(path, &return_target, is_authenticated, wallet_address)
 }
 
+#[cfg(test)]
 fn urlencode(value: &str) -> String {
     let mut encoded = String::with_capacity(value.len());
     for byte in value.bytes() {
@@ -1941,6 +2058,7 @@ fn urlencode(value: &str) -> String {
     encoded
 }
 
+#[cfg(test)]
 fn safe_return_url(query: &str) -> String {
     let Ok(request_url) = reqwest::Url::parse(&format!("https://frontend.invalid/?{query}")) else {
         return "/".to_string();
@@ -1971,6 +2089,48 @@ fn safe_return_url(query: &str) -> String {
         value.push_str(fragment);
     }
     value
+}
+
+/// Typed data shared by SSR hydration and subsequent Dioxus server calls.
+pub(crate) async fn load_fullstack_analytics(
+    state: &AppState,
+    query: AnalyticsQueryState,
+    headers: axum::http::HeaderMap,
+) -> Result<epsx_dioxus_ui::fullstack::analytics::AnalyticsData, epsx_dioxus_ui::fullstack::LoadError>
+{
+    use epsx_dioxus_ui::fullstack::{analytics::AnalyticsData, LoadError};
+    if query.page == 0 || query.limit.is_some_and(|limit| !(1..=100).contains(&limit)) {
+        return Err(LoadError::InvalidQuery);
+    }
+    let query_url = query.page_url(query.page, query.limit.unwrap_or(10));
+    let normalized = analytics_query(query_url.split_once('?').map(|(_, q)| q).unwrap_or(""))
+        .map_err(|_| LoadError::InvalidQuery)?;
+    let query = AnalyticsQueryState::from_normalized_query(&normalized)
+        .map_err(|_| LoadError::InvalidQuery)?;
+    let token = match state.session().access_verification(&headers).await {
+        AccessVerification::Verified { token, .. } => Some(token),
+        AccessVerification::MissingOrRejected => None,
+        AccessVerification::VerifierUnavailable => return Err(LoadError::Unavailable),
+    };
+    fn error(error: AnalyticsLoadError) -> LoadError {
+        match error {
+            AnalyticsLoadError::Unavailable => LoadError::Unavailable,
+            AnalyticsLoadError::Restricted => LoadError::Forbidden,
+            AnalyticsLoadError::Malformed => LoadError::Malformed,
+        }
+    }
+    let (rankings, filters, watchlist) = tokio::join!(
+        load_analytics_rankings(&state.analytics, &normalized, &headers, token.as_deref()),
+        load_analytics_filters(&state.analytics),
+        load_analytics_watchlist(&state.wallet, token.as_deref()),
+    );
+    Ok(AnalyticsData {
+        query,
+        rankings: rankings.map_err(error),
+        filters: filters.map_err(error),
+        watchlist: watchlist.map_err(error),
+        signed_in: token.is_some(),
+    })
 }
 
 #[cfg(test)]
@@ -2022,6 +2182,34 @@ mod tests {
     };
     use epsx_dioxus_ui::pages::{PageContext, PageMeta, PageStatus};
     use std::collections::HashMap;
+
+    #[tokio::test]
+    async fn analytics_restriction_is_the_upstream_decision_and_clears_stale_rows() {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let address = listener.local_addr().unwrap();
+        let server = tokio::spawn(async move {
+            axum::serve(
+                listener,
+                axum::Router::new().route(
+                    "/api/analytics/rankings",
+                    axum::routing::get(|| async { axum::http::StatusCode::FORBIDDEN }),
+                ),
+            )
+            .await
+            .unwrap();
+        });
+        let client = epsx_client::ServiceClient::new(epsx_client::ClientConfig {
+            base_url: format!("http://{address}"),
+            ..Default::default()
+        });
+        let outcome = super::load_analytics_rankings(&client, "", &HeaderMap::new(), None).await;
+        server.abort();
+        assert_eq!(outcome.unwrap_err(), AnalyticsLoadError::Restricted);
+        let mut params = HashMap::from([(super::ANALYTICS_DATA_PARAM.to_string(), "stale".into())]);
+        record_analytics_load(&mut params, Err(AnalyticsLoadError::Restricted));
+        assert_eq!(params[super::ANALYTICS_STATE_PARAM], "restricted");
+        assert!(!params.contains_key(super::ANALYTICS_DATA_PARAM));
+    }
 
     #[test]
     fn analytics_query_keeps_only_bounded_backend_filters() {
@@ -3207,8 +3395,8 @@ mod tests {
         let header =
             frontend_navigation_html("/news/example", "q=eps&category=markets", false, None);
         let expected = "href=\"/auth?return_url=%2Fnews%2Fexample%3Fq%3Deps%26category%3Dmarkets\"";
-        assert_eq!(header.matches(expected).count(), 3);
-        assert_eq!(header.matches("data-epsx-auth-link").count(), 3);
+        assert_eq!(header.matches(expected).count(), 1);
+        assert_eq!(header.matches("data-epsx-auth-link").count(), 1);
         assert!(!header.contains("href=\"/auth\""));
 
         let encoded_query = "q=a%20b&q=c%2Bd&next=%2Fportfolio&probe=%3Ctag%3E";
@@ -3219,7 +3407,7 @@ mod tests {
             encoded_header
                 .matches(&format!("href=\"/auth?return_url={encoded_return_url}\""))
                 .count(),
-            3
+            1
         );
         assert_eq!(
             safe_return_url(&format!("return_url={encoded_return_url}")),
@@ -3240,7 +3428,7 @@ mod tests {
             let header = frontend_navigation_html(hostile_path, "", false, None);
             assert_eq!(
                 header.matches("href=\"/auth?return_url=%2F\"").count(),
-                3,
+                1,
                 "{hostile_path:?}"
             );
             assert!(!header.contains("evil.example"), "{hostile_path:?}");
@@ -3267,7 +3455,8 @@ mod tests {
             Some("0x2ae30000000000000000000000000000000023be"),
         );
 
-        assert_eq!(header.matches("data-epsx-wallet-pill").count(), 3);
+        assert!(!header.contains("Account menu"));
+        assert!(!header.contains("0x2ae30000000000000000000000000000000023be"));
         assert!(header.contains("href=\"/auth?return_url=%2Fanalytics%3Fpage%3D1%26limit%3D10\""));
         assert!(!header.contains("epsx-sign-in-banner"));
         assert!(!header.contains("Your wallet is connected"));
@@ -3296,8 +3485,9 @@ mod tests {
             true,
             authoritative_navigation_wallet(&user, None).as_deref(),
         );
-        assert!(header.contains("Wallet menu for 0x2ae3…23be"));
-        assert!(header.contains("data-copy=\"0x2ae30000000000000000000000000000000023be\""));
+        assert!(header.contains("Account menu"));
+        assert!(header.contains("0x2ae30000000000000000000000000000000023be"));
+        assert!(!header.contains("0x9999000000000000000000000000000000009999"));
         assert!(!header.contains("class=\"epsx-connect-btn\" type=\"button\" data-epsx-logout"));
     }
 
@@ -3313,65 +3503,66 @@ mod tests {
         assert!(!header.contains("data-lucide"));
         assert!(!header.contains("<i "));
         for icon in [
-            "lucide-chart-column",
-            "lucide-code",
-            "lucide-building",
-            "lucide-chevron-down",
+            "lucide-search",
+            "lucide-heart",
+            "lucide-newspaper",
+            "lucide-message-circle",
             "lucide-bell",
             "lucide-sun",
-            "lucide-moon",
-            "lucide-wallet",
+            "lucide-settings",
             "lucide-user",
-            "lucide-copy",
-            "lucide-log-out",
             "lucide-menu",
         ] {
             assert!(header.contains(icon), "missing inline navbar icon {icon}");
         }
 
-        assert_eq!(header.matches("data-epsx-action=\"toggle-nav\"").count(), 6);
+        // Desktop control lives in the sidebar; the mobile opener lives in main.
         assert_eq!(
-            header
-                .matches("data-epsx-action=\"toggle-mobile-menu\"")
-                .count(),
+            header.matches("data-epsx-action=\"fe-nav-toggle\"").count(),
+            1
+        );
+        assert!(header.contains("href=\"/developer\""));
+        assert_eq!(
+            header.matches("data-epsx-action=\"fe-nav-close\"").count(),
             2
         );
-        assert_eq!(header.matches("data-epsx-logout").count(), 3);
+        assert_eq!(header.matches("data-epsx-logout").count(), 1);
         assert!(header.contains("data-epsx-action=\"theme-toggle\""));
         assert!(header.contains("href=\"/notifications\""));
         assert!(header.contains("href=\"/account\""));
     }
 
     #[test]
-    fn shared_navigation_uses_lg_desktop_and_mobile_contract() {
+    fn enterprise_navigation_has_one_drawer_and_contextual_active_links() {
         let header = frontend_navigation_html("/analytics", "", false, None);
-
-        assert!(
-            header.contains("class=\"epsx-desktop-navigation hidden lg:flex items-center gap-6\"")
-        );
-        assert!(header
-            .contains("class=\"epsx-compact-brand lg:hidden flex items-center gap-2.5 group\""));
-        assert!(header.contains("class=\"epsx-theme-btn lg:hidden\""));
-        assert!(header.contains("id=\"epsx-mobile-menu-btn\""));
-        assert!(header.contains("aria-controls=\"epsx-mobile-sheet\""));
-        assert!(header.contains("id=\"epsx-mobile-sheet\""));
+        assert_eq!(header.matches("id=\"fe-sidebar\"").count(), 1);
+        assert_eq!(header.matches("id=\"fe-nav-desktop-trigger\"").count(), 1);
+        assert!(header.contains("aria-controls=\"fe-sidebar\""));
         assert!(header.contains("aria-label=\"Primary\""));
-        assert!(header.contains("aria-label=\"Mobile\""));
-        assert!(header.contains("id=\"epsx-nav-market-trigger\" class=\"epsx-nav-trigger active\""));
-        assert!(header.contains(
-            "id=\"epsx-mobile-market-trigger\" class=\"epsx-mobile-group-trigger active\""
-        ));
-        assert!(header.contains(
-            "id=\"epsx-mobile-market-trigger\" class=\"epsx-mobile-group-trigger active\" type=\"button\" aria-expanded=\"true\""
-        ));
-        assert!(header.contains(
-            "id=\"epsx-mobile-developer-panel\" class=\"epsx-mobile-group-items\" aria-labelledby=\"epsx-mobile-developer-trigger\" hidden"
-        ));
-
-        let article_header = frontend_navigation_html("/news/example", "", false, None);
-        assert!(article_header
-            .contains("id=\"epsx-nav-company-trigger\" class=\"epsx-nav-trigger active\""));
-        assert!(article_header.contains("href=\"/news\" class=\"epsx-mobile-link active\""));
+        assert!(header.contains("href=\"/analytics\" aria-current=\"page\""));
+        assert!(header.contains("data-epsx-action=\"fe-nav-close\""));
+        let article = frontend_navigation_html("/news/example", "", false, None);
+        assert!(article.contains("href=\"/news\" aria-current=\"page\""));
+        // Developer has a dedicated group, separate from the Market links.
+        let developer = header
+            .split("aria-label=\"Developer\">")
+            .nth(1)
+            .unwrap()
+            .split("</nav>")
+            .next()
+            .unwrap();
+        for route in ["/developer", "/developer/usage", "/developer/docs"] {
+            assert!(developer.contains(&format!("href=\"{route}\"")));
+        }
+        assert!(!header.contains("/manual"));
+        let primary = header
+            .split("aria-label=\"Primary\">")
+            .nth(1)
+            .unwrap()
+            .split("</nav>")
+            .next()
+            .unwrap();
+        assert!(!primary.contains("/developer"));
     }
 
     /// Wave 22 T4 — `/pricing` (no query) → 307 `/plans`.

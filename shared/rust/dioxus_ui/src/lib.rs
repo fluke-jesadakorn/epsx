@@ -23,7 +23,9 @@ pub mod chat;
 pub mod components;
 pub mod dashboard;
 pub mod data;
+pub mod enterprise;
 pub mod feedback;
+pub mod fullstack;
 pub mod home;
 pub mod i18n;
 pub mod layout;
@@ -32,6 +34,7 @@ pub mod pages;
 pub mod payment;
 pub mod primitives;
 pub mod routes;
+pub mod server;
 pub mod theme;
 
 #[cfg(test)]

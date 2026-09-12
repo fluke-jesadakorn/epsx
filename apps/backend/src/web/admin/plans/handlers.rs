@@ -369,9 +369,18 @@ pub async fn update_plan_handler(
         })
     });
 
-    // Sync metadata from permission strings (permissions are authoritative when set by admin)
+    // Metadata is a patch: editing token prices must preserve features, promotions
+    // and ranking rules. Validation belongs to the catalog authority.
+    let current = repo
+        .find_by_id(&plan_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
     let permissions = request.permissions;
-    let mut metadata = request.metadata;
+    let mut metadata = match request.metadata {
+        Some(patch) => Some(merge_plan_metadata(current.metadata(), &patch)?),
+        None => None,
+    };
     if let Some(ref perms) = permissions {
         if let Some(ref mut meta) = metadata {
             if let Some(obj) = meta.as_object_mut() {
@@ -808,4 +817,123 @@ pub async fn list_subscriptions_handler(
     _query: Query<SubscriptionListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
     Err(StatusCode::GONE)
+}
+
+fn merge_plan_metadata(
+    current: &serde_json::Value,
+    patch: &serde_json::Value,
+) -> Result<serde_json::Value, StatusCode> {
+    let object = patch.as_object().ok_or(StatusCode::BAD_REQUEST)?;
+    let mut result = current.as_object().cloned().unwrap_or_default();
+    for (key, value) in object {
+        if key == "pay_prices" {
+            let prices = value.as_object().ok_or(StatusCode::BAD_REQUEST)?;
+            let mut merged_prices = result
+                .get(key)
+                .and_then(serde_json::Value::as_object)
+                .cloned()
+                .unwrap_or_default();
+            for (token, price) in prices {
+                if !["USDT", "USDC"].contains(&token.as_str())
+                    || price.as_str().is_none_or(|p| {
+                        crate::web::payments::merchant_checkout::units(p, 18).is_err()
+                    })
+                {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                merged_prices.insert(token.clone(), price.clone());
+            }
+            result.insert(key.clone(), serde_json::Value::Object(merged_prices));
+            continue;
+        }
+        if key == "duration_days" {
+            if value.is_null() {
+                result.remove(key);
+                continue;
+            }
+            if value.as_i64().is_none_or(|d| !(1..=3650).contains(&d)) {
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
+        result.insert(key.clone(), value.clone());
+    }
+    let mut metadata = serde_json::Value::Object(result);
+    if metadata["pay_use_catalog_promotion"] == true {
+        for token in ["USDT", "USDC"] {
+            if metadata["pay_prices"].get(token).is_some() {
+                let pricing = crate::domain::subscription_management::token_pricing::calculate(
+                    &metadata,
+                    token,
+                    chrono::Utc::now(),
+                )
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
+                crate::web::payments::merchant_checkout::units(&pricing.price, 18)
+                    .map_err(|_| StatusCode::BAD_REQUEST)?;
+            }
+        }
+    }
+    // Keep the legacy catalog projection compatible with numeric promotion fields.
+    if let Some(promotion) = metadata
+        .get_mut("promotion")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for key in ["price", "value"] {
+            if let Some(text) = promotion.get(key).and_then(serde_json::Value::as_str) {
+                let number = text
+                    .parse::<serde_json::Number>()
+                    .map_err(|_| StatusCode::BAD_REQUEST)?;
+                promotion.insert(key.into(), serde_json::Value::Number(number));
+            }
+        }
+    }
+    Ok(metadata)
+}
+
+#[cfg(test)]
+mod checkout_metadata_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn token_price_edit_preserves_unrelated_metadata() {
+        let old = json!({"features":["Rankings"],"ranking_offset":5,"promotion":{"enabled":true},"duration_days":1});
+        let merged =
+            merge_plan_metadata(&old, &json!({"pay_prices":{"USDT":"5.00","USDC":"5.00"}}))
+                .unwrap();
+        assert_eq!(merged["features"], old["features"]);
+        assert_eq!(merged["promotion"], old["promotion"]);
+        assert_eq!(merged["duration_days"], 1);
+        assert_eq!(
+            merge_plan_metadata(&merged, &json!({"duration_days":null}))
+                .unwrap()
+                .get("duration_days"),
+            None
+        );
+    }
+    #[test]
+    fn promotion_edit_validates_discount_and_preserves_access() {
+        let old = json!({"features":["Rankings"],"duration_days":30,"pay_prices":{"USDT":"99","USDC":"99"},"pay_use_catalog_promotion":true});
+        let patch = json!({"promotion":{"enabled":true,"type":"percentage","value":"90","price":"0","start_date":"","end_date":""}});
+        let merged = merge_plan_metadata(&old, &patch).unwrap();
+        assert_eq!(merged["duration_days"], 30);
+        assert_eq!(merged["features"], old["features"]);
+        assert_eq!(merged["promotion"]["value"], 90);
+        for promotion in [
+            json!({"enabled":true,"type":"percentage","value":110}),
+            json!({"enabled":true,"price":1,"start_date":"invalid"}),
+        ] {
+            assert!(merge_plan_metadata(&old, &json!({"promotion":promotion})).is_err());
+        }
+    }
+    #[test]
+    fn rejects_invalid_token_price_and_duration() {
+        for patch in [
+            json!({"pay_prices":{"USDT":"-1"}}),
+            json!({"pay_prices":{"USD":"1"}}),
+            json!({"pay_prices":{"USDT":1}}),
+            json!({"duration_days":0}),
+            json!({"duration_days":3651}),
+        ] {
+            assert!(merge_plan_metadata(&json!({}), &patch).is_err());
+        }
+    }
 }

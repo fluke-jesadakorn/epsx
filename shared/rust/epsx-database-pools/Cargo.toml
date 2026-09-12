@@ -7,25 +7,9 @@ repository.workspace = true
 authors.workspace = true
 
 [dependencies]
-# Kernel — for AppError / AppResult in the PoolExt impl
 epsx-contracts = { path = "../epsx-contracts" }
-
-# Diesel + async — versions pinned to match apps/backend
-diesel = { version = "2.1", features = ["postgres", "uuid", "chrono", "numeric", "serde_json", "r2d2", "network-address", "32-column-tables"] }
-diesel-async = { version = "0.4", features = ["postgres", "deadpool", "async-connection-wrapper", "bb8"] }
-
-# Pooling — versions pinned to match apps/backend
-deadpool = { version = "0.9", features = ["rt_tokio_1"] }
-tokio-postgres-rustls = "0.12"
-rustls = { version = "0.23", features = ["ring"] }
-webpki-roots = "0.26"
-tokio-postgres = "0.7"
-
-# Runtime
 tokio = { workspace = true }
 async-trait = { workspace = true }
-
-# BIG-BANG canonical pool — sqlx replaces deadpool+diesel
 sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "rust_decimal"] }
 
 # Errors / logging

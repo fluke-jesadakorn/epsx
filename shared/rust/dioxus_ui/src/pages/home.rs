@@ -1,92 +1,135 @@
 //! Public home page (`/`).
 //!
-//! Rankings and news are independent live-data outcomes. A failure in either
-//! dependency never suppresses a valid response from the other.
-//!
-//! Home is fully public — single hero variance (`HeroSection`) for all
-//! users. Do not branch on `ctx.wallet` or `ctx.user` for hero selection.
-//! Image 1 (`SignedOutHero` / Explore Market Analytics) is deprecated for `/`.
+//! The platform introduction is public and independent of data outcomes.
+//! Plans and news retain independent loading and recovery behavior.
+//! Do not branch on wallet or user state for hero selection.
 
-use crate::components::stock_data_card::StockDataCard;
-use crate::home::HeroSection;
+use crate::enterprise::{DataState, HomeHero, HOME_DESCRIPTION, HOME_TITLE};
+
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 use dioxus::prelude::*;
 
-use super::analytics::{AnalyticsResponse, AnalyticsRow};
+use super::analytics::AnalyticsResponse;
 use super::news::{parse_news_list_outcome, NewsListOutcome, NewsPost};
+use super::plans::{PlanCard, PublicPlan, PublicPlansLoadOutcome};
 use super::{PageContext, PageMeta};
 
 pub const HOME_ANALYTICS_DATA_PARAM: &str = "data_home_analytics";
 pub const HOME_ANALYTICS_STATE_PARAM: &str = "data_home_analytics_state";
-
-#[server]
-pub async fn get_home_rankings() -> Result<AnalyticsResponse, ServerFnError> {
-    if tokio::runtime::Handle::try_current().is_err() {
-        return Err(ServerFnError::new(
-            "no runtime, fallback to PageContext".to_string(),
-        ));
-    }
-    let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
-    let url = format!(
-        "{}/api/analytics/rankings?page=1&limit=3",
-        api_url.trim_end_matches('/')
-    );
-    let resp = reqwest::get(&url)
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-    let value: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| ServerFnError::new(e.to_string()))?;
-    let response: AnalyticsResponse =
-        serde_json::from_value(value).map_err(|e| ServerFnError::new(e.to_string()))?;
-    response
-        .validated()
-        .map_err(|_| ServerFnError::new("validation failed".to_string()))?;
-    Ok(response)
-}
+pub const HOME_PLANS_DATA_PARAM: &str = "data_home_plans";
 
 #[derive(Clone, Debug, PartialEq)]
-enum HomeAnalyticsOutcome {
-    Ready(AnalyticsResponse),
+enum HomePlansOutcome {
+    Ready(Vec<PublicPlan>),
     Empty,
     Unavailable,
+    Malformed,
 }
 
-fn parse_home_analytics(ctx: &PageContext) -> HomeAnalyticsOutcome {
-    let state = ctx
-        .param(HOME_ANALYTICS_STATE_PARAM)
-        .map(String::as_str)
-        .unwrap_or("unavailable");
-    let response = ctx
-        .param(HOME_ANALYTICS_DATA_PARAM)
-        .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
-        .and_then(|response| response.validated().ok());
-    match (state, response) {
-        ("ready", Some(response)) if !response.data.is_empty() => {
-            HomeAnalyticsOutcome::Ready(response)
+fn parse_home_plans(ctx: &PageContext) -> HomePlansOutcome {
+    let Some(raw) = ctx.params.get(HOME_PLANS_DATA_PARAM) else {
+        return HomePlansOutcome::Unavailable;
+    };
+    match serde_json::from_str::<PublicPlansLoadOutcome>(raw) {
+        Ok(PublicPlansLoadOutcome::Ready { plans }) if !plans.is_empty() => {
+            HomePlansOutcome::Ready(plans)
         }
-        ("empty", Some(response)) if response.data.is_empty() => HomeAnalyticsOutcome::Empty,
-        _ => HomeAnalyticsOutcome::Unavailable,
+        Ok(PublicPlansLoadOutcome::Ready { .. } | PublicPlansLoadOutcome::Empty) => {
+            HomePlansOutcome::Empty
+        }
+        Ok(PublicPlansLoadOutcome::Error { code }) if code == "malformed_plans_response" => {
+            HomePlansOutcome::Malformed
+        }
+        Ok(PublicPlansLoadOutcome::Error { .. }) => HomePlansOutcome::Unavailable,
+        Err(_) => HomePlansOutcome::Malformed,
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct HomeData {
+    pub rankings: Result<AnalyticsResponse, crate::fullstack::LoadError>,
+    pub plans: PublicPlansLoadOutcome,
+    pub news: NewsListOutcome,
+}
+
+#[cfg(feature = "server")]
+#[derive(Clone)]
+pub struct HomeProvider(
+    pub  std::sync::Arc<
+        dyn Fn() -> std::pin::Pin<Box<dyn std::future::Future<Output = HomeData> + Send>>
+            + Send
+            + Sync,
+    >,
+);
+
+#[server(prefix = "/_server/frontend", endpoint = "home")]
+pub async fn read_home() -> Result<HomeData, ServerFnError> {
+    use dioxus_server::axum::Extension;
+    let Extension(provider) =
+        dioxus_fullstack::FullstackContext::extract::<Extension<HomeProvider>, _>()
+            .await
+            .map_err(|_| ServerFnError::new("Home provider unavailable"))?;
+    Ok((provider.0)().await)
+}
+
+#[derive(Clone, Copy)]
+struct HomeRefresh(EventHandler<()>);
+
+#[component]
+pub fn HydratedHome() -> Element {
+    let mut result = use_server_future(|| async { read_home().await })?;
+    let refresh = use_callback(move |_| result.restart());
+    use_context_provider(|| HomeRefresh(refresh));
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    use_context_provider(|| crate::fullstack::analytics::AnalyticsNavigation(navigate));
+    let data = result.read().clone();
+    rsx! {
+        document::Title { "{HOME_TITLE}" }
+        document::Meta { name: "description", content: HOME_DESCRIPTION }
+        div { class: "fe-home", div { class: "relative z-[1] home-prod-content",
+            HomeHero {}
+            match data {
+                Some(Ok(data)) => {
+                    let plans_outcome = match data.plans {
+                        PublicPlansLoadOutcome::Ready { plans } if !plans.is_empty() => HomePlansOutcome::Ready(plans),
+                        PublicPlansLoadOutcome::Ready { .. } | PublicPlansLoadOutcome::Empty => HomePlansOutcome::Empty,
+                        PublicPlansLoadOutcome::Error { code } if code == "malformed_plans_response" => HomePlansOutcome::Malformed,
+                        _ => HomePlansOutcome::Unavailable,
+                    };
+                    rsx! {
+                        PlansPreview { outcome: plans_outcome }
+                        NewsPreview { outcome: data.news }
+                    }
+                },
+                _ => rsx! { section { class: "fe-page", role: "status",
+                    p { "Could not load the home page. Please try again." }
+                    button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+                } },
+            }
+        } }
     }
 }
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Home");
+    let mut meta = PageMeta::marketing("Home");
+    meta.title = HOME_TITLE.into();
+    meta.description = HOME_DESCRIPTION.into();
     let news_outcome =
         parse_news_list_outcome(ctx.params.get("data_home_news").map(String::as_str));
-    let analytics_outcome = parse_home_analytics(ctx);
+    let plans_outcome = parse_home_plans(ctx);
     (
         meta,
         rsx! {
             MainLayout { ctx: ctx.clone(),
                 div {
-                    class: "home-prod-page relative min-h-screen overflow-hidden bg-gradient-to-br from-blue-50 via-orange-50 to-yellow-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900",
+                    class: "fe-home",
                     div { class: "relative z-[1] home-prod-content",
-                        HeroSection {}
-                        AnalyticsPreview { outcome: analytics_outcome }
-                        PlansPreview {}
+                        HomeHero {}
+                        PlansPreview { outcome: plans_outcome }
                         NewsPreview { outcome: news_outcome }
                     }
                 }
@@ -95,170 +138,27 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     )
 }
 
-fn home_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) {
-    let latest = row.quarterly_performance.first();
-    let growth = latest
-        .map(|quarter| quarter.eps_growth)
-        .or(row.growth_factor)
-        .unwrap_or(0.0);
-    let price = latest
-        .map(|quarter| quarter.price)
-        .or(row.price_current)
-        .unwrap_or(row.value);
-    let days = row
-        .next_quarter_estimate
-        .as_ref()
-        .map(|estimate| estimate.days_until_announcement)
-        .or(row.days_until_next_earnings)
-        .filter(|days| *days >= 0);
-    (growth, price, days, row.progress_percentage)
-}
-
 #[component]
-fn AnalyticsPreview(outcome: HomeAnalyticsOutcome) -> Element {
-    let effective_outcome = if cfg!(test) {
-        outcome.clone()
-    } else if let Ok(resource) = use_server_future(|| get_home_rankings()) {
-        match resource.read().as_ref() {
-            Some(Ok(resp)) => {
-                if resp.data.is_empty() {
-                    HomeAnalyticsOutcome::Empty
-                } else {
-                    HomeAnalyticsOutcome::Ready(resp.clone())
-                }
-            }
-            Some(Err(_)) => outcome.clone(),
-            None => outcome.clone(),
-        }
-    } else {
-        outcome.clone()
-    };
-    let state = match &effective_outcome {
-        HomeAnalyticsOutcome::Ready(_) => "ready",
-        HomeAnalyticsOutcome::Empty => "empty",
-        HomeAnalyticsOutcome::Unavailable => "unavailable",
+fn PlansPreview(outcome: HomePlansOutcome) -> Element {
+    let effective = outcome;
+    let state = match &effective {
+        HomePlansOutcome::Ready(_) => "ready",
+        HomePlansOutcome::Empty => "empty",
+        HomePlansOutcome::Unavailable => "unavailable",
+        HomePlansOutcome::Malformed => "malformed",
     };
     rsx! {
-        section {
-            class: "home-prod-top-performers container mx-auto px-4 py-16 sm:py-24 lg:py-32",
-            "aria-labelledby": "home-analytics-title",
-            "data-home-market-state": state,
-            div { class: "relative",
-                div { class: "absolute -top-8 -left-8 h-16 w-16 rounded-full bg-gradient-to-br from-orange-400/20 to-yellow-400/20 blur-xl home-prod-tp-blob-1" }
-                div { class: "absolute -right-8 -bottom-8 h-20 w-20 rounded-full bg-gradient-to-br from-blue-400/20 to-cyan-400/20 blur-xl home-prod-tp-blob-2" }
-                div { class: "flex w-full flex-col gap-8 text-center",
-                    div { class: "mb-6 space-y-4 home-prod-tp-header",
-                        h2 {
-                            id: "home-analytics-title",
-                            class: "home-prod-tp-title pancake-gradient-text text-3xl font-bold sm:text-4xl",
-                            "Performance Companies"
-                        }
-                        p { class: "text-gray-600 dark:text-gray-300 mx-auto max-w-2xl home-prod-tp-sub",
-                            "Discover the data leaders with exceptional growth and performance metrics"
-                        }
-                        div { class: "home-prod-tp-divider pancake-gradient mx-auto h-1 w-24 rounded-full" }
+        section { class: "home-prod-pricing container fe-page-layout", aria_labelledby: "home-plans-title", "data-home-plans-state": state,
+            h2 { id: "home-plans-title", class: "text-2xl font-semibold", "Plans for your workflow" }
+            p { class: "fe-help", "Compare available features and access before choosing a plan." }
+            match effective {
+                HomePlansOutcome::Ready(plans) => rsx! {
+                    div { class: "grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3",
+                        for plan in plans { PlanCard { plan, frontend: true } }
                     }
-                    match effective_outcome {
-                        HomeAnalyticsOutcome::Ready(response) => rsx! {
-                            div {
-                                class: "home-ranking-grid grid grid-cols-1 gap-6 px-2 sm:grid-cols-2 sm:px-0 lg:grid-cols-3",
-                                "aria-label": "Public EPS ranking preview",
-                                for row in response.data.into_iter().take(3) {
-                                    {
-                                        let (growth, price, days, progress) = home_card_values(&row);
-                                        rsx! {
-                                            StockDataCard {
-                                                symbol: row.symbol,
-                                                rank: row.rank,
-                                                eps_growth: growth,
-                                                price,
-                                                company_name: row.company_name,
-                                                days_until_next_action: days,
-                                                progress_percentage: progress,
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        },
-                        HomeAnalyticsOutcome::Empty => rsx! {
-                            p { class: "text-gray-600 dark:text-gray-400",
-                                "No public rankings are available at this time."
-                            }
-                        },
-                        HomeAnalyticsOutcome::Unavailable => rsx! {
-                            div { role: "alert",
-                                p { class: "text-gray-600 dark:text-gray-400",
-                                    "Unable to load ranking data at this time. Please try again later."
-                                }
-                                p { class: "sr-only",
-                                    "No sample ranking or market records are shown on the home page."
-                                }
-                            }
-                        },
-                    }
-                    a {
-                        class: "mx-auto inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300",
-                        href: "/analytics",
-                        "Open analytics"
-                        Icon { name: "arrow-right".to_string(), size: Some(16) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-#[component]
-fn PlansPreview() -> Element {
-    rsx! {
-        section {
-            class: "home-prod-pricing container mx-auto px-4 py-16 sm:py-24 lg:py-32",
-            "aria-labelledby": "home-plans-title",
-            "data-home-plans-state": "unavailable",
-            div { class: "home-prod-plan-shell mx-auto max-w-3xl text-center",
-                h2 {
-                    id: "home-plans-title",
-                    class: "home-prod-plan-title pancake-gradient-text text-3xl font-bold sm:text-4xl",
-                    "Custom Plans"
-                }
-                p { class: "mx-auto mt-4 max-w-2xl text-gray-600 dark:text-slate-300",
-                    "Tailored solutions for partners, corporate, and enterprise needs"
-                }
-                div { class: "pancake-gradient mx-auto mt-5 h-1 w-24 rounded-full" }
-                article { class: "home-prod-plan-card mx-auto mt-8 max-w-md rounded-2xl border border-purple-500/30 bg-slate-950/70 p-6 text-left shadow-2xl shadow-purple-950/20 sm:p-8",
-                    div { class: "text-center",
-                        p { class: "text-xs font-semibold tracking-[0.25em] text-slate-300", "CUSTOM" }
-                        h3 { class: "mt-4 text-2xl font-bold text-purple-300", "Revenue Share" }
-                    }
-                    ul { class: "mt-6 space-y-3 text-sm text-slate-300",
-                        for item in [
-                            "Custom feature set & permissions",
-                            "Dedicated support & SLA",
-                            "Volume-based pricing",
-                            "Custom API rate limits",
-                            "White-label options",
-                            "Priority onboarding",
-                        ] {
-                            li { class: "flex items-center gap-2",
-                                span { class: "text-purple-700 dark:text-purple-400", "✓" }
-                                "{item}"
-                            }
-                        }
-                    }
-                    a {
-                        class: "mt-7 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-700 to-fuchsia-700 px-5 py-3 font-semibold text-white hover:from-purple-800 hover:to-fuchsia-800",
-                        href: "/contact",
-                        Icon { name: "message-square".to_string(), size: Some(16) }
-                        "Get in Touch"
-                    }
-                    p { class: "mt-3 text-center text-xs text-slate-500",
-                        "We'll create a plan that fits your needs"
-                    }
-                }
-                p { class: "sr-only",
-                    "The home page does not publish a price or feature catalog. Open plans for the route's current availability and verified terms."
-                }
+                },
+                HomePlansOutcome::Empty => rsx! { DataState { title: "No plans available", message: "There are no public plans to display right now.", href: "/plans", action: "View plans" } },
+                _ => rsx! { DataState { title: "Plans are temporarily unavailable", message: "Please try again to see current plans and features.", href: "/plans", action: "View plans" } },
             }
         }
     }
@@ -278,6 +178,7 @@ fn news_metadata(post: &NewsPost) -> String {
 
 #[component]
 fn NewsSectionHeader() -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     rsx! {
         div { class: "mb-6 flex items-center justify-between",
             div { class: "flex items-center gap-3",
@@ -288,13 +189,14 @@ fn NewsSectionHeader() -> Element {
                 }
                 h2 {
                     id: "home-news-title",
-                    class: "home-prod-news-title text-xl font-bold text-gray-900 dark:text-white",
+                    class: "home-prod-news-title text-xl font-bold text-gray-900 dark:text-white fe-tone-text",
                     "Latest News"
                 }
             }
             a {
-                class: "home-prod-news-view-all flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800 font-medium dark:text-cyan-400 dark:hover:text-cyan-300",
+                class: "home-prod-news-view-all flex items-center gap-1 text-sm text-cyan-700 hover:text-cyan-800 font-medium dark:text-cyan-400 dark:hover:text-cyan-300 fe-tone-accent",
                 href: "/news",
+                onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
                 "View all "
                 Icon { name: "arrow-right".to_string(), size: Some(16) }
             }
@@ -304,11 +206,13 @@ fn NewsSectionHeader() -> Element {
 
 #[component]
 fn LeadNewsCard(post: NewsPost) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let metadata = news_metadata(&post);
     rsx! {
         a {
             class: "group block home-news-lead",
             href: "/news/{post.slug}",
+            onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
             article { class: "news-featured",
                 if let Some(cover) = &post.cover_image_url {
                     img {
@@ -351,11 +255,13 @@ fn LeadNewsCard(post: NewsPost) -> Element {
 
 #[component]
 fn SmallNewsCard(post: NewsPost) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let metadata = news_metadata(&post);
     rsx! {
         a {
             class: "group block home-news-small",
             href: "/news/{post.slug}",
+            onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &format!("/news/{}", post.slug)),
             article { class: "news-small",
                 if let Some(cover) = &post.cover_image_url {
                     img {
@@ -388,6 +294,8 @@ fn SmallNewsCard(post: NewsPost) -> Element {
 
 #[component]
 fn NewsPreview(outcome: NewsListOutcome) -> Element {
+    let refresh = try_consume_context::<HomeRefresh>();
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     match outcome {
         NewsListOutcome::Ready { articles, .. } => {
             let mut preview = articles.into_iter().take(3);
@@ -402,7 +310,7 @@ fn NewsPreview(outcome: NewsListOutcome) -> Element {
             };
             rsx! {
                 section {
-                    class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+                    class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32 fe-page-layout",
                     "aria-labelledby": "home-news-title",
                     "data-home-news-state": "ready",
                     NewsSectionHeader {}
@@ -421,37 +329,39 @@ fn NewsPreview(outcome: NewsListOutcome) -> Element {
         }
         NewsListOutcome::Empty { .. } => rsx! {
             section {
-                class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+                class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32 fe-page-layout",
                 "aria-labelledby": "home-news-title",
                 "data-home-news-state": "empty",
                 NewsSectionHeader {}
                 div {
-                    class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center",
-                    p { class: "text-slate-600 dark:text-slate-300", "No published articles yet." }
+                    class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center fe-fill-neutral",
+                    p { class: "text-slate-600 dark:text-slate-300 fe-tone-muted", "No published articles yet." }
                 }
             }
         },
         NewsListOutcome::Error { .. } => rsx! {
             section {
-                class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32",
+                class: "home-prod-news container mx-auto px-4 py-16 sm:py-24 lg:py-32 fe-page-layout",
                 "aria-labelledby": "home-news-title",
                 "data-home-news-state": "unavailable",
                 NewsSectionHeader {}
                 div {
-                    class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center",
+                    class: "rounded-3xl border border-white/10 bg-gradient-to-br from-purple-500/20 via-cyan-400/10 to-slate-900/60 p-8 sm:p-12 text-center fe-fill-neutral",
                     role: "alert",
-                    p { class: "mx-auto max-w-2xl text-slate-600 dark:text-slate-300",
-                        "Latest news is temporarily unavailable. No cached or sample articles are being shown."
+                    p { class: "mx-auto max-w-2xl text-slate-600 dark:text-slate-300 fe-tone-muted",
+                        "We couldn’t load the latest news. Please try again."
                     }
                     div { class: "mt-7 flex flex-wrap justify-center gap-3",
                         a {
-                            class: "inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300",
+                            class: "inline-flex items-center gap-2 rounded-xl border border-cyan-500/40 px-5 py-3 font-semibold text-cyan-700 hover:bg-cyan-400/10 dark:text-cyan-300 fe-tone-accent",
                             href: "/news",
+                onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/news"),
                             "Open news"
                         }
                         a {
                             class: "inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-3 font-semibold text-slate-800 hover:bg-slate-100 dark:border-white/20 dark:text-white dark:hover:bg-white/5",
                             href: "/",
+                            onclick: move |event| { if let Some(refresh) = refresh { event.prevent_default(); refresh.0.call(()); } },
                             "Retry home"
                         }
                     }
@@ -586,105 +496,128 @@ mod tests {
         dioxus_ssr::render_element(el)
     }
 
-    #[test]
-    fn home_preserves_visual_landmarks_and_native_links() {
-        let html = render_to_string(&empty_ctx());
-
-        for marker in [
-            "home-prod-page",
-            "home-prod-hero",
-            "home-prod-hero-stats",
-            "home-prod-top-performers",
-            "home-prod-pricing",
-            "home-prod-news",
-            "Performance Analytics Platform",
-            "Track Your",
-            "Performance Growth",
-            "Metrics",
-            "Start Exploration",
-            "Share Platform",
-            "Latest News",
-            "href=\"/analytics\"",
-            "href=\"/news\"",
-        ] {
-            assert!(
-                html.contains(marker),
-                "missing safe home marker `{marker}`: {html}"
-            );
-        }
+    fn hero_markup(html: &str) -> &str {
+        let start = html.find("<section class=\"fe-hero\"").expect("home hero");
+        let end = html[start..].find("</section>").expect("hero closing tag") + start;
+        &html[start..end]
     }
 
     #[test]
-    fn home_keeps_independent_market_plans_and_news_unavailable_states() {
-        let html = render_to_string(&empty_ctx());
-
+    fn home_preserves_visual_landmarks_and_native_links() {
+        let (meta, element) = render(&empty_ctx());
+        let html = dioxus_ssr::render_element(element);
+        assert_eq!(meta.title, HOME_TITLE);
+        assert_eq!(meta.description, HOME_DESCRIPTION);
         for marker in [
-            "data-home-market-state=\"unavailable\"",
+            "fe-home",
+            "fe-hero",
+            "fe-hero-art",
+            "home-prod-pricing",
+            "home-prod-news",
+            "Financial Technology Platform",
+            "Financial technology.",
+            "Connected by design.",
+            HOME_DESCRIPTION,
+            "Explore platform",
+            "About EPSX",
+            "Latest News",
+            "href=\"/analytics\"",
+            "href=\"/about\"",
+            "href=\"/news\"",
+        ] {
+            assert!(html.contains(marker), "missing home marker `{marker}`");
+        }
+        for retired in [
+            "fe-product-preview",
+            "fe-workflow",
+            "home-prod-top-performers",
+            "EPSX’s proprietary methodology.",
+        ] {
+            assert!(!html.contains(retired), "retired hero content `{retired}`");
+        }
+        assert_eq!(html.matches("id=\"home-title\"").count(), 1);
+        assert!(html.find("class=\"fe-hero\"").unwrap() < html.find("home-prod-pricing").unwrap());
+        assert!(html.find("home-prod-pricing").unwrap() < html.find("home-prod-news").unwrap());
+    }
+
+    #[test]
+    fn home_keeps_introduction_and_independent_plans_and_news_unavailable_states() {
+        let html = render_to_string(&empty_ctx());
+        for marker in [
+            HOME_DESCRIPTION,
             "data-home-plans-state=\"unavailable\"",
             "data-home-news-state=\"unavailable\"",
-            "No sample ranking or market records are shown",
-            "does not publish a price or feature catalog",
-            "Latest news is temporarily unavailable",
-            "No cached or sample articles",
+            "Plans are temporarily unavailable",
+            "We couldn’t load the latest news",
+            "Please try again",
             "href=\"/\"",
         ] {
             assert!(
                 html.contains(marker),
-                "missing unavailable-state marker `{marker}`: {html}"
+                "missing unavailable-state marker `{marker}`"
             );
         }
+        assert!(!html.contains("data-home-market-state"));
     }
 
     #[test]
-    fn home_renders_exactly_three_live_public_cards_in_backend_order() {
-        let ctx = with_home_rankings(
+    fn home_introduction_is_identical_for_every_ranking_outcome() {
+        let baseline = render_to_string(&empty_ctx());
+        let mut malformed = empty_ctx();
+        malformed
+            .params
+            .insert(HOME_ANALYTICS_STATE_PARAM.into(), "ready".into());
+        malformed
+            .params
+            .insert(HOME_ANALYTICS_DATA_PARAM.into(), "{not-json".into());
+        for ctx in [
             empty_ctx(),
-            vec![
-                home_ranking(100, "LIVE100"),
-                home_ranking(101, "LIVE101"),
-                home_ranking(102, "LIVE102"),
-            ],
-        );
-        let html = render_to_string(&ctx);
-
-        assert!(html.contains("data-home-market-state=\"ready\""));
-        assert_eq!(html.matches("data-stock-card=\"true\"").count(), 3);
-        assert!(html.contains("RANK #100"));
-        assert!(html.contains("RANK #101"));
-        assert!(html.contains("RANK #102"));
-        assert!(html.contains("$250.25"));
-        assert!(html.contains("Next Action"));
-        assert!(!html.contains("+18.50%"));
-        assert!(!html.contains("data-watchlist-toggle"));
-        assert!(!html.contains("data-watchlist-signed-out"));
-        let first = html.find("LIVE100").unwrap();
-        let second = html.find("LIVE101").unwrap();
-        let third = html.find("LIVE102").unwrap();
-        assert!(first < second && second < third);
+            with_home_rankings(empty_ctx(), vec![]),
+            with_home_rankings(
+                empty_ctx(),
+                vec![home_ranking(100, "LIVE100"), home_ranking(101, "LIVE101")],
+            ),
+            malformed,
+        ] {
+            let html = render_to_string(&ctx);
+            assert_eq!(hero_markup(&html), hero_markup(&baseline));
+            for forbidden in [
+                "data-stock-card",
+                "data-home-market-state",
+                "LIVE100",
+                "LIVE101",
+                "data-watchlist-toggle",
+            ] {
+                assert!(
+                    !html.contains(forbidden),
+                    "home leaked ranking content `{forbidden}`"
+                );
+            }
+        }
     }
 
     #[test]
     fn home_market_empty_and_malformed_do_not_affect_ready_news() {
         let news = ready_context(vec![news_article(1, false)], "");
         let empty = render_to_string(&with_home_rankings(news.clone(), vec![]));
-        assert!(empty.contains("data-home-market-state=\"empty\""));
-        assert!(empty.contains("No public rankings"));
-        assert!(empty.contains("data-home-news-state=\"ready\""));
-        assert!(empty.contains("Article 1"));
-
         let mut malformed = news;
         malformed
             .params
-            .insert(HOME_ANALYTICS_STATE_PARAM.to_string(), "ready".to_string());
+            .insert(HOME_ANALYTICS_STATE_PARAM.into(), "ready".into());
         malformed.params.insert(
-            HOME_ANALYTICS_DATA_PARAM.to_string(),
-            r#"{"success":true,"data":[{"rank":100,"symbol":"CANNED"}]}"#.to_string(),
+            HOME_ANALYTICS_DATA_PARAM.into(),
+            r#"{"success":true,"data":[{"rank":100,"symbol":"CANNED"}]}"#.into(),
         );
         let malformed = render_to_string(&malformed);
-        assert!(malformed.contains("data-home-market-state=\"unavailable\""));
-        assert!(!malformed.contains("CANNED"));
-        assert!(malformed.contains("data-home-news-state=\"ready\""));
-        assert!(malformed.contains("Article 1"));
+        for html in [&empty, &malformed] {
+            assert!(html.contains(HOME_DESCRIPTION));
+            assert!(html.contains("data-home-news-state=\"ready\""));
+            assert!(html.contains("Article 1"));
+            assert!(!html.contains("data-stock-card"));
+            assert!(!html.contains("CANNED"));
+            assert!(html.contains("href=\"/analytics\""));
+        }
+        assert_eq!(hero_markup(&empty), hero_markup(&malformed));
     }
 
     #[test]
@@ -760,14 +693,14 @@ mod tests {
         ));
         assert!(empty.contains("data-home-news-state=\"empty\""));
         assert!(empty.contains("No published articles yet."));
-        assert!(!empty.contains("temporarily unavailable"));
+        assert!(!empty.contains("We couldn’t load the latest news"));
 
         let unavailable = render_to_string(&news_context(
             serde_json::json!({"state": "error", "code": "content_unavailable"}),
             "",
         ));
         assert!(unavailable.contains("data-home-news-state=\"unavailable\""));
-        assert!(unavailable.contains("Latest news is temporarily unavailable"));
+        assert!(unavailable.contains("We couldn’t load the latest news"));
         assert!(unavailable.contains("href=\"/news\""));
         assert!(unavailable.contains("href=\"/\""));
         assert!(!unavailable.contains("No published articles yet."));
@@ -853,7 +786,7 @@ mod tests {
     }
 
     #[test]
-    fn home_share_cta_is_wired_and_data_controls_remain_absent() {
+    fn home_ctas_are_native_links_and_data_controls_remain_absent() {
         let html = render_to_string(&empty_ctx());
 
         for control in ["Refresh", "Export", "Load more"] {
@@ -862,13 +795,13 @@ mod tests {
                 "inert home control `{control}` must not render: {html}"
             );
         }
-        assert!(html.contains("Share Platform"));
-        assert!(html.contains("data-share-text=\"\""));
-        assert!(html.contains("data-epsx-action=\"share\""));
+        assert!(!html.contains("How it works"));
+        assert!(!html.contains("href=\"/manual\""));
+        assert!(!html.contains("data-epsx-action=\"share\""));
         assert!(!html.contains("onclick=\""));
         assert!(
-            html.contains("type=\"button\""),
-            "home share CTA must render a native button: {html}"
+            html.contains("href=\"/analytics\""),
+            "home primary CTA must be a native link: {html}"
         );
     }
 
@@ -911,55 +844,23 @@ mod tests {
         };
         let user_html = render_to_string(&user_ctx);
 
-        for (label, html) in [
-            ("anon", anon_html.as_str()),
-            ("wallet", wallet_html.as_str()),
-            ("user", user_html.as_str()),
+        for html in [&wallet_html, &user_html] {
+            assert_eq!(hero_markup(html), hero_markup(&anon_html));
+        }
+        let hero = hero_markup(&anon_html);
+        for marker in [
+            HOME_DESCRIPTION,
+            "Financial technology.",
+            "Connected by design.",
+            "Explore platform",
+            "About EPSX",
         ] {
             assert!(
-                html.contains("Performance Analytics Platform"),
-                "{label} must render HeroSection badge: {html}"
-            );
-            assert!(
-                html.contains("Track Your"),
-                "{label} missing Track Your: {html}"
-            );
-            assert!(
-                html.contains("Performance Growth"),
-                "{label} missing Performance Growth: {html}"
-            );
-            assert!(html.contains("Metrics"), "{label} missing Metrics: {html}");
-            assert!(
-                html.contains("Start Exploration"),
-                "{label} missing Start Exploration CTA: {html}"
-            );
-            assert!(
-                html.contains("Share Platform"),
-                "{label} missing Share Platform CTA: {html}"
-            );
-            assert!(
-                html.contains("home-prod-hero-stats"),
-                "{label} must contain HeroSection stats grid: {html}"
-            );
-            assert!(html.contains("24/7"), "{label} missing 24/7 stat: {html}");
-            assert!(html.contains("100+"), "{label} missing 100+ stat: {html}");
-            // SignedOutHero must not render on `/`
-            assert!(
-                !html.contains("data-home-hero-state=\"signed-out\""),
-                "{label} must not contain signed-out hero state: {html}"
-            );
-            assert!(
-                !html.contains("Explore Market Analytics") && !html.contains("With Verified Data"),
-                "{label} must not contain SignedOutHero headline: {html}"
+                hero.contains(marker),
+                "missing public introduction `{marker}`"
             );
         }
-
-        // All three variances must be structurally identical for hero (public Image 2)
-        assert!(anon_html.contains("Performance Analytics Platform"));
-        assert!(wallet_html.contains("Performance Analytics Platform"));
-        assert!(user_html.contains("Performance Analytics Platform"));
-        assert!(anon_html.contains("home-prod-hero-stats"));
-        assert!(wallet_html.contains("home-prod-hero-stats"));
-        assert!(user_html.contains("home-prod-hero-stats"));
+        assert!(!hero.contains("data-home-hero-state=\"signed-out\""));
+        assert!(!hero.contains("fe-product-preview"));
     }
 }

@@ -2,6 +2,7 @@ pub mod api_service;
 pub mod bounded_rankings_provider;
 pub mod cache;
 pub mod mapper;
+mod report_dates;
 pub mod rest;
 pub mod scanner;
 pub mod tradingview_adapter;

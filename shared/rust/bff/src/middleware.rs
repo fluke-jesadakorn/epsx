@@ -115,10 +115,18 @@ fn apply_security_headers_to(
         // to `connect-src` too. Browsers fetch `*.map` sourcemaps via
         // XHR/fetch (connect-src), not script-src, so the previous
         // allowlist left a CSP console error every page load.
+        //
+        // Dioxus injects `@import url('https://fonts.googleapis.com/...Inter...')`
+        // into every fullstack document (dx-toast template). Without
+        // `fonts.googleapis.com` in `style-src` + `fonts.gstatic.com` in
+        // `font-src`, every route logs a CSP console error. Cloudflare
+        // Tunnel injects `https://static.cloudflareinsights.com` analytics;
+        // allow it in `script-src`/`connect-src` like the Next.js prod CSP
+        // does so dev/prod behind cloudflared stay console-clean.
         let csp = if admin {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'self';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https: http: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com; frame-ancestors 'self';"
         } else {
-            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com; frame-ancestors 'none';"
+            "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; img-src 'self' data: https: http: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' ws: wss: https://cdn.jsdelivr.net https://unpkg.com https://static.cloudflareinsights.com; frame-ancestors 'none';"
         };
         if let Ok(v) = HeaderValue::from_str(csp) {
             headers.insert("content-security-policy", v);

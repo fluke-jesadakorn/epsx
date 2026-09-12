@@ -22,24 +22,60 @@ use super::PageMeta;
 use dioxus::prelude::*;
 
 pub fn render(_ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::marketing("Offline");
-    (
-        meta,
-        rsx! {
-            div { class: "offline-page",
-                div { class: "offline-card card card-glass",
-                    OfflineIcon {}
-                    h1 { class: "offline-title", "You're Offline" }
-                    p { class: "offline-subtitle text-muted-foreground",
-                        "Please check your internet connection and try again."
-                    }
-                    AvailableOfflineList {}
-                    OfflineActions {}
-                    OfflineTip {}
-                }
+    (PageMeta::marketing("Offline"), rsx! { OfflineBody {} })
+}
+
+#[derive(Clone, Copy)]
+struct OfflineRetry(EventHandler<MouseEvent>);
+
+#[component]
+pub fn HydratedOffline() -> Element {
+    let route = use_route::<crate::routes::FrontendRoute>().to_string();
+    let retry = use_callback(move |event: MouseEvent| {
+        event.prevent_default();
+        let query = route.split_once('?').map(|(_, query)| query).unwrap_or("");
+        let target = url::form_urlencoded::parse(query.as_bytes())
+            .find(|(key, _)| key == "return_url")
+            .map(|(_, value)| value.into_owned())
+            .filter(|value| {
+                value.starts_with('/')
+                    && !value.starts_with("//")
+                    && !value.contains('\\')
+                    && !value.chars().any(char::is_control)
+                    && !value.starts_with("/offline")
+            })
+            .unwrap_or_else(|| "/".to_string());
+        // A user-requested document navigation retries the network after an
+        // offline fallback. The anchor also works before WASM is available.
+        let script = format!(
+            "window.location.assign({});",
+            serde_json::to_string(&target).unwrap()
+        );
+        let _ = document::eval(&script);
+    });
+    use_context_provider(|| OfflineRetry(retry));
+    rsx! {
+        document::Title { "Offline — EPSX" }
+        document::Meta { name: "robots", content: "noindex" }
+        OfflineBody {}
+    }
+}
+
+#[component]
+fn OfflineBody() -> Element {
+    rsx! {
+    div { class: "offline-page",
+        div { class: "offline-card card card-glass fe-surface",
+            OfflineIcon {}
+            h1 { class: "offline-title fe-type-title", "You're Offline" }
+            p { class: "offline-subtitle text-muted-foreground fe-tone-muted",
+                "Please check your internet connection and try again."
             }
-        },
-    )
+            AvailableOfflineList {}
+            OfflineActions {}
+            OfflineTip {}
+        }
+    }    }
 }
 
 /// Centered "no signal" icon — pure inline SVG so the page works
@@ -98,8 +134,15 @@ fn AvailableOfflineList() -> Element {
 /// `data-offline-reload`, preserving native keyboard button behavior.
 #[component]
 fn OfflineActions() -> Element {
+    let retry = try_consume_context::<OfflineRetry>();
     rsx! {
         div { class: "offline-actions",
+            if let Some(retry) = retry {
+                a { class: "btn offline-retry", href: "/", onclick: move |event| retry.0.call(event),
+                    Icon { name: "rotate-ccw".to_string(), size: Some(18) }
+                    span { "Try Again" }
+                }
+            } else {
             button {
                 class: "btn offline-retry",
                 r#type: "button",
@@ -108,6 +151,7 @@ fn OfflineActions() -> Element {
                 "aria-describedby": "offline-retry-status",
                 Icon { name: "rotate-ccw".to_string(), size: Some(18) }
                 span { "Try Again" }
+            }
             }
             p {
                 id: "offline-retry-status",
@@ -138,7 +182,7 @@ fn OfflineTip() -> Element {
         div { class: "offline-tip",
             p { class: "offline-tip-label", "Tip:" }
             p { class: "offline-tip-text",
-                "This public help page is the only page stored for offline use. Account, notification, analytics, trading, and payment data always require a connection."
+                "This public help page and its display styles are stored for offline use. Account, notification, analytics, trading, and payment data always require a connection."
             }
         }
     }
@@ -198,7 +242,7 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
 
         assert!(html.contains("Open this offline help page"));
-        assert!(html.contains("the only page stored for offline use"));
+        assert!(html.contains("public help page and its display styles are stored for offline use"));
         assert!(html.contains("data always require a connection"));
         assert!(!html.contains("View cached notifications"));
         assert!(!html.contains("previously loaded analytics"));

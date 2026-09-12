@@ -3,7 +3,7 @@ use crate::prelude::TlsPool;
 // Single comprehensive /health endpoint with external service status
 
 use crate::infrastructure::cache::Cache;
-use axum::{extract::State, response::Json};
+use axum::{extract::State, http::StatusCode, response::Json};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use utoipa::ToSchema;
@@ -13,6 +13,7 @@ use utoipa::ToSchema;
 pub struct HealthState {
     pub pool: Arc<TlsPool>,
     pub cache: Arc<dyn Cache>,
+    pub redis: Option<Arc<crate::infrastructure::redis::RedisPool>>,
 }
 
 /// Health check response structure
@@ -96,4 +97,72 @@ pub async fn health_check_handler(State(state): State<HealthState>) -> Json<Valu
             "redis": redis_status,
         }
     }))
+}
+
+/// Traffic must not be admitted on a merely live, degraded process.
+/// Keep /health's diagnostic response compatible with existing monitors.
+pub async fn readiness_handler(state: State<HealthState>) -> (StatusCode, Json<Value>) {
+    let probe = async {
+        let redis_connected = match &state.redis {
+            Some(redis) => redis.health_check().await,
+            None => false,
+        };
+        let mut body = health_check_handler(state).await;
+        // A memory-cache fallback is not evidence that the required Redis is up.
+        body.0["services"]["redis"]["status"] = json!(if redis_connected {
+            "connected"
+        } else {
+            "disconnected"
+        });
+        if !redis_connected {
+            body.0["status"] = json!("unavailable");
+        }
+        if let Some(healthy) = crate::infrastructure::services::plan_projection::healthy() {
+            body.0["services"]["plan_projection"]["healthy"] = json!(healthy);
+            if !healthy {
+                body.0["status"] = json!("unavailable");
+            }
+        }
+        body
+    };
+    match tokio::time::timeout(std::time::Duration::from_secs(5), probe).await {
+        Ok(body) => (readiness_status(&body.0), body),
+        Err(_) => (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({"status": "unavailable", "reason": "dependency_timeout"})),
+        ),
+    }
+}
+
+fn readiness_status(health: &Value) -> StatusCode {
+    if health["status"] == "healthy"
+        && health["services"]["database"]["healthy"] == true
+        && health["services"]["redis"]["status"] == "connected"
+    {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    }
+}
+
+#[cfg(test)]
+mod readiness_tests {
+    use super::*;
+
+    #[test]
+    fn readiness_refuses_partial_or_missing_dependency_results() {
+        let mut health = json!({"status":"healthy", "services":{
+            "database":{"healthy":true}, "redis":{"status":"connected"}
+        }});
+        assert_eq!(readiness_status(&health), StatusCode::OK);
+        health["services"]["database"]["healthy"] = json!(false);
+        assert_eq!(readiness_status(&health), StatusCode::SERVICE_UNAVAILABLE);
+        health["services"]["database"]["healthy"] = json!(true);
+        health["services"]["redis"]["status"] = json!("disconnected");
+        assert_eq!(readiness_status(&health), StatusCode::SERVICE_UNAVAILABLE);
+        assert_eq!(
+            readiness_status(&json!({})),
+            StatusCode::SERVICE_UNAVAILABLE
+        );
+    }
 }

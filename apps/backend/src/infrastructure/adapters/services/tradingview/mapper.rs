@@ -146,6 +146,7 @@ impl TradingViewMapper {
 
     /// Map TradingView stock to frontend EPS data format
     pub fn map_to_frontend_eps_data(stock: TradingViewStock) -> FrontendEPSData {
+        let report_dates = super::report_dates::extract_report_dates(&stock.d, chrono::Utc::now());
         let symbol = stock.s.split(':').nth(1).unwrap_or(&stock.s).to_string();
         let company_name = get_string(&stock.d, 0, "");
         let current_eps = get_number(&stock.d, 14); // earnings_per_share_fq
@@ -177,49 +178,12 @@ impl TradingViewMapper {
             sector,
             ranking_score,
             currency: "USD".to_string(), // Default to USD for TradingView data
-            next_earnings_date: {
-                let earnings_release_date = get_number(&stock.d, 32) as i64;
-                let earnings_release_next_date = get_number(&stock.d, 33) as i64;
-                let earnings_report_date_fy = get_number(&stock.d, 34) as i64; // New field: earnings_release_trading_date_fy
-
-                let current_timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_secs() as i64;
-
-                // Collect all valid date candidates
-                let mut candidates = vec![];
-                if earnings_release_date > 1_000_000_000 {
-                    candidates.push(earnings_release_date);
-                }
-                if earnings_release_next_date > 1_000_000_000 {
-                    candidates.push(earnings_release_next_date);
-                }
-                if earnings_report_date_fy > 1_000_000_000 {
-                    candidates.push(earnings_report_date_fy);
-                }
-
-                // Pick the nearest date that is strictly in the future
-                let selected = candidates
-                    .into_iter()
-                    .filter(|&ts| ts > current_timestamp)
-                    .min_by(|a, b| a.cmp(b));
-
-                selected.map(|ts| {
-                    chrono::DateTime::from_timestamp(ts, 0)
-                        .map(|dt| dt.format("%Y-%m-%d").to_string())
-                        .unwrap_or_default()
-                })
-            },
-            last_earnings_date: {
-                let last = get_number(&stock.d, 32) as i64;
-                if last > 0 {
-                    chrono::DateTime::from_timestamp(last, 0)
-                        .map(|dt| dt.format("%Y-%m-%d").to_string())
-                } else {
-                    None
-                }
-            },
+            next_earnings_date: report_dates
+                .next
+                .and_then(|timestamp| super::report_dates::date_string(timestamp as f64)),
+            last_earnings_date: report_dates
+                .last
+                .and_then(|timestamp| super::report_dates::date_string(timestamp as f64)),
         }
     }
 

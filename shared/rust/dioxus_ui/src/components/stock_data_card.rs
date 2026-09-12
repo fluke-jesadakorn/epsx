@@ -90,9 +90,19 @@ pub fn format_currency(value: f64, currency: &str) -> String {
 
 #[component]
 fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
-    let initial_watched = matches!(&watchlist, StockCardWatchlist::Ready { is_watchlisted: true });
-    let mut watched = use_signal(|| initial_watched);
+    let initial_watched = matches!(
+        &watchlist,
+        StockCardWatchlist::Ready {
+            is_watchlisted: true
+        }
+    );
+    let watched = initial_watched;
     let base_class = "stock-watchlist-control absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full text-xl leading-none transition-colors hover:bg-black/[0.05] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pink-400 dark:hover:bg-white/10";
+    if try_use_context::<crate::fullstack::shell::AuthRevision>().is_some() {
+        if let StockCardWatchlist::Ready { is_watchlisted } = watchlist {
+            return rsx! { crate::pages::portfolio::hydrated::WatchButton { symbol, initially_saved: is_watchlisted, class: base_class, heart: true } };
+        }
+    }
     match watchlist {
         StockCardWatchlist::SignedOut => rsx! {
             a {
@@ -105,29 +115,22 @@ fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
             }
         },
         StockCardWatchlist::Ready { is_watchlisted: _ } => {
-            let label = if watched() {
+            let label = if watched {
                 format!("Remove {symbol} from watchlist")
             } else {
                 format!("Add {symbol} to watchlist")
             };
-            let color = if watched() {
+            let color = if watched {
                 "text-pink-500"
             } else {
                 "text-gray-400 hover:text-pink-400"
             };
-            let glyph = if watched() { "♥" } else { "♡" };
-            let watched_str = if watched() { "true" } else { "false" };
+            let glyph = if watched { "♥" } else { "♡" };
+            let watched_str = if watched { "true" } else { "false" };
             rsx! {
                 button {
                     class: "{base_class} {color}",
                     r#type: "button",
-                    // Native Dioxus onclick for dx serve HMR (<500ms) — replaces browser-runtime dispatch
-                    // Keep data-* for Axum SSR fallback (bff-frontend) + cargo test
-                    onclick: move |_| {
-                        watched.set(!watched());
-                        // TODO(Phase 2C full): call #[server] toggle_watchlist(symbol.clone()).await
-                        // For now optimistic UI only; server sync via browser-runtime fallback still works
-                    },
                     "data-watchlist-toggle": "true",
                     "data-symbol": "{symbol}",
                     "data-watchlisted": "{watched_str}",
@@ -163,7 +166,7 @@ fn WatchlistControl(symbol: String, watchlist: StockCardWatchlist) -> Element {
     }
 }
 
-fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
+pub(crate) fn watchlist_control(symbol: &str, watchlist: &StockCardWatchlist) -> Element {
     rsx! { WatchlistControl { symbol: symbol.to_string(), watchlist: watchlist.clone() } }
 }
 
@@ -238,7 +241,7 @@ pub fn StockDataCard(
                 }
 
                 div { class: "mb-4 flex flex-grow flex-col justify-center",
-                    div { class: "relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white p-4 ring-1 ring-blue-200/50 transition-colors dark:from-blue-500/[0.08] dark:via-indigo-500/[0.05] dark:to-white/[0.02] dark:ring-white/10",
+                    div { class: "relative overflow-hidden rounded-2xl bg-gradient-to-br from-blue-50 via-indigo-50/50 to-white p-4 ring-1 ring-blue-200/50 transition-colors dark:from-slate-800 dark:via-slate-800 dark:to-slate-800 dark:bg-slate-800 dark:ring-white/10",
                         div { class: "pointer-events-none absolute -right-6 -top-6 h-20 w-20 rounded-full bg-blue-500/10 blur-2xl", "aria-hidden": "true" }
                         div { class: "relative flex items-center justify-between gap-3",
                             div { class: "flex items-center gap-2",
@@ -249,7 +252,7 @@ pub fn StockDataCard(
                             }
                             span { class: "whitespace-nowrap text-2xl font-black tracking-tight text-slate-900 dark:text-white tabular-nums", "{action_label}" }
                         }
-                        div { class: "mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700/50",
+                        div { class: "mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800",
                             div {
                                 class: "relative h-full rounded-full bg-gradient-to-r from-blue-600 to-cyan-400",
                                 style: "{action_width_style}",

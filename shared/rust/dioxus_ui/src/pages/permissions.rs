@@ -15,7 +15,7 @@ use crate::layout::PageHeader;
 use crate::primitives::Icon;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Permissions");
+    let meta = PageMeta::app("Access");
     (meta, rsx! { PermissionsPage { ctx: ctx.clone() } })
 }
 
@@ -26,24 +26,27 @@ fn PermissionsPage(ctx: PageContext) -> Element {
         .as_ref()
         .map(|user| user.permissions.clone())
         .unwrap_or_default();
+    rsx! { MainLayout { ctx: ctx.clone(), AuthGate {
+        user: ctx.user.clone(), feature: Some("your permission information".to_string()),
+        return_url: Some(ctx.path.clone()), wallet_connected: ctx.wallet.address.is_some(),
+        PermissionsBody { session_permissions }
+    } } }
+}
 
+#[component]
+fn PermissionsBody(session_permissions: Vec<String>) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     rsx! {
-        MainLayout { ctx: ctx.clone(),
-            AuthGate {
-                user: ctx.user.clone(),
-                feature: Some("your permission information".to_string()),
-                return_url: Some(ctx.path.clone()),
-                wallet_connected: ctx.wallet.address.is_some(),
-                div { class: "container page-content max-w-6xl",
+                div { class: "container page-content max-w-6xl fe-page-layout",
                     PageHeader {
-                        title: "My permissions".to_string(),
-                        description: Some("Verified session claims and permission-service availability".to_string()),
+                        title: "Access".to_string(),
+                        description: Some("Review the permissions included in your current sign-in session.".to_string()),
                         icon: Some("shield".to_string())
                     }
 
                     div { class: "grid grid-cols-1 gap-6 lg:grid-cols-5",
                         section {
-                            class: "card card-glass lg:col-span-3 permissions-session-claims",
+                            class: "card card-glass lg:col-span-3 permissions-session-claims fe-surface",
                             "data-permissions-claims-state": "verified-session",
                             "aria-labelledby": "permissions-session-claims-title",
                             div { class: "card-header",
@@ -51,22 +54,22 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                                     id: "permissions-session-claims-title",
                                     class: "card-title flex items-center gap-2",
                                     Icon { name: "key".to_string(), size: Some(20) }
-                                    "Backend-issued session claims"
+                                    "Session permissions"
                                 }
-                                p { class: "text-sm text-muted-foreground",
-                                    "These are raw strings from the locally verified session. The frontend does not interpret them as current access, plan, feature, or expiry decisions."
+                                p { class: "text-sm text-muted-foreground fe-tone-muted",
+                                    "These permissions were included when you signed in. Current plan access and expiry details are available in Account."
                                 }
                             }
                             div { class: "card-body",
                                 if session_permissions.is_empty() {
                                     p {
-                                        class: "text-sm text-muted-foreground",
-                                        "No permission claim strings were included in this verified session."
+                                        class: "text-sm text-muted-foreground fe-tone-muted",
+                                        "No permissions were included in this sign-in session."
                                     }
                                 } else {
                                     ul {
                                         class: "flex flex-wrap gap-2",
-                                        "aria-label": "Raw session permission claims",
+                                        "aria-label": "Session permissions",
                                         for permission in session_permissions {
                                             li {
                                                 class: "badge badge-outline font-mono",
@@ -80,15 +83,15 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                         }
 
                         section {
-                            class: "card card-glass lg:col-span-2 permissions-unavailable",
+                            class: "card card-glass lg:col-span-2 permissions-unavailable fe-surface",
                             "data-permissions-state": "unavailable",
                             "aria-labelledby": "permissions-unavailable-title",
                             role: "status",
                             div { class: "card-body flex h-full flex-col",
-                                div { class: "flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500",
+                                div { class: "flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-500 fe-tone-warning",
                                     Icon { name: "database".to_string(), size: Some(24) }
                                 }
-                                p { class: "mt-5 text-xs font-semibold uppercase tracking-widest text-amber-500",
+                                p { class: "mt-5 text-xs font-semibold uppercase tracking-widest text-amber-500 fe-tone-warning",
                                     "Permission service unavailable"
                                 }
                                 h2 {
@@ -96,8 +99,8 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                                     class: "mt-2 text-xl font-semibold",
                                     "Access details cannot be verified right now"
                                 }
-                                p { class: "mt-3 text-sm leading-6 text-muted-foreground",
-                                    "Current grants, plan-derived capabilities, expiry status, permission history, and usage analytics remain hidden until an authenticated backend response can be validated end to end."
+                                p { class: "mt-3 text-sm leading-6 text-muted-foreground fe-tone-muted",
+                                    "We couldn’t load your access details. Please try again later."
                                 }
                                 nav {
                                     class: "mt-6 flex flex-wrap gap-3 border-t border-border/40 pt-5",
@@ -105,6 +108,7 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                                     a {
                                         class: "btn btn-primary",
                                         href: "/account",
+                                        onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/account"),
                                         "Back to account"
                                     }
                                 }
@@ -112,7 +116,32 @@ fn PermissionsPage(ctx: PageContext) -> Element {
                         }
                     }
                 }
-            }
+    }
+}
+
+#[component]
+pub fn HydratedPermissions() -> Element {
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    use_context_provider(|| crate::fullstack::analytics::AnalyticsNavigation(navigate));
+    let mut result = use_server_future(|| async { super::profile::read_profile().await })?;
+    let data = result.read().clone();
+    rsx! {
+        document::Title { "Access — EPSX" }
+        document::Meta { name: "description", content: "Review the permissions included in your verified sign-in session." }
+        match data {
+            Some(Ok(Ok(user))) => rsx! { PermissionsBody { session_permissions: user.permissions } },
+            Some(Ok(Err(crate::fullstack::LoadError::Unauthenticated))) => rsx! {
+                AuthGate { user: None, feature: Some("your permission information".to_string()), return_url: Some("/permissions".to_string()), wallet_connected: false,
+                    div {}
+                }
+            },
+            _ => rsx! { section { class: "fe-page", role: "status",
+                p { "Could not load your verified session. Please try again." }
+                button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Try again" }
+            } },
         }
     }
 }
@@ -223,9 +252,7 @@ mod tests {
     fn empty_verified_claim_set_is_not_interpreted_as_no_access() {
         let html = render_page(&page_ctx(Some(session_user(vec![]))));
 
-        assert!(
-            html.contains("No permission claim strings were included in this verified session.")
-        );
+        assert!(html.contains("No permissions were included in this sign-in session."));
         assert!(html.contains("Access details cannot be verified right now"));
         assert!(!html.contains("no permissions assigned"));
         assert!(!html.contains("no access"));
@@ -243,7 +270,7 @@ mod tests {
             "owner-canary-wallet",
             "owner-canary-role",
             "owner-canary-tier",
-            "Backend-issued session claims",
+            "Session permissions",
             "data-session-permission-claim",
         ] {
             assert!(!html.contains(owner_value));

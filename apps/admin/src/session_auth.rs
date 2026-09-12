@@ -13,9 +13,9 @@ use epsx_bff::{
         RefreshDisposition,
     },
     session::{
-        AuthExchange, ChallengeRequest, ChallengeResponse, LogoutRequest, ProfileResponse,
-        RefreshRequest, RefreshResponse, SessionUser, VerifyRequest, VerifyResponse,
-        ADMIN_CLIENT_ID, CHALLENGE_PATH, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
+        AuthExchange, ChallengeResponse, LogoutRequest, ProfileResponse, RefreshRequest,
+        RefreshResponse, SessionUser, VerifyRequest, VerifyResponse, ADMIN_CLIENT_ID,
+        CHALLENGE_PATH, LOGOUT_PATH, PROFILE_PATH, REFRESH_PATH, VERIFY_PATH,
     },
 };
 
@@ -120,9 +120,10 @@ pub async fn auth_challenge(
     State(state): State<AppState>,
     Json(body): Json<ChallengeBody>,
 ) -> Response {
-    let request = ChallengeRequest {
-        wallet_address: body.address.trim().to_string(),
-    };
+    let request = serde_json::json!({
+        "wallet_address": body.address.trim(),
+        "client_id": ADMIN_CLIENT_ID,
+    });
     let response = match state
         .identity
         .auth_client()

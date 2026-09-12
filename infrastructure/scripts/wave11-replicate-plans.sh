@@ -132,9 +132,10 @@ schema_sql() {
   local schema="$1"
   cat <<SQL
 SELECT string_agg(
-  ordinal_position::text || ':' || column_name || ':' || data_type || ':' ||
-  udt_name || ':' || is_nullable,
-  ',' ORDER BY ordinal_position
+  column_name || ':' || data_type || ':' || udt_name || ':' || is_nullable || ':' ||
+  COALESCE(character_maximum_length::text, '') || ':' ||
+  COALESCE(numeric_precision::text, '') || ':' || COALESCE(numeric_scale::text, ''),
+  ',' ORDER BY column_name
 )
 FROM information_schema.columns
 WHERE table_schema = '$schema' AND table_name = 'plans'
@@ -154,6 +155,7 @@ SELECT jsonb_build_object(
   'name', name,
   'slug', slug,
   'description', description,
+  'display_order', display_order,
   'plan_type', plan_type,
   'plan_category', plan_category,
   'plan_group', plan_group,
@@ -264,6 +266,7 @@ ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
   slug = EXCLUDED.slug,
   description = EXCLUDED.description,
+  display_order = EXCLUDED.display_order,
   plan_type = EXCLUDED.plan_type,
   plan_category = EXCLUDED.plan_category,
   plan_group = EXCLUDED.plan_group,

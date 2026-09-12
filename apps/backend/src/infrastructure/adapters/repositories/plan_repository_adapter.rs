@@ -148,8 +148,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                     created_at, updated_at, created_by, last_modified_by, \
                     grace_period_hours, rate_limit_per_minute, rate_limit_per_hour, \
                     rate_limit_per_day, burst_capacity, is_public, plan_category, \
-                    plan_group, is_system, version, contract_address, token_address, \
-                    block_number, confirmations, expires_at, display_order \
+                    plan_group, is_system, display_order \
              FROM plans WHERE id = $1 AND plan_type = 'subscription'",
         )
         .bind(id.value())
@@ -174,8 +173,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                     created_at, updated_at, created_by, last_modified_by, \
                     grace_period_hours, rate_limit_per_minute, rate_limit_per_hour, \
                     rate_limit_per_day, burst_capacity, is_public, plan_category, \
-                    plan_group, is_system, version, contract_address, token_address, \
-                    block_number, confirmations, expires_at, display_order \
+                    plan_group, is_system, display_order \
              FROM plans WHERE plan_type = 'subscription'",
         );
         if let Some(is_active) = criteria.is_active {
@@ -232,9 +230,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             slug: plan.name().to_lowercase().replace(" ", "-"),
             description: plan.description().to_string(),
             plan_type: "subscription".to_string(),
-            plan_metadata: serde_json::json!({
-                "permissions": plan.permissions
-            }),
+            plan_metadata: plan.metadata().clone(),
             price: price_bd,
             currency: currency_str,
             billing_cycle: billing_cycle_str,
@@ -260,6 +256,12 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             display_order: 0,
         };
 
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+        // Keep catalog and permission changes atomic.
         // 1. Upsert Plan via sqlx ON CONFLICT
         sqlx::query(
             r#"
@@ -279,7 +281,10 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 description = EXCLUDED.description,
                 price = EXCLUDED.price,
                 currency = EXCLUDED.currency,
-                billing_cycle = EXCLUDED.billing_cycle,
+                billing_cycle = CASE
+                    WHEN plans.billing_cycle = 'one_time' AND EXCLUDED.billing_cycle = 'lifetime'
+                         AND EXCLUDED.plan_metadata->>'duration_days' IS NOT NULL THEN 'one_time'
+                    ELSE EXCLUDED.billing_cycle END,
                 is_active = EXCLUDED.is_active,
                 is_promoted = EXCLUDED.is_promoted,
                 tier_level = EXCLUDED.tier_level,
@@ -306,7 +311,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         .bind(&new_plan.plan_category)
         .bind(&new_plan.plan_group)
         .bind(new_plan.is_system)
-        .execute(self.db_pool.as_ref())
+        .execute(&mut *tx)
         .await
         .map_err(|e| {
             error!("Failed to save plan/plan {}: {}", plan.id(), e);
@@ -316,7 +321,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
         // 2. Delete existing plan_permissions for this plan
         sqlx::query("DELETE FROM plan_permissions WHERE plan_id = $1")
             .bind(plan.id().value())
-            .execute(self.db_pool.as_ref())
+            .execute(&mut *tx)
             .await
             .map_err(|e| AppError::database_error(e.to_string()))?;
 
@@ -340,7 +345,7 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 .bind(parts[0])
                 .bind(parts[1])
                 .bind(parts[2])
-                .fetch_one(self.db_pool.as_ref())
+                .fetch_one(&mut *tx)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
 
@@ -349,11 +354,14 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
                 )
                 .bind(plan.id().value())
                 .bind(perm_id.id)
-                .execute(self.db_pool.as_ref())
+                .execute(&mut *tx)
                 .await
                 .map_err(|e| AppError::database_error(e.to_string()))?;
             }
         }
+        tx.commit()
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
         Ok(())
     }
 
@@ -409,5 +417,46 @@ impl PlanRepositoryPort for PostgresPlanRepositoryAdapter {
             ..Default::default()
         })
         .await
+    }
+}
+
+#[cfg(test)]
+mod checkout_catalog_tests {
+    use super::*;
+
+    #[tokio::test]
+    #[ignore = "requires migrated isolated EPSX_MERCHANT_CORE database"]
+    async fn catalog_preserves_metadata_and_rolls_back_partial_permission_updates() {
+        let url = std::env::var("EPSX_MERCHANT_CORE").unwrap();
+        assert!(url::Url::parse(&url)
+            .unwrap()
+            .path()
+            .starts_with("/epsx_merchant_check_"));
+        let db = Arc::new(PgPool::connect(&url).await.unwrap());
+        let id = Uuid::new_v4();
+        let metadata = serde_json::json!({"pay_prices":{"USDT":"5","USDC":"5"},"duration_days":1,"features":["retained"]});
+        sqlx::query("INSERT INTO plans(id,name,slug,description,plan_type,price,currency,billing_cycle,plan_metadata) VALUES($1,$2,$2,'test','subscription',5,'USD','one_time',$3)")
+            .bind(id).bind(id.to_string()).bind(&metadata).execute(db.as_ref()).await.unwrap();
+        let repo = PostgresPlanRepositoryAdapter::new(db.clone());
+        let key = PlanId::from_uuid(id);
+        let mut plan = repo.find_by_id(&key).await.unwrap().unwrap();
+        plan.permissions = vec!["epsx:checkout-test:read".into()];
+        repo.save(&plan).await.unwrap();
+        let saved = repo.find_by_id(&key).await.unwrap().unwrap();
+        assert_eq!(saved.metadata(), &metadata);
+        assert_eq!(saved.permissions, plan.permissions);
+        let cycle: String = sqlx::query_scalar("SELECT billing_cycle FROM plans WHERE id=$1")
+            .bind(id)
+            .fetch_one(db.as_ref())
+            .await
+            .unwrap();
+        assert_eq!(cycle, "one_time");
+        // A duplicate permission fails after the initial writes. The entire save
+        // must roll back so a catalog edit cannot silently revoke plan access.
+        plan.permissions.push("epsx:checkout-test:read".into());
+        assert!(repo.save(&plan).await.is_err());
+        let after = repo.find_by_id(&key).await.unwrap().unwrap();
+        assert_eq!(after.metadata(), &metadata);
+        assert_eq!(after.permissions, saved.permissions);
     }
 }

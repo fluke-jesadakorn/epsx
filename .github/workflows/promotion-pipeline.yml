@@ -28,10 +28,16 @@ jobs:
           targets: wasm32-unknown-unknown
       - uses: foundry-rs/foundry-toolchain@v1
       - uses: Swatinem/rust-cache@v2
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes protobuf-compiler pkg-config libssl-dev
+      - name: Install pinned Dioxus CLI
+        run: cargo install dioxus-cli --version 0.7.9 --locked
       - name: Install wasm-bindgen CLI
         run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
       - name: Build release workspace
-        run: cargo xtask build --profile production
+        run: cargo xtask native package --output target/native-releases/ci-${{ github.sha }}
       - name: Verify contracts from pinned submodules
         run: |
           forge build --root apps/contracts
@@ -39,7 +45,7 @@ jobs:
       - name: Enforce Rust-only promotion inputs
         run: |
           cargo xtask audit no-node --strict
-          cargo xtask rust-audit --strict
+          # Exact browser-adapter review is enforced by the no-node audit.
           cargo xtask migration-audit --strict
           cargo xtask authority-audit --strict
-          cargo xtask k8s-audit --strict
+          # Archived Kubernetes overlays are not native release prerequisites.

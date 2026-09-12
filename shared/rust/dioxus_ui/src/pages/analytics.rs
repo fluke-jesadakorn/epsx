@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{PageContext, PageMeta};
 use crate::components::stock_data_card::{StockCardWatchlist, StockDataCard};
+use crate::enterprise::{DataState, MarketTable, PageHeader};
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::Icon;
 
@@ -29,8 +30,7 @@ pub async fn get_analytics_rankings(
             "no runtime, fallback to PageContext".to_string(),
         ));
     }
-    let api_url =
-        std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
+    let api_url = std::env::var("API_URL").unwrap_or_else(|_| "http://127.0.0.1:8080".to_string());
     let url = format!(
         "{}/api/analytics/rankings?page={}&limit={}",
         api_url.trim_end_matches('/'),
@@ -48,8 +48,7 @@ pub async fn get_analytics_rankings(
         serde_json::from_value(value).map_err(|e| ServerFnError::new(e.to_string()))?;
     response
         .validated()
-        .map_err(|_| ServerFnError::new("validation failed".to_string()))?;
-    Ok(response)
+        .map_err(|_| ServerFnError::new("validation failed".to_string()))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -368,6 +367,23 @@ impl AnalyticsQueryState {
         )
     }
 
+    pub fn is_custom_view(&self) -> bool {
+        self.sort_by.is_some() || self.min_eps.is_some() || self.min_growth.is_some()
+    }
+
+    pub fn default_ranking_url(&self, authoritative_limit: u32) -> String {
+        Self {
+            country: self.country.clone(),
+            sector: self.sector.clone(),
+            ..Default::default()
+        }
+        .page_url(1, authoritative_limit)
+    }
+
+    pub fn clear_frontend_filters_url(&self, authoritative_limit: u32) -> String {
+        Self::default().page_url(1, authoritative_limit)
+    }
+
     pub fn reset_url(&self, authoritative_limit: u32) -> String {
         self.url_with(1, authoritative_limit, None, None)
     }
@@ -402,8 +418,11 @@ impl AnalyticsQueryState {
 }
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::app("Analytics");
-    let surface = render_surface(ctx);
+    let mut meta = PageMeta::app("Company rankings");
+    meta.description =
+        "Explore EPSX rankings, see upcoming company reports, and save companies to revisit."
+            .into();
+    let surface = render_surface_mode(ctx, true);
     let body = rsx! {
         MainLayout { ctx: ctx.clone(), {surface} }
     };
@@ -416,6 +435,10 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
 /// frontend wraps this same surface in `MainLayout`. Keeping one body avoids
 /// the two routes drifting into different information architectures again.
 pub fn render_surface(ctx: &PageContext) -> Element {
+    render_surface_mode(ctx, false)
+}
+
+fn render_surface_mode(ctx: &PageContext, enterprise: bool) -> Element {
     let response = ctx
         .param(ANALYTICS_DATA_PARAM)
         .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
@@ -457,7 +480,8 @@ pub fn render_surface(ctx: &PageContext) -> Element {
     let body = match (state, response) {
         ("ready", Some(response)) if !response.data.is_empty() => rsx! {
             AnalyticsPage {
-                ctx: ctx.clone(),
+                enterprise,
+                signed_in: ctx.user.is_some(),
                 response,
                 filters,
                 filters_state,
@@ -468,7 +492,8 @@ pub fn render_surface(ctx: &PageContext) -> Element {
         },
         ("empty", Some(response)) if response.data.is_empty() => rsx! {
             AnalyticsPage {
-                ctx: ctx.clone(),
+                enterprise,
+                signed_in: ctx.user.is_some(),
                 response,
                 filters,
                 filters_state,
@@ -477,9 +502,11 @@ pub fn render_surface(ctx: &PageContext) -> Element {
                 watchlist_state,
             }
         },
-        ("malformed", _) => rsx! {
+        ("malformed" | "restricted", _) => rsx! {
             AnalyticsFailurePage {
-                failure_state: "malformed".to_string(),
+                enterprise,
+                signed_in: ctx.user.is_some(),
+                failure_state: state.to_string(),
                 filters,
                 filters_state,
                 query,
@@ -487,6 +514,8 @@ pub fn render_surface(ctx: &PageContext) -> Element {
         },
         _ => rsx! {
             AnalyticsFailurePage {
+                enterprise,
+                signed_in: ctx.user.is_some(),
                 failure_state: "unavailable".to_string(),
                 filters,
                 filters_state,
@@ -498,8 +527,9 @@ pub fn render_surface(ctx: &PageContext) -> Element {
 }
 
 #[component]
-fn AnalyticsPage(
-    ctx: PageContext,
+pub(crate) fn AnalyticsPage(
+    enterprise: bool,
+    signed_in: bool,
     response: AnalyticsResponse,
     filters: Option<AnalyticsFilters>,
     filters_state: String,
@@ -507,35 +537,51 @@ fn AnalyticsPage(
     watchlist: Option<WatchlistData>,
     watchlist_state: String,
 ) -> Element {
-    // Phase 2B: Try fullstack server future (dx serve <500ms), fallback to PageContext for Axum/tests
-    // Guard with cfg(test) to keep cargo test 837 passed (dioxus_ssr::render_element no Tokio)
-    let effective_response = if cfg!(test) {
-        response.clone()
-    } else if let Ok(resource) = use_server_future({
-        let page = response.pagination.page as u32;
-        let limit = response.pagination.limit as u32;
-        move || get_analytics_rankings(page, limit)
-    }) {
-        match resource.read().as_ref() {
-            Some(Ok(resp)) => resp.clone(),
-            _ => response.clone(),
-        }
-    } else {
-        response.clone()
-    };
+    if enterprise {
+        let empty = response.data.is_empty();
+        let reset = query.clear_frontend_filters_url(response.pagination.limit.max(1) as u32);
+        return rsx! {
+            div { class: "fe-page fe-explore", "data-section": "analytics-rankings",
+                "data-analytics-state": if empty { "empty" } else { "ready" },
+                FrontendExploreHeading {}
+                section { class: "fe-data-surface fe-ranking-surface",
+                    details { class: "fe-filter-disclosure", open: true,
+                        summary { Icon { name: "sliders-horizontal".to_string(), size: Some(16) } "Filters" }
+                        AnalyticsFilterForm { enterprise: true, filters, filters_state,
+                            query: query.clone(), authoritative_limit: response.pagination.limit }
+                    }
+                    if empty {
+                        DataState { title: "No companies match these filters",
+                            message: "Try a different country or clear the filters to explore more company data.",
+                            href: reset, action: "Clear filters" }
+                    } else {
+                        crate::enterprise::RankingCards { rows: response.data, signed_in, watchlist, watchlist_state, return_path: query.page_url(response.pagination.page.max(1) as u32, response.pagination.limit.max(1) as u32) }
+                        AnalyticsPaginationNav { pagination: response.pagination, query }
+                    }
+                }
+                FrontendAccessNote { access: response.access_info }
+            }
+        };
+    }
+    let effective_response = response;
     let is_empty = effective_response.data.is_empty();
-    let signed_in = ctx.user.is_some();
     rsx! {
         div { class: "analytics-page relative min-h-screen",
-            AnalyticsBackground {}
+            if !enterprise { AnalyticsBackground {} }
             div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                AnalyticsHeader { metadata: Some(effective_response.metadata.clone()) }
+                AnalyticsHeader { enterprise, metadata: Some(effective_response.metadata.clone()) }
+                if enterprise { details { class: "fe-help",
+                    summary { "What do these figures mean?" }
+                    p { "EPS means earnings per share. EPS change describes the change between reporting periods, not an investment return. Open quarterly details to review dates and estimates." }
+                }
+                }
                 section {
                     class: "analytics-rankings overflow-visible",
                     "data-section": "analytics-rankings",
                     "data-analytics-state": if is_empty { "empty" } else { "ready" },
                     AnalyticsAccessStatus { access: effective_response.access_info.clone() }
                     AnalyticsFilterForm {
+                        enterprise,
                         filters,
                         filters_state,
                         query: query.clone(),
@@ -549,17 +595,50 @@ fn AnalyticsPage(
                             p { class: "text-slate-400", "No rankings match the selected filters" }
                         }
                     } else {
-                        AnalyticsCardGrid {
-                            rows: effective_response.data.clone(),
-                            signed_in,
-                            watchlist,
-                            watchlist_state,
+                        if enterprise {
+                            MarketTable { rows: effective_response.data.clone(), signed_in, watchlist, watchlist_state }
+                        } else {
+                            AnalyticsCardGrid { rows: effective_response.data.clone(), signed_in, watchlist, watchlist_state }
                         }
                         AnalyticsPaginationNav {
                             pagination: effective_response.pagination.clone(),
                             query,
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+#[component]
+fn FrontendExploreHeading() -> Element {
+    rsx! { PageHeader { title: "Company rankings", description: "Rankings are generated using EPSX’s proprietary methodology.",
+        details { class: "fe-glossary",
+            summary { Icon { name: "circle-help".to_string(), size: Some(16) } "About Next action" }
+            div { class: "fe-glossary-content",
+                strong { "Your next visit" }
+                p { "Next action is the next company report date. Estimated dates are 90 days after the previous company report. Save a company to revisit it." }
+            }
+        }
+    } }
+}
+
+#[component]
+fn FrontendAccessNote(access: Option<AnalyticsAccessInfo>) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
+    rsx! {
+        if let Some(access) = access {
+            div { class: "fe-access-note", "data-section": "analytics-plan-status",
+                Icon { name: "shield-check".to_string(), size: Some(14) }
+                if let Some(maximum) = access.max_accessible_rank {
+                    span { "Viewing: Ranks {access.min_accessible_rank}-{maximum}" }
+                } else if access.min_accessible_rank <= 1 {
+                    span { "Viewing: All ranks" }
+                } else { span { "Viewing: Ranks {access.min_accessible_rank}+" } }
+                if access.locked_ranks_count > 0 {
+                    span { "Ranks 1-{access.locked_ranks_count} locked" }
+                    a { href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"), "Review plans" }
                 }
             }
         }
@@ -578,7 +657,7 @@ fn AnalyticsBackground() -> Element {
 }
 
 #[component]
-fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
+fn AnalyticsHeader(enterprise: bool, metadata: Option<AnalyticsMetadata>) -> Element {
     rsx! {
         header { class: "analytics-header mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between", "data-section": "analytics-header",
             div { class: "flex min-w-0 items-center gap-3",
@@ -586,8 +665,8 @@ fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
                     Icon { name: "bar-chart-3".to_string(), size: Some(20), class_name: Some("text-white".to_string()) }
                 }
                 div { class: "min-w-0",
-                    h1 { class: "text-2xl font-bold text-foreground", "Analytics" }
-                    p { class: "max-w-full text-sm text-slate-600 dark:text-slate-400", "Top-performing stocks by EPS growth" }
+                    h1 { class: "text-2xl font-bold text-foreground", if enterprise { "Explore" } else { "Analytics" } }
+                    p { class: "max-w-full text-sm text-slate-600 dark:text-slate-400", if enterprise { "Explore reported company data. Filter the list and review quarterly details." } else { "Top-performing stocks by EPS growth" } }
                 }
             }
             div { class: "flex gap-2",
@@ -596,7 +675,7 @@ fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
                         class: "inline-flex items-center gap-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-medium text-emerald-700 dark:text-emerald-400",
                         "data-analytics-freshness": "backend",
                         Icon { name: "database".to_string(), size: Some(14) }
-                        "Update data"
+                        if enterprise { "Data available" } else { "Update data" }
                     }
                 } else {
                     span {
@@ -613,6 +692,7 @@ fn AnalyticsHeader(metadata: Option<AnalyticsMetadata>) -> Element {
 
 #[component]
 fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let viewing = access.as_ref().map(|access| {
         if let Some(maximum) = access.max_accessible_rank {
             format!("Ranks {}-{maximum}", access.min_accessible_rank.max(1))
@@ -658,7 +738,7 @@ fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
                     }
                 }
                 if access.as_ref().is_some_and(|access| access.locked_ranks_count > 0) {
-                    a { class: "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/20 sm:w-auto", href: "/plans",
+                    a { class: "inline-flex w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-purple-600 to-pink-500 px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-purple-900/20 sm:w-auto", href: "/plans", onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, "/plans"),
                         Icon { name: "rocket".to_string(), size: Some(16) }
                         "Review plans"
                     }
@@ -670,19 +750,28 @@ fn AnalyticsAccessStatus(access: Option<AnalyticsAccessInfo>) -> Element {
 
 #[component]
 fn AnalyticsFilterForm(
+    enterprise: bool,
     filters: Option<AnalyticsFilters>,
     filters_state: String,
     query: AnalyticsQueryState,
     authoritative_limit: i32,
+    #[props(default = false)] suppress_error: bool,
 ) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
+    let country_query = query.clone();
     let ready = filters_state == "ready" && filters.is_some();
     let active_count = usize::from(query.country.is_some()) + usize::from(query.sector.is_some());
-    let reset_url = query.reset_url(authoritative_limit.max(1) as u32);
+    let reset_url = if enterprise {
+        query.clear_frontend_filters_url(authoritative_limit.max(1) as u32)
+    } else {
+        query.reset_url(authoritative_limit.max(1) as u32)
+    };
     rsx! {
         form {
-            class: "mb-6 rounded-xl border border-border/20 bg-card/80 backdrop-blur-sm",
+            class: if enterprise { "fe-filter-form" } else { "mb-6 rounded-xl border border-border/20 bg-card/80 backdrop-blur-sm" },
             action: "/analytics",
             method: "get",
+            onsubmit: move |event| crate::fullstack::analytics::submit_filters(event, navigation),
             "data-section": "analytics-filters",
             "data-analytics-filters-state": if ready { "ready" } else { "unavailable" },
             h2 { class: "flex items-center gap-2 px-3 pt-3 text-sm font-medium text-slate-700 dark:text-slate-300 sm:hidden",
@@ -694,9 +783,12 @@ fn AnalyticsFilterForm(
             }
             input { r#type: "hidden", name: "page", value: "1" }
             input { r#type: "hidden", name: "limit", value: "{authoritative_limit}" }
-            if let Some(value) = &query.sort_by {
-                input { r#type: "hidden", name: "sort_by", value: "{value}" }
+            if enterprise {
+                if let Some(value) = &query.sector {
+                    input { r#type: "hidden", name: "sector", value }
+                }
             }
+
             if let Some(value) = &query.min_eps {
                 input { r#type: "hidden", name: "min_eps", value: "{value}" }
             }
@@ -704,6 +796,9 @@ fn AnalyticsFilterForm(
                 input { r#type: "hidden", name: "min_growth", value: "{value}" }
             }
             div { class: "flex flex-col gap-3 p-3 sm:flex-row sm:items-end sm:gap-3 sm:p-4",
+                if let Some(value) = &query.sort_by {
+                    input { r#type: "hidden", name: "sort_by", value }
+                }
                 div { class: "min-w-0 flex-1",
                     label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400", r#for: "analytics-country",
                         Icon { name: "globe".to_string(), size: Some(12) }
@@ -712,9 +807,25 @@ fn AnalyticsFilterForm(
                     select {
                         id: "analytics-country",
                         name: "country",
+                        "data-analytics-country-autosubmit": (enterprise && navigation.is_none()).then_some("true"),
+                        onchange: move |event: FormEvent| {
+                            if let Some(navigation) = navigation {
+                                let mut next = country_query.clone();
+                                let value = event.value();
+                                next.country = (!value.is_empty()).then_some(value);
+                                navigation.0.call(next.page_url(1, authoritative_limit.max(1) as u32));
+                            }
+                        },
                         disabled: !ready,
                         class: "h-9 w-full rounded-lg border border-border/20 bg-muted/30 px-3 text-sm text-foreground",
                         option { value: "", selected: query.country.is_none(), "All Countries" }
+                        if enterprise {
+                            if let Some(country) = &query.country {
+                                if !filters.as_ref().is_some_and(|filters| filters.countries.iter().any(|option| &option.value == country)) {
+                                    option { value: country.clone(), selected: true, "{country}" }
+                                }
+                            }
+                        }
                         if let Some(filters) = &filters {
                             for country in &filters.countries {
                                 option {
@@ -726,6 +837,7 @@ fn AnalyticsFilterForm(
                         }
                     }
                 }
+                if !enterprise {
                 div { class: "min-w-0 flex-1",
                     label { class: "mb-1.5 flex items-center gap-1.5 text-xs font-medium text-slate-600 dark:text-slate-400", r#for: "analytics-sector",
                         Icon { name: "sparkles".to_string(), size: Some(12) }
@@ -737,6 +849,13 @@ fn AnalyticsFilterForm(
                         disabled: !ready,
                         class: "h-9 w-full rounded-lg border border-border/20 bg-muted/30 px-3 text-sm text-foreground",
                         option { value: "", selected: query.sector.is_none(), "All Sectors" }
+                        if enterprise {
+                            if let Some(sector) = &query.sector {
+                                if !filters.as_ref().is_some_and(|filters| filters.sectors.contains(sector)) {
+                                    option { value: sector.clone(), selected: true, "{sector}" }
+                                }
+                            }
+                        }
                         if let Some(filters) = &filters {
                             for sector in &filters.sectors {
                                 option {
@@ -748,7 +867,9 @@ fn AnalyticsFilterForm(
                         }
                     }
                 }
+                }
                 div { class: "flex items-end gap-2",
+                    if !enterprise {
                     button {
                         class: "inline-flex h-9 items-center gap-1.5 rounded-lg bg-purple-600 px-4 text-sm font-medium text-white transition-colors hover:bg-purple-500 disabled:pointer-events-none disabled:opacity-40",
                         r#type: "submit",
@@ -756,17 +877,35 @@ fn AnalyticsFilterForm(
                         Icon { name: "search".to_string(), size: Some(14) }
                         "Apply"
                     }
-                    if active_count > 0 {
+                    } else {
+                        noscript {
+                            button { r#type: "submit", class: "fe-button fe-primary", disabled: !ready, "Update country" }
+                        }
+                    }
+                    if active_count > 0 || (enterprise && query.is_custom_view()) {
                         a {
                             class: "inline-flex h-9 items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-600 transition-colors hover:bg-gray-200 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60",
                             href: "{reset_url}",
+                            onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &reset_url),
+                            aria_label: "Reset filters",
                             Icon { name: "rotate-ccw".to_string(), size: Some(14) }
-                            span { class: "hidden sm:inline", "Reset" }
+                            span { class: "hidden sm:inline", if enterprise { "Clear filters" } else { "Reset" } }
                         }
                     }
                 }
             }
-            if !ready {
+            if enterprise {
+                div { class: "fe-ranking-order",
+                    if query.is_custom_view() {
+                        span { class: "fe-badge", "Custom view" }
+                        span { "Your link’s custom conditions are applied." }
+                        a { href: query.default_ranking_url(authoritative_limit.max(1) as u32), onclick: { let target = query.default_ranking_url(authoritative_limit.max(1) as u32); move |event| crate::fullstack::analytics::follow_link(event, navigation, &target) }, "Use EPSX ranking" }
+                    } else { span { "Order: EPSX ranking" } }
+                    if let Some(country) = &query.country { span { class: "fe-filter-chip", "Country: {country}" } }
+                    if let Some(sector) = &query.sector { span { class: "fe-filter-chip", "Sector: {sector}" } }
+                }
+            }
+            if !ready && !suppress_error {
                 p { class: "border-t border-gray-200 px-4 py-2 text-xs text-amber-700 dark:border-white/[0.04] dark:text-amber-300", role: "status",
                     "Filter options are temporarily unavailable."
                 }
@@ -893,6 +1032,14 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
     let previous_url = query.page_url(page.saturating_sub(1).max(1), limit);
     let next_url = query.page_url(page.saturating_add(1).min(total_pages), limit);
     let standard_limits = [10_u32, 25, 50, 100];
+    let requested_query =
+        try_consume_context::<crate::fullstack::analytics::AnalyticsRequestedQuery>();
+    let selected_limit = requested_query
+        .and_then(|requested| AnalyticsQueryState::from_normalized_query(&(requested.0)()).ok())
+        .and_then(|requested| requested.limit)
+        .unwrap_or(limit);
+    let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
+    let limit_query = query.clone();
     rsx! {
         nav {
             class: "mt-8 rounded-xl border border-gray-200 bg-white p-4 backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
@@ -908,6 +1055,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     class: "flex items-center gap-2",
                     action: "/analytics",
                     method: "get",
+                    onsubmit: move |event| crate::fullstack::analytics::submit_filters(event, navigation),
                     input { r#type: "hidden", name: "page", value: "1" }
                     {preserved_hidden_filters(&query)}
                     label { class: "text-xs text-slate-600 dark:text-slate-400", r#for: "analytics-limit", "Per page" }
@@ -915,12 +1063,17 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                         id: "analytics-limit",
                         name: "limit",
                         class: "h-9 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-slate-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
-                        "data-analytics-limit": "true",
-                        if !standard_limits.contains(&limit) {
-                            option { value: "{limit}", selected: true, "{limit}" }
+                        "data-analytics-limit": navigation.is_none().then_some("true"),
+                        onchange: move |event: FormEvent| {
+                            if let (Some(navigation), Ok(limit)) = (navigation, event.value().parse::<u32>()) {
+                                navigation.0.call(limit_query.page_url(1, limit));
+                            }
+                        },
+                        if !standard_limits.contains(&selected_limit) {
+                            option { value: "{selected_limit}", selected: true, "{selected_limit}" }
                         }
                         for candidate in standard_limits {
-                            option { value: "{candidate}", selected: candidate == limit, "{candidate}" }
+                            option { value: "{candidate}", selected: candidate == selected_limit, "{candidate}" }
                         }
                     }
                     button { class: "sr-only", r#type: "submit", "Apply page size" }
@@ -931,7 +1084,9 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     a {
                         class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{previous_url}",
+                        onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &previous_url),
                         rel: "prev",
+                        aria_label: "Previous page",
                         Icon { name: "chevron-left".to_string(), size: Some(16) }
                         span { class: "hidden sm:block", "Prev" }
                     }
@@ -960,6 +1115,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                                     a {
                                         class: "flex h-9 w-9 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                                         href: "{href}",
+                        onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &href),
                                         "aria-label": "Page {candidate}",
                                         "{candidate}"
                                     }
@@ -972,7 +1128,9 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     a {
                         class: "flex h-9 items-center gap-1 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm font-medium text-slate-700 transition-colors hover:bg-gray-200 hover:text-slate-900 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-300 dark:hover:bg-slate-700/60 dark:hover:text-white",
                         href: "{next_url}",
+                        onclick: move |event| crate::fullstack::analytics::follow_link(event, navigation, &next_url),
                         rel: "next",
+                        aria_label: "Next page",
                         span { class: "hidden sm:block", "Next" }
                         Icon { name: "chevron-right".to_string(), size: Some(16) }
                     }
@@ -989,41 +1147,82 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
 
 #[component]
 fn AnalyticsFailurePage(
+    enterprise: bool,
+    #[props(default)] signed_in: bool,
     failure_state: String,
     filters: Option<AnalyticsFilters>,
     filters_state: String,
     query: AnalyticsQueryState,
 ) -> Element {
+    if enterprise {
+        let retry = query.page_url(query.page.max(1), query.limit.unwrap_or(10));
+        let encoded: String = url::form_urlencoded::byte_serialize(retry.as_bytes()).collect();
+        let restricted_href = if signed_in {
+            "/plans".to_string()
+        } else {
+            format!("/auth?return_url={encoded}")
+        };
+        return rsx! {
+            div { class: "fe-page fe-explore",
+                FrontendExploreHeading {}
+                section { class: "fe-data-surface", "data-section": "analytics-failure",
+                    "data-analytics-state": failure_state.clone(),
+                    details { class: "fe-filter-disclosure", open: true,
+                        summary { "Filters" }
+                        AnalyticsFilterForm { enterprise: true, filters, filters_state, query,
+                            authoritative_limit: 10, suppress_error: true }
+                    }
+                    if failure_state == "restricted" {
+                        DataState { title: "Access to this data is restricted",
+                            message: if signed_in { "Review the available plans to see which company rankings are included." } else { "Sign in to check the access available to your account." },
+                            href: restricted_href, action: if signed_in { "Review plans" } else { "Sign in" } }
+                    } else {
+                        DataState { title: "Company data is unavailable",
+                            message: "We couldn’t load this data. Please try again.", href: retry }
+                    }
+                }
+            }
+        };
+    }
     let malformed = failure_state == "malformed";
     rsx! {
         div { class: "analytics-page relative min-h-screen",
-            AnalyticsBackground {}
+            if !enterprise { AnalyticsBackground {} }
             div { class: "page-content relative z-10 mx-auto max-w-7xl px-4 py-6 sm:py-8",
-                AnalyticsHeader { metadata: None }
+                AnalyticsHeader { enterprise, metadata: None }
                 section {
                     "data-section": "analytics-failure",
                     "data-analytics-state": "{failure_state}",
                     role: "alert",
                     AnalyticsAccessStatus { access: None }
                     AnalyticsFilterForm {
+                        enterprise,
                         filters,
                         filters_state,
                         query,
                         authoritative_limit: 10,
                     }
+                    if enterprise {
+                        if failure_state == "restricted" {
+                            DataState { title: "Access to this data is restricted", message: "Your current access does not include this data. Review the available plans for access details.", href: "/plans", action: "Review plans" }
+                        } else {
+                            DataState { title: "Company data is unavailable", message: "We couldn’t load this data. Please try again.", href: "/analytics" }
+                        }
+                    } else {
                     div { class: "mb-6 rounded-xl border border-amber-500/25 bg-amber-500/10 px-5 py-4",
                         h2 { class: "font-semibold text-foreground",
                             if malformed { "Ranking data could not be validated" } else { "Rankings are temporarily unavailable" }
                         }
                         p { class: "mt-1 max-w-3xl text-sm text-muted-foreground",
                             if malformed {
-                                "The analytics service returned an unexpected response. No ranking cards or inferred market values are shown."
+                                "We couldn’t load this data. Please try again."
                             } else {
                                 "The analytics dependency could not be reached. No sample market data is being shown."
                             }
                         }
                     }
                     AnalyticsUnavailableGrid {}
+                    }
                 }
             }
         }
@@ -1210,7 +1409,7 @@ mod tests {
     }
 
     #[test]
-    fn validated_response_renders_cards_not_a_table_with_backend_access() {
+    fn frontend_cards_preserve_backend_access_without_financial_figures() {
         let rendered = html(&ready_ctx(
             vec![ranking(100, "LIVE", 42.25), ranking(101, "LOSS", -7.5)],
             22,
@@ -1218,29 +1417,36 @@ mod tests {
         ));
         assert!(rendered.contains("data-analytics-state=\"ready\""));
         assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 2);
-        assert!(!rendered.contains("<table"));
-        assert!(rendered.contains("RANK #100"));
-        assert!(rendered.contains("LIVE Company"));
-        assert!(rendered.contains("$1,234.50"));
-        assert!(rendered.contains("Next Action"));
-        assert!(rendered.contains("45 Days"));
-        assert!(!rendered.contains("Growth"));
-        assert!(!rendered.contains("+42.25%"));
-        assert!(!rendered.contains("-7.50%"));
-        assert!(rendered.contains("Ranks 100+"));
-        assert!(rendered.contains("Ranks 1-99 locked"));
-        assert!(rendered.contains("grid-cols-1"));
-        assert!(rendered.contains("2xl:grid-cols-5"));
-        assert!(rendered.contains("data-analytics-freshness=\"backend\""));
-        assert_eq!(rendered.matches("Update data").count(), 1);
-        assert!(!rendered.contains("Observed"));
-        assert!(!rendered.contains("Source live"));
-        assert!(!rendered.contains("2026-07-27T00:00:00Z"));
-        assert!(!rendered.contains("AI-Powered"));
+        for value in [
+            "fe-ranking-grid",
+            "data-tradingview-details=\"true\"",
+            "on TradingView (opens in a new tab)",
+            "LIVE Company",
+            "Next action",
+            "<details",
+            "Company report",
+            "Ranks 100+",
+            "Ranks 1-99 locked",
+        ] {
+            assert!(rendered.contains(value), "missing {value}");
+        }
+        for value in [
+            "<dialog",
+            "1234.50",
+            "42.25%",
+            "-7.50%",
+            "CHAMPION",
+            "Next Action",
+            "$1,234.50",
+            "2026-07-27T00:00:00Z",
+            "AI-Powered",
+        ] {
+            assert!(!rendered.contains(value));
+        }
     }
 
     #[test]
-    fn public_first_page_renders_ten_backend_ranked_cards_in_source_order() {
+    fn public_cards_preserve_backend_rank_order_in_one_responsive_grid() {
         let rows = (100..=109)
             .map(|rank| ranking(rank, &format!("LIVE{rank}"), f64::from(rank - 99)))
             .collect();
@@ -1250,7 +1456,7 @@ mod tests {
         assert!(!rendered.contains("<table"));
         let mut previous = 0;
         for rank in 100..=109 {
-            let position = rendered.find(&format!("RANK #{rank}")).unwrap();
+            let position = rendered.find(&format!("data-rank=\"{rank}\"")).unwrap();
             assert!(
                 position > previous,
                 "rank {rank} must preserve backend order"
@@ -1263,8 +1469,8 @@ mod tests {
     fn filters_and_pagination_preserve_supported_fields_and_authoritative_limit() {
         let rendered = html(&ready_ctx(vec![ranking(100, "LIVE", 1.0)], 22, 3));
         assert!(rendered.contains(">United States</option>"));
-        assert!(rendered.contains(">Technology</option>"));
-        assert!(rendered.contains(">Healthcare</option>"));
+        assert!(!rendered.contains("id=\"analytics-sector\""));
+        assert!(rendered.contains("data-analytics-country-autosubmit=\"true\""));
         assert!(rendered.contains("name=\"page\" value=\"1\""));
         assert!(rendered.contains("name=\"limit\" value=\"10\""));
         assert!(rendered.contains("Showing "));
@@ -1298,7 +1504,7 @@ mod tests {
             .insert(ANALYTICS_STATE_PARAM.to_string(), "empty".to_string());
         let empty_html = html(&empty);
         assert!(empty_html.contains("data-analytics-state=\"empty\""));
-        assert!(empty_html.contains("No rankings match"));
+        assert!(empty_html.contains("No companies match"));
 
         let mut malformed = page_ctx();
         malformed
@@ -1306,14 +1512,28 @@ mod tests {
             .insert(ANALYTICS_STATE_PARAM.to_string(), "malformed".to_string());
         let malformed_html = html(&malformed);
         assert!(malformed_html.contains("data-analytics-state=\"malformed\""));
-        assert!(malformed_html.contains("could not be validated"));
+        assert!(malformed_html.contains("We couldn’t load this data"));
+
+        let mut restricted = ready_ctx(vec![ranking(1, "HIDDEN", 1.0)], 1, 1);
+        restricted
+            .params
+            .insert(ANALYTICS_STATE_PARAM.to_string(), "restricted".into());
+        let restricted_html = html(&restricted);
+        assert!(restricted_html.contains("data-analytics-state=\"restricted\""));
+        assert!(restricted_html.contains("Access to this data is restricted"));
+        assert!(!restricted_html.contains("HIDDEN"));
 
         let unavailable_html = html(&page_ctx());
         assert!(unavailable_html.contains("data-analytics-state=\"unavailable\""));
-        assert!(unavailable_html.contains("temporarily unavailable"));
-        assert!(unavailable_html.contains("data-analytics-freshness=\"unavailable\""));
-        assert!(unavailable_html.contains("Data unavailable"));
-        assert!(!unavailable_html.contains("Update data"));
+        assert!(unavailable_html.contains("Company data is unavailable"));
+
+        assert_eq!(
+            unavailable_html
+                .matches("Company data is unavailable")
+                .count(),
+            1
+        );
+        assert!(!unavailable_html.contains("Data available"));
         assert!(!unavailable_html.contains(">Live<"));
         assert!(!unavailable_html.contains("data-stock-card=\"true\""));
     }
@@ -1322,7 +1542,7 @@ mod tests {
     fn watchlist_controls_fail_closed_and_signed_out_hearts_link_to_auth() {
         let signed_out = html(&ready_ctx(vec![ranking(100, "LIVE", 1.0)], 1, 1));
         assert!(signed_out.contains("data-watchlist-signed-out=\"true\""));
-        assert!(signed_out.contains("href=\"/auth?return_url=%2Fanalytics\""));
+        assert!(signed_out.contains("href=\"/auth?return_url=%2Fanalytics%3Fpage%3D1%26limit%3D10%26country%3Damerica%26sort_by%3Dgrowth_factor\""));
 
         let mut signed_in = signed_in_ctx();
         signed_in.params = ready_ctx(vec![ranking(100, "LIVE", 1.0)], 1, 1).params;
@@ -1337,7 +1557,7 @@ mod tests {
         let ready = html(&signed_in);
         assert!(ready.contains("data-watchlist-toggle=\"true\""));
         assert!(ready.contains("data-watchlisted=\"true\""));
-        assert!(ready.contains("Remove LIVE from watchlist"));
+        assert!(ready.contains("Saved · Remove LIVE from saved companies"));
 
         signed_in.params.insert(
             ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),
@@ -1364,5 +1584,55 @@ mod tests {
             assert!(rendered.contains("data-analytics-state=\"unavailable\""));
             assert!(!rendered.contains("PARTIAL"));
         }
+    }
+}
+
+#[cfg(test)]
+mod frontend_ranking_query_tests {
+    use super::*;
+    #[test]
+    fn custom_conditions_survive_forms_and_pagination_until_explicit_reset() {
+        let query = AnalyticsQueryState::from_normalized_query(
+            "country=america&sector=Technology&sort_by=price&min_eps=2&min_growth=4",
+        )
+        .unwrap();
+        assert!(query.is_custom_view());
+        let next = query.page_url(2, 10);
+        for filter in [
+            "sort_by=price",
+            "min_eps=2",
+            "min_growth=4",
+            "country=america",
+            "sector=Technology",
+        ] {
+            assert!(next.contains(filter));
+        }
+        assert_eq!(
+            query.default_ranking_url(10),
+            "/analytics?page=1&limit=10&country=america&sector=Technology"
+        );
+        assert_eq!(
+            query.clear_frontend_filters_url(10),
+            "/analytics?page=1&limit=10"
+        );
+        let html = dioxus_ssr::render_element(
+            rsx! { AnalyticsFilterForm { enterprise: true, filters: None, filters_state: "unavailable".to_string(), query, authoritative_limit: 10 } },
+        );
+        assert!(html.contains("Custom view"));
+        for name in ["sort_by", "min_eps", "min_growth"] {
+            assert!(html.contains(&format!("name=\"{name}\"")));
+        }
+        assert!(!html.contains("analytics-sort"));
+        assert!(!html.contains("EPS growth"));
+        assert!(!html.contains("Order: EPSX ranking"));
+    }
+    #[test]
+    fn default_view_lets_backend_choose_order() {
+        let query = AnalyticsQueryState::default();
+        let html = dioxus_ssr::render_element(
+            rsx! { AnalyticsFilterForm { enterprise: true, filters: None, filters_state: "unavailable".to_string(), query, authoritative_limit: 10 } },
+        );
+        assert!(html.contains("Order: EPSX ranking"));
+        assert!(!html.contains("name=\"sort_by\""));
     }
 }

@@ -15,6 +15,7 @@ const MAX_DASHBOARD_USER_STATUS_RESPONSE_BYTES: usize = 256 * 1024;
 pub(crate) struct AdminDashboardUserStatusQuery;
 
 impl AdminDashboardUserStatusQuery {
+    #[cfg(test)]
     pub(crate) fn from_raw(raw_query: Option<&str>) -> Result<Self, ()> {
         if raw_query.is_none() {
             Ok(Self)

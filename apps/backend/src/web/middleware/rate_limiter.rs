@@ -477,7 +477,7 @@ mod tests {
     use super::*;
     use crate::infrastructure::cache::{MemoryCache, ServerlessCacheFactory};
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_rate_limiting_per_minute_with_cache() {
         let cache = ServerlessCacheFactory::redis_only()
             .await
@@ -516,13 +516,14 @@ mod tests {
         assert!(result3.retry_after_seconds.is_some());
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_ip_based_rate_limiting_with_cache() {
         let cache = ServerlessCacheFactory::redis_only()
             .await
             .unwrap_or_else(|_| Box::new(MemoryCache::new()));
         let limiter = UnifiedRateLimiter::new(cache.into());
         let client_id = ClientId::IpAddress("192.168.1.100".to_string());
+        let endpoint = format!("/api/test/{}", uuid::Uuid::new_v4());
         let config = RateLimitConfig {
             requests_per_minute: Some(3),
             requests_per_hour: None,
@@ -532,7 +533,7 @@ mod tests {
         // First few requests should pass
         for i in 1..=3 {
             let result = limiter
-                .check_client_rate_limit(&client_id, "/api/test", "GET", &config)
+                .check_client_rate_limit(&client_id, &endpoint, "GET", &config)
                 .await
                 .unwrap();
             assert!(result.allowed, "Request {} should be allowed", i);
@@ -541,14 +542,14 @@ mod tests {
 
         // Fourth request should fail
         let result = limiter
-            .check_client_rate_limit(&client_id, "/api/test", "GET", &config)
+            .check_client_rate_limit(&client_id, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(!result.allowed);
         assert_eq!(result.current_count, 4);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_different_endpoints_have_separate_limits() {
         let cache = ServerlessCacheFactory::redis_only()
             .await
@@ -590,7 +591,7 @@ mod tests {
         assert!(!result4.allowed);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_different_client_types() {
         let cache = ServerlessCacheFactory::redis_only()
             .await
@@ -600,6 +601,7 @@ mod tests {
         let ip_id = ClientId::IpAddress("192.168.1.100".to_string());
         let api_key_id = ClientId::ApiKey("ak_test123".to_string());
 
+        let endpoint = format!("/api/test/{}", uuid::Uuid::new_v4());
         let config = RateLimitConfig {
             requests_per_minute: Some(1),
             requests_per_hour: None,
@@ -608,44 +610,44 @@ mod tests {
 
         // Each client type should have separate counters
         let result1 = limiter
-            .check_client_rate_limit(&wallet_address, "/api/test", "GET", &config)
+            .check_client_rate_limit(&wallet_address, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(result1.allowed);
 
         let result2 = limiter
-            .check_client_rate_limit(&ip_id, "/api/test", "GET", &config)
+            .check_client_rate_limit(&ip_id, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(result2.allowed);
 
         let result3 = limiter
-            .check_client_rate_limit(&api_key_id, "/api/test", "GET", &config)
+            .check_client_rate_limit(&api_key_id, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(result3.allowed);
 
         // Each should now be rate limited independently
         let result4 = limiter
-            .check_client_rate_limit(&wallet_address, "/api/test", "GET", &config)
+            .check_client_rate_limit(&wallet_address, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(!result4.allowed);
 
         let result5 = limiter
-            .check_client_rate_limit(&ip_id, "/api/test", "GET", &config)
+            .check_client_rate_limit(&ip_id, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(!result5.allowed);
 
         let result6 = limiter
-            .check_client_rate_limit(&api_key_id, "/api/test", "GET", &config)
+            .check_client_rate_limit(&api_key_id, &endpoint, "GET", &config)
             .await
             .unwrap();
         assert!(!result6.allowed);
     }
 
-    #[tokio::test]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
     async fn test_cache_fallback_behavior() {
         let cache = ServerlessCacheFactory::redis_only()
             .await

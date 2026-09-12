@@ -3,7 +3,9 @@
 //! This crate intentionally has no runtime dependencies. It is the first
 //! migration tool that can run after the Bun/Node toolchain is removed.
 
+mod cloudflare;
 mod e2e_fixture;
+mod native;
 mod node_free;
 mod workspace_tools;
 
@@ -167,7 +169,9 @@ fn main() -> ExitCode {
         "env" => node_free::env_command(&flags),
         "setup-local" => node_free::setup_local(&flags),
         "dev" => node_free::dev(&flags),
+        "cloudflare" => cloudflare::cloudflare(&flags),
         "build" => node_free::build(&flags),
+        "native" => native::run(&flags),
         "browser-runtime" => node_free::browser_runtime(&flags),
         "test" => node_free::test(&flags),
         "anvil-proxy" => workspace_tools::anvil_proxy(&flags),
@@ -208,6 +212,8 @@ cargo xtask commands:
   setup-local           deploy the local Foundry contracts and tokens
   dev --all|--frontend|--frontend-watch|--frontend-dx|--admin|--admin-watch|--admin-dx|--backend
                          run the Rust/Dioxus development surface (with cargo-watch or dx serve)
+  cloudflare dev --local run workerd/miniflare local (wrangler dev --local --persist-to=.wrangler/state, Hybrid PG+D1)
+  cloudflare build       browser-runtime + cargo build --release (Cloudflare-ready)
   build --profile development|production
   browser-runtime build  compile Rust/WASM and emit untracked wasm-bindgen browser assets
   test --all            run the Rust workspace test suite

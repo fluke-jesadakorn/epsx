@@ -1,47 +1,21 @@
-# ============================================================================
-# Cloudflare Tunnel Configuration - EPSX Dev
-# ============================================================================
-# Routes dev.epsx.io / dev-admin.epsx.io / dev-api.epsx.io
-# to the host machine where `cargo xtask dev --all` runs (ports 3000, 3001, 8080).
-# Token-based auth — no credentials JSON needed.
+# Native dev origins. Production/staging routes are managed separately.
+# Validate before starting:
+# cloudflared tunnel --config infrastructure/cloudflare/cloudflared-config.dev.yml ingress validate
+# cloudflared tunnel --config infrastructure/cloudflare/cloudflared-config.dev.yml run epsx-dev
+# DNS: four proxied CNAMEs to db141d3c-cc9a-4785-bf2e-dcdffabd36c6.cfargotunnel.com.
+# Confirm the epsx.io zone/account before changing DNS; tunnel credentials only authorize running it.
+tunnel: db141d3c-cc9a-4785-bf2e-dcdffabd36c6
+credentials-file: /Users/fluke/.cloudflared/db141d3c-cc9a-4785-bf2e-dcdffabd36c6.json
 
 ingress:
   - hostname: dev.epsx.io
-    service: http://localhost:3000
-    originRequest:
-      connectTimeout: 30s
-
+    service: http://127.0.0.1:3000
   - hostname: dev-admin.epsx.io
-    service: http://localhost:3001
-    originRequest:
-      connectTimeout: 30s
-
+    service: http://127.0.0.1:3001
   - hostname: dev-api.epsx.io
-    service: http://localhost:8080
-    originRequest:
-      connectTimeout: 30s
-
-  # wave49(slice-1, slice-6): dev-pay.epsx.io → dev pay BFF.
-  # Routes through port-bridge 4750 (host) → NodePort 30107
-  # (colima) → epsx-pay-bff in the `epsx-dev` namespace.
-  # Distinguished from the staging route by the 4750 port
-  # (vs 4748 for staging); DNS records are created with
-  # `infrastructure/scripts/dns-create-pay.sh dev-pay.epsx.io`.
+    service: http://127.0.0.1:8080
   - hostname: dev-pay.epsx.io
-    service: http://localhost:4750
-    originRequest:
-      connectTimeout: 30s
-
-  # wave49(slice-6): staging-pay.epsx.io → staging pay BFF.
-  # Routes through port-bridge 4748 (host) → NodePort 30083
-  # (colima) → epsx-pay-bff in the `epsx-staging` namespace.
-  # Operators create the DNS record with
-  # `infrastructure/scripts/dns-create-pay.sh staging-pay.epsx.io`.
-  - hostname: staging-pay.epsx.io
-    service: http://localhost:4748
-    originRequest:
-      connectTimeout: 30s
-
+    service: http://127.0.0.1:3002
   - service: http_status:404
 
 loglevel: info

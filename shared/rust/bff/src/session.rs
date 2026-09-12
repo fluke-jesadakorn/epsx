@@ -24,6 +24,7 @@ pub const PROFILE_PATH: &str = "/api/users/profile";
 pub const LOGOUT_PATH: &str = "/api/auth/web3/logout";
 pub const FRONTEND_CLIENT_ID: &str = "epsx-frontend";
 pub const ADMIN_CLIENT_ID: &str = "epsx-admin";
+pub const PAY_CLIENT_ID: &str = "epsx-pay";
 
 const DEFAULT_MAX_JWKS_BYTES: usize = 64 * 1024;
 const MAX_JWKS_KEYS: usize = 8;

@@ -1,11 +1,21 @@
 //! Frontend-only document chrome. Admin and Pay keep their existing shells.
 use epsx_templates::{design_system_head_with_keywords, global_js};
+use std::{
+    hash::{DefaultHasher, Hash, Hasher},
+    sync::LazyLock,
+};
 
 fn lucide(name: &str) -> String {
     epsx_templates::lucide(name, "20", "")
 }
 
 pub const CSS: &str = include_str!("../public/enterprise.css");
+// Keep cached styles in step with the markup shipped by this binary.
+static CSS_VERSION: LazyLock<String> = LazyLock::new(|| {
+    let mut hasher = DefaultHasher::new();
+    CSS.hash(&mut hasher);
+    format!("{:016x}", hasher.finish())
+});
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Shell {
@@ -17,8 +27,9 @@ pub enum Shell {
 pub fn shell(path: &str) -> Shell {
     match path {
         "/auth" => Shell::Auth,
-        "/" | "/index" | "/plans" | "/about" | "/contact" | "/manual" | "/privacy" | "/terms"
-        | "/offline" => Shell::Marketing,
+        "/" | "/index" | "/about" | "/contact" | "/manual" | "/privacy" | "/terms" | "/offline" => {
+            Shell::Marketing
+        }
         _ => Shell::Workspace,
     }
 }
@@ -33,24 +44,18 @@ fn escape(value: &str) -> String {
 }
 
 fn active(path: &str, href: &str) -> bool {
-    if href == "/account" {
-        return matches!(
-            path,
-            "/account" | "/dashboard" | "/profile" | "/permissions"
-        ) || ["/account/", "/payment"]
-            .iter()
-            .any(|prefix| path.starts_with(prefix));
+    if matches!(href, "/account" | "/developer") {
+        return path == href;
     }
     path == href || (href != "/" && path.starts_with(&format!("{href}/")))
 }
 
 fn link(path: &str, href: &str, label: &str, icon: &str) -> String {
-    let current =
-        if (href == "/developer" && path == href) || (href != "/developer" && active(path, href)) {
-            " aria-current=\"page\""
-        } else {
-            ""
-        };
+    let current = if active(path, href) {
+        " aria-current=\"page\""
+    } else {
+        ""
+    };
     format!("<a class=\"fe-nav-link\" href=\"{href}\"{current} title=\"{label}\">{}<span class=\"fe-nav-label\">{label}</span></a>", lucide(icon))
 }
 
@@ -60,6 +65,15 @@ const MARKET: &[NavItem] = &[
     ("/portfolio", "Saved companies", "heart"),
     ("/plans", "Plans", "layers"),
     ("/news", "News", "newspaper"),
+];
+const ACCOUNT: &[NavItem] = &[
+    ("/account", "Settings", "settings"),
+    ("/dashboard", "Overview", "layout-dashboard"),
+    ("/profile", "Profile", "user"),
+    ("/permissions", "Access", "shield"),
+    ("/account/credits", "Credits", "coins"),
+    ("/payment", "Billing", "wallet"),
+    ("/account/payments", "Purchases", "file-text"),
 ];
 const DEVELOPER: &[NavItem] = &[
     ("/developer", "API keys", "key"),
@@ -81,38 +95,6 @@ fn links(path: &str, items: &[NavItem]) -> String {
 
 fn marketing_group(path: &str, name: &str, items: &[NavItem]) -> String {
     format!("<details class=\"fe-nav-group\" name=\"fe-marketing-menu\"><summary>{name}{}</summary><nav aria-label=\"{name}\">{}</nav></details>", lucide("chevron-down"), links(path, items))
-}
-
-pub fn title(path: &str) -> &str {
-    match path {
-        "/" | "/index" => "Home",
-        "/analytics" => "Company rankings",
-        "/portfolio" => "Saved companies",
-        "/dashboard" => "Overview",
-        "/profile" => "Profile",
-        "/permissions" => "Access",
-        "/account/credits" => "Credits",
-        "/account" => "Account",
-        "/plans" => "Plans",
-        "/notifications" => "Notifications",
-        "/developer/usage" => "API usage",
-        "/developer/docs" => "Documentation",
-        "/developer" => "Developer",
-        "/auth" => "Sign in",
-        "/manual" => "Explore",
-        "/news" => "News",
-        "/about" => "About",
-        "/contact" => "Contact",
-        "/privacy" => "Privacy",
-        "/terms" => "Terms",
-        "/offline" => "Offline",
-        "/access-denied" => "Access unavailable",
-        p if p.starts_with("/chat") => "Support",
-        p if p.starts_with("/payment") => "Billing",
-        p if p.starts_with("/news/") => "News",
-        p if p.starts_with("/portfolio/") => "Saved companies",
-        _ => "EPSX",
-    }
 }
 
 fn brand() -> &'static str {
@@ -168,7 +150,7 @@ pub fn navigation(path: &str, target: &str, signed_in: bool, wallet: Option<&str
             "/"
         };
         let encoded: String = url::form_urlencoded::byte_serialize(target.as_bytes()).collect();
-        format!("<a class=\"fe-button fe-primary fe-connect-wallet\" data-epsx-auth-link href=\"/auth?return_url={encoded}\">{}<span>Connect wallet</span></a>", lucide("wallet"))
+        format!("<a class=\"fe-button fe-primary fe-connect-wallet\" aria-label=\"Connect wallet\" title=\"Connect wallet\" data-epsx-auth-link href=\"/auth?return_url={encoded}\">{}<span>Connect wallet</span></a>", lucide("wallet"))
     };
     let preview = if std::env::var("EPSX_ENV").as_deref() == Ok("local")
         && std::env::var("EPSX_UI_PREVIEW").as_deref() == Ok("fixture")
@@ -180,13 +162,14 @@ pub fn navigation(path: &str, target: &str, signed_in: bool, wallet: Option<&str
     let tools = format!(
         "<div class=\"fe-header-tools\">{preview}{}{}{account}</div>",
         if signed_in {
-            format!("<a class=\"fe-icon-button\" href=\"/notifications\" aria-label=\"Notifications\">{}</a>", lucide("bell"))
+            format!("<a class=\"fe-icon-button\" href=\"/notifications\"{} aria-label=\"Notifications\" title=\"Notifications\">{}</a>", if path == "/notifications" { " aria-current=\"page\"" } else { "" }, lucide("bell"))
         } else {
             String::new()
         },
         theme()
     );
     let main_links = links(path, MARKET);
+    let account_links = links(path, ACCOUNT);
     let developer_links = links(path, DEVELOPER);
     let company_links = links(path, COMPANY);
     if shell(path) == Shell::Marketing {
@@ -194,59 +177,23 @@ pub fn navigation(path: &str, target: &str, signed_in: bool, wallet: Option<&str
     }
     format!(
         r#"<aside id="fe-sidebar" class="fe-sidebar" aria-label="Workspace navigation">
-      <div class="fe-sidebar-brand">{}<button type="button" class="fe-icon-button fe-drawer-close" data-epsx-action="fe-nav-close" aria-label="Close navigation">{}</button></div>
+      <div class="fe-sidebar-brand">{}<button type="button" id="fe-nav-desktop-trigger" class="fe-icon-button fe-nav-desktop-trigger" data-epsx-action="fe-nav-toggle" aria-controls="fe-sidebar" aria-expanded="true" aria-label="Toggle navigation" title="Toggle navigation">{}</button><button type="button" class="fe-icon-button fe-drawer-close" data-epsx-action="fe-nav-close" aria-label="Close navigation">{}</button></div>
       <div class="fe-sidebar-scroll"><p class="fe-nav-caption">YOUR WORKSPACE</p><nav aria-label="Primary">{main_links}</nav>
+      <p class="fe-nav-caption fe-nav-section">ACCOUNT</p><nav aria-label="Account">{account_links}</nav>
       <p class="fe-nav-caption fe-nav-section">DEVELOPER</p><nav aria-label="Developer">{developer_links}</nav>
       <p class="fe-nav-caption fe-nav-section">COMPANY</p><nav aria-label="Company">{company_links}</nav></div>
-      <div class="fe-sidebar-bottom">{}<div class="fe-sidebar-legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div>
-    </aside><button class="fe-drawer-overlay" data-epsx-action="fe-nav-close" type="button" aria-label="Close navigation" tabindex="-1"></button>
-    <header class="fe-workspace-header"><div class="fe-header-leading"><button type="button" id="fe-nav-trigger" class="fe-icon-button" data-epsx-action="fe-nav-toggle" aria-controls="fe-sidebar" aria-expanded="true" aria-label="Toggle navigation">{}</button><span class="fe-context-product">Workspace</span><span class="fe-context-divider">/</span><span class="fe-context-title">{}</span></div>{tools}</header>"#,
+      <div class="fe-sidebar-bottom">{tools}<div class="fe-sidebar-legal"><a href="/privacy">Privacy</a><a href="/terms">Terms</a></div></div>
+    </aside><button class="fe-drawer-overlay" data-epsx-action="fe-nav-close" type="button" aria-label="Close navigation" tabindex="-1"></button>"#,
         brand(),
-        lucide("x"),
-        link(path, "/account", "Account", "settings"),
         lucide("menu"),
-        title(path)
+        lucide("x"),
     )
 }
 
-fn subnav(path: &str) -> String {
-    let items = if path.starts_with("/developer") {
-        vec![
-            ("/developer", "API keys"),
-            ("/developer/usage", "Usage"),
-            ("/developer/docs", "Documentation"),
-        ]
-    } else if matches!(
-        path,
-        "/account" | "/account/credits" | "/profile" | "/permissions" | "/dashboard" | "/payment"
-    ) || path.starts_with("/payment/")
-    {
-        vec![
-            ("/account", "Settings"),
-            ("/dashboard", "Overview"),
-            ("/profile", "Profile"),
-            ("/permissions", "Access"),
-            ("/account/credits", "Credits"),
-            ("/payment", "Billing"),
-            ("/developer", "Developer"),
-        ]
-    } else {
-        return String::new();
-    };
+fn mobile_navigation() -> String {
     format!(
-        "<nav class=\"fe-subnav\" aria-label=\"Section navigation\">{}</nav>",
-        items
-            .iter()
-            .map(|(href, label)| {
-                let current =
-                    if path == *href || (*href == "/payment" && path.starts_with("/payment/")) {
-                        " aria-current=\"page\""
-                    } else {
-                        ""
-                    };
-                format!("<a href=\"{href}\"{current}>{label}</a>")
-            })
-            .collect::<String>()
+        r#"<button type="button" id="fe-nav-trigger" class="fe-icon-button fe-nav-mobile-trigger" data-epsx-action="fe-nav-toggle" aria-controls="fe-sidebar" aria-expanded="false" aria-label="Open navigation">{}</button>"#,
+        lucide("menu")
     )
 }
 
@@ -280,11 +227,16 @@ pub fn document(
     } else {
         ""
     };
+    let css_version = CSS_VERSION.as_str();
     format!(
-        r##"<!DOCTYPE html><html lang="en" data-epsx-frontend="true"><head>{}<link rel="stylesheet" href="/public/enterprise.css?v=editorial-1">{}</head><body class="epsx-frontend fe-{kind}"><a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>{nav}<main id="epsx-main-content" tabindex="-1" class="fe-main">{}<div class="fe-content" data-fe-page="{}">{body}</div></main>{footer}</body></html>"##,
+        r##"<!DOCTYPE html><html lang="en" data-epsx-frontend="true"><head>{}<link rel="stylesheet" href="/public/enterprise.css?v={css_version}">{}</head><body class="epsx-frontend fe-{kind}"><a class="epsx-skip-link" href="#epsx-main-content">Skip to main content</a>{nav}<main id="epsx-main-content" tabindex="-1" class="fe-main">{}<div class="fe-content" data-fe-page="{}">{body}</div></main>{footer}</body></html>"##,
         design_system_head_with_keywords(title, description, keywords),
         global_js(),
-        subnav(path),
+        if shell(path) == Shell::Workspace {
+            mobile_navigation()
+        } else {
+            String::new()
+        },
         escape(path)
     )
 }
@@ -293,12 +245,77 @@ pub fn document(
 mod tests {
     use super::*;
     #[test]
+    fn workspace_has_one_navigation_home_and_exact_current_destination() {
+        for (path, current) in [
+            ("/analytics", "/analytics"),
+            ("/plans", "/plans"),
+            ("/account", "/account"),
+            ("/profile", "/profile"),
+            ("/dashboard", "/dashboard"),
+            ("/permissions", "/permissions"),
+            ("/account/credits", "/account/credits"),
+            ("/payment", "/payment"),
+            ("/payment/order-123", "/payment"),
+            ("/account/payments/order-123", "/account/payments"),
+            ("/developer", "/developer"),
+            ("/developer/usage", "/developer/usage"),
+            ("/developer/docs", "/developer/docs"),
+        ] {
+            for signed_in in [false, true] {
+                let nav = navigation(
+                    path,
+                    path,
+                    signed_in,
+                    Some("0x0305000000000000000000000000000000007494"),
+                );
+                let html = document(path, "Test", "Test", None, &nav, "Content");
+                assert!(!html.contains("fe-workspace-header"));
+                assert!(!html.contains("fe-subnav"));
+                assert_eq!(html.matches("id=\"fe-sidebar\"").count(), 1);
+                assert_eq!(html.matches("id=\"fe-nav-trigger\"").count(), 1);
+                assert_eq!(html.matches("id=\"fe-nav-desktop-trigger\"").count(), 1);
+                let sidebar = nav.split("</aside>").next().unwrap();
+                assert_eq!(
+                    sidebar.matches("aria-current=\"page\"").count(),
+                    1,
+                    "{path}"
+                );
+                assert!(sidebar.contains(&format!("href=\"{current}\" aria-current=\"page\"")));
+                for (href, _, _) in ACCOUNT.iter().chain(DEVELOPER.iter()) {
+                    assert!(sidebar.contains(&format!("href=\"{href}\"")));
+                }
+                let bottom = sidebar.split("fe-sidebar-bottom").nth(1).unwrap();
+                assert!(bottom.contains("theme-toggle"));
+                assert_eq!(bottom.contains("fe-account-menu"), signed_in);
+                assert_eq!(bottom.contains("Connect wallet"), !signed_in);
+                if signed_in {
+                    assert!(bottom.contains("/notifications"));
+                    assert!(
+                        bottom.contains("data-copy=\"0x0305000000000000000000000000000000007494\"")
+                    );
+                    assert!(bottom.contains("data-epsx-logout-target=\"/\""));
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn public_and_auth_shells_do_not_gain_workspace_controls() {
+        for path in ["/", "/about", "/auth"] {
+            let nav = navigation(path, path, false, None);
+            let html = document(path, "Test", "Test", None, &nav, "Content");
+            assert!(!html.contains("id=\"fe-sidebar\""));
+            assert!(!html.contains("fe-nav-trigger"));
+            assert_eq!(html.contains("fe-marketing-header"), path != "/auth");
+        }
+    }
+
+    #[test]
     fn shell_is_frontend_only_and_keeps_one_landmark() {
         let html = document("/analytics", "Explore", "Company data", None, "", "body");
         assert_eq!(html.matches("<main ").count(), 1);
         assert!(html.contains("fe-workspace"));
         assert_eq!(shell("/index"), Shell::Marketing);
-        assert_eq!(title("/index"), "Home");
         assert!(!html.contains("fe-footer"));
         assert!(document("/", "Home", "Data", None, "", "body").contains("fe-footer"));
     }

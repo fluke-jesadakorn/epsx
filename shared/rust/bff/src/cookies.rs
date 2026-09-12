@@ -21,6 +21,7 @@ pub const LEGACY_ACCESS_COOKIE: &str = "epsx_token";
 pub enum CookieClient {
     Frontend,
     Admin,
+    Pay,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,6 +65,7 @@ impl CookieEnvironment {
             (Self::Production, _) => PRODUCTION_ACCESS_COOKIE,
             (Self::Local, CookieClient::Frontend) => LOCAL_ACCESS_COOKIE,
             (Self::Local, CookieClient::Admin) => LOCAL_ADMIN_ACCESS_COOKIE,
+            (Self::Local, CookieClient::Pay) => "epsx.pay.access_token",
         }
     }
 
@@ -72,6 +74,7 @@ impl CookieEnvironment {
             (Self::Production, _) => PRODUCTION_REFRESH_COOKIE,
             (Self::Local, CookieClient::Frontend) => LOCAL_REFRESH_COOKIE,
             (Self::Local, CookieClient::Admin) => LOCAL_ADMIN_REFRESH_COOKIE,
+            (Self::Local, CookieClient::Pay) => "epsx.pay.refresh_token",
         }
     }
 
@@ -238,6 +241,36 @@ mod tests {
 
     fn as_text(value: &HeaderValue) -> &str {
         value.to_str().expect("cookie header")
+    }
+
+    #[test]
+    fn pay_cookies_are_isolated_locally_and_host_only_in_production() {
+        assert_ne!(
+            CookieEnvironment::Local.access_name(CookieClient::Pay),
+            CookieEnvironment::Local.access_name(CookieClient::Frontend)
+        );
+        assert_ne!(
+            CookieEnvironment::Local.refresh_name(CookieClient::Pay),
+            CookieEnvironment::Local.refresh_name(CookieClient::Admin)
+        );
+        let mut headers = HeaderMap::new();
+        append_session_cookies(
+            &mut headers,
+            CookieEnvironment::Production,
+            CookieClient::Pay,
+            "access",
+            Some("refresh"),
+            60,
+            Some(120),
+        )
+        .unwrap();
+        for value in headers.get_all(header::SET_COOKIE) {
+            let value = value.to_str().unwrap();
+            assert!(
+                value.contains("Secure") && value.contains("HttpOnly") && value.contains("Path=/")
+            );
+            assert!(!value.contains("Domain="));
+        }
     }
 
     #[test]

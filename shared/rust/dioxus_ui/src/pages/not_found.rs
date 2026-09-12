@@ -14,29 +14,45 @@ use crate::layout::main_layout::MainLayout;
 use dioxus::prelude::*;
 
 pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
-    let meta = PageMeta::not_found();
     (
-        meta,
-        rsx! {
-            MainLayout { ctx: ctx.clone(),
-                div { class: "container page-content",
-                    div { class: "not-found",
-                        div { class: "not-found-code", "404" }
-                        h1 { class: "not-found-title", "Page not found" }
-                        p { class: "not-found-description text-muted-foreground",
-                            "The page you are looking for does not exist."
-                        }
-                        NotFoundIllustration {}
-                        div { class: "not-found-actions",
-                            a { class: "btn btn-primary btn-lg", href: "/", "Back to home" }
-                            a { class: "btn btn-outline btn-lg", href: "/contact", "Contact support" }
-                        }
-                        NotFoundDestinations {}
-                    }
-                }
-            }
-        },
+        PageMeta::not_found(),
+        rsx! { MainLayout { ctx: ctx.clone(), NotFoundBody { navigation: None } } },
     )
+}
+
+#[component]
+fn NotFoundBody(navigation: Option<EventHandler<String>>) -> Element {
+    let navigation = navigation.map(crate::fullstack::analytics::AnalyticsNavigation);
+    rsx! {
+    div { class: "container page-content fe-page-layout",
+        div { class: "not-found",
+            div { class: "not-found-code", "404" }
+            h1 { class: "not-found-title fe-type-title", "Page not found" }
+            p { class: "not-found-description text-muted-foreground fe-tone-muted",
+                "The page you are looking for does not exist."
+            }
+            NotFoundIllustration {}
+            div { class: "not-found-actions",
+                a { class: "btn btn-primary btn-lg", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } }, "Back to home" }
+                a { class: "btn btn-outline btn-lg", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } }, "Contact support" }
+            }
+            NotFoundDestinations { navigation: navigation.map(|value| value.0) }
+        }
+    }    }
+}
+
+#[component]
+pub fn HydratedNotFound() -> Element {
+    super::news::hydrated::response_status(404);
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    rsx! {
+        document::Title { "Page not found — EPSX" }
+        document::Meta { name: "robots", content: "noindex" }
+        NotFoundBody { navigation: Some(navigate) }
+    }
 }
 
 /// Decorative SVG illustration — a stylized "?" inside a dashed
@@ -64,24 +80,25 @@ fn NotFoundIllustration() -> Element {
 /// requires the "Go home" button, but the page is far more useful
 /// with a small "where would you like to go?" panel.
 #[component]
-fn NotFoundDestinations() -> Element {
+fn NotFoundDestinations(navigation: Option<EventHandler<String>>) -> Element {
+    let navigation = navigation.map(crate::fullstack::analytics::AnalyticsNavigation);
     rsx! {
         div { class: "not-found-destinations",
             h2 { class: "not-found-destinations-title", "Popular destinations" }
             div { class: "not-found-destinations-grid",
-                a { class: "not-found-destination card card-glass", href: "/",
+                a { class: "not-found-destination card card-glass fe-surface", href: "/", onclick: move |event| { if crate::fullstack::shell::migrated_link("/") { crate::fullstack::analytics::follow_link(event, navigation, "/"); } },
                     Icon { name: "home".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Home" }
                 }
-                a { class: "not-found-destination card card-glass", href: "/manual",
+                a { class: "not-found-destination card card-glass fe-surface", href: "/developer/docs", onclick: move |event| { if crate::fullstack::shell::migrated_link("/developer/docs") { crate::fullstack::analytics::follow_link(event, navigation, "/developer/docs"); } },
                     Icon { name: "book".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
-                    span { "Manual" }
+                    span { "API documentation" }
                 }
-                a { class: "not-found-destination card card-glass", href: "/plans",
+                a { class: "not-found-destination card card-glass fe-surface", href: "/plans", onclick: move |event| { if crate::fullstack::shell::migrated_link("/plans") { crate::fullstack::analytics::follow_link(event, navigation, "/plans"); } },
                     Icon { name: "zap".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Plans" }
                 }
-                a { class: "not-found-destination card card-glass", href: "/contact",
+                a { class: "not-found-destination card card-glass fe-surface", href: "/contact", onclick: move |event| { if crate::fullstack::shell::migrated_link("/contact") { crate::fullstack::analytics::follow_link(event, navigation, "/contact"); } },
                     Icon { name: "mail".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                     span { "Contact" }
                 }

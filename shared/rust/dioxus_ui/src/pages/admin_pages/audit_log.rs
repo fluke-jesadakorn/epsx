@@ -224,6 +224,34 @@ fn RenderAuditLog(ctx: PageContext) -> Element {
     let location = AuditLocation::from_ctx(&ctx);
     let load = audit_load(&ctx);
 
+    rsx! { AuditBody { location, load } }
+}
+
+/// Typed page entry; PageContext remains only in the legacy SSR adapter.
+#[component]
+pub fn HydratedAuditBody(
+    data: Result<AdminAuditList, crate::fullstack::LoadError>,
+    category: Option<String>,
+    cursor: Option<String>,
+) -> Element {
+    let location = AuditLocation { category, cursor };
+    let load = match data {
+        Ok(value) if value.items.is_empty() => AuditLoad::Empty,
+        Ok(value) => AuditLoad::Ready(value),
+        Err(crate::fullstack::LoadError::Unauthenticated) => AuditLoad::Unauthenticated,
+        Err(crate::fullstack::LoadError::Forbidden) => AuditLoad::Forbidden,
+        Err(crate::fullstack::LoadError::Malformed | crate::fullstack::LoadError::InvalidQuery) => {
+            AuditLoad::Malformed
+        }
+        Err(crate::fullstack::LoadError::Unavailable | crate::fullstack::LoadError::NotFound) => {
+            AuditLoad::Unavailable
+        }
+    };
+    rsx! { AuditBody { location, load } }
+}
+
+#[component]
+fn AuditBody(location: AuditLocation, load: AuditLoad) -> Element {
     rsx! {
         PageLayout {
             max_width: Some(PageMaxWidth::SevenXl),
@@ -290,6 +318,7 @@ fn RenderAuditLog(ctx: PageContext) -> Element {
 
 #[component]
 fn AuditFilters(location: AuditLocation) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let refresh_href = location.href(None);
     rsx! {
         section { class: "rounded-xl border border-border/20 bg-card p-4 shadow-xl", aria_label: "Audit log filters",
@@ -316,7 +345,7 @@ fn AuditFilters(location: AuditLocation) -> Element {
                     input { class: "min-w-0 flex-1 rounded-xl border border-border/50 bg-muted/30 px-3 py-2 text-sm", r#type: "date", disabled: true, aria_label: "Audit date to unavailable", title: "Date filtering is not exposed by the analytics service yet" }
                 }
                 div { class: "flex gap-2",
-                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_href,
+                    a { class: "btn btn-sm bg-gradient-to-r from-[#7645d9] to-[#5a33b8] text-white", href: refresh_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &refresh_href),
                         Icon { name: "refresh-cw".to_string(), size: Some(15) }
                         " Refresh"
                     }
@@ -332,6 +361,7 @@ fn AuditFilters(location: AuditLocation) -> Element {
 
 #[component]
 fn AuditCategoryNav(selected: Option<String>) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     const CATEGORIES: [(&str, &str); 9] = [
         ("auth", "Auth"),
         ("developer", "Developer"),
@@ -347,14 +377,14 @@ fn AuditCategoryNav(selected: Option<String>) -> Element {
         nav { class: "flex gap-2 overflow-x-auto pb-1 lg:pb-0", aria_label: "Audit category",
             a {
                 class: if selected.is_none() { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                href: AUDIT_PATH,
+                href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH),
                 aria_current: selected.is_none().then_some("page"),
                 "All activity"
             }
             for (category, label) in CATEGORIES {
                 a {
                     class: if selected.as_deref() == Some(category) { "btn btn-sm btn-primary" } else { "btn btn-sm btn-outline" },
-                    href: format!("{AUDIT_PATH}?category={category}"),
+                    href: format!("{AUDIT_PATH}?category={category}"), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &format!("{AUDIT_PATH}?category={category}")),
                     aria_current: (selected.as_deref() == Some(category)).then_some("page"),
                     "{label}"
                 }
@@ -365,6 +395,7 @@ fn AuditCategoryNav(selected: Option<String>) -> Element {
 
 #[component]
 fn AuditReady(projection: AdminAuditList, location: AuditLocation) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let next_href = projection
         .next_cursor
         .as_deref()
@@ -395,9 +426,9 @@ fn AuditReady(projection: AdminAuditList, location: AuditLocation) -> Element {
                 }
             }
             nav { class: "flex flex-wrap items-center justify-between gap-3 border-t border-border/30 p-4", aria_label: "Audit pagination",
-                a { class: "btn btn-sm btn-outline", href: location.href(None), "Return to newest" }
+                a { class: "btn btn-sm btn-outline", href: location.href(None), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &location.href(None)), "Return to newest" }
                 if let Some(next_href) = next_href {
-                    a { class: "btn btn-sm btn-outline", href: next_href, rel: "next", "Older activity" }
+                    a { class: "btn btn-sm btn-outline", href: next_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &next_href), rel: "next", "Older activity" }
                 } else {
                     span { class: "btn btn-sm btn-outline opacity-50", aria_disabled: "true", "No older activity" }
                 }
@@ -484,6 +515,7 @@ fn AuditDetailField(label: String, value: String) -> Element {
 
 #[component]
 fn AuditEmpty(location: AuditLocation) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let filtered = location.category.is_some();
     let continued = location.cursor.is_some();
     rsx! {
@@ -503,7 +535,7 @@ fn AuditEmpty(location: AuditLocation) -> Element {
                 }
             }
             if filtered || continued {
-                a { class: "btn btn-primary mt-5", href: AUDIT_PATH, "View newest activity" }
+                a { class: "btn btn-primary mt-5", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "View newest activity" }
             }
         }
     }
@@ -511,6 +543,7 @@ fn AuditEmpty(location: AuditLocation) -> Element {
 
 #[component]
 fn AuditProblem(state: &'static str, title: String, detail: String, retry_href: String) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     rsx! {
         section {
             class: "rounded-2xl border border-border/30 bg-card p-10 text-center shadow-xl",
@@ -520,8 +553,8 @@ fn AuditProblem(state: &'static str, title: String, detail: String, retry_href: 
             h2 { class: "mt-4 text-xl font-semibold text-foreground", "{title}" }
             p { class: "mx-auto mt-2 max-w-2xl text-sm text-muted-foreground", "{detail}" }
             div { class: "mt-6 flex flex-wrap justify-center gap-3",
-                a { class: "btn btn-primary", href: retry_href, "Try again" }
-                a { class: "btn btn-outline", href: AUDIT_PATH, "Reset audit view" }
+                a { class: "btn btn-primary", href: retry_href.clone(), onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, &retry_href), "Try again" }
+                a { class: "btn btn-outline", href: AUDIT_PATH, onclick: move |event| crate::fullstack::admin::follow_admin_link(event, navigation, AUDIT_PATH), "Reset audit view" }
             }
         }
     }
@@ -569,6 +602,25 @@ mod tests {
             next_cursor: Some("cursor_token_2".to_string()),
             has_more: true,
         }
+    }
+
+    #[test]
+    fn typed_audit_body_preserves_legacy_ready_markup() {
+        let mut ctx = signed_in_ctx();
+        ctx.params
+            .insert(ADMIN_AUDIT_STATE_PARAM.into(), ADMIN_AUDIT_READY.into());
+        ctx.params.insert(
+            ADMIN_AUDIT_DATA_PARAM.into(),
+            serde_json::to_string(&projection()).unwrap(),
+        );
+        ctx.params
+            .insert(ADMIN_AUDIT_CATEGORY_PARAM.into(), "system".into());
+        let legacy = dioxus_ssr::render_element(rsx! { RenderAuditLog { ctx } });
+        let typed = dioxus_ssr::render_element(rsx! { HydratedAuditBody {
+            data: Ok(projection()), category: Some("system".to_string()), cursor: None,
+        } });
+        assert_eq!(typed, legacy);
+        assert!(!typed.contains("data-epsx-action"));
     }
 
     #[test]

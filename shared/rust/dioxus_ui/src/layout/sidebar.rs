@@ -91,6 +91,7 @@ pub fn AdminSidebar(
     #[props(default = None)]
     session_state: Option<crate::layout::session_state::SessionState>,
 ) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let items = items.unwrap_or_else(|| DEFAULT_NAV_ITEMS.clone());
 
     // Expand/collapse state — owned by the component (purely UI). Seed
@@ -150,7 +151,7 @@ pub fn AdminSidebar(
 
             // ── Brand block ────────────────────────────────────────────
             div { class: "px-6 pt-5 pb-4",
-                a { class: "flex items-center gap-3 group", href: "/",
+                a { class: "flex items-center gap-3 group", href: "/", onclick: move |event| crate::fullstack::admin::follow_admin_link(event,navigation,"/"),
                     div { class: "relative",
                         div { class: "absolute inset-0 bg-gradient-to-br from-[#FF512F] to-[#DD2476] blur-xl opacity-20 group-hover:opacity-40 transition-opacity" }
                         div { class: "relative z-10 group-active:scale-95 transition-transform",
@@ -195,6 +196,7 @@ pub fn AdminSidebar(
 /// unauthenticated. Mirrors the gradient card in the TS source.
 #[component]
 fn ConnectWalletCta(return_url: String) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let href = format!("/auth?return_url={}", urlencode(&return_url));
     rsx! {
         div { class: "mb-4",
@@ -205,6 +207,7 @@ fn ConnectWalletCta(return_url: String) -> Element {
                     p { class: "text-[10px] text-muted-foreground mb-4 px-2", "Unlock all features by connecting your wallet." }
                     a { class: "admin-sidebar-cta block w-full bg-[#1fc7d4] text-white text-sm font-bold py-2.5 px-4 rounded-2xl shadow-lg shadow-cyan-500/20 hover:shadow-cyan-500/40 hover:scale-[1.02] active:scale-95 transition-all text-center",
                         href: "{href}",
+                        onclick: move |event| crate::fullstack::admin::follow_admin_link(event,navigation,&href),
                         "Connect Wallet"
                     }
                 }
@@ -272,6 +275,7 @@ fn SidebarRow(
     chat_count: u32,
     expanded: Signal<std::collections::HashSet<String>>,
 ) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let is_active = current_path == item.href
         || (item.href != "/" && current_path.starts_with(&format!("{}/", item.href)));
     let is_expanded = expanded.read().contains(&item.id);
@@ -352,6 +356,9 @@ fn SidebarRow(
             a {
                 class: if is_active { "admin-nav-row admin-nav-row-active flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 group-active:scale-[0.98] bg-gradient-to-r from-[#1fc7d4]/10 to-[#7645d9]/10 text-[#1fc7d4] border border-[#1fc7d4]/20 shadow-sm" } else { "admin-nav-row flex items-center gap-3 px-4 py-2.5 rounded-2xl transition-all duration-200 group-active:scale-[0.98] text-muted-foreground hover:bg-muted/30 hover:text-foreground" },
                 href: "{href}",
+                onclick: move |event| {
+                    crate::fullstack::admin::follow_admin_link(event, navigation, &href);
+                },
                 "aria-current": if is_active { "page" } else { "false" },
                 if !item.icon.is_empty() {
                     Icon {
@@ -378,6 +385,7 @@ fn NavChildren(
     child_id: String,
     expanded: bool,
 ) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let children = match item.children.clone() {
         Some(c) => c,
         None => return rsx! { Fragment {} },
@@ -399,6 +407,7 @@ fn NavChildren(
                     rsx! {
                         a { class: if child_active { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-[#1fc7d4] bg-[#1fc7d4]/5 font-bold" } else { "flex items-center gap-3 px-3 py-2 rounded-xl transition-all text-muted-foreground hover:text-foreground hover:bg-muted/30" },
                             href: "{child_href}",
+                            onclick: move |event| { crate::fullstack::admin::follow_admin_link(event, navigation, &child_href); },
                             "aria-current": if child_active { "page" } else { "false" },
                             if !child.icon.is_empty() {
                                 Icon {

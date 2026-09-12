@@ -66,6 +66,10 @@ pub fn AuthPage() -> Element {
 pub fn RenderAuth(
     session_state: AuthPageSessionState,
     #[props(default = None)] return_url: Option<String>,
+    #[props(default)] on_sign_in: Option<EventHandler<MouseEvent>>,
+    #[props(default)] busy: bool,
+    #[props(default)] error: Option<String>,
+    #[props(default)] on_theme: Option<EventHandler<MouseEvent>>,
 ) -> Element {
     // The component is purely declarative — every interactive state
     // (loading / error / success) is driven by the generated Rust/WASM
@@ -76,11 +80,12 @@ pub fn RenderAuth(
             class: "auth-page",
             "data-auth-session-state": session_state.as_str(),
             "aria-busy": if session_state == AuthPageSessionState::Recovering { "true" } else { "false" },
+            h1 { class: "sr-only fe-type-title", "Sign in to EPSX" }
             // The standalone auth page has no navbar, but the source design
             // still exposes the shared theme control in the upper-right
             // corner. Keep it in the page shell so it remains available on
             // both the desktop marketing layout and compact auth card.
-            div { class: "auth-page-theme-toggle", UnifiedThemeToggle {} }
+            div { class: "auth-page-theme-toggle", if let Some(handler) = on_theme { button { class: "btn btn-ghost", onclick: handler, aria_label: "Toggle theme", "◐" } } else { UnifiedThemeToggle {} } }
             // The development auth page paints these ambient orbs at the
             // page level, so they remain visible on compact screens where
             // the desktop marketing column is intentionally hidden.
@@ -99,22 +104,22 @@ pub fn RenderAuth(
                 }
                     div { class: "auth-page-pitch-inner",
                         div { class: "auth-page-brand",
-                            a { href: "/",
+                            crate::fullstack::shell::ShellLink { href: "/",
                                 span { class: "auth-brand-icon", aria_hidden: "true",
-                                    Icon { name: "cpu".to_string(), size: Some(30), class_name: Some("text-white".to_string()) }
+                                    img { src: "/public/logos/epsx-icon.svg", alt: "", width: "30", height: "30" }
                                 }
                                 "EPSX"
                             }
                     }
-                    h1 { class: "auth-page-headline",
+                    h2 { class: "auth-page-headline",
                         span { class: "auth-page-headline-line",
-                            "Precision " span { class: "gradient-text", "Analytics" }
+                            "Explore " span { class: "gradient-text", "company rankings" }
                         }
                         br {}
-                        span { class: "auth-page-headline-line", "For Modern Teams" }
+                        span { class: "auth-page-headline-line", "at your pace." }
                     }
                     p { class: "auth-page-sub",
-                        "Join the next generation of data intelligence. Real-time metrics, predictive modeling, and institutional-grade insights at your fingertips."
+                        "Save companies, organize your groups, and return to the data that interests you."
                     }
                     // Four value props (matches the development auth page).
                     div { class: "auth-page-value-props",
@@ -123,8 +128,8 @@ pub fn RenderAuth(
                                 Icon { name: "database".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                             }
                             div { class: "auth-page-value-text",
-                                h3 { class: "auth-page-value-title", "Data Accuracy" }
-                                p { class: "auth-page-value-desc", "Institutional-grade precision for every metric." }
+                                h3 { class: "auth-page-value-title", "Company rankings" }
+                                p { class: "auth-page-value-desc", "Explore rankings and upcoming company reports." }
                             }
                         }
                         div { class: "auth-page-value-prop",
@@ -132,8 +137,8 @@ pub fn RenderAuth(
                                 Icon { name: "zap".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                             }
                             div { class: "auth-page-value-text",
-                                h3 { class: "auth-page-value-title", "Real-time Edge" }
-                                p { class: "auth-page-value-desc", "Stay ahead of the curve with instant updates." }
+                                h3 { class: "auth-page-value-title", "Saved companies" }
+                                p { class: "auth-page-value-desc", "Keep the companies you follow in one place." }
                             }
                         }
                         div { class: "auth-page-value-prop",
@@ -141,8 +146,8 @@ pub fn RenderAuth(
                                 Icon { name: "shield".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                             }
                             div { class: "auth-page-value-text",
-                                h3 { class: "auth-page-value-title", "Secure Ownership" }
-                                p { class: "auth-page-value-desc", "Your data, your identity, through Web3." }
+                                h3 { class: "auth-page-value-title", "Wallet sign-in" }
+                                p { class: "auth-page-value-desc", "Use your wallet to verify your account." }
                             }
                         }
                         div { class: "auth-page-value-prop",
@@ -150,21 +155,9 @@ pub fn RenderAuth(
                                 Icon { name: "globe".to_string(), size: Some(20), class_name: Some("text-primary".to_string()) }
                             }
                             div { class: "auth-page-value-text",
-                                h3 { class: "auth-page-value-title", "Global Coverage" }
-                                p { class: "auth-page-value-desc", "Comprehensive coverage across all data sources." }
+                                h3 { class: "auth-page-value-title", "Explore at your pace" }
+                                p { class: "auth-page-value-desc", "Filter available companies by country and sector." }
                             }
-                        }
-                    }
-                    // Source social-proof row.
-                    div { class: "auth-page-social-proof",
-                        div { class: "auth-page-social-avatars",
-                            span { class: "auth-page-social-avatar auth-page-social-avatar-a", "A" }
-                            span { class: "auth-page-social-avatar auth-page-social-avatar-b", "B" }
-                            span { class: "auth-page-social-avatar auth-page-social-avatar-c", "C" }
-                            span { class: "auth-page-social-avatar auth-page-social-avatar-d", "D" }
-                        }
-                        p { class: "auth-page-social-text",
-                            "Built for teams using modern data workflows"
                         }
                     }
                 }
@@ -175,23 +168,23 @@ pub fn RenderAuth(
                     // Mobile-only heading from the development auth page.
                     div { class: "auth-page-mobile-header",
                         div { class: "auth-page-mobile-brand",
-                            a { href: "/",
+                            crate::fullstack::shell::ShellLink { href: "/",
                                 span { class: "auth-brand-icon", aria_hidden: "true",
-                                    Icon { name: "cpu".to_string(), size: Some(28), class_name: Some("text-white".to_string()) }
+                                    img { src: "/public/logos/epsx-icon.svg", alt: "", width: "28", height: "28" }
                                 }
                                 "EPSX"
                             }
                         }
-                        h2 { "Welcome Back" }
-                        p { "Connect your wallet to access the platform" }
+                        h2 { "Sign in to EPSX" }
+                        p { "Use your wallet to continue to your account." }
                     }
-                    div { class: "card card-glass auth-card",
+                    div { class: "card card-glass auth-card fe-surface",
                         // Wave 49 — Plan 13 (T1) — re-ported dev /auth
                         // to match prod's wallet-only design.
-                        //   - Title: "Welcome back" → "Welcome to EPSX"
+                        //   - Title: "Welcome back" → "Sign in to EPSX"
                         //   - Sub:   "Sign in to access dashboards…" →
-                        //            "Secure authentication via Web3"
-                        //   - CTA:   "Sign in with wallet" → "Connect Wallet"
+                        //            "Connect your wallet, then sign the verification message."
+                        //   - CTA:   "Sign in with wallet" → "Sign in with wallet"
                         //   - Removed: OR divider, email form, Google OAuth,
                         //              "Try the demo account" button
                         //   - Added: 3-feature security list
@@ -208,8 +201,8 @@ pub fn RenderAuth(
                             Icon { name: "lock".to_string(), size: Some(32), class_name: Some("text-primary".to_string()) }
                         }
                         div { class: "auth-card-desktop-heading",
-                            h2 { class: "auth-card-title", "Welcome to EPSX" }
-                            p { class: "auth-card-sub", "Secure authentication via Web3" }
+                            h2 { class: "auth-card-title", "Sign in to EPSX" }
+                            p { class: "auth-card-sub", "Connect your wallet, then sign the verification message." }
                         }
                         // === Primary CTA: SIWE (wallet-only) ===
                         // Wave 50 — `data_connect_wallet=true` makes
@@ -222,14 +215,15 @@ pub fn RenderAuth(
                         // This survives SSR (Dioxus onclick closures
                         // get stripped; data-* + external JS does not).
                         div { class: "auth-card-cta",
-                            ConnectButton {
+                            if let Some(handler) = on_sign_in { button { class: "connect-btn connect-btn-full", disabled: busy || session_state != AuthPageSessionState::SignedOut, onclick: handler, if busy { "Waiting for wallet…" } else { "Sign in with wallet" } } } else { ConnectButton {
                                 size: Some(ConnectButtonSize::Full),
-                                label: Some("Connect Wallet".to_string()),
+                                label: Some("Sign in with wallet".to_string()),
+                                aria_label: Some("Sign in with wallet".to_string()),
                                 disabled: session_state != AuthPageSessionState::SignedOut,
                                 data_connect_wallet: Some(true),
                                 data_provider: Some("metamask".to_string()),
                                 data_return_url: return_url.clone(),
-                            }
+                            } }
                         }
                         div { class: "auth-card-divider auth-card-divider-thin", aria_hidden: "true" }
                         // === Loading state (hidden by default) ===
@@ -241,7 +235,7 @@ pub fn RenderAuth(
                             "data-epsx-runtime-status": "true",
                             role: "status",
                             "aria-live": "polite",
-                            hidden: session_state != AuthPageSessionState::Recovering,
+                            hidden: !busy && session_state != AuthPageSessionState::Recovering,
                             div { class: "spinner spinner-sm" }
                             span {
                                 id: "auth-card-status-msg",
@@ -258,7 +252,7 @@ pub fn RenderAuth(
                             class: "auth-card-error",
                             role: "alert",
                             tabindex: "-1",
-                            hidden: session_state != AuthPageSessionState::VerifierUnavailable,
+                            hidden: error.is_none() && session_state != AuthPageSessionState::VerifierUnavailable,
                             div { class: "auth-card-error-icon",
                                 Icon { name: "triangle-alert".to_string(), size: Some(16) }
                             }
@@ -275,7 +269,7 @@ pub fn RenderAuth(
                                 div {
                                     id: "auth-card-error-msg",
                                     class: "auth-card-error-msg",
-                                    if session_state == AuthPageSessionState::VerifierUnavailable {
+                                    if let Some(message) = error.as_ref() { "{message}" } else if session_state == AuthPageSessionState::VerifierUnavailable {
                                         "We cannot verify your session right now. Please try again later."
                                     } else {
                                         ""
@@ -286,26 +280,26 @@ pub fn RenderAuth(
                         // === 3-feature security list (prod design) ===
                         ul { class: "auth-card-features", role: "list",
                             li { class: "auth-card-feature",
-                                span { class: "auth-card-feature-icon", "✓" }
-                                span { "Secure Web3 Login Flow" }
+                                span { class: "auth-card-feature-icon", "01" }
+                                span { "Connect your wallet" }
                             }
                             li { class: "auth-card-feature",
-                                span { class: "auth-card-feature-icon", "✓" }
-                                span { "No Account Credentials Needed" }
+                                span { class: "auth-card-feature-icon", "02" }
+                                span { "Review and sign the verification message" }
                             }
                             li { class: "auth-card-feature",
-                                span { class: "auth-card-feature-icon", "✓" }
-                                span { "Decentralized Data Privacy" }
+                                span { class: "auth-card-feature-icon", "03" }
+                                span { "Return to the page you were viewing" }
                             }
                         }
                         // Mobile source layout exposes the four value props
                         // as compact cards below the wallet benefits.
                         div { class: "auth-card-mobile-features",
                             for (icon, title) in [
-                                ("database", "Data Accuracy"),
-                                ("zap", "Real-time Edge"),
-                                ("shield", "Secure Ownership"),
-                                ("globe", "Global Coverage"),
+                                ("database", "Company rankings"),
+                                ("zap", "Saved companies"),
+                                ("shield", "Wallet sign-in"),
+                                ("globe", "Explore at your pace"),
                             ] {
                                 div { class: "auth-card-mobile-feature",
                                     div { class: "auth-card-mobile-feature-icon",
@@ -318,9 +312,9 @@ pub fn RenderAuth(
                         // === Terms / Privacy footer ===
                         p { class: "auth-card-foot",
                             "By connecting, you agree to our "
-                            a { href: "/terms", "Terms" }
+                            crate::fullstack::shell::ShellLink { href: "/terms", "Terms" }
                             " and "
-                            a { href: "/privacy", "Privacy" }
+                            crate::fullstack::shell::ShellLink { href: "/privacy", "Privacy" }
                             "."
                         }
                     }
@@ -333,7 +327,7 @@ pub fn RenderAuth(
                     }
                     // === Manual redirect fallback ===
                     div { class: "auth-page-fallback",
-                        a { href: "/", "Go to Homepage" }
+                        crate::fullstack::shell::ShellLink { href: "/", "Go to Homepage" }
                     }
                 }
             }
@@ -390,7 +384,6 @@ mod tests {
             "auth-page-sub",
             "auth-page-value-title",
             "auth-page-value-desc",
-            "auth-page-social-text",
             "auth-card-title",
             "auth-card-sub",
             "auth-card-foot",
@@ -521,23 +514,23 @@ mod tests {
             html
         );
         assert!(
-            html.contains("Connect Wallet"),
+            html.contains("Sign in with wallet"),
             "Auth page must render the wallet-only Connect Wallet CTA. Got: {}",
             html
         );
         // 3-feature security list (matches prod design).
         assert!(
-            html.contains("Secure Web3 Login Flow"),
+            html.contains("Connect your wallet"),
             "Auth page must render 'Secure Web3 Login Flow' feature. Got: {}",
             html
         );
         assert!(
-            html.contains("No Account Credentials Needed"),
+            html.contains("Review and sign the verification message"),
             "Auth page must render 'No Account Credentials Needed' feature. Got: {}",
             html
         );
         assert!(
-            html.contains("Decentralized Data Privacy"),
+            html.contains("Return to the page you were viewing"),
             "Auth page must render 'Decentralized Data Privacy' feature. Got: {}",
             html
         );
@@ -557,16 +550,16 @@ mod tests {
         let html = dioxus_ssr::render_element(el);
         // Headline.
         assert!(
-            html.contains("Precision"),
+            html.contains("Explore "),
             "Auth page must render the pitch headline. Got: {}",
             html
         );
         // Four source value props.
         for value in &[
-            "Data Accuracy",
-            "Real-time Edge",
-            "Secure Ownership",
-            "Global Coverage",
+            "Company rankings",
+            "Saved companies",
+            "Wallet sign-in",
+            "Explore at your pace",
         ] {
             assert!(
                 html.contains(value),
@@ -577,7 +570,7 @@ mod tests {
         }
         // Product fit, without an unsupported numeric customer claim.
         assert!(
-            html.contains("Built for teams using modern data workflows"),
+            html.contains("Save companies, organize your groups"),
             "Auth page must render the truthful product-fit statement. Got: {}",
             html
         );

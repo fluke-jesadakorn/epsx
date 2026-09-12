@@ -26,7 +26,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
         rsx! {
             MainLayout { ctx: ctx.clone(),
                 section {
-                    class: "container page-content access-denied-page",
+                    class: "container page-content access-denied-page fe-page-layout",
                     "aria-label": "Access denied",
                     // Wave 49 T2 (Plan 13) — prod's /access-denied does
                     // NOT render the "Common reasons" card below the
@@ -41,6 +41,23 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
         },
     )
+}
+
+#[component]
+pub fn HydratedAccessDenied() -> Element {
+    super::news::hydrated::response_status(403);
+    let navigator = use_navigator();
+    let navigate = use_callback(move |url: String| {
+        navigator.push(url);
+    });
+    rsx! {
+        document::Title { "Access denied — EPSX" }
+        document::Meta { name: "robots", content: "noindex" }
+        section { class: "container page-content access-denied-page fe-page-layout", aria_label: "Access denied",
+            AccessDenied { reason: Some(GENERIC_DENIAL_REASON.to_string()), required_permissions: None,
+                return_url: Some("/".to_string()), contact_href: Some("/contact".to_string()), on_navigate: Some(navigate) }
+        }
+    }
 }
 
 // Common-reasons panel — REMOVED in Wave 49 T2 (Plan 13).

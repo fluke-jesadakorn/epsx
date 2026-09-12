@@ -288,6 +288,7 @@ pub fn generate_breadcrumbs(pathname: &str) -> Vec<BreadcrumbItem> {
 /// Mirrors the `Breadcrumb` component in `breadcrumb.tsx` line 78.
 #[component]
 pub fn Breadcrumb(current_path: String) -> Element {
+    let navigation = try_consume_context::<crate::fullstack::admin::AdminNavigation>();
     let items = generate_breadcrumbs(&current_path);
     if items.len() <= 1 {
         // Single crumb — compact layout.
@@ -322,7 +323,7 @@ pub fn Breadcrumb(current_path: String) -> Element {
                             if !is_last {
                                 a {
                                     class: "text-muted-foreground hover:text-gray-800 dark:hover:text-gray-100 truncate max-w-[100px] sm:max-w-[150px] lg:max-w-none",
-                                    href: "{item.href}",
+                                    href: "{item.href}", onclick: {let href=item.href.clone(); move |event| crate::fullstack::admin::follow_admin_link(event,navigation,&href)},
                                     title: "{item.label}",
                                     "{item.label}"
                                 }

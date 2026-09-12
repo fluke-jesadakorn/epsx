@@ -10,6 +10,7 @@ use dioxus::prelude::*;
 use serde_json::Value;
 
 use super::{PageContext, PageMeta};
+use crate::enterprise::FrontendIcon;
 use crate::layout::main_layout::MainLayout;
 use crate::primitives::*;
 
@@ -74,8 +75,10 @@ struct CreditHistoryWire {
 struct CreditTransactionWire {
     id: String,
     wallet_address: String,
-    amount: serde_json::Number,
-    balance_after: serde_json::Number,
+    #[serde(deserialize_with = "credit_decimal_text")]
+    amount: String,
+    #[serde(deserialize_with = "credit_decimal_text")]
+    balance_after: String,
     tx_type: String,
     reference_id: Option<String>,
     reference_type: Option<String>,
@@ -83,6 +86,19 @@ struct CreditTransactionWire {
     granted_by: Option<String>,
     expires_at: Option<String>,
     created_at: String,
+}
+
+fn credit_decimal_text<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<String, D::Error> {
+    use serde::Deserialize;
+    match Value::deserialize(deserializer)? {
+        Value::String(value) => Ok(value),
+        Value::Number(value) => Ok(value.to_string()),
+        _ => Err(serde::de::Error::custom(
+            "credit amount must be a decimal string or number",
+        )),
+    }
 }
 
 pub fn decode_credit_balance(
@@ -278,10 +294,10 @@ fn RenderAccountCredits(ctx: PageContext) -> Element {
             // The source credits route uses a centered max-w-6xl frame with
             // a 1.5rem inset and top breathing room below the header. Keep
             // that geometry even when the owner-scoped data is unavailable.
-            div { class: "page-content credits-ledger-page mx-auto max-w-6xl px-6 pt-6",
+            div { class: "page-content credits-ledger-page mx-auto max-w-6xl px-6 pt-6 fe-page-layout",
                 div { class: "mb-6",
-                    h1 { class: "text-3xl font-bold text-foreground", "Credit Balance" }
-                    p { class: "mt-2 text-slate-400",
+                    h1 { class: "text-3xl font-bold text-foreground fe-tone-text fe-type-title", "Credit Balance" }
+                    p { class: "mt-2 text-slate-400 fe-tone-muted",
                         "Manage your EPSX credits and view transaction history"
                     }
                 }
@@ -300,7 +316,7 @@ fn RenderAccountCredits(ctx: PageContext) -> Element {
 fn CreditsSignedOut() -> Element {
     rsx! {
         section {
-            class: "credits-access-state card card-glass overflow-hidden",
+            class: "credits-access-state card card-glass overflow-hidden fe-surface",
             "data-credits-state": "signed-out",
             aria_labelledby: "credits-signed-out-title",
             role: "status",
@@ -313,13 +329,13 @@ fn CreditsSignedOut() -> Element {
                 }
                 h2 {
                     id: "credits-signed-out-title",
-                    class: "mt-2 text-2xl font-semibold text-foreground",
+                    class: "mt-2 text-2xl font-semibold text-foreground fe-tone-text",
                     "Sign in to view your credits"
                 }
-                p { class: "mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground",
+                p { class: "mx-auto mt-3 max-w-xl text-sm leading-6 text-muted-foreground fe-tone-muted",
                     "Credit balances and ledger activity are private to the wallet that owns them."
                 }
-                a {
+                crate::fullstack::shell::ShellLink {
                     class: "btn btn-primary mt-6",
                     href: CREDITS_SIGN_IN_PATH,
                     "Sign in"
@@ -359,20 +375,20 @@ fn CreditsOwnerView(balance: CreditBalanceLoad, history: CreditHistoryLoad) -> E
                 }
             }
 
-            div { class: "credits-transaction-list card card-glass mt-6 overflow-hidden",
+            div { class: "credits-transaction-list card card-glass mt-6 overflow-hidden fe-surface",
                 div { class: "border-b border-border p-6",
-                    h2 { id: "credits-transaction-title", class: "text-xl font-semibold text-foreground", "Transaction History" }
+                    h2 { id: "credits-transaction-title", class: "text-xl font-semibold text-foreground fe-tone-text", "Transaction History" }
                 }
                 match history {
                     CreditHistoryLoad::Ready(history) => rsx! { CreditHistoryList { history } },
                     CreditHistoryLoad::Empty => rsx! {
-                        CreditsMessage { state: "empty", title: "No credit transactions yet", detail: "Authoritative ledger activity will appear here when credits are earned or spent." }
+                        CreditsMessage { state: "empty", title: "No credit transactions yet", detail: "Transactions will appear here when credits are earned or spent." }
                     },
                     CreditHistoryLoad::Malformed => rsx! {
-                        CreditsMessage { state: "malformed", title: "Credit history could not be displayed safely", detail: "The backend returned an unexpected ledger response. No entries were shown." }
+                        CreditsMessage { state: "malformed", title: "Credit history is unavailable", detail: "We couldn’t load your credit history. Please try again." }
                     },
                     CreditHistoryLoad::Unavailable | CreditHistoryLoad::SignedOut => rsx! {
-                        CreditsMessage { state: "unavailable", title: "Credit history is temporarily unavailable", detail: "The credit ledger could not be verified. No empty history was assumed." }
+                        CreditsMessage { state: "unavailable", title: "Credit history is temporarily unavailable", detail: "We couldn’t load your credit history. Please try again." }
                     },
                 }
             }
@@ -396,16 +412,16 @@ fn CreditBalanceCard(
         format!("{marker} card card-glass")
     };
     rsx! {
-        div { class: "{card_class}",
+        div { class: "{card_class} fe-surface",
             div { class: "card-body",
                 div { class: "mb-3 flex items-center justify-between",
                     div { class: "rounded-lg bg-primary/10 p-2 text-primary",
-                        Icon { name: icon.to_string(), size: Some(20) }
+                        FrontendIcon { name: icon.to_string(), size: Some(20) }
                     }
-                    span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-500", "Verified" }
+                    span { class: "rounded-full border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs font-medium text-emerald-500 fe-tone-positive", "Verified" }
                 }
-                p { class: "text-sm text-muted-foreground", "{label}" }
-                p { class: "mt-1 text-2xl font-semibold text-foreground", "data-credit-value": value.clone(),
+                p { class: "text-sm text-muted-foreground fe-tone-muted", "{label}" }
+                p { class: "mt-1 text-2xl font-semibold text-foreground fe-tone-text", "data-credit-value": value.clone(),
                     "{value} credits"
                 }
             }
@@ -421,16 +437,16 @@ fn CreditHistoryList(history: CreditHistoryProjection) -> Element {
                 li { class: "p-5 sm:p-6",
                     article { class: "flex flex-col justify-between gap-3 sm:flex-row sm:items-start",
                         div { class: "min-w-0",
-                            p { class: "font-semibold text-foreground", "{transaction.tx_type}" }
+                            p { class: "font-semibold text-foreground fe-tone-text", "{transaction.tx_type}" }
                             if let Some(reason) = transaction.reason {
-                                p { class: "mt-1 text-sm text-muted-foreground", "{reason}" }
+                                p { class: "mt-1 text-sm text-muted-foreground fe-tone-muted", "{reason}" }
                             }
-                            p { class: "mt-1 font-mono text-xs text-muted-foreground break-all", "{transaction.id}" }
+                            p { class: "mt-1 font-mono text-xs text-muted-foreground break-all fe-tone-muted", "{transaction.id}" }
                         }
                         div { class: "sm:text-right",
-                            p { class: "font-semibold text-foreground", "{transaction.amount} credits" }
-                            p { class: "mt-1 text-xs text-muted-foreground", "Balance {transaction.balance_after}" }
-                            time { class: "mt-1 block text-xs text-muted-foreground", datetime: transaction.created_at.clone(), "{transaction.created_at}" }
+                            p { class: "font-semibold text-foreground fe-tone-text", "{transaction.amount} credits" }
+                            p { class: "mt-1 text-xs text-muted-foreground fe-tone-muted", "Balance {transaction.balance_after}" }
+                            time { class: "mt-1 block text-xs text-muted-foreground fe-tone-muted", datetime: transaction.created_at.clone(), "{transaction.created_at}" }
                         }
                     }
                 }
@@ -449,9 +465,9 @@ fn CreditsMessage(state: &'static str, title: &'static str, detail: &'static str
     rsx! {
         div { class: "p-8 sm:p-10 text-center", "data-credit-history-state": state, role,
             Icon { name: "coins".to_string(), size: Some(36), class_name: Some("text-muted-foreground".to_string()) }
-            h3 { class: "mt-3 text-lg font-semibold text-foreground", "{title}" }
-            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground", "{detail}" }
-            a { class: "btn btn-outline mt-5", href: ACCOUNT_PATH, "Back to account" }
+            h3 { class: "mt-3 text-lg font-semibold text-foreground fe-tone-text", "{title}" }
+            p { class: "mx-auto mt-2 max-w-xl text-sm leading-6 text-muted-foreground fe-tone-muted", "{detail}" }
+            crate::fullstack::shell::ShellLink { class: "btn btn-outline mt-5", href: ACCOUNT_PATH, "Back to account" }
         }
     }
 }
@@ -472,20 +488,20 @@ fn UnavailableBalanceCard(
     };
 
     rsx! {
-        div { class: "{card_class}",
+        div { class: "{card_class} fe-surface",
             div { class: "card-body",
                 div { class: "mb-3 flex items-center justify-between",
                     div { class: "rounded-lg bg-primary/10 p-2 text-primary",
-                        Icon { name: icon.to_string(), size: Some(20) }
+                        FrontendIcon { name: icon.to_string(), size: Some(20) }
                     }
                     span {
-                        class: "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-500",
+                        class: "rounded-full border border-amber-500/30 bg-amber-500/10 px-2 py-1 text-xs font-medium text-amber-500 fe-tone-warning",
                         "Unavailable"
                     }
                 }
-                p { class: "text-sm text-muted-foreground", "{label}" }
+                p { class: "text-sm text-muted-foreground fe-tone-muted", "{label}" }
                 p {
-                    class: "mt-1 text-2xl font-semibold text-foreground",
+                    class: "mt-1 text-2xl font-semibold text-foreground fe-tone-text",
                     "data-credit-value": "unavailable",
                     "Not available"
                 }
@@ -494,8 +510,34 @@ fn UnavailableBalanceCard(
     }
 }
 
+#[cfg(feature = "server")]
+pub type CreditsProviderCallback = std::sync::Arc<
+    dyn Fn(
+            http::HeaderMap,
+        ) -> std::pin::Pin<
+            Box<
+                dyn std::future::Future<Output = Result<CreditsData, crate::fullstack::LoadError>>
+                    + Send,
+            >,
+        > + Send
+        + Sync,
+>;
+
 #[cfg(test)]
 mod tests {
+    fn has_link(html: &str, href: &str, label: &str, rel: Option<&str>) -> bool {
+        html.split("<a ")
+            .filter_map(|tail| tail.split_once("</a>"))
+            .any(|(anchor, _)| {
+                let Some((attributes, text)) = anchor.split_once('>') else {
+                    return false;
+                };
+                attributes.contains(&format!("href=\"{href}\""))
+                    && text == label
+                    && rel.is_none_or(|value| attributes.contains(&format!("rel=\"{value}\"")))
+            })
+    }
+
     use super::*;
     use crate::auth::user::{AuthMethod, User};
 
@@ -569,8 +611,8 @@ mod tests {
         assert!(html.contains("data-credits-state=\"unavailable\""));
         assert!(html.contains("role=\"alert\""));
         assert!(html.contains("Credit history is temporarily unavailable"));
-        assert!(html.contains("No empty history was assumed."));
-        assert!(html.contains("href=\"/account\">Back to account</a>"));
+        assert!(html.contains("We couldn’t load your credit history. Please try again."));
+        assert!(has_link(&html, "/account", "Back to account", None));
         assert!(!html.contains("href=\"/account/credits\""));
         assert!(!html.contains(">Retry</a>"));
         assert_no_inferred_financial_state(&html);
@@ -686,5 +728,73 @@ mod tests {
             ACCOUNT_CREDIT_HISTORY_MAX_ITEMS
         )
         .is_none());
+    }
+
+    #[test]
+    fn credit_history_accepts_backend_decimal_strings_without_losing_precision() {
+        let mut wire = serde_json::json!({"success":true,"count":1,"data":[{"id":"tx-rehearsal","wallet_address":"0x1234abcd","amount":"9007199254740993.25","balance_after":"9007199254740994.50","tx_type":"grant","reference_id":null,"reference_type":null,"reason":null,"granted_by":null,"expires_at":null,"created_at":"2026-09-13T00:00:00Z"}]});
+        let read = decode_credit_history(wire.clone(), "0x1234abcd", 20).unwrap();
+        assert_eq!(read.transactions[0].amount, "9007199254740993.25");
+        wire["data"][0]["amount"] = serde_json::json!(1.25);
+        assert!(decode_credit_history(wire.clone(), "0x1234abcd", 20).is_some());
+        wire["data"][0]["amount"] = serde_json::json!("NaN");
+        assert!(decode_credit_history(wire, "0x1234abcd", 20).is_none());
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct CreditsData {
+    pub balance: Result<CreditBalanceProjection, crate::fullstack::LoadError>,
+    pub history: Result<CreditHistoryProjection, crate::fullstack::LoadError>,
+}
+#[cfg(feature = "server")]
+#[derive(Clone)]
+pub struct CreditsProvider(pub CreditsProviderCallback);
+#[server(prefix = "/_server/frontend", endpoint = "credits")]
+pub async fn read_credits(
+) -> Result<Result<CreditsData, crate::fullstack::LoadError>, ServerFnError> {
+    use dioxus_server::axum::Extension;
+    let Extension(provider) =
+        dioxus_fullstack::FullstackContext::extract::<Extension<CreditsProvider>, _>()
+            .await
+            .map_err(|_| ServerFnError::new("Credits provider unavailable"))?;
+    let headers = dioxus_fullstack::FullstackContext::extract::<http::HeaderMap, _>()
+        .await
+        .map_err(|_| ServerFnError::new("Request context unavailable"))?;
+    Ok((provider.0)(headers).await)
+}
+#[component]
+pub fn HydratedCredits() -> Element {
+    let mut result = use_server_future(move || async move { read_credits().await })?;
+    let snapshot = result.read().clone();
+    rsx! {
+        document::Title { "Credits — EPSX" }
+        document::Meta { name: "description", content: "Manage your EPSX credits and view transaction history." }
+        div { class: "page-content credits-ledger-page mx-auto max-w-6xl px-6 pt-6 fe-page-layout", "data-dioxus-credits": "true",
+            div { class: "mb-6",
+                h1 { class: "text-3xl font-bold text-foreground fe-tone-text fe-type-title", "Credit Balance" }
+                p { class: "mt-2 text-slate-400 fe-tone-muted", "Manage your EPSX credits and view transaction history" }
+            }
+            match snapshot {
+                Some(Ok(Ok(data))) => {
+                    let balance = match data.balance {
+                        Ok(value) => CreditBalanceLoad::Ready(value),
+                        Err(crate::fullstack::LoadError::Malformed) => CreditBalanceLoad::Malformed,
+                        Err(_) => CreditBalanceLoad::Unavailable,
+                    };
+                    let history = match data.history {
+                        Ok(value) if value.transactions.is_empty() => CreditHistoryLoad::Empty,
+                        Ok(value) => CreditHistoryLoad::Ready(value),
+                        Err(crate::fullstack::LoadError::Malformed) => CreditHistoryLoad::Malformed,
+                        Err(_) => CreditHistoryLoad::Unavailable,
+                    };
+                    rsx! { CreditsOwnerView { balance, history } }
+                },
+                Some(Ok(Err(crate::fullstack::LoadError::Unauthenticated))) => rsx! { CreditsSignedOut {} },
+                None => rsx! { p { role: "status", "Loading credits…" } },
+                _ => rsx! { p { role: "status", "Credit information is temporarily unavailable." } },
+            }
+            button { r#type: "button", class: "fe-button", onclick: move |_| result.restart(), "Refresh credits" }
+        }
     }
 }

@@ -101,7 +101,12 @@ const MODAL_CARD_STYLE: &str = "max-width:420px;width:100%;pointer-events:auto;"
 /// visible-viewport diff against prod's unauthed capture is
 /// minimized.
 #[component]
-pub fn AuthPageOverlay(return_url: String) -> Element {
+pub fn AuthPageOverlay(
+    return_url: String,
+    #[props(default)] on_sign_in: Option<EventHandler<MouseEvent>>,
+    #[props(default)] busy: bool,
+    #[props(default)] status: Option<String>,
+) -> Element {
     rsx! {
         // ── Outer container — `fixed inset-0 z-50 ...`
         // bg-background` to match prod's `<body className="...
@@ -340,6 +345,8 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                                 button {
                                     class: "auth-wallet-btn",
                                     r#type: "button",
+                                    disabled: busy,
+                                    onclick: move |event| if let Some(handler)=on_sign_in {handler.call(event)},
                                     "data-connect-wallet": "true",
                                     "data-provider": "metamask",
                                     "data-force-wallet-selection": "true",
@@ -384,6 +391,7 @@ pub fn AuthPageOverlay(return_url: String) -> Element {
                                 class: "mt-4 min-h-5 text-center text-sm text-muted-foreground",
                                 "data-epsx-runtime-status": "true",
                                 "aria-live": "polite",
+                                if let Some(message)=status.as_ref(){"{message}"}
                             }
                         }
                     }

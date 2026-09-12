@@ -444,6 +444,31 @@ fn conversation_href(reference: &str) -> String {
 }
 
 #[component]
+pub fn HydratedChatBody(
+    data: crate::fullstack::admin_chat::ChatData,
+    query: crate::fullstack::admin_chat::ChatQuery,
+    mutation: Option<String>,
+) -> Element {
+    use crate::fullstack::admin_chat::ChatContents;
+    let route = if query.id.is_some() {
+        ChatRoute::Conversation
+    } else {
+        ChatRoute::Inbox
+    };
+    let load = match data.contents {
+        ChatContents::Inbox(inbox) => {
+            if inbox.conversations.items.is_empty() {
+                ChatLoad::Empty(inbox)
+            } else {
+                ChatLoad::Ready(inbox)
+            }
+        }
+        ChatContents::Detail(detail) => ChatLoad::Detail(detail),
+    };
+    rsx! {ChatSurface{route,retry_href:query.href(),load,mutation,selected_status:query.status.unwrap_or_default(),selected_topic_id:query.topic_id.unwrap_or_default()}}
+}
+
+#[component]
 fn ChatSurface(
     route: ChatRoute,
     retry_href: String,
@@ -581,7 +606,7 @@ fn ChatFilterBar(
     selected_topic_id: String,
 ) -> Element {
     rsx! {
-        form { method: "get", action: CHAT_PATH, class: "mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border/20 bg-card p-2.5",
+        form { method: "get", action: CHAT_PATH, onsubmit: crate::fullstack::admin_chat::filter, class: "mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-border/20 bg-card p-2.5",
             Icon { name: "sliders-horizontal".to_string(), size: Some(14) }
             select { class: "input h-9 min-w-40 flex-1 text-xs font-medium", name: "status", aria_label: "Conversation status",
                 option { value: "", selected: selected_status.is_empty(), "All Status" }
@@ -598,7 +623,7 @@ fn ChatFilterBar(
             }
             input { r#type: "hidden", name: "limit", value: "20" }
             button { class: "btn btn-sm btn-primary", r#type: "submit", "Apply" }
-            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, "Reset" }
+            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Reset" }
         }
     }
 }
@@ -680,7 +705,7 @@ fn ChatConversationCard(
     let wallet = truncate_wallet(&conversation.wallet_address);
     let unread = conversation.unread_agent;
     rsx! {
-        a { class: "block w-full rounded-xl border border-border/20 bg-card p-3.5 text-left transition-colors hover:border-violet-500/25 hover:bg-violet-500/5", href: conversation_href(&conversation.id),
+        a { class: "block w-full rounded-xl border border-border/20 bg-card p-3.5 text-left transition-colors hover:border-violet-500/25 hover:bg-violet-500/5", href: conversation_href(&conversation.id), onclick: move |event|crate::fullstack::admin_chat::follow(event,conversation_href(&conversation.id)),
             div { class: "mb-2 flex items-start justify-between gap-2",
                 p { class: "line-clamp-1 text-sm font-semibold text-foreground/90", "{conversation.subject}" }
                 if unread > 0 {
@@ -720,15 +745,23 @@ fn ChatPagination(
     selected_topic_id: String,
 ) -> Element {
     let previous = page.checked_sub(1).filter(|value| *value >= 1);
+    let previous_href =
+        previous.map(|value| chat_list_href(&selected_status, &selected_topic_id, value, limit));
+    let next_href = chat_list_href(
+        &selected_status,
+        &selected_topic_id,
+        page.saturating_add(1),
+        limit,
+    );
     rsx! {
         nav { class: "mt-3 flex items-center justify-between gap-2 text-xs text-muted-foreground", aria_label: "Conversation pages",
             span { "{total} total · Page {page}" }
             div { class: "flex gap-2",
-                if let Some(previous) = previous {
-                    a { class: "btn btn-xs btn-outline", href: chat_list_href(&selected_status, &selected_topic_id, previous, limit), "Previous" }
+                if let Some(previous_href) = previous_href {
+                    a { class: "btn btn-xs btn-outline", href: previous_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,previous_href.clone()), "Previous" }
                 }
                 if has_next {
-                    a { class: "btn btn-xs btn-outline", href: chat_list_href(&selected_status, &selected_topic_id, page.saturating_add(1), limit), "Next" }
+                    a { class: "btn btn-xs btn-outline", href: next_href.clone(), onclick: move |event|crate::fullstack::admin_chat::follow(event,next_href.clone()), "Next" }
                 }
             }
         }
@@ -760,6 +793,7 @@ fn chat_list_href(status: &str, topic_id: &str, page: u32, limit: u32) -> String
 
 #[component]
 fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element {
+    let hydrated = try_consume_context::<crate::fullstack::admin_chat::ChatControls>().is_some();
     let conversation_id = detail.conversation.id.clone();
     rsx! {
         section {
@@ -770,7 +804,7 @@ fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element
                 header { class: "border-b border-border/20 p-4 md:p-5",
                     div { class: "flex flex-wrap items-center justify-between gap-3",
                         div { class: "flex min-w-0 items-center gap-3",
-                            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, aria_label: "Back to conversation list",
+                            a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
                                 Icon { name: "arrow-left".to_string(), size: Some(16) }
                             }
                             div { class: "min-w-0",
@@ -802,9 +836,9 @@ fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element
                     }
                 }
                 div { class: "grid gap-5 border-t border-border/20 p-4 lg:grid-cols-[minmax(0,1fr)_auto]",
-                    form { method: "post", action: format!("/chat/{conversation_id}"), class: "space-y-3",
+                    form { method: "post", action: format!("/chat/{conversation_id}"), onsubmit: crate::fullstack::admin_chat::submit, class: "space-y-3",
                         input { r#type: "hidden", name: "operation", value: "reply" }
-                        input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.reply.{}", uuid::Uuid::new_v4()) }
+                        if hydrated {crate::fullstack::admin_chat::ChatIdentity{prefix:"admin.chat.reply"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.reply.{}", uuid::Uuid::new_v4()) }}
                         label { class: "sr-only", r#for: "chat-reply", "Reply" }
                         textarea { id: "chat-reply", class: "textarea textarea-bordered min-h-24 w-full", name: "content", maxlength: MAX_TEXT_CHARS, required: true, placeholder: "Type your reply..." }
                         button { r#type: "submit", class: "btn btn-primary",
@@ -813,9 +847,9 @@ fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element
                         }
                     }
                     div { class: "space-y-2",
-                        form { method: "post", action: format!("/chat/{conversation_id}"), class: "flex flex-wrap items-center gap-2",
+                        form { method: "post", action: format!("/chat/{conversation_id}"), onsubmit: crate::fullstack::admin_chat::submit, class: "flex flex-wrap items-center gap-2",
                             input { r#type: "hidden", name: "operation", value: "status" }
-                            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.status.{}", uuid::Uuid::new_v4()) }
+                            if hydrated {crate::fullstack::admin_chat::ChatIdentity{prefix:"admin.chat.status"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.status.{}", uuid::Uuid::new_v4()) }}
                             select { class: "select select-bordered select-sm", name: "status", aria_label: "Conversation status",
                                 option { value: "open", selected: detail.conversation.status == "open", "Open" }
                                 option { value: "in_progress", selected: detail.conversation.status == "in_progress", "In progress" }
@@ -824,15 +858,15 @@ fn ChatDetailReady(detail: AdminChatDetail, mutation: Option<String>) -> Element
                             }
                             button { r#type: "submit", class: "btn btn-sm btn-outline", "Update" }
                         }
-                        form { method: "post", action: format!("/chat/{conversation_id}"), class: "flex flex-wrap items-center gap-2",
+                        form { method: "post", action: format!("/chat/{conversation_id}"), onsubmit: crate::fullstack::admin_chat::submit, class: "flex flex-wrap items-center gap-2",
                             input { r#type: "hidden", name: "operation", value: "assign" }
-                            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.assign.{}", uuid::Uuid::new_v4()) }
+                            if hydrated {crate::fullstack::admin_chat::ChatIdentity{prefix:"admin.chat.assign"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.assign.{}", uuid::Uuid::new_v4()) }}
                             input { class: "input input-bordered input-sm", name: "agent_address", maxlength: 42, placeholder: "Agent wallet 0x...", aria_label: "Agent wallet" }
                             button { r#type: "submit", class: "btn btn-sm btn-outline", "Assign" }
                         }
-                        form { method: "post", action: format!("/chat/{conversation_id}"),
+                        form { method: "post", action: format!("/chat/{conversation_id}"), onsubmit: crate::fullstack::admin_chat::submit,
                             input { r#type: "hidden", name: "operation", value: "read" }
-                            input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.read.{}", uuid::Uuid::new_v4()) }
+                            if hydrated {crate::fullstack::admin_chat::ChatIdentity{prefix:"admin.chat.read"}}else{input { r#type: "hidden", name: "idempotency_key", value: format!("admin.chat.read.{}", uuid::Uuid::new_v4()) }}
                             button { r#type: "submit", class: "btn btn-sm btn-ghost", "Mark messages read" }
                         }
                     }
@@ -855,7 +889,7 @@ fn ChatUnavailable(
             section { class: "p-4 md:p-8", role: "status", "data-admin-chat-state": state, "data-admin-chat-surface": route.surface(),
                 div { class: "overflow-hidden rounded-2xl border border-border/20 bg-card",
                     header { class: "flex items-center gap-3 border-b border-border/20 p-4",
-                        a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, aria_label: "Back to conversation list",
+                        a { class: "btn btn-sm btn-ghost", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), aria_label: "Back to conversation list",
                             Icon { name: "arrow-left".to_string(), size: Some(16) }
                         }
                         p { class: "font-semibold text-foreground", "Conversation" }
@@ -868,7 +902,7 @@ fn ChatUnavailable(
                         p { class: "mt-3 max-w-2xl text-sm leading-6 text-muted-foreground", "{detail}" }
                         nav { class: "mt-6 flex flex-wrap justify-center gap-2", aria_label: "Conversation recovery",
                             a { class: "btn btn-sm btn-primary", href: retry_href, "Try again" }
-                            a { class: "btn btn-sm btn-outline", href: CHAT_PATH, "Conversation list" }
+                            a { class: "btn btn-sm btn-outline", href: CHAT_PATH, onclick: move |event|crate::fullstack::admin_chat::follow(event,CHAT_PATH.into()), "Conversation list" }
                             a { class: "btn btn-sm btn-ghost", href: "/", "Admin home" }
                         }
                     }

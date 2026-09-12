@@ -1,3 +1,5 @@
+// Historical SSR regression fixtures are not part of the native application.
+#![allow(dead_code)]
 //! Dioxus SSR rendering for the admin BFF.
 //!
 //! The HTTP request is parsed into a `PageContext` (path, query, user) and
@@ -776,67 +778,7 @@ fn record_admin_analytics_load(params: &mut HashMap<String, String>, load: Admin
     params.insert(ADMIN_ANALYTICS_STATE_PARAM.to_string(), state.to_string());
 }
 
-fn ranking_analytics_query(raw_query: &str) -> Result<String, ()> {
-    if raw_query.is_empty() {
-        return Ok(String::new());
-    }
-    let url =
-        reqwest::Url::parse(&format!("https://admin.invalid/?{raw_query}")).map_err(|_| ())?;
-    let mut seen = std::collections::HashSet::new();
-    let mut normalized = url::form_urlencoded::Serializer::new(String::new());
-    for (key, value) in url.query_pairs() {
-        let key = key.as_ref();
-        if !matches!(
-            key,
-            "page" | "limit" | "country" | "sector" | "sort_by" | "min_eps" | "min_growth"
-        ) {
-            continue;
-        }
-        if !seen.insert(key.to_string()) {
-            return Err(());
-        }
-        match key {
-            "page" => {
-                let value = value.parse::<u32>().map_err(|_| ())?;
-                if value == 0 || value > 1_000_000 {
-                    return Err(());
-                }
-                normalized.append_pair(key, &value.to_string());
-            }
-            "limit" => {
-                let value = value.parse::<u32>().map_err(|_| ())?;
-                if value == 0 || value > 100 {
-                    return Err(());
-                }
-                normalized.append_pair(key, &value.to_string());
-            }
-            "country" | "sector" => {
-                if value.is_empty() {
-                    continue;
-                }
-                if value.len() > 64 || value.chars().any(char::is_control) {
-                    return Err(());
-                }
-                normalized.append_pair(key, &value);
-            }
-            "sort_by" => {
-                if value.is_empty() || value.len() > 64 || value.chars().any(char::is_control) {
-                    return Err(());
-                }
-                normalized.append_pair(key, &value);
-            }
-            "min_eps" | "min_growth" => {
-                let number = value.parse::<f64>().map_err(|_| ())?;
-                if !number.is_finite() {
-                    return Err(());
-                }
-                normalized.append_pair(key, &value);
-            }
-            _ => unreachable!(),
-        }
-    }
-    Ok(normalized.finish())
-}
+use crate::fullstack::ranking_analytics_query;
 
 async fn load_ranking_analytics(
     client: &epsx_client::ServiceClient,

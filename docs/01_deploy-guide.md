@@ -1,3 +1,11 @@
+> Native production path (September 2026): Rust release binaries on the Mac Mini,
+> PostgreSQL + Redis + MinIO, exposed through a named Cloudflare Tunnel. Follow
+> `infrastructure/native/README.md` for build/package, explicit migrations,
+> launchd, backups and rollback. Workers/D1 migration and container orchestration
+> are not release prerequisites. Existing Kubernetes/Workers instructions below
+> are historical rollback references. Never deploy or change production routes
+> without a separate explicit deployment instruction.
+
 # EPSX Deployment Guide
 
 Priority-ordered checklist for deploying EPSX to production.
@@ -131,17 +139,19 @@ RSA_PUBLIC_KEY=<PEM_encoded>
 
 # --- Blockchain ---
 BLOCKCHAIN_NETWORK=mainnet
-NEXT_PUBLIC_BLOCKCHAIN_NETWORK=mainnet
 CHAIN_ID=56
-NEXT_PUBLIC_CHAIN_ID=56
 BSC_MAINNET_RPC_URL=https://bsc-dataseed1.binance.org
 BSC_TESTNET_RPC_URL=https://data-seed-prebsc-1-s1.binance.org:8545
 BSC_REQUIRED_CONFIRMATIONS=12
 
 # --- Contract Addresses ---
 PAYMENT_ESCROW_CONTRACT_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0
-NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=0x56e44c9b61Aa24D47C22414e799DA8D76B345Db0
-NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF
+PAYMENT_RECEIVER_ADDRESS=0xea64439c9cb1b9Aa588a8D1cE61292DB4036E3dF
+# Cloudflare R2 (replaces MinIO) — optional, falls back to MINIO_PUBLIC_URL if unset
+R2_PUBLIC_URL=https://assets.epsx.io
+R2_ENDPOINT=https://<account>.r2.cloudflarestorage.com
+R2_ACCESS_KEY_ID=<r2_key>
+R2_SECRET_ACCESS_KEY=<r2_secret>
 
 # --- Wallets ---
 COMPANY_WALLET_MAINNET=0x7877e415a13532d9E43Df7Fd2CC256f93a39ced7
@@ -198,36 +208,24 @@ api.epsx.io     → <tunnel-id>.cfargotunnel.com
 set -a && source infrastructure/docker/.env.prod && set +a
 export DOCKER_DEFAULT_PLATFORM=$DOCKER_PLATFORM
 
-# Build all images
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=$OAUTH_CLIENT_ID \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/frontend/Dockerfile -t epsx-frontend:prod .
-
-docker build \
-  --build-arg NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=$WALLETCONNECT_PROJECT_ID \
-  --build-arg NEXT_PUBLIC_APP_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BACKEND_URL=$BACKEND_URL \
-  --build-arg NEXT_PUBLIC_ADMIN_URL=$ADMIN_FRONTEND_URL \
-  --build-arg NEXT_PUBLIC_BLOCKCHAIN_NETWORK=$NEXT_PUBLIC_BLOCKCHAIN_NETWORK \
-  --build-arg NEXT_PUBLIC_CHAIN_ID=$NEXT_PUBLIC_CHAIN_ID \
-  --build-arg NEXT_PUBLIC_OAUTH_CLIENT_ID=epsx-admin \
-  --build-arg NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET=$NEXT_PUBLIC_PAYMENT_ESCROW_MAINNET \
-  --build-arg NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET=$NEXT_PUBLIC_PAYMENT_RECEIVER_MAINNET \
-  -f apps/admin-frontend/Dockerfile -t epsx-admin-frontend:prod .
+# Build all images (Rust/Dioxus — no NEXT_PUBLIC build-args; runtime env only)
+docker build -f apps/frontend/Dockerfile -t epsx-frontend:prod .
+docker build -f apps/admin/Dockerfile -t epsx-admin:prod .
 
 docker build -f apps/backend/Dockerfile -t epsx-backend:prod .
 
 # Deploy
 cd infrastructure/docker
 docker compose --env-file .env.prod -f docker-compose.prod.yml up -d --force-recreate
+```
+
+### Local Cloudflare simulation (preferred)
+
+```bash
+# Full local Cloudflare — workerd/miniflare via wrangler (replaces Colima K8s)
+bunx wrangler dev --local --persist-to=.wrangler/state --config apps/frontend/wrangler.jsonc
+# Backend Hyperdrive → host.docker.internal:5432, R2/KV/D1 simulators file-persisted
+cargo xtask cloudflare dev --local
 ```
 
 ### Verify
