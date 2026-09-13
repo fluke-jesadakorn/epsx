@@ -35,6 +35,9 @@ fn decode(
     log: &Value,
     t: &Value,
 ) -> std::result::Result<(&'static str, String, &'static str, &'static str), Error> {
+    // Paid/Funded are emitted only after the immutable contract has collected funds.
+    // Their ID commits to all checkout terms, including deadline and salt. A wallet
+    // batch may wrap the call, so its outer destination/input are not those terms.
     let payer = Address::from_str(d.payer.as_deref().ok_or("unbound payer")?)?;
     let payee = Address::from_str(&d.payee)?;
     let token = Address::from_str(&d.token_address)?;
@@ -121,6 +124,22 @@ fn decode(
         } else {
             return Err("unknown event".into());
         };
+    if matches!(kind, "pay" | "deposit") {
+        let expected_id = chain::payment_id(d, payer).map_err(|_| "invalid payment ID")?;
+        if d.chain_id != n.chain_id as i64
+            || Address::from_str(&d.contract_address)? != n.contract(&d.mode).address
+            || topic(log, 1)? != expected_id
+            || d.on_chain_id.as_deref() != Some(format!("{expected_id:#x}").as_str())
+        {
+            return Err("payment terms commitment mismatch".into());
+        }
+        if Address::from_str(&text(t, "to")?)? != n.contract(&d.mode).address {
+            return Ok((status, fee_amount, kind, event));
+        }
+    }
+    if Address::from_str(&text(t, "to")?)? != n.contract(&d.mode).address {
+        return Err("indirect lifecycle operation unsupported".into());
+    }
     let expected =
         chain::input(d, kind).map_err(|e| format!("invalid issued parameters: {e:?}"))?;
     let funding = matches!(kind, "pay" | "deposit") || kind == "refund" && d.mode == "direct";
@@ -174,7 +193,6 @@ async fn apply(
         || rpc::number(&r["blockNumber"])? != height
         || text(&r, "blockHash")? != block_hash
         || text(&r, "transactionHash")? != hash
-        || Address::from_str(&text(&r, "to")?)? != c
     {
         return Err("receipt mismatch".into());
     }
@@ -193,7 +211,7 @@ async fn apply(
     }
     let t = n.rpc("eth_getTransactionByHash", json!([hash])).await?;
     if rpc::number(&t["chainId"])? != n.chain_id
-        || Address::from_str(&text(&t, "to")?)? != c
+        || text(&t, "to")? != text(&r, "to")?
         || text(&t, "hash")? != hash
         || text(&t, "blockHash")? != block_hash
     {
@@ -363,5 +381,113 @@ pub fn spawn(p: Platform) {
                 }
             });
         }
+    }
+}
+
+#[cfg(test)]
+mod evidence_tests {
+    use super::super::chain::Contract;
+    use super::*;
+
+    fn fixture() -> (Network, Payment, Value, Value) {
+        let payer = Address::repeat_byte(1);
+        let payee = Address::repeat_byte(2);
+        let contract = Address::repeat_byte(3);
+        let token = Address::repeat_byte(4);
+        let n = Network {
+            environment: "live".into(),
+            chain_id: 56,
+            rpc_url: String::new(),
+            archive_rpc_url: None,
+            scan_blocks: 10,
+            admin: payee,
+            treasury: payee,
+            direct: Contract {
+                address: contract,
+                deployment_block: 1,
+            },
+            escrow: Contract {
+                address: Address::repeat_byte(5),
+                deployment_block: 1,
+            },
+            qr: None,
+            tokens: Default::default(),
+            confirmations: 15,
+        };
+        let mut d: Payment = serde_json::from_value(json!({
+            "id":"test", "merchant_id":"test", "environment":"live", "order_reference":"test",
+            "link_id":null, "mode":"direct", "chain_id":56, "contract_address":contract,
+            "contract_version":1, "payer":payer, "payee":payee, "token":"USDT",
+            "token_address":token, "token_decimals":18, "amount":"1000000000000000000",
+            "fee_bps":50, "fee_amount":"5000000000000000", "description":null,
+            "metadata":{}, "salt":B256::repeat_byte(6), "on_chain_id":null,
+            "checkout_id":"test", "capability_hash":"", "status":"awaiting_payment", "revision":0,
+            "tx_hash":null,"verified_block":null,"verified_block_hash":null,"verification_error":null,
+            "expires_at":"2026-09-14T00:00:00Z", "created_at":"2026-09-13T00:00:00Z",
+            "updated_at":"2026-09-13T00:00:00Z", "deposit_address":null, "checkout_snapshot":{}
+        })).unwrap();
+        let id = chain::payment_id(&d, payer).unwrap();
+        d.on_chain_id = Some(format!("{id:#x}"));
+        let data = (
+            token,
+            U256::from(1_000_000_000_000_000_000u64),
+            U256::from(5_000_000_000_000_000u64),
+        )
+            .abi_encode();
+        let log = json!({"topics":[keccak256("Paid(bytes32,address,address,address,uint256,uint256)"),id,payer.into_word(),payee.into_word()],"data":format!("0x{}",hex::encode(data))});
+        let t = json!({"from":payer,"to":Address::repeat_byte(7),"input":"0xabcdef","value":"0x0","type":"0x4"});
+        (n, d, log, t)
+    }
+
+    #[test]
+    fn batched_payment_uses_contract_terms_commitment() {
+        let (n, d, l, t) = fixture();
+        assert_eq!(decode(&n, &d, &l, &t).unwrap().0, "succeeded");
+        for field in [
+            "amount",
+            "payee",
+            "payer",
+            "token_address",
+            "salt",
+            "expires_at",
+            "chain_id",
+            "contract_address",
+        ] {
+            let mut v = serde_json::to_value(&d).unwrap();
+            v[field] = match field {
+                "amount" => json!("2000000000000000000"),
+                "salt" => json!(B256::repeat_byte(9)),
+                "expires_at" => json!("2026-09-15T00:00:00Z"),
+                "chain_id" => json!(97),
+                _ => json!(Address::repeat_byte(9)),
+            };
+            assert!(
+                decode(&n, &serde_json::from_value(v).unwrap(), &l, &t).is_err(),
+                "{field}"
+            );
+        }
+        let mut wrong = l.clone();
+        wrong["topics"][1] = json!(B256::ZERO);
+        assert!(decode(&n, &d, &wrong, &t).is_err());
+        wrong = l.clone();
+        wrong["data"] = json!("0x00");
+        assert!(decode(&n, &d, &wrong, &t).is_err());
+        let mut wrong_sender = t.clone();
+        wrong_sender["from"] = json!(Address::repeat_byte(9));
+        assert!(decode(&n, &d, &l, &wrong_sender).is_err());
+    }
+
+    #[test]
+    fn direct_call_still_requires_exact_input_and_value() {
+        let (n, d, l, mut t) = fixture();
+        t["to"] = json!(n.direct.address);
+        assert!(decode(&n, &d, &l, &t).is_err());
+        t["input"] = json!(format!(
+            "0x{}",
+            hex::encode(chain::input(&d, "pay").unwrap())
+        ));
+        assert!(decode(&n, &d, &l, &t).is_ok());
+        t["value"] = json!("0x1");
+        assert!(decode(&n, &d, &l, &t).is_err());
     }
 }
