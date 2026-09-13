@@ -6433,6 +6433,17 @@ fn validate_common_article(article: &UpstreamNewsArticle) -> Result<(), ()> {
     Ok(())
 }
 
+fn news_display_author(wallet: Option<String>, author: Option<String>) -> Option<String> {
+    let is_present = |value: &String| {
+        !value
+            .trim()
+            .eq_ignore_ascii_case("0x0000000000000000000000000000000000000000")
+    };
+    wallet
+        .filter(is_present)
+        .or_else(|| author.filter(is_present))
+}
+
 fn normalize_list_article(article: UpstreamNewsArticle) -> Result<NewsListArticle, ()> {
     let article = normalize_tags(article);
     validate_common_article(&article)?;
@@ -6453,7 +6464,7 @@ fn normalize_list_article(article: UpstreamNewsArticle) -> Result<NewsListArticl
         title: article.title,
         summary,
         cover_image_url: article.cover_image_url.or(article.image),
-        author: article.author_wallet.or(article.author),
+        author: news_display_author(article.author_wallet, article.author),
         published_at,
         read_time: article.read_time,
         tags: article.tags,
@@ -6495,9 +6506,7 @@ fn normalize_detail_article(
     if body.trim().is_empty() || body.len() > 256 * 1_024 {
         return Err(());
     }
-    let author = article
-        .author_wallet
-        .or(article.author)
+    let author = news_display_author(article.author_wallet, article.author)
         .map(|author| author.trim().to_string());
     if author.as_deref().is_some_and(|author| {
         author.trim().is_empty()
@@ -7044,6 +7053,30 @@ mod news_adapter_tests {
                 normalize_news_date(Some(invalid.to_string())).is_err(),
                 "out-of-contract year was accepted: {invalid}"
             );
+        }
+    }
+
+    #[test]
+    fn news_adapters_omit_zero_wallet_authors_and_preserve_real_attribution() {
+        for (wallet, fallback, expected) in [
+            ("0x0000000000000000000000000000000000000000", None, None),
+            (
+                " 0X0000000000000000000000000000000000000000 ",
+                Some("EPSX Editorial"),
+                Some("EPSX Editorial"),
+            ),
+            ("0x1111", Some("EPSX Editorial"), Some("0x1111")),
+        ] {
+            let mut value = article("live-article", "Live article", &[]);
+            value["author_wallet"] = serde_json::json!(wallet);
+            value["author"] = serde_json::json!(fallback);
+            let list =
+                normalize_list_article(serde_json::from_value(value.clone()).unwrap()).unwrap();
+            let detail =
+                normalize_detail_article(serde_json::from_value(value).unwrap(), "live-article")
+                    .unwrap();
+            assert_eq!(list.author.as_deref(), expected);
+            assert_eq!(detail.author.as_deref(), expected);
         }
     }
 
