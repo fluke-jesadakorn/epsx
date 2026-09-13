@@ -162,6 +162,7 @@ fn MarketPreview(response: Option<AnalyticsResponse>) -> Element {
                             let (growth, price, days, progress) = super::analytics::row_card_values(&row);
                             rsx! { StockDataCard {
                                 symbol: row.symbol, rank: row.rank, eps_growth: growth, price,
+                                currency: "Price".to_string(),
                                 company_name: row.company_name, days_until_next_action: days,
                                 progress_percentage: progress,
                             } }
@@ -617,6 +618,8 @@ mod tests {
         }
         assert_eq!(html.matches("data-stock-card=").count(), 3);
         assert!(!html.contains("data-watchlist-toggle"));
+        assert!(html.contains("Price 250.25"));
+        assert!(!html.contains("$250.25"));
     }
 
     #[test]
