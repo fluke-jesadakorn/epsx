@@ -99,10 +99,9 @@ impl PlanRepositoryAdapter {
         .await
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
-        Ok(rows
-            .into_iter()
-            .filter_map(|r| PermissionString::new(r.permission_string).ok())
-            .collect())
+        rows.into_iter()
+            .map(|r| PermissionString::new(r.permission_string))
+            .collect::<AppResult<_>>()
     }
 
     /// Fetch permissions for multiple plans in a single query
@@ -165,19 +164,11 @@ impl PlanRepositoryAdapter {
 #[async_trait]
 impl PlanRepositoryPort for PlanRepositoryAdapter {
     async fn find_by_id(&self, id: &PlanId) -> AppResult<Option<Plan>> {
-        let row: Option<PlanDb> = sqlx::query_as(
-            "SELECT id, name, slug, description, plan_type, plan_metadata, \
-                    price, currency, is_active, is_promoted, display_order, \
-                    created_by, tier_level, is_public, rate_limit_per_minute, \
-                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
-                    version, created_at, updated_at, contract_address, \
-                    token_address, block_number, confirmations, expires_at \
-             FROM plans WHERE id = $1",
-        )
-        .bind(id.value())
-        .fetch_optional(self.db_pool.as_ref())
-        .await
-        .map_err(|e| AppError::database_error(e.to_string()))?;
+        let row: Option<PlanDb> = sqlx::query_as("SELECT * FROM plans WHERE id = $1")
+            .bind(id.value())
+            .fetch_optional(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
 
         let Some(row) = row else { return Ok(None) };
         let permissions = self.fetch_permissions(id.clone()).await?;
@@ -185,19 +176,11 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn find_by_slug(&self, slug: &PlanSlug) -> AppResult<Option<Plan>> {
-        let row: Option<PlanDb> = sqlx::query_as(
-            "SELECT id, name, slug, description, plan_type, plan_metadata, \
-                    price, currency, is_active, is_promoted, display_order, \
-                    created_by, tier_level, is_public, rate_limit_per_minute, \
-                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
-                    version, created_at, updated_at, contract_address, \
-                    token_address, block_number, confirmations, expires_at \
-             FROM plans WHERE slug = $1",
-        )
-        .bind(slug.value())
-        .fetch_optional(self.db_pool.as_ref())
-        .await
-        .map_err(|e| AppError::database_error(e.to_string()))?;
+        let row: Option<PlanDb> = sqlx::query_as("SELECT * FROM plans WHERE slug = $1")
+            .bind(slug.value())
+            .fetch_optional(self.db_pool.as_ref())
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
 
         let Some(row) = row else { return Ok(None) };
         let permissions = self.fetch_permissions(PlanId::from_uuid(row.id)).await?;
@@ -205,15 +188,8 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
     }
 
     async fn find_all(&self, criteria: PlanSearchCriteria) -> AppResult<Vec<Plan>> {
-        let mut qb: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
-            "SELECT id, name, slug, description, plan_type, plan_metadata, \
-                    price, currency, is_active, is_promoted, display_order, \
-                    created_by, tier_level, is_public, rate_limit_per_minute, \
-                    rate_limit_per_hour, rate_limit_per_day, burst_capacity, \
-                    version, created_at, updated_at, contract_address, \
-                    token_address, block_number, confirmations, expires_at \
-             FROM plans WHERE TRUE",
-        );
+        let mut qb: QueryBuilder<sqlx::Postgres> =
+            QueryBuilder::new("SELECT * FROM plans WHERE TRUE");
         if let Some(ref plan_type) = criteria.plan_type {
             qb.push(" AND plan_type = ").push_bind(plan_type.clone());
         }
@@ -224,7 +200,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             qb.push(" AND is_promoted = ").push_bind(is_promoted);
         }
         if let Some(ref plan_group) = criteria.plan_group {
-            qb.push(" AND plan_type = ").push_bind(plan_group.clone());
+            qb.push(" AND plan_group = ").push_bind(plan_group.clone());
         }
         if let Some(ref search_term) = criteria.search_term {
             let pattern = format!("%{}%", search_term);
@@ -254,24 +230,33 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 .remove(&row.id)
                 .unwrap_or_default()
                 .into_iter()
-                .filter_map(|s| PermissionString::new(s).ok())
-                .collect();
+                .map(PermissionString::new)
+                .collect::<AppResult<_>>()?;
             plans.push(row_to_plan(row, perms)?);
         }
         Ok(plans)
     }
 
     async fn save(&self, plan: &Plan) -> AppResult<()> {
+        let price = rust_decimal::Decimal::from_str_exact(&plan.price().to_string())
+            .map_err(|_| AppError::validation_error("Invalid plan price"))?;
+        let mut tx = self
+            .db_pool
+            .begin()
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
         sqlx::query(
             r#"
             INSERT INTO plans (
                 id, name, slug, description, plan_type, plan_metadata,
                 price, currency, is_active, is_promoted, display_order,
                 created_by, tier_level, is_public, rate_limit_per_minute,
-                rate_limit_per_hour, rate_limit_per_day, burst_capacity, version,
-                created_at, updated_at
+                rate_limit_per_hour, rate_limit_per_day, burst_capacity,
+                billing_cycle, plan_category, plan_group, grace_period_hours,
+                max_members, auto_assign_enabled, is_system, created_at, updated_at
             ) VALUES (
-                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, NOW(), NOW()
+                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18,
+                $19, $20, $21, $22, $23, $24, $25, NOW(), NOW()
             )
             ON CONFLICT (id) DO UPDATE SET
                 name = EXCLUDED.name,
@@ -291,7 +276,13 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
                 rate_limit_per_hour = EXCLUDED.rate_limit_per_hour,
                 rate_limit_per_day = EXCLUDED.rate_limit_per_day,
                 burst_capacity = EXCLUDED.burst_capacity,
-                version = EXCLUDED.version,
+                billing_cycle = EXCLUDED.billing_cycle,
+                plan_category = EXCLUDED.plan_category,
+                plan_group = EXCLUDED.plan_group,
+                grace_period_hours = EXCLUDED.grace_period_hours,
+                max_members = EXCLUDED.max_members,
+                auto_assign_enabled = EXCLUDED.auto_assign_enabled,
+                is_system = EXCLUDED.is_system,
                 updated_at = NOW()
             "#,
         )
@@ -301,7 +292,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         .bind(plan.description().to_string())
         .bind(plan.plan_type().to_string())
         .bind(plan.metadata().clone())
-        .bind(plan.price())
+        .bind(price)
         .bind(plan.currency().to_string())
         .bind(plan.is_active())
         .bind(plan.is_promoted())
@@ -313,10 +304,37 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
         .bind(plan.rate_limit_per_hour())
         .bind(plan.rate_limit_per_day())
         .bind(plan.burst_capacity())
-        .execute(self.db_pool.as_ref())
+        .bind(plan.billing_cycle())
+        .bind(plan.plan_category().to_string())
+        .bind(plan.plan_group().to_string())
+        .bind(plan.grace_period_hours())
+        .bind(plan.max_members())
+        .bind(plan.auto_assign_enabled())
+        .bind(plan.is_system())
+        .execute(&mut *tx)
         .await
         .map_err(|e| AppError::database_error(e.to_string()))?;
 
+        // Retain unchanged links and their original grant metadata. Only remove
+        // permissions the aggregate explicitly no longer contains.
+        let permissions: Vec<_> = plan.permissions().iter().map(|p| p.as_str()).collect();
+        sqlx::query("DELETE FROM plan_permissions pp USING permissions p WHERE pp.permission_id=p.id AND pp.plan_id=$1 AND NOT (p.permission_string=ANY($2))")
+            .bind(plan.id().value()).bind(&permissions).execute(&mut *tx).await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
+        let mut ordered_permissions: Vec<_> = plan.permissions().iter().collect();
+        ordered_permissions.sort_by(|a, b| a.as_str().cmp(b.as_str()));
+        for permission in ordered_permissions {
+            sqlx::query("INSERT INTO permissions(permission_string,platform,resource,action,permission_type) VALUES($1,$2,$3,$4,'manual') ON CONFLICT(permission_string) DO NOTHING")
+                .bind(permission.as_str()).bind(permission.platform()).bind(permission.resource())
+                .bind(permission.action()).execute(&mut *tx).await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
+            sqlx::query("INSERT INTO plan_permissions(plan_id,permission_id) SELECT $1,id FROM permissions WHERE permission_string=$2 ON CONFLICT(plan_id,permission_id) DO NOTHING")
+                .bind(plan.id().value()).bind(permission.as_str()).execute(&mut *tx).await
+                .map_err(|e| AppError::database_error(e.to_string()))?;
+        }
+        tx.commit()
+            .await
+            .map_err(|e| AppError::database_error(e.to_string()))?;
         Ok(())
     }
 
@@ -342,7 +360,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
             qb.push(" AND is_promoted = ").push_bind(is_promoted);
         }
         if let Some(ref plan_group) = criteria.plan_group {
-            qb.push(" AND plan_type = ").push_bind(plan_group.clone());
+            qb.push(" AND plan_group = ").push_bind(plan_group.clone());
         }
         if let Some(ref search_term) = criteria.search_term {
             let pattern = format!("%{}%", search_term);
@@ -395,3 +413,7 @@ impl PlanRepositoryPort for PlanRepositoryAdapter {
 /// Backward-compatible alias (BIG-BANG migration): callers may use the legacy name.
 #[deprecated(note = "Use PlanRepositoryAdapter — old name kept for migration period")]
 pub type PermissionPlanRepositoryAdapter = PlanRepositoryAdapter;
+
+#[cfg(test)]
+#[path = "permission_plan_repository_tests.rs"]
+mod integration_tests;
