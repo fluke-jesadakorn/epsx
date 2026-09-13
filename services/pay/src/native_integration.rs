@@ -147,7 +147,7 @@ async fn catch_up(s: &AppState, c: &native_chain::Chain) {
             return;
         }
     }
-    panic!("scanner must catch up in bounded 10-block batches");
+    panic!("scanner must catch up within the configured block bound");
 }
 #[tokio::test]
 #[ignore = "requires EPSX_NATIVE_TEST_DATABASE_URL and a locally deployed Anvil contract"]

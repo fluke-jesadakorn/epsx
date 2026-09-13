@@ -137,7 +137,9 @@ and replays from the deployment checkpoint; requests remain gated while the
 scanner is unavailable or catching up. The legacy package-payment monitor keeps
 its original contract configuration.
 
-Event scans use inclusive batches of at most ten blocks. Readiness remains
+Event scans default to inclusive batches of ten blocks. `PAY_ESCROW_SCAN_BLOCKS`
+and merchant-network `scan_blocks` accept 1..50; qualify the chosen range against
+both RPC endpoints before increasing it. Readiness remains
 unavailable until the checkpoint catches up after startup or a reorg. Contract
 validation checks version, fee, authority, treasury and configured token
 decimals, including QR tokens. `PAY_ESCROW_TREASURY` defaults to the configured
@@ -148,6 +150,15 @@ adding a three-second delay after each scan. Merchant RPC requests reuse pooled
 HTTP connections. Contract validation and canonical receipt checks still run on
 every scan. Verify both recent logs and historical logs: an RPC provider's
 archive-state or historical-receipt support alone does not prove log retention.
+For providers that prune event history, configure `PAY_ESCROW_ARCHIVE_RPC_URL`
+and merchant-network `archive_rpc_url`. Fallback is restricted to `eth_getLogs`
+with the explicit history-pruned error `-32701`; outages and quota errors still
+fail closed. Every fallback verifies the archive chain ID. All scanners share
+a three-second minimum interval between archive operations (a chain check plus
+one log query), keeping the reviewed public NodeReal endpoint below 2,000
+CU/minute. Recent requests continue through the primary endpoint. Recovery on a
+free shared endpoint is slower than normal scanning and has no availability
+guarantee; readiness remains unavailable until replay catches up.
 
 ### Frontend development through dev.epsx.io
 

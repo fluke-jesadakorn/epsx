@@ -285,9 +285,7 @@ pub async fn tick(s: &AppState, c: &Chain) -> Result<(), Error> {
     }
     let finalized = head + 1 - c.confirmations;
     if next <= finalized {
-        let end = next
-            .saturating_add(chain::LOG_SCAN_BLOCKS - 1)
-            .min(finalized);
+        let end = next.saturating_add(c.scan_blocks - 1).min(finalized);
         let end_hash = c.block_hash(end).await?;
         let logs=c.rpc("eth_getLogs",json!([{"address":c.contract,"fromBlock":format!("0x{next:x}"),"toBlock":format!("0x{end:x}")}])).await?;
         let mut logs = logs.as_array().ok_or("invalid logs response")?.clone();

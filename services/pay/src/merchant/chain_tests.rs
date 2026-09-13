@@ -30,6 +30,8 @@ fn network(url: String) -> Network {
         environment: "test".into(),
         chain_id: 31337,
         rpc_url: url,
+        archive_rpc_url: None,
+        scan_blocks: rpc::LOG_SCAN_BLOCKS,
         admin: Address::ZERO,
         treasury: Address::ZERO,
         direct: Contract {
@@ -99,4 +101,24 @@ async fn rpc_rejects_redirects_and_hides_credentials_in_transport_errors() {
     assert_eq!(received.len(), 3);
     assert!(received.iter().all(|(_, path)| path != "/followed"));
     task.abort();
+}
+
+#[test]
+fn existing_network_configuration_keeps_ten_block_default_and_archive_round_trips() {
+    let mut value = serde_json::to_value(network("https://rpc.example".into())).unwrap();
+    value.as_object_mut().unwrap().remove("scan_blocks");
+    let mut parsed: Network = serde_json::from_value(value).unwrap();
+    assert_eq!(parsed.scan_blocks, 10);
+    assert!(parsed.archive_rpc_url.is_none());
+    parsed.scan_blocks = 50;
+    parsed.archive_rpc_url = Some("https://archive.example/credential".into());
+    let restored: Network = serde_json::from_value(serde_json::to_value(&parsed).unwrap()).unwrap();
+    assert_eq!(restored.archive_rpc_url, parsed.archive_rpc_url);
+    assert_eq!(restored.scan_blocks, 50);
+    for blocks in [1, 10, 50] {
+        assert!(rpc::validate_scan_blocks(blocks).is_ok());
+    }
+    for blocks in [0, 51, u64::MAX] {
+        assert!(rpc::validate_scan_blocks(blocks).is_err());
+    }
 }

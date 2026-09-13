@@ -32,6 +32,18 @@ Set `PAY_MERCHANT_NETWORKS` to a JSON array. The following is a shape example; r
 
 Use the actual token decimals; startup reconciliation checks them against the token contract. BNB uses 18 decimals. Mainnet is environment `live`, chain 56, minimum 15 confirmations. Local Anvil is `test`, chain 31337, minimum 1. At most one network per environment is configured. Numeric loopback HTTP is allowed for local RPC; other RPCs require HTTPS. Invalid network configuration prevents startup. The reconciler verifies deployed chain, code, version, fee, mode, Admin, treasury and token allowlist before enabling checkouts. `/ready` fails if any configured merchant contract's checkpoint is unavailable, more than 60 seconds stale, or still catching up.
 
+Networks may additionally specify `archive_rpc_url` and `scan_blocks` (default 10,
+allowed 1..50). An archival endpoint is used only when the primary explicitly
+reports pruned log history; it must return the configured chain ID. Native escrow
+uses `PAY_ESCROW_ARCHIVE_RPC_URL` and `PAY_ESCROW_SCAN_BLOCKS` for the same policy.
+All archive operations share a three-second rate limit. Qualify the selected
+block range and recovery throughput before increasing it; recent receipt access
+alone does not prove that a provider retains historical event logs. See the
+native operations guide for failure handling and public-provider limits.
+The opt-in merchant Anvil suite accepts `EPSX_MERCHANT_TEST_SCAN_BLOCKS` to
+exercise a qualified larger range. Native escrow reads its usual
+`PAY_ESCROW_SCAN_BLOCKS`; use isolated databases for either rehearsal.
+
 The Foundry deployment script is `apps/contracts/script/DeployMerchantPayments.s.sol`. It reads explicit chain, deployer, Admin, treasury and token address settings. It uses the operator's selected Foundry wallet. No application process receives a fund-moving private key. Run simulation/review first. Broadcast on BSC testnet/mainnet only after an explicit deployment instruction and the relevant review gates.
 
 ## EPSX as first merchant

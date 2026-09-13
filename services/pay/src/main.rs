@@ -23,6 +23,7 @@ mod native_chain;
 mod native_pay;
 mod native_reconcile;
 mod native_webhook;
+mod rpc_transport;
 pub mod types;
 
 pub use db::{build_provider, verify_schema_compatibility};

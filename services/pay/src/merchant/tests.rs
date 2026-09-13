@@ -507,6 +507,11 @@ async fn merchant_payments_guest_isolation_webhooks_reorg_and_recovery() {
         environment: "test".into(),
         chain_id: 31337,
         rpc_url: std::env::var("EPSX_MERCHANT_TEST_RPC").unwrap(),
+        archive_rpc_url: None,
+        scan_blocks: std::env::var("EPSX_MERCHANT_TEST_SCAN_BLOCKS")
+            .ok()
+            .map(|value| value.parse().unwrap())
+            .unwrap_or(crate::native_chain::LOG_SCAN_BLOCKS),
         admin: Address::from_str(ADMIN).unwrap(),
         treasury: Address::from_str(ADMIN).unwrap(),
         direct: chain::Contract {
@@ -520,6 +525,7 @@ async fn merchant_payments_guest_isolation_webhooks_reorg_and_recovery() {
         tokens: Default::default(),
         confirmations: 3,
     };
+    crate::native_chain::validate_scan_blocks(n.scan_blocks).unwrap();
     assert_eq!(
         crate::native_chain::number(&n.rpc("eth_chainId", json!([])).await.unwrap()).unwrap(),
         31337
