@@ -76,6 +76,53 @@ pub async fn get_unified_analytics_rankings_cached(
     user_context_ext: Option<Extension<OpenIDUserContext>>,
     analytics_wallet_ext: Option<Extension<AnalyticsWalletContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
+    rankings_response(
+        params,
+        permission_service,
+        rankings_provider,
+        user_context_ext,
+        analytics_wallet_ext,
+        None,
+    )
+    .await
+}
+
+/// Fixed public home preview. Query strings and wallet plans cannot change its range.
+pub async fn get_home_rankings_preview(
+    Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
+    Extension(rankings_provider): Extension<Arc<dyn MarketRankingsProviderPort>>,
+) -> Result<Json<CardDashboardResponse>, AppError> {
+    let params = EPSRankingQueryParams {
+        page: Some(1),
+        limit: Some(3),
+        country: None,
+        sector: None,
+        sort_by: None,
+        min_eps: None,
+        min_growth: None,
+    };
+    rankings_response(
+        params,
+        permission_service,
+        rankings_provider,
+        None,
+        None,
+        Some(MarketRankingAccess {
+            rank_offset: 100,
+            rankings_limit: 3,
+        }),
+    )
+    .await
+}
+
+async fn rankings_response(
+    params: EPSRankingQueryParams,
+    permission_service: Arc<dyn WalletRankingOffsetQuery>,
+    rankings_provider: Arc<dyn MarketRankingsProviderPort>,
+    user_context_ext: Option<Extension<OpenIDUserContext>>,
+    analytics_wallet_ext: Option<Extension<AnalyticsWalletContext>>,
+    preview_access: Option<MarketRankingAccess>,
+) -> Result<Json<CardDashboardResponse>, AppError> {
     debug!(
         "Direct TradingView analytics rankings API called with params: {:?}",
         params
@@ -102,9 +149,13 @@ pub async fn get_unified_analytics_rankings_cached(
     // authority decision may select its rank range. Treating an authority
     // outage as free access would turn an operational failure into a false plan
     // decision and still amplify the request into market-provider work.
-    let access =
-        resolve_market_ranking_access(permission_service.as_ref(), wallet_address.as_deref())
-            .await?;
+    let access = match preview_access {
+        Some(access) => access,
+        None => {
+            resolve_market_ranking_access(permission_service.as_ref(), wallet_address.as_deref())
+                .await?
+        }
+    };
 
     debug!(
         "Rankings permission config resolved: offset={}, limit_cap={}",
@@ -670,6 +721,37 @@ mod tests {
         assert_eq!(final_page.request.skip, 21);
         assert_eq!(final_page.request.limit, 5);
         assert_eq!(final_page.page_size, 10);
+    }
+
+    #[tokio::test]
+    async fn home_preview_is_fixed_to_three_ranks_without_plan_authority() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Err(AppError::database_error("must not query plans")),
+            limit_result: Err(AppError::database_error("must not query plans")),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 150,
+        });
+        let Json(response) =
+            get_home_rankings_preview(Extension(authority.clone()), Extension(provider.clone()))
+                .await
+                .unwrap();
+        let requests = provider.requests.lock().unwrap();
+        assert_eq!((requests[0].skip, requests[0].limit), (100, 3));
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
+        let access = response.access_info.unwrap();
+        assert_eq!(
+            (access.min_accessible_rank, access.max_accessible_rank),
+            (101, Some(103))
+        );
+        assert_eq!(response.pagination.total, 3);
+        assert!(!response.pagination.has_next);
     }
 
     #[tokio::test]
