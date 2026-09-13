@@ -263,7 +263,7 @@ pub async fn tick(p: &Platform, n: &Network, mode: &str) -> std::result::Result<
     }
     let finalized = head + 1 - n.confirmations;
     let end = if next <= finalized {
-        next.saturating_add(rpc::LOG_SCAN_BLOCKS - 1).min(finalized)
+        next.saturating_add(n.scan_blocks - 1).min(finalized)
     } else {
         finalized
     };

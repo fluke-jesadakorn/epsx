@@ -37,12 +37,23 @@ pub struct Chain {
     pub tokens: BTreeMap<String, Token>,
     pub confirmations: u64,
     pub deployment_block: u64,
+    pub scan_blocks: u64,
     rpc_url: String,
+    archive_rpc_url: Option<String>,
     client: reqwest::Client,
 }
 pub type Error = Box<dyn std::error::Error + Send + Sync>;
 /// Inclusive log range compatible with the configured free RPC tier.
 pub const LOG_SCAN_BLOCKS: u64 = 10;
+pub fn default_scan_blocks() -> u64 {
+    LOG_SCAN_BLOCKS
+}
+pub fn validate_scan_blocks(blocks: u64) -> Result<(), Error> {
+    if !(1..=50).contains(&blocks) {
+        return Err("scan block limit must be between 1 and 50".into());
+    }
+    Ok(())
+}
 pub fn address(value: &str) -> Result<Address, Error> {
     Ok(Address::from_str(value)?)
 }
@@ -141,6 +152,18 @@ impl Chain {
         if confirmations < minimum {
             return Err("confirmations below chain policy".into());
         }
+        let archive_rpc_url = std::env::var("PAY_ESCROW_ARCHIVE_RPC_URL")
+            .ok()
+            .filter(|value| !value.is_empty());
+        if let Some(url) = &archive_rpc_url {
+            crate::rpc_transport::validate_endpoint(url)?;
+        }
+        let scan_blocks = std::env::var("PAY_ESCROW_SCAN_BLOCKS")
+            .ok()
+            .map(|value| value.parse())
+            .transpose()?
+            .unwrap_or(LOG_SCAN_BLOCKS);
+        validate_scan_blocks(scan_blocks)?;
         Ok(Some(Self {
             chain_id,
             contract,
@@ -150,6 +173,8 @@ impl Chain {
             confirmations,
             deployment_block: std::env::var("PAY_ESCROW_DEPLOYMENT_BLOCK")?.parse()?,
             rpc_url,
+            archive_rpc_url,
+            scan_blocks,
             client: reqwest::Client::builder()
                 .user_agent("EPSX-Pay/1.0")
                 .timeout(Duration::from_secs(15))
@@ -161,25 +186,15 @@ impl Chain {
         keccak256((U256::from(self.chain_id), self.contract, payer, salt).abi_encode())
     }
     pub async fn rpc(&self, method: &str, params: Value) -> Result<Value, Error> {
-        let response: Value = self
-            .client
-            .post(&self.rpc_url)
-            .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
-            .send()
-            .await
-            .map_err(reqwest::Error::without_url)?
-            .error_for_status()
-            .map_err(reqwest::Error::without_url)?
-            .json()
-            .await
-            .map_err(reqwest::Error::without_url)?;
-        if response.get("error").is_some() {
-            return Err(format!("RPC {method} failed").into());
-        }
-        response
-            .get("result")
-            .cloned()
-            .ok_or_else(|| "RPC result missing".into())
+        crate::rpc_transport::read(
+            &self.client,
+            &self.rpc_url,
+            self.archive_rpc_url.as_deref(),
+            self.chain_id,
+            method,
+            params,
+        )
+        .await
     }
     pub async fn deposits_paused(&self) -> Result<bool, Error> {
         Ok(bool::abi_decode(

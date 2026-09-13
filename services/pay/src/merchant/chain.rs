@@ -52,6 +52,10 @@ pub struct Network {
     pub environment: String,
     pub chain_id: u64,
     pub rpc_url: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub archive_rpc_url: Option<String>,
+    #[serde(default = "rpc::default_scan_blocks")]
+    pub scan_blocks: u64,
     pub admin: Address,
     pub treasury: Address,
     pub direct: Contract,
@@ -69,6 +73,10 @@ impl Network {
         let networks: Vec<Self> = serde_json::from_str(&raw)?;
         let mut environments = std::collections::HashSet::new();
         for n in &networks {
+            rpc::validate_scan_blocks(n.scan_blocks)?;
+            if let Some(url) = &n.archive_rpc_url {
+                crate::rpc_transport::validate_endpoint(url)?;
+            }
             let min = match n.chain_id {
                 56 => 15,
                 97 => 3,
@@ -128,25 +136,18 @@ impl Network {
         }
     }
     pub async fn rpc(&self, method: &str, params: Value) -> std::result::Result<Value, Error> {
-        let v: Value = RPC_CLIENT
+        let client = RPC_CLIENT
             .as_ref()
-            .map_err(|_| "merchant RPC client unavailable")?
-            .post(&self.rpc_url)
-            .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
-            .send()
-            .await
-            .map_err(reqwest::Error::without_url)?
-            .error_for_status()
-            .map_err(reqwest::Error::without_url)?
-            .json()
-            .await
-            .map_err(reqwest::Error::without_url)?;
-        if v.get("error").is_some() {
-            return Err("merchant RPC error".into());
-        }
-        v.get("result")
-            .cloned()
-            .ok_or_else(|| "missing RPC result".into())
+            .map_err(|_| "merchant RPC client unavailable")?;
+        crate::rpc_transport::read(
+            client,
+            &self.rpc_url,
+            self.archive_rpc_url.as_deref(),
+            self.chain_id,
+            method,
+            params,
+        )
+        .await
     }
     pub async fn block(&self, height: u64) -> std::result::Result<Value, Error> {
         self.rpc(
