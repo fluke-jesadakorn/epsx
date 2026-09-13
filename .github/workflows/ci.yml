@@ -103,6 +103,14 @@ jobs:
         run: |
           cargo build -p epsx --features cli-tools --bin migrate --locked
           python3 infrastructure/native/ci-migrations.py
+      - name: Preserve legacy wallet identity and reject case collisions
+        env:
+          EPSX_WALLET_IDENTITY_TEST_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+        run: python3 infrastructure/native/test_wallet_identity_migration.py
+      - name: Exercise plan repository against migrated PostgreSQL
+        env:
+          EPSX_PLAN_REPOSITORY_TEST_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+        run: cargo test -p epsx --lib --locked permission_plan_repository_adapter::integration_tests -- --ignored --test-threads=1
       - name: Verify preservation, versions, and split-payment projection
         env:
           PGPASSWORD: epsx_shadow_only

@@ -50,6 +50,14 @@ Historical Diesel never stored a checksum; adoption pins the reviewed release
 content for all subsequent runs. Reconcile archived or manually applied history
 against a backup before adoption; do not fabricate a baseline ledger.
 
+The core wallet-identity migration canonicalizes legacy checksum addresses in
+place, preserving plans, direct grants, sessions, API keys and watchlists. It
+refuses case-variant duplicate accounts or unexpected ownership constraints;
+resolve those findings from the verified backup before retrying. Apply this
+migration before starting authentication against an imported production database.
+`test_wallet_identity_migration.py` exercises preservation and rejection paths
+inside rolled-back transactions on a migrated local `epsx_*_shadow` database.
+
 Render (only) launch daemon plists:
 
 ```
