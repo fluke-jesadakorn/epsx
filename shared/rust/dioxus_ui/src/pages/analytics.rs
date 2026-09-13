@@ -914,7 +914,7 @@ fn AnalyticsFilterForm(
     }
 }
 
-fn row_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) {
+pub(super) fn row_card_values(row: &AnalyticsRow) -> (f64, f64, Option<i32>, Option<f64>) {
     let latest = row.quarterly_performance.first();
     let growth = latest
         .map(|quarter| quarter.eps_growth)

@@ -101,6 +101,7 @@ pub fn HydratedHome() -> Element {
                         _ => HomePlansOutcome::Unavailable,
                     };
                     rsx! {
+                        MarketPreview { response: data.rankings.ok() }
                         PlansPreview { outcome: plans_outcome }
                         NewsPreview { outcome: data.news }
                     }
@@ -121,6 +122,11 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
     let news_outcome =
         parse_news_list_outcome(ctx.params.get("data_home_news").map(String::as_str));
     let plans_outcome = parse_home_plans(ctx);
+    let rankings = ctx
+        .params
+        .get(HOME_ANALYTICS_DATA_PARAM)
+        .and_then(|raw| serde_json::from_str::<AnalyticsResponse>(raw).ok())
+        .and_then(|response| response.validated().ok());
     (
         meta,
         rsx! {
@@ -129,6 +135,7 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
                     class: "fe-home",
                     div { class: "relative z-[1] home-prod-content",
                         HomeHero {}
+                        MarketPreview { response: rankings }
                         PlansPreview { outcome: plans_outcome }
                         NewsPreview { outcome: news_outcome }
                     }
@@ -136,6 +143,33 @@ pub fn render(ctx: &PageContext) -> (PageMeta, Element) {
             }
         },
     )
+}
+
+#[component]
+fn MarketPreview(response: Option<AnalyticsResponse>) -> Element {
+    use crate::components::stock_data_card::StockDataCard;
+    let rows = response.map(|r| r.data).unwrap_or_default();
+    rsx! {
+        section { class: "container fe-page-layout py-12", aria_label: "Stock rankings", "data-home-stock-preview": "true",
+            if rows.is_empty() {
+                DataState { title: "Stock preview is temporarily unavailable", message: "Please try again to see current rankings.", href: "/analytics", action: "Open analytics" }
+            } else {
+                div { class: "grid grid-cols-1 gap-6 md:grid-cols-3",
+                    for row in rows {
+                        {
+                            let (growth, price, days, progress) = super::analytics::row_card_values(&row);
+                            rsx! { StockDataCard {
+                                symbol: row.symbol, rank: row.rank, eps_growth: growth, price,
+                                currency: "Price".to_string(),
+                                company_name: row.company_name, days_until_next_action: days,
+                                progress_percentage: progress,
+                            } }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 #[component]
@@ -561,6 +595,34 @@ mod tests {
     }
 
     #[test]
+    fn home_preview_displays_backend_ranks_and_prices() {
+        let html = render_to_string(&with_home_rankings(
+            empty_ctx(),
+            vec![
+                home_ranking(101, "LIVE101"),
+                home_ranking(102, "LIVE102"),
+                home_ranking(103, "LIVE103"),
+            ],
+        ));
+        for marker in [
+            "LIVE101",
+            "LIVE102",
+            "LIVE103",
+            "RANK #101",
+            "RANK #103",
+            "250.25",
+        ] {
+            assert!(html.contains(marker), "missing {marker}");
+        }
+        assert_eq!(html.matches("data-stock-card=").count(), 3);
+        assert!(!html.contains("data-watchlist-toggle"));
+        assert!(!html.contains("Sample stocks · ranks 101–103"));
+        assert!(!html.contains("Explore a preview of the live EPS growth rankings."));
+        assert!(html.contains("Price 250.25"));
+        assert!(!html.contains("$250.25"));
+    }
+
+    #[test]
     fn home_introduction_is_identical_for_every_ranking_outcome() {
         let baseline = render_to_string(&empty_ctx());
         let mut malformed = empty_ctx();
@@ -575,19 +637,17 @@ mod tests {
             with_home_rankings(empty_ctx(), vec![]),
             with_home_rankings(
                 empty_ctx(),
-                vec![home_ranking(100, "LIVE100"), home_ranking(101, "LIVE101")],
+                vec![
+                    home_ranking(101, "LIVE101"),
+                    home_ranking(102, "LIVE102"),
+                    home_ranking(103, "LIVE103"),
+                ],
             ),
             malformed,
         ] {
             let html = render_to_string(&ctx);
             assert_eq!(hero_markup(&html), hero_markup(&baseline));
-            for forbidden in [
-                "data-stock-card",
-                "data-home-market-state",
-                "LIVE100",
-                "LIVE101",
-                "data-watchlist-toggle",
-            ] {
+            for forbidden in ["data-home-market-state", "LIVE100", "data-watchlist-toggle"] {
                 assert!(
                     !html.contains(forbidden),
                     "home leaked ranking content `{forbidden}`"

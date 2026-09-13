@@ -557,10 +557,7 @@ pub(crate) async fn load_home_analytics(
     if !matches!(path, "/" | "/index") {
         return None;
     }
-    let value = match client
-        .get_plain("/api/analytics/rankings?page=1&limit=3")
-        .await
-    {
+    let value = match client.get_plain("/api/analytics/rankings/preview").await {
         Ok(value) => value,
         Err(error) => {
             tracing::warn!("home rankings dependency unavailable: {error}");
@@ -574,7 +571,12 @@ pub(crate) async fn load_home_analytics(
         Some(response)
             if response.pagination.page == 1
                 && response.pagination.limit == 3
-                && response.data.len() <= 3 =>
+                && response.data.len() <= 3
+                && response
+                    .data
+                    .iter()
+                    .enumerate()
+                    .all(|(i, row)| row.rank == 101 + i as i32) =>
         {
             response
         }
@@ -2921,7 +2923,7 @@ mod tests {
         let calls = std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));
         let route_calls = std::sync::Arc::clone(&calls);
         let router = axum::Router::new().route(
-            "/api/analytics/rankings",
+            "/api/analytics/rankings/preview",
             axum::routing::get(
                 move |headers: axum::http::HeaderMap, raw: axum::extract::RawQuery| {
                     let route_calls = std::sync::Arc::clone(&route_calls);
@@ -2985,10 +2987,7 @@ mod tests {
         for path in ["/analytics", "/?page=1", "/index/"] {
             assert!(load_home_analytics(&client, path).await.is_none(), "{path}");
         }
-        assert_eq!(
-            *calls.lock().unwrap(),
-            vec!["page=1&limit=3", "page=1&limit=3"]
-        );
+        assert_eq!(*calls.lock().unwrap(), vec!["", ""]);
     }
 
     #[test]

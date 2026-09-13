@@ -135,6 +135,10 @@ pub fn build_analytics_router(
     let router = Router::new()
         .route("/health", get(health_handler))
         .route(
+            "/api/analytics/rankings/preview",
+            get(epsx::web::analytics::eps::cache::get_home_rankings_preview),
+        )
+        .route(
             "/api/analytics/rankings",
             get(get_unified_analytics_rankings_cached),
         )
@@ -284,6 +288,7 @@ const BINARY_VERSION: &str = env!("CARGO_PKG_VERSION");
 const MARKET_ROUTES: &[(&str, &str)] = &[
     ("GET", "/health"),
     ("GET", "/api/analytics/rankings"),
+    ("GET", "/api/analytics/rankings/preview"),
     ("GET", "/api/analytics/filters"),
     ("GET", "/api/analytics/countries"),
     ("GET", "/api/analytics/available-countries"),
@@ -449,6 +454,7 @@ mod tests {
             [
                 ("GET", "/health"),
                 ("GET", "/api/analytics/rankings"),
+                ("GET", "/api/analytics/rankings/preview"),
                 ("GET", "/api/analytics/filters"),
                 ("GET", "/api/analytics/countries"),
                 ("GET", "/api/analytics/available-countries"),

@@ -501,6 +501,10 @@ impl UnifiedRouteBuilder {
 
         Router::new()
             .route(
+                "/rankings/preview",
+                get(crate::web::analytics::eps::cache::get_home_rankings_preview),
+            )
+            .route(
                 "/rankings",
                 get(crate::web::analytics::eps_handlers::get_unified_analytics_rankings_cached),
             )
@@ -1142,7 +1146,7 @@ mod wave12_tests {
     /// handlers, plus 2 more in the /api/analytics/... mount).
     /// After Step 4: just 5 in /api/analytics/... (optional-bearer).
     /// See audit-analytics §7a, §7b and the deliverable.
-    const WAVE12_ANALYTICS_ROUTE_COUNT: usize = 5;
+    const WAVE12_ANALYTICS_ROUTE_COUNT: usize = 6;
 
     /// Static assertion: the create_analytics_routes builder must
     /// register exactly WAVE12_ANALYTICS_ROUTE_COUNT routes. If a
@@ -1151,9 +1155,9 @@ mod wave12_tests {
     #[test]
     fn analytics_route_count_after_consolidation() {
         assert_eq!(
-            WAVE12_ANALYTICS_ROUTE_COUNT, 5,
-            "post-consolidation /api/analytics/* must have exactly 5 routes \
-             (rankings, filters, countries, available-countries, sectors). \
+            WAVE12_ANALYTICS_ROUTE_COUNT, 6,
+            "post-consolidation /api/analytics/* must have exactly 6 routes \
+             (rankings, preview, filters, countries, available-countries, sectors). \
              If you added/removed a handler, update this constant and the \
              deliverable.md."
         );
