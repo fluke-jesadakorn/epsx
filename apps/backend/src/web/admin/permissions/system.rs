@@ -6,11 +6,9 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
@@ -98,8 +96,8 @@ pub struct RoutePermission {
 
 #[derive(Debug, Deserialize)]
 pub struct ListRoutesQuery {
-    pub page: Option<u32>,
-    pub limit: Option<u32>,
+    pub method: Option<String>,
+    pub search: Option<String>,
 }
 
 // ============================================================================
@@ -108,71 +106,52 @@ pub struct ListRoutesQuery {
 
 /// Get permission system health status
 /// GET /admin/permissions/system/health
-pub async fn get_health(
-    State(app_state): State<AppState>,
-) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+pub async fn get_health(State(app_state): State<AppState>) -> impl IntoResponse {
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
-    #[derive(QueryableByName)]
-    struct HealthCheck {
-        #[allow(dead_code)]
-        #[diesel(sql_type = diesel::sql_types::Integer)]
-        check: i32,
-    }
-
     // Check database connection
-    let db_connected = diesel::sql_query("SELECT 1 as check")
-        .get_result::<HealthCheck>(&mut conn)
+    let db_connected = sqlx::query("SELECT 1 as check")
+        .execute(app_state.db_pool.as_ref())
         .await
         .is_ok();
 
     // Get system statistics
-    let total_plans = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM plans"
+    let total_plans =
+        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
+
+    let active_assignments = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
         Err(_) => 0,
     };
 
-    let active_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
-    )
-    .get_result::<CountRow>(&mut conn)
-    .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
-
-    let total_wallets = match diesel::sql_query(
+    let total_wallets = match sqlx::query_as::<_, CountRow>(
         "SELECT COUNT(DISTINCT wallet_address)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
         Err(_) => 0,
     };
 
-    let total_permissions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM permissions WHERE is_active = true"
+    let total_permissions = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM permissions WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
@@ -197,68 +176,47 @@ pub async fn get_health(
 
 /// Get permission system statistics
 /// GET /admin/permissions/system/stats
-pub async fn get_statistics(
-    State(app_state): State<AppState>,
-) -> impl IntoResponse {
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+pub async fn get_statistics(State(app_state): State<AppState>) -> impl IntoResponse {
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct TopPlanRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         member_count: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         permission_count: i64,
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlatformRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         platform: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct TypeRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         permission_type: String,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Total plans
-    let total_plans = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM plans"
-    )
-    .get_result::<CountRow>(&mut conn)
-    .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
+    let total_plans =
+        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM plans")
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
 
-    let active_plans = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM plans WHERE is_active = true"
+    let active_plans = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM plans WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
@@ -266,31 +224,30 @@ pub async fn get_statistics(
     };
 
     // Total permissions
-    let total_permissions = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM permissions"
-    )
-    .get_result::<CountRow>(&mut conn)
-    .await
-    {
-        Ok(row) => row.count,
-        Err(_) => 0,
-    };
+    let total_permissions =
+        match sqlx::query_as::<_, CountRow>("SELECT COUNT(*)::bigint as count FROM permissions")
+            .fetch_one(app_state.db_pool.as_ref())
+            .await
+        {
+            Ok(row) => row.count,
+            Err(_) => 0,
+        };
 
     // Wallet assignments
-    let total_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments"
+    let total_assignments = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
         Err(_) => 0,
     };
 
-    let active_assignments = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true"
+    let active_assignments = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
@@ -298,15 +255,15 @@ pub async fn get_statistics(
     };
 
     // Expiring assignments (7 days)
-    let expiring_7d = match diesel::sql_query(
+    let expiring_7d = match sqlx::query_as::<_, CountRow>(
         r#"
         SELECT COUNT(*)::bigint as count FROM wallet_plan_assignments
         WHERE is_active = true
           AND expires_at IS NOT NULL
           AND expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
-        "#
+        "#,
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
@@ -314,10 +271,10 @@ pub async fn get_statistics(
     };
 
     // Direct permissions
-    let total_direct = match diesel::sql_query(
-        "SELECT COUNT(*)::bigint as count FROM wallet_direct_permissions WHERE is_active = true"
+    let total_direct = match sqlx::query_as::<_, CountRow>(
+        "SELECT COUNT(*)::bigint as count FROM wallet_direct_permissions WHERE is_active = true",
     )
-    .get_result::<CountRow>(&mut conn)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count,
@@ -325,7 +282,7 @@ pub async fn get_statistics(
     };
 
     // Top plans by member count
-    let top_plans_rows = diesel::sql_query(
+    let top_plans_rows = sqlx::query_as::<_, TopPlanRow>(
         r#"
         SELECT
             pg.id, pg.name, pg.plan_type,
@@ -338,51 +295,54 @@ pub async fn get_statistics(
         GROUP BY pg.id, pg.name, pg.plan_type
         ORDER BY member_count DESC
         LIMIT 10
-        "#
+        "#,
     )
-    .load::<TopPlanRow>(&mut conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     .unwrap_or_default();
 
-    let top_plans: Vec<TopPlanStats> = top_plans_rows.into_iter().map(|row| {
-        TopPlanStats {
+    let top_plans: Vec<TopPlanStats> = top_plans_rows
+        .into_iter()
+        .map(|row| TopPlanStats {
             id: row.id.to_string(),
             name: row.name,
             plan_type: row.plan_type,
             member_count: row.member_count,
             permission_count: row.permission_count,
-        }
-    }).collect();
+        })
+        .collect();
 
     // Permission breakdown by platform
-    let platform_rows = diesel::sql_query(
+    let platform_rows = sqlx::query_as::<_, PlatformRow>(
         "SELECT platform, COUNT(*)::bigint as count FROM permissions GROUP BY platform ORDER BY count DESC"
     )
-    .load::<PlatformRow>(&mut conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     .unwrap_or_default();
 
-    let by_platform: Vec<PlatformStats> = platform_rows.into_iter().map(|row| {
-        PlatformStats {
+    let by_platform: Vec<PlatformStats> = platform_rows
+        .into_iter()
+        .map(|row| PlatformStats {
             platform: row.platform,
             count: row.count,
-        }
-    }).collect();
+        })
+        .collect();
 
     // Permission breakdown by type
-    let type_rows = diesel::sql_query(
+    let type_rows = sqlx::query_as::<_, TypeRow>(
         "SELECT permission_type, COUNT(*)::bigint as count FROM permissions GROUP BY permission_type ORDER BY count DESC"
     )
-    .load::<TypeRow>(&mut conn)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     .unwrap_or_default();
 
-    let by_type: Vec<TypeStats> = type_rows.into_iter().map(|row| {
-        TypeStats {
+    let by_type: Vec<TypeStats> = type_rows
+        .into_iter()
+        .map(|row| TypeStats {
             permission_type: row.permission_type,
             count: row.count,
-        }
-    }).collect();
+        })
+        .collect();
 
     let response = PermissionStatisticsResponse {
         total_plans,
@@ -405,9 +365,7 @@ pub async fn get_statistics(
 
 /// Clear permission caches
 /// POST /admin/permissions/system/cache/clear
-pub async fn clear_caches(
-    State(_app_state): State<AppState>,
-) -> impl IntoResponse {
+pub async fn clear_caches(State(_app_state): State<AppState>) -> impl IntoResponse {
     // In a real implementation, this would clear Redis caches
     tracing::info!("Permission caches cleared");
 
@@ -461,7 +419,8 @@ pub async fn get_route_permissions(
     AdminResponse::success(serde_json::json!({
         "routes": routes,
         "count": routes.len()
-    })).into_response()
+    }))
+    .into_response()
 }
 
 /// Register a new route permission mapping
@@ -472,11 +431,13 @@ pub async fn register_route_permission(
 ) -> impl IntoResponse {
     // Validate input
     if req.route_path.is_empty() || req.http_method.is_empty() {
-        return AdminResponse::bad_request("Route path and HTTP method are required").into_response();
+        return AdminResponse::bad_request("Route path and HTTP method are required")
+            .into_response();
     }
 
     if req.required_permissions.is_empty() {
-        return AdminResponse::bad_request("At least one required permission must be specified").into_response();
+        return AdminResponse::bad_request("At least one required permission must be specified")
+            .into_response();
     }
 
     // In a real implementation, this would save to a route_permissions table

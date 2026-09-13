@@ -2,49 +2,34 @@
 // Commands and queries for permission plan and policy operations
 
 pub mod commands;
-pub mod queries;
 pub mod controllers; // HTTP controllers (inbound adapters)
-pub mod dtos; // Request/Response DTOs
+pub mod dtos;
+pub mod queries; // Request/Response DTOs
 
 // Re-export command models
 pub use commands::{
-    CreatePermissionPlanCommand,
-    CreatePermissionPlanResponse,
-    UpdatePermissionPlanCommand,
+    AssignWalletToPlanCommand, AssignWalletToPlanResponse, CreatePermissionPlanCommand,
+    CreatePermissionPlanResponse, DeletePermissionPlanCommand, DeletePermissionPlanResponse,
+    RemoveWalletFromPlanCommand, RemoveWalletFromPlanResponse, UpdatePermissionPlanCommand,
     UpdatePermissionPlanResponse,
-    DeletePermissionPlanCommand,
-    DeletePermissionPlanResponse,
-    AssignWalletToPlanCommand,
-    AssignWalletToPlanResponse,
-    RemoveWalletFromPlanCommand,
-    RemoveWalletFromPlanResponse,
 };
 
 // Re-export command handlers
 pub use commands::{
-    CreatePermissionPlanCommandHandler,
+    AssignWalletToPlanCommandHandler, CreatePermissionPlanCommandHandler,
+    DeletePermissionPlanCommandHandler, RemoveWalletFromPlanCommandHandler,
     UpdatePermissionPlanCommandHandler,
-    DeletePermissionPlanCommandHandler,
-    AssignWalletToPlanCommandHandler,
-    RemoveWalletFromPlanCommandHandler,
 };
 
 // Re-export query models
 pub use queries::{
-    GetPermissionPlanQuery,
-    GetPermissionPlanResponse,
-    ListPermissionPlansQuery,
+    GetPermissionPlanQuery, GetPermissionPlanResponse, GetPlanMembersQuery, GetPlanMembersResponse,
+    GetWalletPlansQuery, GetWalletPlansResponse, ListPermissionPlansQuery,
     ListPermissionPlansResponse,
-    GetPlanMembersQuery,
-    GetPlanMembersResponse,
-    GetWalletPlansQuery,
-    GetWalletPlansResponse,
 };
 
 // Re-export query handlers
 pub use queries::{
-    GetPermissionPlanQueryHandler,
+    GetPermissionPlanQueryHandler, GetPlanMembersQueryHandler, GetWalletPlansQueryHandler,
     ListPermissionPlansQueryHandler,
-    GetPlanMembersQueryHandler,
-    GetWalletPlansQueryHandler,
 };

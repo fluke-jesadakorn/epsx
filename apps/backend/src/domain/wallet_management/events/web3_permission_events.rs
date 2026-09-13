@@ -1,10 +1,10 @@
-use crate::prelude::*;
 use crate::domain::shared_kernel::{DomainEvent, EventMetadata};
-use serde::{Deserialize, Serialize};
-use chrono::{DateTime, Utc};
-use uuid::Uuid;
-use std::collections::HashMap;
 use crate::domain::wallet_management::value_objects::{Permission, WalletAddress};
+use crate::prelude::*;
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use uuid::Uuid;
 
 /// Parameters for TokenPermissionGrantedEvent
 pub struct TokenPermissionParams {
@@ -195,7 +195,10 @@ pub struct TokenPermissionGrantedEvent {
 impl TokenPermissionGrantedEvent {
     pub fn new(params: TokenPermissionParams) -> Self {
         Self {
-            metadata: EventMetadata::new(params.wallet_address.to_string(), params.aggregate_version),
+            metadata: EventMetadata::new(
+                params.wallet_address.to_string(),
+                params.aggregate_version,
+            ),
             wallet_address: params.wallet_address,
             permission: params.permission,
             contract_address: params.contract_address,
@@ -258,7 +261,10 @@ pub struct DaoPermissionGrantedEvent {
 impl DaoPermissionGrantedEvent {
     pub fn new(params: DaoPermissionParams) -> Self {
         Self {
-            metadata: EventMetadata::new(params.wallet_address.to_string(), params.aggregate_version),
+            metadata: EventMetadata::new(
+                params.wallet_address.to_string(),
+                params.aggregate_version,
+            ),
             wallet_address: params.wallet_address,
             permission: params.permission,
             dao_contract: params.dao_contract,
@@ -457,7 +463,10 @@ pub struct CrossChainPermissionValidatedEvent {
 impl CrossChainPermissionValidatedEvent {
     pub fn new(params: CrossChainPermissionParams) -> Self {
         Self {
-            metadata: EventMetadata::new(params.wallet_address.to_string(), params.aggregate_version),
+            metadata: EventMetadata::new(
+                params.wallet_address.to_string(),
+                params.aggregate_version,
+            ),
             wallet_address: params.wallet_address,
             permission: params.permission,
             source_chain_id: params.source_chain_id,

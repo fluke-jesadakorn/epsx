@@ -1,0 +1,10 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>EPSX · local Anvil deployment</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main><p class="eyebrow">EPSX RELEASE REHEARSAL · CHAIN 31337</p><h1>Deploy contracts to local Anvil</h1>
+<p>Each transaction creates one contract using local test BNB. Review the account, network and gas in MetaMask, then confirm there.</p>
+<section><h2>Deployment configuration</h2><dl><dt>Admin / arbiter / treasury</dt><dd id="admin"></dd><dt>Connected wallet</dt><dd id="account">Not connected</dd><dt>Network</dt><dd id="network">Not connected</dd></dl>
+<button id="connect">Connect MetaMask</button> <button id="switch">Switch to local Anvil</button> <button id="refresh">Refresh status</button></section>
+<p role="status" id="status">Loading pinned contract build…</p><section><h2>Contracts</h2><div id="contracts"></div></section>
+<section id="review" hidden><h2>Review transaction</h2><pre id="transaction"></pre><button id="send">Request confirmation in MetaMask</button></section>
+<details><summary>Verification</summary><p>Compiler: Solidity 0.8.30, Paris EVM, optimizer 200 runs. The local verifier checks chain 31337, sender, complete creation bytecode, constructor arguments, successful receipt, one confirmation and deployed runtime bytecode. No private keys are requested or stored.</p><p>MockUSDT and MockUSDC are unrestricted test tokens with 18 decimals. All escrow contracts use the configured Admin as arbiter and fee recipient. QRCheckout uses that treasury.</p></details>
+</main></body></html>

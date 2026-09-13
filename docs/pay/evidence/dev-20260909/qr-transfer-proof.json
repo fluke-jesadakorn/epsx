@@ -1,0 +1,13 @@
+{
+  "order_id": "d62e80ec-d22d-406c-8047-ac1911afacfc",
+  "payment_id": "pi_0dcfb10cdca340d8a905b533a9b9982c",
+  "deposit_address": "0xe4ba68ed12cd76bc80a2ae229227c1cb90f50782",
+  "chain_id": 31337,
+  "token": "USDT",
+  "amount": "5",
+  "transaction_hash": "0x9878b94d86ae2033765381f4276cd474c379a9ecb0f366115dd4619caca48422",
+  "payment_status": "succeeded",
+  "fulfillment_status": "granted",
+  "admin_matches_buyer": true,
+  "payment_transport": "ordinary ERC20 transfer via test-wallet CLI; no browser wallet connection"
+}

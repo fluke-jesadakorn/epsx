@@ -1,19 +1,17 @@
+use crate::application::admin::commands::assign_admin_plan::{
+    AssignAdminPlanCommand, AssignAdminPlanHandler,
+};
 use axum::{
-    extract::{State, Path},
+    extract::{Path, State},
     http::StatusCode,
     response::Json,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use serde_json::Value;
-use crate::application::admin::commands::assign_admin_plan::{
-    AssignAdminPlanCommand, AssignAdminPlanHandler
-};
-
+use std::collections::HashMap;
 
 use crate::web::auth::AppState;
 // Removed unused imports
-
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct AdminAssignmentRequest {
@@ -32,31 +30,31 @@ pub struct AdminAssignmentResponse {
 
 // Helper functions removed as they are now in infrastructure adapter
 
-
 /// Assign admin plan to a Firebase user
 pub async fn assign_admin_plan_handler(
     State(app_state): State<AppState>,
     Path(wallet_address): Path<String>,
     Json(request): Json<AdminAssignmentRequest>,
 ) -> Result<Json<AdminAssignmentResponse>, StatusCode> {
-    tracing::info!("Admin assignment request for user {} with plan {}", wallet_address, request.plan);
-    
-    let identity_provider = app_state
-        .identity_provider
-        .clone()
-        .ok_or_else(|| {
-            tracing::error!("IdentityProvider not configured");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+    tracing::info!(
+        "Admin assignment request for user {} with plan {}",
+        wallet_address,
+        request.plan
+    );
+
+    let identity_provider = app_state.identity_provider.clone().ok_or_else(|| {
+        tracing::error!("IdentityProvider not configured");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     let command = AssignAdminPlanCommand {
         wallet_address,
         plan_name: request.plan,
         custom_claims: request.custom_claims,
     };
-    
+
     let handler = AssignAdminPlanHandler::new(identity_provider);
-    
+
     match handler.handle(command).await {
         Ok(response) => {
             // Convert application response to web response if needed (structs are identical/compatible)
@@ -75,20 +73,16 @@ pub async fn assign_admin_plan_handler(
     }
 }
 
-
 /// Get user's current custom claims
 pub async fn get_user_claims_handler(
     State(app_state): State<AppState>,
     Path(wallet_address): Path<String>,
 ) -> Result<Json<HashMap<String, Value>>, StatusCode> {
-    let identity_provider = app_state
-        .identity_provider
-        .clone()
-        .ok_or_else(|| {
-            tracing::error!("IdentityProvider not configured");
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-    
+    let identity_provider = app_state.identity_provider.clone().ok_or_else(|| {
+        tracing::error!("IdentityProvider not configured");
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
+
     match identity_provider.get_user_claims(&wallet_address).await {
         Ok(claims) => Ok(Json(claims)),
         Err(e) => {

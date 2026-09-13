@@ -2,9 +2,9 @@
 //!
 //! DTOs and structs for admin payment operations
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
-use chrono::{DateTime, Utc};
 
 pub use crate::web::pagination::PaginationInfo;
 
@@ -38,6 +38,16 @@ pub struct AdminPaymentListResponse {
     pub summary: PaymentSummary,
 }
 
+/// Admin payment action response (refund/cancel/approve)
+#[derive(Debug, Serialize)]
+pub struct AdminPaymentActionResponse {
+    pub success: bool,
+    pub payment_id: Uuid,
+    pub new_status: String,
+    pub message: String,
+    pub rows_affected: u64,
+}
+
 /// Admin payment information
 #[derive(Debug, Serialize)]
 pub struct AdminPaymentInfo {
@@ -63,7 +73,10 @@ pub struct AdminPaymentInfo {
 
 impl AdminPaymentInfo {
     /// Create from PaymentDb with plan name
-    pub fn from_db(pay: crate::infrastructure::models::payment::PaymentDb, plan_name: String) -> Self {
+    pub fn from_db(
+        pay: crate::infrastructure::models::payment::PaymentDb,
+        plan_name: String,
+    ) -> Self {
         Self {
             id: pay.id,
             payment_reference: pay.payment_reference,
@@ -83,6 +96,38 @@ impl AdminPaymentInfo {
             completed_at: pay.completed_at,
             expires_at: pay.expires_at,
             metadata: pay.metadata.unwrap_or(serde_json::json!({})),
+        }
+    }
+
+    /// Wave 11 / Track A — create from the port DTO
+    /// (`PaymentRowWithPlanName`) returned by
+    /// `PaymentRepositoryPort::get_admin_payment_details_with_plan_name`.
+    /// The conversion matches the legacy `from_db` 1:1.
+    pub fn from_port_row(
+        row: &crate::domain::payment::repository_ports::PaymentRowWithPlanName,
+    ) -> Self {
+        Self {
+            id: row.id,
+            payment_reference: row.payment_reference.clone(),
+            wallet_address: row.wallet_address.clone(),
+            amount: row.amount.parse::<f64>().unwrap_or(0.0),
+            currency: row.currency.clone(),
+            status: row.status.clone(),
+            plan_id: row.plan_id,
+            plan_name: row
+                .plan_name
+                .clone()
+                .unwrap_or_else(|| "Unknown Plan".to_string()),
+            transaction_hash: row.transaction_hash.clone(),
+            contract_address: row.contract_address.clone(),
+            token_address: row.token_address.clone(),
+            block_number: row.block_number,
+            confirmations: row.confirmations.unwrap_or(0),
+            created_at: row.created_at.unwrap_or_else(Utc::now),
+            updated_at: row.updated_at.unwrap_or_else(Utc::now),
+            completed_at: row.completed_at,
+            expires_at: row.expires_at,
+            metadata: row.metadata.clone().unwrap_or(serde_json::json!({})),
         }
     }
 }

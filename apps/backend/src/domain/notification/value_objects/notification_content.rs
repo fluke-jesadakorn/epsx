@@ -47,7 +47,11 @@ impl NotificationContent {
     }
 
     /// Create notification content with specific urgency level
-    pub fn with_urgency(title: String, body: String, urgency: ContentUrgency) -> Result<Self, String> {
+    pub fn with_urgency(
+        title: String,
+        body: String,
+        urgency: ContentUrgency,
+    ) -> Result<Self, String> {
         let mut content = Self::new(title, body)?;
         content.urgency = urgency;
         Ok(content)
@@ -119,12 +123,21 @@ impl NotificationContent {
     /// Get content type based on patterns
     pub fn inferred_urgency(&self) -> ContentUrgency {
         let content = format!("{} {}", self.title, self.body).to_lowercase();
-        
-        if content.contains("urgent") || content.contains("immediate") || content.contains("emergency") {
+
+        if content.contains("urgent")
+            || content.contains("immediate")
+            || content.contains("emergency")
+        {
             ContentUrgency::Urgent
-        } else if content.contains("important") || content.contains("attention") || content.contains("alert") {
+        } else if content.contains("important")
+            || content.contains("attention")
+            || content.contains("alert")
+        {
             ContentUrgency::High
-        } else if content.contains("reminder") || content.contains("notice") || content.contains("update") {
+        } else if content.contains("reminder")
+            || content.contains("notice")
+            || content.contains("update")
+        {
             ContentUrgency::Normal
         } else {
             ContentUrgency::Low
@@ -145,7 +158,9 @@ impl NotificationContent {
         ];
 
         let content_lower = content.to_lowercase();
-        suspicious_patterns.iter().any(|&pattern| content_lower.contains(pattern))
+        suspicious_patterns
+            .iter()
+            .any(|&pattern| content_lower.contains(pattern))
     }
 
     /// Sanitize content for safe display
@@ -229,7 +244,8 @@ mod tests {
         let content = NotificationContent::new(
             "Test Title".to_string(),
             "This is a test notification body".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(content.title(), "Test Title");
         assert_eq!(content.body(), "This is a test notification body");
@@ -237,20 +253,14 @@ mod tests {
 
     #[test]
     fn test_empty_title() {
-        let result = NotificationContent::new(
-            "".to_string(),
-            "Valid body".to_string(),
-        );
+        let result = NotificationContent::new("".to_string(), "Valid body".to_string());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("empty"));
     }
 
     #[test]
     fn test_empty_body() {
-        let result = NotificationContent::new(
-            "Valid title".to_string(),
-            "".to_string(),
-        );
+        let result = NotificationContent::new("Valid title".to_string(), "".to_string());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("empty"));
     }
@@ -258,10 +268,7 @@ mod tests {
     #[test]
     fn test_title_too_long() {
         let long_title = "A".repeat(201);
-        let result = NotificationContent::new(
-            long_title,
-            "Valid body".to_string(),
-        );
+        let result = NotificationContent::new(long_title, "Valid body".to_string());
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("200 characters"));
     }
@@ -269,10 +276,7 @@ mod tests {
     #[test]
     fn test_body_too_long() {
         let long_body = "A".repeat(2001);
-        let result = NotificationContent::new(
-            "Valid title".to_string(),
-            long_body,
-        );
+        let result = NotificationContent::new("Valid title".to_string(), long_body);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("2000 characters"));
     }
@@ -289,10 +293,8 @@ mod tests {
 
     #[test]
     fn test_mobile_friendly() {
-        let short_content = NotificationContent::new(
-            "Short".to_string(),
-            "Brief message".to_string(),
-        ).unwrap();
+        let short_content =
+            NotificationContent::new("Short".to_string(), "Brief message".to_string()).unwrap();
         assert!(short_content.is_mobile_friendly());
 
         let long_content = NotificationContent::new(
@@ -321,7 +323,8 @@ mod tests {
         let content = NotificationContent::new(
             "Title".to_string(),
             "First line\nSecond line\nThird line".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(content.preview(20), "First line");
         assert_eq!(content.preview(5), "Fi...");
@@ -332,7 +335,8 @@ mod tests {
         let content = NotificationContent::new(
             "Important Update".to_string(),
             "System maintenance scheduled".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(content.contains_keyword("important"));
         assert!(content.contains_keyword("SYSTEM"));
@@ -344,19 +348,22 @@ mod tests {
         let urgent = NotificationContent::new(
             "URGENT: System Down".to_string(),
             "Immediate action required".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(urgent.inferred_urgency(), ContentUrgency::Urgent);
 
         let normal = NotificationContent::new(
             "Reminder: Meeting Tomorrow".to_string(),
             "Don't forget about the meeting".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(normal.inferred_urgency(), ContentUrgency::Normal);
 
         let low = NotificationContent::new(
             "Welcome to the platform".to_string(),
             "Thanks for joining us".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(low.inferred_urgency(), ContentUrgency::Low);
     }
 
@@ -365,7 +372,8 @@ mod tests {
         let content = NotificationContent::new(
             "Title with <tags>".to_string(),
             "Body with \"quotes\" & ampersands".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         let sanitized = content.sanitized();
         assert!(sanitized.title().contains("&lt;tags&gt;"));

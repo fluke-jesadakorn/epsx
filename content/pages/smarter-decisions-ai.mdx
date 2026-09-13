@@ -1,0 +1,68 @@
+---
+title: "Smarter Decisions: How EPSX AI Navigates Market Complexity"
+slug: "smarter-decisions-ai"
+date: "March 8, 2026"
+author: "EPSX Research"
+excerpt: "EPSX AI combines on-chain fundamentals, off-chain sentiment, and quantitative signals into one explainable model that traders can actually trust."
+tags: ["ai", "research", "analytics"]
+---
+
+# Smarter Decisions: How EPSX AI Navigates Market Complexity
+
+The crypto market doesn't sleep, and neither does the signal-to-noise problem. Every minute, thousands of tokens move, hundreds of contracts deploy, and dozens of narratives shift. **EPSX AI** is our answer: a single, explainable model that synthesizes everything into a ranking you can act on.
+
+## What EPSX AI does
+
+The model takes a token (or wallet, or contract) and produces:
+
+- A **0–100 momentum score** updated every 15 minutes
+- A **narrative fit** rating against trending sectors (L2s, AI, RWA, DeFi, memes)
+- A **risk surface** map highlighting concentration, liquidity, and holder distribution
+- A **confidence interval** so you know when to trust the score and when to dig deeper
+
+The output is a card in the [Rankings](/rankings) page, with the score, the inputs, and a one-click "explain" button that walks through the math.
+
+## How the model works
+
+Three layers feed into the final score:
+
+### 1. On-chain fundamentals
+
+- Holder count and growth rate
+- Top-10 concentration (lower is healthier)
+- Liquidity depth on the major DEXs
+- Transfer volume vs. swap volume (a high ratio can mean airdrop farming)
+- Contract age and audit status
+
+### 2. Off-chain signals
+
+- Social mention velocity (X, Farcaster, Lens)
+- Developer activity (commits, deployments, issue close rates)
+- News coverage tone (via our news + sentiment indexer)
+
+### 3. Quantitative
+
+- Realized volatility vs. implied
+- Funding rate skew (perp markets)
+- Open interest delta
+- Order-book imbalance
+
+Each layer is a separate model with its own confidence weight. The final score is a **weighted geometric mean** of the three, so a single bad input can't tank a token — but consistent weakness across all three will.
+
+## Why explainable?
+
+Most AI trading tools give you a black-box score. We think that's dangerous. Every EPSX AI score comes with a breakdown showing:
+
+- Which inputs contributed most (positive and negative)
+- Which inputs were noisy or missing
+- What would push the score up or down
+
+If a token's score is 72, you should be able to look at the breakdown and say, "Ah, it's high because of social momentum but low on-chain fundamentals — I'll wait for the fundamentals to catch up."
+
+## What's coming
+
+- **Portfolio-level AI** — score your whole wallet, not just single tokens
+- **Anomaly detection** — flag sudden score moves so you don't get rekt by a stale cache
+- **Custom weights** — let power users rebalance the three layers to match their strategy
+
+The model is live now. The [Rankings page](/rankings) is the best place to explore it — sort by score, click any token, and read the explanation.

@@ -1,6 +1,6 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use super::{Cache, CacheConfig, MemoryCache};
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 
 const PERM_INV_TTL: u64 = 3600; // Match access token lifetime
@@ -16,7 +16,8 @@ pub fn set_perm_invalidated(cache: &dyn Cache, wallet: &str) {
 /// Get the timestamp when a user's permissions were last invalidated.
 /// Returns None if no invalidation flag exists.
 pub fn get_perm_invalidated(cache: &dyn Cache, wallet: &str) -> Option<i64> {
-    cache.get(&format!("perm_inv:{}", wallet))
+    cache
+        .get(&format!("perm_inv:{}", wallet))
         .and_then(|s| s.parse::<i64>().ok())
 }
 
@@ -36,20 +37,19 @@ impl RedisCache {
         let client = redis::Client::open(connection_url.clone())?;
         let client_clone = client.clone();
 
-        let redis_client = match tokio::task::spawn_blocking(move || {
-            match client_clone.get_connection() {
-                Ok(mut conn) => {
-                    match redis::cmd("PING").query::<String>(&mut conn) {
-                        Ok(_) => Some(client_clone),
-                        Err(_) => None
-                    }
-                }
-                Err(_) => None
-            }
-        }).await {
-            Ok(Some(client)) => Some(Arc::new(Mutex::new(client))),
-            _ => None
-        };
+        let redis_client =
+            match tokio::task::spawn_blocking(move || match client_clone.get_connection() {
+                Ok(mut conn) => match redis::cmd("PING").query::<String>(&mut conn) {
+                    Ok(_) => Some(client_clone),
+                    Err(_) => None,
+                },
+                Err(_) => None,
+            })
+            .await
+            {
+                Ok(Some(client)) => Some(Arc::new(Mutex::new(client))),
+                _ => None,
+            };
 
         let available = redis_client.is_some();
 
@@ -60,13 +60,19 @@ impl RedisCache {
         })
     }
 
-    pub async fn get_raw(&self, key: &str) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn get_raw(
+        &self,
+        key: &str,
+    ) -> Result<Option<String>, Box<dyn std::error::Error + Send + Sync>> {
         if let Some(client) = &self.redis_client {
             if self.is_redis_available.load(Ordering::Relaxed) {
                 let client = client.lock().await;
                 match client.get_connection() {
                     Ok(mut conn) => {
-                        match redis::cmd("GET").arg(key).query::<Option<String>>(&mut conn) {
+                        match redis::cmd("GET")
+                            .arg(key)
+                            .query::<Option<String>>(&mut conn)
+                        {
                             Ok(value) => return Ok(value),
                             Err(e) => {
                                 tracing::warn!("Redis GET failed for key '{}': {}", key, e);
@@ -85,16 +91,28 @@ impl RedisCache {
         Ok(self.fallback_cache.get(key))
     }
 
-    pub async fn set_raw(&self, key: &str, value: &str, ttl: Option<i64>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn set_raw(
+        &self,
+        key: &str,
+        value: &str,
+        ttl: Option<i64>,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         if let Some(client) = &self.redis_client {
             if self.is_redis_available.load(Ordering::Relaxed) {
                 let client = client.lock().await;
                 match client.get_connection() {
                     Ok(mut conn) => {
                         let result = if let Some(seconds) = ttl {
-                            redis::cmd("SETEX").arg(key).arg(seconds).arg(value).query::<String>(&mut conn)
+                            redis::cmd("SETEX")
+                                .arg(key)
+                                .arg(seconds)
+                                .arg(value)
+                                .query::<String>(&mut conn)
                         } else {
-                            redis::cmd("SET").arg(key).arg(value).query::<String>(&mut conn)
+                            redis::cmd("SET")
+                                .arg(key)
+                                .arg(value)
+                                .query::<String>(&mut conn)
                         };
 
                         match result {
@@ -113,7 +131,8 @@ impl RedisCache {
             }
         }
 
-        self.fallback_cache.set(key, value.to_string(), ttl.map(|t| t as u64));
+        self.fallback_cache
+            .set(key, value.to_string(), ttl.map(|t| t as u64));
         Ok(())
     }
 
@@ -130,19 +149,17 @@ impl RedisCache {
         if let Some(client) = &self.redis_client {
             let client = client.lock().await;
             match client.get_connection() {
-                Ok(mut conn) => {
-                    match redis::cmd("PING").query::<String>(&mut conn) {
-                        Ok(_) => {
-                            if !self.is_redis_available.load(Ordering::Relaxed) {
-                                self.is_redis_available.store(true, Ordering::Relaxed);
-                                tracing::info!("Redis connection restored");
-                            }
-                            true
+                Ok(mut conn) => match redis::cmd("PING").query::<String>(&mut conn) {
+                    Ok(_) => {
+                        if !self.is_redis_available.load(Ordering::Relaxed) {
+                            self.is_redis_available.store(true, Ordering::Relaxed);
+                            tracing::info!("Redis connection restored");
                         }
-                        Err(_) => false
+                        true
                     }
-                }
-                Err(_) => false
+                    Err(_) => false,
+                },
+                Err(_) => false,
             }
         } else {
             false

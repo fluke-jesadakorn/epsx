@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package epsx.wallet.v1;
+
+option rust_module = "wallet_v1";
+
+service WalletService {
+  // Account management
+  rpc CreateAccount(CreateAccountRequest) returns (CreateAccountResponse);
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  rpc ListAccounts(ListAccountsRequest) returns (ListAccountsResponse);
+  rpc DeleteAccount(DeleteAccountRequest) returns (DeleteAccountResponse);
+  
+  // Signing
+  rpc SignTransaction(SignTransactionRequest) returns (SignTransactionResponse);
+  rpc SignMessage(SignMessageRequest) returns (SignMessageResponse);
+  rpc SignTypedData(SignTypedDataRequest) returns (SignTypedDataResponse);
+  
+  // Balances
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  rpc GetTokenBalances(GetTokenBalancesRequest) returns (GetTokenBalancesResponse);
+  
+  // Gas
+  rpc EstimateGas(EstimateGasRequest) returns (EstimateGasResponse);
+  rpc GetGasPrice(GetGasPriceRequest) returns (GetGasPriceResponse);
+  
+  // Nonce
+  rpc GetNonce(GetNonceRequest) returns (GetNonceResponse);
+  
+  // ERC-4337 Paymaster
+  rpc GetPaymasterConfig(GetPaymasterConfigRequest) returns (GetPaymasterConfigResponse);
+  rpc RequestSponsorship(RequestSponsorshipRequest) returns (RequestSponsorshipResponse);
+}
+
+message CreateAccountRequest {
+  string user_id = 1;
+  string chain_id = 2;
+  string name = 3;
+}
+
+message CreateAccountResponse {
+  Account account = 1;
+}
+
+message GetAccountRequest {
+  string account_id = 1;
+}
+
+message GetAccountResponse {
+  Account account = 1;
+}
+
+message ListAccountsRequest {
+  string user_id = 1;
+  string chain_id = 2;
+}
+
+message ListAccountsResponse {
+  repeated Account accounts = 1;
+}
+
+message DeleteAccountRequest {
+  string account_id = 1;
+}
+
+message DeleteAccountResponse {
+  bool success = 1;
+}
+
+message SignTransactionRequest {
+  string account_id = 1;
+  bytes transaction = 2; // RLP encoded
+}
+
+message SignTransactionResponse {
+  bytes signed_transaction = 1;
+  string hash = 2;
+}
+
+message SignMessageRequest {
+  string account_id = 1;
+  bytes message = 2;
+}
+
+message SignMessageResponse {
+  bytes signature = 1;
+}
+
+message SignTypedDataRequest {
+  string account_id = 1;
+  string domain = 1;
+  string types = 2;
+  string message = 3;
+}
+
+message SignTypedDataResponse {
+  bytes signature = 1;
+}
+
+message GetBalanceRequest {
+  string account_id = 1;
+  string token_address = 2; // Empty for native
+}
+
+message GetBalanceResponse {
+  string balance = 1;
+  int64 decimals = 2;
+  string symbol = 3;
+}
+
+message GetTokenBalancesRequest {
+  string account_id = 1;
+  repeated string token_addresses = 2;
+}
+
+message GetTokenBalancesResponse {
+  repeated TokenBalance balances = 1;
+}
+
+message TokenBalance {
+  string token_address = 1;
+  string symbol = 2;
+  int64 decimals = 3;
+  string balance = 4;
+  string usd_value = 5;
+}
+
+message EstimateGasRequest {
+  string account_id = 1;
+  bytes transaction = 2;
+}
+
+message EstimateGasResponse {
+  string gas_limit = 1;
+  string gas_price = 2;
+  string max_fee_per_gas = 3;
+  string max_priority_fee_per_gas = 4;
+}
+
+message GetGasPriceRequest {
+  string chain_id = 1;
+}
+
+message GetGasPriceResponse {
+  string gas_price = 1;
+  string max_fee_per_gas = 2;
+  string max_priority_fee_per_gas = 3;
+}
+
+message GetNonceRequest {
+  string account_id = 1;
+}
+
+message GetNonceResponse {
+  uint64 nonce = 1;
+}
+
+message GetPaymasterConfigRequest {
+  string chain_id = 1;
+}
+
+message GetPaymasterConfigResponse {
+  string paymaster_address = 1;
+  string entry_point = 2;
+  repeated string supported_tokens = 3;
+  bool gas_sponsored = 4;
+}
+
+message RequestSponsorshipRequest {
+  string account_id = 1;
+  bytes user_operation = 2;
+  string pay_token = 3; // Token to charge user
+}
+
+message RequestSponsorshipResponse {
+  bytes sponsored_user_operation = 1;
+  string paymaster_data = 2;
+}
+
+message Account {
+  string id = 1;
+  string user_id = 2;
+  string chain_id = 3;
+  string address = 4;
+  string name = 5.
+  int32 account_type = 6; // 0=eoa, 1=smart, 2=erc4337
+  string encrypted_key = 7;
+  int64 created_at = 8;
+}

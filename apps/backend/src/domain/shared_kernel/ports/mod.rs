@@ -4,4 +4,4 @@
 pub mod market_data_service_port;
 
 // Re-export commonly used ports
-pub use market_data_service_port::{MarketDataServicePort, MarketDataConfig};
+pub use market_data_service_port::{MarketDataConfig, MarketDataServicePort};

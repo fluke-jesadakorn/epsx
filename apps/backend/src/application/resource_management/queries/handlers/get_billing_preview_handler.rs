@@ -1,21 +1,26 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::resource_management::queries::{
-    GetBillingPreviewQuery, GetBillingPreviewResponse
+    GetBillingPreviewQuery, GetBillingPreviewResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::resource_management::{
-    repository_ports::{UserResourceUsageRepository, PlanResourceConfigRepository},
+    repository_ports::{PlanResourceConfigRepository, UserResourceUsageRepository},
     services::BillingCalculationService,
 };
+use crate::prelude::*;
 
 /// Handler for getting billing preview
-pub struct GetBillingPreviewQueryHandler<U: UserResourceUsageRepository, P: PlanResourceConfigRepository> {
+pub struct GetBillingPreviewQueryHandler<
+    U: UserResourceUsageRepository,
+    P: PlanResourceConfigRepository,
+> {
     usage_repository: Arc<U>,
     plan_repository: Arc<P>,
     billing_service: BillingCalculationService,
 }
 
-impl<U: UserResourceUsageRepository, P: PlanResourceConfigRepository> GetBillingPreviewQueryHandler<U, P> {
+impl<U: UserResourceUsageRepository, P: PlanResourceConfigRepository>
+    GetBillingPreviewQueryHandler<U, P>
+{
     pub fn new(usage_repository: Arc<U>, plan_repository: Arc<P>) -> Self {
         Self {
             usage_repository,
@@ -33,9 +38,13 @@ where
     U::Error: std::fmt::Display,
     P::Error: std::fmt::Display,
 {
-    async fn handle(&self, query: GetBillingPreviewQuery) -> ApplicationResult<GetBillingPreviewResponse> {
+    async fn handle(
+        &self,
+        query: GetBillingPreviewQuery,
+    ) -> ApplicationResult<GetBillingPreviewResponse> {
         // 1. Retrieve usage data
-        let usage = self.usage_repository
+        let usage = self
+            .usage_repository
             .get_user_usage(&query.wallet_address, "default")
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
@@ -43,7 +52,8 @@ where
 
         // 2. Get plan configuration if plan exists
         let (base_cost, overage_pricing) = if let Some(plan_id) = usage.plan_id() {
-            let config = self.plan_repository
+            let config = self
+                .plan_repository
                 .get_plan_config(plan_id)
                 .await
                 .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
@@ -55,11 +65,9 @@ where
         };
 
         // 3. Calculate billing
-        let billing_summary = self.billing_service.calculate_billing(
-            &usage,
-            base_cost,
-            &overage_pricing,
-        );
+        let billing_summary =
+            self.billing_service
+                .calculate_billing(&usage, base_cost, &overage_pricing);
 
         // 4. Return response
         Ok(GetBillingPreviewResponse {

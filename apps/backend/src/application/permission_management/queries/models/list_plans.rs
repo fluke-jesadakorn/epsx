@@ -1,5 +1,5 @@
-use crate::prelude::*;
 use crate::application::shared::Query;
+use crate::prelude::*;
 
 /// Query to list permission plans
 #[derive(Debug, Clone)]

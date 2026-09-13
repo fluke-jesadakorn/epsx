@@ -145,7 +145,7 @@ scrape_configs:
       - targets: ['redis-exporter:9121']
     scrape_interval: 30s
 
-  # Node exporter for system metrics
+  # Host exporter for system metrics
   - job_name: 'node-exporter'
     static_configs:
       - targets: ['node-exporter:9100']

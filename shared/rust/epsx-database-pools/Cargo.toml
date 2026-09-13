@@ -1,0 +1,18 @@
+[package]
+name = "epsx-database-pools"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+
+[dependencies]
+epsx-contracts = { path = "../epsx-contracts" }
+tokio = { workspace = true }
+async-trait = { workspace = true }
+sqlx = { version = "0.8", features = ["postgres", "runtime-tokio", "chrono", "uuid", "json", "rust_decimal"] }
+
+# Errors / logging
+thiserror = { workspace = true }
+tracing = { workspace = true }
+anyhow = { workspace = true }

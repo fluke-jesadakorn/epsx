@@ -1,4 +1,5 @@
 {
+  "rust-analyzer.server.path": "/usr/bin/false",
   "rust-analyzer.linkedProjects": ["apps/backend/Cargo.toml"],
 
   "typescript.preferences.importModuleSpecifier": "relative",

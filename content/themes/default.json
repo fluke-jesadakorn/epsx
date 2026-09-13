@@ -1,0 +1,36 @@
+{
+  "name": "EPSX Default",
+  "colors": {
+    "primary": "#3b82f6",
+    "primary-hover": "#2563eb",
+    "secondary": "#8b5cf6",
+    "background": "#030712",
+    "surface": "#111827",
+    "border": "#1f2937",
+    "text": "#f9fafb",
+    "text-muted": "#6b7280",
+    "success": "#10b981",
+    "warning": "#f59e0b",
+    "error": "#ef4444"
+  },
+  "fonts": {
+    "heading": "Inter, system-ui, sans-serif",
+    "body": "Inter, system-ui, sans-serif",
+    "mono": "JetBrains Mono, monospace"
+  },
+  "spacing": {
+    "unit": "4px",
+    "xs": "4px",
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px"
+  },
+  "breakpoints": {
+    "sm": "640px",
+    "md": "768px",
+    "lg": "1024px",
+    "xl": "1280px"
+  }
+}

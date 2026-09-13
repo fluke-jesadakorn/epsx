@@ -92,6 +92,9 @@ services:
       WEB3_SESSION_DURATION_HOURS: ${WEB3_SESSION_DURATION_HOURS:-24}
       WEB3_SIGNATURE_TIMEOUT_MINUTES: ${WEB3_SIGNATURE_TIMEOUT_MINUTES:-10}
       JWT_SECRET: ${JWT_SECRET:-temp_jwt_secret_for_dev_32chars}
+      # Required operator inputs; intentionally no fallback key material.
+      REFRESH_TOKEN_HMAC_ACTIVE_KID: ${REFRESH_TOKEN_HMAC_ACTIVE_KID}
+      REFRESH_TOKEN_HMAC_KEYS_JSON: ${REFRESH_TOKEN_HMAC_KEYS_JSON}
 
       # Blockchain Configuration
       NEXT_PUBLIC_BLOCKCHAIN_NETWORK: ${BLOCKCHAIN_NETWORK:-testnet}
@@ -135,6 +138,9 @@ services:
     environment:
       # Database Connection
       DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/${DB_NAME:-epsx_dev}
+      # Keep runtime and migrator on the database created by the canonical
+      # provisioning scripts. A pay-service rename must never silently select
+      # a different physical database.
       PAYMENTS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_payments_dev
       NOTIFICATIONS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_notifications_dev
       ANALYTICS_DATABASE_URL: postgresql://${DB_USER:-epsx_user}:${DB_PASSWORD:-password}@postgres:5432/epsx_analytics_dev

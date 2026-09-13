@@ -1,26 +1,27 @@
 // Update Wallet Command Handler
 // CQRS handler for updating wallet information
+// MIGRATED TO SQLX (real): no stubs.
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Command, CommandHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::commands::admin_models::{
     UpdateWalletCommand, UpdateWalletResponse,
 };
 use crate::application::wallet_management::queries::admin_models::{
-    WalletActivitySummaryDto, WalletDetailDto, WalletPlanDto, WalletPermissionDto,
+    WalletActivitySummaryDto, WalletDetailDto, WalletPermissionDto, WalletPlanDto,
 };
 use async_trait::async_trait;
-use diesel::prelude::*;
-use diesel_async::{RunQueryDsl};
+use chrono::{DateTime, Utc};
+use serde_json::Value;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct UpdateWalletCommandHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl UpdateWalletCommandHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
@@ -34,30 +35,16 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
         // 1. Validate command
         command.validate()?;
 
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
         // 2. Check if wallet exists
-        #[derive(QueryableByName)]
-        struct WalletExistsRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
-            #[allow(dead_code)]
-            wallet_address: String,
-        }
-
-        let wallet_exists = diesel::sql_query(
-            "SELECT wallet_address FROM wallet_users WHERE wallet_address = $1"
-        )
-        .bind::<diesel::sql_types::Text, _>(&command.wallet_address)
-        .get_result::<WalletExistsRow>(&mut conn)
-        .await
-        .optional()
-        .map_err(|e| {
-            error!("Failed to check wallet existence: {}", e);
-            ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
-        })?;
+        let wallet_exists: Option<(String,)> =
+            sqlx::query_as("SELECT wallet_address FROM wallet_users WHERE wallet_address = $1")
+                .bind(&command.wallet_address)
+                .fetch_optional(self.db_pool.as_ref())
+                .await
+                .map_err(|e| {
+                    error!("Failed to check wallet existence: {}", e);
+                    ApplicationError::infrastructure(format!("Failed to check wallet: {}", e))
+                })?;
 
         if wallet_exists.is_none() {
             return Err(ApplicationError::not_found(
@@ -66,56 +53,34 @@ impl CommandHandler<UpdateWalletCommand> for UpdateWalletCommandHandler {
             ));
         }
 
-        // 3. Build dynamic update query
-        let mut updates = Vec::new();
+        // 3. Build dynamic UPDATE using sqlx::QueryBuilder
+        let mut qb: sqlx::QueryBuilder<sqlx::Postgres> =
+            sqlx::QueryBuilder::new("UPDATE wallet_users SET updated_at = NOW()");
 
-        if command.is_active.is_some() {
-            updates.push(format!("is_active = {}", command.is_active.unwrap()));
+        if let Some(is_active) = command.is_active {
+            qb.push(", is_active = ").push_bind(is_active);
         }
 
-        // Handle metadata update - merge with existing wallet_metadata
         if let Some(ref new_metadata) = command.metadata {
-            // Use JSONB concatenation to merge new values with existing metadata
-            // This preserves existing fields while updating/adding new ones
-            let metadata_json = serde_json::to_string(new_metadata).unwrap_or_else(|_| "{}".to_string());
-            updates.push(format!(
-                "wallet_metadata = COALESCE(wallet_metadata, '{{}}') || '{}'::jsonb",
-                metadata_json.replace("'", "''")
-            ));
+            qb.push(", wallet_metadata = COALESCE(wallet_metadata, '{}'::jsonb) || ")
+                .push_bind(new_metadata.clone())
+                .push("::jsonb");
         }
 
-        // Always update updated_at
-        updates.push("updated_at = NOW()".to_string());
+        qb.push(" WHERE wallet_address = ")
+            .push_bind(&command.wallet_address);
 
-        if updates.len() == 1 {
-            // Only updated_at was added
-            return Err(ApplicationError::validation(
-                "update_fields",
-                "No fields to update",
-            ));
-        }
-
-        // 4. Execute update
-        let update_query = format!(
-            "UPDATE wallet_users SET {} WHERE wallet_address = '{}'",
-            updates.join(", "),
-            command.wallet_address.replace("'", "''")
-        );
-
-        diesel::sql_query(&update_query)
-            .execute(&mut conn)
+        qb.build()
+            .execute(self.db_pool.as_ref())
             .await
             .map_err(|e| {
                 error!("Failed to update wallet: {}", e);
                 ApplicationError::infrastructure(format!("Failed to update wallet: {}", e))
             })?;
 
-        info!(
-            "Successfully updated wallet: {}",
-            command.wallet_address
-        );
+        info!("Successfully updated wallet: {}", command.wallet_address);
 
-        // 5. Fetch updated wallet details
+        // 4. Fetch updated wallet details
         let updated_wallet = self.fetch_wallet_details(&command.wallet_address).await?;
 
         Ok(UpdateWalletResponse {
@@ -132,59 +97,42 @@ impl UpdateWalletCommandHandler {
         &self,
         wallet_address: &str,
     ) -> ApplicationResult<WalletDetailDto> {
-        let mut conn = self.db_pool.get().await.map_err(|e| {
-            error!("Failed to get connection: {}", e);
-            ApplicationError::infrastructure(format!("Failed to get connection: {}", e))
-        })?;
-
         // Get basic wallet info
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct WalletRow {
-            #[diesel(sql_type = diesel::sql_types::Text)]
             wallet_address: String,
-            #[diesel(sql_type = diesel::sql_types::Bool)]
             is_active: bool,
-            #[diesel(sql_type = diesel::sql_types::Timestamptz)]
-            created_at: chrono::DateTime<chrono::Utc>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            last_auth_at: Option<chrono::DateTime<chrono::Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Jsonb>)]
-            wallet_metadata: Option<serde_json::Value>,
+            created_at: DateTime<Utc>,
+            last_auth_at: Option<DateTime<Utc>>,
+            wallet_metadata: Option<Value>,
         }
 
-        let wallet = diesel::sql_query(
+        let wallet: WalletRow = sqlx::query_as(
             r#"
             SELECT wallet_address, is_active, created_at, last_auth_at, wallet_metadata
             FROM wallet_users
             WHERE wallet_address = $1
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .get_result::<WalletRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_one(self.db_pool.as_ref())
         .await
         .map_err(|e| {
             error!("Failed to fetch updated wallet: {}", e);
             ApplicationError::infrastructure(format!("Failed to fetch wallet: {}", e))
         })?;
 
-        // ... (permissions query skipped for brevity as it is unchanged)
-
         // Get permissions
-        #[derive(QueryableByName)]
+        #[derive(sqlx::FromRow)]
         struct PermissionRow {
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             permission: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
             source: Option<String>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            granted_at: Option<chrono::DateTime<chrono::Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
-            expires_at: Option<chrono::DateTime<chrono::Utc>>,
-            #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Bool>)]
+            granted_at: Option<DateTime<Utc>>,
+            expires_at: Option<DateTime<Utc>>,
             is_active: Option<bool>,
         }
 
-        let permissions_result = diesel::sql_query(
+        let permissions_result: Vec<PermissionRow> = sqlx::query_as(
             r#"
             SELECT
                 p.permission_string as permission,
@@ -212,10 +160,10 @@ impl UpdateWalletCommandHandler {
               AND p.is_active = true
 
             ORDER BY permission
-            "#
+            "#,
         )
-        .bind::<diesel::sql_types::Text, _>(wallet_address)
-        .load::<PermissionRow>(&mut conn)
+        .bind(wallet_address)
+        .fetch_all(self.db_pool.as_ref())
         .await
         .unwrap_or_default();
 
@@ -224,16 +172,14 @@ impl UpdateWalletCommandHandler {
             .map(|row| WalletPermissionDto {
                 permission: row.permission.unwrap_or_else(|| "unknown".to_string()),
                 source: row.source.unwrap_or_else(|| "unknown".to_string()),
-                granted_at: row.granted_at.unwrap_or_else(chrono::Utc::now),
+                granted_at: row.granted_at.unwrap_or_else(Utc::now),
                 expires_at: row.expires_at,
                 is_active: row.is_active.unwrap_or(true),
             })
             .collect();
 
-        // Groups placeholder
         let plans: Vec<WalletPlanDto> = Vec::new();
 
-        // Activity summary
         let active_permissions_count = permissions.iter().filter(|p| p.is_active).count();
         let activity_summary = WalletActivitySummaryDto {
             total_logins: 1,

@@ -7,16 +7,13 @@ use axum::{
     response::IntoResponse,
     Json,
 };
-use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
-use uuid::Uuid;
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use uuid::Uuid;
 
 use crate::web::auth::AppState;
 use crate::web::responses::AdminResponse;
-
 
 // ============================================================================
 // REQUEST/RESPONSE TYPES
@@ -154,7 +151,10 @@ pub async fn validate_permission(
     };
 
     // Use UnifiedPermissionService for validation
-    let is_valid = match permission_service.has_permission(&wallet, &req.permission).await {
+    let is_valid = match permission_service
+        .has_permission(&wallet, &req.permission)
+        .await
+    {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate permission: {}", e);
@@ -169,7 +169,9 @@ pub async fn validate_permission(
                 .iter()
                 .find(|p| p.permission_string == req.permission)
                 .and_then(|p| {
-                    if p.source_type == crate::auth::unified_permission_service::PermissionSource::Plan {
+                    if p.source_type
+                        == crate::auth::unified_permission_service::PermissionSource::Plan
+                    {
                         Some(p.source_name.clone())
                     } else {
                         None
@@ -267,11 +269,15 @@ pub async fn validate_bulk_permissions(
     };
 
     // Use UnifiedPermissionService for bulk validation
-    let batch_result = match permission_service.has_permissions_batch(&wallet, &req.permissions).await {
+    let batch_result = match permission_service
+        .has_permissions_batch(&wallet, &req.permissions)
+        .await
+    {
         Ok(result) => result,
         Err(e) => {
             tracing::error!("Failed to validate bulk permissions: {}", e);
-            return AdminResponse::server_error("Bulk permission validation failed").into_response();
+            return AdminResponse::server_error("Bulk permission validation failed")
+                .into_response();
         }
     };
 
@@ -320,32 +326,18 @@ pub async fn get_wallet_permissions(
     let audit_id = Uuid::new_v4().to_string();
     let wallet = wallet.to_lowercase();
 
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            tracing::error!("Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database connection failed").into_response();
-        }
-    };
-
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct PlanRow {
-        #[diesel(sql_type = diesel::sql_types::Uuid)]
         id: Uuid,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         name: String,
-        #[diesel(sql_type = diesel::sql_types::Text)]
         plan_type: String,
-        #[diesel(sql_type = diesel::sql_types::Bool)]
         is_active: bool,
-        #[diesel(sql_type = diesel::sql_types::Timestamptz)]
         assigned_at: DateTime<Utc>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
     }
 
     // Get permission plans assigned to wallet
-    let plans = match diesel::sql_query(
+    let plans = match sqlx::query_as::<_, PlanRow>(
         r#"
         SELECT
             pg.id, pg.name, pg.plan_type,
@@ -354,10 +346,10 @@ pub async fn get_wallet_permissions(
         JOIN plans pg ON wga.plan_id = pg.id
         WHERE wga.wallet_address = $1
         ORDER BY wga.assigned_at DESC
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet)
-    .load::<PlanRow>(&mut conn)
+    .bind(&wallet)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(rows) => rows,
@@ -367,16 +359,17 @@ pub async fn get_wallet_permissions(
         }
     };
 
-    let plans: Vec<PermissionPlanSummary> = plans.into_iter().map(|row| {
-        PermissionPlanSummary {
+    let plans: Vec<PermissionPlanSummary> = plans
+        .into_iter()
+        .map(|row| PermissionPlanSummary {
             id: row.id.to_string(),
             name: row.name,
             plan_type: row.plan_type,
             is_active: row.is_active,
             assigned_at: row.assigned_at,
             expires_at: row.expires_at,
-        }
-    }).collect();
+        })
+        .collect();
 
     // Get effective permissions using UnifiedPermissionService
     let permission_service = match app_state.domain_container.get_unified_permission_service() {
@@ -395,14 +388,13 @@ pub async fn get_wallet_permissions(
         }
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct CountRow {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         count: i64,
     }
 
     // Calculate expiring permissions (within 7 days)
-    let expiring_count = match diesel::sql_query(
+    let expiring_count = match sqlx::query_as::<_, CountRow>(
         r#"
         SELECT COUNT(DISTINCT wga.id)::bigint as count
         FROM wallet_plan_assignments wga
@@ -410,10 +402,10 @@ pub async fn get_wallet_permissions(
           AND wga.is_active = true
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at BETWEEN NOW() AND NOW() + INTERVAL '7 days'
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet)
-    .get_result::<CountRow>(&mut conn)
+    .bind(&wallet)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count as i32,
@@ -421,17 +413,17 @@ pub async fn get_wallet_permissions(
     };
 
     // Calculate expired permissions
-    let expired_count = match diesel::sql_query(
+    let expired_count = match sqlx::query_as::<_, CountRow>(
         r#"
         SELECT COUNT(DISTINCT wga.id)::bigint as count
         FROM wallet_plan_assignments wga
         WHERE wga.wallet_address = $1
           AND wga.expires_at IS NOT NULL
           AND wga.expires_at < NOW()
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Text, _>(&wallet)
-    .get_result::<CountRow>(&mut conn)
+    .bind(&wallet)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(row) => row.count as i32,

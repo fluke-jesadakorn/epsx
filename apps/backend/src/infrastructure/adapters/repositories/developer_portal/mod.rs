@@ -4,6 +4,8 @@
 
 mod api_key_repository;
 mod module_repository;
+mod sqlx_api_key_repository;
 
 pub use api_key_repository::*;
 pub use module_repository::*;
+pub use sqlx_api_key_repository::{SqlxApiKeyRepository, SqlxApiKeyRow};

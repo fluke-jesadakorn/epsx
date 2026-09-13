@@ -1,12 +1,12 @@
 // TradingView Cache - Focused Module for Caching and Performance Optimization
 // Handles data caching, performance optimizations, and cache management strategies
 
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
-use std::collections::HashMap;
-use tracing::{debug, info};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use tracing::{debug, info};
 
-use super::types::{FrontendEPSData, FrontendEPSResponse, FrontendDataBatch};
+use super::types::{FrontendDataBatch, FrontendEPSData, FrontendEPSResponse};
 
 /// Cache entry with metadata
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -23,7 +23,7 @@ impl<T> CacheEntry<T> {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         Self {
             data,
             timestamp,
@@ -37,7 +37,7 @@ impl<T> CacheEntry<T> {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         current_time > self.timestamp + self.ttl_seconds
     }
 
@@ -47,7 +47,7 @@ impl<T> CacheEntry<T> {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_secs();
-        
+
         if self.is_expired() {
             0
         } else {
@@ -112,13 +112,18 @@ impl TradingViewCache {
     }
 
     /// Cache EPS rankings response
-    pub fn cache_eps_rankings(&mut self, key: String, data: FrontendEPSResponse, ttl_seconds: Option<u64>) {
+    pub fn cache_eps_rankings(
+        &mut self,
+        key: String,
+        data: FrontendEPSResponse,
+        ttl_seconds: Option<u64>,
+    ) {
         let ttl = ttl_seconds.unwrap_or(self.default_ttl.as_secs());
         let entry = CacheEntry::new(data, ttl);
-        
+
         self.eps_data_cache.insert(key.clone(), entry);
         self.cleanup_expired_entries();
-        
+
         debug!("Cached EPS rankings with key: {}, TTL: {}s", key, ttl);
     }
 
@@ -135,20 +140,25 @@ impl TradingViewCache {
                 debug!("Removed expired EPS rankings cache entry: {}", key);
             }
         }
-        
+
         self.miss_count += 1;
         debug!("Cache miss for EPS rankings key: {}", key);
         None
     }
 
     /// Cache individual symbol data
-    pub fn cache_symbol(&mut self, symbol: String, data: FrontendEPSData, ttl_seconds: Option<u64>) {
+    pub fn cache_symbol(
+        &mut self,
+        symbol: String,
+        data: FrontendEPSData,
+        ttl_seconds: Option<u64>,
+    ) {
         let ttl = ttl_seconds.unwrap_or(self.default_ttl.as_secs());
         let entry = CacheEntry::new(data, ttl);
-        
+
         self.symbol_cache.insert(symbol.clone(), entry);
         self.cleanup_expired_entries();
-        
+
         debug!("Cached symbol data: {}, TTL: {}s", symbol, ttl);
     }
 
@@ -162,19 +172,24 @@ impl TradingViewCache {
                 self.symbol_cache.remove(symbol);
             }
         }
-        
+
         self.miss_count += 1;
         None
     }
 
     /// Cache market data batch
-    pub fn cache_market_data(&mut self, market: String, data: FrontendDataBatch, ttl_seconds: Option<u64>) {
+    pub fn cache_market_data(
+        &mut self,
+        market: String,
+        data: FrontendDataBatch,
+        ttl_seconds: Option<u64>,
+    ) {
         let ttl = ttl_seconds.unwrap_or(self.default_ttl.as_secs());
         let entry = CacheEntry::new(data, ttl);
-        
+
         self.market_cache.insert(market.clone(), entry);
         self.cleanup_expired_entries();
-        
+
         debug!("Cached market data: {}, TTL: {}s", market, ttl);
     }
 
@@ -188,7 +203,7 @@ impl TradingViewCache {
                 self.market_cache.remove(market);
             }
         }
-        
+
         self.miss_count += 1;
         None
     }
@@ -204,29 +219,31 @@ impl TradingViewCache {
         let limit = limit.unwrap_or(10);
         let country = country.as_deref().unwrap_or("all");
         let sector = sector.as_deref().unwrap_or("all");
-        
+
         format!("eps_rankings:{}:{}:{}:{}", page, limit, country, sector)
     }
 
     /// Get cache statistics
     pub fn get_stats(&self) -> CacheStats {
-        let total_entries = self.eps_data_cache.len() + self.symbol_cache.len() + 
-                           self.market_cache.len() + self.request_cache.len();
-        
+        let total_entries = self.eps_data_cache.len()
+            + self.symbol_cache.len()
+            + self.market_cache.len()
+            + self.request_cache.len();
+
         let active_entries = self.count_active_entries();
         let expired_entries = total_entries - active_entries;
-        
+
         let total_requests = self.hit_count + self.miss_count;
         let hit_ratio = if total_requests > 0 {
             self.hit_count as f64 / total_requests as f64
         } else {
             0.0
         };
-        
+
         // Rough cache size estimation (this would be more accurate with actual serialization)
         let estimated_size_bytes = total_entries * 1024; // Estimate 1KB per entry
         let cache_size_mb = estimated_size_bytes as f64 / 1_048_576.0;
-        
+
         CacheStats {
             total_count: total_entries,
             active_entries,
@@ -239,27 +256,47 @@ impl TradingViewCache {
 
     /// Count active (non-expired) entries
     fn count_active_entries(&self) -> usize {
-        let active_eps = self.eps_data_cache.values().filter(|entry| !entry.is_expired()).count();
-        let active_symbols = self.symbol_cache.values().filter(|entry| !entry.is_expired()).count();
-        let active_market = self.market_cache.values().filter(|entry| !entry.is_expired()).count();
-        let active_request = self.request_cache.values().filter(|entry| !entry.is_expired()).count();
-        
+        let active_eps = self
+            .eps_data_cache
+            .values()
+            .filter(|entry| !entry.is_expired())
+            .count();
+        let active_symbols = self
+            .symbol_cache
+            .values()
+            .filter(|entry| !entry.is_expired())
+            .count();
+        let active_market = self
+            .market_cache
+            .values()
+            .filter(|entry| !entry.is_expired())
+            .count();
+        let active_request = self
+            .request_cache
+            .values()
+            .filter(|entry| !entry.is_expired())
+            .count();
+
         active_eps + active_symbols + active_market + active_request
     }
 
     /// Clean up expired entries from all caches
     fn cleanup_expired_entries(&mut self) {
-        let initial_count = self.eps_data_cache.len() + self.symbol_cache.len() + 
-                           self.market_cache.len() + self.request_cache.len();
-        
+        let initial_count = self.eps_data_cache.len()
+            + self.symbol_cache.len()
+            + self.market_cache.len()
+            + self.request_cache.len();
+
         self.eps_data_cache.retain(|_, entry| !entry.is_expired());
         self.symbol_cache.retain(|_, entry| !entry.is_expired());
         self.market_cache.retain(|_, entry| !entry.is_expired());
         self.request_cache.retain(|_, entry| !entry.is_expired());
-        
-        let final_count = self.eps_data_cache.len() + self.symbol_cache.len() + 
-                         self.market_cache.len() + self.request_cache.len();
-        
+
+        let final_count = self.eps_data_cache.len()
+            + self.symbol_cache.len()
+            + self.market_cache.len()
+            + self.request_cache.len();
+
         let cleaned_count = initial_count - final_count;
         if cleaned_count > 0 {
             info!("Cleaned up {} expired cache entries", cleaned_count);
@@ -268,16 +305,18 @@ impl TradingViewCache {
 
     /// Clear all cache entries
     pub fn clear_all(&mut self) {
-        let total_cleared = self.eps_data_cache.len() + self.symbol_cache.len() + 
-                           self.market_cache.len() + self.request_cache.len();
-        
+        let total_cleared = self.eps_data_cache.len()
+            + self.symbol_cache.len()
+            + self.market_cache.len()
+            + self.request_cache.len();
+
         self.eps_data_cache.clear();
         self.symbol_cache.clear();
         self.market_cache.clear();
         self.request_cache.clear();
         self.hit_count = 0;
         self.miss_count = 0;
-        
+
         info!("Cleared all cache entries: {} items", total_cleared);
     }
 
@@ -300,38 +339,40 @@ impl CachePerformanceOptimizer {
     /// Analyze cache performance and provide recommendations
     pub fn analyze_performance(stats: &CacheStats) -> Vec<String> {
         let mut recommendations = Vec::new();
-        
+
         if stats.hit_ratio < 0.5 {
             recommendations.push("Consider increasing TTL values for better hit rates".to_string());
         }
-        
+
         if stats.expired_entries > stats.active_entries {
-            recommendations.push("High number of expired entries - consider more frequent cleanup".to_string());
+            recommendations.push(
+                "High number of expired entries - consider more frequent cleanup".to_string(),
+            );
         }
-        
+
         if stats.cache_size_mb > 100.0 {
             recommendations.push("Cache size is large - monitor memory usage".to_string());
         }
-        
+
         if stats.active_entries == 0 {
             recommendations.push("Cache is empty - consider cache warming strategies".to_string());
         }
-        
+
         if recommendations.is_empty() {
             recommendations.push("Cache performance looks good".to_string());
         }
-        
+
         recommendations
     }
 
     /// Suggest optimal TTL based on data type
     pub fn suggest_ttl(data_type: &str) -> Duration {
         match data_type {
-            "eps_rankings" => Duration::from_secs(300),    // 5 minutes for rankings
-            "symbol_data" => Duration::from_secs(180),     // 3 minutes for individual symbols
-            "market_data" => Duration::from_secs(600),     // 10 minutes for market data
-            "request_cache" => Duration::from_secs(60),    // 1 minute for API requests
-            _ => Duration::from_secs(300),                 // Default 5 minutes
+            "eps_rankings" => Duration::from_secs(300), // 5 minutes for rankings
+            "symbol_data" => Duration::from_secs(180),  // 3 minutes for individual symbols
+            "market_data" => Duration::from_secs(600),  // 10 minutes for market data
+            "request_cache" => Duration::from_secs(60), // 1 minute for API requests
+            _ => Duration::from_secs(300),              // Default 5 minutes
         }
     }
 }
@@ -344,7 +385,7 @@ mod tests {
     fn test_cache_entry_creation() {
         let data = "test_data".to_string();
         let entry = CacheEntry::new(data.clone(), 300);
-        
+
         assert_eq!(entry.data, data);
         assert_eq!(entry.ttl_seconds, 300);
         assert!(!entry.is_expired());
@@ -354,11 +395,14 @@ mod tests {
     #[test]
     fn test_cache_key_generation() {
         let key = TradingViewCache::generate_eps_rankings_key(
-            Some(1), Some(10), Some("america".to_string()), Some("technology".to_string())
+            Some(1),
+            Some(10),
+            Some("america".to_string()),
+            Some("technology".to_string()),
         );
-        
+
         assert_eq!(key, "eps_rankings:1:10:america:technology");
-        
+
         let default_key = TradingViewCache::generate_eps_rankings_key(None, None, None, None);
         assert_eq!(default_key, "eps_rankings:1:10:all:all");
     }
@@ -366,12 +410,12 @@ mod tests {
     #[test]
     fn test_cache_operations() {
         let cache = TradingViewCache::new();
-        
+
         // Test initial stats
         let stats = cache.get_stats();
         assert_eq!(stats.total_count, 0);
         assert_eq!(stats.hit_ratio, 0.0);
-        
+
         // Test caching and retrieval (we can't easily test FrontendEPSResponse without more setup)
         // So we'll just test that the cache is created successfully
         assert!(cache.eps_data_cache.is_empty());
@@ -387,15 +431,24 @@ mod tests {
             cache_size_mb: 50.0,
             avg_ttl_seconds: 300,
         };
-        
+
         let recommendations = CachePerformanceOptimizer::analyze_performance(&good_stats);
         assert!(!recommendations.is_empty());
     }
 
     #[test]
     fn test_ttl_suggestions() {
-        assert_eq!(CachePerformanceOptimizer::suggest_ttl("eps_rankings"), Duration::from_secs(300));
-        assert_eq!(CachePerformanceOptimizer::suggest_ttl("symbol_data"), Duration::from_secs(180));
-        assert_eq!(CachePerformanceOptimizer::suggest_ttl("unknown"), Duration::from_secs(300));
+        assert_eq!(
+            CachePerformanceOptimizer::suggest_ttl("eps_rankings"),
+            Duration::from_secs(300)
+        );
+        assert_eq!(
+            CachePerformanceOptimizer::suggest_ttl("symbol_data"),
+            Duration::from_secs(180)
+        );
+        assert_eq!(
+            CachePerformanceOptimizer::suggest_ttl("unknown"),
+            Duration::from_secs(300)
+        );
     }
 }

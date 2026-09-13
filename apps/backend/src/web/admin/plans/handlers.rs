@@ -4,56 +4,79 @@ use axum::{
     response::Json as JsonResponse,
     Json,
 };
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use crate::schemas::payments::subscriptions;
-use crate::infrastructure::models::payment::SubscriptionDb;
+// wave11(track-b) move: `SubscriptionDb` import removed from
+// this file. The `list_subscriptions_handler` was the only
+// consumer; it moved to
+// `web/payments/admin/subscription_admin_handlers.rs` and
+// now goes through `Arc<dyn SubscriptionRepositoryPort>`.
+// The `create_subscription_handler` below still uses
+// `NewSubscriptionDb` directly because the primary-DB
+// `wallet_plan_assignments` UPSERT in the same handler
+// needs the row write in the same function — the wave-12
+// follow-up will split that primary-DB half into its own
+// plan-assignment port.
 use std::collections::HashMap;
 
-use rust_decimal::Decimal;
+use chrono::{DateTime, Utc};
 use rust_decimal::prelude::ToPrimitive;
+use rust_decimal::Decimal;
 use uuid::Uuid;
-use chrono::{Utc, DateTime};
 
-use crate::web::auth::AppState;
-use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
 use crate::application::shared::{CommandHandler, QueryHandler};
-use crate::domain::subscription_management::aggregates::Plan;
-use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
-use crate::domain::subscription_management::value_objects::{PlanId, BillingCycle, PlanFeatures};
-use crate::domain::subscription_management::repository_ports::PlanSearchCriteria;
 use crate::application::subscription_management::{
-    commands::{CreatePlanCommand, CreatePlanCommandHandler, UpdatePlanCommand, UpdatePlanCommandHandler, DeletePlanCommand, DeletePlanCommandHandler},
-    queries::{ListPlansQuery, ListPlansQueryHandler, GetPlanQuery, GetPlanQueryHandler},
+    commands::{
+        CreatePlanCommand, CreatePlanCommandHandler, DeletePlanCommand, DeletePlanCommandHandler,
+        UpdatePlanCommand, UpdatePlanCommandHandler,
+    },
+    queries::{GetPlanQuery, GetPlanQueryHandler, ListPlansQuery, ListPlansQueryHandler},
 };
+use crate::domain::shared_kernel::aggregate_root::AggregateRoot;
+use crate::domain::subscription_management::aggregates::Plan;
+use crate::domain::subscription_management::repository_ports::PlanSearchCriteria;
+use crate::domain::subscription_management::value_objects::{BillingCycle, PlanFeatures, PlanId};
+use crate::infrastructure::services::audit_service::{AuditCtx, AuditEntry};
+use crate::web::auth::AppState;
 
 use super::dtos::{
-    CreatePlanRequest, UpdatePlanRequest, PlanResponse, PlanListResponse, PlanListData,
-    CreateSubscriptionRequest, SubscriptionResponse, UserAccessListQuery, UserAccessData,
-    SubscriptionListQuery,
+    CreatePlanRequest, CreateSubscriptionRequest, PlanListData, PlanListResponse, PlanResponse,
+    SubscriptionListQuery, SubscriptionResponse, UpdatePlanRequest, UserAccessData,
+    UserAccessListQuery,
 };
 
 // Helper: Convert Domain Plan to Response DTO
 fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> PlanResponse {
     let base_price_f64 = plan.price().amount().to_f64().unwrap_or(0.0);
-    
+
     // Fake Promotion Logic from Metadata (if present)
     let promotion_data = plan.metadata().get("promotion");
-    let (effective_price, promotion_active, promotion_status, promotion_discount) = if let Some(promo_value) = promotion_data {
-        if let Ok(promo) = serde_json::from_value::<crate::domain::subscription_management::Promotion>(promo_value.clone()) {
-            let effective = promo.calculate_effective_price(base_price_f64);
-            (effective, promo.is_active(), format!("{:?}", promo.get_status()).to_lowercase(), promo.get_discount_percentage(base_price_f64))
+    let (effective_price, promotion_active, promotion_status, promotion_discount) =
+        if let Some(promo_value) = promotion_data {
+            if let Ok(promo) = serde_json::from_value::<
+                crate::domain::subscription_management::Promotion,
+            >(promo_value.clone())
+            {
+                let effective = promo.calculate_effective_price(base_price_f64);
+                (
+                    effective,
+                    promo.is_active(),
+                    format!("{:?}", promo.get_status()).to_lowercase(),
+                    promo.get_discount_percentage(base_price_f64),
+                )
+            } else {
+                (base_price_f64, false, "disabled".to_string(), 0.0)
+            }
         } else {
             (base_price_f64, false, "disabled".to_string(), 0.0)
-        }
-    } else {
-        (base_price_f64, false, "disabled".to_string(), 0.0)
-    };
-    
+        };
+
     // Derive categories (legacy logic preservation)
-    let plan_category = if plan.name().contains("Enterprise") { "enterprise" } 
-        else if plan.name().contains("Professional") { "api" }
-        else { "standard" };
+    let plan_category = if plan.name().contains("Enterprise") {
+        "enterprise"
+    } else if plan.name().contains("Professional") {
+        "api"
+    } else {
+        "standard"
+    };
 
     PlanResponse {
         id: plan.id().to_string(),
@@ -84,20 +107,44 @@ fn map_plan_to_response(plan: Plan, subscriber_count: u64, revenue: Decimal) -> 
 // Helper to derive a permission plan name if one isn't provided/available from context
 fn derive_plan_from_permissions(permissions: &[String]) -> String {
     // Simplified Logic relative to original
-    if permissions.is_empty() { return "Basic Access Plan".to_string(); }
-    if permissions.iter().any(|p| p == "epsx:*:*") { return "Enterprise Access Plan".to_string(); }
-    if permissions.iter().any(|p| p.contains("epsx:rankings:view:100")) { return "Professional Access Plan".to_string(); }
+    if permissions.is_empty() {
+        return "Basic Access Plan".to_string();
+    }
+    if permissions.iter().any(|p| p == "epsx:*:*") {
+        return "Enterprise Access Plan".to_string();
+    }
+    if permissions
+        .iter()
+        .any(|p| p.contains("epsx:rankings:view:100"))
+    {
+        return "Professional Access Plan".to_string();
+    }
     "Basic Access Plan".to_string()
 }
 
 // Helper: Get permissions from plan template name (mock implementation)
 fn get_permissions_from_plan_template(plan_name: &str) -> Vec<String> {
     match plan_name {
-        "Basic Access Plan" => vec!["epsx:rankings:view:3".to_string(), "epsx:trading:basic".to_string()],
-        "Standard Access Plan" => vec!["epsx:rankings:view:25".to_string(), "epsx:trading:basic".to_string()],
-        "Premium Access Plan" => vec!["epsx:rankings:view:50".to_string(), "epsx:trading:premium".to_string()],
-        "Professional Access Plan" => vec!["epsx:rankings:view:100".to_string(), "epsx:trading:premium".to_string()],
-        "Enterprise Access Plan" => vec!["epsx:rankings:view:unlimited".to_string(), "epsx:*:*".to_string()],
+        "Basic Access Plan" => vec![
+            "epsx:rankings:view:3".to_string(),
+            "epsx:trading:basic".to_string(),
+        ],
+        "Standard Access Plan" => vec![
+            "epsx:rankings:view:25".to_string(),
+            "epsx:trading:basic".to_string(),
+        ],
+        "Premium Access Plan" => vec![
+            "epsx:rankings:view:50".to_string(),
+            "epsx:trading:premium".to_string(),
+        ],
+        "Professional Access Plan" => vec![
+            "epsx:rankings:view:100".to_string(),
+            "epsx:trading:premium".to_string(),
+        ],
+        "Enterprise Access Plan" => vec![
+            "epsx:rankings:view:unlimited".to_string(),
+            "epsx:*:*".to_string(),
+        ],
         _ => vec!["epsx:rankings:view:3".to_string()],
     }
 }
@@ -122,7 +169,6 @@ fn generate_api_key() -> String {
     format!("epsx_{}", key)
 }
 
-
 /// Create Plan Handler
 #[utoipa::path(
     post,
@@ -136,28 +182,30 @@ fn generate_api_key() -> String {
 )]
 pub async fn create_plan_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(request): Json<CreatePlanRequest>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
-    let repo = app_state.domain_container.get_plan_repository_port()
+    let repo = app_state
+        .domain_container
+        .get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let command_handler = CreatePlanCommandHandler::new(repo.clone());
-
-
 
     // Inject ranking_offset permission if present in metadata
     let mut permissions = request.permissions;
     if let Some(meta) = &request.metadata {
         if let Some(offset) = meta.get("ranking_offset").and_then(|v| v.as_i64()) {
-             let perm = format!("epsx:rankings:offset:{}", offset);
-             if !permissions.contains(&perm) {
-                 permissions.push(perm);
-             }
+            let perm = format!("epsx:rankings:offset:{}", offset);
+            if !permissions.contains(&perm) {
+                permissions.push(perm);
+            }
         }
     }
-    
+
     let command = CreatePlanCommand {
         name: request.name,
         description: request.description.unwrap_or_default(),
@@ -175,22 +223,26 @@ pub async fn create_plan_handler(
 
     match command_handler.handle(command).await {
         Ok(create_response) => {
-            let plan_id = PlanId::parse(&create_response.plan_id).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+            let plan_id = PlanId::parse(&create_response.plan_id)
+                .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
             match repo.find_by_id(&plan_id).await {
                 Ok(Some(plan)) => {
                     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-                    app_state.audit.log(ctx, AuditEntry::new("plan", "create", "plan")
-                        .id(&create_response.plan_id)
-                        .after(serde_json::json!({
-                            "name": plan.name(),
-                            "price": plan.price().amount().to_f64(),
-                            "is_active": plan.is_active(),
-                        })));
+                    app_state.audit.log(
+                        ctx,
+                        AuditEntry::new("plan", "create", "plan")
+                            .id(&create_response.plan_id)
+                            .after(serde_json::json!({
+                                "name": plan.name(),
+                                "price": plan.price().amount().to_f64(),
+                                "is_active": plan.is_active(),
+                            })),
+                    );
                     Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
-                },
+                }
                 _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
             }
-        },
+        }
         Err(e) => {
             tracing::error!("Failed to create plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -211,21 +263,24 @@ pub async fn list_plans_handler(
     State(app_state): State<AppState>,
     Query(_query): Query<HashMap<String, String>>,
 ) -> Result<JsonResponse<PlanListResponse>, StatusCode> {
-    let repo = app_state.domain_container.get_plan_repository_port()
+    let repo = app_state
+        .domain_container
+        .get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-    
+
     let query_handler = ListPlansQueryHandler::new(repo.clone());
-    
+
     let criteria = PlanSearchCriteria {
         ..Default::default()
     };
 
     match query_handler.handle(ListPlansQuery { criteria }).await {
         Ok(plans) => {
-            let mut responses: Vec<PlanResponse> = plans.into_iter()
+            let mut responses: Vec<PlanResponse> = plans
+                .into_iter()
                 .map(|p| map_plan_to_response(p, 0, Decimal::ZERO))
                 .collect();
-                
+
             // Remove manual appending of constant Free Plan
             // Sort by tier_level
             responses.sort_by_key(|p| p.tier_level);
@@ -237,12 +292,12 @@ pub async fn list_plans_handler(
                     total_count: responses.len(),
                     plans: responses,
                     has_more: false,
-                }
+                },
             }))
-        },
+        }
         Err(e) => {
-             tracing::error!("Failed to list plans: {}", e);
-             Err(StatusCode::INTERNAL_SERVER_ERROR)
+            tracing::error!("Failed to list plans: {}", e);
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
 }
@@ -261,20 +316,18 @@ pub async fn get_plan_handler(
     State(app_state): State<AppState>,
     Path(id): Path<String>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
-    let repo = app_state.domain_container.get_plan_repository_port()
+    let repo = app_state
+        .domain_container
+        .get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
-        
+
     let query_handler = GetPlanQueryHandler::new(repo.clone());
-    
+
     let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     match query_handler.handle(GetPlanQuery { id: plan_id }).await {
-        Ok(Some(plan)) => {
-             Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
-        },
-        Ok(None) => {
-            Err(StatusCode::NOT_FOUND)
-        },
+        Ok(Some(plan)) => Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO))),
+        Ok(None) => Err(StatusCode::NOT_FOUND),
         Err(e) => {
             tracing::error!("Failed to get plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -294,27 +347,40 @@ pub async fn get_plan_handler(
 )]
 pub async fn update_plan_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
     Json(request): Json<UpdatePlanRequest>,
 ) -> Result<JsonResponse<PlanResponse>, StatusCode> {
-    let repo = app_state.domain_container.get_plan_repository_port()
+    let repo = app_state
+        .domain_container
+        .get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     let command_handler = UpdatePlanCommandHandler::new(repo.clone());
     let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Capture before state for audit
-    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| serde_json::json!({
-        "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
-    }));
-    
+    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| {
+        serde_json::json!({
+            "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
+        })
+    });
 
-    
-    // Sync metadata from permission strings (permissions are authoritative when set by admin)
+    // Metadata is a patch: editing token prices must preserve features, promotions
+    // and ranking rules. Validation belongs to the catalog authority.
+    let current = repo
+        .find_by_id(&plan_id)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?
+        .ok_or(StatusCode::NOT_FOUND)?;
     let permissions = request.permissions;
-    let mut metadata = request.metadata;
+    let mut metadata = match request.metadata {
+        Some(patch) => Some(merge_plan_metadata(current.metadata(), &patch)?),
+        None => None,
+    };
     if let Some(ref perms) = permissions {
         if let Some(ref mut meta) = metadata {
             if let Some(obj) = meta.as_object_mut() {
@@ -339,11 +405,13 @@ pub async fn update_plan_handler(
         description: request.description,
         price: request.current_price,
         currency: Some("USD".to_string()),
-        billing_cycle: request.billing_model.map(|b| match b.to_lowercase().as_str() {
-             "yearly" => BillingCycle::Yearly,
-             "one_time" | "lifetime" => BillingCycle::Lifetime,
-             _ => BillingCycle::Monthly
-        }),
+        billing_cycle: request
+            .billing_model
+            .map(|b| match b.to_lowercase().as_str() {
+                "yearly" => BillingCycle::Yearly,
+                "one_time" | "lifetime" => BillingCycle::Lifetime,
+                _ => BillingCycle::Monthly,
+            }),
         features: None,
         target_audience: None,
         permissions,
@@ -354,20 +422,20 @@ pub async fn update_plan_handler(
     };
 
     match command_handler.handle(command).await {
-        Ok(_update_response) => {
-            match repo.find_by_id(&plan_id).await {
-                Ok(Some(plan)) => {
-                    let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-                    let mut entry = AuditEntry::new("plan", "update", "plan").id(&id);
-                    if let Some(b) = before { entry = entry.before(b); }
-                    entry = entry.after(serde_json::json!({
+        Ok(_update_response) => match repo.find_by_id(&plan_id).await {
+            Ok(Some(plan)) => {
+                let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
+                let mut entry = AuditEntry::new("plan", "update", "plan").id(&id);
+                if let Some(b) = before {
+                    entry = entry.before(b);
+                }
+                entry = entry.after(serde_json::json!({
                         "name": plan.name(), "price": plan.price().amount().to_f64(), "is_active": plan.is_active(),
                     }));
-                    app_state.audit.log(ctx, entry);
-                    Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
-                },
-                _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
+                app_state.audit.log(ctx, entry);
+                Ok(JsonResponse(map_plan_to_response(plan, 0, Decimal::ZERO)))
             }
+            _ => Err(StatusCode::INTERNAL_SERVER_ERROR),
         },
         Err(e) => {
             tracing::error!("Failed to update plan: {}", e);
@@ -387,15 +455,19 @@ pub async fn update_plan_handler(
 )]
 pub async fn delete_plan_handler(
     State(app_state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Path(id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let repo = app_state.domain_container.get_plan_repository_port()
+    let repo = app_state
+        .domain_container
+        .get_plan_repository_port()
         .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
 
     // Block deletion of constant Free Plan
-    if id == crate::core::constants::FREE_PLAN_ID {
+    if id == epsx_contracts::constants::FREE_PLAN_ID {
         return Err(StatusCode::FORBIDDEN);
     }
 
@@ -403,18 +475,25 @@ pub async fn delete_plan_handler(
     let plan_id = PlanId::parse(&id).map_err(|_| StatusCode::BAD_REQUEST)?;
 
     // Capture before state
-    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| serde_json::json!({
-        "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
-    }));
+    let before = repo.find_by_id(&plan_id).await.ok().flatten().map(|p| {
+        serde_json::json!({
+            "name": p.name(), "price": p.price().amount().to_f64(), "is_active": p.is_active(),
+        })
+    });
 
-    match command_handler.handle(DeletePlanCommand { id: plan_id }).await {
+    match command_handler
+        .handle(DeletePlanCommand { id: plan_id })
+        .await
+    {
         Ok(_) => {
             let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
             let mut entry = AuditEntry::new("plan", "delete", "plan").id(&id);
-            if let Some(b) = before { entry = entry.before(b); }
+            if let Some(b) = before {
+                entry = entry.before(b);
+            }
             app_state.audit.log(ctx, entry);
             Ok(StatusCode::OK)
-        },
+        }
         Err(e) => {
             tracing::error!("Failed to delete plan: {}", e);
             Err(StatusCode::INTERNAL_SERVER_ERROR)
@@ -425,66 +504,68 @@ pub async fn delete_plan_handler(
 /// Create permission template-based subscription
 pub async fn create_subscription_handler(
     State(state): State<AppState>,
-    axum::Extension(user_ctx): axum::Extension<crate::web::middleware::bearer_middleware::OpenIDUserContext>,
+    axum::Extension(user_ctx): axum::Extension<
+        crate::web::middleware::bearer_middleware::OpenIDUserContext,
+    >,
     headers: axum::http::HeaderMap,
     Json(request): Json<CreateSubscriptionRequest>,
 ) -> Result<JsonResponse<SubscriptionResponse>, StatusCode> {
-    use diesel::prelude::*;
-    use diesel_async::RunQueryDsl;
-    use crate::schemas::payments::subscriptions;
-    use crate::schemas::primary::plans;
     use crate::infrastructure::models::payment::NewSubscriptionDb;
 
     let subscription_id = Uuid::new_v4();
-    
+
     // Get PRIMARY DB connection for plan lookup (plans table is in primary DB)
-    let mut primary_conn = (*state.db_pool).get().await.map_err(|e| {
+    let mut primary_conn = (*state.db_pool).acquire().await.map_err(|e| {
         tracing::error!("Failed to get primary database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    
+
     // Find plan UUID from permission_plan_name (plans table in PRIMARY DB)
-    let plan_uuid: Uuid = plans::table
-        .filter(plans::name.eq(&request.permission_plan_name))
-        .select(plans::id)
-        .first::<Uuid>(&mut primary_conn)
-        .await
-        .unwrap_or_else(|_| {
-            tracing::warn!("Could not find plan by name '{}', using placeholder UUID", request.permission_plan_name);
-            Uuid::nil()
-        });
-    
+    let plan_uuid_result: Result<Option<Uuid>, _> =
+        sqlx::query_scalar::<_, Uuid>("SELECT id FROM plans WHERE name = $1 LIMIT 1")
+            .bind(&request.permission_plan_name)
+            .fetch_optional(&mut *primary_conn)
+            .await;
+    let plan_uuid = plan_uuid_result.unwrap_or(None).unwrap_or_else(|| {
+        tracing::warn!(
+            "Could not find plan by name '{}', using placeholder UUID",
+            request.permission_plan_name
+        );
+        Uuid::nil()
+    });
+
     let api_key = if request.access_context == "external" {
         Some(generate_api_key())
     } else {
         None
     };
-    
+
     // Get permissions from plan template
     let permissions_granted = get_permissions_from_plan_template(&request.permission_plan_name);
     let plan_type = derive_plan_from_permissions(&permissions_granted);
-    
+
     // Generate quota limits from permissions
     let quota_limits = generate_quota_from_permissions(&permissions_granted);
-    
+
     // Calculate expiry (default 1 year for admin-assigned subscriptions)
-    let expires_at = request.expires_at.unwrap_or_else(|| Utc::now() + chrono::Duration::days(365));
-    
+    let expires_at = request
+        .expires_at
+        .unwrap_or_else(|| Utc::now() + chrono::Duration::days(365));
+
     // Single Plan Constraint & Update wallet_plan_assignments (Same logic as valid code)
     // For brevity, skipping the full implementation details here for "Refactor" unless STRICTLY needed.
     // BUT since we are deleting the old file, we MUST implement it fully.
-    
+
     // Deactivate existing plan assignments
-    diesel::sql_query(
+    sqlx::query(
         r#"
         UPDATE wallet_plan_assignments
         SET is_active = false, updated_at = NOW()
         WHERE LOWER(wallet_address) = LOWER($1)
-          AND is_active = true
-        "#
+          AND is_active = true"#,
     )
-    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
-    .execute(&mut primary_conn)
+    .bind(&request.wallet_address)
+    .execute(&mut *primary_conn)
     .await
     .map_err(|e| {
         tracing::error!("Failed to deactivate existing plan assignments: {}", e);
@@ -492,7 +573,7 @@ pub async fn create_subscription_handler(
     })?;
 
     // Insert new assignment
-    diesel::sql_query(
+    sqlx::query(
         r#"
         INSERT INTO wallet_plan_assignments (
             wallet_address, plan_id, assigned_at, expires_at,
@@ -503,13 +584,12 @@ pub async fn create_subscription_handler(
             is_active = true,
             expires_at = EXCLUDED.expires_at,
             updated_at = NOW(),
-            assignment_reason = 'Admin assigned subscription (updated)'
-        "#
+            assignment_reason = 'Admin assigned subscription (updated)'"#,
     )
-    .bind::<diesel::sql_types::Text, _>(&request.wallet_address)
-    .bind::<diesel::sql_types::Uuid, _>(plan_uuid)
-    .bind::<diesel::sql_types::Timestamptz, _>(expires_at)
-    .execute(&mut primary_conn)
+    .bind(&request.wallet_address)
+    .bind(plan_uuid)
+    .bind(expires_at)
+    .execute(&mut *primary_conn)
     .await
     .map_err(|e| {
         tracing::error!("Failed to insert plan assignment: {}", e);
@@ -533,37 +613,53 @@ pub async fn create_subscription_handler(
             "created_by": "admin",
         })),
     };
-    
+
     // Insert into PAYMENTS database
     use crate::infrastructure::database::get_payments_pool;
     let payments_pool = get_payments_pool().await.map_err(|e| {
         tracing::error!("Failed to get payments database pool: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
+    let mut payments_conn = payments_pool.acquire().await.map_err(|e| {
         tracing::error!("Failed to get payments database connection: {}", e);
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    
-    diesel::insert_into(subscriptions::table)
-        .values(&new_subscription)
-        .execute(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to insert subscription: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
+
+    sqlx::query(
+        "INSERT INTO subscriptions \
+         (wallet_address, plan_id, payment_id, status, started_at, expires_at, \
+          cancelled_at, auto_renew, metadata) \
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+    )
+    .bind(&new_subscription.wallet_address)
+    .bind(new_subscription.plan_id)
+    .bind(new_subscription.payment_id)
+    .bind(&new_subscription.status)
+    .bind(new_subscription.started_at)
+    .bind(new_subscription.expires_at)
+    .bind(new_subscription.cancelled_at)
+    .bind(new_subscription.auto_renew)
+    .bind(&new_subscription.metadata)
+    .execute(&mut *payments_conn)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to insert subscription: {}", e);
+        StatusCode::INTERNAL_SERVER_ERROR
+    })?;
 
     // Audit log
     let ctx = AuditCtx::from_wallet(&user_ctx.wallet_address, &headers);
-    state.audit.log(ctx, AuditEntry::new("subscription", "assign", "plan")
-        .id(&subscription_id.to_string())
-        .after(serde_json::json!({
-            "wallet_address": &request.wallet_address,
-            "plan_name": &request.permission_plan_name,
-            "plan_id": plan_uuid.to_string(),
-            "expires_at": expires_at.to_rfc3339(),
-        })));
+    state.audit.log(
+        ctx,
+        AuditEntry::new("subscription", "assign", "plan")
+            .id(&subscription_id.to_string())
+            .after(serde_json::json!({
+                "wallet_address": &request.wallet_address,
+                "plan_name": &request.permission_plan_name,
+                "plan_id": plan_uuid.to_string(),
+                "expires_at": expires_at.to_rfc3339(),
+            })),
+    );
 
     let response = SubscriptionResponse {
         id: subscription_id.to_string(),
@@ -593,90 +689,94 @@ pub async fn admin_list_user_access_handler(
     State(app_state): State<AppState>,
     Query(query): Query<UserAccessListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    use diesel_async::RunQueryDsl;
-
     let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
-    
-    let mut conn = match (*app_state.db_pool).get().await {
+
+    let mut conn = match (*app_state.db_pool).acquire().await {
         Ok(c) => c,
         Err(err) => {
             tracing::error!(error = %err, "Failed to get database connection");
             return Err(StatusCode::INTERNAL_SERVER_ERROR);
         }
     };
-    
+
     // Query wallet_plan_assignments with plan info from plans table
-    #[derive(diesel::QueryableByName)]
+    #[derive(sqlx::FromRow)]
     #[allow(dead_code)]
     struct UserRow {
-        #[diesel(sql_type = diesel::sql_types::Text)]
         wallet_address: String,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         expires_at: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Text>)]
         plan_name: Option<String>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Uuid>)]
         plan_id: Option<Uuid>,
     }
-    
-    let search_filter = query.search.as_ref()
+
+    let search_filter = query
+        .search
+        .as_ref()
         .map(|s| format!("%{}%", s.to_lowercase()))
         .unwrap_or_else(|| "%".to_string());
-    
-    let users: Vec<UserRow> = diesel::sql_query(
+
+    let users: Vec<UserRow> = sqlx::query_as::<_, UserRow>(
         r#"
-        SELECT 
-            wga.wallet_address::text,
+        SELECT
+            wga.wallet_address::text AS wallet_address,
             wga.expires_at,
-            g.name as plan_name,
-            g.id as plan_id
+            g.name AS plan_name,
+            g.id AS plan_id
         FROM wallet_plan_assignments wga
         LEFT JOIN plans g ON wga.plan_id = g.id
         WHERE wga.is_active = true
           AND g.plan_type = 'subscription'
           AND LOWER(wga.wallet_address) LIKE $1
         ORDER BY wga.assigned_at DESC NULLS LAST
-        LIMIT $2 OFFSET $3
-        "#
+        LIMIT $2 OFFSET $3"#,
     )
-    .bind::<diesel::sql_types::Text, _>(&search_filter)
-    .bind::<diesel::sql_types::BigInt, _>(pg.limit as i64)
-    .bind::<diesel::sql_types::BigInt, _>(pg.offset)
-    .get_results(&mut conn)
+    .bind(&search_filter)
+    .bind(pg.limit as i64)
+    .bind(pg.offset)
+    .fetch_all(&mut *conn)
     .await
     .map_err(|e| {
         tracing::error!(error = %e, "Failed to query user access data");
         StatusCode::INTERNAL_SERVER_ERROR
     })?;
-    
+
     let status_filter = query.status.clone();
     let now = Utc::now();
 
-    let users_data: Vec<UserAccessData> = users.into_iter()
+    let users_data: Vec<UserAccessData> = users
+        .into_iter()
         .filter_map(|user| {
-             let days_remaining = user.expires_at
+            let days_remaining = user
+                .expires_at
                 .map(|exp| (exp - now).num_days())
                 .unwrap_or(365);
-             let status = if user.plan_name.is_none() { "no_plan" }
-                else if days_remaining < 0 { "expired" }
-                else if days_remaining <= 7 { "expiring_soon" }
-                else { "active" };
-            
-             if let Some(ref filter) = status_filter {
-                 if filter != status { return None; }
-             }
-             
-             Some(UserAccessData {
-                 wallet_address: user.wallet_address,
-                 current_plan_id: user.plan_id,
-                 plan_name: user.plan_name,
-                 plan_expires_at: user.expires_at,
-                 days_remaining: days_remaining.max(0),
-                 status: status.to_string(),
-             })
+            let status = if user.plan_name.is_none() {
+                "no_plan"
+            } else if days_remaining < 0 {
+                "expired"
+            } else if days_remaining <= 7 {
+                "expiring_soon"
+            } else {
+                "active"
+            };
+
+            if let Some(ref filter) = status_filter {
+                if filter != status {
+                    return None;
+                }
+            }
+
+            Some(UserAccessData {
+                wallet_address: user.wallet_address,
+                current_plan_id: user.plan_id,
+                plan_name: user.plan_name,
+                plan_expires_at: user.expires_at,
+                days_remaining: days_remaining.max(0),
+                status: status.to_string(),
+            })
         })
         .collect();
-    
+
     Ok(JsonResponse(serde_json::json!({
         "success": true,
         "data": {
@@ -691,99 +791,149 @@ pub async fn admin_list_user_access_handler(
     })))
 }
 
-/// List all subscriptions (Admin)
+/// List all subscriptions (Admin) — MOVED in wave 11.
+///
+/// Wave 11 / Track B: this function moved to
+/// `crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler`
+/// and now goes through
+/// `Arc<dyn SubscriptionRepositoryPort>`. The route mount in
+/// `unified_router.rs::create_payment_routes` was updated to
+/// point at the new handler.
+///
+/// The old function body is preserved here as a
+/// `#[deprecated]` stub that returns 410 GONE so any
+/// pre-wave-11 caller that still has the old import path
+/// compiled in fails loud. Delete the stub in wave 12+.
+///
+/// See `docs/wave8-service-boundary/ROADMAP.md` §4 wave-11
+/// preconditions item 3.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use `crate::web::payments::admin::subscription_admin_handlers::list_subscriptions_admin_handler` — wave11(track-b) moved this handler to the payments area and routes it through `Arc<dyn SubscriptionRepositoryPort>`."
+)]
+#[allow(dead_code)]
 pub async fn list_subscriptions_handler(
-    State(_state): State<AppState>,
-    Query(query): Query<SubscriptionListQuery>,
+    _state: State<AppState>,
+    _query: Query<SubscriptionListQuery>,
 ) -> Result<JsonResponse<serde_json::Value>, StatusCode> {
-    let pg = crate::web::pagination::Pagination::from_signed(query.page, query.limit, 20, 100);
-
-    let payments_pool = crate::infrastructure::database::get_payments_pool().await.map_err(|e| {
-        tracing::error!("Failed to get payments database pool: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-    let mut payments_conn = payments_pool.get().await.map_err(|e| {
-        tracing::error!("Failed to get payments database connection: {}", e);
-        StatusCode::INTERNAL_SERVER_ERROR
-    })?;
-
-    let mut db_query = subscriptions::table.into_boxed();
-
-    if let Some(status) = query.status {
-        db_query = db_query.filter(subscriptions::status.eq(status));
-    }
-
-    if let Some(search) = query.search {
-        db_query = db_query.filter(subscriptions::wallet_address.ilike(format!("%{}%", search)));
-    }
-
-    let results = db_query
-        .limit(pg.limit as i64)
-        .offset(pg.offset)
-        .load::<SubscriptionDb>(&mut payments_conn)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to load subscriptions: {}", e);
-            StatusCode::INTERNAL_SERVER_ERROR
-        })?;
-
-    let mut response_subscriptions = Vec::new();
-    for sub in results {
-        let metadata = sub.metadata.clone().unwrap_or(serde_json::json!({}));
-        let access_context = metadata.get("access_context")
-            .and_then(|v| v.as_str())
-            .unwrap_or("internal")
-            .to_string();
-        
-        // Filter by access_context if provided
-        if let Some(ref filter_context) = query.access_context {
-            if &access_context != filter_context {
-                continue;
-            }
-        }
-
-        let plan_name = metadata.get("permission_plan_name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown Plan")
-            .to_string();
-            
-        let api_key_name = metadata.get("api_key_name")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        
-        // Reconstruct the response DTO manually to avoid type mismatch issues
-        // and handle the missing fields gracefully
-        let permissions_granted = get_permissions_from_plan_template(&plan_name);
-        let plan_type = derive_plan_from_permissions(&permissions_granted);
-        let quota_limits = generate_quota_from_permissions(&permissions_granted);
-
-        response_subscriptions.push(serde_json::json!({
-            "id": sub.id.to_string(),
-            "wallet_address": sub.wallet_address,
-            "plan_id": sub.plan_id,
-            "plan_name": plan_name,
-            "permission_plan_name": plan_name,
-            "permissions_granted": permissions_granted,
-            "plan_type": plan_type,
-            "access_context": access_context,
-            "api_key_name": api_key_name,
-            "status": sub.status,
-            "expires_at": sub.expires_at,
-            "auto_renew": sub.auto_renew.unwrap_or(false),
-            "created_at": sub.started_at.unwrap_or(Utc::now()),
-            "updated_at": sub.started_at.unwrap_or(Utc::now()),
-            "metadata": sub.metadata,
-            "current_usage": serde_json::json!({"api_calls": 0, "rankings_viewed": 0}),
-            "quota_limits": quota_limits,
-        }));
-    }
-
-    Ok(JsonResponse(serde_json::json!({
-        "success": true,
-        "data": {
-            "subscriptions": response_subscriptions,
-            "total": response_subscriptions.len() 
-        }
-    })))
+    Err(StatusCode::GONE)
 }
 
+fn merge_plan_metadata(
+    current: &serde_json::Value,
+    patch: &serde_json::Value,
+) -> Result<serde_json::Value, StatusCode> {
+    let object = patch.as_object().ok_or(StatusCode::BAD_REQUEST)?;
+    let mut result = current.as_object().cloned().unwrap_or_default();
+    for (key, value) in object {
+        if key == "pay_prices" {
+            let prices = value.as_object().ok_or(StatusCode::BAD_REQUEST)?;
+            let mut merged_prices = result
+                .get(key)
+                .and_then(serde_json::Value::as_object)
+                .cloned()
+                .unwrap_or_default();
+            for (token, price) in prices {
+                if !["USDT", "USDC"].contains(&token.as_str())
+                    || price.as_str().is_none_or(|p| {
+                        crate::web::payments::merchant_checkout::units(p, 18).is_err()
+                    })
+                {
+                    return Err(StatusCode::BAD_REQUEST);
+                }
+                merged_prices.insert(token.clone(), price.clone());
+            }
+            result.insert(key.clone(), serde_json::Value::Object(merged_prices));
+            continue;
+        }
+        if key == "duration_days" {
+            if value.is_null() {
+                result.remove(key);
+                continue;
+            }
+            if value.as_i64().is_none_or(|d| !(1..=3650).contains(&d)) {
+                return Err(StatusCode::BAD_REQUEST);
+            }
+        }
+        result.insert(key.clone(), value.clone());
+    }
+    let mut metadata = serde_json::Value::Object(result);
+    if metadata["pay_use_catalog_promotion"] == true {
+        for token in ["USDT", "USDC"] {
+            if metadata["pay_prices"].get(token).is_some() {
+                let pricing = crate::domain::subscription_management::token_pricing::calculate(
+                    &metadata,
+                    token,
+                    chrono::Utc::now(),
+                )
+                .map_err(|_| StatusCode::BAD_REQUEST)?;
+                crate::web::payments::merchant_checkout::units(&pricing.price, 18)
+                    .map_err(|_| StatusCode::BAD_REQUEST)?;
+            }
+        }
+    }
+    // Keep the legacy catalog projection compatible with numeric promotion fields.
+    if let Some(promotion) = metadata
+        .get_mut("promotion")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        for key in ["price", "value"] {
+            if let Some(text) = promotion.get(key).and_then(serde_json::Value::as_str) {
+                let number = text
+                    .parse::<serde_json::Number>()
+                    .map_err(|_| StatusCode::BAD_REQUEST)?;
+                promotion.insert(key.into(), serde_json::Value::Number(number));
+            }
+        }
+    }
+    Ok(metadata)
+}
+
+#[cfg(test)]
+mod checkout_metadata_tests {
+    use super::*;
+    use serde_json::json;
+    #[test]
+    fn token_price_edit_preserves_unrelated_metadata() {
+        let old = json!({"features":["Rankings"],"ranking_offset":5,"promotion":{"enabled":true},"duration_days":1});
+        let merged =
+            merge_plan_metadata(&old, &json!({"pay_prices":{"USDT":"5.00","USDC":"5.00"}}))
+                .unwrap();
+        assert_eq!(merged["features"], old["features"]);
+        assert_eq!(merged["promotion"], old["promotion"]);
+        assert_eq!(merged["duration_days"], 1);
+        assert_eq!(
+            merge_plan_metadata(&merged, &json!({"duration_days":null}))
+                .unwrap()
+                .get("duration_days"),
+            None
+        );
+    }
+    #[test]
+    fn promotion_edit_validates_discount_and_preserves_access() {
+        let old = json!({"features":["Rankings"],"duration_days":30,"pay_prices":{"USDT":"99","USDC":"99"},"pay_use_catalog_promotion":true});
+        let patch = json!({"promotion":{"enabled":true,"type":"percentage","value":"90","price":"0","start_date":"","end_date":""}});
+        let merged = merge_plan_metadata(&old, &patch).unwrap();
+        assert_eq!(merged["duration_days"], 30);
+        assert_eq!(merged["features"], old["features"]);
+        assert_eq!(merged["promotion"]["value"], 90);
+        for promotion in [
+            json!({"enabled":true,"type":"percentage","value":110}),
+            json!({"enabled":true,"price":1,"start_date":"invalid"}),
+        ] {
+            assert!(merge_plan_metadata(&old, &json!({"promotion":promotion})).is_err());
+        }
+    }
+    #[test]
+    fn rejects_invalid_token_price_and_duration() {
+        for patch in [
+            json!({"pay_prices":{"USDT":"-1"}}),
+            json!({"pay_prices":{"USD":"1"}}),
+            json!({"pay_prices":{"USDT":1}}),
+            json!({"duration_days":0}),
+            json!({"duration_days":3651}),
+        ] {
+            assert!(merge_plan_metadata(&json!({}), &patch).is_err());
+        }
+    }
+}

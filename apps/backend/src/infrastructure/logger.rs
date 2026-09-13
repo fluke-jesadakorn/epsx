@@ -1,10 +1,10 @@
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 use tracing::info;
+use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 /// Initialize the global logger instance for EPSX Backend
-/// 
+///
 /// Provides unified configuration for all backend binaries (main, blockchain_monitor).
-/// - **Production Mode**: Uses JSON structured logging over stdout. Strict filtering 
+/// - **Production Mode**: Uses JSON structured logging over stdout. Strict filtering
 ///   is applied to avoid verbose library spam (`tokio_postgres`, `rustls`, etc.).
 /// - **Development Mode**: Uses standard console formatting with rich colors. Filtering
 ///   is mostly tied to the standard LOG_LEVEL.
@@ -43,7 +43,7 @@ pub fn init_logger(is_production: bool, default_log_level: &str) {
             .with(filter)
             .with(format_layer)
             .init();
-            
+
         info!("Logger initialized in PRODUCTION mode (JSON formatted)");
     } else {
         // DEVELOPMENT: Use standard, rich console output
@@ -56,7 +56,7 @@ pub fn init_logger(is_production: bool, default_log_level: &str) {
             .with(filter)
             .with(format_layer)
             .init();
-            
+
         info!("Logger initialized in DEVELOPMENT mode (Compact human-readable)");
     }
 }

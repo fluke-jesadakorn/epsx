@@ -1,0 +1,155 @@
+syntax = "proto3";
+
+package epsx.identity.v1;
+
+option rust_module = "identity_v1";
+
+service IdentityService {
+  // Authentication
+  rpc AuthenticateSIWE(AuthenticateSIWERequest) returns (AuthenticateSIWEResponse);
+  rpc RefreshToken(RefreshTokenRequest) returns (RefreshTokenResponse);
+  rpc RevokeSession(RevokeSessionRequest) returns (RevokeSessionResponse);
+  
+  // User management
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse);
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse);
+  
+  // API Keys
+  rpc CreateAPIKey(CreateAPIKeyRequest) returns (CreateAPIKeyResponse);
+  rpc RevokeAPIKey(RevokeAPIKeyRequest) returns (RevokeAPIKeyResponse);
+  rpc ListAPIKeys(ListAPIKeysRequest) returns (ListAPIKeysResponse);
+  
+  // Roles & Permissions
+  rpc GetPermissions(GetPermissionsRequest) returns (GetPermissionsResponse);
+  rpc CheckPermission(CheckPermissionRequest) returns (CheckPermissionResponse);
+}
+
+message AuthenticateSIWERequest {
+  string message = 1;
+  string signature = 2;
+  string chain_id = 3;
+}
+
+message AuthenticateSIWEResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  User user = 3;
+  int64 expires_in = 4;
+}
+
+message RefreshTokenRequest {
+  string refresh_token = 1;
+}
+
+message RefreshTokenResponse {
+  string access_token = 1;
+  string refresh_token = 2;
+  int64 expires_in = 3;
+}
+
+message RevokeSessionRequest {
+  string session_id = 1;
+}
+
+message RevokeSessionResponse {
+  bool success = 1;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+
+message GetUserResponse {
+  User user = 1;
+}
+
+message UpdateUserRequest {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  map<string, string> metadata = 4;
+}
+
+message UpdateUserResponse {
+  User user = 1;
+}
+
+message ListUsersRequest {
+  int32 page = 1;
+  int32 page_size = 2;
+  string query = 3;
+}
+
+message ListUsersResponse {
+  repeated User users = 1;
+  int64 total = 2;
+}
+
+message CreateAPIKeyRequest {
+  string user_id = 1;
+  string name = 2;
+  repeated string scopes = 3;
+  int64 expires_at = 4;
+}
+
+message CreateAPIKeyResponse {
+  APIKey api_key = 1;
+  string plaintext = 2; // Only returned once
+}
+
+message RevokeAPIKeyRequest {
+  string key_id = 1;
+}
+
+message RevokeAPIKeyResponse {
+  bool success = 1;
+}
+
+message ListAPIKeysRequest {
+  string user_id = 1;
+}
+
+message ListAPIKeysResponse {
+  repeated APIKey api_keys = 1;
+}
+
+message GetPermissionsRequest {
+  string user_id = 1;
+}
+
+message GetPermissionsResponse {
+  repeated string permissions = 1;
+}
+
+message CheckPermissionRequest {
+  string user_id = 1;
+  string permission = 2;
+}
+
+message CheckPermissionResponse {
+  bool allowed = 1;
+}
+
+message User {
+  string id = 1;
+  string address = 2;
+  string email = 3;
+  string username = 4;
+  string chain_id = 5;
+  map<string, string> metadata = 6;
+  repeated string roles = 7;
+  int64 created_at = 8;
+  int64 updated_at = 9;
+  bool kyc_verified = 10;
+}
+
+message APIKey {
+  string id = 1;
+  string prefix = 2;
+  string name = 3;
+  repeated string scopes = 4;
+  int64 created_at = 5;
+  int64 expires_at = 6;
+  int64 last_used_at = 7;
+}

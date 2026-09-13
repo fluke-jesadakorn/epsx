@@ -1,5 +1,7 @@
+use crate::domain::market_analytics::{
+    Country, EPSRanking, RankingPeriod, RankingType, SectorCategory,
+};
 use crate::prelude::*;
-use crate::domain::market_analytics::{EPSRanking, RankingType, RankingPeriod, Country, SectorCategory};
 
 /// Search criteria for EPS rankings
 #[derive(Debug, Clone, Default)]

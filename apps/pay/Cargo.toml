@@ -1,0 +1,42 @@
+[package]
+name = "epsx-pay-bff"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "bff-pay"
+path = "src/main.rs"
+required-features = ["server"]
+
+[[bin]]
+name = "epsx-pay"
+path = "src/dx_main.rs"
+
+[dependencies]
+epsx-dioxus-ui = { path = "../../shared/rust/dioxus_ui", features = ["pay-ui"] }
+dioxus.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+epsx-kernel = { path = "../../shared/rust/kernel" }
+epsx-client = { path = "../../shared/rust/client" }
+epsx-observability = { path = "../../shared/rust/observability" }
+epsx-templates = { path = "../../shared/rust/templates" }
+epsx-bff = { path = "../../shared/rust/bff", features = ["fullstack"] }
+axum.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+reqwest.workspace = true
+tower-http.workspace = true
+uuid.workspace = true
+pulldown-cmark.workspace = true
+dioxus-ssr.workspace = true
+dioxus-fullstack.workspace = true
+dioxus-server.workspace = true
+
+[features]
+default = ["server"]
+ssr = ["server"]
+web = ["dioxus/web", "epsx-dioxus-ui/web"]
+server = ["dioxus/server", "epsx-dioxus-ui/server"]

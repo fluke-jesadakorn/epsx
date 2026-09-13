@@ -1,0 +1,23 @@
+{
+  "amount": "5000000000000000000",
+  "chain_id": 31337,
+  "contract_address": "0x9434ab445a0cd8ba2124e594584c38476890f6ad",
+  "created_at": "2026-09-08T18:04:54.375413+00:00",
+  "duration_days": 1,
+  "environment": "test",
+  "fee_amount": "25000000000000000",
+  "first_paid_at": "2026-09-08T18:05:15.961728+00:00",
+  "fulfillment_status": "revoked",
+  "order_id": "e3047202-1522-432f-a55b-9c19998f497d",
+  "payment_available": true,
+  "payment_id": "pi_4778f6df72dd4415b56d0ddfeaf8af5c",
+  "payment_status": "refunded",
+  "plan_id": "61a62cbe-3371-41db-bd90-321c53a71e06",
+  "plan_name": "1 Day Package",
+  "status": "refunded",
+  "token": "USDT",
+  "token_decimals": 18,
+  "tx_hash": "0x0de1ed11cb658ac8ccafb933537d34c6494a047fe32c61fb928cf8f3b1b9f1e1",
+  "verified_block": 1219,
+  "wallet_address": "0x7a2267d036084789486fe3c971f0f401610c5781"
+}

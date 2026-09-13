@@ -1,111 +1,140 @@
 // Cache Management for EPS Analytics
 // Focused module handling caching logic and cache-related endpoints
 
-use axum::{ extract::{ Query, Extension }, response::Json };
-use std::sync::Arc;
+use axum::{
+    extract::{Extension, Query},
+    response::Json,
+};
 use std::collections::hash_map::DefaultHasher;
-use std::hash::{ Hash, Hasher };
-use tracing::{ debug, info, warn };
+use std::hash::{Hash, Hasher};
+use std::sync::Arc;
+use tracing::{debug, info, warn};
 
-use crate::core::errors::AppError;
+use crate::domain::market_analytics::repository_ports::{
+    MarketRankingsPage, MarketRankingsProviderPort, MarketRankingsRequest,
+};
 use crate::domain::shared_kernel::entities::eps_growth::EPSRanking;
-// use crate::domain::shared_kernel::services::eps_cache_service::EPSCacheService; // REMOVED
-use crate::domain::market_analytics::domain_services::EPSCacheService; // ADDED
-use crate::auth::UnifiedPermissionService;
-use crate::web::middleware::bearer_middleware::OpenIDUserContext;
+use crate::domain::shared_kernel::entities::market_data::StockScreeningResult;
+use epsx_contracts::errors::{AppError, ErrorKind};
+use epsx_contracts::wallet_ranking_offset_query::WalletRankingOffsetQuery;
+// wave12(track-b): EPSCacheService import removed — the dead `get_cache_stats`
+// and `force_cache_refresh` handlers were deleted (option b decision).
+use super::{
+    metadata::{get_available_countries_static, get_available_sectors_static},
+    transform::{transform_ranking_to_unified_format, transform_unified_to_card_format},
+    types::*,
+};
 use crate::infrastructure::cache::Cache;
 use crate::web::analytics::convert_screening_result_to_eps_ranking;
-use super::{
-  types::*,
-  enhancement::enhance_with_websocket_data,
-  transform::{
-    transform_ranking_to_unified_format,
-    transform_unified_to_card_format,
-  },
-  metadata::{ get_available_countries_static, get_available_sectors_static },
-};
+use crate::web::middleware::bearer_middleware::OpenIDUserContext;
 
-/// GET /api/analytics/rankings - Direct TradingView card dashboard endpoint with caching
-/// Same API contract as before, now using direct TradingView API calls (bypasses broken DDD adapter)
+/// Minimal request context inserted only after a transport has verified the
+/// caller. The standalone market service uses this instead of fabricating the
+/// monolith-specific `OpenIDUserContext` fields it does not receive.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AnalyticsWalletContext {
+    wallet_address: String,
+}
+
+impl AnalyticsWalletContext {
+    pub fn new(wallet_address: String) -> Self {
+        Self { wallet_address }
+    }
+
+    pub fn wallet_address(&self) -> &str {
+        &self.wallet_address
+    }
+}
+
+/// GET /api/analytics/rankings - bounded market-provider card dashboard endpoint
 #[utoipa::path(
     get,
     path = "/api/analytics/rankings",
     tag = "analytics",
     responses(
         (status = 200, description = "Successfully retrieved analytics rankings", body = CardDashboardResponse),
-        (status = 500, description = "Internal server error")
+        (status = 400, description = "Unsupported sort or pagination range"),
+        (status = 502, description = "Market provider returned a permanent or invalid response"),
+        (status = 503, description = "Ranking access authority or market provider is unavailable, or the process concurrency budget is saturated"),
+        (status = 504, description = "Market provider request exceeded the total deadline")
     ),
     params(
         ("page" = Option<i32>, Query, description = "Page number (default: 1)"),
-        ("limit" = Option<i32>, Query, description = "Items per page (default: 10)"),
+        ("limit" = Option<i32>, Query, description = "Items per page (default: 10; anonymous max: 10; authenticated max: 100)"),
         ("country" = Option<String>, Query, description = "Filter by country code (e.g., 'america', 'uk')"),
         ("sector" = Option<String>, Query, description = "Filter by sector (e.g., 'Technology', 'Healthcare')"),
-        ("sort_by" = Option<String>, Query, description = "Sort field (default: 'qoq_growth')"),
-        ("min_eps" = Option<f64>, Query, description = "Minimum EPS filter"),
-        ("min_growth" = Option<f64>, Query, description = "Minimum growth percentage filter")
+        ("sort_by" = Option<String>, Query, description = "Sort field (default: 'eps_growth'; aliases: qoq_growth, growth_factor, ranking_position)"),
+        ("min_eps" = Option<f64>, Query, description = "Reserved minimum EPS filter; not yet enforced by the canonical provider"),
+        ("min_growth" = Option<f64>, Query, description = "Reserved minimum growth filter; not yet enforced by the canonical provider")
     )
 )]
 pub async fn get_unified_analytics_rankings_cached(
-  Query(params): Query<EPSRankingQueryParams>,
-  Extension(_cache): Extension<Arc<dyn Cache>>,
-  Extension(permission_service): Extension<Arc<UnifiedPermissionService>>,
-  user_context_ext: Option<Extension<OpenIDUserContext>>,
+    Query(params): Query<EPSRankingQueryParams>,
+    Extension(_cache): Extension<Arc<dyn Cache>>,
+    Extension(permission_service): Extension<Arc<dyn WalletRankingOffsetQuery>>,
+    Extension(rankings_provider): Extension<Arc<dyn MarketRankingsProviderPort>>,
+    user_context_ext: Option<Extension<OpenIDUserContext>>,
+    analytics_wallet_ext: Option<Extension<AnalyticsWalletContext>>,
 ) -> Result<Json<CardDashboardResponse>, AppError> {
-  debug!(
-    "Direct TradingView analytics rankings API called with params: {:?}",
-    params
-  );
+    debug!(
+        "Direct TradingView analytics rankings API called with params: {:?}",
+        params
+    );
 
-  let user_context = user_context_ext.map(|ext| ext.0);
+    let user_context = user_context_ext.map(|ext| ext.0);
+    let analytics_wallet = analytics_wallet_ext.map(|ext| ext.0);
 
-  // Extract wallet from secure user context (JWT)
-  let wallet_address = user_context.as_ref().map(|ctx| ctx.wallet_address.to_lowercase());
+    // Both transports insert server-owned request extensions only after token
+    // verification. The standalone service context wins when present because it
+    // is produced by its direct `epsx-service-auth` boundary.
+    let wallet_address = analytics_wallet
+        .as_ref()
+        .map(|context| context.wallet_address().to_lowercase())
+        .or_else(|| {
+            user_context
+                .as_ref()
+                .map(|ctx| ctx.wallet_address.to_lowercase())
+        });
+    let is_authenticated = wallet_address.is_some();
 
-  if let Some(ref w) = wallet_address {
-      // DEBUG: Log wallet detection
-      info!("Analytics API: processing request for wallet: {}", w);
-  } else {
-      info!("Analytics API: processing request for anonymous user");
-  }
+    // Anonymous rankings deliberately use the public range without calling
+    // plan authority. Once a verified wallet exists, however, only a successful
+    // authority decision may select its rank range. Treating an authority
+    // outage as free access would turn an operational failure into a false plan
+    // decision and still amplify the request into market-provider work.
+    let access =
+        resolve_market_ranking_access(permission_service.as_ref(), wallet_address.as_deref())
+            .await?;
 
-  // Calculate ranking configuration based on user's plan metadata
-  let (rank_offset, limit_cap) = if let Some(ref wallet) = wallet_address {
-    match permission_service.get_wallet_ranking_offset(wallet).await {
-      Ok(offset) => {
-        info!("Analytics API: Wallet {} ranking offset: {} (from plan metadata)", wallet, offset);
-        (offset, -1)
-      },
-      Err(e) => {
-        warn!("Analytics API: Failed to get offset for {}: {}, using free tier", wallet, e);
-        (100, -1)
-      }
-    }
-  } else {
-    (100, -1)
-  };
- 
-  debug!("Rankings permission config: offset={}, limit_cap={} for secure_wallet={:?}", rank_offset, limit_cap, wallet_address);
+    debug!(
+        "Rankings permission config resolved: offset={}, limit_cap={}",
+        access.rank_offset, access.rankings_limit
+    );
 
-  // Convert query params to service params with defaults
-  // Global maximum limit to protect database and TradingView API
-  let global_max_limit = 1000;
-  let effective_limit_cap = if limit_cap == -1 { global_max_limit } else { limit_cap };
-  
-  let limit = params.limit.unwrap_or(10).clamp(1, effective_limit_cap);
-  let page = params.page.unwrap_or(1).max(1); // Ensure page is at least 1
-  let skip = (rank_offset - 1).max(0) + (page - 1) * limit; // SECURITY: Start from rank_offset internally (0-based for API)
+    // `min_eps` and `min_growth` remain explicit A2.5 residuals until
+    // the provider contract can enforce them instead of silently ignoring them.
+    let prepared = prepare_market_rankings_request(
+        &params,
+        access.rank_offset,
+        access.rankings_limit,
+        is_authenticated,
+    )?;
+    let page = prepared.page;
+    let limit = prepared.page_size;
+    let skip = prepared.request.skip;
+    let rank_start = prepared.rank_start;
 
-  // Generate cache key for this request (includes rank_offset so different plans get separate caches)
-  let cache_key = generate_cache_key(&params, rank_offset);
-  debug!("Generated cache key: {}", cache_key);
+    // Generate cache key for this request (includes rank_offset so different plans get separate caches)
+    let cache_key = generate_cache_key(&params, access.rank_offset, access.rankings_limit);
+    debug!("Generated cache key: {}", cache_key);
 
-  // CACHE DISABLED FOR SECURITY CONTROL (Always fetch fresh from DB/TradingView)
-  debug!("Development environment or security override - skipping cache lookup");
+    // CACHE DISABLED FOR SECURITY CONTROL (Always fetch fresh from DB/TradingView)
+    debug!("Development environment or security override - skipping cache lookup");
 
-  debug!("Cache miss for analytics rankings - fetching fresh data");
+    debug!("Cache miss for analytics rankings - fetching fresh data");
 
-  // Log request details for debugging
-  info!(
+    // Log request details for debugging
+    info!(
     "Processing direct TradingView analytics rankings - Country: {:?}, Sort: {:?}, Page: {}, Limit: {}",
     params.country,
     params.sort_by,
@@ -113,347 +142,922 @@ pub async fn get_unified_analytics_rankings_cached(
     limit
   );
 
-  // Fetch data using direct TradingView API calls (bypasses broken DDD adapter)
-  let start_time = std::time::Instant::now();
+    // Fetch data through the injected provider boundary. Construction, retries,
+    // concurrency limits, and upstream error details stay outside this handler.
+    let start_time = std::time::Instant::now();
+    let MarketRankingsPage { items, total } =
+        fetch_market_rankings(rankings_provider.as_ref(), prepared.request).await?;
+    let (total_count, total_pages, has_next, has_prev) =
+        accessible_pagination(total, rank_start, access.rankings_limit, page, limit);
+    let card_data = map_market_rankings_to_cards(items, skip);
 
-  // Create TradingView service for REAL API calls using restored modular architecture
-  let tradingview_service =
-    crate::infrastructure::adapters::services::tradingview::TradingViewApiService::new(
-      Arc::new(get_fallback_config())
-    );
+    // Prepare metadata - using direct TradingView API
+    let metadata = CardDashboardMetadata {
+        available_countries: get_available_countries_static(),
+        available_sectors: get_available_sectors_static(),
+        request_timestamp: chrono::Utc::now(),
+        data_source: "live_tradingview_api".to_string(),
+    };
 
-  // Get rankings data directly from TradingView (bypasses broken DDD adapter)
-  let (screening_results, total_count) = tradingview_service
-    .fetch_eps_growth_ranking(
-      Some(skip),
-      Some(limit),
-      params.country.clone(),
-      params.sector.clone(),
-      params.sort_by.clone().or(Some("qoq_growth".to_string()))
-    ).await
-    .map_err(|e|
-      AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
-        format!("TradingView API error: {}", e)
-      )
-    )?;
+    let duration = start_time.elapsed();
 
-  // Convert TradingView screening results to EPS rankings format while preserving quarterly data
-  let rankings_with_quarterly: Vec<(EPSRanking, crate::domain::shared_kernel::entities::market_data::StockScreeningResult)> = screening_results
-    .into_iter()
-    .map(|result| {
-      let ranking = convert_screening_result_to_eps_ranking(result.clone());
-      (ranking, result)
-    })
-    .collect();
-  
-  // Extract just rankings for the existing logic
-  let mut rankings_data: Vec<EPSRanking> = rankings_with_quarterly
-    .iter()
-    .map(|(ranking, _)| ranking.clone())
-    .collect();
-
-  // ENABLED: WebSocket enhancement with performance optimizations
-  // Limit to small batches and add timeout protection
-  if rankings_data.len() <= 10 && !rankings_data.is_empty() {
-    debug!(
-      "Direct endpoint: Enhancing {} rankings with WebSocket EPS data (performance optimized)",
-      rankings_data.len()
-    );
-
-    let symbols: Vec<String> = rankings_data
-      .iter()
-      .map(|r| r.symbol.clone())
-      .collect();
-
-    // Add timeout protection for WebSocket enhancement
-    let enhancement_timeout = tokio::time::Duration::from_secs(5);
-    let enhancement_result = tokio::time::timeout(
-      enhancement_timeout,
-      enhance_with_websocket_data(&symbols, &mut rankings_data)
-    ).await;
-
-    match enhancement_result {
-      Ok(Ok(enhanced_count)) => {
-        info!("Direct endpoint: Enhanced {} rankings with WebSocket data in <5s", enhanced_count);
-      }
-      Ok(Err(e)) => {
-        if e.to_string().contains("WebSocket disabled") {
-            debug!("Direct endpoint: WebSocket enhancement skipped (disabled/placeholder), using Scanner API data");
-        } else {
-            warn!("Direct endpoint: WebSocket enhancement failed: {}, using Scanner API data", e);
-        }
-      }
-      Err(_) => {
-        warn!("Direct endpoint: WebSocket enhancement timed out after 5s, using Scanner API data");
-      }
-    }
-  } else if rankings_data.len() > 10 {
-    debug!("Direct endpoint: Skipping WebSocket enhancement for {} items (performance limit)", rankings_data.len());
-  }
-  
-  info!("Using TradingView Scanner API data with optional WebSocket real-time enhancement");
-
-  // Transform EPS rankings to unified format first, then to card format with quarterly data
-  let unified_rankings: Vec<super::types::UnifiedRankingItem> = rankings_data
-    .into_iter()
-    .enumerate()
-    .map(|(index, ranking)| {
-      transform_ranking_to_unified_format(ranking, index + (skip as usize) + 1)
-    })
-    .collect();
-
-  // Transform to card format for the response, including quarterly EPS data
-  let card_data: Vec<SymbolCardData> = unified_rankings
-    .into_iter()
-    .enumerate()
-    .map(|(index, unified_ranking)| {
-      let mut card_data = transform_unified_to_card_format(&unified_ranking);
-      
-      // Add quarterly EPS data from the original screening result if available
-      if let Some((_, screening_result)) = rankings_with_quarterly.get(index) {
-        card_data.eps_quarterly = super::transform::transform_stock_screening_to_quarterly_data(screening_result);
-      }
-      
-      card_data
-    })
-    .collect();
-
-  // Calculate pagination metadata
-  let total_pages = ((total_count as f64) / (limit as f64)).ceil() as i32;
-  let has_next = page < total_pages;
-  let has_prev = page > 1;
-
-  // Prepare metadata - using direct TradingView API
-  let metadata = CardDashboardMetadata {
-    available_countries: get_available_countries_static(),
-    available_sectors: get_available_sectors_static(),
-    request_timestamp: chrono::Utc::now(),
-    data_source: "live_tradingview_api".to_string(),
-  };
-
-  let duration = start_time.elapsed();
-
-  // DEBUG: Capture final DTO structure before JSON serialization
-  let _dto_debug = card_data
-    .iter()
-    .take(3)
-    .map(|card| {
-      let quarters_debug = card.quarterly_performance
+    // DEBUG: Capture final DTO structure before JSON serialization
+    let _dto_debug = card_data
         .iter()
-        .take(2)
-        .map(|q| {
-          format!(
-            "  Quarter: '{}', Date: '{}', EPS: {:.2}, Price: {:.2}",
-            q.quarter,
-            q.date,
-            q.eps,
-            q.price
-          )
+        .take(3)
+        .map(|card| {
+            let quarters_debug = card
+                .quarterly_performance
+                .iter()
+                .take(2)
+                .map(|q| {
+                    format!(
+                        "  Quarter: '{}', Date: '{}', EPS: {:.2}, Price: {:.2}",
+                        q.quarter, q.date, q.eps, q.price
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            format!(
+                "Symbol: {}, Rank: {}, Status: '{}', Value: {:.2}\nQuarterly Performance:\n{}",
+                card.symbol, card.rank, card.active_status, card.value, quarters_debug
+            )
         })
         .collect::<Vec<_>>()
-        .join("\n");
-      format!(
-        "Symbol: {}, Rank: {}, Status: '{}', Value: {:.2}\nQuarterly Performance:\n{}",
-        card.symbol,
-        card.rank,
-        card.active_status,
-        card.value,
-        quarters_debug
-      )
+        .join("\n\n");
+
+    // Build card dashboard response
+    let data_len = card_data.len();
+    let card_response = CardDashboardResponse {
+        success: true,
+        data: card_data,
+        pagination: EPSPaginationResponse {
+            page,
+            limit,
+            total: total_count as i64,
+            total_pages,
+            has_next,
+            has_prev,
+        },
+        metadata,
+        access_info: Some(AccessInfo {
+            min_accessible_rank: access.rank_offset.max(0).saturating_add(1),
+            locked_ranks_count: access.rank_offset.max(0),
+            max_accessible_rank: (access.rankings_limit != -1).then(|| {
+                access
+                    .rank_offset
+                    .max(0)
+                    .saturating_add(access.rankings_limit.max(1))
+            }),
+        }),
+        message: Some(format!(
+            "Fetched {} card dashboard rankings successfully from TradingView API",
+            data_len
+        )),
+        processing_time_ms: duration.as_millis() as u64,
+    };
+
+    info!(
+        "Direct TradingView API card dashboard completed in {:?} - {} items returned",
+        duration, data_len
+    );
+
+    // Store response in cache with 1-hour TTL (3600 seconds)
+    // Only cache in non-development environments
+    if !crate::config::env::is_development() {
+        // CACHE WRITE DISABLED FOR SECURITY CONTROL
+        debug!("Cache write skipped due to security settings");
+    }
+
+    Ok(Json(card_response))
+}
+
+const RANKING_AUTHORITY_UNAVAILABLE_MESSAGE: &str = "Ranking access authority unavailable";
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct MarketRankingAccess {
+    rank_offset: i32,
+    rankings_limit: i32,
+}
+
+async fn resolve_market_ranking_access(
+    permission_service: &dyn WalletRankingOffsetQuery,
+    wallet_address: Option<&str>,
+) -> Result<MarketRankingAccess, AppError> {
+    let Some(wallet) = wallet_address else {
+        return Ok(MarketRankingAccess {
+            rank_offset: epsx_contracts::constants::PUBLIC_RANKING_OFFSET,
+            rankings_limit: epsx_contracts::constants::PUBLIC_RANKINGS_LIMIT,
+        });
+    };
+
+    let rank_offset = permission_service
+        .get_wallet_ranking_offset(wallet)
+        .await
+        .map(|offset| offset.value())
+        .map_err(|_| {
+            warn!("Analytics ranking offset authority unavailable");
+            AppError::new(
+                ErrorKind::ServiceUnavailable,
+                RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+            )
+        })?;
+    let rankings_limit = permission_service
+        .get_wallet_rankings_limit(wallet)
+        .await
+        .map_err(|_| {
+            warn!("Analytics ranking limit authority unavailable");
+            AppError::new(
+                ErrorKind::ServiceUnavailable,
+                RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+            )
+        })?;
+    if rankings_limit != -1 && !(1..=10_000).contains(&rankings_limit) {
+        warn!("Analytics ranking limit authority returned invalid data");
+        return Err(AppError::new(
+            ErrorKind::ServiceUnavailable,
+            RANKING_AUTHORITY_UNAVAILABLE_MESSAGE,
+        ));
+    }
+
+    Ok(MarketRankingAccess {
+        rank_offset,
+        rankings_limit,
     })
-    .collect::<Vec<_>>()
-    .join("\n\n");
-
-  // Build card dashboard response
-  let data_len = card_data.len();
-  let card_response = CardDashboardResponse {
-    success: true,
-    data: card_data,
-    pagination: EPSPaginationResponse {
-      page,
-      limit,
-      total: total_count as i64,
-      total_pages,
-      has_next,
-      has_prev,
-    },
-    metadata,
-    access_info: Some(AccessInfo {
-        min_accessible_rank: rank_offset,
-        locked_ranks_count: if rank_offset > 0 { rank_offset - 1 } else { 0 },
-    }),
-    message: Some(
-      format!("Fetched {} card dashboard rankings successfully from TradingView API", data_len)
-    ),
-    processing_time_ms: duration.as_millis() as u64,
-  };
-
-  info!(
-    "Direct TradingView API card dashboard completed in {:?} - {} items returned",
-    duration,
-    data_len
-  );
-
-  // Store response in cache with 1-hour TTL (3600 seconds)
-  // Only cache in non-development environments
-  if !crate::config::env::is_development() {
-      // CACHE WRITE DISABLED FOR SECURITY CONTROL
-      debug!("Cache write skipped due to security settings");
-  }
-
-  Ok(Json(card_response))
 }
 
-/// GET /api/analytics/cache/stats - Get cache statistics
-#[utoipa::path(
-    get,
-    path = "/api/analytics/cache/stats",
-    tag = "analytics",
-    responses(
-        (status = 200, description = "Successfully retrieved cache statistics", body = CacheStatsResponse),
-        (status = 500, description = "Internal server error")
-    )
-)]
-pub async fn get_cache_stats(Extension(
-  cache_service,
-): Extension<Arc<EPSCacheService>>) -> Result<
-  Json<CacheStatsResponse>,
-  AppError
-> {
-  debug!("Getting cache statistics");
-
-  let stats = cache_service.get_cache_stats().await;
-
-  let response = CacheStatsResponse {
-    success: true,
-    stats,
-    message: "Cache statistics retrieved successfully".to_string(),
-    timestamp: chrono::Utc::now(),
-  };
-
-  info!(
-    "Cache stats - Total entries: {}, Active: {}, Hit ratio: {:.2}%",
-    response.stats.total_entries,
-    response.stats.active_entries,
-    response.stats.hit_ratio * 100.0
-  );
-
-  Ok(Json(response))
+#[derive(Debug, PartialEq)]
+struct PreparedMarketRankingsQuery {
+    page: i32,
+    page_size: i32,
+    rank_start: i32,
+    request: MarketRankingsRequest,
 }
 
-/// POST /api/analytics/cache/refresh - Force cache refresh
-#[utoipa::path(
-    post,
-    path = "/api/analytics/cache/refresh",
-    tag = "analytics",
-    responses(
-        (status = 200, description = "Successfully refreshed cache", body = CacheRefreshResponse),
-        (status = 500, description = "Internal server error")
-    ),
-    security(("bearerAuth" = []))
-)]
-pub async fn force_cache_refresh(Extension(
-  cache_service,
-): Extension<Arc<EPSCacheService>>) -> Result<
-  Json<CacheRefreshResponse>,
-  AppError
-> {
-  info!("Forcing cache refresh");
+fn prepare_market_rankings_request(
+    params: &EPSRankingQueryParams,
+    rank_offset: i32,
+    rankings_limit: i32,
+    is_authenticated: bool,
+) -> Result<PreparedMarketRankingsQuery, AppError> {
+    let transport_cap = if is_authenticated { 100 } else { 10 };
+    let entitlement_cap = if rankings_limit == -1 {
+        transport_cap
+    } else {
+        rankings_limit.clamp(1, transport_cap)
+    };
+    let page_size = params
+        .limit
+        .unwrap_or(10)
+        .clamp(1, transport_cap)
+        .min(entitlement_cap);
+    let page = params.page.unwrap_or(1).max(1);
+    let sort_by = normalize_market_rankings_sort(params.sort_by.as_deref())?;
 
-  let start_time = std::time::Instant::now();
-  let refreshed_count = cache_service
-    .refresh_cache().await
-    .map_err(|e|
-      AppError::new(
-        crate::core::errors::ErrorKind::ExternalServiceError,
-        e.to_string()
-      )
-    )?;
-  let duration = start_time.elapsed();
+    // Catalog `ranking_offset` is the number of leading ranks hidden from the
+    // wallet: 5 means the first visible result is rank 6, while 0 means rank 1.
+    let rank_start = rank_offset.max(0);
+    let page_index = page
+        .checked_sub(1)
+        .ok_or_else(rankings_pagination_overflow)?;
+    let page_skip = page_index
+        .checked_mul(page_size)
+        .ok_or_else(rankings_pagination_overflow)?;
+    if rankings_limit != -1 && page_skip >= rankings_limit {
+        return Err(AppError::validation_error(
+            "Analytics rankings page exceeds plan access",
+        ));
+    }
+    let skip = rank_start
+        .checked_add(page_skip)
+        .ok_or_else(rankings_pagination_overflow)?;
+    let request_limit = if rankings_limit == -1 {
+        page_size
+    } else {
+        page_size.min(rankings_limit.saturating_sub(page_skip))
+    };
 
-  let response = CacheRefreshResponse {
-    success: true,
-    refreshed_entries: refreshed_count as usize,
-    duration_ms: duration.as_millis() as u64,
-    message: format!("Cache refreshed with {} entries", refreshed_count),
-    timestamp: chrono::Utc::now(),
-  };
-
-  info!(
-    "Cache refresh completed - {} entries refreshed in {:?}",
-    refreshed_count,
-    duration
-  );
-
-  Ok(Json(response))
+    Ok(PreparedMarketRankingsQuery {
+        page,
+        page_size,
+        rank_start,
+        request: MarketRankingsRequest {
+            skip,
+            limit: request_limit,
+            country: params.country.clone(),
+            sector: params.sector.clone(),
+            sort_by: Some(sort_by),
+        },
+    })
 }
 
-/// Generate cache key from query parameters and rank offset for analytics rankings
-pub fn generate_cache_key(params: &EPSRankingQueryParams, rank_offset: i32) -> String {
-  let mut hasher = DefaultHasher::new();
+fn normalize_market_rankings_sort(sort_by: Option<&str>) -> Result<String, AppError> {
+    let normalized = sort_by.unwrap_or("eps_growth").trim().to_ascii_lowercase();
 
-  // Hash rank_offset so different plan tiers get separate caches
-  rank_offset.hash(&mut hasher);
-
-  // Hash relevant parameters
-  params.country.hash(&mut hasher);
-  params.sector.hash(&mut hasher);
-  params.sort_by.hash(&mut hasher);
-  params.page.unwrap_or(1).hash(&mut hasher);
-  params.limit.unwrap_or(10).hash(&mut hasher);
-
-  // Handle f64 fields by converting to strings (to avoid NaN hash issues)
-  if let Some(min_eps) = params.min_eps {
-    min_eps.to_string().hash(&mut hasher);
-  }
-  if let Some(min_growth) = params.min_growth {
-    min_growth.to_string().hash(&mut hasher);
-  }
-
-  let hash = hasher.finish();
-  format!("analytics:rankings:{:x}", hash)
+    match normalized.as_str() {
+        "qoq_growth" | "growth_factor" | "ranking_position" | "eps_growth" => {
+            Ok("eps_growth".to_string())
+        }
+        "current_eps" | "market_cap" | "volume" | "price" | "symbol" | "name" => Ok(normalized),
+        _ => Err(AppError::validation_error(
+            "Unsupported analytics rankings sort field",
+        )),
+    }
 }
 
-/// Get fallback config when environment config fails
-fn get_fallback_config() -> crate::config::Config {
-  crate::config::get_fallback_config()
+fn rankings_pagination_overflow() -> AppError {
+    AppError::validation_error("Analytics rankings pagination exceeds supported range")
+}
+
+fn accessible_pagination(
+    provider_total: i32,
+    rank_start: i32,
+    rankings_limit: i32,
+    page: i32,
+    limit: i32,
+) -> (i32, i32, bool, bool) {
+    let provider_accessible = provider_total.saturating_sub(rank_start).max(0);
+    let accessible_total = if rankings_limit == -1 {
+        provider_accessible
+    } else {
+        provider_accessible.min(rankings_limit.max(0))
+    };
+    let total_pages =
+        ((i64::from(accessible_total) + i64::from(limit) - 1) / i64::from(limit)) as i32;
+
+    (accessible_total, total_pages, page < total_pages, page > 1)
+}
+
+async fn fetch_market_rankings(
+    provider: &dyn MarketRankingsProviderPort,
+    request: MarketRankingsRequest,
+) -> Result<MarketRankingsPage, AppError> {
+    provider
+        .fetch_rankings(request)
+        .await
+        .map_err(sanitize_market_rankings_provider_error)
+}
+
+fn sanitize_market_rankings_provider_error(error: AppError) -> AppError {
+    let kind = match error.kind {
+        ErrorKind::ServiceUnavailable => ErrorKind::ServiceUnavailable,
+        ErrorKind::TimeoutError => ErrorKind::TimeoutError,
+        ErrorKind::RateLimitExceeded => ErrorKind::RateLimitExceeded,
+        _ => ErrorKind::ExternalServiceError,
+    };
+
+    AppError::new(kind, "Market rankings provider request failed")
+}
+
+fn map_market_rankings_to_cards(
+    screening_results: Vec<StockScreeningResult>,
+    skip: i32,
+) -> Vec<SymbolCardData> {
+    let rankings_with_quarterly: Vec<(EPSRanking, StockScreeningResult)> = screening_results
+        .into_iter()
+        .map(|result| {
+            let ranking = convert_screening_result_to_eps_ranking(result.clone());
+            (ranking, result)
+        })
+        .collect();
+
+    let unified_rankings: Vec<UnifiedRankingItem> = rankings_with_quarterly
+        .iter()
+        .map(|(ranking, _)| ranking.clone())
+        .enumerate()
+        .map(|(index, ranking)| {
+            transform_ranking_to_unified_format(ranking, index + (skip as usize) + 1)
+        })
+        .collect();
+
+    unified_rankings
+        .into_iter()
+        .enumerate()
+        .map(|(index, unified_ranking)| {
+            let mut card_data = transform_unified_to_card_format(&unified_ranking);
+
+            if let Some((_, screening_result)) = rankings_with_quarterly.get(index) {
+                card_data.eps_quarterly =
+                    super::transform::transform_stock_screening_to_quarterly_data(screening_result);
+            }
+
+            card_data
+        })
+        .collect()
+}
+
+/// Generate a cache key from query parameters and the resolved plan inventory.
+pub fn generate_cache_key(
+    params: &EPSRankingQueryParams,
+    rank_offset: i32,
+    rankings_limit: i32,
+) -> String {
+    let mut hasher = DefaultHasher::new();
+
+    // Hash rank_offset so different plan tiers get separate caches
+    rank_offset.hash(&mut hasher);
+    rankings_limit.hash(&mut hasher);
+
+    // Hash relevant parameters
+    params.country.hash(&mut hasher);
+    params.sector.hash(&mut hasher);
+    params.sort_by.hash(&mut hasher);
+    params.page.unwrap_or(1).hash(&mut hasher);
+    params.limit.unwrap_or(10).hash(&mut hasher);
+
+    // Handle f64 fields by converting to strings (to avoid NaN hash issues)
+    if let Some(min_eps) = params.min_eps {
+        min_eps.to_string().hash(&mut hasher);
+    }
+    if let Some(min_growth) = params.min_growth {
+        min_growth.to_string().hash(&mut hasher);
+    }
+
+    let hash = hasher.finish();
+    format!("analytics:rankings:{:x}", hash)
 }
 
 #[cfg(test)]
 mod tests {
-  use super::*;
-
-  #[test]
-  fn test_cache_key_generation() {
-    let params = EPSRankingQueryParams {
-      page: Some(1),
-      limit: Some(10),
-      country: Some("america".to_string()),
-      sector: None,
-      sort_by: None,
-      min_eps: None,
-      min_growth: None,
+    use super::*;
+    use epsx_contracts::value_objects::ranking_offset::RankingOffset;
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Mutex,
     };
 
-    let cache_key = generate_cache_key(&params, 100);
-    assert!(cache_key.starts_with("analytics:rankings:"));
-    assert!(cache_key.len() > 20); // Should be a hex hash
+    fn a2_5_params(
+        page: Option<i32>,
+        limit: Option<i32>,
+        sort_by: Option<&str>,
+    ) -> EPSRankingQueryParams {
+        EPSRankingQueryParams {
+            page,
+            limit,
+            country: Some("america".to_string()),
+            sector: Some("Technology".to_string()),
+            sort_by: sort_by.map(str::to_string),
+            min_eps: None,
+            min_growth: None,
+        }
+    }
 
-    // Same params + offset should generate same key
-    let cache_key2 = generate_cache_key(&params, 100);
-    assert_eq!(cache_key, cache_key2);
+    struct A2_5FailingProvider {
+        calls: AtomicUsize,
+    }
 
-    // Different offset should generate different key
-    let cache_key3 = generate_cache_key(&params, 0);
-    assert_ne!(cache_key, cache_key3);
-  }
+    #[async_trait::async_trait]
+    impl MarketRankingsProviderPort for A2_5FailingProvider {
+        async fn fetch_rankings(
+            &self,
+            _request: MarketRankingsRequest,
+        ) -> Result<MarketRankingsPage, AppError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            Err(AppError::external_service_error(
+                "upstream secret response body and bearer token",
+            ))
+        }
+    }
 
-  #[test]
-  fn test_fallback_config() {
-    let config = get_fallback_config();
-    assert_eq!(config.backend_url, "http://localhost:8080");
-    // Skip Firebase project ID check for now as it's not in our config
-    // assert!(!config.firebase_project_id.is_empty());
-  }
+    struct A2_6Authority {
+        calls: AtomicUsize,
+        limit_calls: AtomicUsize,
+        wallet: Mutex<Option<String>>,
+        result: Result<RankingOffset, AppError>,
+        limit_result: Result<i32, AppError>,
+    }
+
+    #[async_trait::async_trait]
+    impl WalletRankingOffsetQuery for A2_6Authority {
+        async fn get_wallet_ranking_offset(
+            &self,
+            wallet_address: &str,
+        ) -> Result<RankingOffset, AppError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            *self.wallet.lock().expect("wallet recorder lock") = Some(wallet_address.to_string());
+            self.result.clone()
+        }
+
+        async fn get_wallet_rankings_limit(&self, _wallet_address: &str) -> Result<i32, AppError> {
+            self.limit_calls.fetch_add(1, Ordering::SeqCst);
+            self.limit_result.clone()
+        }
+    }
+
+    struct A2_6RecordingProvider {
+        calls: AtomicUsize,
+        requests: Mutex<Vec<MarketRankingsRequest>>,
+        total: i32,
+    }
+
+    #[async_trait::async_trait]
+    impl MarketRankingsProviderPort for A2_6RecordingProvider {
+        async fn fetch_rankings(
+            &self,
+            request: MarketRankingsRequest,
+        ) -> Result<MarketRankingsPage, AppError> {
+            self.calls.fetch_add(1, Ordering::SeqCst);
+            self.requests
+                .lock()
+                .expect("provider request recorder lock")
+                .push(request);
+            Ok(MarketRankingsPage {
+                items: Vec::new(),
+                total: self.total,
+            })
+        }
+    }
+
+    async fn call_a2_6_handler(
+        params: EPSRankingQueryParams,
+        authority: Arc<A2_6Authority>,
+        provider: Arc<A2_6RecordingProvider>,
+        wallet: Option<&str>,
+    ) -> Result<Json<CardDashboardResponse>, AppError> {
+        let cache: Arc<dyn Cache> = Arc::new(crate::infrastructure::cache::MemoryCache::new());
+        let permission_service: Arc<dyn WalletRankingOffsetQuery> = authority;
+        let rankings_provider: Arc<dyn MarketRankingsProviderPort> = provider;
+        let analytics_wallet_ext =
+            wallet.map(|wallet| Extension(AnalyticsWalletContext::new(wallet.to_string())));
+
+        get_unified_analytics_rankings_cached(
+            Query(params),
+            Extension(cache),
+            Extension(permission_service),
+            Extension(rankings_provider),
+            None,
+            analytics_wallet_ext,
+        )
+        .await
+    }
+
+    #[test]
+    fn test_cache_key_generation() {
+        let params = EPSRankingQueryParams {
+            page: Some(1),
+            limit: Some(10),
+            country: Some("america".to_string()),
+            sector: None,
+            sort_by: None,
+            min_eps: None,
+            min_growth: None,
+        };
+
+        let cache_key = generate_cache_key(&params, 100, 5);
+        assert!(cache_key.starts_with("analytics:rankings:"));
+        assert!(cache_key.len() > 20); // Should be a hex hash
+
+        // Same params + offset should generate same key
+        let cache_key2 = generate_cache_key(&params, 100, 5);
+        assert_eq!(cache_key, cache_key2);
+
+        // Different offset should generate different key
+        let cache_key3 = generate_cache_key(&params, 0, -1);
+        assert_ne!(cache_key, cache_key3);
+
+        // Plans with the same starting rank but different inventory must
+        // never share a cached entitlement response.
+        let different_inventory = generate_cache_key(&params, 100, 25);
+        assert_ne!(cache_key, different_inventory);
+    }
+
+    #[test]
+    fn public_inventory_is_unlimited_but_each_request_is_bounded() {
+        let prepared = prepare_market_rankings_request(
+            &a2_5_params(Some(1), Some(100), None),
+            epsx_contracts::constants::PUBLIC_RANKING_OFFSET,
+            epsx_contracts::constants::PUBLIC_RANKINGS_LIMIT,
+            false,
+        )
+        .expect("anonymous request should be valid");
+
+        assert_eq!(prepared.page, 1);
+        assert_eq!(prepared.request.limit, 10);
+        assert_eq!(prepared.request.skip, 99);
+    }
+
+    #[test]
+    fn a2_5_authenticated_limit_is_capped_at_one_hundred() {
+        let prepared =
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(1_000), None), 1, -1, true)
+                .expect("authenticated request should be valid");
+
+        assert_eq!(prepared.request.limit, 100);
+        assert_eq!(prepared.request.skip, 1);
+    }
+
+    #[test]
+    fn a2_5_plan_inventory_caps_results_and_rejects_later_pages() {
+        let first_page =
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(10), None), 5, 5, true)
+                .expect("first entitlement page should be valid");
+        assert_eq!(first_page.page_size, 5);
+        assert_eq!(first_page.request.skip, 5);
+        assert_eq!(first_page.request.limit, 5);
+
+        let error =
+            prepare_market_rankings_request(&a2_5_params(Some(2), Some(10), None), 5, 5, true)
+                .expect_err("a second page would exceed the five-row plan inventory");
+        assert_eq!(error.kind, ErrorKind::ValidationError);
+        assert_eq!(error.message, "Analytics rankings page exceeds plan access");
+    }
+
+    #[test]
+    fn a2_5_partial_final_page_never_exposes_rows_past_plan_inventory() {
+        let final_page =
+            prepare_market_rankings_request(&a2_5_params(Some(3), Some(10), None), 1, 25, true)
+                .expect("the partial final page should be valid");
+        assert_eq!(final_page.request.skip, 21);
+        assert_eq!(final_page.request.limit, 5);
+        assert_eq!(final_page.page_size, 10);
+    }
+
+    #[tokio::test]
+    async fn public_rankings_start_at_100_without_a_subscription_cap() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Err(AppError::database_error(
+                "authority details must be unreachable for anonymous input",
+            )),
+            limit_result: Err(AppError::database_error(
+                "authority details must be unreachable for anonymous input",
+            )),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 150,
+        });
+
+        let Json(response) = call_a2_6_handler(
+            a2_5_params(Some(1), Some(100), None),
+            authority.clone(),
+            provider.clone(),
+            None,
+        )
+        .await
+        .expect("anonymous rankings should remain available");
+
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+        let requests = provider.requests.lock().expect("provider requests lock");
+        assert_eq!(
+            requests.as_slice(),
+            &[MarketRankingsRequest {
+                skip: 99,
+                limit: 10,
+                country: Some("america".to_string()),
+                sector: Some("Technology".to_string()),
+                sort_by: Some("eps_growth".to_string()),
+            }]
+        );
+        let access = response.access_info.expect("anonymous access info");
+        assert_eq!(access.min_accessible_rank, 100);
+        assert_eq!(access.locked_ranks_count, 99);
+        assert_eq!(access.max_accessible_rank, None);
+        assert_eq!(response.pagination.limit, 10);
+        assert_eq!(response.pagination.total, 51);
+        assert_eq!(response.pagination.total_pages, 6);
+        assert!(response.pagination.has_next);
+    }
+
+    #[tokio::test]
+    async fn a2_6_authenticated_authoritative_offset_proceeds() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Ok(RankingOffset::new(5).expect("valid offset")),
+            limit_result: Ok(-1),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 250,
+        });
+
+        let Json(response) = call_a2_6_handler(
+            a2_5_params(Some(2), Some(1_000), None),
+            authority.clone(),
+            provider.clone(),
+            Some("0xAbC"),
+        )
+        .await
+        .expect("authoritative offset should proceed");
+
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            authority
+                .wallet
+                .lock()
+                .expect("authority wallet lock")
+                .as_deref(),
+            Some("0xabc")
+        );
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+        let requests = provider.requests.lock().expect("provider requests lock");
+        assert_eq!(requests[0].skip, 105);
+        assert_eq!(requests[0].limit, 100);
+        let access = response.access_info.expect("authenticated access info");
+        assert_eq!(access.min_accessible_rank, 6);
+        assert_eq!(access.locked_ranks_count, 5);
+        assert_eq!(access.max_accessible_rank, None);
+    }
+
+    #[tokio::test]
+    async fn public_pagination_continues_beyond_the_old_five_company_inventory() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Err(AppError::database_error(
+                "public requests do not need a plan",
+            )),
+            limit_result: Err(AppError::database_error(
+                "public requests do not need a plan",
+            )),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 1_000,
+        });
+        for (page, expected_skip, has_next) in [(2, 109, true), (20, 289, true), (91, 999, false)] {
+            let Json(response) = call_a2_6_handler(
+                a2_5_params(Some(page), Some(10), None),
+                authority.clone(),
+                provider.clone(),
+                None,
+            )
+            .await
+            .expect("public pagination should not hit a subscription inventory cap");
+            let request = provider.requests.lock().unwrap().last().unwrap().clone();
+            assert_eq!(request.skip, expected_skip);
+            assert_eq!(request.limit, 10);
+            assert_eq!(request.country.as_deref(), Some("america"));
+            assert_eq!(request.sector.as_deref(), Some("Technology"));
+            assert_eq!(response.pagination.total, 901);
+            assert_eq!(response.pagination.total_pages, 91);
+            assert_eq!(response.pagination.has_next, has_next);
+            assert!(response.pagination.has_prev);
+            let cards = map_market_rankings_to_cards(
+                vec![StockScreeningResult::new(
+                    "PUBLIC".into(),
+                    "Public company".into(),
+                    1.0,
+                )],
+                request.skip,
+            );
+            assert_eq!(cards[0].rank, expected_skip + 1);
+        }
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 0);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[tokio::test]
+    async fn a2_6_authenticated_no_plan_is_explicit_free_success() {
+        let authority = Arc::new(A2_6Authority {
+            calls: AtomicUsize::new(0),
+            limit_calls: AtomicUsize::new(0),
+            wallet: Mutex::new(None),
+            result: Ok(RankingOffset::free_plan()),
+            limit_result: Ok(epsx_contracts::constants::FREE_PLAN_RANKINGS_LIMIT),
+        });
+        let provider = Arc::new(A2_6RecordingProvider {
+            calls: AtomicUsize::new(0),
+            requests: Mutex::new(Vec::new()),
+            total: 150,
+        });
+
+        let Json(response) = call_a2_6_handler(
+            a2_5_params(Some(1), Some(10), None),
+            authority.clone(),
+            provider.clone(),
+            Some("0xNoPlan"),
+        )
+        .await
+        .expect("explicit free-plan authority success should proceed");
+
+        assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 1);
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(
+            provider.requests.lock().expect("provider requests lock")[0].skip,
+            100
+        );
+        assert_eq!(
+            provider.requests.lock().expect("provider requests lock")[0].limit,
+            5
+        );
+        let access = response.access_info.expect("free-plan access info");
+        assert_eq!(access.min_accessible_rank, 101);
+        assert_eq!(access.locked_ranks_count, 100);
+        assert_eq!(access.max_accessible_rank, Some(105));
+    }
+
+    #[tokio::test]
+    async fn a2_6_authenticated_authority_errors_stop_before_provider_work() {
+        let failures = [
+            AppError::not_found("sensitive missing-plan authority detail"),
+            AppError::database_error("sensitive authority database detail"),
+            AppError::new(
+                ErrorKind::TimeoutError,
+                "sensitive authority timeout detail",
+            ),
+        ];
+
+        for failure in failures {
+            let authority = Arc::new(A2_6Authority {
+                calls: AtomicUsize::new(0),
+                limit_calls: AtomicUsize::new(0),
+                wallet: Mutex::new(None),
+                result: Err(failure),
+                limit_result: Ok(-1),
+            });
+            let provider = Arc::new(A2_6RecordingProvider {
+                calls: AtomicUsize::new(0),
+                requests: Mutex::new(Vec::new()),
+                total: 150,
+            });
+
+            let error = call_a2_6_handler(
+                a2_5_params(Some(1), Some(10), None),
+                authority.clone(),
+                provider.clone(),
+                Some("0xAuthenticated"),
+            )
+            .await
+            .expect_err("authority failure must fail closed");
+
+            assert_eq!(authority.calls.load(Ordering::SeqCst), 1);
+            assert_eq!(authority.limit_calls.load(Ordering::SeqCst), 0);
+            assert_eq!(error.kind, ErrorKind::ServiceUnavailable);
+            assert_eq!(error.message, RANKING_AUTHORITY_UNAVAILABLE_MESSAGE);
+            assert!(!error.message.contains("sensitive"));
+            assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+            assert!(provider
+                .requests
+                .lock()
+                .expect("provider requests lock")
+                .is_empty());
+        }
+    }
+
+    #[tokio::test]
+    async fn a2_5_checked_pagination_overflow_fails_before_provider_call() {
+        let provider = A2_5FailingProvider {
+            calls: AtomicUsize::new(0),
+        };
+        let prepared = prepare_market_rankings_request(
+            &a2_5_params(Some(i32::MAX), Some(100), None),
+            100,
+            -1,
+            true,
+        );
+
+        let error = match prepared {
+            Ok(value) => fetch_market_rankings(&provider, value.request)
+                .await
+                .expect_err("overflow must be rejected before this branch"),
+            Err(error) => error,
+        };
+
+        assert_eq!(error.kind, ErrorKind::ValidationError);
+        assert_eq!(
+            error.message,
+            "Analytics rankings pagination exceeds supported range"
+        );
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn a2_5_sort_aliases_normalize_and_supported_fields_are_preserved() {
+        for alias in [
+            "qoq_growth",
+            "growth_factor",
+            "ranking_position",
+            "eps_growth",
+        ] {
+            assert_eq!(
+                normalize_market_rankings_sort(Some(alias)).expect("alias should be supported"),
+                "eps_growth"
+            );
+        }
+        assert_eq!(
+            normalize_market_rankings_sort(None).expect("default should be supported"),
+            "eps_growth"
+        );
+
+        for field in [
+            "current_eps",
+            "market_cap",
+            "volume",
+            "price",
+            "symbol",
+            "name",
+        ] {
+            assert_eq!(
+                normalize_market_rankings_sort(Some(field)).expect("field should be supported"),
+                field
+            );
+        }
+    }
+
+    #[test]
+    fn a2_5_unknown_sort_is_rejected_before_provider_call() {
+        let provider = A2_5FailingProvider {
+            calls: AtomicUsize::new(0),
+        };
+        let error = prepare_market_rankings_request(
+            &a2_5_params(Some(1), Some(10), Some("unsupported")),
+            100,
+            5,
+            false,
+        )
+        .expect_err("unknown sort must be rejected");
+
+        assert_eq!(error.kind, ErrorKind::ValidationError);
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 0);
+    }
+
+    #[test]
+    fn a2_5_accessible_pagination_excludes_locked_ranks() {
+        let (total, total_pages, has_next, has_prev) = accessible_pagination(105, 100, 5, 1, 5);
+
+        assert_eq!(total, 5);
+        assert_eq!(total_pages, 1);
+        assert!(!has_next);
+        assert!(!has_prev);
+
+        for provider_total in [99, 25, 0] {
+            let (total, total_pages, has_next, has_prev) =
+                accessible_pagination(provider_total, 100, 5, 1, 5);
+            assert_eq!(total, 0);
+            assert_eq!(total_pages, 0);
+            assert!(!has_next);
+            assert!(!has_prev);
+        }
+    }
+
+    #[tokio::test]
+    async fn a2_5_provider_error_is_sanitized() {
+        let provider = A2_5FailingProvider {
+            calls: AtomicUsize::new(0),
+        };
+        let request =
+            prepare_market_rankings_request(&a2_5_params(Some(1), Some(10), None), 100, 5, false)
+                .expect("request should be valid")
+                .request;
+
+        let error = fetch_market_rankings(&provider, request)
+            .await
+            .expect_err("fake provider should fail");
+
+        assert_eq!(provider.calls.load(Ordering::SeqCst), 1);
+        assert_eq!(error.kind, ErrorKind::ExternalServiceError);
+        assert_eq!(error.message, "Market rankings provider request failed");
+        assert!(!error.message.contains("secret"));
+        assert!(!error.message.contains("bearer"));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn a2_5_successful_mapping_preserves_quarterly_dto() {
+        let mut result =
+            StockScreeningResult::new("A2FIVE".to_string(), "A2.5 Test Company".to_string(), 42.5);
+        result.eps_q_minus_2 = Some(1.0);
+        result.eps_q_minus_1 = Some(1.5);
+        result.eps_q_current = Some(2.0);
+        result.current_eps = Some(2.0);
+
+        let cards = map_market_rankings_to_cards(vec![result], 99);
+
+        assert_eq!(cards.len(), 1);
+        assert_eq!(cards[0].rank, 100);
+        assert_eq!(cards[0].symbol, "A2FIVE");
+        let quarterly = cards[0]
+            .eps_quarterly
+            .as_ref()
+            .expect("quarterly DTO should be present");
+        assert_eq!(quarterly.eps_q_minus_2, Some(1.0));
+        assert_eq!(quarterly.eps_q_minus_1, Some(1.5));
+        assert_eq!(quarterly.eps_q_current, Some(2.0));
+    }
+
+    // wave12(track-b) option b: the dead route decision test. The
+    // 'get_cache_stats' and 'force_cache_refresh' HTTP handlers were
+    // deleted (audit-analytics §7d, ROADMAP §4 item 5). They are
+    // intentionally NOT exported. This compile-time check guards
+    // against silent reintroduction.
+    //
+    // If a future change re-adds them to the public API, this test
+    // (and the matching sentinel in `web/routes/unified_router.rs`
+    // and the 3 openapi_*.rs files) will need to be revisited — at
+    // which point the author must choose option (a) wiring or keep
+    // option (b) and accept the dead code.
+    #[allow(dead_code)]
+    const _WAVE12_DEAD_ROUTE_OPTION_B: () = ();
 }

@@ -1,0 +1,15 @@
+{
+  "id": "pricing",
+  "version": "1.0.0",
+  "name": "Pricing Table",
+  "category": "commerce",
+  "schema": "blocks/pricing/schema.json",
+  "defaultProps": {
+    "plans": [
+      { "name": "Free", "price": "$0", "interval": "month", "features": ["Basic"], "ctaText": "Get Started" },
+      { "name": "Pro", "price": "$29", "interval": "month", "features": ["Everything in Free", "Pro features"], "ctaText": "Subscribe", "highlighted": true }
+    ]
+  },
+  "preview": "/assets/blocks/pricing.png",
+  "component": "Pricing"
+}

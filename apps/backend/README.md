@@ -252,7 +252,7 @@ The EPSX backend implements a well-structured Clean Architecture pattern with fi
 - **Rust** (latest stable version)
 - **PostgreSQL** 16+
 - **Redis** (for caching)
-- **Node.js** 18+ (for running the monorepo)
+- **Rust** stable toolchain with Cargo
 - **Diesel CLI** (for database migrations)
 
 ### Install Diesel CLI
@@ -514,7 +514,7 @@ impl From<DieselNotification> for DomainNotification {
 
 ### Error Handling with Diesel
 ```rust
-use crate::core::errors::{AppError, AppResult};
+use epsx_contracts::errors::{AppError, AppResult};
 
 async fn diesel_operation() -> AppResult<User> {
     let user = users::table

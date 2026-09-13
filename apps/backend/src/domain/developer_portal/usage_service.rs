@@ -1,16 +1,8 @@
-use chrono::{DateTime, Datelike, Duration, Utc};
-use diesel::prelude::*;
-use diesel::sql_types::{Text, Timestamptz};
-use diesel::QueryableByName;
-use diesel_async::RunQueryDsl;
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use serde::Serialize;
+use sqlx::PgPool;
 use uuid::Uuid;
 
-use crate::infrastructure::adapter_repositories::DbPool;
-use crate::schemas::primary::api_keys;
-use crate::schemas::analytics::api_key_usage_logs;
-
-/// API usage statistics for a wallet
 #[derive(Debug, Serialize)]
 pub struct UsageStats {
     pub total_requests: i64,
@@ -19,375 +11,377 @@ pub struct UsageStats {
     pub error_rate_24h: f64,
 }
 
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct UsageReport {
+    pub days: i32,
+    pub total_requests: i64,
+    pub successful_requests: i64,
+    pub error_requests: i64,
+    pub success_rate: f64,
+    pub error_rate: f64,
+    pub average_response_time_ms: f64,
+    pub daily: Vec<DailyUsage>,
+    pub top_endpoints: Vec<EndpointReport>,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
+pub struct DailyUsage {
+    pub date: NaiveDate,
+    pub total_requests: i64,
+    pub error_requests: i64,
+}
+
+#[derive(Clone, Debug, Serialize, PartialEq)]
+pub struct EndpointReport {
+    pub endpoint: String,
+    pub method: String,
+    pub request_count: i64,
+    pub error_count: i64,
+    pub average_response_time_ms: f64,
+}
+
 /// Time-bucketed usage data point
-#[derive(Debug, Serialize, QueryableByName)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct UsageHistoryPoint {
-    #[diesel(sql_type = Timestamptz)]
     pub bucket: DateTime<Utc>,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     pub count: i64,
 }
 
 /// Top endpoint statistics
-#[derive(Debug, Serialize, QueryableByName)]
+#[derive(Debug, Serialize, sqlx::FromRow)]
 pub struct TopEndpoint {
-    #[diesel(sql_type = Text)]
     pub endpoint: String,
-    #[diesel(sql_type = Text)]
     pub method: String,
-    #[diesel(sql_type = diesel::sql_types::BigInt)]
     pub count: i64,
 }
 
-/// Module usage for stats
-#[derive(Debug, Serialize)]
-pub struct ModuleUsage {
-    pub module_id: Uuid,
-    pub module_name: String,
-    pub request_count: i64,
-}
+use super::api_module::ModuleUsageStats;
 
 /// Usage service with multi-database support
-/// 
-/// This service queries:
-/// - `core_pool`: For `api_keys` table (key metadata)
-/// - `analytics_pool`: For `api_key_usage_logs` table (usage metrics)
 pub struct UsageService {
-    core_pool: DbPool,
-    analytics_pool: DbPool,
+    core_pool: PgPool,
+    analytics_pool: PgPool,
+}
+
+fn empty_report(days: i32, start_date: NaiveDate) -> UsageReport {
+    UsageReport {
+        days,
+        total_requests: 0,
+        successful_requests: 0,
+        error_requests: 0,
+        success_rate: 0.0,
+        error_rate: 0.0,
+        average_response_time_ms: 0.0,
+        daily: (0..days)
+            .map(|offset| DailyUsage {
+                date: start_date + Duration::days(i64::from(offset)),
+                total_requests: 0,
+                error_requests: 0,
+            })
+            .collect(),
+        top_endpoints: Vec::new(),
+    }
 }
 
 impl UsageService {
-    /// Create a new usage service with dual database pools
-    pub fn new(core_pool: DbPool, analytics_pool: DbPool) -> Self {
-        Self { core_pool, analytics_pool }
-    }
-
-    /// Create a usage service with only core pool (legacy compatibility, limited functionality)
-    /// Note: Analytics queries will use core pool and likely fail if tables don't exist
-    pub fn new_core_only(core_pool: DbPool) -> Self {
-        Self { 
-            core_pool, 
-            analytics_pool: core_pool  // Same pool, will fail on analytics-specific tables
+    pub fn new(core_pool: PgPool, analytics_pool: PgPool) -> Self {
+        Self {
+            core_pool,
+            analytics_pool,
         }
     }
 
-    /// Get aggregated usage stats for a wallet address
-    pub async fn get_wallet_stats(&self, wallet_address: &str) -> Result<UsageStats, diesel::result::Error> {
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
+    pub fn new_core_only(core_pool: PgPool) -> Self {
+        Self {
+            core_pool: core_pool.clone(),
+            analytics_pool: core_pool,
+        }
+    }
 
-        // Get API key IDs for this wallet from core database
-        let wallet_lower = wallet_address.to_lowercase();
-        let total_requests: i64 = api_keys::table
-            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
-            )))
-            .select(diesel::dsl::sql::<diesel::sql_types::Nullable<diesel::sql_types::BigInt>>("SUM(total_requests)::BIGINT"))
-            .first::<Option<i64>>(&mut core_conn)
-            .await?
-            .unwrap_or(0);
+    pub async fn get_report(
+        &self,
+        wallet_address: &str,
+        days: i32,
+    ) -> Result<UsageReport, sqlx::Error> {
+        if !matches!(days, 7 | 30 | 90) {
+            return Err(sqlx::Error::RowNotFound);
+        }
 
-        // Get API key IDs for analytics queries
-        let api_key_ids: Vec<Uuid> = api_keys::table
-            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
-            )))
-            .select(api_keys::id)
-            .load::<Uuid>(&mut core_conn)
-            .await?;
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
+
+        let today = Utc::now().date_naive();
+        let start_date = today - Duration::days(i64::from(days - 1));
 
         if api_key_ids.is_empty() {
-            return Ok(UsageStats {
-                total_requests,
-                average_success_rate: 100.0,
-                requests_24h: 0,
-                error_rate_24h: 0.0,
-            });
+            return Ok(empty_report(days, start_date));
         }
 
-        // Query analytics database for 24h stats
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
+        #[derive(sqlx::FromRow)]
+        struct TotalsRow {
+            total_requests: i64,
+            successful_requests: i64,
+            average_response_time_ms: f64,
+        }
+        #[derive(sqlx::FromRow)]
+        struct DailyRow {
+            date: NaiveDate,
+            total_requests: i64,
+            error_requests: i64,
+        }
+        #[derive(sqlx::FromRow)]
+        struct EndpointRow {
+            endpoint: String,
+            method: String,
+            request_count: i64,
+            error_count: i64,
+            average_response_time_ms: f64,
+        }
 
-        let now = Utc::now();
-        let twenty_four_hours_ago = now - Duration::hours(24);
+        let totals: TotalsRow = sqlx::query_as(
+            r#"
+            SELECT COUNT(*)::bigint AS total_requests,
+                   COUNT(*) FILTER (WHERE response_status < 400)::bigint AS successful_requests,
+                   COALESCE(AVG(response_time_ms), 0)::float8 AS average_response_time_ms
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            "#,
+        )
+        .bind(&api_key_ids)
+        .bind(start_date)
+        .fetch_one(&self.analytics_pool)
+        .await?;
 
-        // Count requests in last 24 hours
-        let requests_24h: i64 = api_key_usage_logs::table
-            .filter(api_key_usage_logs::api_key_id.eq_any(&api_key_ids))
-            .filter(api_key_usage_logs::request_at.ge(&twenty_four_hours_ago))
-            .count()
-            .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+        let daily_rows: Vec<DailyRow> = sqlx::query_as(
+            r#"
+            SELECT request_at::date AS date,
+                   COUNT(*)::bigint AS total_requests,
+                   COUNT(*) FILTER (WHERE response_status IS NULL OR response_status >= 400)::bigint AS error_requests
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY request_at::date
+            ORDER BY date ASC
+            "#,
+        )
+        .bind(&api_key_ids)
+        .bind(start_date)
+        .fetch_all(&self.analytics_pool)
+        .await?;
 
-        // Count error requests in last 24 hours (status >= 400)
-        let error_count: i64 = api_key_usage_logs::table
-            .filter(api_key_usage_logs::api_key_id.eq_any(&api_key_ids))
-            .filter(api_key_usage_logs::request_at.ge(&twenty_four_hours_ago))
-            .filter(api_key_usage_logs::response_status.ge(Some(400)))
-            .count()
-            .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
+        let endpoint_rows: Vec<EndpointRow> = sqlx::query_as(
+            r#"
+            SELECT endpoint::text, method::text,
+                   COUNT(*)::bigint AS request_count,
+                   COUNT(*) FILTER (WHERE response_status IS NULL OR response_status >= 400)::bigint AS error_count,
+                   COALESCE(AVG(response_time_ms), 0)::float8 AS average_response_time_ms
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY endpoint, method
+            ORDER BY request_count DESC, method ASC, endpoint ASC
+            LIMIT 10
+            "#,
+        )
+        .bind(&api_key_ids)
+        .bind(start_date)
+        .fetch_all(&self.analytics_pool)
+        .await?;
 
-        // Calculate rates
-        let error_rate_24h = if requests_24h > 0 {
-            (error_count as f64 / requests_24h as f64) * 100.0
+        let total_requests = totals.total_requests;
+        let successful_requests = totals.successful_requests;
+        let error_requests = (total_requests - successful_requests).max(0);
+        let success_rate = if total_requests > 0 {
+            successful_requests as f64 / total_requests as f64
+        } else {
+            0.0
+        };
+        let error_rate = if total_requests > 0 {
+            error_requests as f64 / total_requests as f64
         } else {
             0.0
         };
 
-        let average_success_rate = 100.0 - error_rate_24h;
-
-        Ok(UsageStats {
-            total_requests,
-            average_success_rate,
-            requests_24h,
-            error_rate_24h,
-        })
-    }
-
-    /// Get usage history (time series) for a wallet
-    pub async fn get_usage_history(
-        &self, 
-        wallet_address: &str, 
-        days: i32
-    ) -> Result<Vec<UsageHistoryPoint>, diesel::result::Error> {
-        // Get API key IDs from core database
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let wallet_lower = wallet_address.to_lowercase();
-        let api_key_ids: Vec<Uuid> = api_keys::table
-            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
-            )))
-            .select(api_keys::id)
-            .load::<Uuid>(&mut core_conn)
-            .await?;
-
-        if api_key_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // Query analytics database for time series
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let start_date = Utc::now() - Duration::days(days as i64);
-        
-        // Generate time buckets (daily) with request counts
-        // Using raw SQL for proper time bucketing
-        let api_key_ids_str: String = api_key_ids.iter()
-            .map(|id| format!("'{}'", id))
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let history: Vec<UsageHistoryPoint> = diesel::sql_query(format!(
-            r#"
-            SELECT 
-                date_trunc('day', request_at) as bucket,
-                COUNT(*)::BIGINT as count
-            FROM api_key_usage_logs
-            WHERE api_key_id IN ({})
-              AND request_at >= $1
-            GROUP BY date_trunc('day', request_at)
-            ORDER BY bucket DESC
-            "#,
-            api_key_ids_str
-        ))
-        .bind::<Timestamptz, _>(start_date)
-        .load::<UsageHistoryPoint>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
-
-        Ok(history)
-    }
-
-    /// Get top endpoints for a wallet
-    pub async fn get_top_endpoints(
-        &self, 
-        wallet_address: &str,
-        days: i32
-    ) -> Result<Vec<TopEndpoint>, diesel::result::Error> {
-        // Get API key IDs from core database
-        let mut core_conn = self.core_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let wallet_lower = wallet_address.to_lowercase();
-        let api_key_ids: Vec<Uuid> = api_keys::table
-            .filter(diesel::dsl::sql::<diesel::sql_types::Bool>(&format!(
-                "LOWER(wallet_address) = '{}'", wallet_lower.replace('\'', "''")
-            )))
-            .select(api_keys::id)
-            .load::<Uuid>(&mut core_conn)
-            .await?;
-
-        if api_key_ids.is_empty() {
-            return Ok(Vec::new());
-        }
-
-        // Query analytics database for top endpoints
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let start_date = Utc::now() - Duration::days(days as i64);
-        
-        let api_key_ids_str: String = api_key_ids.iter()
-            .map(|id| format!("'{}'", id))
-            .collect::<Vec<_>>()
-            .join(",");
-
-        let top_endpoints: Vec<TopEndpoint> = diesel::sql_query(format!(
-            r#"
-            SELECT 
-                endpoint,
-                method,
-                COUNT(*)::BIGINT as count
-            FROM api_key_usage_logs
-            WHERE api_key_id IN ({})
-              AND request_at >= $1
-            GROUP BY endpoint, method
-            ORDER BY count DESC
-            LIMIT 10
-            "#,
-            api_key_ids_str
-        ))
-        .bind::<Timestamptz, _>(start_date)
-        .load::<TopEndpoint>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
-
-        Ok(top_endpoints)
-    }
-
-    /// Get today's total request count (for admin stats)
-    pub async fn get_requests_today(&self) -> Result<i64, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let today_start = Utc::now().date_naive().and_hms_opt(0, 0, 0)
-            .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
-
-        let count: i64 = api_key_usage_logs::table
-            .filter(api_key_usage_logs::request_at.ge(&today_start))
-            .count()
-            .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
-
-        Ok(count)
-    }
-
-    /// Get this month's total request count (for admin stats)
-    pub async fn get_requests_this_month(&self) -> Result<i64, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        let now = Utc::now();
-        let month_start = now.date_naive()
-            .with_day(1)
-            .and_then(|d| d.and_hms_opt(0, 0, 0))
-            .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
-
-        let count: i64 = api_key_usage_logs::table
-            .filter(api_key_usage_logs::request_at.ge(&month_start))
-            .count()
-            .get_result(&mut analytics_conn)
-            .await
-            .unwrap_or(0);
-
-        Ok(count)
-    }
-
-    /// Get top modules by usage (for admin stats)
-    pub async fn get_top_modules_by_usage(&self, limit: i64) -> Result<Vec<ModuleUsage>, diesel::result::Error> {
-        let mut analytics_conn = self.analytics_pool.get().await.map_err(|e| {
-            diesel::result::Error::DatabaseError(
-                diesel::result::DatabaseErrorKind::Unknown,
-                Box::new(e.to_string()),
-            )
-        })?;
-
-        // Query for module usage counts
-        #[derive(QueryableByName)]
-        struct ModuleCount {
-            #[diesel(sql_type = diesel::sql_types::Uuid)]
-            module_id: Uuid,
-            #[diesel(sql_type = diesel::sql_types::BigInt)]
-            count: i64,
-        }
-
-        let month_start = Utc::now().date_naive()
-            .with_day(1)
-            .and_then(|d| d.and_hms_opt(0, 0, 0))
-            .map(|t| DateTime::<Utc>::from_naive_utc_and_offset(t, Utc))
-            .unwrap_or_else(Utc::now);
-
-        let module_counts: Vec<ModuleCount> = diesel::sql_query(format!(
-            r#"
-            SELECT 
-                module_id,
-                COUNT(*)::BIGINT as count
-            FROM api_key_usage_logs
-            WHERE request_at >= $1
-              AND module_id IS NOT NULL
-            GROUP BY module_id
-            ORDER BY count DESC
-            LIMIT {}
-            "#,
-            limit
-        ))
-        .bind::<Timestamptz, _>(month_start)
-        .load::<ModuleCount>(&mut analytics_conn)
-        .await
-        .unwrap_or_default();
-
-        // Convert to ModuleUsage (module name lookup would require core DB join)
-        let modules: Vec<ModuleUsage> = module_counts.into_iter()
-            .map(|mc| ModuleUsage {
-                module_id: mc.module_id,
-                module_name: format!("module-{}", mc.module_id.to_string().chars().take(8).collect::<String>()),
-                request_count: mc.count,
+        let daily: Vec<DailyUsage> = daily_rows
+            .into_iter()
+            .map(|row| DailyUsage {
+                date: row.date,
+                total_requests: row.total_requests,
+                error_requests: row.error_requests,
             })
             .collect();
 
-        Ok(modules)
+        let top_endpoints: Vec<EndpointReport> = endpoint_rows
+            .into_iter()
+            .map(|row| EndpointReport {
+                endpoint: row.endpoint,
+                method: row.method,
+                request_count: row.request_count,
+                error_count: row.error_count,
+                average_response_time_ms: row.average_response_time_ms,
+            })
+            .collect();
+
+        Ok(UsageReport {
+            days,
+            total_requests,
+            successful_requests,
+            error_requests,
+            success_rate,
+            error_rate,
+            average_response_time_ms: totals.average_response_time_ms,
+            daily,
+            top_endpoints,
+        })
+    }
+
+    pub async fn get_daily_history(
+        &self,
+        wallet_address: &str,
+        days: i32,
+    ) -> Result<Vec<UsageHistoryPoint>, sqlx::Error> {
+        if !matches!(days, 7 | 30 | 90) {
+            return Ok(Vec::new());
+        }
+
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
+
+        if api_key_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let today = Utc::now().date_naive();
+        let start_date = today - Duration::days(i64::from(days - 1));
+
+        let points: Vec<UsageHistoryPoint> = sqlx::query_as(
+            r#"
+            SELECT date_trunc('day', request_at) AS bucket,
+                   COUNT(*)::bigint AS count
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY bucket
+            ORDER BY bucket ASC
+            "#,
+        )
+        .bind(&api_key_ids)
+        .bind(start_date)
+        .fetch_all(&self.analytics_pool)
+        .await?;
+
+        Ok(points)
+    }
+
+    pub async fn get_top_endpoints(
+        &self,
+        wallet_address: &str,
+        days: i32,
+        limit: i64,
+    ) -> Result<Vec<TopEndpoint>, sqlx::Error> {
+        if !matches!(days, 7 | 30 | 90) {
+            return Ok(Vec::new());
+        }
+
+        let api_key_ids: Vec<Uuid> =
+            sqlx::query_scalar("SELECT id FROM api_keys WHERE LOWER(wallet_address) = LOWER($1)")
+                .bind(wallet_address)
+                .fetch_all(&self.core_pool)
+                .await?;
+
+        if api_key_ids.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let today = Utc::now().date_naive();
+        let start_date = today - Duration::days(i64::from(days - 1));
+
+        let endpoints: Vec<TopEndpoint> = sqlx::query_as(
+            r#"
+            SELECT endpoint::text, method::text,
+                   COUNT(*)::bigint AS count
+            FROM infra_logs.api_key_usage_logs
+            WHERE api_key_id = ANY($1)
+              AND request_at >= $2::date
+            GROUP BY endpoint, method
+            ORDER BY count DESC
+            LIMIT $3
+            "#,
+        )
+        .bind(&api_key_ids)
+        .bind(start_date)
+        .bind(limit)
+        .fetch_all(&self.analytics_pool)
+        .await?;
+
+        Ok(endpoints)
+    }
+
+    pub async fn get_module_usage(
+        &self,
+        _wallet_address: &str,
+        _days: i32,
+    ) -> Result<Vec<ModuleUsageStats>, sqlx::Error> {
+        // TODO: implement via JOIN against api_modules + usage logs.
+        Ok(Vec::new())
+    }
+
+    pub async fn get_requests_today(&self) -> Result<i64, sqlx::Error> {
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::BIGINT FROM infra_logs.api_key_usage_logs WHERE request_at >= CURRENT_DATE",
+        )
+        .fetch_one(&self.analytics_pool)
+        .await
+        .unwrap_or((0,));
+        Ok(count.0)
+    }
+
+    pub async fn get_requests_this_month(&self) -> Result<i64, sqlx::Error> {
+        let count: (i64,) = sqlx::query_as(
+            "SELECT COUNT(*)::BIGINT FROM infra_logs.api_key_usage_logs WHERE request_at >= DATE_TRUNC('month', CURRENT_DATE)",
+        )
+        .fetch_one(&self.analytics_pool)
+        .await
+        .unwrap_or((0,));
+        Ok(count.0)
+    }
+
+    pub async fn get_top_modules_by_usage(
+        &self,
+        limit: i64,
+    ) -> Result<Vec<ModuleUsageStats>, sqlx::Error> {
+        let rows: Vec<ModuleUsageStats> = sqlx::query_as::<_, (Uuid, String, i64, i64)>(
+            r#"
+            SELECT am.id, am.name, COUNT(l.id)::BIGINT AS request_count, COUNT(DISTINCT l.api_key_id)::BIGINT AS unique_api_keys
+            FROM api_modules am
+            LEFT JOIN infra_logs.api_key_usage_logs l ON l.endpoint LIKE am.base_path || '%'
+            GROUP BY am.id, am.name
+            ORDER BY request_count DESC
+            LIMIT $1
+            "#,
+        )
+        .bind(limit)
+        .fetch_all(&self.analytics_pool)
+        .await
+        .map(|list| {
+            list.into_iter().map(|(module_id, module_name, request_count, unique_api_keys)| {
+                ModuleUsageStats {
+                    module_id,
+                    module_name,
+                    request_count,
+                    unique_api_keys,
+                }
+            }).collect()
+        })
+        .unwrap_or_default();
+
+        Ok(rows)
     }
 }

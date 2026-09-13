@@ -1,6 +1,9 @@
 -- Add grace_period_hours to plans table
 -- Allows plans to maintain access for N hours after expiry before deactivation
-ALTER TABLE plans ADD COLUMN grace_period_hours INTEGER NOT NULL DEFAULT 0;
+-- The consolidated v6 baseline already contains this column. Keep the
+-- incremental migration compatible with both pre-baseline databases and fresh
+-- databases without replacing or rewriting existing values.
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS grace_period_hours INTEGER NOT NULL DEFAULT 0;
 
 -- Update permission function to include grace period window
 CREATE OR REPLACE FUNCTION public.get_wallet_permissions_detailed_working(p_wallet_address character varying)

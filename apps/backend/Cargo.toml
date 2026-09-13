@@ -27,10 +27,6 @@ name = "migrate_media"
 path = "src/bin/migrate_media.rs"
 required-features = ["cli-tools"]
 
-[[bin]]
-name = "epsx_vercel"
-path = "api/epsx_vercel.rs"
-
 # Feature flags optimized for production
 [features]
 default = ["production"]
@@ -43,6 +39,7 @@ auth = ["jwt", "sha2"]
 jwt = ["jsonwebtoken", "sha2"]
 http-client = ["reqwest", "tls-rustls"]
 cache = ["redis"]  # CQRS event bus via Redis Streams
+redis-tests = ["redis"]
 
 # TLS implementation (rustls only for production)
 tls-rustls = ["reqwest?/rustls-tls"]
@@ -52,11 +49,31 @@ production = ["postgres", "cache", "auth", "websockets", "http-client"]
 cli-tools = ["dep:clap", "database"]
 
 [dependencies]
+# Shared kernel contracts (errors, permissions, traits, value objects)
+epsx-contracts = { path = "../../shared/rust/epsx-contracts" }
+
 # Core server dependencies (always required)
 anyhow = "1.0.100"
 axum = { version = "0.8.6", features = ["ws", "macros", "multipart"] }
 # axum-extra removed - not used
 async-trait = "0.1"
+
+# Wave 9: auth + identity extraction (Shape B shared library, Track B)
+epsx-identity-shared = { path = "../../shared/rust/epsx-identity-shared" }
+# Wave 10 prep: shared Postgres pool types so backend and auth crate
+# see the same `TlsPool` / `TlsConnectionManager` (was a placeholder
+# alias in epsx-identity-shared's prelude before this crate existed).
+epsx-database-pools = { path = "../../shared/rust/epsx-database-pools" }
+# A2.11: extracted read-only ranking-entitlement snapshot adapter.
+epsx-ranking-store = { path = "../../shared/rust/epsx-ranking-store" }
+# Wave 10 prep: shared web/middleware crate. Was a facade in wave 9;
+# grew in the prep pass to host the security_headers middleware and
+# the 3 pure rate-limiter factories (the rest of the 10 files in
+# `web/middleware/` stay in the backend pending trait extractions).
+epsx-web-middleware = { path = "../../shared/rust/epsx-web-middleware" }
+# wave49(slice-4): pay-proxy uses epsx_client::ServiceClient
+# to forward /api/v1/pay/* requests to pay.epsx.io.
+epsx-client = { path = "../../shared/rust/client" }
 chrono = { version = "0.4.42", features = ["serde"] }
 dotenv = "0.15"
 futures = "0.3"
@@ -64,7 +81,7 @@ hex = "0.4"
 http = "1.3.1"
 lazy_static = "1.4"
 base64 = "0.22"
-rust_decimal = { version = "1.39.0", features = ["serde-with-str"] }
+rust_decimal = { version = "1.39.0", features = ["serde-with-str", "db-postgres"] }
 rust_decimal_macros = "1.39.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
@@ -85,7 +102,6 @@ once_cell = "1.19"
 rand = "0.8"
 dashmap = "6.0"
 md5 = "0.7"  # Used in key_management for fingerprinting
-vercel_runtime = { version = "2", features = ["axum"] }
 
 # Optional WebSocket support
 futures-util = { version = "0.3", optional = true }
@@ -94,20 +110,19 @@ tokio-tungstenite = { version = "0.21", features = ["rustls-tls-native-roots"], 
 # Optional authentication and security
 jsonwebtoken = { version = "9.2", optional = true }
 sha2 = { version = "0.10", optional = true }
+hmac.workspace = true
 rsa = "0.9"
 
 # Web3 and Ethereum dependencies
 ethers = "2.0"
 siwe = "0.6"
 
-# TLS support for database
-tokio-postgres-rustls = "0.12"
-tokio-postgres = "0.7"
+# TLS via rustls (sqlx + reqwest handle TLS via rustls; tokio-postgres removed for Cloudflare compatibility)
 rustls = { version = "0.23", features = ["ring"] }
 webpki-roots = "0.26"
 
-# Optional HTTP client with TLS choice
-reqwest = { version = "0.11", features = ["json"], optional = true, default-features = false }
+# Optional HTTP client with TLS choice — unified to workspace 0.12 + rustls-tls-native-roots
+reqwest = { workspace = true, features = ["json"], optional = true }
 
 # Redis for notification pub/sub and event bus
 # TLS support with rustls for production use
@@ -132,19 +147,12 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 
 
 
-# Database access with Diesel ORM - Type-safe async PostgreSQL driver
+# Database access (sqlx canonical)
 bigdecimal = { version = "0.4", features = ["serde"] }
 
-# Diesel 2.x ORM with async support
-diesel = { version = "2.2", features = ["postgres", "uuid", "chrono", "numeric", "serde_json", "r2d2", "network-address", "32-column-tables"] }
-diesel-async = { version = "0.5", features = ["postgres", "deadpool", "async-connection-wrapper", "bb8"] }
-diesel_migrations = "2.2"
-pq-sys = { version = "0.7", default-features = false, features = ["bundled"] }
-deadpool = { version = "0.9", features = ["rt_tokio_1"] }
+# Canonical pool — sqlx only
+sqlx = { workspace = true }
 governor = "0.10.0"
-# Diesel provides type-safe ORM with async support via diesel-async
-# Using deadpool 0.9 (from diesel-async dependency) for async connection pooling
-# Note: diesel-async 0.4 requires diesel 2.1.x and deadpool 0.9.x
 
 
 [dev-dependencies]
@@ -154,25 +162,3 @@ axum-test = "15.0"
 tokio-test = "0.4"
 
 # Performance Benchmark Tests
-
-# Profile configurations for binary size optimization
-[profile.dev]
-# Development build (faster compilation, larger binary)
-opt-level = 0
-debug = true
-split-debuginfo = "unpacked"
-overflow-checks = true
-lto = false
-panic = "unwind"
-incremental = true
-codegen-units = 256
-
-[profile.release]
-opt-level = 3
-debug = false
-strip = true
-lto = "thin"
-panic = "abort"
-codegen-units = 1
-overflow-checks = false
-incremental = false

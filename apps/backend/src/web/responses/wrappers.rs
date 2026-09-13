@@ -1,7 +1,7 @@
 // Response Wrappers - Domain-Specific Response Types
 // All delegate to UnifiedApiResponse for consistency
 
-use super::unified_response::{UnifiedApiResponse, PaginationMeta, PermissionContext};
+use super::unified_response::{PaginationMeta, PermissionContext, UnifiedApiResponse};
 use axum::{response::IntoResponse, Json};
 use serde::Serialize;
 
@@ -25,7 +25,10 @@ impl AdminResponse {
     }
 
     /// Success with pagination (for list endpoints)
-    pub fn success_with_pagination<T: Serialize>(data: T, pagination: PaginationMeta) -> impl IntoResponse {
+    pub fn success_with_pagination<T: Serialize>(
+        data: T,
+        pagination: PaginationMeta,
+    ) -> impl IntoResponse {
         UnifiedApiResponse::success_with_pagination(data, pagination)
     }
 
@@ -33,7 +36,7 @@ impl AdminResponse {
     pub fn created<T: Serialize>(data: T, message: &str) -> impl IntoResponse {
         (
             axum::http::StatusCode::CREATED,
-            UnifiedApiResponse::success_with_message(data, message)
+            UnifiedApiResponse::success_with_message(data, message),
         )
     }
 
@@ -88,7 +91,10 @@ impl AnalyticsResponse {
     }
 
     /// Success with pagination (most analytics endpoints use this)
-    pub fn success_with_pagination<T: Serialize>(data: T, pagination: PaginationMeta) -> impl IntoResponse {
+    pub fn success_with_pagination<T: Serialize>(
+        data: T,
+        pagination: PaginationMeta,
+    ) -> impl IntoResponse {
         UnifiedApiResponse::success_with_pagination(data, pagination)
     }
 
@@ -102,7 +108,10 @@ impl AnalyticsResponse {
     }
 
     /// Success with permissions (for single-item endpoints)
-    pub fn success_with_permissions<T: Serialize>(data: T, permissions: PermissionContext) -> impl IntoResponse {
+    pub fn success_with_permissions<T: Serialize>(
+        data: T,
+        permissions: PermissionContext,
+    ) -> impl IntoResponse {
         UnifiedApiResponse::success_with_permissions(data, permissions)
     }
 
@@ -122,10 +131,7 @@ impl AnalyticsResponse {
             "Rate limit exceeded",
             &format!("Please retry after {} seconds", retry_after),
         );
-        (
-            axum::http::StatusCode::TOO_MANY_REQUESTS,
-            Json(response)
-        )
+        (axum::http::StatusCode::TOO_MANY_REQUESTS, Json(response))
     }
 }
 
@@ -190,11 +196,7 @@ impl AuthResponse {
 // ============================================================================
 
 /// Helper to create pagination metadata from query parameters
-pub fn create_pagination(
-    page: u32,
-    limit: u32,
-    total: u64,
-) -> PaginationMeta {
+pub fn create_pagination(page: u32, limit: u32, total: u64) -> PaginationMeta {
     let total_pages = ((total as f64) / (limit as f64)).ceil() as u32;
     let has_next = page < total_pages;
     let has_prev = page > 1;

@@ -322,21 +322,24 @@ impl GranularPermissionSet {
     }
     
     /// Calculate hash of permissions for validation
-    fn calculate_hash(permissions: &HashMap<String, GranularPermissionClaim>) -> String {
+    ///
+    /// Uses SHA-256 (wave9 R8b) so the hash is stable across runs and
+    /// processes. The previous `DefaultHasher` implementation was the
+    /// process-local `SipHasher13` whose output is **not** guaranteed
+    /// stable across Rust versions or `Hasher` implementations, which
+    /// made `validate_hash()` and the audit-log hash check
+    /// non-deterministic.
+    pub fn calculate_hash(permissions: &HashMap<String, GranularPermissionClaim>) -> String {
         use std::collections::BTreeMap;
-        
+        use sha2::{Digest, Sha256};
+
         // Sort permissions for consistent hashing
         let sorted: BTreeMap<_, _> = permissions.iter().collect();
         let serialized = serde_json::to_string(&sorted).unwrap_or_default();
-        
-        // Simple hash - in production, use a proper cryptographic hash
-        format!("{:x}", {
-            use std::collections::hash_map::DefaultHasher;
-            use std::hash::{Hash, Hasher};
-            let mut hasher = DefaultHasher::new();
-            serialized.hash(&mut hasher);
-            hasher.finish()
-        })
+
+        // Cryptographic hash — stable across runs and Rust versions
+        let digest = Sha256::digest(serialized.as_bytes());
+        format!("{:x}", digest)
     }
     
     /// Validate hash matches current permissions
@@ -485,5 +488,78 @@ mod tests {
         assert_eq!(removed[0], "expired_perm");
         assert_eq!(perm_set.permissions.len(), 1);
         assert!(perm_set.permissions.contains_key("valid_perm"));
+    }
+
+    /// R8b: SHA-256 hash must be stable across runs (and across
+    /// processes / Rust versions). The previous `DefaultHasher`
+    /// implementation was not stable, which made `validate_hash()`
+    /// non-deterministic for persisted `GranularPermissionSet`
+    /// snapshots in the audit log.
+    #[test]
+    fn test_calculate_hash_is_stable_across_runs() {
+        let mut perms = HashMap::new();
+        perms.insert(
+            "epsx:rankings:view:5".to_string(),
+            GranularPermissionClaim::permanent(
+                PermissionSource::Subscription,
+                Some("admin_123".to_string()),
+            ),
+        );
+        perms.insert(
+            "epsx:analytics:premium".to_string(),
+            GranularPermissionClaim::temporary(
+                Utc::now() + chrono::Duration::hours(1),
+                PermissionSource::AdminGrant,
+                Some("admin_456".to_string()),
+            ),
+        );
+
+        let h1 = GranularPermissionSet::calculate_hash(&perms);
+        let h2 = GranularPermissionSet::calculate_hash(&perms);
+        let h3 = GranularPermissionSet::calculate_hash(&perms);
+        assert_eq!(h1, h2);
+        assert_eq!(h2, h3);
+        // SHA-256 hex is 64 lowercase chars
+        assert_eq!(h1.len(), 64);
+        assert!(h1.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// R8b: insertion-order independence. HashMap iteration order
+    /// is non-deterministic, so the hash must be computed over a
+    /// BTreeMap-sorted view to be reproducible.
+    #[test]
+    fn test_calculate_hash_independent_of_insertion_order() {
+        let mut perms_a = HashMap::new();
+        perms_a.insert(
+            "a".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+        perms_a.insert(
+            "b".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+        perms_a.insert(
+            "c".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+
+        // Build the same set in opposite insertion order.
+        let mut perms_b = HashMap::new();
+        perms_b.insert(
+            "c".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+        perms_b.insert(
+            "b".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+        perms_b.insert(
+            "a".to_string(),
+            GranularPermissionClaim::permanent(PermissionSource::SystemGrant, None),
+        );
+
+        let h_a = GranularPermissionSet::calculate_hash(&perms_a);
+        let h_b = GranularPermissionSet::calculate_hash(&perms_b);
+        assert_eq!(h_a, h_b);
     }
 }

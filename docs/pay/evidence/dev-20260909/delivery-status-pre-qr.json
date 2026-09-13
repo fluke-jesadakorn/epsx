@@ -1,0 +1,53 @@
+{
+  "recorded_at": "2026-09-09T00:59:31.220681+00:00",
+  "release": "20260909-checkout-v7",
+  "public_checks": [
+    {
+      "url": "https://dev.epsx.io/plans",
+      "status": 200
+    },
+    {
+      "url": "https://dev-admin.epsx.io/",
+      "status": 200
+    },
+    {
+      "url": "https://dev-api.epsx.io/health",
+      "status": 200
+    },
+    {
+      "url": "https://dev-pay.epsx.io/",
+      "status": 200
+    },
+    {
+      "rpc": "127.0.0.1:8545",
+      "chain_id": 31337,
+      "public_rpc_route": false
+    }
+  ],
+  "browser": {
+    "login": "passed",
+    "plan_token_price": "passed",
+    "plan_to_hosted_pay_redirect": "passed",
+    "actual_wallet": "0x0305d127caaced896c7cf0e0579afc5384f97494",
+    "approve_pay": "blocked_by_browser_tool_security_policy_for_MetaMask_UI",
+    "wallet_cancel_wrong_chain": "not_completed",
+    "wallet_request": "New checkout: wallet connected; unknown chain 0x7a69 caused add-chain request; wallet response pending",
+    "expired_checkout_recovery": "passed: expiry webhook HTTP 200, old order expired, new checkout opened"
+  },
+  "tests": {
+    "workspace_passed": 2219,
+    "workspace_failed": 0,
+    "workspace_ignored": 35,
+    "foundry_passed": 28,
+    "merchant_integration": "passed",
+    "core_fulfillment_integration_passed": 4,
+    "catalog_atomicity_integration": "passed",
+    "clippy": "passed",
+    "format": "passed",
+    "wasm_package": "passed",
+    "asset_verification": "passed",
+    "no_node": "passed",
+    "targeted_browser_packages": "passed",
+    "idle_expiry_restart": "passed; mixed mining every 60 seconds; restored time synchronized; original receipt preserved"
+  }
+}

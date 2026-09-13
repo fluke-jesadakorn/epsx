@@ -1,7 +1,7 @@
-use crate::prelude::*;
-use crate::application::shared::{QueryHandler, ApplicationResult, ApplicationError};
 use crate::application::notification::queries::{GetNotificationQuery, GetNotificationResponse};
+use crate::application::shared::{ApplicationError, ApplicationResult, QueryHandler};
 use crate::domain::notification::NotificationRepositoryPort;
+use crate::prelude::*;
 
 /// Query handler for getting a single notification
 pub struct GetNotificationQueryHandler {
@@ -18,22 +18,32 @@ impl GetNotificationQueryHandler {
 
 #[async_trait]
 impl QueryHandler<GetNotificationQuery> for GetNotificationQueryHandler {
-    async fn handle(&self, query: GetNotificationQuery) -> ApplicationResult<GetNotificationResponse> {
+    async fn handle(
+        &self,
+        query: GetNotificationQuery,
+    ) -> ApplicationResult<GetNotificationResponse> {
         // Load notification from repository
-        let notification = self.notification_repository.find_by_id(&query.notification_id).await
+        let notification = self
+            .notification_repository
+            .find_by_id(&query.notification_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
-            .ok_or_else(|| ApplicationError::not_found("notification_id", "Notification not found"))?;
+            .ok_or_else(|| {
+                ApplicationError::not_found("notification_id", "Notification not found")
+            })?;
 
         // Map domain aggregate to response DTO
-        let (recipient_type, recipient_id) = if let Some(wallet_address) = notification.recipient_wallet_address() {
-            ("user".to_string(), wallet_address.to_string())
-        } else if let Some(topic) = notification.topic() {
-            ("topic".to_string(), topic.name().to_string())
-        } else {
-            ("unknown".to_string(), "".to_string())
-        };
+        let (recipient_type, recipient_id) =
+            if let Some(wallet_address) = notification.recipient_wallet_address() {
+                ("user".to_string(), wallet_address.to_string())
+            } else if let Some(topic) = notification.topic() {
+                ("topic".to_string(), topic.name().to_string())
+            } else {
+                ("unknown".to_string(), "".to_string())
+            };
 
-        let channels: Vec<String> = notification.channels()
+        let channels: Vec<String> = notification
+            .channels()
             .enabled_channels()
             .iter()
             .map(|ch| ch.channel_type().as_str().to_string())
@@ -95,7 +105,12 @@ impl QueryHandler<GetNotificationQuery> for GetNotificationQueryHandler {
             delivered_at,
             image_url: notification.metadata().image_url().map(|s| s.to_string()),
             action_url: notification.metadata().action_url().map(|s| s.to_string()),
-            tags: notification.metadata().tags().iter().map(|s| s.to_string()).collect(),
+            tags: notification
+                .metadata()
+                .tags()
+                .iter()
+                .map(|s| s.to_string())
+                .collect(),
             created_at: notification.created_at(),
             updated_at: notification.updated_at(),
         })

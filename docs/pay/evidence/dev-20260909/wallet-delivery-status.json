@@ -1,0 +1,30 @@
+{
+  "release": "20260909-wallet-v5",
+  "previous_release": "20260909-wallet-v4",
+  "environment": "dev",
+  "chain_id": 31337,
+  "rpc_exposure": "loopback only",
+  "database_migration": false,
+  "contract_redeployment": false,
+  "public_health": "all four domains HTTP 200",
+  "tests": {
+    "rust_targeted": "32 passed, 2 integration tests ignored by default",
+    "postgresql_anvil_integration": "passed separately including gas/token balances, capability, tampered amount/recipient/chain, expiration, duplicate preparation and QR/direct/escrow regression",
+    "workspace_clippy": "passed",
+    "wasm_clippy": "passed",
+    "format": "passed",
+    "assets": "passed",
+    "no_node_scoped_sdk_audit": "passed",
+    "foundry": "33 passed",
+    "walletconnect_bridge_lifecycle": "mock-provider connect, pairing, accounts, chain, disconnect, cancel, reconnect, stale events passed",
+    "desktop_mobile_light_dark": "visually verified; mobile document width equals scroll width at 375px",
+    "metamask_payment": "5 USDT succeeded/granted; user confirmed extension popup; admin and webhook verified",
+    "prepared_api_payment": "5 USDC succeeded/granted through HTTPS prepared transaction signed by generated test buyer CLI",
+    "restart": "service restart preserved both orders and grants"
+  },
+  "outstanding": [
+    "Real WalletConnect Project ID required: configured value is a placeholder. Live relay pairing is not verified.",
+    "Mobile wallet payment is deferred by agreement; Anvil remains loopback.",
+    "Manual MetaMask rejection, account-change and wrong-chain popup scenarios were not completed through the extension UI."
+  ]
+}

@@ -5,15 +5,18 @@
 pub use crate::web::analytics::eps::*;
 
 // Re-export handler functions with their original names for routing compatibility
+pub use metadata::{
+    get_all_valid_countries, get_available_countries, get_filter_options, get_sectors_by_country,
+};
 pub use rankings::get_eps_rankings;
-pub use metadata::{get_available_countries, get_all_valid_countries, get_sectors_by_country, get_filter_options};
-pub use cache::{get_unified_analytics_rankings_cached, get_cache_stats, force_cache_refresh};
+// wave12(track-b) option b: deleted get_cache_stats and force_cache_refresh
+// (dead routes, see audit-analytics §7d and ROADMAP §4 wave-12 precondition #5).
+pub use cache::get_unified_analytics_rankings_cached;
 
 // Re-export key DTOs that are used in routes
 pub use types::{
-    EPSRankingQueryParams, EPSRankingsApiResponse, EPSPaginationResponse,
-    CountriesResponse, SectorsResponse, FiltersResponse,
-    CardDashboardResponse, CacheStatsResponse, CacheRefreshResponse
+    CardDashboardResponse, CountriesResponse, EPSPaginationResponse, EPSRankingQueryParams,
+    EPSRankingsApiResponse, FiltersResponse, SectorsResponse,
 };
 
 // Test module for backward compatibility verification
@@ -65,11 +68,13 @@ mod tests {
         };
 
         // Test data transformation pipeline
-        let unified = crate::web::analytics::eps::transform::transform_ranking_to_unified_format(ranking, 1);
+        let unified =
+            crate::web::analytics::eps::transform::transform_ranking_to_unified_format(ranking, 1);
         assert_eq!(unified.symbol, "AAPL");
         assert_eq!(unified.ranking_position, 1);
 
-        let card = crate::web::analytics::eps::transform::transform_unified_to_card_format(&unified);
+        let card =
+            crate::web::analytics::eps::transform::transform_unified_to_card_format(&unified);
         assert_eq!(card.symbol, "AAPL");
         assert_eq!(card.rank, 1);
         assert_eq!(card.value, 150.0);
@@ -87,7 +92,7 @@ mod tests {
             min_growth: None,
         };
 
-        let cache_key = cache::generate_cache_key(&params, 100);
+        let cache_key = cache::generate_cache_key(&params, 100, 5);
         assert!(cache_key.starts_with("analytics:rankings:"));
         assert!(cache_key.len() > 20);
     }

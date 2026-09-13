@@ -1,13 +1,11 @@
 use crate::prelude::*;
 use chrono::Utc;
 
-use crate::application::shared::{Query, QueryHandler, ApplicationResult, ApplicationError};
+use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
 use crate::application::wallet_management::queries::models::{
-    GetWalletQuery, GetWalletResponse, WalletStats
+    GetWalletQuery, GetWalletResponse, WalletStats,
 };
-use crate::domain::wallet_management::{
-    WalletUserRepositoryPort, WalletAddress
-};
+use crate::domain::wallet_management::{WalletAddress, WalletUserRepositoryPort};
 
 /// Query handler for retrieving wallet information
 pub struct GetWalletQueryHandler {
@@ -15,12 +13,8 @@ pub struct GetWalletQueryHandler {
 }
 
 impl GetWalletQueryHandler {
-    pub fn new(
-        wallet_repository: Arc<dyn WalletUserRepositoryPort>,
-    ) -> Self {
-        Self {
-            wallet_repository,
-        }
+    pub fn new(wallet_repository: Arc<dyn WalletUserRepositoryPort>) -> Self {
+        Self { wallet_repository }
     }
 }
 
@@ -35,7 +29,8 @@ impl QueryHandler<GetWalletQuery> for GetWalletQueryHandler {
             .map_err(|e| ApplicationError::validation("wallet_address", e.to_string()))?;
 
         // 3. Find wallet
-        let wallet = self.wallet_repository
+        let wallet = self
+            .wallet_repository
             .find_by_wallet(&wallet_addr)
             .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
@@ -43,7 +38,8 @@ impl QueryHandler<GetWalletQuery> for GetWalletQueryHandler {
 
         // 4. Calculate statistics
         let total_permissions = wallet.permissions().len() as u32;
-        let active_permissions = wallet.permissions()
+        let active_permissions = wallet
+            .permissions()
             .iter()
             .filter(|p| p.is_active())
             .count() as u32;
@@ -61,11 +57,12 @@ impl QueryHandler<GetWalletQuery> for GetWalletQueryHandler {
         // 5. Optionally include permissions
         let permissions = if query.include_permissions {
             Some(
-                wallet.permissions()
+                wallet
+                    .permissions()
                     .iter()
                     .filter(|p| p.is_active())
                     .map(|p| p.as_str().to_string())
-                    .collect()
+                    .collect(),
             )
         } else {
             None

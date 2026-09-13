@@ -1,9 +1,9 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::realtime_events::commands::{
-    MarkEventDeliveredCommand, MarkEventDeliveredResponse
+    MarkEventDeliveredCommand, MarkEventDeliveredResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::realtime_events::EventRepositoryPort;
+use crate::prelude::*;
 
 /// Handler for marking events as delivered
 pub struct MarkEventDeliveredCommandHandler {
@@ -18,16 +18,21 @@ impl MarkEventDeliveredCommandHandler {
 
 #[async_trait]
 impl CommandHandler<MarkEventDeliveredCommand> for MarkEventDeliveredCommandHandler {
-    async fn handle(&self, command: MarkEventDeliveredCommand) -> ApplicationResult<MarkEventDeliveredResponse> {
+    async fn handle(
+        &self,
+        command: MarkEventDeliveredCommand,
+    ) -> ApplicationResult<MarkEventDeliveredResponse> {
         // 1. Retrieve event
-        let mut event = self.event_repository
+        let mut event = self
+            .event_repository
             .find_by_id(&command.event_id)
             .await
             .map_err(ApplicationError::infrastructure)?
             .ok_or_else(|| ApplicationError::not_found("event", command.event_id.to_string()))?;
 
         // 2. Mark as delivered
-        event.mark_delivered()
+        event
+            .mark_delivered()
             .map_err(|e| ApplicationError::business_rule(e.to_string()))?;
 
         let delivered_at = event.created_at();

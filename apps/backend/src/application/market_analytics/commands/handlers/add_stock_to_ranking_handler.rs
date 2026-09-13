@@ -1,36 +1,42 @@
-use crate::prelude::*;
-use crate::application::shared::{CommandHandler, ApplicationResult, ApplicationError};
 use crate::application::market_analytics::commands::{
-    AddStockToRankingCommand, AddStockToRankingResponse
+    AddStockToRankingCommand, AddStockToRankingResponse,
 };
+use crate::application::shared::{ApplicationError, ApplicationResult, CommandHandler};
 use crate::domain::market_analytics::{
-    EPSRankingRepositoryPort, StockSymbol, EPSValue, GrowthFactor, MarketSector, Country
+    Country, EPSRankingRepositoryPort, EPSValue, GrowthFactor, MarketSector, StockSymbol,
 };
-use crate::domain::shared_kernel::DomainEventBus;
+use crate::prelude::*;
+use epsx_contracts::event_publisher_port::EventPublisherPort;
 
 /// Command handler for adding stocks to rankings
 pub struct AddStockToRankingCommandHandler {
     ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-    event_bus: Arc<dyn DomainEventBus>,
+    event_publisher: Arc<dyn EventPublisherPort>,
 }
 
 impl AddStockToRankingCommandHandler {
     pub fn new(
         ranking_repository: Arc<dyn EPSRankingRepositoryPort>,
-        event_bus: Arc<dyn DomainEventBus>,
+        event_publisher: Arc<dyn EventPublisherPort>,
     ) -> Self {
         Self {
             ranking_repository,
-            event_bus,
+            event_publisher,
         }
     }
 }
 
 #[async_trait]
 impl CommandHandler<AddStockToRankingCommand> for AddStockToRankingCommandHandler {
-    async fn handle(&self, command: AddStockToRankingCommand) -> ApplicationResult<AddStockToRankingResponse> {
+    async fn handle(
+        &self,
+        command: AddStockToRankingCommand,
+    ) -> ApplicationResult<AddStockToRankingResponse> {
         // 1. Load ranking
-        let mut ranking = self.ranking_repository.find_by_id(&command.ranking_id).await
+        let mut ranking = self
+            .ranking_repository
+            .find_by_id(&command.ranking_id)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?
             .ok_or_else(|| ApplicationError::not_found("ranking_id", "Ranking not found"))?;
 
@@ -51,27 +57,41 @@ impl CommandHandler<AddStockToRankingCommand> for AddStockToRankingCommandHandle
             .map_err(|e| ApplicationError::validation("country", e.to_string()))?;
 
         // 3. Add stock to ranking (domain logic validates filters)
-        let rank = ranking.add_entry(
-            symbol.clone(),
-            command.company_name,
-            eps_value,
-            growth_factor,
-            sector,
-            country,
-        ).map_err(|e| ApplicationError::business_logic(e.to_string()))?;
+        let rank = ranking
+            .add_entry(
+                symbol.clone(),
+                command.company_name,
+                eps_value,
+                growth_factor,
+                sector,
+                country,
+            )
+            .map_err(|e| ApplicationError::business_logic(e.to_string()))?;
 
         // 4. Calculate score (from ranking entry)
-        let score = ranking.entries().get(&rank)
+        let score = ranking
+            .entries()
+            .get(&rank)
             .map(|entry| entry.score)
             .unwrap_or(0.0);
 
         // 5. Save updated ranking
-        self.ranking_repository.save(&ranking).await
+        self.ranking_repository
+            .save(&ranking)
+            .await
             .map_err(|e| ApplicationError::infrastructure(e.to_string()))?;
 
         // 6. Publish domain events
         for event in ranking.uncommitted_events() {
-            self.event_bus.publish(&**event);
+            let owned: Box<dyn crate::domain::shared_kernel::DomainEvent> = Box::new(
+                epsx_contracts::domain_event::OwnedEvent::from_borrowed(&**event),
+            );
+            if let Err(e) = self.event_publisher.publish(owned).await {
+                tracing::warn!(
+                    error = %e,
+                    "EventPublisherPort.publish returned error; command continues"
+                );
+            }
         }
 
         // 7. Return response

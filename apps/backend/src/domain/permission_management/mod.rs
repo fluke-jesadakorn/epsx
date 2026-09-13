@@ -2,61 +2,59 @@
 // Handles plans, policies, and permission assignment rules
 
 pub mod aggregates;
+pub mod domain_services;
 pub mod entities;
-pub mod value_objects;
 pub mod events;
 pub mod repository_ports;
-pub mod domain_services;
+pub mod value_objects;
 
 // Re-export key types (new names)
 pub use aggregates::{
-    Plan, CreatePlanParams, LoadPlanParams, UpdatePlanParams,
+    CreatePermissionPlanParams,
+    CreatePlanParams,
+    CreatePlanParams as CreatePermissionGroupParams,
+    LoadPermissionPlanParams,
+    LoadPlanParams,
+    LoadPlanParams as LoadPermissionGroupParams,
+    PermissionPlan,
+    Plan,
     // Backward compatibility aliases
-    Plan as PermissionGroup, CreatePlanParams as CreatePermissionGroupParams,
-    LoadPlanParams as LoadPermissionGroupParams, UpdatePlanParams as UpdatePermissionGroupParams,
-    PermissionPlan, CreatePermissionPlanParams, LoadPermissionPlanParams, UpdatePermissionPlanParams,
+    Plan as PermissionGroup,
     Policy,
+    UpdatePermissionPlanParams,
+    UpdatePlanParams,
+    UpdatePlanParams as UpdatePermissionGroupParams,
 };
 
 pub use value_objects::{
-    PlanId, PlanSlug, PolicyId, PolicyRule, PermissionString,
-    PlanCategory, PlanGroup,
+    PermissionString, PlanCategory, PlanGroup, PlanId, PlanSlug, PolicyId, PolicyRule,
 };
 
-pub use entities::{
-    PlanAssignment,
-    PlanAssignment as GroupAssignment,
-};
+pub use entities::{PlanAssignment, PlanAssignment as GroupAssignment};
 
 pub use events::{
     PlanCreatedEvent,
-    PlanUpdatedEvent,
-    PlanDeletedEvent,
-    WalletAssignedToPlanEvent,
-    WalletRemovedFromPlanEvent,
     // Backward compatibility aliases
     PlanCreatedEvent as PermissionPlanCreatedEvent,
-    PlanUpdatedEvent as PermissionPlanUpdatedEvent,
+    PlanDeletedEvent,
     PlanDeletedEvent as PermissionPlanDeletedEvent,
+    PlanUpdatedEvent,
+    PlanUpdatedEvent as PermissionPlanUpdatedEvent,
     PolicyCreatedEvent,
     PolicyUpdatedEvent,
+    WalletAssignedToPlanEvent,
+    WalletRemovedFromPlanEvent,
 };
 
 pub use repository_ports::{
-    PlanRepositoryPort,
-    PlanRepositoryPort as PermissionGroupRepositoryPort,
-    PlanRepositoryPort as PermissionPlanRepositoryPort,
+    PlanAssignmentRepositoryPort, PlanAssignmentRepositoryPort as GroupAssignmentRepositoryPort,
+    PlanRepositoryPort, PlanRepositoryPort as PermissionGroupRepositoryPort,
+    PlanRepositoryPort as PermissionPlanRepositoryPort, PlanSearchCriteria,
+    PlanSearchCriteria as GroupSearchCriteria, PlanStatistics, PlanStatistics as GroupStatistics,
     PolicyRepositoryPort,
-    PlanAssignmentRepositoryPort,
-    PlanAssignmentRepositoryPort as GroupAssignmentRepositoryPort,
-    PlanSearchCriteria,
-    PlanSearchCriteria as GroupSearchCriteria,
-    PlanStatistics,
-    PlanStatistics as GroupStatistics,
 };
 
 pub use domain_services::{
-    PermissionValidationService,
-    PlanAssignmentService,
+    PermissionValidationService, PlanAssignmentService,
     PlanAssignmentService as GroupAssignmentService,
 };

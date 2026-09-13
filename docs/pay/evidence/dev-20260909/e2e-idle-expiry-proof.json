@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-09-09T00:58:46.121958+00:00",
+  "chain_id": 31337,
+  "mining": "mixed: instant transactions plus 60-second idle blocks",
+  "restored_clock_synchronized": true,
+  "latest_block_age_seconds": 2,
+  "previous_receipt_preserved": true,
+  "transaction_hash": "0x4fb86cff109c098008f980ee167109e8f0d52d7d63d23f0a2bed660a5496ba5c",
+  "old_browser_order": "094b4bb4-1779-45a6-95ba-0ecae168394e",
+  "old_order_status": "expired",
+  "expiry_webhook_status": 200,
+  "checkpoints_healthy": true
+}

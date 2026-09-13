@@ -1,0 +1,4795 @@
+{
+  "schemaVersion": 1,
+  "artifact": "service-authorization-baseline",
+  "scope": {
+    "phase": "A2.0",
+    "branch": "migration/dioxus-microservices",
+    "purpose": "Planning and fixture integrity only. This artifact does not assert runtime authorization or production readiness.",
+    "generatedFrom": "Current Axum Router mounts in candidate services plus canonical apps/backend authorization expectations.",
+    "productionReadinessClaim": false
+  },
+  "classificationDefinitions": {
+    "public-allowlist": "Explicitly approved anonymous endpoint; only the enumerated method and path may bypass authentication.",
+    "authenticated-user": "Valid canonical access token required; response or mutation is scoped to the authenticated subject where applicable.",
+    "owner-only": "Valid canonical access token plus server-side comparison between the token subject/wallet and stored or derived ownership.",
+    "permission-specific-admin-operator": "Valid canonical access token plus the exact granular backend permission; admin role/name alone is insufficient.",
+    "internal-webhook": "External user credentials are insufficient; require signed webhook material or authenticated service/operator identity.",
+    "unknown": "Policy is unresolved or wildcard-mixed; target behavior is fail closed until split and classified.",
+    "router-dispatch-only": "Transport wildcard only; the gateway exact method/path policy is the authorization decision and unclassified shapes remain denied.",
+    "blocked-by-default": "Explicitly disabled compatibility or development route; all cases deny until a separately reviewed owner contract exists."
+  },
+  "identityContract": {
+    "issuer": "apps/backend canonical identity",
+    "algorithm": "RS256",
+    "keyDiscovery": "JWKS with kid selection",
+    "audience": "exact service or approved BFF audience; wrong audience denied",
+    "permissionSource": "verified token claims/backend permission service",
+    "ownershipRule": "derive subject/wallet from verified claims and compare server-side; never trust body/query/path alone"
+  },
+  "caseProfiles": {
+    "public": {
+      "anonymous": "allow",
+      "expired": "not-applicable",
+      "wrongAudience": "not-applicable",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "allow",
+      "granularAdmin": "allow"
+    },
+    "authenticated": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "allow",
+      "granularAdmin": "allow"
+    },
+    "owner": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "conditional",
+      "granularAdmin": "conditional"
+    },
+    "granular-admin": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "deny",
+      "granularAdmin": "allow"
+    },
+    "internal": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "not-applicable",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
+    },
+    "unknown": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "conditional"
+    },
+    "router-only": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
+    },
+    "blocked-by-default": {
+      "anonymous": "deny",
+      "expired": "deny",
+      "wrongAudience": "deny",
+      "crossOwner": "deny",
+      "ordinaryUser": "deny",
+      "granularAdmin": "deny"
+    }
+  },
+  "canonicalEvidence": [
+    {
+      "id": "backend-token-contract",
+      "file": "apps/backend/src/auth/token_service.rs",
+      "anchors": [
+        "Validation::new(Algorithm::RS256)",
+        "validation.set_audience(&self.audiences)",
+        "Header::new(Algorithm::RS256)"
+      ]
+    },
+    {
+      "id": "backend-public-boundary",
+      "file": "apps/backend/src/web/routes/unified_router.rs",
+      "anchors": [
+        ".route(\"/web3/challenge\"",
+        ".route(\"/plans\"",
+        "\"/news\""
+      ]
+    },
+    {
+      "id": "backend-permission-guard",
+      "file": "apps/backend/src/web/admin/routes.rs",
+      "anchors": [
+        "from_fn_with_state(\"admin:users:read\", perm_guard)",
+        "from_fn_with_state(\"admin:analytics:view\", perm_guard)",
+        "from_fn_with_state(\"admin:content:manage\", perm_guard)"
+      ]
+    },
+    {
+      "id": "notification-service-auth-boundary",
+      "file": "services/notification/src/lib.rs",
+      "anchors": [
+        "pub fn protect_router",
+        "(&Method::GET, [\"admin\", \"list\" | \"metrics\"]) => AccessPolicy::NotificationsAdmin",
+        "(&Method::POST, [\"publish\"]) => AccessPolicy::Publisher",
+        "(&Method::POST, [\"provider-events\"]) => AccessPolicy::Provider",
+        "AccessPolicy::Owner =>",
+        "principal.audience != ADMIN_AUDIENCE",
+        "!principal.has_permission(NOTIFICATIONS_MANAGE_PERMISSION)",
+        "principal.audience != NOTIFICATION_PUBLISHER_AUDIENCE",
+        "principal.audience != NOTIFICATION_PROVIDER_AUDIENCE",
+        "!valid_internal_subject(&principal.subject)"
+      ]
+    },
+    {
+      "id": "backend-payment-permissions",
+      "file": "apps/backend/src/web/middleware/permission_validation_middleware.rs",
+      "anchors": [
+        "admin:payments:view",
+        "admin:payments:manage"
+      ]
+    },
+    {
+      "id": "backend-plan-permissions",
+      "file": "apps/backend/src/web/admin/routes.rs",
+      "anchors": [
+        "from_fn_with_state(\"admin:plans:read\", perm_guard)",
+        "from_fn_with_state(\"admin:plans:manage\", perm_guard)"
+      ]
+    },
+    {
+      "id": "pay-webhook-hmac",
+      "file": "services/pay/src/handlers/pay_webhooks.rs",
+      "anchors": [
+        "EPSX_PAY_WEBHOOK_SECRET",
+        "provided.ct_eq(&expected)",
+        "ON CONFLICT (event_id) DO NOTHING"
+      ]
+    },
+    {
+      "id": "pay-direct-service-auth",
+      "file": "services/pay/src/lib.rs",
+      "anchors": [
+        "pub fn protect_router",
+        "pub fn canonical_owner",
+        "AccessPolicy::UnsafeFinancialMutation",
+        "admin_mutations_require_manage_but_remain_unavailable"
+      ]
+    },
+    {
+      "id": "service-internal-boundary",
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "### A2 — Fail-closed service authorization (P0)"
+      ]
+    },
+    {
+      "id": "gateway-fail-closed-target",
+      "file": "docs/migration/PRODUCTION_READINESS_PLAN.md",
+      "anchors": [
+        "Add a public-route allowlist; everything else is protected by default."
+      ]
+    },
+    {
+      "id": "gateway-rs256-verifier",
+      "file": "services/gateway/src/auth.rs",
+      "anchors": [
+        "Validation::new(Algorithm::RS256)",
+        "validation.set_issuer",
+        "UNKNOWN_KID_REFRESH_INTERVAL"
+      ]
+    },
+    {
+      "id": "gateway-access-policy",
+      "file": "services/gateway/src/policy.rs",
+      "anchors": [
+        "pub enum AccessPolicy",
+        "AccessPolicy::CredentialExchange",
+        "_ => AccessPolicy::Blocked"
+      ]
+    },
+    {
+      "id": "gateway-proxy-boundary",
+      "file": "services/gateway/src/lib.rs",
+      "anchors": [
+        "strip_spoofable_identity_headers",
+        "MAX_REQUEST_BODY_BYTES",
+        "response_headers.remove(header::SET_COOKIE)"
+      ]
+    },
+    {
+      "id": "analytics-service-auth-boundary",
+      "file": "services/analytics/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::InternalOnly | AccessPolicy::Blocked"
+      ]
+    },
+    {
+      "id": "content-service-auth-boundary",
+      "file": "services/content/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::EditorIdentityRequired | AccessPolicy::Blocked"
+      ]
+    },
+    {
+      "id": "indexer-service-auth-boundary",
+      "file": "services/indexer/src/lib.rs",
+      "anchors": [
+        "authenticate_headers(",
+        "principal.audience != ADMIN_AUDIENCE",
+        "AccessPolicy::UnsafeProjection => return StatusCode::NOT_FOUND.into_response()"
+      ]
+    },
+    {
+      "id": "wallet-service-auth-boundary",
+      "file": "services/wallet/src/lib.rs",
+      "anchors": [
+        "pub const WALLET_JSON_BODY_LIMIT_BYTES",
+        "pub fn protect_router",
+        "pub fn canonical_owner",
+        "AccessPolicy::UnsafeProjection",
+        "AccessPolicy::UnsafeCustodyMutation"
+      ]
+    },
+    {
+      "id": "wallet-owner-predicates",
+      "file": "services/wallet/src/main.rs",
+      "anchors": [
+        "Extension(principal): Extension<VerifiedPrincipal>",
+        "SELECT address, chain_id, label, role",
+        "WHERE lower(address) = $1"
+      ]
+    }
+  ],
+  "requiredCases": [
+    "anonymous",
+    "expired",
+    "wrongAudience",
+    "crossOwner",
+    "ordinaryUser",
+    "granularAdmin"
+  ],
+  "allowedCaseOutcomes": [
+    "allow",
+    "deny",
+    "conditional",
+    "not-applicable"
+  ],
+  "allowedObservedStatuses": [
+    "blocked",
+    "partial",
+    "aligned"
+  ],
+  "evidenceResolution": "For every route, the evidence location is its parent service.source and the exact route.routeAnchor substring. canonicalEvidence entries provide backend or handler-policy anchors.",
+  "inventorySummary": {
+    "serviceCount": 9,
+    "routeCount": 166,
+    "mutationCount": 89,
+    "highRiskMutationCount": 89,
+    "byService": {
+      "gateway": 21,
+      "identity": 11,
+      "wallet": 19,
+      "pay": 26,
+      "subscription": 16,
+      "content": 23,
+      "notification": 36,
+      "analytics": 8,
+      "indexer": 6
+    },
+    "byClassification": {
+      "public-allowlist": 33,
+      "router-dispatch-only": 20,
+      "blocked-by-default": 1,
+      "authenticated-user": 3,
+      "permission-specific-admin-operator": 62,
+      "owner-only": 41,
+      "internal-webhook": 6
+    },
+    "byObservedStatus": {
+      "partial": 69,
+      "blocked": 85,
+      "aligned": 12
+    }
+  },
+  "services": [
+    {
+      "name": "gateway",
+      "source": "services/gateway/src/lib.rs",
+      "routerAnchor": "pub fn build_router(state: AppState) -> Router",
+      "currentBoundary": "Method-and-normalized-path policy verifies canonical RS256/JWKS access tokens, strips spoofable identity and hop-by-hop headers, and denies unknown, internal, and payment-drift routes before upstream I/O. Owner comparisons and direct-service parity remain blocked downstream.",
+      "routes": [
+        {
+          "id": "gateway.any.admin-wallets-proxy",
+          "method": "ANY",
+          "path": "/api/v1/admin/wallets/{*path}",
+          "routeAnchor": ".route(\"/api/v1/admin/wallets/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "admin-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact method/path policy; unclassified wallet admin shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.admin-credits-proxy",
+          "method": "ANY",
+          "path": "/api/v1/admin/credits/{*path}",
+          "routeAnchor": ".route(\"/api/v1/admin/credits/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "admin-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact credit permission policy; unclassified shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.admin-pay-proxy",
+          "method": "ANY",
+          "path": "/api/v1/admin/pay/{*path}",
+          "routeAnchor": ".route(\"/api/v1/admin/pay/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "admin-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact payment permission policy; financial shapes outside the allowlist fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "gateway.any.admin-subscription-proxy",
+          "method": "ANY",
+          "path": "/api/v1/admin/subscription/{*path}",
+          "routeAnchor": "\"/api/v1/admin/subscription/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "admin-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The gateway wildcard is reachable only through the exact subscription permission policy; unclassified shapes fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "gateway-access-policy",
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The gateway mounts health as GET/HEAD only and the explicit policy table identifies it as public."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "gateway-access-policy"
+          ]
+        },
+        {
+          "id": "gateway.any.identity-proxy",
+          "method": "ANY",
+          "path": "/api/v1/identity/{*path}",
+          "routeAnchor": ".route(\"/api/v1/identity/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Contains public auth bootstrap and protected identity routes; split or enforce downstream policy."
+        },
+        {
+          "id": "gateway.any.wallet-proxy",
+          "method": "ANY",
+          "path": "/api/v1/wallet/{*path}",
+          "routeAnchor": ".route(\"/api/v1/wallet/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.payment-proxy",
+          "method": "ANY",
+          "path": "/api/v1/payment/{*path}",
+          "routeAnchor": ".route(\"/api/v1/payment/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "This legacy payment prefix remains a mixed wildcard alias; the canonical /api/v1/pay mount is inventoried separately and exact edge policy still decides every reachable method/path."
+        },
+        {
+          "id": "gateway.any.pay-proxy",
+          "method": "ANY",
+          "path": "/api/v1/pay/{*path}",
+          "routeAnchor": ".route(\"/api/v1/pay/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The canonical Pay prefix is mounted through an ANY proxy, but the gateway's exact method/path policy denies every unclassified shape before upstream I/O; direct-service ownership and financial mutation readiness remain separate gates."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Router reachability is intentionally broader than authorization; this inventory keeps the wildcard blocked while the exact gateway policy records the approved Pay shapes."
+        },
+        {
+          "id": "gateway.any.subscription-proxy",
+          "method": "ANY",
+          "path": "/api/v1/subscription/{*path}",
+          "routeAnchor": ".route(\"/api/v1/subscription/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.content-proxy",
+          "method": "ANY",
+          "path": "/api/v1/content/{*path}",
+          "routeAnchor": ".route(\"/api/v1/content/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.news-alias",
+          "method": "ANY",
+          "path": "/api/v1/news",
+          "routeAnchor": ".route(\"/api/v1/news\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Rewrite alias may expose GET today but any() also mounts mutation-capable methods.",
+          "aliasTarget": "/api/v1/content/news"
+        },
+        {
+          "id": "gateway.any.news-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/news/{*path}",
+          "routeAnchor": ".route(\"/api/v1/news/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/news/{*path}"
+        },
+        {
+          "id": "gateway.any.portfolio-alias",
+          "method": "ANY",
+          "path": "/api/v1/portfolio/{*path}",
+          "routeAnchor": ".route(\"/api/v1/portfolio/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/portfolio/{*path}"
+        },
+        {
+          "id": "gateway.any.plans-alias",
+          "method": "ANY",
+          "path": "/api/v1/plans",
+          "routeAnchor": ".route(\"/api/v1/plans\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/plans"
+        },
+        {
+          "id": "gateway.any.plans-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/plans/{*path}",
+          "routeAnchor": ".route(\"/api/v1/plans/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/plans/{*path}"
+        },
+        {
+          "id": "gateway.any.rankings-alias",
+          "method": "ANY",
+          "path": "/api/v1/rankings",
+          "routeAnchor": ".route(\"/api/v1/rankings\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/rankings"
+        },
+        {
+          "id": "gateway.any.rankings-tail-alias",
+          "method": "ANY",
+          "path": "/api/v1/rankings/{*path}",
+          "routeAnchor": ".route(\"/api/v1/rankings/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "aliasTarget": "/api/v1/content/rankings/{*path}"
+        },
+        {
+          "id": "gateway.any.notification-proxy",
+          "method": "ANY",
+          "path": "/api/v1/notification/{*path}",
+          "routeAnchor": ".route(\"/api/v1/notification/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.analytics-proxy",
+          "method": "ANY",
+          "path": "/api/v1/analytics/{*path}",
+          "routeAnchor": ".route(\"/api/v1/analytics/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        },
+        {
+          "id": "gateway.any.indexer-proxy",
+          "method": "ANY",
+          "path": "/api/v1/indexer/{*path}",
+          "routeAnchor": ".route(\"/api/v1/indexer/{*path}\"",
+          "classification": "router-dispatch-only",
+          "identitySource": "gateway-exact-method-policy",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "mixed-wildcard-proxy",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "router-only",
+          "observed": {
+            "status": "blocked",
+            "summary": "The wildcard or development route mixes or lacks an approved policy and must fail closed."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "identity",
+      "source": "services/identity/src/lib.rs",
+      "routerAnchor": "pub fn build_router(verifier: Arc<dyn AccessTokenVerifier>) -> Router",
+      "currentBoundary": "The direct service classifies exact methods and normalized paths before dispatch, exposes only GET/HEAD health anonymously, verifies the exact frontend/admin audiences for auth/me, requires the exact admin audience and literal canonical user permission for five admin routes, and then returns 404 before all candidate lifecycle, body, identity, or persistence semantics.",
+      "routes": [
+        {
+          "id": "identity.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously, strips bearer and spoofable identity headers before dispatch, and denies every other method or path shape."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "identity.post.auth-challenge",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/challenge",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/challenge\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "auth-bootstrap",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, nonce generation, Redis, or handler dispatch; durable bounded challenge issuance remains structurally disabled."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Public SIWE nonce issuance is an authentication bootstrap, not an authenticated domain mutation."
+        },
+        {
+          "id": "identity.post.auth-siwe",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/siwe",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/siwe\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "auth-bootstrap",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, nonce consumption, signature verification, token issuance, or handler dispatch; the canonical SIWE session lifecycle remains structurally disabled."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "nonDomainMutationReason": "Public signature verification establishes a session and must remain allowlisted."
+        },
+        {
+          "id": "identity.post.auth-refresh",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/refresh",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/refresh\"",
+          "classification": "authenticated-user",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "refresh session subject == canonical token subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before access-token authentication, refresh credential parsing, rotation, revocation, or handler dispatch; access tokens can never reach refresh semantics."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ],
+          "notes": "Access tokens must never be accepted in place of refresh credentials."
+        },
+        {
+          "id": "identity.get.auth-me",
+          "method": "GET",
+          "path": "/api/v1/identity/auth/me",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/me\"",
+          "classification": "authenticated-user",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "response subject == canonical token subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires a verified canonical access token with exactly the frontend or admin audience, then returns 404 before candidate subject response semantics; authenticated identity projection remains unavailable."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "identity.post.auth-demo",
+          "method": "POST",
+          "path": "/api/v1/identity/auth/demo",
+          "routeAnchor": ".route(\"/api/v1/identity/auth/demo\"",
+          "classification": "blocked-by-default",
+          "identitySource": "identity-explicit-fail-closed",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "blocked-by-default",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact POST shape returns 404 before authentication, body extraction, token issuance, bootstrap mutation, or handler dispatch; development-only login remains structurally disabled."
+          },
+          "dependencies": [
+            "A1",
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "gateway-fail-closed-target"
+          ],
+          "notes": "Development-only login has no approved production policy; remove or compile/runtime gate it."
+        },
+        {
+          "id": "identity.get.users",
+          "method": "GET",
+          "path": "/api/v1/identity/users",
+          "routeAnchor": ".route(\"/api/v1/identity/users\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus literal admin:users:read before returning 404; list DTO, filtering, pagination, and persistence semantics remain unavailable."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.post.users",
+          "method": "POST",
+          "path": "/api/v1/identity/users",
+          "routeAnchor": ".route(\"/api/v1/identity/users\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:create",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus literal admin:users:create before returning 404 ahead of body extraction or persistence; validated creation semantics remain unavailable."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.get.user",
+          "method": "GET",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:read before returning 404; detail DTO and persistence semantics remain unavailable."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.put.user",
+          "method": "PUT",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:update",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:update before returning 404 ahead of body extraction or persistence; validated update semantics remain unavailable."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "identity.delete.user",
+          "method": "DELETE",
+          "path": "/api/v1/identity/users/{id}",
+          "routeAnchor": "\"/api/v1/identity/users/{id}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:delete",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires a safe single-segment id, the exact admin audience, and literal admin:users:delete before returning 404; deletion, audit, and recovery semantics remain unavailable."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "wallet",
+      "source": "services/wallet/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service classifies exact methods and normalized path arity before handlers, consumes the shared RS256/JWKS verifier for account reads, binds every account query to the verified wallet, exposes only health and bounded signature recovery anonymously, and keeps unsafe custody, chain and estimate handlers unreachable.",
+      "routes": [
+        {
+          "id": "wallet.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "Exact GET/HEAD health is explicitly anonymous at the direct service; bearer credentials and spoofable identity headers are stripped before dispatch."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.accounts",
+          "method": "POST",
+          "path": "/api/v1/wallet/accounts",
+          "routeAnchor": "\"/api/v1/wallet/accounts\",",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "requested account address == authenticated wallet; server must not accept caller-selected role",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before authentication, JSON extraction, key generation/import, role selection or SQL because caller-selected account identity, raw private keys and caller-selected roles are not a proven custody or provisioning contract."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.get.accounts",
+          "method": "GET",
+          "path": "/api/v1/wallet/accounts",
+          "routeAnchor": "\"/api/v1/wallet/accounts\",",
+          "classification": "owner-only",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "query is constrained to authenticated wallet accounts",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, canonicalizes the verified token wallet, binds the list query to that wallet, and selects only address, chain, label and role; runtime database and source-envelope parity remain unproven."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
+        },
+        {
+          "id": "wallet.get.account",
+          "method": "GET",
+          "path": "/api/v1/wallet/accounts/{address}",
+          "routeAnchor": ".route(\"/api/v1/wallet/accounts/{address}\"",
+          "classification": "owner-only",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "path address == authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, requires the path address to equal the verified canonical wallet, binds SQL to that wallet, excludes encrypted key material, and hides foreign and missing accounts alike; runtime DB parity remains unproven."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
+        },
+        {
+          "id": "wallet.get.balance",
+          "method": "GET",
+          "path": "/api/v1/wallet/balance/{chain}/{address}",
+          "routeAnchor": ".route(\"/api/v1/wallet/balance/{chain}/{address}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before handler, provider or token metadata work because the current shared mutable provider can race across chains and provider failures are misreported as a zero balance."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
+          ],
+          "notes": "A public balance projection remains a candidate only after chain selection, provider failure, freshness and response semantics are proven."
+        },
+        {
+          "id": "wallet.post.send",
+          "method": "POST",
+          "path": "/api/v1/wallet/send",
+          "routeAnchor": ".route(\"/api/v1/wallet/send\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "from address == authenticated wallet and signer belongs to that wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before authentication, private-key extraction, nonce mutation, transaction logging or response because custody, canonical nonce, signing, broadcast, idempotency and truthful transaction-hash semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
+          ],
+          "notes": "High-risk: current body accepts a raw private_key; production must use custody/signing policy and never log or persist the key."
+        },
+        {
+          "id": "wallet.post.sign-message",
+          "method": "POST",
+          "path": "/api/v1/wallet/sign-message",
+          "routeAnchor": ".route(\"/api/v1/wallet/sign-message\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "signing address == authenticated wallet and signer belongs to that wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before authentication or JSON extraction because caller-supplied raw private keys are neither an acceptable ownership proof nor a production custody/signing contract."
+          },
+          "dependencies": [
+            "A2",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "wallet-service-auth-boundary"
+          ],
+          "notes": "High-risk signing operation; raw caller private keys are not an acceptable production ownership proof."
+        },
+        {
+          "id": "wallet.post.verify-message",
+          "method": "POST",
+          "path": "/api/v1/wallet/verify-message",
+          "routeAnchor": ".route(\"/api/v1/wallet/verify-message\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "pure-computation",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The exact POST shape is explicitly anonymous and limited to 8192 JSON bytes; credentials and spoofable identity headers are stripped before bounded, read-only Alloy signature recovery with no SQL, provider, custody or state mutation."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
+          ],
+          "nonDomainMutationReason": "Signature recovery is a read-only cryptographic computation."
+        },
+        {
+          "id": "wallet.post.estimate-gas",
+          "method": "POST",
+          "path": "/api/v1/wallet/estimate-gas",
+          "routeAnchor": ".route(\"/api/v1/wallet/estimate-gas\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "pure-computation",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before JSON extraction or provider work because the handler ignores key request fields, returns a canned 21000 gas limit and silently substitutes fee defaults on provider failure."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "wallet-service-auth-boundary"
+          ],
+          "nonDomainMutationReason": "Gas estimation does not submit a transaction or change EPSX domain state."
+        },
+        {
+          "id": "wallet.get.admin-wallets",
+          "method": "GET",
+          "path": "/api/v1/admin/wallets",
+          "routeAnchor": ".route(\"/api/v1/admin/wallets\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin wallet inventory is typed and bounded but isolated database and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
+        },
+        {
+          "id": "wallet.get.admin-wallets-stats",
+          "method": "GET",
+          "path": "/api/v1/admin/wallets/stats",
+          "routeAnchor": "\"/api/v1/admin/wallets/stats\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct wallet stats route is permission protected; isolated database and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.get.admin-wallet",
+          "method": "GET",
+          "path": "/api/v1/admin/wallets/{address}",
+          "routeAnchor": "\"/api/v1/admin/wallets/{address}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The route validates the canonical address at the service boundary; authenticated non-leaking detail proof remains pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary",
+            "wallet-owner-predicates"
+          ]
+        },
+        {
+          "id": "wallet.patch.admin-wallet-metadata",
+          "method": "PATCH",
+          "path": "/api/v1/admin/wallets/{address}/metadata",
+          "routeAnchor": "\"/api/v1/admin/wallets/{address}/metadata\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:update",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Metadata writes require idempotency, optimistic version, audit, and read-after-write evidence before production use."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.admin-wallet-disable",
+          "method": "POST",
+          "path": "/api/v1/admin/wallets/{address}/disable",
+          "routeAnchor": "\"/api/v1/admin/wallets/{address}/disable\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:update",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Disable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.admin-wallet-enable",
+          "method": "POST",
+          "path": "/api/v1/admin/wallets/{address}/enable",
+          "routeAnchor": "\"/api/v1/admin/wallets/{address}/enable\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:users:update",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Enable is bounded and versioned at the wallet service; browser conflict and recovery evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.get.admin-credits",
+          "method": "GET",
+          "path": "/api/v1/admin/credits",
+          "routeAnchor": ".route(\"/api/v1/admin/credits\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:credits:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Credits inventory is read-only at this route; ledger and browser evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.get.admin-credit-account",
+          "method": "GET",
+          "path": "/api/v1/admin/credits/{address}",
+          "routeAnchor": "\"/api/v1/admin/credits/{address}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:credits:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit account reads are bound to the canonical wallet key; isolated ledger evidence remains pending."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.admin-credit-grant",
+          "method": "POST",
+          "path": "/api/v1/admin/credits/{address}/grant",
+          "routeAnchor": "\"/api/v1/admin/credits/{address}/grant\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:credits:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "financial-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit grant remains blocked until durable ledger, idempotency, notification, and recovery evidence pass."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "wallet.post.admin-credit-revoke",
+          "method": "POST",
+          "path": "/api/v1/admin/credits/{address}/revoke",
+          "routeAnchor": "\"/api/v1/admin/credits/{address}/revoke\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:credits:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "wallet.address",
+          "operationKind": "financial-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Credit revoke remains blocked until durable ledger, idempotency, notification, and recovery evidence pass."
+          },
+          "dependencies": [
+            "A2",
+            "A3",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "wallet-service-auth-boundary"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "pay",
+      "source": "services/pay/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service now classifies exact methods and path arity before handlers, uses the shared RS256/JWKS verifier for owner/admin reads, binds owner reads to the verified wallet, and keeps every A6 financial/internal mutation unreachable. Health and usable checkout-safe link lookup are the only anonymous surfaces.",
+      "routes": [
+        {
+          "id": "pay.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": "\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "Exact GET/HEAD health is explicitly anonymous at the direct service and credentials plus spoofable identity headers are stripped before dispatch."
+          },
+          "dependencies": [
+            "A2"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.intents",
+          "method": "POST",
+          "path": "/api/v1/pay/intents",
+          "routeAnchor": "\"/api/v1/pay/intents\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request payer == authenticated wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before authentication, extraction, or SQL because the handler trusts caller-controlled amount and quote coordinates without A6 server authority or idempotency."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.intents",
+          "method": "GET",
+          "path": "/api/v1/pay/intents",
+          "routeAnchor": "\"/api/v1/pay/intents\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains payer/payee query to authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience; SQL always constrains payer or payee to the verified wallet and a conflicting payer query is hidden. Runtime DB and gateway parity remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Pagination and optional status filtering cannot remove the verified-wallet owner predicate."
+        },
+        {
+          "id": "pay.get.intent",
+          "method": "GET",
+          "path": "/api/v1/pay/intents/{id}",
+          "routeAnchor": "\"/api/v1/pay/intents/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and the detail query requires id plus verified-wallet payer/payee ownership, hiding foreign and missing rows alike. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.intent-confirm",
+          "method": "POST",
+          "path": "/api/v1/pay/intents/{id}/confirm",
+          "routeAnchor": "\"/api/v1/pay/intents/{id}/confirm\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer and tx sender matches payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the handler because transaction hash input has no receipt, Transfer, finality, reorg, atomicity, or idempotency proof."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.intent-cancel",
+          "method": "POST",
+          "path": "/api/v1/pay/intents/{id}/cancel",
+          "routeAnchor": "\"/api/v1/pay/intents/{id}/cancel\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the DB-only cancellation handler because A6 idempotency, transaction, audit, ownership, and lifecycle semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.escrows",
+          "method": "GET",
+          "path": "/api/v1/pay/escrows",
+          "routeAnchor": "\"/api/v1/pay/escrows\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains results to rows where authenticated wallet is payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and every list/count query constrains payer or payee to the verified wallet. Runtime DB and lifecycle semantics remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Pagination and optional status filtering cannot remove the verified-wallet participant predicate."
+        },
+        {
+          "id": "pay.get.escrow",
+          "method": "GET",
+          "path": "/api/v1/pay/escrows/{id}",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience and the detail query requires id plus verified-wallet payer/payee participation, hiding foreign and missing rows alike. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-release",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/release",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}/release\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer and escrow state permits release",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the DB-only release handler because A6 participant authority, idempotency, transaction, contract execution, and receipt semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-refund",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/refund",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}/refund\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payee, or explicit granular operator permission is present",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the DB-only refund handler because A6 participant authority, idempotency, transaction, contract execution, and receipt semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Exact payer/payee state-machine authority requires A6 contract finalization."
+        },
+        {
+          "id": "pay.post.escrow-dispute",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/dispute",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}/dispute\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payer or payee and escrow state permits dispute",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the DB-only dispute handler because A6 participant authority, idempotency, transaction, audit, and state-machine semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.escrow-resolve",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/resolve",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}/resolve\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before the DB-only resolution handler until A6 arbitrator, transaction, audit, and contract execution semantics are proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Dispute resolution is operator authority, not participant ownership."
+        },
+        {
+          "id": "pay.post.escrow-confirm-deposit",
+          "method": "POST",
+          "path": "/api/v1/pay/escrows/{id}/confirm-deposit",
+          "routeAnchor": "\"/api/v1/pay/escrows/{id}/confirm-deposit\"",
+          "classification": "internal-webhook",
+          "identitySource": "fail-closed-no-approved-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "trusted event escrow id and verified chain transaction map to stored escrow",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the handler; no approved indexer/provider identity, signed timestamp, replay window, receipt/finality proof, or atomic transition exists."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Consolidate with the signed on-chain webhook or require indexer service identity."
+        },
+        {
+          "id": "pay.post.links",
+          "method": "POST",
+          "path": "/api/v1/pay/links",
+          "routeAnchor": "\"/api/v1/pay/links\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "authenticated wallet is stored payee/merchant for referenced intent",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before link creation because referenced-intent ownership, idempotency, durable audit, expiry validation, and the A6 write authority are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.link",
+          "method": "GET",
+          "path": "/api/v1/pay/links/{slug}",
+          "routeAnchor": "\"/api/v1/pay/links/{slug}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The exact slug lookup is explicitly anonymous, strips credentials, returns only the checkout-safe candidate link projection, and rejects expired or exhausted links with 410. Overall checkout parity remains an A6 concern."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "pay-direct-service-auth"
+          ],
+          "notes": "Public checkout lookup must return only checkout-safe fields."
+        },
+        {
+          "id": "pay.post.link-redeem",
+          "method": "POST",
+          "path": "/api/v1/pay/links/{slug}/redeem",
+          "routeAnchor": "\"/api/v1/pay/links/{slug}/redeem\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request payer == authenticated wallet and resolved intent payer",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before redeem because payer ownership, idempotency, atomic usage/accounting, and finalized payment semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.history",
+          "method": "GET",
+          "path": "/api/v1/pay/history/{address}",
+          "routeAnchor": "\"/api/v1/pay/history/{address}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "path address == authenticated wallet",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires an exact frontend/admin audience, requires the path address to equal the verified wallet, and binds every history/count query to that wallet. Runtime DB and response parity remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.on-chain-webhook",
+          "method": "POST",
+          "path": "/api/v1/pay/webhooks/on-chain",
+          "routeAnchor": "\"/api/v1/pay/webhooks/on-chain\"",
+          "classification": "internal-webhook",
+          "identitySource": "fail-closed-no-approved-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "signed event intent/escrow identifiers map to stored records",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the HMAC handler because body HMAC and event-id dedupe do not prove provider identity, signed time/replay bounds, canonical chain identity, or an atomic inbox-transition-outbox transaction."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "pay-webhook-hmac",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.admin-intents",
+          "method": "GET",
+          "path": "/api/v1/admin/pay/intents",
+          "routeAnchor": "\"/api/v1/admin/pay/intents\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:payments:view before the list query. Runtime DB, audit, and source-compatible envelope semantics remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-cancel",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/intents/{id}/force-cancel",
+          "routeAnchor": "\"/api/v1/admin/pay/intents/{id}/force-cancel\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before the force-cancel handler because A6 transition, idempotency, audit, and recovery semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-release",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/escrows/{id}/force-release",
+          "routeAnchor": "\"/api/v1/admin/pay/escrows/{id}/force-release\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before force release because A6 contract execution, transition, idempotency, audit, and recovery semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-force-refund",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/escrows/{id}/force-refund",
+          "routeAnchor": "\"/api/v1/admin/pay/escrows/{id}/force-refund\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service requires the exact admin audience plus admin:payments:manage, then returns 404 before force refund because A6 contract execution, transition, idempotency, audit, and recovery semantics are not proven."
+          },
+          "dependencies": [
+            "A2",
+            "A6"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.get.admin-links",
+          "method": "GET",
+          "path": "/api/v1/admin/pay/links",
+          "routeAnchor": "\"/api/v1/admin/pay/links\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payment-links:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin payment-link inventory is bounded and correlated; isolated database and browser read evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-links",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/links",
+          "routeAnchor": "\"/api/v1/admin/pay/links\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payment-links:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "financial-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Payment-link creation requires durable idempotency, intent ownership, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-link-disable",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/links/{id}/disable",
+          "routeAnchor": "\"/api/v1/admin/pay/links/{id}/disable\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payment-links:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "financial-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Disabling a payment link is versioned and correlated but remains gated on durable financial recovery evidence."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        },
+        {
+          "id": "pay.post.admin-intent-cancel",
+          "method": "POST",
+          "path": "/api/v1/admin/pay/intents/{id}/cancel",
+          "routeAnchor": "\"/api/v1/admin/pay/intents/{id}/cancel\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:payments:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "financial-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin intent cancellation is versioned and correlated but remains gated on A6 finality and durable recovery proof."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A6",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-payment-permissions",
+            "pay-direct-service-auth"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "subscription",
+      "source": "services/subscription/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service now classifies exact methods and path arity before handlers, uses the shared RS256/JWKS verifier, separates admin plan read/manage grants, and blocks owner and placeholder-vault handlers before SQL. Public plan projection, trusted wallet-to-UUID ownership, and the A9 lifecycle remain unresolved.",
+      "routes": [
+        {
+          "id": "subscription.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously and strips bearer and spoofable identity headers before dispatch."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.plans",
+          "method": "POST",
+          "path": "/api/v1/subscription/plans",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:plans:manage before SQL; plan authority, validation, runtime migration, and transaction semantics remain A9 blockers."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "subscription.get.plans",
+          "method": "GET",
+          "path": "/api/v1/subscription/plans",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:plans:read. Anonymous exposure is intentionally denied because no safe public/publication projection or canonical DTO exists."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.get.plan",
+          "method": "GET",
+          "path": "/api/v1/subscription/plans/{id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/plans/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The exact one-segment detail route requires the admin audience plus admin:plans:read. Public DTO/status semantics and the canonical plan authority remain unresolved."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.subscriptions",
+          "method": "POST",
+          "path": "/api/v1/subscription/subscriptions",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "request user_id == authenticated subject and account_id belongs to authenticated wallet",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before verification or SQL because canonical wallet ownership cannot be mapped to the UUID user_id and activation is not backed by finalized payment."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.subscriptions",
+          "method": "GET",
+          "path": "/api/v1/subscription/subscriptions",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server constrains user_id to authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL instead of exposing the existing unscoped query; a trusted wallet-to-UUID mapping and owner predicate remain required."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.subscription",
+          "method": "GET",
+          "path": "/api/v1/subscription/subscriptions/{id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored subscription user_id == authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact detail shape returns 404 before SQL because stored UUID ownership cannot be compared to the verified wallet without a trusted mapping."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.post.subscription-cancel",
+          "method": "POST",
+          "path": "/api/v1/subscription/subscriptions/{id}/cancel",
+          "routeAnchor": ".route(\"/api/v1/subscription/subscriptions/{id}/cancel\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored subscription user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact cancel shape returns 404 before SQL, preventing id-only cancellation until ownership, lifecycle, audit, and conflict semantics are implemented."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "subscription.get.vault",
+          "method": "GET",
+          "path": "/api/v1/subscription/vault/{chain_id}",
+          "routeAnchor": ".route(\"/api/v1/subscription/vault/{chain_id}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before the handler so its zero vault address cannot be presented as usable production configuration."
+          },
+          "dependencies": [
+            "A2",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ],
+          "notes": "Public chain configuration only; never include secrets."
+        },
+        {
+          "id": "subscription.get.admin-access",
+          "method": "GET",
+          "path": "/api/v1/admin/subscription/access",
+          "routeAnchor": "\"/api/v1/admin/subscription/access\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:access:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin subscription access reads are permission protected; trusted wallet-to-user ownership and isolated database evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.get.admin-plans",
+          "method": "GET",
+          "path": "/api/v1/admin/subscription/plans",
+          "routeAnchor": "\"/api/v1/admin/subscription/plans\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan reads are permission protected; canonical plan authority, validation, and isolated database evidence remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.get.admin-plan",
+          "method": "GET",
+          "path": "/api/v1/admin/subscription/plans/{id}",
+          "routeAnchor": "\"/api/v1/admin/subscription/plans/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan detail is permission protected; canonical plan authority and non-leaking not-found behavior remain pending."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.patch.admin-plan",
+          "method": "PATCH",
+          "path": "/api/v1/admin/subscription/plans/{id}",
+          "routeAnchor": "\"/api/v1/admin/subscription/plans/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan updates require versioning, idempotency, validation, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.admin-access-assign",
+          "method": "POST",
+          "path": "/api/v1/admin/subscription/access/assign",
+          "routeAnchor": "\"/api/v1/admin/subscription/access/assign\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:access:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Access assignment requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.admin-access-revoke",
+          "method": "POST",
+          "path": "/api/v1/admin/subscription/access/revoke",
+          "routeAnchor": "\"/api/v1/admin/subscription/access/revoke\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:access:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Access revocation requires trusted target ownership, lifecycle validation, idempotency, audit, and read-after-write evidence before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        },
+        {
+          "id": "subscription.post.admin-plan",
+          "method": "POST",
+          "path": "/api/v1/admin/subscription/plans",
+          "routeAnchor": "\"/api/v1/admin/subscription/plans\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:plans:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "admin-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "Admin plan creation requires durable validation, versioning, idempotency, audit, and canonical plan authority before use."
+          },
+          "dependencies": [
+            "A2",
+            "A4",
+            "A9",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-plan-permissions",
+            "service-internal-boundary"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "content",
+      "source": "services/content/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service classifies exact methods and path arity before handlers, strips spoofable identity headers, protects CMS routes with admin:content:manage, and fails editor-session routes closed. Public content semantics and server-derived editor ownership remain incomplete.",
+      "routes": [
+        {
+          "id": "content.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "GET/HEAD health is the direct service's explicit anonymous allowlist; other methods are denied before handler dispatch."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.page-editor",
+          "method": "GET",
+          "path": "/api/v1/content/pages/{slug}",
+          "routeAnchor": "\"/api/v1/content/pages/{slug}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; draft/editor response semantics remain an A10 concern."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Editor/draft representation is distinct from the public render route."
+        },
+        {
+          "id": "content.put.page",
+          "method": "PUT",
+          "path": "/api/v1/content/pages/{slug}",
+          "routeAnchor": "\"/api/v1/content/pages/{slug}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and content semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.post.pages",
+          "method": "POST",
+          "path": "/api/v1/content/pages",
+          "routeAnchor": ".route(\"/api/v1/content/pages\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and content semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.pages",
+          "method": "GET",
+          "path": "/api/v1/content/pages",
+          "routeAnchor": ".route(\"/api/v1/content/pages\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; list filtering and content semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.post.page-publish",
+          "method": "POST",
+          "path": "/api/v1/content/pages/{id}/publish",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{id}/publish\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; publishing workflow semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.page-render",
+          "method": "GET",
+          "path": "/api/v1/content/pages/{slug}/render",
+          "routeAnchor": ".route(\"/api/v1/content/pages/{slug}/render\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact GET shape and strips bearer identity, but the handler does not yet prove published-only filtering."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Must return published content only."
+        },
+        {
+          "id": "content.get.themes",
+          "method": "GET",
+          "path": "/api/v1/content/themes",
+          "routeAnchor": "\"/api/v1/content/themes\",",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape, but A10 must still prove the returned theme data is safe public metadata."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Public theme metadata only; editor secrets/drafts excluded."
+        },
+        {
+          "id": "content.post.themes",
+          "method": "POST",
+          "path": "/api/v1/content/themes",
+          "routeAnchor": "\"/api/v1/content/themes\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and theme semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.theme",
+          "method": "GET",
+          "path": "/api/v1/content/themes/{id}",
+          "routeAnchor": "\"/api/v1/content/themes/{id}\",",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET, but A10 must still prove the returned theme data is safe public metadata."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.put.theme",
+          "method": "PUT",
+          "path": "/api/v1/content/themes/{id}",
+          "routeAnchor": "\"/api/v1/content/themes/{id}\",",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the admin audience plus canonical admin:content:manage before the handler; mutation validation and theme semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.blocks",
+          "method": "GET",
+          "path": "/api/v1/content/blocks",
+          "routeAnchor": ".route(\"/api/v1/content/blocks\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape, but A10 must still prove schemas and admin-only entries are safely filtered."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Static component schema allowlist."
+        },
+        {
+          "id": "content.get.block-schema",
+          "method": "GET",
+          "path": "/api/v1/content/blocks/{block_type}",
+          "routeAnchor": ".route(\"/api/v1/content/blocks/{block_type}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET, but A10 must still prove the selected schema is public-safe."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Static component schema allowlist."
+        },
+        {
+          "id": "content.post.edit-start",
+          "method": "POST",
+          "path": "/api/v1/content/edit/start",
+          "routeAnchor": ".route(\"/api/v1/content/edit/start\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "server-derived-editor-identity-not-implemented",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "server-derived editor UUID mapping; caller request user_id must never establish session ownership",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before handler/DB access until canonical wallet identity can be mapped to a server-derived editor UUID."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Fail-closed intentionally: the compatibility body user_id is caller-selected and cannot be persisted as identity."
+        },
+        {
+          "id": "content.post.edit-commit",
+          "method": "POST",
+          "path": "/api/v1/content/edit/commit",
+          "routeAnchor": ".route(\"/api/v1/content/edit/commit\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "server-derived-editor-identity-not-implemented",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "verified editor owns the referenced edit session through a server-derived identity mapping",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before handler/DB access until edit-session ownership can be derived and enforced server-side."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.edit-sessions",
+          "method": "GET",
+          "path": "/api/v1/content/edit/sessions",
+          "routeAnchor": ".route(\"/api/v1/content/edit/sessions\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "server-derived-editor-identity-not-implemented",
+          "requiredPermission": "admin:content:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "server-derived editor/session scope",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before handler/DB access until editor identity and session visibility semantics are server-derived."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.navigation",
+          "method": "GET",
+          "path": "/api/v1/content/navigation",
+          "routeAnchor": ".route(\"/api/v1/content/navigation\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; published-navigation filtering and data semantics remain A10 work."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.site",
+          "method": "GET",
+          "path": "/api/v1/content/site",
+          "routeAnchor": ".route(\"/api/v1/content/site\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; published-only settings semantics remain A10 work."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Published site settings only."
+        },
+        {
+          "id": "content.get.news",
+          "method": "GET",
+          "path": "/api/v1/content/news",
+          "routeAnchor": ".route(\"/api/v1/content/news\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; source publication and content correctness remain A10 work."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.news-post",
+          "method": "GET",
+          "path": "/api/v1/content/news/{slug}",
+          "routeAnchor": ".route(\"/api/v1/content/news/{slug}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows one strict dynamic segment for this anonymous GET; publication and content correctness remain A10 work."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.plans",
+          "method": "GET",
+          "path": "/api/v1/content/plans",
+          "routeAnchor": ".route(\"/api/v1/content/plans\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; backend-owned plan visibility and product semantics remain unresolved."
+          },
+          "dependencies": [
+            "A2",
+            "A9",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "content.get.rankings",
+          "method": "GET",
+          "path": "/api/v1/content/rankings",
+          "routeAnchor": ".route(\"/api/v1/content/rankings\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows this exact anonymous GET shape; backend-owned entitlement filtering remains unresolved."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Public or optional-auth response must apply backend-owned entitlement filtering; frontend must not decide access."
+        },
+        {
+          "id": "content.get.portfolio",
+          "method": "GET",
+          "path": "/api/v1/content/portfolio/{addr}",
+          "routeAnchor": ".route(\"/api/v1/content/portfolio/{addr}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service explicitly allows one strict address segment for this anonymous GET; proof that all returned data is public-chain derived remains incomplete."
+          },
+          "dependencies": [
+            "A2",
+            "A10"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "content-service-auth-boundary"
+          ],
+          "notes": "Only public-chain derived data; private portfolio metadata is owner-only elsewhere."
+        }
+      ]
+    },
+    {
+      "name": "notification",
+      "source": "services/notification/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service classifies exact methods and paths before handlers, derives owner identity only from verified frontend/admin JWT claims, requires admin:notifications:manage for operator routes, and requires dedicated authenticated workload audiences, permissions, and service subjects for publisher/provider routes. Runtime database, delivery, and legacy owner-data compatibility remain incomplete.",
+      "routes": [
+        {
+          "id": "notification.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": "\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "GET/HEAD health is the direct service's only anonymous allowlist; other methods are denied before handler dispatch."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary"
+          ]
+        },
+        {
+          "id": "notification.get.ready",
+          "method": "GET",
+          "path": "/ready",
+          "routeAnchor": "\"/ready\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "GET/HEAD readiness is anonymous but exposes only bounded dependency readiness; all other methods fail before handler dispatch."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.template-audit",
+          "method": "GET",
+          "path": "/api/v1/notification/templates/{id}/audit",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/audit\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before returning bounded template audit records; live rollback reconciliation remains unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.template-preview",
+          "method": "POST",
+          "path": "/api/v1/notification/templates/{id}/preview",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/preview\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before rendering a non-delivering preview; live template/provider parity remains unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.template-rollback",
+          "method": "POST",
+          "path": "/api/v1/notification/templates/{id}/rollback",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}/rollback\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience and notification-manage permission before transactional template rollback; production rollback and cache reconciliation remain unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.publish",
+          "method": "POST",
+          "path": "/api/v1/notification/publish",
+          "routeAnchor": "\"/api/v1/notification/publish\"",
+          "classification": "internal-webhook",
+          "identitySource": "notification-publisher-rs256-jwks-workload",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "partial",
+            "summary": "Only a valid svc:* workload subject with the dedicated publisher audience and internal publish permission can enqueue; multi-service credential lifecycle remains unproved."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary", "service-internal-boundary"]
+        },
+        {
+          "id": "notification.post.provider-events",
+          "method": "POST",
+          "path": "/api/v1/notification/provider-events",
+          "routeAnchor": "\"/api/v1/notification/provider-events\"",
+          "classification": "internal-webhook",
+          "identitySource": "notification-provider-rs256-jwks-workload-and-callback-signature",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "partial",
+            "summary": "Only a valid svc:* provider workload subject with the dedicated audience and provider-events permission reaches callback signature and deduplication checks; production provider lineage remains unproved."
+          },
+          "dependencies": ["A2", "A11", "A13"],
+          "canonicalEvidence": ["notification-service-auth-boundary", "service-internal-boundary"]
+        },
+        {
+          "id": "notification.post.admin-dead-letter-redrive",
+          "method": "POST",
+          "path": "/api/v1/notification/admin/dead-letters/{id}/redrive",
+          "routeAnchor": "\"/api/v1/notification/admin/dead-letters/{id}/redrive\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The exact admin audience and notification-manage permission are required before bounded dead-letter redrive; production retry and rollback drills remain unproved."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.stream",
+          "method": "GET",
+          "path": "/api/v1/notification/stream",
+          "routeAnchor": "\"/api/v1/notification/stream\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stream owner is the verified JWT subject and replay cursors are owner-bound",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "The stream derives its owner only from the verified principal and binds replay to that owner; multi-replica and browser reconnect proof remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.stream-ack",
+          "method": "POST",
+          "path": "/api/v1/notification/stream/ack",
+          "routeAnchor": "\"/api/v1/notification/stream/ack\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "acknowledgement owner is the verified JWT subject and cursor ownership must match",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Cursor acknowledgement uses only the verified principal and rejects cross-owner replay; live browser reconnect behavior remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.push",
+          "method": "GET",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push inventory owner is the verified JWT subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Push status derives owner identity only from the verified principal; production VAPID and browser permission proof remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.push",
+          "method": "PUT",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push subscription owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Subscription writes bind the endpoint to the verified principal; production VAPID lineage and browser delivery remain blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.delete.push",
+          "method": "DELETE",
+          "path": "/api/v1/notification/push",
+          "routeAnchor": "\"/api/v1/notification/push\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "push subscription owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Endpoint revocation filters by the verified principal; production delivery and revocation proof remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.delete.push-unsubscribe",
+          "method": "DELETE",
+          "path": "/api/v1/notification/push/unsubscribe",
+          "routeAnchor": "\"/api/v1/notification/push/unsubscribe\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "all revoked subscriptions are filtered by the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Bulk revocation accepts no caller-selected wallet and deletes only subscriptions for the verified principal; production browser lifecycle remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.preferences",
+          "method": "GET",
+          "path": "/api/v1/notification/preferences",
+          "routeAnchor": "\"/api/v1/notification/preferences\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "preference owner is the verified JWT subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Preference reads derive the owner only from the verified principal; populated legacy reconciliation remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.preferences",
+          "method": "PUT",
+          "path": "/api/v1/notification/preferences",
+          "routeAnchor": "\"/api/v1/notification/preferences\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "preference owner is the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Preference updates derive owner identity only from the verified principal and validate the bounded preference document; production reconciliation remains blocked."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.click",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/click",
+          "routeAnchor": "\"/api/v1/notification/{id}/click\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Click engagement requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.post.dismiss",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/dismiss",
+          "routeAnchor": "\"/api/v1/notification/{id}/dismiss\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Dismissal requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.put.acknowledge",
+          "method": "PUT",
+          "path": "/api/v1/notification/{id}/acknowledge",
+          "routeAnchor": "\"/api/v1/notification/{id}/acknowledge\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification owner must equal the verified JWT subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "Acknowledgement requires both a strict notification id and the verified owner; runtime reconciliation remains non-production."
+          },
+          "dependencies": ["A2", "A11"],
+          "canonicalEvidence": ["notification-service-auth-boundary"]
+        },
+        {
+          "id": "notification.get.templates",
+          "method": "GET",
+          "path": "/api/v1/notification/templates",
+          "routeAnchor": "\"/api/v1/notification/templates\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before the template query; template data semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.post.templates",
+          "method": "POST",
+          "path": "/api/v1/notification/templates",
+          "routeAnchor": "\"/api/v1/notification/templates\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before mutation; template validation and cache/DB atomicity remain unresolved."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.get.template",
+          "method": "GET",
+          "path": "/api/v1/notification/templates/{id}",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before the template query; template data semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.delete.template",
+          "method": "DELETE",
+          "path": "/api/v1/notification/templates/{id}",
+          "routeAnchor": "\"/api/v1/notification/templates/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before deletion; Handlebars cache invalidation remains unresolved."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.post.send",
+          "method": "POST",
+          "path": "/api/v1/notification/send",
+          "routeAnchor": "\"/api/v1/notification/send\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before send side effects; delivery/idempotency and SMTP fail-open behavior remain blockers."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard"
+          ]
+        },
+        {
+          "id": "notification.get.admin-list",
+          "method": "GET",
+          "path": "/api/v1/notification/admin/list",
+          "routeAnchor": "\"/api/v1/notification/admin/list\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "Gateway and direct service require the exact admin audience plus canonical admin:notifications:manage before a strict global redacted list query. Static DTO, query, deterministic ordering, read-only repeatable-read snapshot, cardinality, and fail-closed validation tests pass; isolated database and service integration remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.get.admin-metrics",
+          "method": "GET",
+          "path": "/api/v1/notification/admin/metrics",
+          "routeAnchor": "\"/api/v1/notification/admin/metrics\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience plus canonical admin:notifications:manage before backend-derived delivery metrics are read; runtime database integration remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.post.admin-read",
+          "method": "POST",
+          "path": "/api/v1/notification/admin/{id}/read",
+          "routeAnchor": "\"/api/v1/notification/admin/{id}/read\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "notification id is validated by the service",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience, canonical manage permission, and a strict notification ID before the read transition; durable audit/runtime integration remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.delete.admin",
+          "method": "DELETE",
+          "path": "/api/v1/notification/admin/{id}",
+          "routeAnchor": "\"/api/v1/notification/admin/{id}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:notifications:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": "notification id is validated by the service",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The direct service requires the exact admin audience, canonical manage permission, and a strict notification ID before deletion; durable audit/runtime integration remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "notification-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "notification.get.list",
+          "method": "GET",
+          "path": "/api/v1/notification/list",
+          "routeAnchor": "\"/api/v1/notification/list\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject and rejects/ignores caller-selected user_id",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; caller user_id must equal the verified wallet and every list/count query uses that owner key. Legacy non-wallet rows and runtime DB behavior remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.get.unread-count",
+          "method": "GET",
+          "path": "/api/v1/notification/unread-count",
+          "routeAnchor": "\"/api/v1/notification/unread-count\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; caller user_id must equal the verified wallet and the count query uses that owner key. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.mark-all-read",
+          "method": "POST",
+          "path": "/api/v1/notification/mark-all-read",
+          "routeAnchor": "\"/api/v1/notification/mark-all-read\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; cross-owner user_id is forbidden and the update always filters by the verified wallet. Runtime mutation behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.clear-all",
+          "method": "POST",
+          "path": "/api/v1/notification/clear-all",
+          "routeAnchor": "\"/api/v1/notification/clear-all\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "server derives user_id from authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required; cross-owner user_id is forbidden and deletion always filters by the verified wallet. Runtime mutation and recovery behavior remain unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.read",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/read",
+          "routeAnchor": "\"/api/v1/notification/{id}/read\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the update predicate requires both notification id and verified-wallet user_id. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.post.unread",
+          "method": "POST",
+          "path": "/api/v1/notification/{id}/unread",
+          "routeAnchor": "\"/api/v1/notification/{id}/unread\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the update predicate requires both notification id and verified-wallet user_id. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.get.notification",
+          "method": "GET",
+          "path": "/api/v1/notification/{id}",
+          "routeAnchor": "\"/api/v1/notification/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and the query predicate requires both notification id and verified-wallet user_id, returning 404 for non-owned rows. Runtime DB behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        },
+        {
+          "id": "notification.delete.notification",
+          "method": "DELETE",
+          "path": "/api/v1/notification/{id}",
+          "routeAnchor": "\"/api/v1/notification/{id}\"",
+          "classification": "owner-only",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "stored notification user_id == authenticated subject",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "owner",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required and deletion requires both notification id and verified-wallet user_id, returning 404 for non-owned rows. Runtime mutation/recovery behavior remains unproven."
+          },
+          "dependencies": [
+            "A2",
+            "A11"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "analytics",
+      "source": "services/analytics/src/lib.rs",
+      "routerAnchor": "pub fn build_router(",
+      "currentBoundary": "The shared RS256/JWKS boundary classifies exact methods and paths before handlers: track requires a verified frontend/admin principal, event operator reads require the admin audience plus admin:analytics:view, the redacted audit read requires the admin audience plus admin:audit:read, and internal/unknown surfaces return 404. Legacy UUID event attribution remains unresolved.",
+      "routes": [
+        {
+          "id": "analytics.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "GET/HEAD health is the service's only anonymous allowlist; other methods are denied before handler dispatch."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.post.track",
+          "method": "POST",
+          "path": "/api/v1/analytics/track",
+          "routeAnchor": ".route(\"/api/v1/analytics/track\"",
+          "classification": "authenticated-user",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": "caller user_id is accepted for request compatibility but cleared before the store; canonical wallet-to-event attribution remains unresolved",
+          "operationKind": "domain-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "authenticated",
+          "observed": {
+            "status": "partial",
+            "summary": "A verified frontend/admin principal is required before the handler/store, and caller user_id is persisted as NULL. Canonical wallet attribution remains unresolved because the legacy field is UUID."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.events",
+          "method": "GET",
+          "path": "/api/v1/analytics/events",
+          "routeAnchor": ".route(\"/api/v1/analytics/events\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.admin-audit-log",
+          "method": "GET",
+          "path": "/api/v1/analytics/admin/audit-log",
+          "routeAnchor": ".route(\"/api/v1/analytics/admin/audit-log\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:audit:read",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "Gateway and direct service require the exact admin audience plus canonical admin:audit:read before a strict redacted keyset query. Static schema, query, ordering, projection, and fail-closed validation tests pass; isolated database/service and browser proof remain absent."
+          },
+          "dependencies": [
+            "A2",
+            "A11",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-token-contract",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.metric",
+          "method": "GET",
+          "path": "/api/v1/analytics/metrics/{metric}",
+          "routeAnchor": ".route(\"/api/v1/analytics/metrics/{metric}\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.revenue",
+          "method": "GET",
+          "path": "/api/v1/analytics/revenue",
+          "routeAnchor": ".route(\"/api/v1/analytics/revenue\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "epsx-service-auth-rs256-jwks",
+          "requiredPermission": "admin:analytics:view",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "partial",
+            "summary": "The service requires an exact admin audience and literal admin:analytics:view grant before the handler/store; broader service data semantics remain outside this slice."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "analytics-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "analytics.get.metrics-prometheus",
+          "method": "GET",
+          "path": "/api/v1/analytics/metrics/prometheus",
+          "routeAnchor": ".route(\"/api/v1/analytics/metrics/prometheus\"",
+          "classification": "internal-webhook",
+          "identitySource": "operator-network-or-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The service explicitly returns 404 before the handler/store until authenticated internal-service identity exists."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary",
+            "analytics-service-auth-boundary"
+          ],
+          "notes": "Scrape endpoint must be restricted to trusted observability callers."
+        },
+        {
+          "id": "analytics.get.prometheus-metrics",
+          "method": "GET",
+          "path": "/api/v1/analytics/prometheus/metrics",
+          "routeAnchor": ".route(\"/api/v1/analytics/prometheus/metrics\"",
+          "classification": "internal-webhook",
+          "identitySource": "operator-network-or-service-identity",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "internal",
+          "observed": {
+            "status": "blocked",
+            "summary": "The service explicitly returns 404 before the handler/store until authenticated internal-service identity exists."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "service-internal-boundary",
+            "analytics-service-auth-boundary"
+          ],
+          "notes": "Alias of the same restricted scrape handler."
+        }
+      ]
+    },
+    {
+      "name": "indexer",
+      "source": "services/indexer/src/main.rs",
+      "routerAnchor": "let app = Router::new()",
+      "currentBoundary": "The direct service uses the shared RS256/JWKS verifier, allows only exact GET/HEAD health anonymously, narrows sync to POST with admin:indexer:manage, and returns 404 before every non-health handler because the current projections and sync ingestion are not truthful or durable.",
+      "routes": [
+        {
+          "id": "indexer.get.health",
+          "method": "GET",
+          "path": "/health",
+          "routeAnchor": ".route(\"/health\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "health",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "aligned",
+            "summary": "The direct service explicitly allows only exact GET/HEAD health anonymously and strips bearer and spoofable identity headers before dispatch."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.status",
+          "method": "GET",
+          "path": "/api/v1/indexer/status/{chain}",
+          "routeAnchor": ".route(\"/api/v1/indexer/status/{chain}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before DB/RPC access because status mixes an in-memory/provider fallback with DB MAX and cannot yet report a durable canonical/finalized head truthfully."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.block",
+          "method": "GET",
+          "path": "/api/v1/indexer/block/{chain}/{number}",
+          "routeAnchor": ".route(\"/api/v1/indexer/block/{chain}/{number}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because the current sync loop persists number-derived placeholder block hashes and has no canonical/finality/reorg model."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.transaction",
+          "method": "GET",
+          "path": "/api/v1/indexer/tx/{chain}/{hash}",
+          "routeAnchor": ".route(\"/api/v1/indexer/tx/{chain}/{hash}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because ingestion does not persist canonical chain-scoped transactions, receipts, finality, or reorg state."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "indexer.get.transfers",
+          "method": "GET",
+          "path": "/api/v1/indexer/transfers/{chain}/{address}",
+          "routeAnchor": "\"/api/v1/indexer/transfers/{chain}/{address}\"",
+          "classification": "public-allowlist",
+          "identitySource": "none-public",
+          "requiredPermission": null,
+          "permissionStatus": "not-applicable",
+          "ownershipKey": null,
+          "operationKind": "read",
+          "mutation": false,
+          "risk": "none",
+          "caseProfile": "public",
+          "observed": {
+            "status": "blocked",
+            "summary": "The direct service returns 404 before SQL because ingestion never decodes or persists canonical transfer logs and the read contract has no cursor/finality semantics."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-public-boundary",
+            "indexer-service-auth-boundary"
+          ]
+        },
+        {
+          "id": "indexer.post.sync",
+          "method": "POST",
+          "path": "/api/v1/indexer/sync",
+          "routeAnchor": ".route(\"/api/v1/indexer/sync\"",
+          "classification": "permission-specific-admin-operator",
+          "identitySource": "monolith-rs256-jwks",
+          "requiredPermission": "admin:indexer:manage",
+          "permissionStatus": "canonical",
+          "ownershipKey": null,
+          "operationKind": "operator-mutation",
+          "mutation": true,
+          "risk": "high",
+          "caseProfile": "granular-admin",
+          "observed": {
+            "status": "blocked",
+            "summary": "The exact POST shape verifies the admin audience and admin:indexer:manage with the shared verifier, then returns 404 before sync because the handler writes placeholder blocks from an in-memory cursor."
+          },
+          "dependencies": [
+            "A2",
+            "A12"
+          ],
+          "canonicalEvidence": [
+            "backend-permission-guard",
+            "indexer-service-auth-boundary"
+          ],
+          "notes": "Gateway and direct-service policy agree on POST plus admin:indexer:manage; A12 must still replace placeholder ingestion with bounded, leased, durable canonical sync before enabling the handler."
+        }
+      ]
+    }
+  ]
+}

@@ -2,7 +2,6 @@
 // CQRS handler for retrieving wallet list with filtering and pagination
 
 use crate::application::shared::{ApplicationError, ApplicationResult, Query, QueryHandler};
-use crate::infrastructure::database::diesel_connection_manager::TlsPool;
 use crate::application::wallet_management::queries::admin_models::{
     GetWalletListQuery, GetWalletListResponse, PaginationDto, WalletSummaryDto,
 };
@@ -11,25 +10,23 @@ use crate::application::wallet_management::wallet_management_repository::{
 };
 use crate::web::pagination::Pagination;
 use async_trait::async_trait;
+use sqlx::PgPool;
 use std::sync::Arc;
 use tracing::{error, info};
 
 pub struct GetWalletListQueryHandler {
-    db_pool: Arc<&'static TlsPool>,
+    db_pool: Arc<PgPool>,
 }
 
 impl GetWalletListQueryHandler {
-    pub fn new(db_pool: Arc<&'static TlsPool>) -> Self {
+    pub fn new(db_pool: Arc<PgPool>) -> Self {
         Self { db_pool }
     }
 }
 
 #[async_trait]
 impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
-    async fn handle(
-        &self,
-        query: GetWalletListQuery,
-    ) -> ApplicationResult<GetWalletListResponse> {
+    async fn handle(&self, query: GetWalletListQuery) -> ApplicationResult<GetWalletListResponse> {
         // 1. Validate query
         query.validate()?;
 
@@ -54,22 +51,16 @@ impl QueryHandler<GetWalletListQuery> for GetWalletListQueryHandler {
         };
 
         // 5. Fetch wallets using repository
-        let wallets_result = repo
-            .find_wallets_paginated(&criteria)
-            .await
-            .map_err(|e| {
-                error!("Failed to fetch wallet list: {}", e);
-                ApplicationError::infrastructure(e.to_string())
-            })?;
+        let wallets_result = repo.find_wallets_paginated(&criteria).await.map_err(|e| {
+            error!("Failed to fetch wallet list: {}", e);
+            ApplicationError::infrastructure(e.to_string())
+        })?;
 
         // 6. Count total using repository
-        let total = repo
-            .count_wallets(&criteria)
-            .await
-            .map_err(|e| {
-                error!("Failed to count wallets: {}", e);
-                ApplicationError::infrastructure(e.to_string())
-            })?;
+        let total = repo.count_wallets(&criteria).await.map_err(|e| {
+            error!("Failed to count wallets: {}", e);
+            ApplicationError::infrastructure(e.to_string())
+        })?;
 
         // 7. Convert repository results to DTOs
         let wallets: Vec<WalletSummaryDto> = wallets_result

@@ -127,6 +127,48 @@ EOF
   plutil -lint "$plist_path" >/dev/null
 }
 
+# wave49(slice-1): pay.epsx.io port-bridge. Routes
+#   4747 (host) → 30082 (colima NodePort) → epsx-pay-svc:8103 (staging)
+#   4748 (host) → 30083 (colima NodePort) → epsx-pay-bff:3002 (staging)
+#   4751 (host) → 30084 (colima NodePort) → epsx-pay-svc:8103 (prod)
+#   4752 (host) → 30085 (colima NodePort) → epsx-pay-bff:3002 (prod)
+# The Cloudflare Tunnel ingress for pay.epsx.io points at
+# http://localhost:4752.
+write_pay_port_bridge_plist() {
+  local label="com.epsx.pay-port-bridge"
+  local plist_path="$LAUNCHD_DIR/$label.plist"
+
+  cat > "$plist_path" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>$label</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-lc</string>
+        <string>/opt/homebrew/bin/socat TCP-LISTEN:4747,fork,reuseaddr TCP:127.0.0.1:30082 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4748,fork,reuseaddr TCP:127.0.0.1:30083 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4751,fork,reuseaddr TCP:127.0.0.1:30084 &amp; /opt/homebrew/bin/socat TCP-LISTEN:4752,fork,reuseaddr TCP:127.0.0.1:30085 &amp; wait</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+    <key>ProcessType</key>
+    <string>Background</string>
+    <key>StandardOutPath</key>
+    <string>/tmp/pay-port-bridge.log</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/pay-port-bridge.err</string>
+</dict>
+</plist>
+EOF
+
+  chmod 644 "$plist_path"
+  plutil -lint "$plist_path" >/dev/null
+}
+
 for entry in "com.epsx.backend.dev dev" "com.epsx.backend.staging staging" "com.epsx.backend.prod prod"; do
   label="${entry%% *}"
   env_name="${entry##* }"
@@ -151,6 +193,17 @@ launchctl bootstrap system "$LAUNCHD_DIR/com.epsx.port-bridge.plist"
 launchctl enable system/com.epsx.port-bridge
 launchctl kickstart -k system/com.epsx.port-bridge
 
+# wave49(slice-1): pay.epsx.io port-bridge.
+write_pay_port_bridge_plist
+
+if launchctl print system/com.epsx.pay-port-bridge >/dev/null 2>&1; then
+  launchctl bootout system/com.epsx.pay-port-bridge || true
+fi
+
+launchctl bootstrap system "$LAUNCHD_DIR/com.epsx.pay-port-bridge.plist"
+launchctl enable system/com.epsx.pay-port-bridge
+launchctl kickstart -k system/com.epsx.pay-port-bridge
+
 if [[ ! -f "$LAUNCHD_DIR/com.cloudflare.cloudflared.plist" ]]; then
   cloudflared service install
 fi
@@ -171,16 +224,20 @@ LaunchDaemons:
   com.epsx.backend.staging  -> 127.0.0.1:28080 -> staging-api.epsx.io
   com.epsx.backend.prod     -> 127.0.0.1:38080 -> api.epsx.io
   com.epsx.port-bridge      -> 8080/4810/9180 -> 18080/28080/38080
+  com.epsx.pay-port-bridge  -> 4747/4748 (staging), 4751/4752 (prod) -> unique pay NodePorts
   com.cloudflare.cloudflared -> /etc/cloudflared/config.yml
 
 Logs:
   $LOG_DIR/backend-dev.out.log
   $LOG_DIR/backend-staging.out.log
   $LOG_DIR/backend-prod.out.log
+  /tmp/pay-port-bridge.log
   /Library/Logs/com.cloudflare.cloudflared.out.log
 
 Health checks:
   curl http://127.0.0.1:18080/health
   curl http://127.0.0.1:28080/health
   curl http://127.0.0.1:38080/health
+  curl http://127.0.0.1:30084/health      # prod pay-svc
+  curl http://127.0.0.1:30085/api/health  # prod pay-bff
 EOF

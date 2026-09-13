@@ -1,0 +1,14 @@
+[package]
+name = "epsx-kernel"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+alloy-primitives.workspace = true
+chrono.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

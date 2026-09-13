@@ -1,31 +1,26 @@
+pub mod credit;
+pub mod crypto_address;
+pub mod crypto_address_id;
+pub mod crypto_network;
+pub mod payment_amount;
 /// Payment Value Objects Module
 ///
 /// This module contains all value objects for the Payment bounded context.
 /// Value objects represent concepts with identity defined by their attributes
 /// rather than a unique identifier.
 pub mod payment_id;
-pub mod payment_amount;
-pub mod crypto_address;
-pub mod crypto_address_id;
-pub mod crypto_network;
+pub mod payment_method;
 pub mod payment_method_id;
 pub mod transaction_hash;
-pub mod payment_method;
-pub mod credit;
 
 // Public exports from payment_id
 pub use payment_id::{PaymentId, PaymentReference};
 
-// Public exports from payment_amount  
-pub use payment_amount::{
-    PaymentAmount, PaymentAmountError, ExchangeRates,
-    Currency, Network
-};
+// Public exports from payment_amount
+pub use payment_amount::{Currency, ExchangeRates, Network, PaymentAmount, PaymentAmountError};
 
 // Public exports from crypto_address
-pub use crypto_address::{
-    CryptoAddress, CryptoAddressError, PaymentAddress, AddressType
-};
+pub use crypto_address::{AddressType, CryptoAddress, CryptoAddressError, PaymentAddress};
 
 // Public exports from crypto_address_id
 pub use crypto_address_id::{CryptoAddressId, CryptoAddressIdError};
@@ -33,22 +28,19 @@ pub use crypto_address_id::{CryptoAddressId, CryptoAddressIdError};
 // Public exports from crypto_network
 pub use crypto_network::{CryptoNetwork, CryptoNetworkError};
 
-// Public exports from payment_method_id  
+// Public exports from payment_method_id
 pub use payment_method_id::{PaymentMethodId, PaymentMethodIdError};
 
 // Public exports from transaction_hash
 pub use transaction_hash::{
-    TransactionHash, TransactionHashError, TransactionReceipt, TransactionStatus,
-    ConfirmationStatus
+    ConfirmationStatus, TransactionHash, TransactionHashError, TransactionReceipt,
+    TransactionStatus,
 };
 
 // Public exports from payment_method
 pub use payment_method::{
-    PaymentMethod, PaymentMethodError, PaymentMethodType, PaymentMethodConfig,
-    PaymentInstructions
+    PaymentInstructions, PaymentMethod, PaymentMethodConfig, PaymentMethodError, PaymentMethodType,
 };
 
 // Public exports from credit
-pub use credit::{
-    CreditAmount, CreditTransactionType, CreditError
-};
+pub use credit::{CreditAmount, CreditError, CreditTransactionType};

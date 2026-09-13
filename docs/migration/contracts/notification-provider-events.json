@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "contractId": "A11.4-notification-provider-events",
+  "route": "POST /api/v1/notification/provider-events",
+  "audience": "epsx-notification-provider",
+  "permission": "internal:notifications:provider-events",
+  "subjectPolicy": "verified internal subject must be svc:-prefixed and bounded; provider identity provisioning remains a deployment responsibility",
+  "signature": {
+    "headers": ["X-EPSX-Provider-Timestamp", "X-EPSX-Provider-Signature"],
+    "format": "v1=<hex HMAC-SHA256>",
+    "input": "epsx.notification.provider.v1.<timestamp>.<raw-request-body>",
+    "maxSkewSeconds": 300,
+    "secret": "NOTIFICATION_PROVIDER_SIGNING_SECRET is the active key; optional NOTIFICATION_PROVIDER_SIGNING_SECRET_PREVIOUS and comma-separated NOTIFICATION_PROVIDER_SIGNING_SECRETS support bounded rotation; every accepted key is 32..256 non-whitespace bytes and no valid key fails closed"
+  },
+  "request": {
+    "required": ["provider", "provider_event_id", "event_type", "payload"],
+    "optional": ["provider_message_id", "job_id", "occurred_at"],
+    "eventTypes": ["accepted", "delivered", "bounced", "complained", "failed"],
+    "limits": {
+      "provider": 64,
+      "provider_event_id": 255,
+      "provider_message_id": 255,
+      "job_id": 128,
+      "event_type": 64,
+      "payloadBytes": 65536
+    },
+    "payload": "provider-specific object retained for reconciliation; recipient and message data are never logged",
+    "jobResolution": "job_id is preferred when supplied; otherwise provider_message_id is matched against the durable channel-job provider ID inside the event transaction",
+    "eventTime": "occurred_at is retained when present and otherwise the service receipt time is used for the linked notification sent_at"
+  },
+  "success": {
+    "status": 202,
+    "body": "{provider,provider_event_id,status:recorded|duplicate}",
+    "durability": "provider and provider_event_id are unique; a first event is stored transactionally and reconciles the referenced channel job by internal job_id or persisted provider_message_id, plus its linked pending notification"
+  },
+  "stateMapping": {
+    "accepted": "provider_accepted",
+    "delivered": "provider_accepted",
+    "bounced": "terminal_failed",
+    "complained": "terminal_failed",
+    "failed": "terminal_failed",
+    "terminalOrAcceptedJobs": "dead_lettered, terminal_failed, and provider_accepted states are never overwritten by a conflicting provider event"
+  },
+  "errors": {
+    "400": "invalid, unknown, or oversized payload",
+    "401": "missing or invalid bearer",
+    "403": "wrong audience or missing internal:notifications:provider-events",
+    "503": "database/transaction unavailable"
+  },
+  "status": "implemented-static-and-unit-tested",
+  "productionReady": false
+}

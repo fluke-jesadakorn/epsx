@@ -1,14 +1,12 @@
+use super::types::*;
+use crate::web::auth::AppState;
+use crate::web::responses::wrappers::AdminResponse;
 use axum::{
     extract::{Query, State},
     response::IntoResponse,
 };
-use chrono::{DateTime, Utc, Duration};
+use chrono::{DateTime, Duration, Utc};
 use tracing::{error, info};
-use diesel::prelude::*;
-use diesel_async::RunQueryDsl;
-use crate::web::auth::AppState;
-use crate::web::responses::wrappers::AdminResponse;
-use super::types::*;
 
 /**
  * Get platform overview analytics
@@ -20,14 +18,6 @@ pub async fn get_platform_overview_handler(
 ) -> axum::response::Response {
     info!("Admin: Getting platform overview analytics");
 
-    let mut conn = match app_state.db_pool.get().await {
-        Ok(conn) => conn,
-        Err(e) => {
-            error!("Admin: Failed to get database connection: {}", e);
-            return AdminResponse::server_error("Database error").into_response();
-        }
-    };
-
     let period_days = match query.period.as_deref() {
         Some("7d") => 7,
         Some("30d") => 30,
@@ -38,26 +28,23 @@ pub async fn get_platform_overview_handler(
 
     let period_start = Utc::now() - Duration::days(period_days);
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct UserMetrics {
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         total_users: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         active_users: i64,
-        #[diesel(sql_type = diesel::sql_types::BigInt)]
         new_users_period: i64,
     }
 
     // Get basic user metrics
-    let user_metrics = match diesel::sql_query(
+    let user_metrics = match sqlx::query_as::<_, UserMetrics>(
         "SELECT
             COUNT(*)::bigint as total_users,
             COUNT(*) FILTER (WHERE is_active = true)::bigint as active_users,
             COUNT(*) FILTER (WHERE created_at >= $1)::bigint as new_users_period
-         FROM wallet_users"
+         FROM wallet_users",
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(period_start)
-    .get_result::<UserMetrics>(&mut conn)
+    .bind(period_start)
+    .fetch_one(app_state.db_pool.as_ref())
     .await
     {
         Ok(metrics) => metrics,
@@ -108,16 +95,14 @@ pub async fn get_platform_overview_handler(
         retention_30_day: retention_rate,
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct SignupTrend {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Timestamptz>)]
         signup_date: Option<DateTime<Utc>>,
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::BigInt>)]
         user_count: Option<i64>,
     }
 
     // Generate signup trends from database
-    let by_signup_date = match diesel::sql_query(
+    let by_signup_date = match sqlx::query_as::<_, SignupTrend>(
         r#"
         SELECT DATE_TRUNC('day', created_at) as signup_date,
                COUNT(*)::bigint as user_count
@@ -125,10 +110,10 @@ pub async fn get_platform_overview_handler(
         WHERE created_at >= $1
         GROUP BY DATE_TRUNC('day', created_at)
         ORDER BY signup_date ASC
-        "#
+        "#,
     )
-    .bind::<diesel::sql_types::Timestamptz, _>(period_start)
-    .load::<SignupTrend>(&mut conn)
+    .bind(period_start)
+    .fetch_all(app_state.db_pool.as_ref())
     .await
     {
         Ok(results) => results
@@ -136,7 +121,8 @@ pub async fn get_platform_overview_handler(
             .map(|row| TimeSeriesPoint {
                 timestamp: row.signup_date.unwrap_or_else(Utc::now),
                 value: row.user_count.unwrap_or(0) as f64,
-                label: row.signup_date
+                label: row
+                    .signup_date
                     .unwrap_or_else(Utc::now)
                     .format("%Y-%m-%d")
                     .to_string(),
@@ -147,44 +133,49 @@ pub async fn get_platform_overview_handler(
 
     let user_distribution = UserDistribution {
         by_tier: tier_distribution,
-        by_region: vec![], // Geographic data not available (no IP/location tracking)
+        by_region: vec![],
         by_signup_date,
     };
 
-    #[derive(QueryableByName)]
+    #[derive(sqlx::FromRow)]
     struct RevenueResult {
-        #[diesel(sql_type = diesel::sql_types::Nullable<diesel::sql_types::Numeric>)]
         revenue: Option<bigdecimal::BigDecimal>,
     }
 
     let revenue_total = {
         // Calculate total revenue from all active subscription-based permission plans
-        match diesel::sql_query(
+        match sqlx::query_as::<_, RevenueResult>(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
              INNER JOIN plans pg ON wga.plan_id = pg.id
-             WHERE wga.is_active = true AND pg.plan_type = 'subscription'"
+             WHERE wga.is_active = true AND pg.plan_type = 'subscription'",
         )
-        .get_result::<RevenueResult>(&mut conn)
+        .fetch_one(app_state.db_pool.as_ref())
         .await
         {
-            Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            Err(_) => 0.0
+            Ok(result) => result
+                .revenue
+                .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                .unwrap_or(0.0),
+            Err(_) => 0.0,
         }
     };
 
     let revenue_period = {
         // Calculate revenue from new subscriptions in the last 30 days
-        match diesel::sql_query(
+        match sqlx::query_as::<_, RevenueResult>(
             "SELECT COALESCE(SUM(pg.price), 0.0) as revenue FROM wallet_plan_assignments wga
              INNER JOIN plans pg ON wga.plan_id = pg.id
              WHERE wga.is_active = true AND pg.plan_type = 'subscription'
-             AND wga.created_at >= NOW() - INTERVAL '30 days'"
+             AND wga.created_at >= NOW() - INTERVAL '30 days'",
         )
-        .get_result::<RevenueResult>(&mut conn)
+        .fetch_one(app_state.db_pool.as_ref())
         .await
         {
-            Ok(result) => result.revenue.map(|r| r.to_string().parse::<f64>().unwrap_or(0.0)).unwrap_or(0.0),
-            Err(_) => 0.0
+            Ok(result) => result
+                .revenue
+                .map(|r| r.to_string().parse::<f64>().unwrap_or(0.0))
+                .unwrap_or(0.0),
+            Err(_) => 0.0,
         }
     };
 
@@ -201,5 +192,9 @@ pub async fn get_platform_overview_handler(
     };
 
     info!("Admin: Successfully retrieved platform overview analytics");
-    AdminResponse::success_with_message(response, "Platform overview analytics retrieved successfully").into_response()
+    AdminResponse::success_with_message(
+        response,
+        "Platform overview analytics retrieved successfully",
+    )
+    .into_response()
 }

@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "package": "A3.2",
+  "purpose": "offline-history-classification-only",
+  "productionReady": false,
+  "sourceContract": {
+    "path": "docs/migration/contracts/a3-1-history-preflight.json",
+    "sha256": "1b6ff5a831d2bd219670c800a9c0edef51a43ad50138eac124e43410cd3e75ac"
+  },
+  "domains": [
+    "core",
+    "analytics",
+    "notifications",
+    "payments"
+  ],
+  "input": {
+    "manifestPackage": "A3.1a",
+    "manifestPurpose": "read-only-database-preflight",
+    "manifestStatus": "inspection-captured-operator-classification-required",
+    "artifactSuffixes": [
+      "discovery.json",
+      "inspection.json"
+    ]
+  },
+  "baseMigrationVersions": [
+    "00000000000000",
+    "00000000000001"
+  ],
+  "knownMigrationVersions": {
+    "core": [
+      "00000000000000",
+      "00000000000001",
+      "20260211000000",
+      "20260212000000",
+      "20260214000000",
+      "20260215000000",
+      "20260215100000",
+      "20260216000000",
+      "20260216100000",
+      "20260218000000",
+      "20260218100000",
+      "202602221502570000",
+      "202602221510540000",
+      "20260227000000",
+      "20260228000000",
+      "20260301000000",
+      "20260427000000"
+    ],
+    "analytics": [
+      "00000000000000",
+      "00000000000001",
+      "20260216100000"
+    ],
+    "notifications": [
+      "00000000000000",
+      "00000000000001",
+      "20260613000000"
+    ],
+    "payments": [
+      "00000000000000",
+      "00000000000001",
+      "20260212100000",
+      "20260220100000",
+      "20260303100000",
+      "20260304100000",
+      "20260613000000"
+    ]
+  },
+  "allowedRelations": {
+    "core": [
+      "public.api_key_module_access",
+      "public.api_key_permissions",
+      "public.api_keys",
+      "public.api_modules",
+      "public.chat_conversations",
+      "public.chat_messages",
+      "public.chat_topics",
+      "public.features",
+      "public.mv_web3_chain_distribution",
+      "public.news_articles",
+      "public.openid_refresh_tokens",
+      "public.permissions",
+      "public.plan_features",
+      "public.plan_permissions",
+      "public.plans",
+      "public.route_permissions",
+      "public.system_settings",
+      "public.user_watchlist",
+      "public.wallet_direct_permissions",
+      "public.wallet_plan_assignments",
+      "public.wallet_users",
+      "public.web3_auth_nonces",
+      "read_model.projection_checkpoints"
+    ],
+    "analytics": [
+      "infra_logs.aggregate_snapshots",
+      "infra_logs.analytics_events",
+      "infra_logs.api_key_usage_logs",
+      "infra_logs.api_key_usage_logs_2025_11",
+      "infra_logs.api_key_usage_logs_2025_12",
+      "infra_logs.api_key_usage_logs_2026_01",
+      "infra_logs.api_key_usage_logs_2026_02",
+      "infra_logs.api_key_usage_logs_2026_03",
+      "infra_logs.assignment_audit_log",
+      "infra_logs.audit_logs",
+      "infra_logs.event_store",
+      "infra_logs.outbox_events",
+      "infra_logs.payment_audit_log",
+      "infra_logs.permission_audit_log",
+      "infra_logs.unified_audit_log",
+      "infra_logs.wallet_activity_logs",
+      "public.aggregate_snapshots",
+      "public.analytics_events",
+      "public.api_key_usage_logs",
+      "public.api_key_usage_logs_2025_01",
+      "public.api_key_usage_logs_2025_02",
+      "public.api_key_usage_logs_2025_03",
+      "public.api_key_usage_logs_2025_04",
+      "public.api_key_usage_logs_2025_05",
+      "public.api_key_usage_logs_2025_06",
+      "public.api_key_usage_logs_2025_07",
+      "public.api_key_usage_logs_2025_08",
+      "public.api_key_usage_logs_2025_09",
+      "public.api_key_usage_logs_2025_10",
+      "public.api_key_usage_logs_2025_11",
+      "public.api_key_usage_logs_2025_12",
+      "public.api_key_usage_logs_2026_01",
+      "public.api_key_usage_logs_2026_02",
+      "public.api_key_usage_logs_2026_03",
+      "public.assignment_audit_log",
+      "public.audit_logs",
+      "public.event_store",
+      "public.outbox_events",
+      "public.payment_audit_log",
+      "public.permission_audit_log",
+      "public.unified_audit_log",
+      "public.wallet_activity_logs"
+    ],
+    "notifications": [
+      "public.notification_subscriptions",
+      "public.wallet_notifications"
+    ],
+    "payments": [
+      "payments.plans",
+      "public.credit_transactions",
+      "public.payment_audit_log",
+      "public.payment_contexts",
+      "public.payments",
+      "public.stock_ranking_assignments",
+      "public.subscriptions",
+      "public.wallet_credits"
+    ]
+  },
+  "schemaProfiles": {
+    "core-v5": {
+      "requiredRelations": [
+        "public.api_key_module_access",
+        "public.api_key_permissions",
+        "public.api_keys",
+        "public.api_modules",
+        "public.openid_refresh_tokens",
+        "public.permissions",
+        "public.plan_permissions",
+        "public.plans",
+        "public.route_permissions",
+        "public.system_settings",
+        "public.wallet_direct_permissions",
+        "public.wallet_plan_assignments",
+        "public.wallet_users",
+        "public.web3_auth_nonces",
+        "read_model.projection_checkpoints"
+      ],
+      "forbiddenRelations": [],
+      "requiredColumns": [
+        "public.plans.display_order"
+      ],
+      "forbiddenColumns": [
+        "public.plans.plan_category"
+      ]
+    },
+    "core-v6": {
+      "requiredRelations": [
+        "public.api_key_module_access",
+        "public.api_key_permissions",
+        "public.api_keys",
+        "public.api_modules",
+        "public.chat_conversations",
+        "public.chat_messages",
+        "public.chat_topics",
+        "public.mv_web3_chain_distribution",
+        "public.news_articles",
+        "public.openid_refresh_tokens",
+        "public.permissions",
+        "public.plan_permissions",
+        "public.plans",
+        "public.route_permissions",
+        "public.system_settings",
+        "public.user_watchlist",
+        "public.wallet_direct_permissions",
+        "public.wallet_plan_assignments",
+        "public.wallet_users",
+        "public.web3_auth_nonces",
+        "read_model.projection_checkpoints"
+      ],
+      "forbiddenRelations": [],
+      "requiredColumns": [
+        "public.plans.grace_period_hours",
+        "public.plans.is_system",
+        "public.plans.plan_category",
+        "public.plans.plan_group"
+      ],
+      "forbiddenColumns": [
+        "public.plans.display_order"
+      ]
+    },
+    "analytics-public-v2": {
+      "requiredRelations": [
+        "public.aggregate_snapshots",
+        "public.analytics_events",
+        "public.api_key_usage_logs",
+        "public.api_key_usage_logs_2025_01",
+        "public.api_key_usage_logs_2025_02",
+        "public.api_key_usage_logs_2025_03",
+        "public.api_key_usage_logs_2025_04",
+        "public.api_key_usage_logs_2025_05",
+        "public.api_key_usage_logs_2025_06",
+        "public.api_key_usage_logs_2025_07",
+        "public.api_key_usage_logs_2025_08",
+        "public.api_key_usage_logs_2025_09",
+        "public.api_key_usage_logs_2025_10",
+        "public.api_key_usage_logs_2025_11",
+        "public.api_key_usage_logs_2025_12",
+        "public.assignment_audit_log",
+        "public.audit_logs",
+        "public.event_store",
+        "public.outbox_events",
+        "public.payment_audit_log",
+        "public.permission_audit_log",
+        "public.wallet_activity_logs"
+      ],
+      "forbiddenRelations": [
+        "infra_logs.api_key_usage_logs"
+      ],
+      "requiredColumns": [
+        "public.api_key_usage_logs.request_at"
+      ],
+      "forbiddenColumns": []
+    },
+    "analytics-public-v3": {
+      "requiredRelations": [
+        "public.aggregate_snapshots",
+        "public.analytics_events",
+        "public.api_key_usage_logs",
+        "public.api_key_usage_logs_2025_11",
+        "public.api_key_usage_logs_2025_12",
+        "public.api_key_usage_logs_2026_01",
+        "public.api_key_usage_logs_2026_02",
+        "public.api_key_usage_logs_2026_03",
+        "public.assignment_audit_log",
+        "public.audit_logs",
+        "public.event_store",
+        "public.outbox_events",
+        "public.payment_audit_log",
+        "public.permission_audit_log",
+        "public.unified_audit_log",
+        "public.wallet_activity_logs"
+      ],
+      "forbiddenRelations": [
+        "public.api_key_usage_logs_2025_01",
+        "infra_logs.api_key_usage_logs"
+      ],
+      "requiredColumns": [
+        "public.api_key_usage_logs.request_at"
+      ],
+      "forbiddenColumns": []
+    },
+    "analytics-infra-v3": {
+      "requiredRelations": [
+        "infra_logs.aggregate_snapshots",
+        "infra_logs.analytics_events",
+        "infra_logs.api_key_usage_logs",
+        "infra_logs.api_key_usage_logs_2025_11",
+        "infra_logs.api_key_usage_logs_2025_12",
+        "infra_logs.api_key_usage_logs_2026_01",
+        "infra_logs.api_key_usage_logs_2026_02",
+        "infra_logs.api_key_usage_logs_2026_03",
+        "infra_logs.assignment_audit_log",
+        "infra_logs.audit_logs",
+        "infra_logs.event_store",
+        "infra_logs.outbox_events",
+        "infra_logs.payment_audit_log",
+        "infra_logs.permission_audit_log",
+        "infra_logs.unified_audit_log",
+        "infra_logs.wallet_activity_logs"
+      ],
+      "forbiddenRelations": [
+        "public.api_key_usage_logs"
+      ],
+      "requiredColumns": [
+        "infra_logs.api_key_usage_logs.request_at"
+      ],
+      "forbiddenColumns": []
+    },
+    "notifications-present": {
+      "requiredRelations": [
+        "public.notification_subscriptions",
+        "public.wallet_notifications"
+      ],
+      "forbiddenRelations": [],
+      "requiredColumns": [
+        "public.wallet_notifications.id"
+      ],
+      "forbiddenColumns": []
+    },
+    "notifications-dropped": {
+      "requiredRelations": [
+        "public.wallet_notifications"
+      ],
+      "forbiddenRelations": [
+        "public.notification_subscriptions"
+      ],
+      "requiredColumns": [
+        "public.wallet_notifications.id"
+      ],
+      "forbiddenColumns": []
+    },
+    "payments-v3": {
+      "requiredRelations": [
+        "public.payment_audit_log",
+        "public.payment_contexts",
+        "public.payments",
+        "public.stock_ranking_assignments",
+        "public.subscriptions"
+      ],
+      "forbiddenRelations": [
+        "public.credit_transactions",
+        "public.wallet_credits"
+      ],
+      "requiredColumns": [
+        "public.payments.transaction_hash"
+      ],
+      "forbiddenColumns": [
+        "public.payment_audit_log.tx_hash"
+      ]
+    },
+    "payments-v4": {
+      "requiredRelations": [
+        "public.credit_transactions",
+        "public.payment_audit_log",
+        "public.payment_contexts",
+        "public.payments",
+        "public.stock_ranking_assignments",
+        "public.subscriptions",
+        "public.wallet_credits"
+      ],
+      "forbiddenRelations": [],
+      "requiredColumns": [
+        "public.payment_audit_log.tx_hash",
+        "public.payments.transaction_hash"
+      ],
+      "forbiddenColumns": []
+    }
+  },
+  "classes": [
+    {
+      "domain": "core",
+      "evidenceClass": "v5",
+      "profile": "core-v5",
+      "followupHistory": "none",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "core",
+      "evidenceClass": "v6",
+      "profile": "core-v6",
+      "followupHistory": "none",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "core",
+      "evidenceClass": "known-partial-v5",
+      "profile": "core-v5",
+      "followupHistory": "some",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "core",
+      "evidenceClass": "known-partial-v6",
+      "profile": "core-v6",
+      "followupHistory": "some",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "analytics",
+      "evidenceClass": "public-v2",
+      "profile": "analytics-public-v2",
+      "followupHistory": "any",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "analytics",
+      "evidenceClass": "public-v3",
+      "profile": "analytics-public-v3",
+      "followupHistory": "any",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "analytics",
+      "evidenceClass": "infra-logs-v3",
+      "profile": "analytics-infra-v3",
+      "followupHistory": "any",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "notifications",
+      "evidenceClass": "baseline-v2-table-present",
+      "profile": "notifications-present",
+      "followupHistory": "any",
+      "requiredVersions": [],
+      "forbiddenVersions": [
+        "20260613000000"
+      ]
+    },
+    {
+      "domain": "notifications",
+      "evidenceClass": "recorded-drop-table-absent",
+      "profile": "notifications-dropped",
+      "followupHistory": "any",
+      "requiredVersions": [
+        "20260613000000"
+      ],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "payments",
+      "evidenceClass": "v3",
+      "profile": "payments-v3",
+      "followupHistory": "none",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "payments",
+      "evidenceClass": "v4",
+      "profile": "payments-v4",
+      "followupHistory": "none",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "payments",
+      "evidenceClass": "known-partial-v3",
+      "profile": "payments-v3",
+      "followupHistory": "some",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    },
+    {
+      "domain": "payments",
+      "evidenceClass": "known-partial-v4",
+      "profile": "payments-v4",
+      "followupHistory": "some",
+      "requiredVersions": [],
+      "forbiddenVersions": []
+    }
+  ],
+  "stopPolicy": {
+    "unknownEvidence": true,
+    "hybridEvidence": true,
+    "incompleteEvidence": true,
+    "unknownMigrationVersion": true,
+    "unknownRelation": true,
+    "digestMismatch": true,
+    "credentialMaterial": true,
+    "symlinkOrTraversal": true
+  },
+  "prohibitedCapabilities": [
+    "database-connection",
+    "network-access",
+    "migration-execution",
+    "history-repair",
+    "ddl",
+    "deployment"
+  ]
+}

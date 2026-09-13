@@ -1,7 +1,7 @@
+use crate::domain::shared_kernel::aggregate_root::Identity;
+use serde::{Deserialize, Serialize};
 use std::fmt::{self, Display};
 use uuid::Uuid;
-use serde::{Serialize, Deserialize};
-use crate::domain::shared_kernel::aggregate_root::Identity;
 
 /// Payment ID Value Object
 /// Unique identifier for payments with validation and formatting
@@ -25,8 +25,7 @@ impl PaymentId {
 
     /// Create from string with validation
     pub fn from_string(s: &str) -> Result<Self, String> {
-        let uuid = Uuid::parse_str(s)
-            .map_err(|_| format!("Invalid payment ID format: {}", s))?;
+        let uuid = Uuid::parse_str(s).map_err(|_| format!("Invalid payment ID format: {}", s))?;
         Ok(Self { value: uuid })
     }
 
@@ -112,7 +111,7 @@ impl PaymentReference {
         let now = chrono::Utc::now();
         let date_part = now.format("%Y%m%d").to_string();
         let random_part = format!("{:06}", rand::random::<u32>() % 1_000_000);
-        
+
         Self {
             value: format!("PAY-{}-{}", date_part, random_part),
         }
@@ -123,7 +122,7 @@ impl PaymentReference {
         if !Self::is_valid_format(s) {
             return Err(format!("Invalid payment reference format: {}", s));
         }
-        
+
         Ok(Self {
             value: s.to_uppercase(),
         })
@@ -140,9 +139,9 @@ impl PaymentReference {
         if parts.len() != 3 {
             return false;
         }
-        
-        parts[0] == "PAY" 
-            && parts[1].len() == 8 
+
+        parts[0] == "PAY"
+            && parts[1].len() == 8
             && parts[1].chars().all(|c| c.is_ascii_digit())
             && parts[2].len() == 6
             && parts[2].chars().all(|c| c.is_ascii_digit())
@@ -192,7 +191,7 @@ mod tests {
     fn test_payment_id_generation() {
         let id1 = PaymentId::generate();
         let id2 = PaymentId::generate();
-        
+
         assert_ne!(id1, id2);
         assert!(!id1.is_nil());
         assert!(!id2.is_nil());
@@ -202,7 +201,7 @@ mod tests {
     fn test_payment_id_from_string() {
         let uuid_str = "550e8400-e29b-41d4-a716-446655440000";
         let payment_id = PaymentId::from_string(uuid_str).unwrap();
-        
+
         assert_eq!(payment_id.as_string(), uuid_str);
         assert!(PaymentId::is_valid_format(uuid_str));
         assert!(!PaymentId::is_valid_format("invalid-uuid"));
@@ -212,7 +211,7 @@ mod tests {
     fn test_payment_id_short_id() {
         let payment_id = PaymentId::generate();
         let short_id = payment_id.short_id();
-        
+
         assert_eq!(short_id.len(), 8);
         assert!(payment_id.as_string().starts_with(&short_id));
     }
@@ -221,7 +220,7 @@ mod tests {
     fn test_payment_reference_generation() {
         let ref1 = PaymentReference::generate();
         let ref2 = PaymentReference::generate();
-        
+
         assert_ne!(ref1, ref2);
         assert!(ref1.value().starts_with("PAY-"));
         assert!(PaymentReference::is_valid_format(ref1.value()));
@@ -239,21 +238,25 @@ mod tests {
         ];
 
         assert!(PaymentReference::is_valid_format(valid_ref));
-        
+
         for invalid in invalid_refs {
-            assert!(!PaymentReference::is_valid_format(invalid), "Should be invalid: {}", invalid);
+            assert!(
+                !PaymentReference::is_valid_format(invalid),
+                "Should be invalid: {}",
+                invalid
+            );
         }
     }
 
     #[test]
     fn test_payment_reference_parsing() {
         let reference = PaymentReference::from_string("PAY-20241201-123456").unwrap();
-        
+
         let date = reference.date_part().unwrap();
         assert_eq!(date.year(), 2024);
         assert_eq!(date.month(), 12);
         assert_eq!(date.day(), 1);
-        
+
         let sequence = reference.sequence_number().unwrap();
         assert_eq!(sequence, 123456);
     }

@@ -1,44 +1,176 @@
-name: CI
+name: Rust CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [development, staging, production, migration/dioxus-microservices]
   pull_request:
-    branches: [ "main" ]
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
-    name: Build and Test
+  workspace:
+    name: Cargo, Dioxus, and migration gates
     runs-on: ubuntu-latest
-
+    timeout-minutes: 90
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+          submodules: recursive
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@1.91.1
         with:
-          components: clippy, rustfmt
+          components: clippy,rustfmt
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes protobuf-compiler pkg-config libssl-dev
+      - name: Install wasm-bindgen CLI
+        run: cargo install wasm-bindgen-cli --version 0.2.123 --locked
+      - name: Install pinned Dioxus CLI
+        run: cargo install dioxus-cli --version 0.7.9 --locked
+      - name: Format
+        run: cargo fmt --all --check
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Unit and integration tests
+        run: cargo test --workspace --locked
+      - name: Verify frozen assets
+        run: cargo xtask assets verify
+      - name: Verify migration evidence
+        run: |
+          cargo xtask e2e doctor
+          cargo xtask e2e verify-artifacts
+      - name: Enforce the Rust-only workspace
+        run: |
+          cargo xtask audit no-node --strict
+          # The exact browser-adapter audit above supersedes the legacy marker inventory.
+      - name: Verify migration and authority contracts
+        run: |
+          cargo xtask migration-audit --strict
+          cargo xtask authority-audit --strict
+          # Kubernetes overlays are archived rollback references, not native release inputs.
+      - name: Release build
+        run: cargo xtask native package --output target/native-releases/ci-${{ github.sha }}
 
-      - name: Install dependencies
-        run: bun install
+  shadow-migrations:
+    name: Fresh PostgreSQL migration chain
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17.5-alpine
+        env:
+          POSTGRES_USER: epsx_shadow
+          POSTGRES_PASSWORD: epsx_shadow_only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U epsx_shadow -d postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@1.91.1
+      - uses: Swatinem/rust-cache@v2
+      - name: Create empty isolated databases
+        env:
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d postgres <<'SQL'
+          CREATE DATABASE epsx_core_shadow;
+          CREATE DATABASE epsx_analytics_shadow;
+          CREATE DATABASE epsx_payments_shadow;
+          CREATE DATABASE epsx_notifications_shadow;
+          CREATE DATABASE epsx_wallet_shadow;
+          CREATE DATABASE epsx_pay_shadow;
+          CREATE DATABASE epsx_subscription_shadow;
+          SQL
+      - name: Apply all eight native migration families twice
+        env:
+          DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          ANALYTICS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_payments_shadow
+          NOTIFICATIONS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_notifications_shadow
+          WALLET_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_wallet_shadow
+          PAY_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_pay_shadow
+          SUBSCRIPTION_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_subscription_shadow
+          ANALYTICS_SERVICE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_analytics_shadow
+        run: |
+          cargo build -p epsx --features cli-tools --bin migrate --locked
+          python3 infrastructure/native/ci-migrations.py
+      - name: Verify preservation, versions, and split-payment projection
+        env:
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          projection="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc "SELECT to_regclass('public.plans') IS NULL, to_regclass('payments.plans') IS NOT NULL, COUNT(*) FROM payments.plans")"
+          test "$projection" = 't|t|0'
+          cqrs_tables="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('event_store', 'outbox_events', 'aggregate_snapshots')")"
+          test "$cqrs_tables" = '3'
+          usage_id="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "INSERT INTO infra_logs.api_key_usage_logs (api_key_id, endpoint, method, request_at) VALUES (gen_random_uuid(), '/migration-shadow', 'GET', '2035-08-20T00:00:00Z') RETURNING id")"
+          usage_partition="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT tableoid::regclass::text FROM infra_logs.api_key_usage_logs WHERE id = '$usage_id'")"
+          test "$usage_partition" = 'infra_logs.api_key_usage_logs_default'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -f apps/backend/migrations/analytics/20260820070000_add_api_key_usage_default_partition/down.sql
+          detached_row="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT COUNT(*) FROM infra_logs.api_key_usage_logs_default WHERE id = '$usage_id'")"
+          test "$detached_row" = '1'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -f apps/backend/migrations/analytics/20260820070000_add_api_key_usage_default_partition/up.sql
+          reattached_row="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_analytics_shadow -Atqc "SELECT COUNT(*) FROM infra_logs.api_key_usage_logs WHERE id = '$usage_id' AND tableoid = 'infra_logs.api_key_usage_logs_default'::regclass")"
+          test "$reattached_row" = '1'
+      - name: Verify bounded split-database plan projection
+        env:
+          CORE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_payments_shadow
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          set +e
+          ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
+          initial_status=$?
+          set -e
+          test "$initial_status" = '2'
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          ./infrastructure/scripts/wave11-replicate-plans.sh --dry-run
+          source_count="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc 'SELECT COUNT(*) FROM public.plans')"
+          target_count="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc 'SELECT COUNT(*) FROM payments.plans')"
+          test "$source_count" = "$target_count"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -c "INSERT INTO payments.plans (id, name, slug, description) VALUES ('33333333-3333-4333-8333-333333333333', 'Destination only', 'destination-only', 'preservation proof')"
+          set +e
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          refusal_status=$?
+          set -e
+          test "$refusal_status" != '0'
+          retained="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_payments_shadow -Atqc "SELECT COUNT(*) FROM payments.plans WHERE id = '33333333-3333-4333-8333-333333333333'")"
+          test "$retained" = '1'
+      - name: Verify same-database plan trigger preservation
+        env:
+          CORE_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PAYMENTS_DATABASE_URL: postgresql://epsx_shadow:epsx_shadow_only@127.0.0.1:5432/epsx_core_shadow
+          PGPASSWORD: epsx_shadow_only
+        run: |
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow \
+            -f apps/backend/migrations/payments/20260613000000_replicate_plans_into_payments_schema/up.sql \
+            -f apps/backend/migrations/payments/20260820100000_harden_plan_projection_sync/up.sql
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "INSERT INTO public.plans (id, name, slug, description) VALUES ('44444444-4444-4444-8444-444444444444', 'Trigger proof', 'trigger-proof', 'before update')"
+          ./infrastructure/scripts/wave11-replicate-plans.sh --apply --environment development
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "UPDATE public.plans SET slug = 'trigger-proof-updated', description = 'after update', plan_category = 'addon', plan_group = 'enterprise', is_promoted = TRUE, tier_level = 2, updated_at = '2030-01-01T00:00:00Z' WHERE id = '44444444-4444-4444-8444-444444444444'"
+          exact="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT to_jsonb(source) = to_jsonb(target) FROM public.plans source JOIN payments.plans target USING (id) WHERE id = '44444444-4444-4444-8444-444444444444'")"
+          test "$exact" = 't'
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -c "DELETE FROM public.plans WHERE id = '44444444-4444-4444-8444-444444444444'"
+          retired="$(psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U epsx_shadow -d epsx_core_shadow -Atqc "SELECT NOT is_active AND NOT is_public AND NOT is_promoted FROM payments.plans WHERE id = '44444444-4444-4444-8444-444444444444'")"
+          test "$retired" = 't'
 
-      - name: Check Formatting
-        run: bun run format:check
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Type Check
-        run: bun run type-check
-
-      - name: Test (Frontend & Shared)
-        run: bun run test
-
-      - name: Test (Backend)
-        run: bun run test:backend
+  contracts:
+    name: Foundry contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          submodules: recursive
+          fetch-depth: 0
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge build --root apps/contracts
+      - run: forge test --root apps/contracts

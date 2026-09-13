@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: epsx-staging
+
+resources:
+  - ../../base
+  # Migration services are explicit and remain outside the production core base.
+  - ../../base/analytics
+  - ../../base/identity
+  - ../../base/notification
+  - ../../base/pay
+
+images:
+  - name: epsx-backend
+    newTag: staging
+  - name: epsx-frontend
+    newTag: staging
+  - name: epsx-admin
+    newTag: staging
+  # wave12(integration): the new epsx-analytics binary
+  # uses a per-wave image tag rather than `staging` to
+  # keep the analytics cutover traceable across waves.
+  - name: epsx-analytics
+    newTag: wave12-staging
+  # wave49(slice-1): epsx-pay-svc + epsx-pay-bff staging.
+  - name: epsx-pay-svc
+    newTag: wave49-staging
+  - name: epsx-pay-bff
+    newTag: wave49-staging
+  - name: epsx-notification
+    newTag: staging
+
+patches:
+  - path: patches/namespace-label.yaml
+    target:
+      kind: Namespace
+      name: epsx-prod
+  - path: patches/replicas.yaml
+  - path: patches/resources.yaml
+  - path: patches/services-nodeport.yaml
+  - path: patches/pay-services-nodeport.yaml
+  - path: patches/pay-replicas.yaml
+  - path: patches/pay-resources.yaml
+  - path: patches/notification-environment.yaml

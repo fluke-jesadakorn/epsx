@@ -1,7 +1,7 @@
 // Core validation functions
+use super::types::{ValidationErrorResponse, ValidationResult};
 use std::collections::HashMap;
 use validator::Validate;
-use super::types::{ValidationErrorResponse, ValidationResult};
 
 /// Validate a request payload and return validation errors if any
 pub fn validate_request<T: Validate>(payload: &T) -> ValidationResult<()> {
@@ -9,7 +9,9 @@ pub fn validate_request<T: Validate>(payload: &T) -> ValidationResult<()> {
         Ok(_) => Ok(()),
         Err(validation_errors) => {
             tracing::warn!("Validation failed: {:?}", validation_errors);
-            Err(ValidationErrorResponse::from_validation_errors(validation_errors))
+            Err(ValidationErrorResponse::from_validation_errors(
+                validation_errors,
+            ))
         }
     }
 }
@@ -105,7 +107,10 @@ pub fn validate_rate_limit(
     // with full Redis + in-memory cache support
     tracing::debug!(
         "Rate limit check for user {} on endpoint {}: max {} requests per {} seconds",
-        wallet_address, endpoint, max_requests, window_seconds
+        wallet_address,
+        endpoint,
+        max_requests,
+        window_seconds
     );
 
     Ok(())

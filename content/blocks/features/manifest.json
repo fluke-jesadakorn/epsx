@@ -1,0 +1,18 @@
+{
+  "id": "features",
+  "version": "1.0.0",
+  "name": "Features Grid",
+  "category": "marketing",
+  "schema": "blocks/features/schema.json",
+  "defaultProps": {
+    "title": "Why Choose Us",
+    "items": [
+      { "title": "Fast", "description": "Lightning quick", "icon": "bolt" },
+      { "title": "Secure", "description": "Bank-grade security", "icon": "shield" },
+      { "title": "Reliable", "description": "99.99% uptime", "icon": "check" }
+    ],
+    "columns": 3
+  },
+  "preview": "/assets/blocks/features.png",
+  "component": "Features"
+}

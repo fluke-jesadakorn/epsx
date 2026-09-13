@@ -1,5 +1,6 @@
-use std::collections::HashMap;use std::sync::{Arc, RwLock};
 use super::{Cache, CacheConfig};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 
 /// In-memory cache implementation
 pub struct MemoryCache {
@@ -28,15 +29,25 @@ impl MemoryCache {
 
 impl Cache for MemoryCache {
     fn get(&self, key: &str) -> Option<String> {
-        self.data.read().unwrap_or_else(|e| e.into_inner()).get(key).cloned()
+        self.data
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(key)
+            .cloned()
     }
 
     fn set(&self, key: &str, value: String, _ttl: Option<u64>) {
-        self.data.write().unwrap_or_else(|e| e.into_inner()).insert(key.to_string(), value);
+        self.data
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .insert(key.to_string(), value);
     }
 
     fn delete(&self, key: &str) {
-        self.data.write().unwrap_or_else(|e| e.into_inner()).remove(key);
+        self.data
+            .write()
+            .unwrap_or_else(|e| e.into_inner())
+            .remove(key);
     }
 
     fn clear(&self) {

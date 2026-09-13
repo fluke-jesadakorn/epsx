@@ -1,0 +1,97 @@
+[
+  {
+    "origin": "https://dev.epsx.io",
+    "path": "/account/payments",
+    "status": 200,
+    "cookies": [
+      {
+        "name": "__Host-epsx.access_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      },
+      {
+        "name": "__Host-epsx.refresh_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      }
+    ]
+  },
+  {
+    "origin": "https://dev.epsx.io",
+    "path": "/account/payments/e3047202-1522-432f-a55b-9c19998f497d",
+    "status": 200,
+    "cookies": [
+      {
+        "name": "__Host-epsx.access_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      },
+      {
+        "name": "__Host-epsx.refresh_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      }
+    ]
+  },
+  {
+    "origin": "https://dev-admin.epsx.io",
+    "path": "/plans",
+    "status": 200,
+    "cookies": [
+      {
+        "name": "__Host-epsx.access_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      },
+      {
+        "name": "__Host-epsx.refresh_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      }
+    ]
+  },
+  {
+    "origin": "https://dev-admin.epsx.io",
+    "path": "/plans/61a62cbe-3371-41db-bd90-321c53a71e06",
+    "status": 200,
+    "cookies": [
+      {
+        "name": "__Host-epsx.access_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      },
+      {
+        "name": "__Host-epsx.refresh_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      }
+    ]
+  },
+  {
+    "origin": "https://dev-admin.epsx.io",
+    "path": "/payments/epsx",
+    "status": 200,
+    "cookies": [
+      {
+        "name": "__Host-epsx.access_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      },
+      {
+        "name": "__Host-epsx.refresh_token",
+        "secure": true,
+        "host_only": true,
+        "http_only": true
+      }
+    ]
+  }
+]
