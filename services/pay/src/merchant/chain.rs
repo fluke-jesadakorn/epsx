@@ -7,7 +7,18 @@ use alloy::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
-use std::{collections::BTreeMap, str::FromStr, time::Duration};
+use std::{collections::BTreeMap, str::FromStr, sync::LazyLock, time::Duration};
+
+// Cloned networks share connection pools; building a client for every call adds
+// repeated TLS handshakes to each scanner's sequential validation and evidence.
+static RPC_CLIENT: LazyLock<std::result::Result<reqwest::Client, reqwest::Error>> =
+    LazyLock::new(|| {
+        reqwest::Client::builder()
+            .user_agent("EPSX-Pay/1.0")
+            .timeout(Duration::from_secs(15))
+            .redirect(reqwest::redirect::Policy::none())
+            .build()
+    });
 sol! {
     function pay(address payee,address token,uint256 amount,uint256 deadline,bytes32 salt);
     function deposit(address payee,address token,uint256 amount,uint256 deadline,bytes32 salt);
@@ -117,11 +128,9 @@ impl Network {
         }
     }
     pub async fn rpc(&self, method: &str, params: Value) -> std::result::Result<Value, Error> {
-        let v: Value = reqwest::Client::builder()
-            .user_agent("EPSX-Pay/1.0")
-            .timeout(Duration::from_secs(15))
-            .redirect(reqwest::redirect::Policy::none())
-            .build()?
+        let v: Value = RPC_CLIENT
+            .as_ref()
+            .map_err(|_| "merchant RPC client unavailable")?
             .post(&self.rpc_url)
             .json(&json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}))
             .send()
@@ -130,7 +139,8 @@ impl Network {
             .error_for_status()
             .map_err(reqwest::Error::without_url)?
             .json()
-            .await?;
+            .await
+            .map_err(reqwest::Error::without_url)?;
         if v.get("error").is_some() {
             return Err("merchant RPC error".into());
         }
@@ -321,3 +331,7 @@ pub fn parameters(d: &Payment, actor: &str, kind: &str) -> Result<(Value, Value)
     };
     Ok((params, approval))
 }
+
+#[cfg(test)]
+#[path = "chain_tests.rs"]
+mod tests;

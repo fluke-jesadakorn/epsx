@@ -348,9 +348,11 @@ pub fn spawn(s: AppState) {
         let Some(c) = s.native_chain.clone() else {
             return;
         };
+        let mut interval = tokio::time::interval(Duration::from_secs(3));
+        interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         loop {
+            interval.tick().await;
             let _ = checked_tick(&s, &c).await;
-            tokio::time::sleep(Duration::from_secs(3)).await;
         }
     });
 }

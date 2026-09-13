@@ -171,7 +171,8 @@ impl Chain {
             .error_for_status()
             .map_err(reqwest::Error::without_url)?
             .json()
-            .await?;
+            .await
+            .map_err(reqwest::Error::without_url)?;
         if response.get("error").is_some() {
             return Err(format!("RPC {method} failed").into());
         }
