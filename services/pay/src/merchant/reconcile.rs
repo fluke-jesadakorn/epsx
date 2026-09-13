@@ -355,9 +355,11 @@ pub fn spawn(p: Platform) {
             let p = p.clone();
             let n = n.clone();
             tokio::spawn(async move {
+                let mut interval = tokio::time::interval(Duration::from_secs(3));
+                interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
                 loop {
+                    interval.tick().await;
                     let _ = checked_tick(&p, &n, mode).await;
-                    tokio::time::sleep(Duration::from_secs(3)).await;
                 }
             });
         }

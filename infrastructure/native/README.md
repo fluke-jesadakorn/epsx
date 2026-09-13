@@ -143,6 +143,11 @@ validation checks version, fee, authority, treasury and configured token
 decimals, including QR tokens. `PAY_ESCROW_TREASURY` defaults to the configured
 Admin when omitted. Production RPC throughput/quota must be verified before
 accepting payments; a bounded log range alone is not proof of sufficient quota.
+Scanners run on a three-second interval, skipping missed deadlines instead of
+adding a three-second delay after each scan. Merchant RPC requests reuse pooled
+HTTP connections. Contract validation and canonical receipt checks still run on
+every scan. Verify both recent logs and historical logs: an RPC provider's
+archive-state or historical-receipt support alone does not prove log retention.
 
 ### Frontend development through dev.epsx.io
 
