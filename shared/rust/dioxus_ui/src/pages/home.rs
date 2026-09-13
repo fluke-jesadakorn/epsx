@@ -150,9 +150,7 @@ fn MarketPreview(response: Option<AnalyticsResponse>) -> Element {
     use crate::components::stock_data_card::StockDataCard;
     let rows = response.map(|r| r.data).unwrap_or_default();
     rsx! {
-        section { class: "container fe-page-layout py-12", aria_labelledby: "home-market-title",
-            h2 { id: "home-market-title", class: "text-2xl font-semibold", "Sample stocks · ranks 101–103" }
-            p { class: "fe-help", "Explore a preview of the live EPS growth rankings." }
+        section { class: "container fe-page-layout py-12", aria_label: "Stock rankings", "data-home-stock-preview": "true",
             if rows.is_empty() {
                 DataState { title: "Stock preview is temporarily unavailable", message: "Please try again to see current rankings.", href: "/analytics", action: "Open analytics" }
             } else {
@@ -618,6 +616,8 @@ mod tests {
         }
         assert_eq!(html.matches("data-stock-card=").count(), 3);
         assert!(!html.contains("data-watchlist-toggle"));
+        assert!(!html.contains("Sample stocks · ranks 101–103"));
+        assert!(!html.contains("Explore a preview of the live EPS growth rankings."));
         assert!(html.contains("Price 250.25"));
         assert!(!html.contains("$250.25"));
     }
