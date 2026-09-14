@@ -699,7 +699,8 @@ mod tests {
         ] {
             assert!(!html.contains(hidden), "unexpected presentation: {hidden}");
         }
-        assert!(html.contains("Date not available"));
+        assert!(html.contains("Save this company to revisit"));
+        assert!(!html.contains("Company report"));
         assert!(html.contains("aria-controls=\"fe-event-TEST\""));
         assert!(html.contains("data-watchlist-signed-out"));
     }
