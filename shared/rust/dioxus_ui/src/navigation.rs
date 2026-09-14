@@ -144,9 +144,8 @@ pub fn QueryForm(
             event.prevent_default();
             let mut query = url::form_urlencoded::Serializer::new(String::new());
             for (key, value) in event.values() {
-                match value {
-                    dioxus::html::FormValue::Text(value) => { query.append_pair(&key, &value); }
-                    _ => {}
+                if let dioxus::html::FormValue::Text(value) = value {
+                    query.append_pair(&key, &value);
                 }
             }
             router.push(format!("{}?{}", target, query.finish()));
