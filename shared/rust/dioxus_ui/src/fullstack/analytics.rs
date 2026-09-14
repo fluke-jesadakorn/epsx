@@ -153,7 +153,7 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
         });
     });
     rsx! {
-        style { {include_str!("analytics_loading.css")} }
+        style { dangerous_inner_html: include_str!("analytics_loading.css") }
         document::Title { "Company rankings — EPSX" }
         document::Meta { name: "description", content: "Explore company rankings, EPS performance and upcoming company reports." }
         section { "data-dioxus-analytics": "true", aria_busy: !ready() || pending(),

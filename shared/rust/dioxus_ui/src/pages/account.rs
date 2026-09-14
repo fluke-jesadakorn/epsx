@@ -445,7 +445,7 @@ fn AccountBody(
     notification_preferences_form_state: NotificationPreferencesFormState,
 ) -> Element {
     rsx! {
-            style { {include_str!("account.css")} }
+            style { dangerous_inner_html: include_str!("account.css") }
             div { class: "account-page relative min-h-screen overflow-hidden px-3 pb-20 sm:px-6 fe-base-page",
                 div { class: "pointer-events-none fixed inset-0 overflow-hidden", aria_hidden: "true",
                     div { class: "absolute left-20 top-20 h-32 w-32 rounded-full bg-gradient-to-r from-yellow-400/20 to-orange-500/20 blur-xl fe-decoration fe-fill-neutral" }
