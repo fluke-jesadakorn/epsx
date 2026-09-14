@@ -60,7 +60,7 @@ impl AnalyticsWalletContext {
     ),
     params(
         ("page" = Option<i32>, Query, description = "Page number (default: 1)"),
-        ("limit" = Option<i32>, Query, description = "Items per page (default: 10; anonymous max: 10; authenticated max: 100)"),
+        ("limit" = Option<i32>, Query, description = "Items per page (default: 10; anonymous max: 100; authenticated max: 100)"),
         ("country" = Option<String>, Query, description = "Filter by country code (e.g., 'america', 'uk')"),
         ("sector" = Option<String>, Query, description = "Filter by sector (e.g., 'Technology', 'Healthcare')"),
         ("sort_by" = Option<String>, Query, description = "Sort field (default: 'eps_growth'; aliases: qoq_growth, growth_factor, ranking_position)"),
@@ -284,6 +284,7 @@ async fn rankings_response(
 }
 
 const RANKING_AUTHORITY_UNAVAILABLE_MESSAGE: &str = "Ranking access authority unavailable";
+const ANALYTICS_REQUEST_LIMIT_CAP: i32 = 100;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 struct MarketRankingAccess {
@@ -349,9 +350,12 @@ fn prepare_market_rankings_request(
     params: &EPSRankingQueryParams,
     rank_offset: i32,
     rankings_limit: i32,
-    is_authenticated: bool,
+    _is_authenticated: bool,
 ) -> Result<PreparedMarketRankingsQuery, AppError> {
-    let transport_cap = if is_authenticated { 100 } else { 10 };
+    // Keep the public and authenticated request caps aligned with the page-size
+    // choices rendered by the analytics UI. Entitlement limits still apply to
+    // authenticated wallets below this transport cap.
+    let transport_cap = ANALYTICS_REQUEST_LIMIT_CAP;
     let entitlement_cap = if rankings_limit == -1 {
         transport_cap
     } else {
@@ -683,8 +687,24 @@ mod tests {
         .expect("anonymous request should be valid");
 
         assert_eq!(prepared.page, 1);
-        assert_eq!(prepared.request.limit, 10);
+        assert_eq!(prepared.request.limit, 100);
         assert_eq!(prepared.request.skip, 99);
+    }
+
+    #[test]
+    fn public_page_size_choices_are_forwarded_without_reduction() {
+        for limit in [10, 25, 50, 100] {
+            let prepared = prepare_market_rankings_request(
+                &a2_5_params(Some(1), Some(limit), None),
+                epsx_contracts::constants::PUBLIC_RANKING_OFFSET,
+                epsx_contracts::constants::PUBLIC_RANKINGS_LIMIT,
+                false,
+            )
+            .expect("public page size should be valid");
+
+            assert_eq!(prepared.page_size, limit);
+            assert_eq!(prepared.request.limit, limit);
+        }
     }
 
     #[test]
@@ -790,7 +810,7 @@ mod tests {
             requests.as_slice(),
             &[MarketRankingsRequest {
                 skip: 99,
-                limit: 10,
+                limit: 100,
                 country: Some("america".to_string()),
                 sector: Some("Technology".to_string()),
                 sort_by: Some("eps_growth".to_string()),
@@ -800,10 +820,10 @@ mod tests {
         assert_eq!(access.min_accessible_rank, 100);
         assert_eq!(access.locked_ranks_count, 99);
         assert_eq!(access.max_accessible_rank, None);
-        assert_eq!(response.pagination.limit, 10);
+        assert_eq!(response.pagination.limit, 100);
         assert_eq!(response.pagination.total, 51);
-        assert_eq!(response.pagination.total_pages, 6);
-        assert!(response.pagination.has_next);
+        assert_eq!(response.pagination.total_pages, 1);
+        assert!(!response.pagination.has_next);
     }
 
     #[tokio::test]

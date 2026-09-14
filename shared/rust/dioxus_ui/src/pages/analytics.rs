@@ -555,7 +555,21 @@ pub(crate) fn AnalyticsPage(
                             message: "Try another country or clear the filters. Check your available rank range below.",
                             href: reset, action: "Clear filters" }
                     } else {
-                        crate::enterprise::RankingCards { rows: response.data, signed_in, watchlist, watchlist_state, return_path: query.page_url(response.pagination.page.max(1) as u32, response.pagination.limit.max(1) as u32) }
+                        AnalyticsCardGrid {
+                            rows: response.data,
+                            signed_in,
+                            watchlist,
+                            watchlist_state,
+                            sign_in_path: format!(
+                                "/auth?return_url={}",
+                                url::form_urlencoded::byte_serialize(
+                                    query.page_url(
+                                        response.pagination.page.max(1) as u32,
+                                        response.pagination.limit.max(1) as u32,
+                                    ).as_bytes(),
+                                ).collect::<String>(),
+                            ),
+                        }
                         AnalyticsPaginationNav { pagination: response.pagination, query }
                     }
                 }
@@ -932,13 +946,16 @@ fn AnalyticsCardGrid(
     signed_in: bool,
     watchlist: Option<WatchlistData>,
     watchlist_state: String,
+    #[props(default = crate::components::stock_data_card::ANALYTICS_SIGN_IN_PATH.to_string())]
+    sign_in_path: String,
 ) -> Element {
     let watched = watchlist
         .map(|watchlist| watchlist.symbols.into_iter().collect::<HashSet<_>>())
         .unwrap_or_default();
     rsx! {
         section {
-            class: "analytics-card-grid grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5",
+            class: "analytics-card-grid grid gap-6",
+            style: "grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 24px;",
             "data-section": "analytics-card-grid",
             "aria-label": "EPS growth rankings",
             for row in rows {
@@ -963,6 +980,7 @@ fn AnalyticsCardGrid(
                             days_until_next_action: days,
                             progress_percentage: progress,
                             watchlist: Some(watchlist),
+                            sign_in_path: sign_in_path.clone(),
                         }
                     }
                 }
@@ -1033,6 +1051,8 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
         .unwrap_or(limit);
     let navigation = try_consume_context::<crate::fullstack::analytics::AnalyticsNavigation>();
     let limit_query = query.clone();
+    let loading = try_consume_context::<crate::fullstack::analytics::AnalyticsLoading>();
+    let controls_disabled = loading.is_some_and(|state| !(state.ready)() || (state.pending)());
     rsx! {
         nav {
             class: "mt-8 rounded-xl border border-gray-200 bg-white p-4 backdrop-blur-sm dark:border-white/[0.06] dark:bg-slate-900/80",
@@ -1054,6 +1074,7 @@ fn AnalyticsPaginationNav(pagination: AnalyticsPagination, query: AnalyticsQuery
                     label { class: "text-xs text-slate-600 dark:text-slate-400", r#for: "analytics-limit", "Per page" }
                     select {
                         id: "analytics-limit",
+                        disabled: controls_disabled,
                         name: "limit",
                         class: "h-9 rounded-lg border border-gray-200 bg-gray-100 px-3 text-sm text-slate-700 dark:border-white/[0.08] dark:bg-slate-800/60 dark:text-slate-200",
                         "data-analytics-limit": navigation.is_none().then_some("true"),
@@ -1402,6 +1423,31 @@ mod tests {
     }
 
     #[test]
+    fn hydrated_pagination_waits_for_events_and_pending_requests() {
+        #[component]
+        fn Harness(ready: bool, pending: bool) -> Element {
+            let ready = use_signal(|| ready);
+            let pending = use_signal(|| pending);
+            use_context_provider(|| crate::fullstack::analytics::AnalyticsLoading {
+                ready,
+                pending,
+            });
+            render(&ready_ctx(vec![ranking(100, "LIVE", 1.0)], 22, 3)).1
+        }
+        for (ready, pending, disabled) in [
+            (false, false, true),
+            (true, true, true),
+            (true, false, false),
+        ] {
+            let rendered = dioxus_ssr::render_element(rsx! { Harness { ready, pending } });
+            let select = rendered.split("id=\"analytics-limit\"").nth(1).unwrap();
+            let attributes = select.split('>').next().unwrap();
+            assert_eq!(attributes.contains("disabled"), disabled);
+            assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 1);
+        }
+    }
+
+    #[test]
     fn frontend_cards_preserve_backend_access_without_financial_figures() {
         let rendered = html(&ready_ctx(
             vec![ranking(100, "LIVE", 42.25), ranking(101, "LOSS", -7.5)],
@@ -1411,26 +1457,23 @@ mod tests {
         assert!(rendered.contains("data-analytics-state=\"ready\""));
         assert_eq!(rendered.matches("data-stock-card=\"true\"").count(), 2);
         for value in [
-            "fe-ranking-grid",
-            "data-tradingview-details=\"true\"",
-            "on TradingView (opens in a new tab)",
+            "analytics-card-grid",
+            "View LIVE details on TradingView (opens in a new tab)",
             "LIVE Company",
-            "Next action",
+            "Next Action",
             "<details",
-            "Company report",
             "Ranks 100+",
             "Ranks 1-99 locked",
+            "$1,234.50",
         ] {
             assert!(rendered.contains(value), "missing {value}");
         }
         for value in [
             "<dialog",
-            "1234.50",
             "42.25%",
             "-7.50%",
             "CHAMPION",
-            "Next Action",
-            "$1,234.50",
+            "fe-ranking-card",
             "2026-07-27T00:00:00Z",
             "AI-Powered",
         ] {
@@ -1550,7 +1593,7 @@ mod tests {
         let ready = html(&signed_in);
         assert!(ready.contains("data-watchlist-toggle=\"true\""));
         assert!(ready.contains("data-watchlisted=\"true\""));
-        assert!(ready.contains("Saved · Remove LIVE from saved companies"));
+        assert!(ready.contains("Remove LIVE from watchlist"));
 
         signed_in.params.insert(
             ANALYTICS_WATCHLIST_STATE_PARAM.to_string(),

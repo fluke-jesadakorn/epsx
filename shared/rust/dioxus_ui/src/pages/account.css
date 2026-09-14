@@ -1,0 +1,28 @@
+/* The account page follows the enclosing shell's theme, independently of html.dark. */
+.epsx-frontend .account-page { padding:0 0 48px;min-height:0;background:var(--fe-bg);color:var(--fe-text);overflow-wrap:anywhere; }
+.epsx-frontend .account-page .account-settings-page { width:100%;max-width:1360px;margin:0 auto;padding:32px; }
+.epsx-frontend .account-page .fe-decoration { display:none; }
+.epsx-frontend .account-page .account-panel { min-width:0;padding:24px;background:var(--fe-surface);color:var(--fe-text);border:1px solid var(--fe-border);border-radius:14px;box-shadow:var(--fe-shadow-soft);backdrop-filter:none; }
+.epsx-frontend .account-page .fe-fill-neutral { background:none;background-clip:border-box;color:var(--fe-text);-webkit-text-fill-color:currentColor; }
+.epsx-frontend .account-page .account-settings-hero h1 { display:block;margin:0;font-size:clamp(26px,3vw,36px);line-height:1.2;letter-spacing:-.03em; }
+.epsx-frontend .account-page .account-settings-hero p { color:var(--fe-muted);font-size:15px;line-height:1.6; }
+.epsx-frontend .account-page .account-stats-row { display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px;border:0;background:none;overflow:visible; }
+.epsx-frontend .account-page .account-stats-row > .account-panel { border:1px solid var(--fe-border);border-radius:12px;background:var(--fe-surface);padding:20px; }
+.epsx-frontend .account-page .account-quick-actions { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px; }
+.epsx-frontend .account-page .account-quick-actions > a { display:block;min-width:0; }
+.epsx-frontend .account-page .account-quick-actions > a > .account-panel { height:100%;padding:20px;background:var(--fe-surface);border:1px solid var(--fe-border);border-radius:12px;box-shadow:none; }
+.epsx-frontend .account-page .account-quick-actions > a:hover > .account-panel { border-color:var(--fe-primary);background:var(--fe-tint);transform:none; }
+.epsx-frontend .account-page .account-quick-actions h3 { color:var(--fe-text); }
+.epsx-frontend .account-page .account-quick-actions .fe-fill-neutral { padding:0; }
+.epsx-frontend .account-page .account-quick-actions .mt-4 { color:var(--fe-primary); }
+.epsx-frontend .account-page .account-section-heading { display:flex;flex-wrap:wrap;gap:12px;align-items:center; }
+.epsx-frontend .account-page h2 { font-size:22px;line-height:1.3; }
+.epsx-frontend .account-page .fe-tone-muted { color:var(--fe-muted); }
+.epsx-frontend .account-page .fe-tone-text { color:var(--fe-text); }
+.epsx-frontend .account-page .account-access-plans article { background:var(--fe-bg);border-color:var(--fe-border); }
+.epsx-frontend .account-page .account-access-plans li { max-width:100%;white-space:normal;overflow-wrap:anywhere;background:var(--fe-surface); }
+.epsx-frontend .account-page .account-privacy-banner { padding:24px;background:var(--fe-surface); }
+.epsx-frontend .account-page :is(a,button,input,select):focus-visible { outline:2px solid var(--fe-primary);outline-offset:3px; }
+@media(max-width:1100px) { .epsx-frontend .account-page .account-stats-row { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:700px) { .epsx-frontend .account-page .account-settings-page { padding:20px 16px; } .epsx-frontend .account-page .account-quick-actions { grid-template-columns:1fr; } .epsx-frontend .account-page .account-panel { padding:20px; } .epsx-frontend .account-page .account-section-heading > a { width:100%;margin-left:0; } }
+@media(max-width:420px) { .epsx-frontend .account-page .account-stats-row { grid-template-columns:1fr; } }

@@ -42,6 +42,12 @@ pub struct AnalyticsNavigation(pub EventHandler<String>);
 #[derive(Clone, Copy)]
 pub struct AnalyticsRequestedQuery(pub ReadSignal<String>);
 
+#[derive(Clone, Copy)]
+pub struct AnalyticsLoading {
+    pub ready: Signal<bool>,
+    pub pending: Signal<bool>,
+}
+
 pub fn follow_link(event: MouseEvent, navigation: Option<AnalyticsNavigation>, url: &str) {
     if let Some(navigation) = navigation {
         if event.modifiers().is_empty() {
@@ -95,6 +101,8 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
     let mut data = use_signal(|| seed.clone().ok());
     let mut error = use_signal(|| seed.err());
     let mut pending = use_signal(|| false);
+    let mut ready = use_signal(|| false);
+    use_context_provider(|| AnalyticsLoading { ready, pending });
     let mut generation = use_signal(|| 0_u64);
     let mut loaded_query = use_signal(|| initial_query);
     let mut retry = use_signal(|| 0_u64);
@@ -111,11 +119,13 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
         let retry_count = retry();
         let is_retry = retry_count != *attempted_retry.peek();
         attempted_retry.set(retry_count);
-        if requested == *loaded_query.peek() && !is_retry {
-            return;
-        }
         let ticket = *generation.peek() + 1;
         generation.set(ticket);
+        if requested == *loaded_query.peek() && !is_retry {
+            // Back navigation must invalidate any response still in flight.
+            pending.set(false);
+            return;
+        }
         pending.set(true);
         error.set(None);
         spawn(async move {
@@ -143,10 +153,18 @@ pub fn HydratedAnalytics(query: ReadSignal<String>) -> Element {
         });
     });
     rsx! {
+        style { {include_str!("analytics_loading.css")} }
         document::Title { "Company rankings — EPSX" }
         document::Meta { name: "description", content: "Explore company rankings, EPS performance and upcoming company reports." }
-        section { "data-dioxus-analytics": "true", aria_busy: pending(),
-            if pending() { p { role: "status", class: "fe-purchase-note", "Updating results…" } }
+        section { "data-dioxus-analytics": "true", aria_busy: !ready() || pending(),
+            onmounted: move |_| ready.set(true),
+            if !ready() || pending() {
+                div { class: "fe-analytics-loading", role: "status", aria_live: "polite",
+                    span { class: "fe-loading-spinner", aria_hidden: "true" }
+                    span { if !ready() { "Loading companies…" } else { "Updating companies…" } }
+                    div { class: "fe-loading-track", aria_hidden: "true", span {} }
+                }
+            }
             if let Some(failure) = error() {
                 div { role: "status", class: "fe-purchase-note",
                     p { "{failure.message()}" }
