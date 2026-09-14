@@ -34,15 +34,15 @@ HEAD ขณะจัดทำ: `0d485028180cd96bc282256c9952c26254f96171`
 ## ส่งออก PDF ใหม่
 
 ต้นฉบับ HTML ใช้ฟอนต์ Thonburi บน macOS เพื่อจัดรูปอักษรไทยผ่าน Chromium
-ใช้ Playwright เป็นเครื่องมือเอกสารเท่านั้น ไม่ใช่ dependency ของแอป
+ใช้ Python Playwright เป็นเครื่องมือเอกสารภายนอก repository ไม่ใช่ dependency ของแอป
 
 ```sh
 mkdir -p output/pdf
-NODE_PATH=/path/to/node_modules node docs/user-guide/export-pdf.cjs
+/path/to/document-tools/bin/python docs/user-guide/export-pdf.py
 pdftoppm -scale-to 1000 -png output/pdf/epsx-user-guide-th.pdf /tmp/epsx-manual-review
 ```
 
-ติดตั้ง/เตรียม Playwright และ Chromium ในเครื่องมือภายนอก repository ก่อน
+ติดตั้ง/เตรียม Python Playwright และ Chromium ในเครื่องมือภายนอก repository ก่อน
 ตรวจภาพทุกหน้าหลังส่งออก โดยเฉพาะตำแหน่งสระ วรรณยุกต์ ตาราง และส่วนท้ายหน้า
 ฟอนต์สำรองบนระบบอื่นอาจเปลี่ยนการตัดบรรทัด
 
